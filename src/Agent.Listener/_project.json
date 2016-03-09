@@ -32,7 +32,7 @@
     
     "dependencies": {
         "NETStandard.Library": "1.0.0-rc3-23721",
-        "Microsoft.VisualStudio.Services.Agent": "",
+        "Microsoft.VisualStudio.Services.Agent": "*",
         "vss-api-netcore": "0.5.2-private",
         "Newtonsoft.Json": "7.0.1",
         "System.Diagnostics.TraceSource": "4.0.0-rc3-23721"
