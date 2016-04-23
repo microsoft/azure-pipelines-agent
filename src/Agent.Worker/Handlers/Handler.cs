@@ -62,7 +62,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     continue; // This should never happen.
                 }
 
-                partialKey = partialKey.ToUpperInvariant(); // TODO: Should this be upper? Is this consistent with the Nodejs lib?
                 AddEnvironmentVariable(
                     key: $"ENDPOINT_URL_{partialKey}",
                     value: endpoint.Url?.ToString());
