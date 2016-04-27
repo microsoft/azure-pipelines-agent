@@ -73,6 +73,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     if (chars.Count > 0)
                     {
                         chars.RemoveAt(chars.Count - 1);
+                        Console.SetCursorPosition(Console.CursorLeft - 1, Console.CursorTop);
                         // TODO: Remove a character from the screen also.
                     }
                 }
