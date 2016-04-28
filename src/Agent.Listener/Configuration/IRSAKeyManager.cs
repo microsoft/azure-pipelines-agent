@@ -28,7 +28,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         /// Gets the <c>RSA</c> instance currently stored by the key manager. 
         /// </summary>
         /// <returns>An <c>RSA</c> instance representing the key for the agent</returns>
-        /// <exception cref="CryptographicException">when no key exists in the store</exception>
+        /// <exception cref="CryptographicException">No key exists in the store</exception>
         RSA GetKey();
     }
 }

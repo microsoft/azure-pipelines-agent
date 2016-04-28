@@ -7,6 +7,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Security.Cryptography;
+using System.IO;
+using System.Text;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -61,8 +64,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 Id = _settings.AgentId,
                 Name = _settings.AgentName,
                 Version = Constants.Agent.Version,
-                Enabled = true
             };
+
             var taskAgentSession = new TaskAgentSession(sessionName, agent, agentSystemCapabilities);
 
             var agentSvr = HostContext.GetService<IAgentServer>();
@@ -81,6 +84,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                                         _settings.PoolId,
                                                         taskAgentSession,
                                                         token);
+
                     if (!firstAttempt)
                     {
                         _term.WriteLine(StringUtil.Loc("QueueConnected", DateTime.UtcNow));
@@ -160,6 +164,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                                                 Session.SessionId,
                                                                 _lastMessageId,
                                                                 token);
+
+                    // Decrypt the message body if the session is using encryption
+                    message = DecryptMessage(message);
+
                     if (message != null)
                     {
                         _lastMessageId = message.MessageId;
@@ -235,6 +243,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 Trace.Verbose($"Message '{message.MessageId}' received from session '{Session.SessionId}'.");
                 return message;
             }
+        }
+
+        private TaskAgentMessage DecryptMessage(TaskAgentMessage message)
+        {
+            if (Session.EncryptionKey == null ||
+                Session.EncryptionKey.Length == 0 ||
+                message == null ||
+                message.IV == null || 
+                message.IV.Length == 0)
+            {
+                return message;
+            }
+
+            // The agent session encryption key uses the AES symmetric algorithm
+            var keyManager = HostContext.GetService<IRSAKeyManager>();
+            using (var aes = Aes.Create())
+            using (var rsa = keyManager.GetKey())
+            using (var decryptor = aes.CreateDecryptor(rsa.Decrypt(Session.EncryptionKey, RSAEncryptionPadding.Pkcs1), message.IV))
+            using (var body = new MemoryStream(Convert.FromBase64String(message.Body)))
+            using (var cryptoStream = new CryptoStream(body, decryptor, CryptoStreamMode.Read))
+            using (var bodyReader = new StreamReader(cryptoStream, Encoding.UTF8))
+            {
+                message.Body = bodyReader.ReadToEnd();
+            }
+
+            return message;
         }
 
         private bool IsFatalException(Exception ex)
