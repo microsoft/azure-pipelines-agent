@@ -216,15 +216,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 foreach (KeyValuePair<string, SvnMappingDetails> mapping in distinctMappings)
                 {
                     SvnMappingDetails mappingDetails = mapping.Value;
-                    string serverPath = mapping.Key;
                     string localPath = mappingDetails.LocalPath;
 
-                    string uri = BuildSvnUri(serverPath);
                     string absoluteLocalPath = Path.Combine(rootPath, localPath);
 
                     SvnMappingDetails newMappingDetails = new SvnMappingDetails();
 
-                    newMappingDetails.ServerPath = uri;
+                    newMappingDetails.ServerPath = mappingDetails.ServerPath;
                     newMappingDetails.LocalPath = absoluteLocalPath;
                     newMappingDetails.Revision = mappingDetails.Revision;
                     newMappingDetails.Depth = mappingDetails.Depth;
@@ -235,10 +233,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
             else
             {
-                string uri = BuildSvnUri(sourceBranch);
-
                 SvnMappingDetails newMappingDetails = new SvnMappingDetails();
-                newMappingDetails.ServerPath = uri;
+                newMappingDetails.ServerPath = sourceBranch;
                 newMappingDetails.LocalPath = rootPath;
                 newMappingDetails.Revision = "HEAD";
                 newMappingDetails.Depth = 3;  //Infinity
@@ -254,7 +250,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             _context.Debug($@"Get latest revision of: '{_endpoint.Url.AbsoluteUri}' at or before: '{sourceRevision}'.");
             string xml = await RunPorcelainCommandAsync("info", 
-                                                        serverPath, 
+                                                        BuildSvnUri(serverPath), 
                                                         "--depth", "empty", 
                                                         "--revision", sourceRevision, 
                                                         "--xml");
@@ -316,9 +312,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             {
                 string localPath = mapping.Key;
                 SvnMappingDetails mappingDetails = mapping.Value;
-                Uri serverUri = new Uri(mappingDetails.ServerPath);
 
+                string effectiveServerUri = BuildSvnUri(mappingDetails.ServerPath);
                 string effectiveRevision = EffectiveRevision(mappingDetails.Revision, maxRevision);
+
+                mappingDetails.Revision = effectiveRevision;
 
                 if (!Directory.Exists(Path.Combine(localPath, ".svn")))
                 {
@@ -328,9 +326,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         effectiveRevision,
                         mappingDetails.IgnoreExternals));
 
-                    await CheckoutAsync(mappingDetails, effectiveRevision);
+                    mappingDetails.ServerPath = effectiveServerUri;
+                    await CheckoutAsync(mappingDetails);
                 }
-                else if (oldMappings.ContainsKey(localPath) && oldMappings[localPath].Equals(serverUri))
+                else if (oldMappings.ContainsKey(localPath) && oldMappings[localPath].Equals(new Uri(effectiveServerUri)))
                 {
                     _context.Debug(String.Format(
                         "Updating with depth: {0}, revision: {1}, ignore externals: {2}",
@@ -338,7 +337,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         mappingDetails.Revision,
                         mappingDetails.IgnoreExternals));
 
-                    await UpdateAsync(mappingDetails, effectiveRevision);
+                    await UpdateAsync(mappingDetails);
                 }
                 else
                 {
@@ -349,7 +348,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         mappingDetails.Revision,
                         mappingDetails.IgnoreExternals));
 
-                    await SwitchAsync(mappingDetails, effectiveRevision);
+                    await SwitchAsync(mappingDetails);
                 }
             }
         }
@@ -384,14 +383,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         /// </summary>
         /// <param name="mapping"></param>
         /// <returns></returns>
-        private async Task UpdateAsync(SvnMappingDetails mapping, string effectiveRevision)
+        private async Task UpdateAsync(SvnMappingDetails mapping)
         {
             _context.Debug($@"Update '{mapping.LocalPath}'.");
-            await RunCommandAsync("update", 
-                                  mapping.LocalPath,
-                                  "--revision", effectiveRevision,
-                                  "--depth", ToDepthArgument(mapping.Depth),
-                                  mapping.IgnoreExternals ? "--ignore-externals" : null);
+            await RunCommandAsync(
+                "update", 
+                mapping.LocalPath,
+                "--revision", mapping.Revision,
+                "--depth", ToDepthArgument(mapping.Depth),
+                mapping.IgnoreExternals ? "--ignore-externals" : null);
         }
 
         /// <summary>
@@ -399,15 +399,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         /// </summary>
         /// <param name="mapping"></param>
         /// <returns></returns>
-        private async Task SwitchAsync(SvnMappingDetails mapping, string effectiveRevision)
+        private async Task SwitchAsync(SvnMappingDetails mapping)
         {
             _context.Debug($@"Switch '{mapping.LocalPath}' to '{mapping.ServerPath}'.");
-            await RunCommandAsync("switch",
-                                  mapping.ServerPath,
-                                  mapping.LocalPath,
-                                  "--revision", effectiveRevision,
-                                  "--depth", ToDepthArgument(mapping.Depth),
-                                  mapping.IgnoreExternals ? "--ignore-externals" : null);
+            await RunCommandAsync(
+                "switch",
+                $"^/{mapping.ServerPath}",
+                mapping.LocalPath,
+                "--ignore-ancestry",
+                "--revision", mapping.Revision,
+                "--depth", ToDepthArgument(mapping.Depth),
+                mapping.IgnoreExternals ? "--ignore-externals" : null);
         }
 
         /// <summary>
@@ -415,15 +417,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         /// </summary>
         /// <param name="mapping"></param>
         /// <returns></returns>
-        private async Task CheckoutAsync(SvnMappingDetails mapping, string effectiveRevision)
+        private async Task CheckoutAsync(SvnMappingDetails mapping)
         {
             _context.Debug($@"Checkout '{mapping.ServerPath}' to '{mapping.LocalPath}'.");
-            await RunCommandAsync("checkout",
-                                  mapping.ServerPath,
-                                  mapping.LocalPath,
-                                  "--revision", effectiveRevision,
-                                  "--depth", ToDepthArgument(mapping.Depth),
-                                  mapping.IgnoreExternals ? "--ignore-externals" : null);
+            await RunCommandAsync(
+                "checkout",
+                mapping.ServerPath,
+                mapping.LocalPath,
+                "--revision", mapping.Revision,
+                "--depth", ToDepthArgument(mapping.Depth),
+                mapping.IgnoreExternals ? "--ignore-externals" : null);
         }
 
         private string BuildSvnUri(string serverPath)
