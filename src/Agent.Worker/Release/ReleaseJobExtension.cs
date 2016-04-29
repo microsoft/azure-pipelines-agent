@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -10,11 +11,18 @@ using Agent.Worker.Release.Artifacts.Definition;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.ReleaseManagement.WebApi.Contracts;
+using System.Threading;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 {
     public sealed class ReleaseJobExtension : AgentService, IJobExtension
     {
+        private const string DownloadArtifactsFailureSystemError = "DownloadArtifactsFailureSystemError";
+
+        private const string DownloadArtifactsFailureUserError = "DownloadArtifactsFailureUserError";
+
+        private static readonly Guid DownloadArtifactsTaskId = new Guid("B152FEAA-7E65-43C9-BCC4-07F6883EE793");
+
         public Type ExtensionType => typeof(IJobExtension);
 
         public string HostType => "release";
@@ -102,14 +110,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
             bool skipArtifactsDownload;
 
             IExecutionContext executionContext = PrepareStep.ExecutionContext;
-            InitializeAgent(executionContext, out skipArtifactsDownload, out teamProjectId, out artifactsWorkingFolder, out releaseId);
 
-            if (!skipArtifactsDownload)
+            try
             {
-                // TODO: Create this as new task. Old windows agent does this. First is initialize which does the above and download task will be added based on skipDownloadArtifact option
-                executionContext.Output("Downloading artifact");
+                InitializeAgent(executionContext, out skipArtifactsDownload, out teamProjectId, out artifactsWorkingFolder, out releaseId);
 
-                await DownloadArtifacts(executionContext, teamProjectId, artifactsWorkingFolder, releaseId);
+                if (!skipArtifactsDownload)
+                {
+                    // TODO: Create this as new task. Old windows agent does this. First is initialize which does the above and download task will be added based on skipDownloadArtifact option
+                    executionContext.Output("Downloading artifact");
+
+                    await DownloadArtifacts(executionContext, teamProjectId, artifactsWorkingFolder, releaseId);
+                }
+            }
+            catch (Exception ex)
+            {
+                Thread.Sleep(15 * 1000);
+
+                HostContext.GetService<ICommandHandler>().TryProcessCommand(executionContext, GetTelemetryMessage(ex));
+                throw;
             }
         }
 
@@ -306,6 +325,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 
             artifactDefinition.Details = extension.GetArtifactDetails(executionContext, agentArtifactDefinition);
             return artifactDefinition;
+        }
+
+        private string GetTelemetryMessage(Exception exception)
+        {
+            var code = (exception is Artifacts.ArtifactDownloadException) ? DownloadArtifactsFailureUserError : DownloadArtifactsFailureSystemError;
+            var telemetryMessage = StringUtil.Format(
+                        "##vso[task.logissue type=error;code={0};TaskId={1};]{2}",
+                        code,
+                        DownloadArtifactsTaskId,
+                        StringUtil.Loc("DownloadArtifactsFailed", exception));
+
+            return telemetryMessage;
         }
     }
 }
