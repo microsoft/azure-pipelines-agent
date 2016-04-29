@@ -8,6 +8,7 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -28,18 +29,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             // Determine the sources directory.
             string sourcesDirectory = executionContext.Variables.Build_SourcesDirectory;
+            executionContext.Debug($"sourcesDirectory={sourcesDirectory}");
             ArgUtil.NotNullOrEmpty(sourcesDirectory, nameof(sourcesDirectory));
 
             string sourceBranch = executionContext.Variables.Build_SourceBranch;
+            executionContext.Debug($"sourceBranch={sourceBranch}");
+
             string revision = executionContext.Variables.Build_SourceVersion;
+            if (string.IsNullOrWhiteSpace(revision))
+            {
+                revision = "HEAD";
+            }
+            executionContext.Debug($"revision={revision}");
 
             bool clean = endpoint.Data.ContainsKey(WellKnownEndpointData.Clean) &&
                 StringUtil.ConvertToBoolean(endpoint.Data[WellKnownEndpointData.Clean], defaultValue: false);
 
             // Get the definition mappings.
             List<SvnMappingDetails> allMappings = JsonConvert.DeserializeObject<SvnWorkspace>(endpoint.Data[WellKnownEndpointData.SvnWorkspaceMapping]).Mappings;
+            executionContext.Debug($"clean={clean}");
+
+            allMappings.ForEach(m => executionContext.Debug($"ServerPath: {m.ServerPath}, LocalPath: {m.LocalPath}, Depth: {m.Depth}, Revision: {m.Revision}, IgnoreExternals: {m.IgnoreExternals}"));
 
             Dictionary<string, SvnMappingDetails> normalizedMappings = svn.NormalizeMappings(allMappings);
+            normalizedMappings.ToList().ForEach(p => executionContext.Debug($"    [{p.Key}] ServerPath: {p.Value.ServerPath}, LocalPath: {p.Value.LocalPath}, Depth: {p.Value.Depth}, Revision: {p.Value.Revision}, IgnoreExternals: {p.Value.IgnoreExternals}"));
+
             string normalizedBranch = svn.NormalizeRelativePath(sourceBranch, '/', '\\');
 
             executionContext.Output(StringUtil.Loc("SvnSyncingRepo", endpoint.Name));
