@@ -69,6 +69,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             executionContext.Debug("Leaving SvnSourceProvider.GetSourceAsync");
         }
 
+        public string GetLocalPath(IExecutionContext executionContext, ServiceEndpoint endpoint, string path)
+        {
+            ISvnCommandManager svn = HostContext.CreateService<ISvnCommandManager>();
+            svn.Init(executionContext, endpoint, CancellationToken.None);
+
+            // We assume that this is a server path first.
+            string serverPath = svn.NormalizeRelativePath(path, '/', '\\').Trim();
+
+            if (serverPath.StartsWith("^/"))
+            {
+                //Convert the server path to the relative one using SVN work copy mappings
+                string localPath = serverPath;
+
+                //TODO: do the conversion.
+                return localPath;
+            }
+            else
+            {
+                // normalize the path back to the local file system one.
+                return svn.NormalizeRelativePath(serverPath, Path.DirectorySeparatorChar, '/');
+            }
+        }
+
         public Task PostJobCleanupAsync(IExecutionContext executionContext, ServiceEndpoint endpoint)
         {
             return Task.CompletedTask;
