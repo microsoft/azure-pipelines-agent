@@ -222,6 +222,7 @@
   "SupportedTaskHandlerNotFound": "Supported task execution handler not found.",
   "SvnBranchCheckedOut": "Checked out branch {0} for repository {1} at revision {2}",
   "SvnEmptyServerPath": "The empty relative server path is mapped to '{0}'.",
+  "SvnFileAlreadyExists": "The file {0} already exists",
   "SvnIncorrectRelativePath": "Incorrect relative path '{0}' specified.",
   "SvnMappingDuplicateLocal": "Ignoring duplicate mapping for local path={0}",
   "SvnMappingDuplicateServer": "Ignoring duplicate mapping for server path={0}",
