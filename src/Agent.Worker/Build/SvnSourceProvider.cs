@@ -69,7 +69,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             executionContext.Debug("Leaving SvnSourceProvider.GetSourceAsync");
         }
 
-        public string GetLocalPath(IExecutionContext executionContext, ServiceEndpoint endpoint, string path)
+        public override string GetLocalPath(IExecutionContext executionContext, ServiceEndpoint endpoint, string path)
         {
             ISvnCommandManager svn = HostContext.CreateService<ISvnCommandManager>();
             svn.Init(executionContext, endpoint, CancellationToken.None);
