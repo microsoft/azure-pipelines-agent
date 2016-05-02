@@ -63,6 +63,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         /// <returns></returns>
         Task<string> UpdateWorkspace(string rootPath, Dictionary<string, SvnMappingDetails> distinctMappings, bool cleanRepository, string sourceBranch, string revision);
 
+        /// <summary>
+        /// Finds a local path the provided server path is mapped to.
+        /// </summary>
+        /// <param name="serverPath"></param>
+        /// <param name="rootPath"></param>
+        /// <returns></returns>
+        string ResolveServerPath(string serverPath, string rootPath);
     }
 
     public class SvnCommandManager : AgentService, ISvnCommandManager
@@ -108,7 +115,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             endpoint.Authorization.Parameters.TryGetValue(EndpointAuthorizationParameters.Password, out _password);
 
             _acceptUntrusted = endpoint.Data.ContainsKey(/* WellKnownEndpointData.SvnAcceptUntrustedCertificates */ "acceptUntrustedCerts") &&
-            StringUtil.ConvertToBoolean(endpoint.Data[/* WellKnownEndpointData.SvnAcceptUntrustedCertificates */ "acceptUntrustedCerts"], defaultValue: false) || true;
+            StringUtil.ConvertToBoolean(endpoint.Data[/* WellKnownEndpointData.SvnAcceptUntrustedCertificates */ "acceptUntrustedCerts"], defaultValue: false);
         }
 
         public async Task<string> UpdateWorkspace(
@@ -124,12 +131,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
 
             Dictionary<string, Uri> oldMappings = await GetOldMappings(rootPath);
-            _context.Debug($"oldMappings.Count: {oldMappings.Count}");
-            oldMappings.ToList().ForEach(p => _context.Debug($"   {p.Key}: {p.Value}"));
+            if (_context.Variables.System_Debug.HasValue && _context.Variables.System_Debug.Value)
+            {
+                _context.Debug($"oldMappings.Count: {oldMappings.Count}");
+                oldMappings.ToList().ForEach(p => _context.Debug($"   [{p.Key}] {p.Value}"));
+            }
 
             Dictionary<string, SvnMappingDetails> newMappings = BuildNewMappings(rootPath, sourceBranch, distinctMappings);
-            _context.Debug($"newMappings.Count: {newMappings.Count}");
-            newMappings.ToList().ForEach(p => _context.Debug($"    [{p.Key}] ServerPath: {p.Value.ServerPath}, LocalPath: {p.Value.LocalPath}, Depth: {p.Value.Depth}, Revision: {p.Value.Revision}, IgnoreExternals: {p.Value.IgnoreExternals}"));
+            if (_context.Variables.System_Debug.HasValue && _context.Variables.System_Debug.Value)
+            {
+                _context.Debug($"newMappings.Count: {newMappings.Count}");
+                newMappings.ToList().ForEach(p => _context.Debug($"    [{p.Key}] ServerPath: {p.Value.ServerPath}, LocalPath: {p.Value.LocalPath}, Depth: {p.Value.Depth}, Revision: {p.Value.Revision}, IgnoreExternals: {p.Value.IgnoreExternals}"));
+            }
 
             CleanUpSvnWorkspace(oldMappings, newMappings);
 
@@ -175,14 +188,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             {
                 foreach (string workingDirectoryPath in GetSvnWorkingCopyPaths(rootPath))
                 {
-
                     Uri url = await GetRootUrlAsync(workingDirectoryPath);
 
                     if (url != null)
                     {
                         mappings.Add(workingDirectoryPath, url);
                     }
-
                 }
             }
 
@@ -248,7 +259,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public async Task<long> GetLatestRevisionAsync(string serverPath, string sourceRevision)
         {
-            _context.Debug($@"Get latest revision of: '{_endpoint.Url.AbsoluteUri}' at or before: '{sourceRevision}'.");
+            Trace.Verbose($@"Get latest revision of: '{_endpoint.Url.AbsoluteUri}' at or before: '{sourceRevision}'.");
             string xml = await RunPorcelainCommandAsync("info", 
                                                         BuildSvnUri(serverPath), 
                                                         "--depth", "empty", 
@@ -274,9 +285,59 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 return revision;
             }
         }
+
+        public string ResolveServerPath(string serverPath, string rootPath)
+        {
+            ArgUtil.Equal(true, serverPath.StartsWith(@"^/"), nameof(serverPath));
+
+            foreach (string workingDirectoryPath in GetSvnWorkingCopyPaths(rootPath))
+            {
+                try
+                {
+                    Trace.Verbose($@"Get SVN info for the working directory path '{workingDirectoryPath}'.");
+                    string xml = RunPorcelainCommandAsync("info",
+                                                           workingDirectoryPath,
+                                                           "--depth", "empty",
+                                                           "--xml").GetAwaiter().GetResult();
+
+                    // Deserialize the XML.
+                    // The command returns a non-zero exit code if the local path is not a working copy.
+                    // The assertions performed here should never fail.
+                    XmlSerializer serializer = new XmlSerializer(typeof(SvnInfo));
+                    ArgUtil.NotNullOrEmpty(xml, nameof(xml));
+
+                    using (StringReader reader = new StringReader(xml))
+                    {
+                        SvnInfo info = serializer.Deserialize(reader) as SvnInfo;
+                        ArgUtil.NotNull(info, nameof(info));
+                        ArgUtil.NotNull(info.Entries, nameof(info.Entries));
+                        ArgUtil.Equal(1, info.Entries.Length, nameof(info.Entries.Length));
+
+                        if (serverPath.Equals(info.Entries[0].RelativeUrl, StringComparison.Ordinal) || serverPath.StartsWith(info.Entries[0].RelativeUrl + '/', StringComparison.Ordinal))
+                        {
+                            // We've found the mapping the serverPath belongs to.
+                            int n = info.Entries[0].RelativeUrl.Length;
+                            string relativePath = serverPath.Length <= n + 1 ? string.Empty : serverPath.Substring(n + 1);
+
+                            return Path.Combine(workingDirectoryPath, relativePath);
+                        }
+                    }
+                }
+                catch (ProcessExitCodeException)
+                {
+                    Trace.Warning($@"The path '{workingDirectoryPath}' is not an SVN working directory path.");
+                }
+            }
+
+            Trace.Warning($@"Haven't found any suitable mapping for '{serverPath}'");
+
+            // Since the server path starts with the "^/" prefix we return the original path without these two characters.
+            return serverPath.Substring(2);
+        }
+
         private async Task<Uri> GetRootUrlAsync(string localPath)
         {
-            _context.Debug($@"Get URL for: '{localPath}'.");
+            Trace.Verbose($@"Get URL for: '{localPath}'.");
             try
             {
                 string xml = await RunPorcelainCommandAsync("info",
@@ -373,9 +434,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         private void CleanUpSvnWorkspace(Dictionary<string, Uri> oldMappings, Dictionary<string, SvnMappingDetails> newMappings)
         {
+            Trace.Verbose("Clean up Svn workspace.");
             oldMappings.Where(m => !newMappings.ContainsKey(m.Key))
                 .AsParallel()
-                .ForAll(m => IOUtil.DeleteDirectory(m.Key, CancellationToken.None));
+                .ForAll(m => {
+                    Trace.Verbose($@"Delete unmapped folder: '{m.Key}'");
+                    IOUtil.DeleteDirectory(m.Key, CancellationToken.None);
+                });
         }
 
         /// <summary>
@@ -385,7 +450,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         /// <returns></returns>
         private async Task UpdateAsync(SvnMappingDetails mapping)
         {
-            _context.Debug($@"Update '{mapping.LocalPath}'.");
+            Trace.Verbose($@"Update '{mapping.LocalPath}'.");
             await RunCommandAsync(
                 "update", 
                 mapping.LocalPath,
@@ -401,7 +466,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         /// <returns></returns>
         private async Task SwitchAsync(SvnMappingDetails mapping)
         {
-            _context.Debug($@"Switch '{mapping.LocalPath}' to '{mapping.ServerPath}'.");
+            Trace.Verbose($@"Switch '{mapping.LocalPath}' to '{mapping.ServerPath}'.");
             await RunCommandAsync(
                 "switch",
                 $"^/{mapping.ServerPath}",
@@ -419,7 +484,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         /// <returns></returns>
         private async Task CheckoutAsync(SvnMappingDetails mapping)
         {
-            _context.Debug($@"Checkout '{mapping.ServerPath}' to '{mapping.LocalPath}'.");
+            Trace.Verbose($@"Checkout '{mapping.ServerPath}' to '{mapping.LocalPath}'.");
             await RunCommandAsync(
                 "checkout",
                 mapping.ServerPath,

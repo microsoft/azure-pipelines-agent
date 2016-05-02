@@ -18,7 +18,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public async Task GetSourceAsync(IExecutionContext executionContext, ServiceEndpoint endpoint, CancellationToken cancellationToken)
         {
-            executionContext.Debug("Entering SvnSourceProvider.GetSourceAsync");
+            Trace.Verbose("Entering SvnSourceProvider.GetSourceAsync");
 
             // Validate args.
             ArgUtil.NotNull(executionContext, nameof(executionContext));
@@ -44,15 +44,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             bool clean = endpoint.Data.ContainsKey(WellKnownEndpointData.Clean) &&
                 StringUtil.ConvertToBoolean(endpoint.Data[WellKnownEndpointData.Clean], defaultValue: false);
+            executionContext.Debug($"clean={clean}");
 
             // Get the definition mappings.
             List<SvnMappingDetails> allMappings = JsonConvert.DeserializeObject<SvnWorkspace>(endpoint.Data[WellKnownEndpointData.SvnWorkspaceMapping]).Mappings;
-            executionContext.Debug($"clean={clean}");
 
-            allMappings.ForEach(m => executionContext.Debug($"ServerPath: {m.ServerPath}, LocalPath: {m.LocalPath}, Depth: {m.Depth}, Revision: {m.Revision}, IgnoreExternals: {m.IgnoreExternals}"));
+            if (executionContext.Variables.System_Debug.HasValue && executionContext.Variables.System_Debug.Value)
+            {
+                allMappings.ForEach(m => executionContext.Debug($"ServerPath: {m.ServerPath}, LocalPath: {m.LocalPath}, Depth: {m.Depth}, Revision: {m.Revision}, IgnoreExternals: {m.IgnoreExternals}"));
+            }
 
             Dictionary<string, SvnMappingDetails> normalizedMappings = svn.NormalizeMappings(allMappings);
-            normalizedMappings.ToList().ForEach(p => executionContext.Debug($"    [{p.Key}] ServerPath: {p.Value.ServerPath}, LocalPath: {p.Value.LocalPath}, Depth: {p.Value.Depth}, Revision: {p.Value.Revision}, IgnoreExternals: {p.Value.IgnoreExternals}"));
+            if (executionContext.Variables.System_Debug.HasValue && executionContext.Variables.System_Debug.Value)
+            {
+                executionContext.Debug($"Normalized mappings count: {normalizedMappings.Count}");
+                normalizedMappings.ToList().ForEach(p => executionContext.Debug($"    [{p.Key}] ServerPath: {p.Value.ServerPath}, LocalPath: {p.Value.LocalPath}, Depth: {p.Value.Depth}, Revision: {p.Value.Revision}, IgnoreExternals: {p.Value.IgnoreExternals}"));
+            }
 
             string normalizedBranch = svn.NormalizeRelativePath(sourceBranch, '/', '\\');
 
@@ -66,30 +73,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 revision);
 
             executionContext.Output(StringUtil.Loc("SvnBranchCheckedOut", normalizedBranch, endpoint.Name, effectiveRevision));
-            executionContext.Debug("Leaving SvnSourceProvider.GetSourceAsync");
+            Trace.Verbose("Leaving SvnSourceProvider.GetSourceAsync");
         }
 
         public override string GetLocalPath(IExecutionContext executionContext, ServiceEndpoint endpoint, string path)
         {
+            Trace.Verbose("Entering SvnSourceProvider.GetLocalPath");
+
             ISvnCommandManager svn = HostContext.CreateService<ISvnCommandManager>();
             svn.Init(executionContext, endpoint, CancellationToken.None);
 
             // We assume that this is a server path first.
             string serverPath = svn.NormalizeRelativePath(path, '/', '\\').Trim();
+            string localPath;
 
             if (serverPath.StartsWith("^/"))
             {
                 //Convert the server path to the relative one using SVN work copy mappings
-                string localPath = serverPath;
+                string sourcesDirectory = executionContext.Variables.Build_SourcesDirectory;
+                localPath = svn.ResolveServerPath(serverPath, sourcesDirectory);
 
-                //TODO: do the conversion.
-                return localPath;
             }
             else
             {
                 // normalize the path back to the local file system one.
-                return svn.NormalizeRelativePath(serverPath, Path.DirectorySeparatorChar, '/');
+                localPath = svn.NormalizeRelativePath(serverPath, Path.DirectorySeparatorChar, '/');
             }
+
+            Trace.Verbose("Leaving SvnSourceProvider.GetLocalPath");
+            return localPath;
         }
 
         public Task PostJobCleanupAsync(IExecutionContext executionContext, ServiceEndpoint endpoint)
