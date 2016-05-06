@@ -125,9 +125,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
             }
             catch (Exception ex)
             {
-                Thread.Sleep(15 * 1000);
-
-                HostContext.GetService<ICommandHandler>().TryProcessCommand(executionContext, GetTelemetryMessage(ex));
+                LogDownloadFailureTelemetry(executionContext, ex);
                 throw;
             }
         }
@@ -327,16 +325,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
             return artifactDefinition;
         }
 
-        private string GetTelemetryMessage(Exception exception)
+        private void LogDownloadFailureTelemetry(IExecutionContext executionContext, Exception ex)
         {
-            var code = (exception is Artifacts.ArtifactDownloadException) ? DownloadArtifactsFailureUserError : DownloadArtifactsFailureSystemError;
-            var telemetryMessage = StringUtil.Format(
-                        "##vso[task.logissue type=error;code={0};TaskId={1};]{2}",
-                        code,
-                        DownloadArtifactsTaskId,
-                        StringUtil.Loc("DownloadArtifactsFailed", exception));
+            var code = (ex is Artifacts.ArtifactDownloadException) ? DownloadArtifactsFailureUserError : DownloadArtifactsFailureSystemError;
+            var issue = new Issue
+            {
+                Type = IssueType.Error,
+                Message = StringUtil.Loc("DownloadArtifactsFailed", ex)
+            };
+            issue.Data.Add("code", code);
+            issue.Data.Add("TaskId", DownloadArtifactsTaskId.ToString());
 
-            return telemetryMessage;
+            executionContext.AddIssue(issue);
         }
     }
 }
