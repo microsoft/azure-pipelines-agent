@@ -45,7 +45,10 @@ namespace Microsoft.VisualStudio.Services.Agent
                 return;
             }
             string proxyURI = File.ReadAllText(proxyFilePath);
-            VssHttpMessageHandler.DefaultWebProxy = new WebProxy(new Uri(proxyURI));
+            VssHttpMessageHandler.DefaultWebProxy = new WebProxy(new Uri(proxyURI))
+            {
+                Credentials = System.Net.CredentialCache.DefaultCredentials
+            };
         }
     }
 }
