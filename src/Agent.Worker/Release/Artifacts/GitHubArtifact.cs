@@ -37,7 +37,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             ServiceEndpoint endpoint = executionContext.Endpoints.FirstOrDefault((e => string.Equals(e.Name, gitHubDetails.ConnectionName, StringComparison.OrdinalIgnoreCase)));
             if (endpoint == null)
             {
-                throw new InvalidOperationException(StringUtil.Loc("RMReceivedGithubArtifactDetails", gitHubDetails.ConnectionName));
+                throw new InvalidOperationException(StringUtil.Loc("RMGitHubEndpointNotFound", gitHubDetails.ConnectionName));
             }
 
             ServiceEndpoint gitHubEndpoint = PrepareGitHubTaskEndpoint(endpoint, gitHubDetails.CloneUrl);
@@ -46,7 +46,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
 
             if (sourceProvider == null)
             {
-                throw new InvalidOperationException(StringUtil.Loc("RMArtifactTypeNotSupported"));
+                throw new InvalidOperationException(StringUtil.Loc("SourceArtifactNotFound", WellKnownRepositoryTypes.GitHub));
             }
 
             executionContext.Variables.Set(Constants.Variables.Build.SourcesDirectory, localFolderPath);
