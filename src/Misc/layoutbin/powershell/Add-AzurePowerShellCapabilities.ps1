@@ -58,7 +58,7 @@ function Get-FromSdkPath {
         if (Test-Path -LiteralPath $path -PathType Leaf) {
             # Get the module.
             Write-Host "Get-Module -Name $path"
-            $module = Get-Module -Name $path
+            $module = Get-Module -Name $path  -ListAvailable | Select-Object -First 1
 
             # Add the capability.
             Write-Capability -Name $script:capabilityName -Value $module.Version
