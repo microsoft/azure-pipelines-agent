@@ -243,7 +243,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             string azurePSM1 = Path.Combine(path, "Microsoft.TeamFoundation.DistributedTask.Task.Deployment.Azure\\Microsoft.TeamFoundation.DistributedTask.Task.Deployment.Azure.psm1");
 
             Trace.Verbose("AzurePowerShellHandler.UpdatePowerShellEnvironment - AddCommand(Import-Module)");
-            Trace.Verbose("AzurePowerShellHandler.UpdatePowerShellEnvironment - AddParameter(Name={1})", azurePSM1);
+            Trace.Verbose("AzurePowerShellHandler.UpdatePowerShellEnvironment - AddParameter(Name={0})", azurePSM1);
             Trace.Verbose("AzurePowerShellHandler.UpdatePowerShellEnvironment - AddParameter(Scope=Global)");
             additionalCommands.Add(new Tuple<string, List<Tuple<string, string>>>("Import-Module",
                                                                                   new List<Tuple<string, string>>()
@@ -252,6 +252,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                                                       new Tuple<string, string>("Scope", "Global"),
                                                                                   }));
 
+			Trace.Verbose("AzurePowerShellHandler.UpdatePowerShellEnvironment - AddCommand(Set-UserAgent)");
+            additionalCommands.Add(new Tuple<string, List<Tuple<string, string>>>("Set-UserAgent",
+                                                                                  new List<Tuple<string, string>>()
+                                                                                  {
+                                                                                  }));
+			
             Trace.Verbose("AzurePowerShellHandler.UpdatePowerShellEnvironment - AddCommand(Initialize-AzurePowerShellSupport)");
             Trace.Verbose("AzurePowerShellHandler.UpdatePowerShellEnvironment - AddParameter({0}={1})", _connectedServiceName, connectedServiceNameValue);
             Trace.Verbose("AzurePowerShellHandler.UpdatePowerShellEnvironment - AddParameter(StorageAccount={0})", storageAccount);
