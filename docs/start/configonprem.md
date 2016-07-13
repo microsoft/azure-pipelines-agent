@@ -2,10 +2,10 @@
 
 ## Support
 
-This agent is supported for:  
-![osx](../res/apple_sm.png) ![linux](../res/linux_sm.png) OSX/Linux: TFS2015 and beyond.  
+This agent is supported for:
+![osx](../res/apple_sm.png) ![linux](../res/linux_sm.png) OSX/Linux: TFS2015 and beyond.
 
-![win](../res/win_sm.png) Windows: TFS.vNext  
+![win](../res/win_sm.png) Windows: TFS.vNext
 
 If you want to run windows agent for TFS2015, use the agent that you download from that server.  This agent will ship with TFS.vNext major release.
 
@@ -69,7 +69,7 @@ Enter run agent as service? (Y/N) (press enter for N) >
 
 **If you did not run as a service**, you can start it interactively by running
 
-![win](../res/win_sm.png) Windows: run.cmd  
+![win](../res/win_sm.png) Windows: run.cmd
 
 ![osx](../res/apple_sm.png) ![linux](../res/linux_sm.png) OSX/Linux: ./run.sh
 

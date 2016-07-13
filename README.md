@@ -8,7 +8,7 @@ Supported on Windows, OSX, Ubuntu and Red Hat.  Written for the .NET Core CLR as
 
 ## Current Release
 
-[v2.103.0](https://github.com/Microsoft/vsts-agent/releases/tag/v2.103.0)  
+[v2.103.0](https://github.com/Microsoft/vsts-agent/releases/tag/v2.103.0)
 
 
 ## Status
@@ -40,13 +40,13 @@ This agent can be used for the VSTS service and it replaces the node agent for T
 
 ### Next, get the agent configured
 
-![win](docs/res/win_sm.png)  [Start Windows](docs/start/startwin.md)  
+![win](docs/res/win_sm.png)  [Start Windows](docs/start/startwin.md)
 
-![osx](docs/res/apple_sm.png)  [Start OSX](docs/start/startosx.md)  
+![osx](docs/res/apple_sm.png)  [Start OSX](docs/start/startosx.md)
 
-![ubuntu](docs/res/ubuntu_sm.png)  [Start Ubuntu](docs/start/startubuntu.md)  
+![ubuntu](docs/res/ubuntu_sm.png)  [Start Ubuntu](docs/start/startubuntu.md)
 
-![redhat](docs/res/redhat_sm.png)  [Start RedHat](docs/start/startredhat.md)  
+![redhat](docs/res/redhat_sm.png)  [Start RedHat](docs/start/startredhat.md)
 
 ## Troubleshooting
 

@@ -2,7 +2,7 @@
 
 ## Key Points
 
-  - Use https account URL (https://contoso.visualstudio.com)  
+  - Use https account URL (https://contoso.visualstudio.com)
   - Should use default of PAT Authentication for VSTS.  [Details](roles.md)
   - Copy and Paste your PAT into the terminal.
 
@@ -33,7 +33,7 @@ Enter run agent as service? (Y/N) (press enter for N) >
 
 **If you did not run as a service**, you can start it interactively by running
 
-![win](../res/win_sm.png) Windows: run.cmd  
+![win](../res/win_sm.png) Windows: run.cmd
 
 ![osx](../res/apple_sm.png) ![linux](../res/linux_sm.png) OSX/Linux: ./run.sh
 

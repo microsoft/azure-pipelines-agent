@@ -12,15 +12,15 @@
 
 From src:
 
-![Win](res/win_sm.png) `dev {command}`  
+![Win](res/win_sm.png) `dev {command}`
 
 ![*nix](res/linux_sm.png) `./dev.sh {command}`
   
-**Commands:**  
+**Commands:**
 
-`restore` (`r`): Run first time and any time you change a project.json  
+`restore` (`r`): Run first time and any time you change a project.json
 
-`build` (`b`):   build everything  
+`build` (`b`):   build everything
 
 `test` (`t`):    run unit tests
         
@@ -31,7 +31,7 @@ From src:
 
 `clean` (`c`):   deletes build output for each projects
  
-`layout` (`l`): Creates a full layout in {root}/_layout  
+`layout` (`l`): Creates a full layout in {root}/_layout
    Does a clean, restore, build, publish and copy
    Default is Debug.  Passing Release as argument is supported (dev l Release)
 
@@ -43,8 +43,8 @@ From src:
 
 ## Editors
 
-[Using Visual Studio 2015](dev/vs.md)  
-[Using Visual Studio Code and Mono Debugger](dev/code.md)  
+[Using Visual Studio 2015](dev/vs.md)
+[Using Visual Studio Code and Mono Debugger](dev/code.md)
 
 ## Styling
 

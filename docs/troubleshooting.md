@@ -12,7 +12,7 @@ If you are having issues with a build, the first step is to set System.Debug to 
 
 Logs are in the _diag folder.
 
-The agent has two parts.  The agent which listens to the build queue.  When it gets a build message, it creates a worker process to run that build.  
+The agent has two parts.  The agent which listens to the build queue.  When it gets a build message, it creates a worker process to run that build.
 
 For example:
 ```bash
@@ -30,8 +30,8 @@ Secrets are masked out of the logs.
 
 ## Http Tracing Windows
 
-Start [Fiddler](http://www.telerik.com/fiddler).  
-It's recommended to only listen to agent traffic.  File > Capture Traffic off (F12)  
+Start [Fiddler](http://www.telerik.com/fiddler).
+It's recommended to only listen to agent traffic.  File > Capture Traffic off (F12)
 Enable decrypting HTTPS traffic.  Tools > Fiddler Options > HTTPS tab. Decrypt HTTPS traffic
 
 Let the agent know to use the proxy:
@@ -48,12 +48,12 @@ TODO: video
 
 ## Http Tracing OSX / Linux
 
-It's easy to capture the http trace of the agent using Charles Proxy (similar to Fiddler on windows).  
+It's easy to capture the http trace of the agent using Charles Proxy (similar to Fiddler on windows).
 
 TODO: video
 
-Start Charles Proxy  
-Charles: Proxy > Proxy Settings > SSL Tab.  Enable.  Add URL  
+Start Charles Proxy
+Charles: Proxy > Proxy Settings > SSL Tab.  Enable.  Add URL
 Charles: Proxy > Mac OSX Proxy.  Recommend disabling to only see agent traffic.
 
 ```bash
@@ -66,24 +66,24 @@ Restart the agent.
 
 ## Security Notice
 
-HTTP traces and trace files can contain credentials.  
+HTTP traces and trace files can contain credentials.
 
 1. Do not POST them on a publically accessible site.
 2. If you send them to the product team, they will be treated securely and discarded after the investigation.
 
 ## Workaround HttpTimeoutException
 
-You may experience Build failed because of http timeout during upload build artifact, or a Build/Release finished without detail log since agent hit HttpTimeoutException and not able to upload logs.  
-The HttpClient that agent used by default will retry at most 5 times on any Network/Socket area exception.  
-Regular http post request by default will timeout after 100 seconds, artifact upload http post request by default will timeout after 300 seconds.  
-We provide two environment variables that will allow you overwrite these configurations.  
+You may experience Build failed because of http timeout during upload build artifact, or a Build/Release finished without detail log since agent hit HttpTimeoutException and not able to upload logs.
+The HttpClient that agent used by default will retry at most 5 times on any Network/Socket area exception.
+Regular http post request by default will timeout after 100 seconds, artifact upload http post request by default will timeout after 300 seconds.
+We provide two environment variables that will allow you overwrite these configurations.
 
 ```bash
 Windows:
-    set VSTS_HTTP_RETRY=5         // set http retry, valid range [5, 10]  
-    set VSTS_HTTP_TIMEOUT=120     // set http timeout, valid range [100, 1200]  
+    set VSTS_HTTP_RETRY=5         // set http retry, valid range [5, 10]
+    set VSTS_HTTP_TIMEOUT=120     // set http timeout, valid range [100, 1200]
 
 Linux:
-    export VSTS_HTTP_RETRY=5          // set http retry, valid range [5, 10]  
-    export VSTS_HTTP_TIMEOUT=120      // set http timeout, valid range [100, 1200]  
+    export VSTS_HTTP_RETRY=5          // set http retry, valid range [5, 10]
+    export VSTS_HTTP_TIMEOUT=120      // set http timeout, valid range [100, 1200]
 ```

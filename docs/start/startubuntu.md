@@ -23,7 +23,7 @@ Download the agent from [github releases](https://github.com/Microsoft/vsts-agen
 
 ```
 
-[Config VSTS Details](configvsts.md)  
+[Config VSTS Details](configvsts.md)
 
 [Config On-Prem Details](configonprem.md)
 

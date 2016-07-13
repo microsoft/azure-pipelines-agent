@@ -18,7 +18,7 @@ OpenSSL 1.0.2f  28 Jan 2016
 ```
 
 Instructions [located here](http://apple.stackexchange.com/questions/126830/how-to-upgrade-openssl-in-os-x)
-On last check 1.0.2g was the version so ensure you use correct mv, sn commands.  
+On last check 1.0.2g was the version so ensure you use correct mv, sn commands.
 Restart new terminal after updating.
 
 If you are using TfsVc, install Oracle Java 1.6+.
@@ -46,7 +46,7 @@ If you are using TfsVc, install Oracle Java 1.6+.
 
 ## ![redhat](../res/redhat_med.png) RedHat and CentOS
 
-Install dependencies  
+Install dependencies
 ```bash
 sudo yum -y install libunwind.x86_64 icu
 ```
