@@ -27,6 +27,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
         }
 
+        protected override Encoding OutputEncoding => StringUtil.GetSystemEncoding();
+
         protected override string Switch => "/";
 
         public string FilePath => Path.Combine(ExecutionContext.Variables.Agent_ServerOMDirectory, "tf.exe");
