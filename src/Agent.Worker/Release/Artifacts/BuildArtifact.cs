@@ -149,6 +149,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
         {
             var downloadFolderPath = Path.Combine(localFolderPath, buildArtifact.Name);
             var buildArtifactDetails = artifactDefinition.Details as BuildArtifactDetails;
+            int filesDownloaded = 0;
             if ((buildArtifact.Resource.Type == null && buildArtifact.Id == 0) // bug on build API Bug 378900
                 || string.Equals(buildArtifact.Resource.Type, WellKnownArtifactResourceTypes.FilePath, StringComparison.OrdinalIgnoreCase))
             {
@@ -179,7 +180,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                 executionContext.Output(StringUtil.Loc("RMDownloadingArtifactFromFileShare", fileShare));
 
                 var fileShareArtifact = new FileShareArtifact();
-                await fileShareArtifact.DownloadArtifactAsync(executionContext, HostContext, artifactDefinition, fileShare, downloadFolderPath);
+                filesDownloaded = await fileShareArtifact.DownloadArtifactAsync(executionContext, HostContext, artifactDefinition, fileShare, downloadFolderPath);
             }
             else if (string.Equals(buildArtifact.Resource.Type, WellKnownArtifactResourceTypes.Container, StringComparison.OrdinalIgnoreCase))
             {
@@ -197,14 +198,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                     contentStream = await buildClient.GetArtifactContentZipAsync(buildArtifactDetails.Project, buildId, buildArtifact.Name);
                 }
 
-
                 var zipStreamDownloader = HostContext.GetService<IZipStreamDownloader>();
                 string artifactRootFolder = StringUtil.Format("/{0}", buildArtifact.Name);
-                await zipStreamDownloader.DownloadFromStream(contentStream, artifactRootFolder, buildArtifactDetails.RelativePath, downloadFolderPath);
+                filesDownloaded = await zipStreamDownloader.DownloadFromStream(contentStream, artifactRootFolder, buildArtifactDetails.RelativePath, downloadFolderPath);
             }
             else
             {
                 executionContext.Warning(StringUtil.Loc("RMArtifactTypeNotSupported", buildArtifact.Resource.Type));
+                return;
+            }
+
+            Trace.Info($"Downloaded files count: {filesDownloaded}");
+            if (filesDownloaded == 0)
+            {
+                executionContext.Warning(StringUtil.Loc("DownloadedEmptyArtifact", buildArtifact.Name));
             }
         }
     }

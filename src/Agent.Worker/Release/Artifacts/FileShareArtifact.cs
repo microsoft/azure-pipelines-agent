@@ -12,7 +12,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
     public class FileShareArtifact
     {
         // This is only used by build artifact. This isn't a officially supported artifact type in RM
-        public async Task DownloadArtifactAsync(IExecutionContext executionContext, IHostContext hostContext, ArtifactDefinition artifactDefinition, string dropLocation, string localFolderPath)
+        public async Task<int> DownloadArtifactAsync(IExecutionContext executionContext, IHostContext hostContext, ArtifactDefinition artifactDefinition, string dropLocation, string localFolderPath)
         {
             ArgUtil.NotNull(artifactDefinition, nameof(artifactDefinition));
             ArgUtil.NotNull(executionContext, nameof(executionContext));
@@ -31,21 +31,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                     .Select(path => path.FullName)
                     .ToList();
 
-            if (filePaths.Any())
+            foreach (var filePath in filePaths)
             {
-                foreach (var filePath in filePaths)
+                var filePathRelativeToDrop = filePath.Replace(dropLocation, string.Empty).Trim(trimChars);
+                using (var fileReader = fileSystemManager.GetFileReader(filePath))
                 {
-                    var filePathRelativeToDrop = filePath.Replace(dropLocation, string.Empty).Trim(trimChars);
-                    using (var fileReader = fileSystemManager.GetFileReader(filePath))
-                    {
-                        await fileSystemManager.WriteStreamToFile(fileReader.BaseStream, Path.Combine(localFolderPath, filePathRelativeToDrop));
-                    }
+                    await fileSystemManager.WriteStreamToFile(fileReader.BaseStream, Path.Combine(localFolderPath, filePathRelativeToDrop));
                 }
             }
-            else
-            {
-                executionContext.Warning(StringUtil.Loc("RMNoArtifactsFound", relativePath));
-            }
+
+            return filePaths.Count;
         }
     }
 }
