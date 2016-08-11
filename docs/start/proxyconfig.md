@@ -31,6 +31,13 @@
   export VSTS_HTTP_PROXY_PASSWORD=proxypassword
   ```  
   
+  *If your agent is running as service on Unix or OSX, you will need to add following section to .env file under agent root directory, then execute ./env.sh to update service envrionment variable.*
+  ```
+  VSTS_HTTP_PROXY_USERNAME=proxyuser
+  VSTS_HTTP_PROXY_PASSWORD=proxypassword
+  ```
+  [Details here](nixsvc.md#setting-the-environment)
+  
 ## Limitations  
   - Only agent infustructure itself has proxy support, which means the agent is able to run a Build/Release job behind proxy. However, you still have to setup proxy config for each individual tool that agent invoke during a Build/Release job.  
     Ex, 
