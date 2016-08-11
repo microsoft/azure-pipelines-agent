@@ -2,7 +2,7 @@
 
 ## Key Points
   - Create .proxy file with proxy url under agent root directory.  
-  - Set authenticate proxy credential through environment variable   
+  - If using an authenticated proxy, set authenticate proxy credential through environment variable   
     `VSTS_HTTP_PROXY_USERNAME` and `VSTS_HTTP_PROXY_PASSWORD`  
 
 ## Steps
