@@ -18,6 +18,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         Task<List<TaskAgentPool>> GetAgentPoolsAsync(string agentPoolName);
         Task<List<TaskAgent>> GetAgentsAsync(int agentPoolId, string agentName = null);
         Task<TaskAgent> UpdateAgentAsync(int agentPoolId, TaskAgent agent);
+        Task<List<TaskAgentQueue>> GetAgentQueuesAsync(string projectName, string queueName);
 
         // messagequeue
         Task<TaskAgentSession> CreateAgentSessionAsync(Int32 poolId, TaskAgentSession session, CancellationToken cancellationToken);
@@ -92,6 +93,12 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             CheckConnection();
             return _taskAgentClient.DeleteAgentAsync(agentPoolId, agentId);
+        }
+
+        public Task<List<TaskAgentQueue>> GetAgentQueuesAsync(string projectName,string queueName)
+        {
+            CheckConnection();
+            return _taskAgentClient.GetAgentQueuesAsync(projectName, queueName);
         }
 
         //-----------------------------------------------------------------

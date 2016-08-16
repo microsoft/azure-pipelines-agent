@@ -23,6 +23,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         public bool NoStart => TestFlag(Constants.Agent.CommandLine.Flags.NoStart);
         public bool Unattended => TestFlag(Constants.Agent.CommandLine.Flags.Unattended);
         public bool Version => TestFlag(Constants.Agent.CommandLine.Flags.Version);
+        public bool DeploymentAgent => TestFlag(Constants.Agent.CommandLine.Flags.DeploymentAgent);
 
         // Constructor.
         public CommandSettings(IHostContext context, string[] args)
@@ -121,6 +122,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 description: StringUtil.Loc("ServerUrl"),
                 defaultValue: string.Empty,
                 validator: Validators.ServerUrlValidator);
+        }
+
+        public string GetMachineGroupName()
+        {
+            return GetArgOrPrompt(
+                name: Constants.Agent.CommandLine.Args.MachineGroupName,
+                description: StringUtil.Loc("MachineGroupName"),
+                defaultValue: string.Empty,
+                validator: Validators.NonEmptyValidator);
+        }
+
+        public string GetProjectName()
+        {
+            return GetArgOrPrompt(
+                name: Constants.Agent.CommandLine.Args.ProjectName,
+                description: StringUtil.Loc("ProjectName"),
+                defaultValue: string.Empty,
+                validator: Validators.NonEmptyValidator);
+        }
+
+        public string GetCollectionName(string defaultValue)
+        {
+            return GetArgOrPrompt(
+                name: Constants.Agent.CommandLine.Args.CollectionName,
+                description: StringUtil.Loc("CollectionName"),
+                defaultValue: defaultValue,
+                validator: Validators.NonEmptyValidator);
         }
 
         public string GetUserName()

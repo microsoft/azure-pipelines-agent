@@ -117,6 +117,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             // Loop getting url and creds until you can connect
             string serverUrl = null;
             ICredentialProvider credProvider = null;
+            VssCredentials creds = null;
             WriteSection(StringUtil.Loc("ConnectSectionHeader"));
             while (true)
             {
@@ -125,7 +126,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                 // Get the credentials
                 credProvider = GetCredentialProvider(command, serverUrl);
-                VssCredentials creds = credProvider.GetVssCredentials(HostContext);
+                creds = credProvider.GetVssCredentials(HostContext);
                 Trace.Info("cred retrieved");
                 try
                 {
@@ -155,26 +156,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             int poolId = 0;
             string agentName = null;
             WriteSection(StringUtil.Loc("RegisterAgentSectionHeader"));
-            while (true)
+
+            Type agentType = command.DeploymentAgent ? typeof(DeploymentAgentConfiguration) : typeof(AutomationAgentConfiguration);
+            var extensionManager = HostContext.GetService<IExtensionManager>();
+            IConfigurationProvider agentProvider = (extensionManager.GetExtensions<IConfigurationProvider>()).FirstOrDefault(x => x.GetType() == agentType);
+            agentProvider.InitConnection(_agentServer);
+            if (!IsHosted(serverUrl))
             {
-                poolName = command.GetPool();
-                try
-                {
-                    poolId = await GetPoolId(poolName);
-                }
-                catch (Exception e) when (!command.Unattended)
-                {
-                    _term.WriteError(e);
-                }
-
-                if (poolId > 0)
-                {
-                    break;
-                }
-
-                _term.WriteError(StringUtil.Loc("FailedToFindPool"));
+                agentProvider.InitConnectionWithCollection(command, serverUrl, creds);
             }
-
+            poolId = await agentProvider.GetPoolId(command);
+            
             TaskAgent agent;
             while (true)
             {
@@ -207,7 +199,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                         try
                         {
-                            agent = await _agentServer.UpdateAgentAsync(poolId, agent);
+                            agent = await agentProvider.UpdateAgentAsync(poolId, agent);
                             _term.WriteLine(StringUtil.Loc("AgentReplaced"));
                             break;
                         }
@@ -241,7 +233,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                     try
                     {
-                        agent = await _agentServer.AddAgentAsync(poolId, agent);
+                        agent = await agentProvider.AddAgentAsync(poolId, agent);
                         _term.WriteLine(StringUtil.Loc("AgentAddedSuccessfully"));
                         break;
                     }
@@ -409,6 +401,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     await agentSvr.ConnectAsync(conn);
                     Trace.Info("Connect complete.");
 
+                    Type agentType = command.DeploymentAgent ? typeof(DeploymentAgentConfiguration) : typeof(AutomationAgentConfiguration);
+                    var extensionManager = HostContext.GetService<IExtensionManager>();
+                    IConfigurationProvider agentProvider = (extensionManager.GetExtensions<IConfigurationProvider>()).FirstOrDefault(x => x.GetType() == agentType);
+                    agentProvider.InitConnection(agentSvr);
+
                     List<TaskAgent> agents = await agentSvr.GetAgentsAsync(settings.PoolId, settings.AgentName);
                     if (agents.Count == 0)
                     {
@@ -416,7 +413,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     }
                     else
                     {
-                        await agentSvr.DeleteAgentAsync(settings.PoolId, settings.AgentId);
+                        await agentProvider.DeleteAgentAsync(settings.PoolId, settings.AgentId);
                         _term.WriteLine(StringUtil.Loc("Success") + currentAction);
                     }
                 }
@@ -467,9 +464,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             var credentialManager = HostContext.GetService<ICredentialManager>();
             // Get the auth type. On premise defaults to negotiate (Kerberos with fallback to NTLM).
             // Hosted defaults to PAT authentication.
-            bool isHosted = serverUrl.IndexOf("visualstudio.com", StringComparison.OrdinalIgnoreCase) != -1
-                || serverUrl.IndexOf("tfsallin.net", StringComparison.OrdinalIgnoreCase) != -1;
-            string defaultAuth = isHosted ? Constants.Configuration.PAT :
+            string defaultAuth = IsHosted(serverUrl) ? Constants.Configuration.PAT :
                 (Constants.Agent.Platform == Constants.OSPlatform.Windows ? Constants.Configuration.Integrated : Constants.Configuration.Negotiate);
             string authType = command.GetAuth(defaultValue: defaultAuth);
 
@@ -489,21 +484,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             await _agentServer.ConnectAsync(connection);
         }
 
-        private async Task<int> GetPoolId(string poolName)
-        {
-            int id = 0;
-            List<TaskAgentPool> pools = await _agentServer.GetAgentPoolsAsync(poolName);
-            Trace.Verbose("Returned {0} pools", pools.Count);
-
-            if (pools.Count == 1)
-            {
-                id = pools[0].Id;
-                Trace.Info("Found pool {0} with id {1}", poolName, id);
-            }
-
-            return id;
-        }
-
         private async Task<TaskAgent> GetAgent(string name, int poolId)
         {
             List<TaskAgent> agents = await _agentServer.GetAgentsAsync(poolId, name);
@@ -518,6 +498,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _term.WriteLine();
             _term.WriteLine($">> {message}:");
             _term.WriteLine();
+        }
+
+        private bool IsHosted(string serverUrl)
+        {
+            return serverUrl.IndexOf("visualstudio.com", StringComparison.OrdinalIgnoreCase) != -1
+                || serverUrl.IndexOf("tfsallin.net", StringComparison.OrdinalIgnoreCase) != -1;
         }
     }
 }
