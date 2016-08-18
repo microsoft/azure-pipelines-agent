@@ -95,15 +95,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
         [Trait("Category", "ConfigurationManagement")]
         public void CanEnsureConfigure()
         {
-
-            while (!System.Diagnostics.Debugger.IsAttached)
-            {
-                System.Threading.Thread.Sleep(10 * 1000);
-            }
-
-            System.Diagnostics.Debugger.Break();
-
-
             using (TestHostContext tc = CreateTestContext())
             {
                 Tracing trace = tc.GetTrace();
