@@ -17,6 +17,7 @@ In order to use .NET Core, we first need the latest version of OpenSSL. The easi
 ```bash
 brew update
 brew install openssl
+# Ensure folder exists on machine
 mkdir -p /usr/local/lib/
 ln -s /usr/local/opt/openssl/lib/libcrypto.1.0.0.dylib /usr/local/lib/
 ln -s /usr/local/opt/openssl/lib/libssl.1.0.0.dylib /usr/local/lib/
