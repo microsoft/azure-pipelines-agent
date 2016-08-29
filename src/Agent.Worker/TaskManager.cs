@@ -171,6 +171,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         [JsonIgnore]
         public List<HandlerData> All => _all;
 
+        [JsonIgnore]
+        public bool SupportCondition
+        {
+            get
+            {
+                return All.Any(x => x.Conditions.Count > 0);
+            }
+        }
+
 #if !OS_WINDOWS
         [JsonIgnore]
 #endif
@@ -285,6 +294,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public string[] Platforms { get; set; }
 
+        public Dictionary<string, object> Conditions { get; set; }
+
         [JsonIgnore]
         public abstract int Priority { get; }
 
@@ -304,6 +315,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public HandlerData()
         {
             Inputs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            Conditions = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
         }
 
         public bool PreferredOnCurrentPlatform()
@@ -535,6 +547,77 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             set
             {
                 SetInput(nameof(WorkingDirectory), value);
+            }
+        }
+    }
+
+    public interface IHandlerConditionEvaluator : IExtension, IAgentService
+    {
+        string Name { get; }
+        bool IsConditionMatch(object conditionData);
+    }
+
+    public class HandlerPlatformEvaluator : AgentService, IHandlerConditionEvaluator
+    {
+        public Type ExtensionType => typeof(IHandlerConditionEvaluator);
+
+        public string Name => "Platforms";
+
+#if OS_WINDOWS
+        private string _platform = "windows";
+#elif OS_LINUX
+        private string _platform = "linux";
+#elif OS_OSX
+        private string _platform = "darwin";
+#endif
+
+        public bool IsConditionMatch(object conditionData)
+        {
+            string[] requiredPlatforms = JsonUtility.FromString<string[]>(conditionData.ToString());
+            return requiredPlatforms.Contains(_platform);
+        }
+    }
+
+    public class HandlerFeatureEvaluator : AgentService, IHandlerConditionEvaluator
+    {
+        public Type ExtensionType => typeof(IHandlerConditionEvaluator);
+
+        public string Name => "Features";
+
+        public bool IsConditionMatch(object conditionData)
+        {
+            Trace.Info(conditionData as string);
+            string[] requiredFeatures = JsonUtility.FromString<string[]>(conditionData.ToString());
+            Trace.Info(string.Join(",", requiredFeatures));
+            var featureAvaliability = HostContext.GetService<IFeatureAvaliability>();
+            string[] supportedFeatures = featureAvaliability.AllSupportFeatures;
+            Trace.Info(string.Join(",", supportedFeatures));
+            return !(requiredFeatures.Any(x => !supportedFeatures.Contains(x)));
+        }
+    }
+
+    [ServiceLocator(Default = typeof(FeatureAvaliability))]
+    public interface IFeatureAvaliability : IAgentService
+    {
+        string[] AllSupportFeatures { get; }
+    }
+
+    public class FeatureAvaliability : AgentService, IFeatureAvaliability
+    {
+        private readonly List<string> _supportFeatures = new List<string>();
+
+        public override void Initialize(IHostContext hostContext)
+        {
+            base.Initialize(hostContext);
+            var featureScanner = hostContext.GetService<IAgentFeatureScanner>();
+            _supportFeatures.AddRange(featureScanner.GetAgentFeatures());
+        }
+
+        public string[] AllSupportFeatures
+        {
+            get
+            {
+                return _supportFeatures.ToArray();
             }
         }
     }

@@ -70,6 +70,11 @@ namespace Microsoft.VisualStudio.Services.Agent
                     Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.Build.TfsGitSourceProvider, Agent.Worker");
                     Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.Build.TfsVCSourceProvider, Agent.Worker");
                     break;
+                // Worker handler condition evaluators.
+                case "Microsoft.VisualStudio.Services.Agent.Worker.IHandlerConditionEvaluator":
+                    Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.HandlerPlatformEvaluator, Agent.Worker");
+                    Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.HandlerFeatureEvaluator, Agent.Worker");
+                    break;
                 // Worker release artifact extensions.
                 case "Microsoft.VisualStudio.Services.Agent.Worker.Release.IArtifactExtension":
                     Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts.BuildArtifact, Agent.Worker");

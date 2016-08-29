@@ -43,11 +43,67 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // TODO: Add a try catch here to give a better error message.
             Definition definition = taskManager.Load(TaskInstance);
             ArgUtil.NotNull(definition, nameof(definition));
-            HandlerData handlerData =
-                definition.Data?.Execution?.All
-                .OrderBy(x => !x.PreferredOnCurrentPlatform()) // Sort true to false.
-                .ThenBy(x => x.Priority)
-                .FirstOrDefault();
+
+            foreach (var data in definition.Data.Execution.All)
+            {
+                foreach (var c in data.Conditions)
+                {
+                    Trace.Info($"{c.Key} = {c.Value}");
+                }
+            }
+
+            HandlerData handlerData;
+            if (definition.Data.Execution.SupportCondition)
+            {
+                List<HandlerData> matchedHandlers = new List<HandlerData>();
+                var extensionManager = HostContext.GetService<IExtensionManager>();
+                var evaluators = extensionManager.GetExtensions<IHandlerConditionEvaluator>();
+                foreach (var execution in definition.Data.Execution.All)
+                {
+                    Trace.Info(execution.GetType());
+                    if (execution.Conditions.Count == 0)
+                    {
+                        Trace.Info($"Skip {execution.GetType().Name} which has empty conditions.");
+                        continue;
+                    }
+
+                    bool candidate = true;
+                    foreach (var condition in execution.Conditions)
+                    {
+                        Trace.Info($"Testing condition: {condition.Key} = {condition.Value.ToString()}");
+                        var evaluator = evaluators.Where(e => e.Name.Equals(condition.Key, StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
+                        Trace.Info(evaluator.GetType());
+                        if (!evaluator.IsConditionMatch(condition.Value))
+                        {
+                            candidate = false;
+                            break;
+                        }
+                    }
+
+                    if (candidate)
+                    {
+                        Trace.Info($"Add: {execution.GetType()}");
+                        matchedHandlers.Add(execution);
+                    }
+                }
+
+                if (matchedHandlers.Count == 0)
+                {
+                    throw new ArgumentException("Can't find matched handler.");
+                }
+
+                handlerData = matchedHandlers
+                              .OrderBy(x => x.Priority)
+                              .FirstOrDefault();
+            }
+            else
+            {
+                handlerData = definition.Data?.Execution?.All
+                              .OrderBy(x => !x.PreferredOnCurrentPlatform()) // Sort true to false.
+                              .ThenBy(x => x.Priority)
+                              .FirstOrDefault();
+            }
+
             if (handlerData == null)
             {
                 string[] supportedHandlers;
