@@ -226,8 +226,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
 
                 _extnMgr.Setup(x => x.GetExtensions<IConfigurationProvider>()).Returns(GetConfigurationProviderList(tc));
 
-                var expectedQueues = new List<TaskAgentQueue>() { new TaskAgentQueue() { Id = 2 , Pool = new TaskAgentPoolReference(new Guid(), 3) } };
-                _agentServer.Setup(x => x.GetAgentQueuesAsync(It.IsAny<string>(),It.IsAny<string>())).Returns(Task.FromResult(expectedQueues));
+                var expectedMachineGroups = new List<DeploymentMachineGroup>() { new DeploymentMachineGroup() { Pool = new TaskAgentPoolReference(new Guid(), 3), Name = "Test-MachineGroup"} };
+                _agentServer.Setup(x => x.GetDeploymentMachineGroupsAsync(It.IsAny<string>(),It.IsAny<string>())).Returns(Task.FromResult(expectedMachineGroups));
                 
                 trace.Info("Ensuring all the required parameters are available in the command line parameter");
                 await configManager.ConfigureAsync(command);

@@ -76,13 +76,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
 
                 string expectedProjectName = null;
                 string expectedMachineGroup = null;
-                var expectedQueues = new List<TaskAgentQueue>() { new TaskAgentQueue() { Id = 2, Pool = new TaskAgentPoolReference(new Guid(), _expectedPoolId) } };
-                _agentServer.Setup(x => x.GetAgentQueuesAsync(It.IsAny<string>(), It.IsAny<string>())).Callback<string, string>(
-                    (proj, queue) =>
+
+                var expectedMachineGroups = new List<DeploymentMachineGroup>() { new DeploymentMachineGroup() { Pool = new TaskAgentPoolReference(new Guid(), _expectedPoolId), Name = "Test-MachineGroup" } };
+               _agentServer.Setup(x => x.GetDeploymentMachineGroupsAsync(It.IsAny<string>(), It.IsAny<string>())).Callback<string, string>(
+                    (proj, machineGrp) =>
                     {
                         expectedProjectName = proj ;
-                        expectedMachineGroup = queue;
-                    }).Returns(Task.FromResult(expectedQueues));
+                        expectedMachineGroup = machineGrp;
+                    }).Returns(Task.FromResult(expectedMachineGroups));
 
                 string baseUrl = machineGroupAgentConfigProvider.GetServerUrl(command);
                 trace.Info("Verify base url");

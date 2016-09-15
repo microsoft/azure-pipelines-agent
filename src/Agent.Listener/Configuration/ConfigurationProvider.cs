@@ -108,7 +108,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 }
             }
 
-            return poolId;            
+            return poolId;
         }
 
         public Task<TaskAgent> UpdateAgentAsync(int poolId, TaskAgent agent)
@@ -134,17 +134,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         private async Task<int> GetPoolIdAsync(string poolName)
         {
-            int poolId = 0;
-            List<TaskAgentPool> pools = await _agentServer.GetAgentPoolsAsync(poolName);
-            Trace.Verbose("Returned {0} pools", pools.Count);
-
-            if (pools.Count == 1)
+            TaskAgentPool agentPool = (await _agentServer.GetAgentPoolsAsync(poolName)).FirstOrDefault();
+            if (agentPool == null)
             {
-                poolId = pools[0].Id;
-                Trace.Info("Found pool {0} with id {1}", poolName, poolId);
+                throw new TaskAgentPoolNotFoundException(StringUtil.Loc("PoolNotFound", poolName));
             }
-
-            return poolId;
+            else
+            {
+                Trace.Info("Found pool {0} with id {1}", poolName, agentPool.Id);
+                return agentPool.Id;
+            }
         }
 
     }
@@ -234,25 +233,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public async Task<int> GetPoolId(CommandSettings command)
         {
-            int poolId = 0;
+            int poolId;
             while (true)
             {
                 _machineGroupName = command.GetMachineGroupName();
                 try
                 {
                     poolId =  await GetPoolIdAsync(_projectName, _machineGroupName);
+                    Trace.Info($"PoolId for machine group '{_machineGroupName}' is '{poolId}'.");
+                    break;
                 }
                 catch (Exception e) when (!command.Unattended)
                 {
                     _term.WriteError(e);
                 }
 
-                if (poolId > 0)
-                {
-                    break;
-                }
-
-                _term.WriteError(StringUtil.Loc("FailedToFindPool"));
+                _term.WriteError(StringUtil.Loc("FailedToFindMachineGroup"));
 
                 // In case of failure ensure to get the project name again
                 _projectName = command.GetProjectName(_projectName);
@@ -293,16 +289,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 _collectionAgentServer = _agentServer;
             }
 
-            List<TaskAgentQueue> machineGroup = await _collectionAgentServer.GetAgentQueuesAsync(projectName, machineGroupName);
-            Trace.Verbose("Returned {0} machineGroup", machineGroup.Count);
+            DeploymentMachineGroup machineGroup = (await _collectionAgentServer.GetDeploymentMachineGroupsAsync(projectName, machineGroupName)).FirstOrDefault();
 
-            if (machineGroup.Count == 1)
+            if (machineGroup == null)
             {
-                int queueId = machineGroup[0].Id;
-                Trace.Info("Found machine group {0} with id {1}", machineGroupName, queueId);
-                poolId = machineGroup[0].Pool.Id;
-                Trace.Info("Found poolId {0} for machine group {1}", poolId, machineGroupName);
+                throw new DeploymentMachineGroupNotFoundException(StringUtil.Loc("MachineGroupNotFound", machineGroupName));
             }
+
+            int machineGroupId = machineGroup.Id;
+            Trace.Info("Found machine group {0} with id {1}", machineGroupName, machineGroupId);
+            poolId = machineGroup.Pool.Id;
+            Trace.Info("Found poolId {0} for machine group {1}", poolId, machineGroupName);
 
             return poolId;
         }
