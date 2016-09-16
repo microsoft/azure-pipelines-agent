@@ -17,6 +17,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
     public class ConfigurationProviderTestsL0
     {
         private Mock<IAgentServer> _agentServer;
+        private Mock<IMachineGroupServer> _machineGroupServer;
         private Mock<IPromptManager> _promptManager;
         private string _collectionName = "testCollectionName";
         private int _expectedPoolId = 7;
@@ -27,8 +28,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
         {
             _agentServer = new Mock<IAgentServer>();
             _promptManager = new Mock<IPromptManager>();
+            _machineGroupServer = new Mock<IMachineGroupServer>();
 
             _agentServer.Setup(x => x.ConnectAsync(It.IsAny<VssConnection>())).Returns(Task.FromResult<object>(null));
+            _machineGroupServer.Setup(x => x.ConnectAsync(It.IsAny<VssConnection>())).Returns(Task.FromResult<object>(null));
         }
 
         private TestHostContext CreateTestContext([CallerMemberName] String testName = "")
@@ -36,6 +39,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             TestHostContext tc = new TestHostContext(this, testName);
             tc.SetSingleton<IAgentServer>(_agentServer.Object);
             tc.EnqueueInstance<IAgentServer>(_agentServer.Object);
+            tc.SetSingleton<IMachineGroupServer>(_machineGroupServer.Object);
+            tc.EnqueueInstance<IMachineGroupServer>(_machineGroupServer.Object);
             tc.SetSingleton<IPromptManager>(_promptManager.Object);
 
             return tc;
@@ -58,8 +63,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
 
                 trace.Info("Init the deployment provider");
                 machineGroupAgentConfigProvider.Initialize(tc);
-                machineGroupAgentConfigProvider.InitializeServerConnection();
-
 
                 trace.Info("Preparing command line arguments");
                 string expectedBaseUrl = "https://localhost:8080/tfs";
@@ -78,7 +81,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
                 string expectedMachineGroup = null;
 
                 var expectedMachineGroups = new List<DeploymentMachineGroup>() { new DeploymentMachineGroup() { Pool = new TaskAgentPoolReference(new Guid(), _expectedPoolId), Name = "Test-MachineGroup" } };
-               _agentServer.Setup(x => x.GetDeploymentMachineGroupsAsync(It.IsAny<string>(), It.IsAny<string>())).Callback<string, string>(
+               _machineGroupServer.Setup(x => x.GetDeploymentMachineGroupsAsync(It.IsAny<string>(), It.IsAny<string>())).Callback<string, string>(
                     (proj, machineGrp) =>
                     {
                         expectedProjectName = proj ;
@@ -89,6 +92,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
                 trace.Info("Verify base url");
                 Assert.True(expectedBaseUrl.Equals(baseUrl));
 
+                machineGroupAgentConfigProvider.TestConnectAsync(serverUrl,
+                    new TestAgentCredential().GetVssCredentials(tc));
                 int poolId = machineGroupAgentConfigProvider.GetPoolId(command).Result;
 
                 trace.Info("Verifying poolId returned by deployment provider");

@@ -150,12 +150,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
     public sealed class MachineGroupAgentConfigProvider : ConfigurationProvider, IConfigurationProvider
     {
-        private IAgentServer _collectionAgentServer =null;
         private string _projectName;
         private string _collectionName;
         private string _machineGroupName;
         private string _serverUrl;
         private bool _isHosted = false;
+        private IMachineGroupServer _machineGroupServer = null;
 
         public string ConfigurationProviderType
             => Constants.Agent.AgentConfigurationProvider.DeploymentAgentConfiguration;
@@ -221,10 +221,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public async Task<IAgentServer> TestConnectAsync(string url, VssCredentials creds)
         {
-            if (!_isHosted && !_collectionName.IsNullOrEmpty()) 
-            {
-                TestConnectionWithCollection(url, creds);   // For on-prm validate the collection by making the connection
-            }
+            await TestMachineGroupConnection(url, creds);
 
             await TestConnectionAsync(url, creds);
 
@@ -284,12 +281,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         {
             int poolId = 0;
 
-            if (_collectionAgentServer == null)
-            {
-                _collectionAgentServer = _agentServer;
-            }
+            ArgUtil.NotNull(_machineGroupServer, nameof(_machineGroupServer));
 
-            DeploymentMachineGroup machineGroup = (await _collectionAgentServer.GetDeploymentMachineGroupsAsync(projectName, machineGroupName)).FirstOrDefault();
+            DeploymentMachineGroup machineGroup = (await _machineGroupServer.GetDeploymentMachineGroupsAsync(projectName, machineGroupName)).FirstOrDefault();
 
             if (machineGroup == null)
             {
@@ -306,24 +300,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         private async Task TestCollectionConnectionAsync(string url, VssCredentials creds)
         {
-            _term.WriteLine(StringUtil.Loc("ConnectingToServer"));
             VssConnection connection = ApiUtil.CreateConnection(new Uri(url), creds);
 
-            _collectionAgentServer = HostContext.CreateService<IAgentServer>();
-            await _collectionAgentServer.ConnectAsync(connection);
+            _machineGroupServer = HostContext.CreateService<IMachineGroupServer>();
+            await _machineGroupServer.ConnectAsync(connection);
         }
 
-        private async void TestConnectionWithCollection(string tfsUrl, VssCredentials creds)
+        private async Task TestMachineGroupConnection(string tfsUrl, VssCredentials creds)
         {
-            Trace.Info("Test connection with collection level");
+            Trace.Info("Test connection with machine group");
+            var url = tfsUrl;
 
-            UriBuilder uriBuilder = new UriBuilder(new Uri(tfsUrl));
-            uriBuilder.Path = uriBuilder.Path + "/" + _collectionName;
-            Trace.Info("Tfs Collection level url to connect - {0}", uriBuilder.Uri.AbsoluteUri);
+            if (!_isHosted && !_collectionName.IsNullOrEmpty()) // For on-prm validate the collection by making the connection
+            {
+                UriBuilder uriBuilder = new UriBuilder(new Uri(tfsUrl));
+                uriBuilder.Path = uriBuilder.Path + "/" + _collectionName;
+                Trace.Info("Tfs Collection level url to connect - {0}", uriBuilder.Uri.AbsoluteUri);
+                url = uriBuilder.Uri.AbsoluteUri;
+            }
 
             // Validate can connect.
-            await TestCollectionConnectionAsync(uriBuilder.Uri.AbsoluteUri, creds);
-            Trace.Info("Connect complete.");
+            await TestCollectionConnectionAsync(url, creds);
+            Trace.Info("Connect complete for machine group");
         }
 
         private void ThrowExceptionForOnPremUrl()
