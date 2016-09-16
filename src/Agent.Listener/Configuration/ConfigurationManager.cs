@@ -131,8 +131,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 try
                 {
                     // Validate can connect.
-                    _agentServer = await agentProvider.TestConnectAsync(serverUrl, creds);
-                    Trace.Info("Connect complete.");
+                    await agentProvider.TestConnectionAsync(serverUrl, creds);
+                    Trace.Info("Test Connection complete.");
                     break;
                 }
                 catch (Exception e) when (!command.Unattended)
@@ -142,6 +142,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 }
             }
 
+            _agentServer = HostContext.GetService<IAgentServer>();
             // We want to use the native CSP of the platform for storage, so we use the RSACSP directly
             RSAParameters publicKey;
             var keyManager = HostContext.GetService<IRSAKeyManager>();
@@ -391,7 +392,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                     var extensionManager = HostContext.GetService<IExtensionManager>();
                     IConfigurationProvider agentProvider = (extensionManager.GetExtensions<IConfigurationProvider>()).FirstOrDefault(x => x.ConfigurationProviderType == agentType);
-                    agentProvider.InitializeServerConnection();
 
                     List<TaskAgent> agents = await agentSvr.GetAgentsAsync(settings.PoolId, settings.AgentName);
                     if (agents.Count == 0)

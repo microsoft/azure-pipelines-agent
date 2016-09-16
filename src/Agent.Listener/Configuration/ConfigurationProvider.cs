@@ -12,13 +12,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
     public interface IConfigurationProvider : IExtension, IAgentService
     {
-        void InitializeServerConnection();
-
         string ConfigurationProviderType { get; }
 
         string GetServerUrl(CommandSettings command);
 
-        Task<IAgentServer> TestConnectAsync(string tfsUrl, VssCredentials creds);
+        Task TestConnectionAsync(string tfsUrl, VssCredentials creds);
 
         Task<int> GetPoolId(CommandSettings command);
 
@@ -31,52 +29,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         void UpdateAgentSetting(AgentSettings settings);
     }
 
-    public abstract class ConfigurationProvider : AgentService
+    public sealed class BuildReleasesAgentConfigProvider : AgentService, IConfigurationProvider
     {
         public Type ExtensionType => typeof(IConfigurationProvider);
-        protected ITerminal _term;
-        protected IAgentServer _agentServer;
+        private ITerminal _term;
+        private IAgentServer _agentServer;
+
+        public string ConfigurationProviderType
+            => Constants.Agent.AgentConfigurationProvider.BuildReleasesAgentConfiguration;
 
         public override void Initialize(IHostContext hostContext)
         {
             base.Initialize(hostContext);
             _term = hostContext.GetService<ITerminal>();
-        }
-
-        public virtual void InitializeServerConnection()
-        {
             _agentServer = HostContext.GetService<IAgentServer>();
         }
-        
-        protected Task<TaskAgent> UpdateAgent(int poolId, TaskAgent agent)
-        {
-           return _agentServer.UpdateAgentAsync(poolId, agent);
-        }
-
-        protected Task<TaskAgent> AddAgent(int poolId, TaskAgent agent)
-        {
-            return _agentServer.AddAgentAsync(poolId, agent);
-        }
-
-        protected Task DeleteAgent(int poolId, int agentId)
-        {
-            return _agentServer.DeleteAgentAsync(poolId, agentId);
-        }
-
-        protected async Task TestConnectionAsync(string url, VssCredentials creds)
-        {
-            _term.WriteLine(StringUtil.Loc("ConnectingToServer"));
-            VssConnection connection = ApiUtil.CreateConnection(new Uri(url), creds);
-
-            _agentServer = HostContext.CreateService<IAgentServer>();
-            await _agentServer.ConnectAsync(connection);
-        }
-    }
-
-    public sealed class BuildReleasesAgentConfigProvider : ConfigurationProvider, IConfigurationProvider
-    {
-        public string ConfigurationProviderType
-            => Constants.Agent.AgentConfigurationProvider.BuildReleasesAgentConfiguration;
 
         public void UpdateAgentSetting(AgentSettings settings)
         {
@@ -113,23 +80,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public Task<TaskAgent> UpdateAgentAsync(int poolId, TaskAgent agent)
         {
-            return UpdateAgent(poolId, agent);
+            return _agentServer.UpdateAgentAsync(poolId, agent);
         }
 
         public Task<TaskAgent> AddAgentAsync(int poolId, TaskAgent agent)
-        {
-            return AddAgent(poolId, agent);
+        { 
+            return _agentServer.AddAgentAsync(poolId, agent);
         }
 
         public Task DeleteAgentAsync(int agentPoolId, int agentId)
         {
-            return DeleteAgent(agentPoolId,agentId);
+            return _agentServer.DeleteAgentAsync(agentPoolId, agentId);
         }
 
-        public async Task<IAgentServer> TestConnectAsync(string url, VssCredentials creds)
+        public async Task TestConnectionAsync(string url, VssCredentials creds)
         {
-            await TestConnectionAsync(url, creds);
-            return _agentServer;
+            _term.WriteLine(StringUtil.Loc("ConnectingToServer"));
+            VssConnection connection = ApiUtil.CreateConnection(new Uri(url), creds);
+
+            await _agentServer.ConnectAsync(connection);
         }
 
         private async Task<int> GetPoolIdAsync(string poolName)
@@ -148,8 +117,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
     }
 
-    public sealed class MachineGroupAgentConfigProvider : ConfigurationProvider, IConfigurationProvider
+    public sealed class MachineGroupAgentConfigProvider : AgentService, IConfigurationProvider
     {
+        public Type ExtensionType => typeof(IConfigurationProvider);
+        private ITerminal _term;
+        private IAgentServer _agentServer;
+
         private string _projectName;
         private string _collectionName;
         private string _machineGroupName;
@@ -159,6 +132,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public string ConfigurationProviderType
             => Constants.Agent.AgentConfigurationProvider.DeploymentAgentConfiguration;
+
+        public override void Initialize(IHostContext hostContext)
+        {
+            base.Initialize(hostContext);
+            _term = hostContext.GetService<ITerminal>();
+            _agentServer = HostContext.GetService<IAgentServer>();
+        }
 
         public string GetServerUrl(CommandSettings command)
         {
@@ -219,15 +199,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             return baseUrl;
         }
 
-        public async Task<IAgentServer> TestConnectAsync(string url, VssCredentials creds)
-        {
-            await TestMachineGroupConnection(url, creds);
-
-            await TestConnectionAsync(url, creds);
-
-            return _agentServer;
-        }
-
         public async Task<int> GetPoolId(CommandSettings command)
         {
             int poolId;
@@ -256,19 +227,41 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public Task<TaskAgent> UpdateAgentAsync(int poolId, TaskAgent agent)
         {
-            return UpdateAgent(poolId, agent);
-            // this may have additional calls related to Machine Group
+            return _agentServer.UpdateAgentAsync(poolId, agent);
         }
 
         public Task<TaskAgent> AddAgentAsync(int poolId, TaskAgent agent)
         {
-            return AddAgent(poolId, agent);
-            // this may have additional calls related to Machine Group
+            return _agentServer.AddAgentAsync(poolId, agent);
         }
 
         public Task DeleteAgentAsync(int agentPoolId, int agentId)
         {
-            return DeleteAgent(agentPoolId, agentId);
+            return _agentServer.DeleteAgentAsync(agentPoolId, agentId);
+        }
+
+        public async Task TestConnectionAsync(string url, VssCredentials creds)
+        {
+            _term.WriteLine(StringUtil.Loc("ConnectingToServer"));
+            VssConnection connection = ApiUtil.CreateConnection(new Uri(url), creds);
+
+            await _agentServer.ConnectAsync(connection);
+            Trace.Info("Connect complete for server");
+
+            // Create the connection for machine group 
+            Trace.Info("Test connection with machine group");
+            if (!_isHosted && !_collectionName.IsNullOrEmpty()) // For on-prm validate the collection by making the connection
+            {
+                UriBuilder uriBuilder = new UriBuilder(new Uri(url));
+                uriBuilder.Path = uriBuilder.Path + "/" + _collectionName;
+                Trace.Info("Tfs Collection level url to connect - {0}", uriBuilder.Uri.AbsoluteUri);
+                url = uriBuilder.Uri.AbsoluteUri;
+            }
+            VssConnection machineGroupconnection = ApiUtil.CreateConnection(new Uri(url), creds);
+
+            _machineGroupServer = HostContext.GetService<IMachineGroupServer>();
+            await _machineGroupServer.ConnectAsync(machineGroupconnection);
+            Trace.Info("Connect complete for machine group");
         }
 
         public void UpdateAgentSetting(AgentSettings settings)
@@ -298,32 +291,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             return poolId;
         }
 
-        private async Task TestCollectionConnectionAsync(string url, VssCredentials creds)
-        {
-            VssConnection connection = ApiUtil.CreateConnection(new Uri(url), creds);
-
-            _machineGroupServer = HostContext.CreateService<IMachineGroupServer>();
-            await _machineGroupServer.ConnectAsync(connection);
-        }
-
-        private async Task TestMachineGroupConnection(string tfsUrl, VssCredentials creds)
-        {
-            Trace.Info("Test connection with machine group");
-            var url = tfsUrl;
-
-            if (!_isHosted && !_collectionName.IsNullOrEmpty()) // For on-prm validate the collection by making the connection
-            {
-                UriBuilder uriBuilder = new UriBuilder(new Uri(tfsUrl));
-                uriBuilder.Path = uriBuilder.Path + "/" + _collectionName;
-                Trace.Info("Tfs Collection level url to connect - {0}", uriBuilder.Uri.AbsoluteUri);
-                url = uriBuilder.Uri.AbsoluteUri;
-            }
-
-            // Validate can connect.
-            await TestCollectionConnectionAsync(url, creds);
-            Trace.Info("Connect complete for machine group");
-        }
-
         private void ThrowExceptionForOnPremUrl()
         {
             throw new Exception(StringUtil.Loc("UrlValidationFailedForOnPremTfs"));
@@ -333,7 +300,5 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         {
             throw new Exception(StringUtil.Loc("UrlValidationFailedForVSTSAccount"));
         }
-
     }
-
 }

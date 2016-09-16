@@ -92,7 +92,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
                 trace.Info("Verify base url");
                 Assert.True(expectedBaseUrl.Equals(baseUrl));
 
-                machineGroupAgentConfigProvider.TestConnectAsync(serverUrl,
+                machineGroupAgentConfigProvider.TestConnectionAsync(serverUrl,
                     new TestAgentCredential().GetVssCredentials(tc));
                 int poolId = machineGroupAgentConfigProvider.GetPoolId(command).Result;
 
