@@ -334,8 +334,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Trace.Info($"Ensure System.TFCollectionUrl match config url base. {message.Environment.Variables[WellKnownDistributedTaskVariables.TFCollectionUrl]}");
 
                 // back compat server url
-                message.Environment.Variables[Constants.Variables.System.TFServerUrl] = message.Environment.Variables[WellKnownDistributedTaskVariables.TFCollectionUrl];
-                Trace.Info($"Ensure System.TFServerUrl match config url base. {message.Environment.Variables[Constants.Variables.System.TFServerUrl]}");
+                string collectionUrl = message.Environment.Variables[WellKnownDistributedTaskVariables.TFCollectionUrl];
+                if (string.IsNullOrEmpty(collectionUrl) || _releaseManagementUrlSuffix.Any(x => collectionUrl.IndexOf(x, StringComparison.OrdinalIgnoreCase) >= 0))
+                {
+                    message.Environment.Variables[Constants.Variables.System.TFServerUrl] = message.Environment.SystemConnection.Url.AbsoluteUri;
+                    Trace.Info($"System.TFServerUrl is {message.Environment.Variables[Constants.Variables.System.TFServerUrl]}");
+                }
+                else
+                {
+                    message.Environment.Variables[Constants.Variables.System.TFServerUrl] = collectionUrl;
+                    Trace.Info($"Ensure System.TFServerUrl match config url base. {message.Environment.Variables[Constants.Variables.System.TFServerUrl]}");
+                }
+
             }
 
             // fixup SystemConnection Url
