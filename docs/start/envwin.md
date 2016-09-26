@@ -8,6 +8,6 @@ No known system pre-requisistes are known at this time.
 
 [Updated C runtime is needed](https://support.microsoft.com/en-us/kb/2999226)
 
-## Visual Studio
+## MSBuild & .Net SDK
 
-Even though not technically required by the agent, many build scenarios require Visual Studio installed to get all the tools.  We recommend Visual Studio 2015 or later.
+Since you want to ensure your build agent does not have Visual Studio installed, you will need the .Net SDK, which includes MSBuild so that you can build all your projects on a server without Visual Studio.  Keeping Visual Studio off of your build agent helps avoid tricky environment dependencies that can be a big surprise when deploying to a downstream environment.  
