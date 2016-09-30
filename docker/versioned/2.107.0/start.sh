@@ -3,8 +3,8 @@
 if [ $(id -u) -eq 0 ]; then
   if [ -n "$VSTS_WORK" ]; then
     mkdir -p "$VSTS_WORK"
+    chown -R vsts:vsts "$VSTS_WORK"
   fi
-  chown -R vsts:vsts "$VSTS_WORK"
   su vsts -s /bin/bash -c $0
   exit $?
 fi
