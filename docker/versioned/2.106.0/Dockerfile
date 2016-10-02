@@ -1,8 +1,15 @@
-FROM buildpack-deps:jessie-scm
+FROM ubuntu:trusty
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    apt-transport-https \
-    libunwind8 \
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+        software-properties-common \
+ && apt-add-repository ppa:git-core/ppa \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends \
+        curl \
+        git \
+        libicu52 \
+        libunwind8 \
  && rm -rf /var/lib/apt/lists/*
 
 RUN set -x \

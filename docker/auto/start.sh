@@ -26,12 +26,7 @@ VSTS_AGENT_URL=$(curl -fSL \
   -u user:$VSTS_TOKEN \
   -H 'Accept:application/json;api-version=3.0-preview' \
   https://${VSTS_ACCOUNT}.visualstudio.com/_apis/distributedtask/packages/agent?platform=ubuntu.14.04-x64 \
-  | python -c "import sys;import json; \
-               obj = json.load(sys.stdin); \
-               print(sorted(obj['value'], key=lambda elem: ( \
-                 elem['version']['major'], \
-                 elem['version']['minor'], \
-                 elem['version']['patch']), reverse=True)[0]['downloadUrl'])")
+  | jq -r '.value | map([.version.major,.version.minor,.version.patch,.downloadUrl]) | sort | .[length-1] | .[3]')
 if [ -z "$VSTS_AGENT_URL" ]; then
   echo 1>&2 error: failed to determine matching VSTS agent
   exit 1
