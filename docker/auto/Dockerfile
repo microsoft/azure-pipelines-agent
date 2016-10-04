@@ -1,4 +1,4 @@
-FROM ubuntu:trusty
+FROM ubuntu:16.04
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
@@ -9,7 +9,8 @@ RUN apt-get update \
         curl \
         git \
         jq \
-        libicu52 \
+        libcurl3 \
+        libicu55 \
         libunwind8 \
  && rm -rf /var/lib/apt/lists/*
 

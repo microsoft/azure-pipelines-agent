@@ -1,4 +1,4 @@
-FROM ubuntu:trusty
+FROM ubuntu:16.04
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
@@ -8,7 +8,8 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends \
         curl \
         git \
-        libicu52 \
+        libcurl3 \
+        libicu55 \
         libunwind8 \
  && rm -rf /var/lib/apt/lists/*
 
@@ -24,7 +25,7 @@ ENV VSTS_AGENT_LOC https://github.com/Microsoft/vsts-agent/releases/download
 ENV VSTS_AGENT_VER 2.107.0
 
 RUN set -x \
- && curl -fSL  ${VSTS_AGENT_LOC}/v${VSTS_AGENT_VER}/vsts-agent-ubuntu.14.04-x64-$VSTS_AGENT_VER.tar.gz -o agent.tgz \
+ && curl -fSL  ${VSTS_AGENT_LOC}/v${VSTS_AGENT_VER}/vsts-agent-ubuntu.16.04-x64-$VSTS_AGENT_VER.tar.gz -o agent.tgz \
  && tar -xzf agent.tgz \
  && chown -R vsts:vsts . \
  && rm agent.tgz
