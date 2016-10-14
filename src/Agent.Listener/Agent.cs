@@ -190,11 +190,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             {
                 var notification = HostContext.GetService<IJobNotification>();
                 notification.StartClient(settings.NotificationPipeName, token);
-                // this is not a reliable way to disable auto update.
-                // we need server side work to really enable the feature
-                // https://github.com/Microsoft/vsts-agent/issues/446 (Feature: Allow agent / pool to opt out of automatic updates)
-                bool disableAutoUpdate = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("agent.disableupdate"));
-                bool autoUpdateInProgress = false;
+				// this is not a reliable way to disable auto update.
+				// we need server side work to really enable the feature
+				// https://github.com/Microsoft/vsts-agent/issues/446 (Feature: Allow agent / pool to opt out of automatic updates)
+				//bool disableAutoUpdate = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("agent.disableupdate"));
+				bool disableAutoUpdate = true;
+
+				bool autoUpdateInProgress = false;
                 Task<bool> selfUpdateTask = null;
                 jobDispatcher = HostContext.CreateService<IJobDispatcher>();
 
