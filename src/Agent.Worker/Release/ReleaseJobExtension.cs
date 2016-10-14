@@ -25,7 +25,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 
         public Type ExtensionType => typeof(IJobExtension);
 
-        public string HostType => "release";
+        public IList<string> HostTypes => new List<string>
+                                             {
+                                                 "release",
+                                                 "deployment"
+                                             };
 
         public IStep PrepareStep { get; private set; }
 

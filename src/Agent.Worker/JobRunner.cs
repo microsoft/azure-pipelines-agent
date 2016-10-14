@@ -144,7 +144,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 var extensionManager = HostContext.GetService<IExtensionManager>();
                 IJobExtension[] extensions =
                     (extensionManager.GetExtensions<IJobExtension>() ?? new List<IJobExtension>())
-                    .Where(x => string.Equals(x.HostType, hostType, StringComparison.OrdinalIgnoreCase))
+                    .Where(x => (x.HostTypes != null) && (x.HostTypes.Contains(hostType, StringComparer.OrdinalIgnoreCase)))
                     .ToArray();
 
                 // Add the prepare steps.

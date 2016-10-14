@@ -1,8 +1,10 @@
+using System.Collections.Generic;
+
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
     public interface IJobExtension : IExtension
     {
-        string HostType { get; }
+        IList<string> HostTypes { get; }
         IStep PrepareStep { get; }
         IStep FinallyStep { get; }
         string GetRootedPath(IExecutionContext context, string path);
