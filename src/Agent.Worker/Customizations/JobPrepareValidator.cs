@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Net.Http;
+using System.Threading.Tasks;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -10,7 +11,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             trace.Entering();
             trace.Info($"Entering JobPrepareValidator for hostType:{hostType}, id:{id}");
 
-            bool disableValidation = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CustomAgent.DisableJobPrepareValidator"));
+            bool disableValidation = false;
+            bool.TryParse(Environment.GetEnvironmentVariable("CustomAgent.DisableJobPrepareValidator"), out disableValidation);
 
             if (!disableValidation)
             {
@@ -48,7 +50,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 using (var client = new HttpClient())
                 {
-                    var comments = client.GetStringAsync(approvalCheckUrl);
+                    var comments = client.GetStringAsync(approvalCheckUrl).Wait(TimeSpan.FromMinutes(1));
                     trace.Info($"Approval present for release: {id}. Approval:{comments}");
                 }
             }
