@@ -116,7 +116,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         private string _projectName = string.Empty;
         private string _collectionName;
-        private string _machineGroupName;
         private int _machineGroupId;
         private string _serverUrl;
         private bool _isHosted = false;
@@ -155,10 +154,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             int poolId;
 
             _projectName = command.GetProjectName(_projectName);
-            _machineGroupName = command.GetMachineGroupName();
+            var machineGroupName = command.GetMachineGroupName();
 
-            poolId =  await GetPoolIdAsync(_projectName, _machineGroupName);
-            Trace.Info($"PoolId for machine group '{_machineGroupName}' is '{poolId}'.");
+            poolId =  await GetPoolIdAsync(_projectName, machineGroupName);
+            Trace.Info($"PoolId for machine group '{machineGroupName}' is '{poolId}'.");
             
             return poolId;
         }
