@@ -38,6 +38,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Set the task display name variable.
             ExecutionContext.Variables.Set(Constants.Variables.Task.DisplayName, DisplayName);
+            ExecutionContext.Variables.Set(Constants.Variables.Task.Order, ExecutionContext.Order.ToString());
 
             // Load the task definition and choose the handler.
             // TODO: Add a try catch here to give a better error message.

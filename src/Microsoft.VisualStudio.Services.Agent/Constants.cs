@@ -298,6 +298,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static class Task
             {
                 public static readonly string DisplayName = "task.displayname";
+                public static readonly string Order = "task.order";
             }
         }
     }

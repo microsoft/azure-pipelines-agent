@@ -22,6 +22,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         List<ServiceEndpoint> Endpoints { get; }
         Variables Variables { get; }
         List<IAsyncCommandContext> AsyncCommands { get; }
+        int? Order { get;  }
 
         // Initialize
         void InitializeJob(JobRequestMessage message, CancellationToken token);
@@ -109,6 +110,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             set
             {
                 _record.ResultCode = value;
+            }
+        }
+
+        public int? Order
+        {
+            get
+            {
+                return _record.Order;
             }
         }
 
