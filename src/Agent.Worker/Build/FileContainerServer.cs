@@ -11,6 +11,7 @@ using System.Diagnostics;
 using Microsoft.VisualStudio.Services.WebApi;
 using System.Net.Http;
 using System.Net;
+using Microsoft.VisualStudio.Services.FileContainer;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -28,6 +29,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         private string _containerPath;
         private int _filesProcessed = 0;
         private string _sourceParentDirectory;
+        private const int _fileMetadataCreationBatchSize = 100;
 
         public FileContainerServer(
             VssConnection connection,
@@ -80,6 +82,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
                 try
                 {
+                    // create all files' metadata up front.
+                    int batchSize = 0;
+                    int processedFileCount = 0;
+                    List<FileContainerItem> fcItemsBatch = new List<FileContainerItem>();
+                    foreach (var file in files)
+                    {
+                        batchSize++;
+                        processedFileCount++;
+                        FileContainerItem item = new FileContainerItem();
+                        item.ContainerId = _containerId;
+                        item.ItemType = ContainerItemType.File;
+                        item.Path = (_containerPath.TrimEnd('/') + "/" + file.Remove(0, _sourceParentDirectory.Length + 1)).Replace('\\', '/');
+                        item.FileLength = new FileInfo(file).Length;
+
+                        fcItemsBatch.Add(item);
+
+                        if (batchSize == _fileMetadataCreationBatchSize ||
+                            processedFileCount == files.Count)
+                        {
+                            batchSize = 0;
+                            var metadataCreation = await _fileContainerHttpClient.CreateItemsAsync(_containerId, fcItemsBatch, _projectId, _uploadCancellationTokenSource.Token);
+                            fcItemsBatch.Clear();
+                            context.Output($"Preparing for file upload: ({processedFileCount}/{files.Count})");
+                        }
+                    }
+
                     // try upload all files for the first time.
                     List<string> failedFiles = await ParallelUploadAsync(context, files, maxConcurrentUploads, _uploadCancellationTokenSource.Token);
 
