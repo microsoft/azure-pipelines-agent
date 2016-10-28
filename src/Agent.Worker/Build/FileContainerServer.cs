@@ -29,7 +29,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         private string _containerPath;
         private int _filesProcessed = 0;
         private string _sourceParentDirectory;
-        private const int _fileMetadataCreationBatchSize = 100;
+        private const int _fileMetadataCreationBatchSizeLimit = 100;
 
         public FileContainerServer(
             VssConnection connection,
@@ -82,29 +82,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
                 try
                 {
-                    // create all files' metadata up front.
-                    int batchSize = 0;
-                    int processedFileCount = 0;
+                    // create all files' metadata up front to save tfs SQL CPU.
+                    int metadataCreationProcessedFileCount = 0;
                     List<FileContainerItem> fcItemsBatch = new List<FileContainerItem>();
                     foreach (var file in files)
                     {
-                        batchSize++;
-                        processedFileCount++;
-                        FileContainerItem item = new FileContainerItem();
-                        item.ContainerId = _containerId;
-                        item.ItemType = ContainerItemType.File;
-                        item.Path = (_containerPath.TrimEnd('/') + "/" + file.Remove(0, _sourceParentDirectory.Length + 1)).Replace('\\', '/');
-                        item.FileLength = new FileInfo(file).Length;
+                        metadataCreationProcessedFileCount++;
+                        FileContainerItem item = new FileContainerItem()
+                        {
+                            ContainerId = _containerId,
+                            ItemType = ContainerItemType.File,
+                            Path = (_containerPath.TrimEnd('/') + "/" + file.Remove(0, _sourceParentDirectory.Length + 1)).Replace('\\', '/'),
+                            FileLength = new FileInfo(file).Length
+                        };
 
                         fcItemsBatch.Add(item);
 
-                        if (batchSize == _fileMetadataCreationBatchSize ||
-                            processedFileCount == files.Count)
+                        // batch size reach limit or the batch is the last batch
+                        if (metadataCreationProcessedFileCount % _fileMetadataCreationBatchSizeLimit == 0 ||
+                            metadataCreationProcessedFileCount == files.Count)
                         {
-                            batchSize = 0;
                             var metadataCreation = await _fileContainerHttpClient.CreateItemsAsync(_containerId, fcItemsBatch, _projectId, _uploadCancellationTokenSource.Token);
                             fcItemsBatch.Clear();
-                            context.Output($"Preparing for file upload: ({processedFileCount}/{files.Count})");
+                            context.Output($"Preparing for file upload: ({metadataCreationProcessedFileCount}/{files.Count})");
                         }
                     }
 
