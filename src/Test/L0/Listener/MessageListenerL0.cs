@@ -20,6 +20,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         private Mock<IAgentServer> _agentServer;
         private Mock<ICredentialManager> _credMgr;
         private Mock<ICapabilitiesManager> _capabilitiesManager;
+        private Mock<IDirectoryOwnershipTracker> _directoryOwnership;
 
         public MessageListenerL0()
         {
@@ -29,6 +30,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             _agentServer = new Mock<IAgentServer>();
             _credMgr = new Mock<ICredentialManager>();
             _capabilitiesManager = new Mock<ICapabilitiesManager>();
+            _directoryOwnership = new Mock<IDirectoryOwnershipTracker>();
         }
 
         private TestHostContext CreateTestContext([CallerMemberName] String testName = "")
@@ -38,6 +40,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             tc.SetSingleton<IAgentServer>(_agentServer.Object);
             tc.SetSingleton<ICredentialManager>(_credMgr.Object);
             tc.SetSingleton<ICapabilitiesManager>(_capabilitiesManager.Object);
+            tc.SetSingleton<IDirectoryOwnershipTracker>(_directoryOwnership.Object);
             return tc;
         }
 

@@ -22,6 +22,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         private string _testName;
         private Tracing _trace;
         private AssemblyLoadContext _loadContext;
+        private string _tempAgentRoot;
 
         public event EventHandler Unloading;
 
@@ -32,6 +33,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             _loadContext = AssemblyLoadContext.GetLoadContext(typeof(TestHostContext).GetTypeInfo().Assembly);
             _loadContext.Unloading += LoadContext_Unloading;
             _testName = testName;
+            _tempAgentRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("D"));
 
             // Trim the test assembly's root namespace from the test class's full name.
             _suiteName = testClass.GetType().FullName.Substring(
@@ -70,7 +72,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             await Task.Delay(TimeSpan.Zero);
         }
 
-        public T CreateService<T>() where T: class, IAgentService
+        public T CreateService<T>() where T : class, IAgentService
         {
             _trace.Verbose($"Create service: '{typeof(T).Name}'");
 
@@ -136,7 +138,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
         public string GetDirectory(WellKnownDirectory directory)
         {
-            throw new Exception("TODO: USE A NEW RANDOM TEMP DIR FOR EACH TEST. TEST-HOST-CONTEXT TEARDOWN CAN CLEANUP THE DIRECTORY");
+            string tempDir = Path.Combine(_tempAgentRoot, directory.ToString());
+            _trace.Info($"Use temp dir {tempDir} for {directory.ToString()}.");
+            Directory.CreateDirectory(tempDir);
+            return tempDir;
         }
 
         // simple convenience factory so each suite/test gets a different trace file per run

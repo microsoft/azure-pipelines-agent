@@ -126,7 +126,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         trace.Info("Agent execution been cancelled.");
                         return Constants.Agent.ReturnCode.Success;
                     }
-                    catch (NonRetryableException e)
+                    catch (DirectoryOwnershipMismatchException e)
                     {
                         terminal.WriteError(StringUtil.Loc("ErrorOccurred", e.Message));
                         trace.Error(e);

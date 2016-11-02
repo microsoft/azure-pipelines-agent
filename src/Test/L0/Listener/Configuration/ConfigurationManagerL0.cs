@@ -24,6 +24,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
         private Mock<IExtensionManager> _extnMgr;
         private Mock<IMachineGroupServer> _machineGroupServer;
         private Mock<INetFrameworkUtil> _netFrameworkUtil;
+        private Mock<IDirectoryOwnershipTracker> _directoryOwnership;
+
 
 #if OS_WINDOWS
         private Mock<IWindowsServiceControlManager> _serviceControlManager;
@@ -60,6 +62,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             _rsaKeyManager = new Mock<IRSAKeyManager>();
             _machineGroupServer = new Mock<IMachineGroupServer>();
             _netFrameworkUtil = new Mock<INetFrameworkUtil>();
+            _directoryOwnership = new Mock<IDirectoryOwnershipTracker>();
 
 #if OS_WINDOWS
             _serviceControlManager = new Mock<IWindowsServiceControlManager>();
@@ -135,6 +138,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
 #endif
 
             tc.SetSingleton<IRSAKeyManager>(_rsaKeyManager.Object);
+            tc.SetSingleton<IDirectoryOwnershipTracker>(_directoryOwnership.Object);
             tc.EnqueueInstance<IAgentServer>(_agentServer.Object);
             tc.EnqueueInstance<IMachineGroupServer>(_machineGroupServer.Object);
 
@@ -181,21 +185,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
 
                 _store.Setup(x => x.IsConfigured()).Returns(true);
 
-               trace.Info("Configured, verifying all the parameter value");
-               var s = configManager.LoadSettings();
-               Assert.NotNull(s);
-               Assert.True(s.ServerUrl.Equals(_expectedServerUrl));
-               Assert.True(s.AgentName.Equals(_expectedAgentName));
-               Assert.True(s.PoolId.Equals(_expectedPoolId));
-               Assert.True(s.WorkFolder.Equals(_expectedWorkFolder));
-           }
-       }
+                trace.Info("Configured, verifying all the parameter value");
+                var s = configManager.LoadSettings();
+                Assert.NotNull(s);
+                Assert.True(s.ServerUrl.Equals(_expectedServerUrl));
+                Assert.True(s.AgentName.Equals(_expectedAgentName));
+                Assert.True(s.PoolId.Equals(_expectedPoolId));
+                Assert.True(s.WorkFolder.Equals(_expectedWorkFolder));
+            }
+        }
 
 
-       /*
-        * Agent configuartion as deployment agent against VSTS account
-        * Collectioion name is not required
-        */
+        /*
+         * Agent configuartion as deployment agent against VSTS account
+         * Collectioion name is not required
+         */
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "ConfigurationManagement")]
@@ -234,9 +238,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
 
                 _extnMgr.Setup(x => x.GetExtensions<IConfigurationProvider>()).Returns(GetConfigurationProviderList(tc));
 
-                var expectedMachineGroups = new List<DeploymentMachineGroup>() { new DeploymentMachineGroup() { Pool = new TaskAgentPoolReference(new Guid(), 3), Name = "Test-MachineGroup"} };
-                _machineGroupServer.Setup(x => x.GetDeploymentMachineGroupsAsync(It.IsAny<string>(),It.IsAny<string>())).Returns(Task.FromResult(expectedMachineGroups));
-                
+                var expectedMachineGroups = new List<DeploymentMachineGroup>() { new DeploymentMachineGroup() { Pool = new TaskAgentPoolReference(new Guid(), 3), Name = "Test-MachineGroup" } };
+                _machineGroupServer.Setup(x => x.GetDeploymentMachineGroupsAsync(It.IsAny<string>(), It.IsAny<string>())).Returns(Task.FromResult(expectedMachineGroups));
+
                 trace.Info("Ensuring all the required parameters are available in the command line parameter");
                 await configManager.ConfigureAsync(command);
 
@@ -245,7 +249,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
                 trace.Info("Configured, verifying all the parameter value");
                 var s = configManager.LoadSettings();
                 Assert.NotNull(s);
-                Assert.True(s.ServerUrl.Equals(_expectedVSTSServerUrl,StringComparison.CurrentCultureIgnoreCase));
+                Assert.True(s.ServerUrl.Equals(_expectedVSTSServerUrl, StringComparison.CurrentCultureIgnoreCase));
                 Assert.True(s.AgentName.Equals(_expectedAgentName));
                 Assert.True(s.PoolId.Equals(3));
                 Assert.True(s.WorkFolder.Equals(_expectedWorkFolder));

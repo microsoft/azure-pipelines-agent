@@ -32,6 +32,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         private ITerminal _term;
         private IAgentServer _agentServer;
         private TaskAgentSession _session;
+        private IDirectoryOwnershipTracker _directoryOwnership;
+
         private readonly TimeSpan _sessionCreationRetryInterval = TimeSpan.FromSeconds(30);
         private readonly TimeSpan _sessionConflictRetryLimit = TimeSpan.FromMinutes(4);
         private readonly TimeSpan _clockSkewRetryLimit = TimeSpan.FromMinutes(30);
@@ -44,6 +46,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
             _term = HostContext.GetService<ITerminal>();
             _agentServer = HostContext.GetService<IAgentServer>();
+            _directoryOwnership = HostContext.GetService<IDirectoryOwnershipTracker>();
         }
 
         public async Task<Boolean> CreateSessionAsync(CancellationToken token)
@@ -155,6 +158,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             while (true)
             {
                 token.ThrowIfCancellationRequested();
+
+                // ensure the agent still own the workFolder everytime it try to get message.
+                _directoryOwnership.EnsureDirectoryOwneByAgent(HostContext.GetDirectory(WellKnownDirectory.Work));
+
                 TaskAgentMessage message = null;
                 try
                 {

@@ -102,6 +102,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             return Path.Combine(GetRootPath(), ".proxy");
         }
 
+        public static string GetDirectoryOwnershipFilePath(string directoryPath)
+        {
+            ArgUtil.Directory(directoryPath, nameof(GetDirectoryOwnershipFilePath));
+            return Path.Combine(directoryPath, ".ownership");
+        }
+
         public static string GetWorkPath(IHostContext hostContext)
         {
             var configurationStore = hostContext.GetService<IConfigurationStore>();
@@ -344,7 +350,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 failsafe = 100;
             }
 
-            for (int i = 0 ; i < failsafe ; i++)
+            for (int i = 0; i < failsafe; i++)
             {
                 try
                 {

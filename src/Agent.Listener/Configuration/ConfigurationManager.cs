@@ -331,6 +331,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _store.SaveSettings(settings);
             _term.WriteLine(StringUtil.Loc("SavedSettings", DateTime.UtcNow));
 
+            // Register workFolder ownership. this will provent 2 agent trying to use same workFolder
+            // When 2 agents use same workFolder during configuration, the last one will win.
+            // The first agent will get error when it start running. 
+            var directoryOwnership = HostContext.GetService<IDirectoryOwnershipTracker>();
+            directoryOwnership.RegisterDirectoryOwnership(HostContext.GetDirectory(WellKnownDirectory.Work));
+
 #if OS_WINDOWS
             // config windows service as part of configuration
             bool runAsService = command.GetRunAsService();
@@ -446,6 +452,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 {
                     _term.WriteLine(StringUtil.Loc("Skipping") + currentAction);
                 }
+
+                //delete workFolder ownership file
+                Trace.Info($"Delete directory ownership registrion file under {HostContext.GetDirectory(WellKnownDirectory.Work)}");
+                var directoryOwnership = HostContext.GetService<IDirectoryOwnershipTracker>();
+                directoryOwnership.UnRegisterDirectoryOwnership(HostContext.GetDirectory(WellKnownDirectory.Work));
 
                 //delete settings config file                
                 currentAction = StringUtil.Loc("DeletingSettings");
