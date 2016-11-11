@@ -334,11 +334,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 #if OS_WINDOWS
             // config windows service as part of configuration
             bool runAsService = command.GetRunAsService();
-            if (!runAsService)
-            {
-                return;
-            }
-            else
+            if (runAsService)
             {
                 if (!new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator))
                 {
@@ -355,6 +351,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             var serviceControlManager = HostContext.GetService<ILinuxServiceControlManager>();
             serviceControlManager.GenerateScripts(settings);
 #endif
+
+            // Get and apply Tags in case agent is configured against Machine Group
+            bool needToAddTags = agentProvider.GetAddTagsRequired(command);
+            while (needToAddTags)
+            {
+                try
+                {
+                    await agentProvider.GetAndAddTags(command, agent);
+                    break;
+                }
+                catch (Exception e) when (!command.Unattended)
+                {
+                    _term.WriteError(e);
+                    _term.WriteError(StringUtil.Loc("FailedToAddTags"));
+                }
+            }
+
         }
 
         public async Task UnconfigureAsync(CommandSettings command)

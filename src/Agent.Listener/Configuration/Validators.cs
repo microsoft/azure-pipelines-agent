@@ -1,7 +1,9 @@
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.IO;
+using System.Linq;
 using System.Security.Principal;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
@@ -88,6 +90,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
 
             return true;
+        }
+
+        public static bool MachineGroupTagsValidator(string tags)
+        {
+            if (string.IsNullOrEmpty(tags))
+            {
+                return false;
+            }
+
+            var tagList = tags.Split(',');
+
+            return tagList.All(tag => tag.Trim().Length <= 256);
         }
     }
 }

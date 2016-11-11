@@ -1,6 +1,7 @@
 ﻿using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.Common;
@@ -28,6 +29,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         Task DeleteAgentAsync(int agentPoolId, int agentId);
 
         void UpdateAgentSetting(AgentSettings settings);
+
+        bool GetAddTagsRequired(CommandSettings command);
+
+        Task GetAndAddTags(CommandSettings command, TaskAgent agent);
     }
 
     public sealed class BuildReleasesAgentConfigProvider : AgentService, IConfigurationProvider
@@ -49,6 +54,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public void UpdateAgentSetting(AgentSettings settings)
         {
             // No implementation required
+        }
+
+        public bool GetAddTagsRequired(CommandSettings command)
+        {
+            return false;   // Build Release agent does not required to have tags, will always return false
+        }
+
+        public Task GetAndAddTags(CommandSettings command, TaskAgent agent)
+        {
+            return Task.FromResult(0);
         }
 
         public string GetServerUrl(CommandSettings command)
@@ -206,6 +221,43 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         {
             settings.MachineGroupId = _machineGroupId;
             settings.ProjectName = _projectName;
+        }
+
+        public bool GetAddTagsRequired(CommandSettings command)
+        {
+            return command.GetAddMachineGroupTagsRequired();
+        }
+
+        public async Task GetAndAddTags(CommandSettings command, TaskAgent agent)
+        {
+            string tagString = command.GetMachineGroupTags();
+            Trace.Info("Given tags - {0} will be processed and added", tagString);
+
+            if (!string.IsNullOrWhiteSpace(tagString))
+            {
+                var tags =
+                    tagString.Split(',').Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim()).Distinct();
+
+                var tagsList = tags as IList<string> ?? tags.ToList();
+                if (tagsList.Any())
+                {
+                    Trace.Info("Adding tags - {0}", tagsList.ToString());
+                    await AddTags(agent, tagsList);
+                    _term.WriteLine(StringUtil.Loc("MachineGroupTagsAddedMsg"));
+                }
+            }
+        }
+
+        private async Task AddTags(TaskAgent agent, IList<string> tagsList)
+        {
+            DeploymentMachine deploymentMachine = new DeploymentMachine()
+            {
+                Agent = agent,
+                Tags = tagsList
+            };
+
+            await _machineGroupServer.UpdateDeploymentMachineGroupAsync(_projectName, _machineGroupId,
+                           new List<DeploymentMachine>() { deploymentMachine });
         }
 
         private async Task<int> GetPoolIdAsync(string projectName, string machineGroupName)
