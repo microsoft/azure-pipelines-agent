@@ -30,7 +30,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         void UpdateAgentSetting(AgentSettings settings);
 
-        bool GetAddTagsRequired(CommandSettings command);
+        bool GetTagsRequired(CommandSettings command);
 
         Task GetAndAddTags(CommandSettings command, TaskAgent agent);
     }
@@ -56,7 +56,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             // No implementation required
         }
 
-        public bool GetAddTagsRequired(CommandSettings command)
+        public bool GetTagsRequired(CommandSettings command)
         {
             return false;   // Build Release agent does not required to have tags, will always return false
         }
@@ -223,9 +223,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             settings.ProjectName = _projectName;
         }
 
-        public bool GetAddTagsRequired(CommandSettings command)
+        public bool GetTagsRequired(CommandSettings command)
         {
-            return command.GetAddMachineGroupTagsRequired();
+            return command.GetMachineGroupTagsRequired();
         }
 
         public async Task GetAndAddTags(CommandSettings command, TaskAgent agent)
@@ -236,7 +236,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             if (!string.IsNullOrWhiteSpace(tagString))
             {
                 var tags =
-                    tagString.Split(',').Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim()).Distinct();
+                    tagString.Split(',').Where(s => !string.IsNullOrWhiteSpace(s))
+                        .Select(s => s.Trim())
+                        .Distinct(StringComparer.CurrentCultureIgnoreCase);
 
                 var tagsList = tags as IList<string> ?? tags.ToList();
                 if (tagsList.Any())
@@ -250,7 +252,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         private async Task AddTags(TaskAgent agent, IList<string> tagsList)
         {
-            DeploymentMachine deploymentMachine = new DeploymentMachine()
+            var deploymentMachine = new DeploymentMachine()
             {
                 Agent = agent,
                 Tags = tagsList

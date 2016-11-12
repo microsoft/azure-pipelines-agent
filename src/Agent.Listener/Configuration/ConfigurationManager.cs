@@ -353,7 +353,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 #endif
 
             // Get and apply Tags in case agent is configured against Machine Group
-            bool needToAddTags = agentProvider.GetAddTagsRequired(command);
+            bool needToAddTags = agentProvider.GetTagsRequired(command);
             while (needToAddTags)
             {
                 try

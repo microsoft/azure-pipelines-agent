@@ -123,7 +123,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 defaultValue: false);
         }
 
-        public bool GetAddMachineGroupTagsRequired()
+        public bool GetMachineGroupTagsRequired()
         {
             return TestFlagOrPrompt(
                 name: Constants.Agent.CommandLine.Flags.AddMachineGroupTags,
