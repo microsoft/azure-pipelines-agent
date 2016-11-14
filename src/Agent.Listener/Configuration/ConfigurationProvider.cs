@@ -29,10 +29,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         Task DeleteAgentAsync(int agentPoolId, int agentId);
 
         void UpdateAgentSetting(AgentSettings settings);
-
-        bool GetTagsRequired(CommandSettings command);
-
-        Task GetAndAddTags(CommandSettings command, TaskAgent agent);
     }
 
     public sealed class BuildReleasesAgentConfigProvider : AgentService, IConfigurationProvider
@@ -54,16 +50,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public void UpdateAgentSetting(AgentSettings settings)
         {
             // No implementation required
-        }
-
-        public bool GetTagsRequired(CommandSettings command)
-        {
-            return false;   // Build Release agent does not required to have tags, will always return false
-        }
-
-        public Task GetAndAddTags(CommandSettings command, TaskAgent agent)
-        {
-            return Task.FromResult(0);
         }
 
         public string GetServerUrl(CommandSettings command)
@@ -128,6 +114,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public Type ExtensionType => typeof(IConfigurationProvider);
         private ITerminal _term;
         private IAgentServer _agentServer;
+        private CommandSettings _command;
 
         private string _projectName = string.Empty;
         private string _collectionName;
@@ -161,6 +148,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 _collectionName = command.GetCollectionName();
             }
 
+            _command = command;
             return _serverUrl;
         }
 
@@ -179,14 +167,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public string GetFailedToFindPoolErrorString() => StringUtil.Loc("FailedToFindMachineGroup");
 
-        public Task<TaskAgent> UpdateAgentAsync(int poolId, TaskAgent agent)
+        public async Task<TaskAgent> UpdateAgentAsync(int poolId, TaskAgent agent)
         {
-            return _agentServer.UpdateAgentAsync(poolId, agent);
+            agent = await _agentServer.UpdateAgentAsync(poolId, agent);
+            await GetAndAddTags(agent);
+
+            return agent;
         }
 
-        public Task<TaskAgent> AddAgentAsync(int poolId, TaskAgent agent)
+        public async Task<TaskAgent> AddAgentAsync(int poolId, TaskAgent agent)
         {
-            return _agentServer.AddAgentAsync(poolId, agent);
+            agent = await _agentServer.AddAgentAsync(poolId, agent);
+            await GetAndAddTags(agent);
+
+            return agent;
         }
 
         public Task DeleteAgentAsync(int agentPoolId, int agentId)
@@ -223,43 +217,48 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             settings.ProjectName = _projectName;
         }
 
-        public bool GetTagsRequired(CommandSettings command)
+        public async Task GetAndAddTags(TaskAgent agent)
         {
-            return command.GetMachineGroupTagsRequired();
-        }
-
-        public async Task GetAndAddTags(CommandSettings command, TaskAgent agent)
-        {
-            string tagString = command.GetMachineGroupTags();
-            Trace.Info("Given tags - {0} will be processed and added", tagString);
-
-            if (!string.IsNullOrWhiteSpace(tagString))
+            // Get and apply Tags in case agent is configured against Machine Group
+            bool needToAddTags = _command.GetMachineGroupTagsRequired();
+            while (needToAddTags)
             {
-                var tags =
-                    tagString.Split(',').Where(s => !string.IsNullOrWhiteSpace(s))
-                        .Select(s => s.Trim())
-                        .Distinct(StringComparer.CurrentCultureIgnoreCase);
-
-                var tagsList = tags as IList<string> ?? tags.ToList();
-                if (tagsList.Any())
+                try
                 {
-                    Trace.Info("Adding tags - {0}", tagsList.ToString());
-                    await AddTags(agent, tagsList);
-                    _term.WriteLine(StringUtil.Loc("MachineGroupTagsAddedMsg"));
+                    string tagString = _command.GetMachineGroupTags();
+                    Trace.Info("Given tags - {0} will be processed and added", tagString);
+
+                    if (!string.IsNullOrWhiteSpace(tagString))
+                    {
+                        var tagsList =
+                            tagString.Split(',').Where(s => !string.IsNullOrWhiteSpace(s))
+                                .Select(s => s.Trim())
+                                .Distinct(StringComparer.CurrentCultureIgnoreCase).ToList();
+
+                        if (tagsList.Any())
+                        {
+                            Trace.Info("Adding tags - {0}", tagsList.ToString());
+
+                            var deploymentMachine = new DeploymentMachine()
+                            {
+                                Agent = agent,
+                                Tags = tagsList
+                            };
+
+                            await _machineGroupServer.UpdateDeploymentMachineGroupAsync(_projectName, _machineGroupId,
+                                           new List<DeploymentMachine>() { deploymentMachine });
+
+                            _term.WriteLine(StringUtil.Loc("MachineGroupTagsAddedMsg"));
+                        }
+                    }
+                    break;
+                }
+                catch (Exception e) when (!_command.Unattended)
+                {
+                    _term.WriteError(e);
+                    _term.WriteError(StringUtil.Loc("FailedToAddTags"));
                 }
             }
-        }
-
-        private async Task AddTags(TaskAgent agent, IList<string> tagsList)
-        {
-            var deploymentMachine = new DeploymentMachine()
-            {
-                Agent = agent,
-                Tags = tagsList
-            };
-
-            await _machineGroupServer.UpdateDeploymentMachineGroupAsync(_projectName, _machineGroupId,
-                           new List<DeploymentMachine>() { deploymentMachine });
         }
 
         private async Task<int> GetPoolIdAsync(string projectName, string machineGroupName)

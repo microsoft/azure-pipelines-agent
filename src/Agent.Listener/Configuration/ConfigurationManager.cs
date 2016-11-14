@@ -351,23 +351,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             var serviceControlManager = HostContext.GetService<ILinuxServiceControlManager>();
             serviceControlManager.GenerateScripts(settings);
 #endif
-
-            // Get and apply Tags in case agent is configured against Machine Group
-            bool needToAddTags = agentProvider.GetTagsRequired(command);
-            while (needToAddTags)
-            {
-                try
-                {
-                    await agentProvider.GetAndAddTags(command, agent);
-                    break;
-                }
-                catch (Exception e) when (!command.Unattended)
-                {
-                    _term.WriteError(e);
-                    _term.WriteError(StringUtil.Loc("FailedToAddTags"));
-                }
-            }
-
         }
 
         public async Task UnconfigureAsync(CommandSettings command)
