@@ -91,17 +91,5 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             return true;
         }
-
-        public static bool MachineGroupTagsValidator(string tags)
-        {
-            if (string.IsNullOrEmpty(tags))
-            {
-                return false;
-            }
-
-            var tagList = tags.Split(',');
-
-            return tagList.All(tag => tag.Trim().Length <= 256);
-        }
     }
 }

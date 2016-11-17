@@ -221,7 +221,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 name: Constants.Agent.CommandLine.Args.MachineGroupTags,
                 description: StringUtil.Loc("MachineGroupTags"),
                 defaultValue: string.Empty,
-                validator: Validators.MachineGroupTagsValidator);
+                validator: Validators.NonEmptyValidator);
         }
 
         public string GetUserName()

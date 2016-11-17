@@ -201,7 +201,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                         try
                         {
-                            agent = await agentProvider.UpdateAgentAsync(poolId, agent);
+                            agent = await agentProvider.UpdateAgentAsync(poolId, agent, command);
                             _term.WriteLine(StringUtil.Loc("AgentReplaced"));
                             break;
                         }
@@ -224,7 +224,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                     try
                     {
-                        agent = await agentProvider.AddAgentAsync(poolId, agent);
+                        agent = await agentProvider.AddAgentAsync(poolId, agent, command);
                         _term.WriteLine(StringUtil.Loc("AgentAddedSuccessfully"));
                         break;
                     }

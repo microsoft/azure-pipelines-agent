@@ -22,9 +22,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         string GetFailedToFindPoolErrorString();
 
-        Task<TaskAgent> UpdateAgentAsync(int poolId, TaskAgent agent);
+        Task<TaskAgent> UpdateAgentAsync(int poolId, TaskAgent agent, CommandSettings command);
 
-        Task<TaskAgent> AddAgentAsync(int poolId, TaskAgent agent);
+        Task<TaskAgent> AddAgentAsync(int poolId, TaskAgent agent, CommandSettings command);
 
         Task DeleteAgentAsync(int agentPoolId, int agentId);
 
@@ -71,12 +71,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public string GetFailedToFindPoolErrorString() => StringUtil.Loc("FailedToFindPool");
 
-        public Task<TaskAgent> UpdateAgentAsync(int poolId, TaskAgent agent)
+        public Task<TaskAgent> UpdateAgentAsync(int poolId, TaskAgent agent, CommandSettings command)
         {
             return _agentServer.UpdateAgentAsync(poolId, agent);
         }
 
-        public Task<TaskAgent> AddAgentAsync(int poolId, TaskAgent agent)
+        public Task<TaskAgent> AddAgentAsync(int poolId, TaskAgent agent, CommandSettings command)
         { 
             return _agentServer.AddAgentAsync(poolId, agent);
         }
@@ -114,7 +114,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public Type ExtensionType => typeof(IConfigurationProvider);
         private ITerminal _term;
         private IAgentServer _agentServer;
-        private CommandSettings _command;
 
         private string _projectName = string.Empty;
         private string _collectionName;
@@ -148,7 +147,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 _collectionName = command.GetCollectionName();
             }
 
-            _command = command;
             return _serverUrl;
         }
 
@@ -167,18 +165,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public string GetFailedToFindPoolErrorString() => StringUtil.Loc("FailedToFindMachineGroup");
 
-        public async Task<TaskAgent> UpdateAgentAsync(int poolId, TaskAgent agent)
+        public async Task<TaskAgent> UpdateAgentAsync(int poolId, TaskAgent agent, CommandSettings command)
         {
             agent = await _agentServer.UpdateAgentAsync(poolId, agent);
-            await GetAndAddTags(agent);
+            await GetAndAddTags(agent, command);
 
             return agent;
         }
 
-        public async Task<TaskAgent> AddAgentAsync(int poolId, TaskAgent agent)
+        public async Task<TaskAgent> AddAgentAsync(int poolId, TaskAgent agent, CommandSettings command)
         {
             agent = await _agentServer.AddAgentAsync(poolId, agent);
-            await GetAndAddTags(agent);
+            await GetAndAddTags(agent, command);
 
             return agent;
         }
@@ -217,15 +215,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             settings.ProjectName = _projectName;
         }
 
-        public async Task GetAndAddTags(TaskAgent agent)
+        public async Task GetAndAddTags(TaskAgent agent, CommandSettings command)
         {
             // Get and apply Tags in case agent is configured against Machine Group
-            bool needToAddTags = _command.GetMachineGroupTagsRequired();
+            bool needToAddTags = command.GetMachineGroupTagsRequired();
             while (needToAddTags)
             {
                 try
                 {
-                    string tagString = _command.GetMachineGroupTags();
+                    string tagString = command.GetMachineGroupTags();
                     Trace.Info("Given tags - {0} will be processed and added", tagString);
 
                     if (!string.IsNullOrWhiteSpace(tagString))
@@ -253,7 +251,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     }
                     break;
                 }
-                catch (Exception e) when (!_command.Unattended)
+                catch (Exception e) when (!command.Unattended)
                 {
                     _term.WriteError(e);
                     _term.WriteError(StringUtil.Loc("FailedToAddTags"));
