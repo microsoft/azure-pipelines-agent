@@ -235,7 +235,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                         if (tagsList.Any())
                         {
-                            Trace.Info("Adding tags - {0}", tagsList.ToString());
+                            Trace.Info("Adding tags - {0}", string.Join(",", tagsList.ToArray()));
 
                             var deploymentMachine = new DeploymentMachine()
                             {
