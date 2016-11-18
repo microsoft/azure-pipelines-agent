@@ -1,9 +1,8 @@
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.IO;
-using System.Linq;
 using System.Security.Principal;
-using Microsoft.TeamFoundation.DistributedTask.WebApi;
+
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {

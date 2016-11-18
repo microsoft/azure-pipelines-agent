@@ -215,7 +215,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             settings.ProjectName = _projectName;
         }
 
-        public async Task GetAndAddTags(TaskAgent agent, CommandSettings command)
+        private async Task GetAndAddTags(TaskAgent agent, CommandSettings command)
         {
             // Get and apply Tags in case agent is configured against Machine Group
             bool needToAddTags = command.GetMachineGroupTagsRequired();
