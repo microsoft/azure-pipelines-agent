@@ -18,6 +18,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     public sealed class TaskRunner : AgentService, ITaskRunner
     {
         public bool AlwaysRun => TaskInstance?.AlwaysRun ?? default(bool);
+        public RunMode RunMode => TaskInstance?.RunMode ?? RunMode.Default;
+        public IList<TaskCondition> Conditions => TaskInstance?.Conditions ?? new List<TaskCondition>();
         public bool ContinueOnError => TaskInstance?.ContinueOnError ?? default(bool);
         public bool Critical => false;
         public string DisplayName => TaskInstance?.DisplayName;

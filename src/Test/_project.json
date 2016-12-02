@@ -1,5 +1,6 @@
 ﻿{
     "version": "1.0.0-*",
+    "testRunner": "xunit",
     "buildOptions": {
         "emitEntryPoint": true,
         "warningsAsErrors": true
@@ -37,6 +38,7 @@
         "xunit.console.netcore": "1.0.3-prerelease-00520-02",
         "xunit.netcore.extensions": "1.0.0-prerelease-00520-01",
         "xunit.runner.utility": "2.1.0",
+        "dotnet-test-xunit": "1.0.0-rc2-build10025",
         "Agent.Listener": {
             "target": "project",
             "version": "1.0.0-*"

@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
+
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -9,7 +12,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public JobExtensionRunner(
             Func<Task> runAsync,
-            bool alwaysRun,
+            RunMode runMode,
+            IList<TaskCondition> conditions,
             bool continueOnError,
             bool critical,
             string displayName,
@@ -17,7 +21,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             bool @finally)
         {
             _runAsync = runAsync;
-            AlwaysRun = alwaysRun;
+            RunMode = runMode;
+            Conditions = conditions;
             ContinueOnError = continueOnError;
             Critical = critical;
             DisplayName = displayName;
@@ -25,7 +30,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Finally = @finally;
         }
 
-        public bool AlwaysRun { get; private set; }
+        public bool AlwaysRun => false;
+        public RunMode RunMode { get; private set; }
+        public IList<TaskCondition> Conditions { get; private set; }
         public bool ContinueOnError { get; private set; }
         public bool Critical { get; private set; }
         public string DisplayName { get; private set; }

@@ -9,8 +9,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
     public interface IStep
     {
-        // Run even if a previous non-critical step has failed.
+        // Obsolete: Run even if a previous non-critical step has failed.
         bool AlwaysRun { get; }
+        // Determines under what circumstances the task will run.
+        RunMode RunMode { get; }
+        // If RunMode == 'Custom', the Conditions must evaluate to true for the step to run.
+        IList<TaskCondition> Conditions { get; }
         // Treat Failed as SucceededWithIssues.
         bool ContinueOnError { get; }
         // Treat failure as fatal. Subsequent AlwaysRun steps will not run.
@@ -49,19 +53,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             jobContext.Variables.Agent_JobStatus = TaskResult.Succeeded;
             foreach (IStep step in steps)
             {
-                Trace.Info($"Processing step: DisplayName='{step.DisplayName}', AlwaysRun={step.AlwaysRun}, ContinueOnError={step.ContinueOnError}, Critical={step.Critical}, Enabled={step.Enabled}, Finally={step.Finally}");
+                Trace.Info($"Processing step: DisplayName='{step.DisplayName}', AlwaysRun={step.AlwaysRun}, ContinueOnError={step.ContinueOnError}, Critical={step.Critical}, Enabled={step.Enabled}, Finally={step.Finally}, RunMode={step.RunMode}, Conditions={string.Join(" AND ", step.Conditions.Select(c => c.ToString()))}");
                 ArgUtil.Equal(true, step.Enabled, nameof(step.Enabled));
                 ArgUtil.NotNull(step.ExecutionContext, nameof(step.ExecutionContext));
                 ArgUtil.NotNull(step.ExecutionContext.Variables, nameof(step.ExecutionContext.Variables));
 
                 jobContext.Progress(stepCount++ * 100 / steps.Count);
 
-                // TODO: Run finally even if canceled?
-
-                // Skip if a previous step failed and the current step is not AlwaysRun.
-                if ((stepFailed && !step.AlwaysRun && !step.Finally)
-                    // Or if a previous Critical step failed and the current step is not Finally.
-                    || (criticalStepFailed && !step.Finally))
+                if (!ShouldRunStep(step, stepFailed, criticalStepFailed))
                 {
                     Trace.Info("Skipping step.");
                     
@@ -203,6 +202,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
 
                 Trace.Info($"Current state: job state = '{jobContext.Result}', step failed = {stepFailed}, critical step failed = {criticalStepFailed}");
+            }
+        }
+
+        private bool ShouldRunStep(IStep step, bool stepFailed, bool criticalStepFailed)
+        {            
+            switch(step.RunMode)
+            {
+                // The server hasn't been upgraded yet. Fallback to old code
+                case RunMode.Undefined:
+                    // TODO: Run finally even if canceled?
+                    // Run if the step if Finally or no step has failed or the step is always run and no criticalstep has failed
+                    return step.Finally || !stepFailed || (!criticalStepFailed && step.AlwaysRun);
+                default:
+                    return step.Finally || ShouldRunStepBasedOnRunMode(step, stepFailed, criticalStepFailed);
+            }
+        }
+
+        private static bool ShouldRunStepBasedOnRunMode(IStep step, bool stepFailed, bool criticalStepFailed)
+        {
+            switch(step.RunMode)
+            {
+                case RunMode.Default:
+                    return !stepFailed;
+                case RunMode.Always:
+                    return !criticalStepFailed;
+                case RunMode.Rollback:
+                    return stepFailed && !criticalStepFailed;
+                case RunMode.Custom:
+                    return !stepFailed && TaskConditionsEvaluator.AreConditionsSatisfied(step.Conditions, step.ExecutionContext.Variables, step.ExecutionContext);
+                default:
+                    return true;
             }
         }
     }
