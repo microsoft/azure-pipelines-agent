@@ -38,7 +38,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         bool IsValidCredential(string domain, string userName, string logonPassword);
 
-        NTAccount GetDefaultServiceAccount();
+        NTAccount GetDefaultServiceAccount(string agentType);
 
         bool IsServiceExists(string serviceName);
 
@@ -390,9 +390,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
-        public NTAccount GetDefaultServiceAccount()
+        public NTAccount GetDefaultServiceAccount(string agentType)
         {
-            SecurityIdentifier sid = new SecurityIdentifier(WellKnownSidType.NetworkServiceSid, domainSid: null);
+            var sid = agentType == Constants.Agent.AgentConfigurationProvider.DeploymentAgentConfiguration ? new SecurityIdentifier(WellKnownSidType.LocalSystemSid, domainSid: null) : new SecurityIdentifier(WellKnownSidType.NetworkServiceSid, domainSid: null);
             NTAccount account = sid.Translate(typeof(NTAccount)) as NTAccount;
 
             if (account == null)

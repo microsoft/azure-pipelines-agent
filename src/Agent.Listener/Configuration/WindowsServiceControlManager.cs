@@ -26,13 +26,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _term = HostContext.GetService<ITerminal>();
         }
 
-        public void ConfigureService(AgentSettings settings, CommandSettings command)
+        public void ConfigureService(AgentSettings settings, CommandSettings command, string agentType)
         {
             Trace.Entering();
             // TODO: Fix bug that exists in the legacy Windows agent where configuration using mirrored credentials causes an error, but the agent is still functional (after restarting). Mirrored credentials is a supported scenario and shouldn't manifest any errors.
 
             // We use NetworkService as default account.
-            NTAccount defaultServiceAccount = _windowsServiceHelper.GetDefaultServiceAccount();
+            NTAccount defaultServiceAccount = _windowsServiceHelper.GetDefaultServiceAccount(agentType);
             string logonAccount = command.GetWindowsLogonAccount(defaultValue: defaultServiceAccount.ToString());
 
             string domainName;
