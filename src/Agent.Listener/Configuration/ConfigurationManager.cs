@@ -344,7 +344,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                 Trace.Info("Configuring to run the agent as service");
                 var serviceControlManager = HostContext.GetService<IWindowsServiceControlManager>();
-                serviceControlManager.ConfigureService(settings, command, agentType);
+                serviceControlManager.ConfigureService(settings, command);
             }
 #elif OS_LINUX || OS_OSX
             // generate service config script for OSX and Linux, GenerateScripts() will no-opt on windows.

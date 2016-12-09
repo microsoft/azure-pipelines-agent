@@ -38,7 +38,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         bool IsValidCredential(string domain, string userName, string logonPassword);
 
-        NTAccount GetDefaultServiceAccount(string agentType);
+        NTAccount GetDefaultServiceAccount();
+
+        NTAccount GetDefaultAdminServiceAccount();
 
         bool IsServiceExists(string serviceName);
 
@@ -390,17 +392,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
-        public NTAccount GetDefaultServiceAccount(string agentType)
+        public NTAccount GetDefaultServiceAccount()
         {
-            var sid = agentType == Constants.Agent.AgentConfigurationProvider.DeploymentAgentConfiguration ? new SecurityIdentifier(WellKnownSidType.LocalSystemSid, domainSid: null) : new SecurityIdentifier(WellKnownSidType.NetworkServiceSid, domainSid: null);
-            NTAccount account = sid.Translate(typeof(NTAccount)) as NTAccount;
+            return GetServiceAccount(WellKnownSidType.NetworkServiceSid);
+        }
 
-            if (account == null)
-            {
-                throw new InvalidOperationException(StringUtil.Loc("NetworkServiceNotFound"));
-            }
-
-            return account;
+        public NTAccount GetDefaultAdminServiceAccount()
+        {
+            return GetServiceAccount(WellKnownSidType.LocalSystemSid);
         }
 
         public void RemoveGroupFromFolderSecuritySetting(string folderPath, string groupName)
@@ -758,6 +757,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 Trace.Error(exception);
                 return null;
             }
+        }
+
+        private NTAccount GetServiceAccount(WellKnownSidType sidType)
+        {
+            SecurityIdentifier sid = new SecurityIdentifier(sidType, domainSid: null);
+            NTAccount account = sid.Translate(typeof(NTAccount)) as NTAccount;
+
+            if (account == null)
+            {
+                throw new InvalidOperationException(StringUtil.Loc("NetworkServiceNotFound"));
+            }
+
+            return account;
         }
 
         // Helper class not to repeat whenever we deal with LSA* api

@@ -8,7 +8,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
     [ServiceLocator(Default = typeof(WindowsServiceControlManager))]
     public interface IWindowsServiceControlManager : IAgentService
     {
-        void ConfigureService(AgentSettings settings, CommandSettings command, string agentType);
+        void ConfigureService(AgentSettings settings, CommandSettings command);
 
         void UnconfigureService();
     }
