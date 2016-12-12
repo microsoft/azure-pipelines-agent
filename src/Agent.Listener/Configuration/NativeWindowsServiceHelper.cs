@@ -394,12 +394,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public NTAccount GetDefaultServiceAccount()
         {
-            return GetServiceAccount(WellKnownSidType.NetworkServiceSid);
+            SecurityIdentifier sid = new SecurityIdentifier(WellKnownSidType.NetworkServiceSid, domainSid: null);
+            NTAccount account = sid.Translate(typeof(NTAccount)) as NTAccount;
+
+            if (account == null)
+            {
+                throw new InvalidOperationException(StringUtil.Loc("NetworkServiceNotFound"));
+            }
+
+            return account;
         }
 
         public NTAccount GetDefaultAdminServiceAccount()
         {
-            return GetServiceAccount(WellKnownSidType.LocalSystemSid);
+            SecurityIdentifier sid = new SecurityIdentifier(WellKnownSidType.LocalSystemSid, domainSid: null);
+            NTAccount account = sid.Translate(typeof(NTAccount)) as NTAccount;
+
+            if (account == null)
+            {
+                throw new InvalidOperationException(StringUtil.Loc("LocalSystemAccountNotFound"));
+            }
+
+            return account;
         }
 
         public void RemoveGroupFromFolderSecuritySetting(string folderPath, string groupName)
@@ -757,19 +773,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 Trace.Error(exception);
                 return null;
             }
-        }
-
-        private NTAccount GetServiceAccount(WellKnownSidType sidType)
-        {
-            SecurityIdentifier sid = new SecurityIdentifier(sidType, domainSid: null);
-            NTAccount account = sid.Translate(typeof(NTAccount)) as NTAccount;
-
-            if (account == null)
-            {
-                throw new InvalidOperationException(StringUtil.Loc("NetworkServiceNotFound"));
-            }
-
-            return account;
         }
 
         // Helper class not to repeat whenever we deal with LSA* api
