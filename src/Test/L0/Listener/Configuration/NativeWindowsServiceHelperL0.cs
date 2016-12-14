@@ -13,6 +13,8 @@ namespace Test.L0.Listener.Configuration
 {
     public class NativeWindowsServiceHelperL0
     {
+
+#if OS_WINDOWS
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "ConfigurationManagement")]
@@ -48,6 +50,6 @@ namespace Test.L0.Listener.Configuration
                 Assert.True(defaultServiceAccount.ToString().Equals(@"NT AUTHORITY\SYSTEM"), "If agent is getting configured as deployment agent, default service accout should be 'NT AUTHORITY\\SYSTEM'");
             }
         }
-
+#endif
     }
 }
