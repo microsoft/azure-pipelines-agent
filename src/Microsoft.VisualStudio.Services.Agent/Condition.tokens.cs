@@ -29,20 +29,12 @@ namespace Microsoft.VisualStudio.Services.Agent
                 char c = _raw[index];
                 switch (c)
                 {
-                    case ',':
-                        _tokens.Add(new CommaToken(index++));
-                        return;
-                    case '[':
-                        _tokens.Add(new OpenBracketToken(index++));
-                        return;
-                    case ']':
-                        _tokens.Add(new CloseBracketToken(index++));
-                        return;
-                    case '(':
-                        _tokens.Add(new OpenParenToken(index++));
-                        return;
-                    case ')':
-                        _tokens.Add(new CloseParenToken(index++));
+                    case Constants.Conditions.CloseHashtable:
+                    case Constants.Conditions.CloseFunction:
+                    case Constants.Conditions.OpenHashtable:
+                    case Constants.Conditions.OpenFunction:
+                    case Constants.Conditions.Separator:
+                        _tokens.Add(new PunctuationToken(c, index++));
                         return;
                     case '\'':
                         CreateStringToken(ref index);
@@ -88,6 +80,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         private void CreateKeywordToken(ref int index)
         {
+            // Read to the end of the keyword.
             int startIndex = index;
             index++; // Skip the first char. It is already known to be the start of the keyword.
             while (index < _raw.Length && !IsWhitespaceOrPunctuation(_raw[index]))
@@ -95,37 +88,32 @@ namespace Microsoft.VisualStudio.Services.Agent
                 index++;
             }
 
+            // Convert to token.
             int length = index - startIndex;
             string str = _raw.Substring(startIndex, length);
-            switch (str.ToUpperInvariant())
+            if (str.Equals(bool.TrueString, StringComparison.OrdinalIgnoreCase))
             {
-                case "TRUE":
-                    _tokens.Add(new TrueToken(startIndex, length));
-                    return;
-                case "FALSE":
-                    _tokens.Add(new FalseToken(startIndex, length));
-                    return;
-                case "AND":
-                    _tokens.Add(new AndToken(startIndex, length));
-                    return;
-                case "OR":
-                    _tokens.Add(new OrToken(startIndex, length));
-                    return;
-                case "XOR":
-                    _tokens.Add(new XorToken(startIndex, length));
-                    return;
-                case "NOT":
-                    _tokens.Add(new NotToken(startIndex, length));
-                    return;
-                case "VARIABLES":
-                    _tokens.Add(new VariablesToken(startIndex, length));
-                    return;
-                case "CAPABILITIES":
-                    _tokens.Add(new CapabilitiesToken(startIndex, length));
-                    return;
-                default:
-                    _tokens.Add(new UnrecognizedToken(startIndex, length));
-                    return;
+                _tokens.Add(new BooleanToken(true, startIndex, length));
+            }
+            else if (str.Equals(bool.FalseString, StringComparison.OrdinalIgnoreCase))
+            {
+                _tokens.Add(new BooleanToken(false, startIndex, length));
+            }
+            else if (str.Equals(Constants.Conditions.And, StringComparison.OrdinalIgnoreCase) ||
+                str.Equals(Constants.Conditions.Not, StringComparison.OrdinalIgnoreCase) ||
+                str.Equals(Constants.Conditions.Or, StringComparison.OrdinalIgnoreCase) ||
+                str.Equals(Constants.Conditions.Xor, StringComparison.OrdinalIgnoreCase))
+            {
+                _tokens.Add(new FunctionToken(str, startIndex, length));
+            }
+            else if (str.Equals(Constants.Conditions.Capabilities, StringComparison.OrdinalIgnoreCase) ||
+                str.Equals(Constants.Conditions.Variables, StringComparison.OrdinalIgnoreCase))
+            {
+                _tokens.Add(new HashtableToken(str, startIndex, length));
+            }
+            else
+            {
+                _tokens.Add(new UnrecognizedToken(startIndex, length));
             }
         }
 
@@ -170,11 +158,11 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             switch (c)
             {
-                case ',':
-                case '[':
-                case ']':
-                case '(':
-                case ')':
+                case Constants.Conditions.CloseFunction:
+                case Constants.Conditions.CloseHashtable:
+                case Constants.Conditions.OpenFunction:
+                case Constants.Conditions.OpenHashtable:
+                case Constants.Conditions.Separator:
                     return true;
                 default:
                     return char.IsWhiteSpace(c);
@@ -194,59 +182,19 @@ namespace Microsoft.VisualStudio.Services.Agent
             public int Length { get; }
         }
 
-        // --------------------------------------------------------------------------------
         // Punctuation: , [ ] ( )
-        // --------------------------------------------------------------------------------
         private sealed class PunctuationToken : Token
         {
-            public PunctuationToken(int index)
+            public PunctuationToken(char c, int index)
                 : base(index)
             {
+                Value = c;
             }
-        }
-        private sealed class CommaToken : PunctuationToken
-        {
-            public CommaToken(int index)
-                : base(index)
-            {
-            }
+
+            public char Value { get; }
         }
 
-        private sealed class OpenBracketToken : PunctuationToken
-        {
-            public OpenBracketToken(int index)
-                : base(index)
-            {
-            }
-        }
-
-        private sealed class CloseBracketToken : PunctuationToken
-        {
-            public CloseBracketToken(int index)
-                : base(index)
-            {
-            }
-        }
-
-        private sealed class OpenParenToken : PunctuationToken
-        {
-            public OpenParenToken(int index)
-                : base(index)
-            {
-            }
-        }
-
-        private sealed class CloseParenToken : PunctuationToken
-        {
-            public CloseParenToken(int index)
-                : base(index)
-            {
-            }
-        }
-
-        // --------------------------------------------------------------------------------
         // Literals: True, False, Number, String
-        // --------------------------------------------------------------------------------
         private abstract class LiteralToken : Token
         {
             public LiteralToken(int index, int length)
@@ -255,20 +203,15 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        private sealed class TrueToken : LiteralToken
+        private sealed class BooleanToken : LiteralToken
         {
-            public TrueToken(int index, int length)
+            public BooleanToken(bool b, int index, int length)
                 : base(index, length)
             {
+                Value = b;
             }
-        }
 
-        private sealed class FalseToken : LiteralToken
-        {
-            public FalseToken(int index, int length)
-                : base(index, length)
-            {
-            }
+            public bool Value { get; }
         }
 
         private sealed class NumberToken : LiteralToken
@@ -293,74 +236,28 @@ namespace Microsoft.VisualStudio.Services.Agent
             public string Value { get; }
         }
 
-        // --------------------------------------------------------------------------------
         // Hashtable: Capabilities, Variables
-        // --------------------------------------------------------------------------------
-        private abstract class HashtableToken : Token
+        private sealed class HashtableToken : Token
         {
-            public HashtableToken(int index, int length)
+            public HashtableToken(string name, int index, int length)
                 : base(index, length)
             {
+                Name = name;
             }
+
+            public string Name { get; }
         }
 
-        private sealed class CapabilitiesToken : HashtableToken
+        // Functions: And, Not, Or, Xor
+        private sealed class FunctionToken : Token
         {
-            public CapabilitiesToken(int index, int length)
+            public FunctionToken(string name, int index, int length)
                 : base(index, length)
             {
+                Name = name;
             }
-        }
 
-        private sealed class VariablesToken : HashtableToken
-        {
-            public VariablesToken(int index, int length)
-                : base(index, length)
-            {
-            }
-        }
-
-        // --------------------------------------------------------------------------------
-        // Functions: And, Or, Xor, Not
-        // --------------------------------------------------------------------------------
-        private abstract class FunctionToken : Token
-        {
-            public FunctionToken(int index, int length)
-                : base(index, length)
-            {
-            }
-        }
-
-        private sealed class AndToken : FunctionToken
-        {
-            public AndToken(int index, int length)
-                : base(index, length)
-            {
-            }
-        }
-
-        private sealed class OrToken : FunctionToken
-        {
-            public OrToken(int index, int length)
-                : base(index, length)
-            {
-            }
-        }
-
-        private sealed class XorToken : FunctionToken
-        {
-            public XorToken(int index, int length)
-                : base(index, length)
-            {
-            }
-        }
-
-        private sealed class NotToken : FunctionToken
-        {
-            public NotToken(int index, int length)
-                : base(index, length)
-            {
-            }
+            public string Name { get; }
         }
 
         // --------------------------------------------------------------------------------

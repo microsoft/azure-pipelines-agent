@@ -19,85 +19,146 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         private void CreateTree()
         {
-            Node parentNode = null;
+            ContainerNode parentNode = null;
             for (int tokenIndex = 0; tokenIndex < _tokens.Count; tokenIndex++)
             {
                 Token token = _tokens[tokenIndex];
-                ThrowIfInvalidToken(token);
+                ThrowIfInvalid(token);
 
-                // Test if punctuation.
-                if (token is PunctuationToken)
+                // Check if punctuation.
+                var punctuation = token as PunctuationToken;
+                if (punctuation != null)
                 {
-                    ValidatePunctuation(parentNode, token as PunctuationToken);
-                    if (token is CloseBracketToken || token is CloseParenToken)
+                    ValidatePunctuation(parentNode, punctuation, tokenIndex);
+                    if (punctuation.Value == Constants.Conditions.CloseFunction ||
+                        punctuation.Value == Constants.Conditions.CloseHashtable)
                     {
-                        parentNode = parentNode.Parent;
+                        parentNode = parentNode.Parent; // Pop parent.
                     }
 
                     continue;
                 }
 
-                // Validate.
+                // Validate the token and create the node.
+                Node newNode = null;
                 if (token is LiteralToken)
                 {
-                    ValidateLiteral(parentNode, token);
+                    ValidateLiteral(parentNode, token as LiteralToken, tokenIndex);
+                    newNode = new LiteralNode(token as LiteralToken);
                 }
                 else if (token is FunctionToken)
                 {
-                    ValidateFunction(parentNode, token);
+                    ValidateFunction(parentNode, token as FunctionToken, tokenIndex);
+                    tokenIndex++; // Skip the open paren that follows.
+                    newNode = new FunctionNode(token as FunctionToken);
                 }
                 else if (token is HashtableToken)
                 {
-                    ValidateHashtable(parentNode, token);
+                    ValidateHashtable(parentNode, token as HashtableToken, tokenIndex);
+                    tokenIndex++; // Skip the open bracket that follows.
+                    newNode = new HashtableNode(token as HashtableToken);
                 }
                 else
                 {
                     throw new NotSupportedException("Unexpected token type: " + token.GetType().FullName);
                 }
 
-                // Create the node.
+                // Update the tree.
                 if (_root == null)
                 {
-                    _root = CreateNode(token);
+                    _root = newNode;
                 }
                 else
                 {
-                    parentNode.AddChild(CreateNode(token));
+                    parentNode.AddChild(newNode);
+                }
+
+                // Adjust parent.
+                if (newNode is ContainerNode)
+                {
+                    parentNode = newNode as ContainerNode;
                 }
             }
         }
 
-        private void ThrowIfInvalidToken(Token token)
+        private void ThrowIfInvalid(Token token)
         {
             ArgUtil.NotNull(token, nameof(token));
             if (token is InvalidToken)
             {
                 if (token is MalformedNumberToken)
                 {
-                    Throw("Unable to parse number");
+                    Throw("Unable to parse number", token);
                 }
                 else if (token is UnterminatedStringToken)
                 {
-                    Throw("Unterminated string");
+                    Throw("Unterminated string", token);
                 }
                 else if (token is UnrecognizedToken)
                 {
-                    Throw("Unrecognized keyword");
+                    Throw("Unrecognized keyword", token);
                 }
 
                 throw new NotSupportedException("Unexpected token type: " + token.GetType().FullName);
             }
         }
 
-        private void ValidatePunctuation(Node parentNode, PunctuationToken token)
+        private void ValidateLiteral(Node parentNode, LiteralToken token, int tokenIndex)
+        {
+            ArgUtil.NotNull(token, nameof(token));
+
+            // Validate nothing follows, a separator follows, or close punction follows.
+            Token nextToken = tokenIndex < _tokens.Count ? _tokens[tokenIndex + 1] : null;
+            ValidateNullOrSeparatorOrClosePunctuation(nextToken);
+        }
+
+        private void ValidateHashtable(Node parentNode, HashtableToken token, int tokenIndex)
+        {
+            ArgUtil.NotNull(token, nameof(token));
+
+            // Validate open bracket follows.
+            PunctuationToken nextToken = tokenIndex < _tokens.Count ? _tokens[tokenIndex + 1] as PunctuationToken : null;
+            if (nextToken == null || nextToken.Value != Constants.Conditions.OpenHashtable)
+            {
+                Throw($"Expected '{Constants.Conditions.OpenHashtable}' to follow symbol", token);
+            }
+
+            // Validate a literal, hashtable, or function follows.
+            Token nextNextToken = tokenIndex + 1 < _tokens.Count ? _tokens[tokenIndex + 2] : null;
+            if (nextNextToken as LiteralToken == null && nextNextToken as HashtableToken == null && nextNextToken as FunctionToken == null)
+            {
+                Throw("Expected a value to follow symbol", nextToken);
+            }
+        }
+
+        private void ValidateFunction(Node parentNode, FunctionToken token, int tokenIndex)
+        {
+            ArgUtil.NotNull(token, nameof(token));
+
+            // Valdiate open paren follows.
+            PunctuationToken nextToken = tokenIndex < _tokens.Count ? _tokens[tokenIndex + 1] as PunctuationToken : null;
+            if (nextToken == null || nextToken.Value != Constants.Conditions.OpenFunction)
+            {
+                Throw($"Expected '{Constants.Conditions.OpenFunction}' to follow symbol", token);
+            }
+
+            // Validate a literal, hashtable, or function follows.
+            Token nextNextToken = tokenIndex + 1 < _tokens.Count ? _tokens[tokenIndex + 2] : null;
+            if (nextNextToken as LiteralToken == null && nextNextToken as HashtableToken == null && nextNextToken as FunctionToken == null)
+            {
+                Throw("Expected a value to follow symbol", nextToken);
+            }
+        }
+
+        private void ValidatePunctuation(ContainerNode parentNode, PunctuationToken token, int tokenIndex)
         {
             ArgUtil.NotNull(token, nameof(token));
 
             // Required open brackets and parens are validated and skipped when a hashtable
             // or function node is created. Any open bracket or paren tokens found at this
             // point are errors.
-            if (token is OpenBracketToken ||
-                token is OpenParenToken)
+            if (token.Value == Constants.Conditions.OpenFunction ||
+                token.Value == Constants.Conditions.OpenHashtable)
             {
                 Throw("Unexpected symbol", token);
             }
@@ -106,43 +167,67 @@ namespace Microsoft.VisualStudio.Services.Agent
             {
                 // A condition cannot lead with punction.
                 // And punction should not trail the closing of the root node.
-                if (token is CommaToken ||
-                    token is CloseBracketToken ||
-                    token is CloseParenToken)
+                Throw("Unexpected symbol", token);
+            }
+
+            if (token.Value == Constants.Conditions.Separator)
+            {
+                // Validate parent is a function under max parameters threshold.
+                if (!(parentNode is FunctionNode) ||
+                    parentNode.Children.Count >= parentNode.MaxChildren)
                 {
                     Throw("Unexpected symbol", token);
                 }
+
+                // Validate a literal, function, or hashtable follows.
+                Token nextToken = tokenIndex < _tokens.Count ? _tokens[tokenIndex + 1] : null;
+                if (nextToken == null ||
+                    (!(nextToken is LiteralToken) && !(nextToken is FunctionToken) && !(nextToken is HashtableToken)))
+                {
+                    Throw("Expected another value to follow the separator symbol", token);
+                }
             }
-            else
+            else if (token.Value == Constants.Conditions.CloseHashtable)
             {
-                if (token is CommaToken)
+                // Validate nothing follows, a separator follows, or close punction follows.
+                Token nextToken = tokenIndex < _tokens.Count ? _tokens[tokenIndex + 1] : null;
+                ValidateNullOrSeparatorOrClosePunctuation(nextToken);
+            }
+            else if (token.Value == Constants.Conditions.CloseFunction)
+            {
+                // Validate parent is a function above min parameters threshold.
+                if (!(parentNode is FunctionNode) ||
+                    parentNode.Children.Count < parentNode.MinChildren)
                 {
-                    // Validate parent is a function under max parameters threshold.
-                    if (!(parentNode is FunctionNode) ||
-                        parentNode.Children.Count >= parentNode.MaxChildren)
-                    {
-                        Throw("Unexpected symbol", token);
-                    }
+                    Throw("Unexpected symbol", token);
                 }
-                else if (token is CloseBracketToken)
+
+                // Validate nothing follows, a separator follows, or close punction follows.
+                Token nextToken = tokenIndex < _tokens.Count ? _tokens[tokenIndex + 1] : null;
+                ValidateNullOrSeparatorOrClosePunctuation(nextToken);
+            }
+        }
+
+        private void ValidateNullOrSeparatorOrClosePunctuation(Token token)
+        {
+            if (token == null)
+            {
+                return;
+            }
+
+            var punctuation = token as PunctuationToken;
+            if (punctuation != null)
+            {
+                switch (punctuation.Value)
                 {
-                    // Validate parent is a hashtable with exactly one parameter.
-                    if (!(parentNode is HashtableNode) ||
-                        parentNode.Children.Count != 1)
-                    {
-                        Throw("Unexpected symbol", token);
-                    }
-                }
-                else if (token is CloseParenToken)
-                {
-                    // Validate parent is a function above min parameters threshold.
-                    if (!(parentNode is FunctionNode) ||
-                        parentNode.Children.Count < parentNode.MinChildren)
-                    {
-                        Throw("Unexpected symbol", token);
-                    }
+                    case Constants.Conditions.CloseFunction:
+                    case Constants.Conditions.CloseHashtable:
+                    case Constants.Conditions.Separator:
+                        return;
                 }
             }
+
+            Throw("Unexpected symbol", token);
         }
 
         private void Throw(string description, Token token)
@@ -163,14 +248,30 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         private abstract class Node
         {
-            public Node Parent { get; set; }
+            public Node(Token token)
+            {
+                Token = token;
+            }
+
+            public ContainerNode Parent { get; set; }
+
+            public Token Token { get; }
         }
 
         private abstract class ContainerNode : Node
         {
+            public ContainerNode(Token token)
+                : base(token)
+            {
+            }
+
             private readonly List<Node> _children = new List<Node>();
 
-            private IReadOnlyList<Node> Children => _children.AsReadOnly();
+            public IReadOnlyList<Node> Children => _children.AsReadOnly();
+
+            public abstract int MinChildren { get; }
+
+            public abstract int MaxChildren { get; }
 
             public void AddChild(Node child)
             {
@@ -179,16 +280,52 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        private abstract class LiteralNode : Node
+        private sealed class LiteralNode : Node
         {
+            public LiteralNode(LiteralToken token)
+                : base(token)
+            {
+                ArgUtil.NotNull(token, nameof(token));
+            }
         }
 
-        private abstract class HashtableNode : ContainerNode
+        private sealed class HashtableNode : ContainerNode
         {
+            public HashtableNode(HashtableToken token)
+                : base(token)
+            {
+                ArgUtil.NotNull(token, nameof(token));
+            }
+
+            public sealed override int MinChildren => 1;
+
+            public sealed override int MaxChildren => 1;
         }
 
-        private abstract class FunctionNode : ContainerNode
+        private sealed class FunctionNode : ContainerNode
         {
+            public FunctionNode(FunctionToken token)
+                : base(token)
+            {
+                ArgUtil.NotNull(token, nameof(token));
+                if (string.Equals(token.Name, Constants.Conditions.And, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(token.Name, Constants.Conditions.Or, StringComparison.OrdinalIgnoreCase))
+                {
+                    MaxChildren = int.MaxValue;
+                }
+                else if (string.Equals(token.Name, Constants.Conditions.Xor, StringComparison.OrdinalIgnoreCase))
+                {
+                    MaxChildren = 2;
+                }
+                else if (string.Equals(token.Name, Constants.Conditions.Not, StringComparison.OrdinalIgnoreCase))
+                {
+                    MaxChildren = 1;
+                }
+            }
+
+            public sealed override int MinChildren => 1;
+            
+            public sealed override int MaxChildren { get; }
         }
     }
 }
