@@ -6,83 +6,72 @@ using System.Text;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
-    public sealed class ConditionParser
+    public sealed partial class Condition
     {
-        private int _index;
-        private string _raw;
-
-        public ConditionParser(string condition)
+        private void CreateTokens()
         {
-            _raw = condition;
-            
-            // Tokenize and build expression hierarchy.
+            int index = 0;
             while (true)
             {
-                Token token = GetNextToken();
-                if (token == null)
+                // Skip whitespace.
+                while (index < _raw.Length && char.IsWhiteSpace(_raw[index]))
                 {
-                    break;
+                    index++;
+                }
+
+                // Test end of string.
+                if (index >= _raw.Length)
+                {
+                    return;
+                }
+
+                // Read the first character to determine the type of token.
+                char c = _raw[index];
+                switch (c)
+                {
+                    case ',':
+                        _tokens.Add(new CommaToken(index++));
+                        return;
+                    case '[':
+                        _tokens.Add(new OpenBracketToken(index++));
+                        return;
+                    case ']':
+                        _tokens.Add(new CloseBracketToken(index++));
+                        return;
+                    case '(':
+                        _tokens.Add(new OpenParenToken(index++));
+                        return;
+                    case ')':
+                        _tokens.Add(new CloseParenToken(index++));
+                        return;
+                    case '\'':
+                        CreateStringToken(ref index);
+                        return;
+                    default:
+                        if (c == '-' || c == '.' || (c >= '0' && c <= '9'))
+                        {
+                            CreateNumberToken(ref index);
+                            return;
+                        }
+
+                        CreateKeywordToken(ref index);
+                        return;
                 }
             }
-
-            // var stack = new Stack<ICondition>();
-            // foreach (char c in _condition)
-            // {
-            // }
         }
 
-        private Token GetNextToken()
+        private void CreateNumberToken(ref int index)
         {
-            // Skip whitespace.
-            while (_index < _raw.Length && char.IsWhiteSpace(_raw[_index]))
+            int startIndex = index;
+            index++; // Skip the first char. It is already known to be the start of the number.
+            while (index < _raw.Length && !IsWhitespaceOrPunctuation(_raw[index]))
             {
-                _index++;
-            }
-
-            // Test end of string.
-            if (_index >= _raw.Length)
-            {
-                return null;
-            }
-
-            // Read the first character to determine the type of token.
-            char c = _raw[_index];
-            switch (c)
-            {
-                case ',':
-                    return new CommaToken(_index++);
-                case '[':
-                    return new OpenBracketToken(_index++);
-                case ']':
-                    return new CloseBracketToken(_index++);
-                case '(':
-                    return new OpenParenToken(_index++);
-                case ')':
-                    return new CloseParenToken(_index++);
-                case '\'':
-                    return ReadStringToken();
-                default:
-                    if (c == '-' || c == '.' || (c >= '0' && c <= '9'))
-                    {
-                        return ReadNumberToken();
-                    }
-
-                    return ReadKeywordToken();
-            }
-        }
-
-        private Token ReadNumberToken()
-        {
-            int startIndex = _index;
-            _index++; // Skip the first char. It is already known to be the start of the number.
-            while (_index < _raw.Length && !IsWhitespaceOrPunctuation(_raw[_index]))
-            {
-                _index++;
+                index++;
             }
 
             // Note, NumberStyles.AllowThousands cannot be allowed since comma has special meaning to the parser.
             decimal d;
-            int length = _index - startIndex;
+            int length = index - startIndex;
             string str = _raw.Substring(startIndex, length);
             if (decimal.TryParse(
                 str,
@@ -90,80 +79,91 @@ namespace Microsoft.VisualStudio.Services.Agent
                 CultureInfo.InvariantCulture,
                 out d))
             {
-                return new NumberToken(d, startIndex, length);
+                _tokens.Add(new NumberToken(d, startIndex, length));
+                return;
             }
 
-            return new MalformedNumberToken(startIndex, length);
+            _tokens.Add(new MalformedNumberToken(startIndex, length));
         }
 
-        private Token ReadKeywordToken()
+        private void CreateKeywordToken(ref int index)
         {
-            int startIndex = _index;
-            _index++; // Skip the first char. It is already known to be the start of the keyword.
-            while (_index < _raw.Length && !IsWhitespaceOrPunctuation(_raw[_index]))
+            int startIndex = index;
+            index++; // Skip the first char. It is already known to be the start of the keyword.
+            while (index < _raw.Length && !IsWhitespaceOrPunctuation(_raw[index]))
             {
-                _index++;
+                index++;
             }
 
-            int length = _index - startIndex;
+            int length = index - startIndex;
             string str = _raw.Substring(startIndex, length);
             switch (str.ToUpperInvariant())
             {
                 case "TRUE":
-                    return new TrueToken(startIndex, length);
+                    _tokens.Add(new TrueToken(startIndex, length));
+                    return;
                 case "FALSE":
-                    return new FalseToken(startIndex, length);
+                    _tokens.Add(new FalseToken(startIndex, length));
+                    return;
                 case "AND":
-                    return new AndToken(startIndex, length);
+                    _tokens.Add(new AndToken(startIndex, length));
+                    return;
                 case "OR":
-                    return new OrToken(startIndex, length);
+                    _tokens.Add(new OrToken(startIndex, length));
+                    return;
                 case "XOR":
-                    return new XorToken(startIndex, length);
+                    _tokens.Add(new XorToken(startIndex, length));
+                    return;
                 case "NOT":
-                    return new NotToken(startIndex, length);
+                    _tokens.Add(new NotToken(startIndex, length));
+                    return;
                 case "VARIABLES":
-                    return new VariablesToken(startIndex, length);
+                    _tokens.Add(new VariablesToken(startIndex, length));
+                    return;
                 case "CAPABILITIES":
-                    return new CapabilitiesToken(startIndex, length);
+                    _tokens.Add(new CapabilitiesToken(startIndex, length));
+                    return;
                 default:
-                    return new UnrecognizedToken(startIndex, length);
+                    _tokens.Add(new UnrecognizedToken(startIndex, length));
+                    return;
             }
         }
 
-        private Token ReadStringToken()
+        private void CreateStringToken(ref int index)
         {
             // TODO: Confirm double-single-quote for escaping is sufficient. Better than backslash-escaping since this is not a complex language and backslash is common to file-paths.
-            int startIndex = _index;
+            int startIndex = index;
             char c;
             bool closed = false;
             var str = new StringBuilder();
-            _index++; // Skip the leading single-quote.
-            while (_index < _raw.Length)
+            index++; // Skip the leading single-quote.
+            while (index < _raw.Length)
             {
-                c = _raw[_index++];
+                c = _raw[index++];
                 if (c == '\'')
                 {
                     // End of string.
-                    if (_index >= _raw.Length || _raw[_index] != '\'')
+                    if (index >= _raw.Length || _raw[index] != '\'')
                     {
                         closed = true;
                         break;
                     }
 
                     // Escaped single quote.
-                    _index++;
+                    index++;
                 }
 
                 str.Append(c);
             }
 
-            int length = _index - startIndex;
+            int length = index - startIndex;
             if (closed)
             {
-                return new StringToken(str.ToString(), startIndex, length);
+                _tokens.Add(new StringToken(str.ToString(), startIndex, length));
+                return;
             }
 
-            return new UnterminatedStringToken(startIndex, length);
+            _tokens.Add(new UnterminatedStringToken(startIndex, length));
         }
 
         private static bool IsWhitespaceOrPunctuation(char c)
@@ -197,7 +197,14 @@ namespace Microsoft.VisualStudio.Services.Agent
         // --------------------------------------------------------------------------------
         // Punctuation: , [ ] ( )
         // --------------------------------------------------------------------------------
-        private sealed class CommaToken : Token
+        private sealed class PunctuationToken : Token
+        {
+            public PunctuationToken(int index)
+                : base(index)
+            {
+            }
+        }
+        private sealed class CommaToken : PunctuationToken
         {
             public CommaToken(int index)
                 : base(index)
@@ -205,7 +212,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        private sealed class OpenBracketToken : Token
+        private sealed class OpenBracketToken : PunctuationToken
         {
             public OpenBracketToken(int index)
                 : base(index)
@@ -213,7 +220,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        private sealed class CloseBracketToken : Token
+        private sealed class CloseBracketToken : PunctuationToken
         {
             public CloseBracketToken(int index)
                 : base(index)
@@ -221,7 +228,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        private sealed class OpenParenToken : Token
+        private sealed class OpenParenToken : PunctuationToken
         {
             public OpenParenToken(int index)
                 : base(index)
@@ -229,7 +236,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        private sealed class CloseParenToken : Token
+        private sealed class CloseParenToken : PunctuationToken
         {
             public CloseParenToken(int index)
                 : base(index)
