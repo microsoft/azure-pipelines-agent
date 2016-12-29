@@ -83,7 +83,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                         path = path.Substring(normalizedRelativePath.Length);
                     }
 
-                    await fileSystemManager.WriteStreamToFile(stream.ZipStream, Path.Combine(localFolderPath, path), executionContext.CancellationToken);
+                    await fileSystemManager.WriteStreamToFile(stream.ZipStream, Path.Combine(localFolderPath, path), executionContext.CancellationToken, null);
 
                     streamsDownloaded++;
                 }

@@ -42,11 +42,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                         string filePathRelativeToDrop = filePath.Replace(dropLocation, string.Empty).Trim(trimChars);
                         using (StreamReader fileReader = fileSystemManager.GetFileReader(filePath))
                         {
+                            var fileInfo = fileSystemManager.GetFileInfo(filePath);
                             await
                                 fileSystemManager.WriteStreamToFile(
                                     fileReader.BaseStream,
                                     Path.Combine(localFolderPath, filePathRelativeToDrop),
-                                    executionContext.CancellationToken);
+                                    executionContext.CancellationToken,
+                                    fileInfo);
                         }
                     }
                     else

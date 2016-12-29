@@ -11,7 +11,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
     {
         StreamReader GetFileReader(string filePath);
 
-        Task WriteStreamToFile(Stream stream, string filePath, CancellationToken cancellationToken);
+        FileInfo GetFileInfo(string filePath);
+
+        Task WriteStreamToFile(Stream stream, string filePath, CancellationToken cancellationToken, FileInfo sourceFileInfo);
 
         void CleanupDirectory(string directoryPath, CancellationToken cancellationToken);
 
@@ -54,6 +56,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
             }
 
             return new StreamReader(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, StreamBufferSize, true));
+        }
+        
+        public FileInfo GetFileInfo(string filePath)
+        {
+            string path = Path.Combine(ValidatePath(filePath));
+            if (!File.Exists(path))
+            {
+                throw new FileNotFoundException(StringUtil.Loc("FileNotFound", path));
+            }
+
+            return new FileInfo(filePath);
         }
 
         private static string ValidatePath(string path)
@@ -107,7 +120,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
             return Path.Combine(rootDirectory, relativePath);
         }
 
-        public async Task WriteStreamToFile(Stream stream, string filePath, CancellationToken cancellationToken)
+        public async Task WriteStreamToFile(Stream stream, string filePath, CancellationToken cancellationToken, FileInfo sourceFileInfo)
         {
             ArgUtil.NotNull(stream, nameof(stream));
             ArgUtil.NotNullOrEmpty(filePath, nameof(filePath));
@@ -116,6 +129,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
             using (var targetStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, StreamBufferSize, true))
             {
                 await stream.CopyToAsync(targetStream, StreamBufferSize, cancellationToken);
+            }
+            
+            if (sourceFileInfo != null)
+            {
+                var targetFileInfo = GetFileInfo(filePath);
+                targetFileInfo.CreationTime = sourceFileInfo.CreationTime;
+                targetFileInfo.LastWriteTime = sourceFileInfo.LastWriteTime;
             }
         }
     }

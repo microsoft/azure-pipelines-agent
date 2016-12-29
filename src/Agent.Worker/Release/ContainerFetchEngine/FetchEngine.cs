@@ -305,7 +305,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEng
 
                     using (Stream stream = await getFileTask.ConfigureAwait(false))
                     {
-                        await FileSystemManager.WriteStreamToFile(stream, tmpDownloadPath, cancellationToken);
+                        await FileSystemManager.WriteStreamToFile(stream, tmpDownloadPath, cancellationToken, null);
                     }
 
                     break;
