@@ -197,43 +197,37 @@ namespace Microsoft.VisualStudio.Services.Agent
         // Literals: True, False, Number, String
         private abstract class LiteralToken : Token
         {
-            public LiteralToken(int index, int length)
+            public LiteralToken(object o, int index, int length)
                 : base(index, length)
             {
+                Value = o;
             }
+
+            public object Value { get; private set; }
         }
 
         private sealed class BooleanToken : LiteralToken
         {
             public BooleanToken(bool b, int index, int length)
-                : base(index, length)
+                : base(b, index, length)
             {
-                Value = b;
             }
-
-            public bool Value { get; }
         }
 
         private sealed class NumberToken : LiteralToken
         {
             public NumberToken(decimal d, int index, int length)
-                : base(index, length)
+                : base(d, index, length)
             {
-                Value = d;
             }
-
-            public decimal Value { get; }
         }
 
         private sealed class StringToken : LiteralToken
         {
-            public StringToken(string str, int index, int length)
-                : base(index, length)
+            public StringToken(string s, int index, int length)
+                : base(s, index, length)
             {
-                Value = str;
             }
-
-            public string Value { get; }
         }
 
         // Hashtable: Capabilities, Variables

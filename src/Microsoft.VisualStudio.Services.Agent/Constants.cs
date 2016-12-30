@@ -145,14 +145,14 @@ namespace Microsoft.VisualStudio.Services.Agent
             public const char Separator = ',';
 
             // Functions
-            public static readonly string And = "And";
-            public static readonly string Not = "Not";
-            public static readonly string Or = "Or";
-            public static readonly string Xor = "Xor";
+            public const string And = "And";
+            public const string Not = "Not";
+            public const string Or = "Or";
+            public const string Xor = "Xor";
 
             // Hashtables
-            public static readonly string Capabilities = "Capabilities";
-            public static readonly string Variables = "Variables";
+            public const string Capabilities = "Capabilities";
+            public const string Variables = "Variables";
         }
 
         public static class Configuration
