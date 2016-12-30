@@ -100,7 +100,13 @@ namespace Microsoft.VisualStudio.Services.Agent
                 _tokens.Add(new BooleanToken(false, startIndex, length));
             }
             else if (str.Equals(Constants.Conditions.And, StringComparison.OrdinalIgnoreCase) ||
+                str.Equals(Constants.Conditions.Equal, StringComparison.OrdinalIgnoreCase) ||
+                str.Equals(Constants.Conditions.GreaterThan, StringComparison.OrdinalIgnoreCase) ||
+                str.Equals(Constants.Conditions.GreaterThanOrEqual, StringComparison.OrdinalIgnoreCase) ||
+                str.Equals(Constants.Conditions.LessThan, StringComparison.OrdinalIgnoreCase) ||
+                str.Equals(Constants.Conditions.LessThanOrEqual, StringComparison.OrdinalIgnoreCase) ||
                 str.Equals(Constants.Conditions.Not, StringComparison.OrdinalIgnoreCase) ||
+                str.Equals(Constants.Conditions.NotEqual, StringComparison.OrdinalIgnoreCase) ||
                 str.Equals(Constants.Conditions.Or, StringComparison.OrdinalIgnoreCase) ||
                 str.Equals(Constants.Conditions.Xor, StringComparison.OrdinalIgnoreCase))
             {

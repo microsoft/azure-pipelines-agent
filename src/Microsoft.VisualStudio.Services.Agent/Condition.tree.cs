@@ -236,8 +236,20 @@ namespace Microsoft.VisualStudio.Services.Agent
             {
                 case Constants.Conditions.And:
                     return new AndFunction(token);
+                case Constants.Conditions.Equal:
+                    return new EqualFunction(token);
+                case Constants.Conditions.GreaterThan:
+                    return new GreaterThanFunction(token);
+                case Constants.Conditions.GreaterThanOrEqual:
+                    return new GreaterThanOrEqualFunction(token);
+                case Constants.Conditions.LessThan:
+                    return new LessThanFunction(token);
+                case Constants.Conditions.LessThanOrEqual:
+                    return new LessThanOrEqualFunction(token);
                 case Constants.Conditions.Not:
                     return new NotFunction(token);
+                case Constants.Conditions.NotEqual:
+                    return new NotEqualFunction(token);
                 case Constants.Conditions.Or:
                     return new OrFunction(token);
                 case Constants.Conditions.Xor:
@@ -381,6 +393,62 @@ namespace Microsoft.VisualStudio.Services.Agent
                 }
 
                 return true;
+            }
+        }
+
+        private sealed class EqualFunction : FunctionNode
+        {
+            public EqualFunction(FunctionToken token)
+                : base(token, minParameters: 2, maxParameters: 2)
+            {
+            }
+
+            public sealed override object GetValue()
+            {
+                object left = Parameters[0].GetValue();
+                if (left is bool)
+                {
+                    bool right = Parameters[1].GetValueAsBool();
+                    return (bool)left == right;
+                }
+                else if (left is decimal)
+                {
+                    decimal right = Parameters[1].GetValueAsNumber();
+                    return (decimal)left == right;
+                }
+
+                string r = Parameters[1].GetValueAsString();
+                return string.Equals(
+                    left as string ?? string.Empty,
+                    r ?? string.Empty,
+                    StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        private sealed class GreaterThanFunction : FunctionNode
+        {
+            public GreaterThanFunction(FunctionToken token)
+                : base(token, minParameters: 2, maxParameters: 2)
+            {
+            }
+
+            public sealed override object GetValue()
+            {
+                object left = Parameters[0].GetValue();
+                if (left is bool)
+                {
+                    bool right = Parameters[1].GetValueAsBool();
+                    return ((bool)left).CompareTo(right) == 1;
+                }
+                else if (left is decimal)
+                {
+                    decimal right = Parameters[1].GetValueAsNumber();
+                    return ((decimal)left).CompareTo(right) == 1;
+                }
+
+                string upperLeft = (left as string ?? string.Empty).ToUpperInvariant();
+                string upperRight = (Parameters[1].GetValueAsString() ?? string.Empty).ToUpperInvariant();
+                return upperLeft.CompareTo(upperRight) == 1;
             }
         }
 

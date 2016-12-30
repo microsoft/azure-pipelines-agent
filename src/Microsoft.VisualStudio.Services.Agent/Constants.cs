@@ -145,10 +145,16 @@ namespace Microsoft.VisualStudio.Services.Agent
             public const char Separator = ',';
 
             // Functions
-            public const string And = "And";
-            public const string Not = "Not";
-            public const string Or = "Or";
-            public const string Xor = "Xor";
+            public const string And = "and";
+            public const string Equal = "eq";
+            public const string GreaterThan = "gt";
+            public const string GreaterThanOrEqual = "ge";
+            public const string LessThan = "lt";
+            public const string LessThanOrEqual = "le";
+            public const string Not = "not";
+            public const string NotEqual = "ne";
+            public const string Or = "or";
+            public const string Xor = "xor";
 
             // Hashtables
             public const string Capabilities = "Capabilities";
