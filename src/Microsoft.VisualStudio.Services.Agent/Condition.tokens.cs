@@ -1,6 +1,4 @@
-﻿using Microsoft.VisualStudio.Services.Agent.Util;
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.Globalization;
 using System.Text;
 
@@ -10,6 +8,7 @@ namespace Microsoft.VisualStudio.Services.Agent
     {
         private void CreateTokens()
         {
+            _trace.Entering();
             int index = 0;
             while (true)
             {
@@ -34,20 +33,21 @@ namespace Microsoft.VisualStudio.Services.Agent
                     case Constants.Conditions.OpenHashtable:
                     case Constants.Conditions.OpenFunction:
                     case Constants.Conditions.Separator:
+                        _trace.Verbose($"Punctuation: {c}");
                         _tokens.Add(new PunctuationToken(c, index++));
-                        return;
+                        continue;
                     case '\'':
                         CreateStringToken(ref index);
-                        return;
+                        continue;
                     default:
                         if (c == '-' || c == '.' || (c >= '0' && c <= '9'))
                         {
                             CreateNumberToken(ref index);
-                            return;
+                            continue;
                         }
 
                         CreateKeywordToken(ref index);
-                        return;
+                        continue;
                 }
             }
         }
@@ -71,10 +71,12 @@ namespace Microsoft.VisualStudio.Services.Agent
                 CultureInfo.InvariantCulture,
                 out d))
             {
+                _trace.Verbose($"Number: {d}");
                 _tokens.Add(new NumberToken(d, startIndex, length));
                 return;
             }
 
+            _trace.Verbose($"Malformed number: '{str}'");
             _tokens.Add(new MalformedNumberToken(startIndex, length));
         }
 
@@ -93,10 +95,12 @@ namespace Microsoft.VisualStudio.Services.Agent
             string str = _raw.Substring(startIndex, length);
             if (str.Equals(bool.TrueString, StringComparison.OrdinalIgnoreCase))
             {
+                _trace.Verbose($"Bool: {true}");
                 _tokens.Add(new BooleanToken(true, startIndex, length));
             }
             else if (str.Equals(bool.FalseString, StringComparison.OrdinalIgnoreCase))
             {
+                _trace.Verbose($"Bool: {false}");
                 _tokens.Add(new BooleanToken(false, startIndex, length));
             }
             else if (str.Equals(Constants.Conditions.And, StringComparison.OrdinalIgnoreCase) ||
@@ -110,15 +114,18 @@ namespace Microsoft.VisualStudio.Services.Agent
                 str.Equals(Constants.Conditions.Or, StringComparison.OrdinalIgnoreCase) ||
                 str.Equals(Constants.Conditions.Xor, StringComparison.OrdinalIgnoreCase))
             {
+                _trace.Verbose($"Function: {str}");
                 _tokens.Add(new FunctionToken(str, startIndex, length));
             }
             else if (str.Equals(Constants.Conditions.Capabilities, StringComparison.OrdinalIgnoreCase) ||
                 str.Equals(Constants.Conditions.Variables, StringComparison.OrdinalIgnoreCase))
             {
+                _trace.Verbose($"Hashtable: {str}");
                 _tokens.Add(new HashtableToken(str, startIndex, length));
             }
             else
             {
+                _trace.Verbose($"Unrecognized: {str}");
                 _tokens.Add(new UnrecognizedToken(startIndex, length));
             }
         }
@@ -153,10 +160,12 @@ namespace Microsoft.VisualStudio.Services.Agent
             int length = index - startIndex;
             if (closed)
             {
+                _trace.Verbose($"String: '{str.ToString()}'");
                 _tokens.Add(new StringToken(str.ToString(), startIndex, length));
                 return;
             }
 
+            _trace.Verbose($"Unterminated string: '{str.ToString()}'");
             _tokens.Add(new UnterminatedStringToken(startIndex, length));
         }
 

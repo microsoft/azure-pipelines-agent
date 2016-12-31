@@ -9,6 +9,8 @@ namespace Microsoft.VisualStudio.Services.Agent
     {
         private void CreateTree()
         {
+            _trace.Entering();
+            int indent = 0;
             ContainerNode container = null;
             for (int tokenIndex = 0; tokenIndex < _tokens.Count; tokenIndex++)
             {
@@ -24,6 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                         punctuation.Value == Constants.Conditions.CloseHashtable)
                     {
                         container = container.Container; // Pop container.
+                        indent -= 2;
                     }
 
                     continue;
@@ -33,20 +36,27 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Node newNode = null;
                 if (token is LiteralToken)
                 {
-                    ValidateLiteral(token as LiteralToken, tokenIndex);
-                    newNode = new LiteralNode(token as LiteralToken);
+                    var literalToken = token as LiteralToken;
+                    ValidateLiteral(literalToken, tokenIndex);
+                    string traceFormat = literalToken is StringToken ? "'{0}' ({1})" : "{0} ({1})";
+                    _trace.Verbose(string.Empty.PadLeft(indent) + traceFormat, literalToken.Value, literalToken.Value.GetType().Name);
+                    newNode = new LiteralNode(literalToken);
                 }
                 else if (token is FunctionToken)
                 {
-                    ValidateFunction(token as FunctionToken, tokenIndex);
+                    var functionToken = token as FunctionToken;
+                    ValidateFunction(functionToken, tokenIndex);
                     tokenIndex++; // Skip the open paren that follows.
-                    newNode = CreateFunction(token as FunctionToken);
+                    _trace.Verbose(string.Empty.PadLeft(indent) + $"{functionToken.Name} (Function)");
+                    newNode = CreateFunction(functionToken);
                 }
                 else if (token is HashtableToken)
                 {
-                    ValidateHashtable(token as HashtableToken, tokenIndex);
+                    var hashtableToken = token as HashtableToken;
+                    ValidateHashtable(hashtableToken, tokenIndex);
                     tokenIndex++; // Skip the open bracket that follows.
-                    newNode = CreateHashtable(token as HashtableToken);
+                    _trace.Verbose(string.Empty.PadLeft(indent) + $"{hashtableToken.Name} (Hashtable)");
+                    newNode = CreateHashtable(hashtableToken);
                 }
                 else
                 {
@@ -63,10 +73,11 @@ namespace Microsoft.VisualStudio.Services.Agent
                     container.AddParameter(newNode);
                 }
 
-                // Adjust current container node.
+                // Push the container node.
                 if (newNode is ContainerNode)
                 {
                     container = newNode as ContainerNode;
+                    indent += 2;
                 }
             }
         }
@@ -98,7 +109,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             ArgUtil.NotNull(token, nameof(token));
 
             // Validate nothing follows, a separator follows, or close punction follows.
-            Token nextToken = tokenIndex < _tokens.Count ? _tokens[tokenIndex + 1] : null;
+            Token nextToken = tokenIndex + 1 < _tokens.Count ? _tokens[tokenIndex + 1] : null;
             ValidateNullOrSeparatorOrClosePunctuation(nextToken);
         }
 
@@ -107,14 +118,14 @@ namespace Microsoft.VisualStudio.Services.Agent
             ArgUtil.NotNull(token, nameof(token));
 
             // Validate open bracket follows.
-            PunctuationToken nextToken = tokenIndex < _tokens.Count ? _tokens[tokenIndex + 1] as PunctuationToken : null;
+            PunctuationToken nextToken = tokenIndex + 1 < _tokens.Count ? _tokens[tokenIndex + 1] as PunctuationToken : null;
             if (nextToken == null || nextToken.Value != Constants.Conditions.OpenHashtable)
             {
                 ThrowParseException($"Expected '{Constants.Conditions.OpenHashtable}' to follow symbol", token);
             }
 
             // Validate a literal, hashtable, or function follows.
-            Token nextNextToken = tokenIndex + 1 < _tokens.Count ? _tokens[tokenIndex + 2] : null;
+            Token nextNextToken = tokenIndex + 2 < _tokens.Count ? _tokens[tokenIndex + 2] : null;
             if (nextNextToken as LiteralToken == null && nextNextToken as HashtableToken == null && nextNextToken as FunctionToken == null)
             {
                 ThrowParseException("Expected a value to follow symbol", nextToken);
@@ -126,14 +137,14 @@ namespace Microsoft.VisualStudio.Services.Agent
             ArgUtil.NotNull(token, nameof(token));
 
             // Valdiate open paren follows.
-            PunctuationToken nextToken = tokenIndex < _tokens.Count ? _tokens[tokenIndex + 1] as PunctuationToken : null;
+            PunctuationToken nextToken = tokenIndex + 1 < _tokens.Count ? _tokens[tokenIndex + 1] as PunctuationToken : null;
             if (nextToken == null || nextToken.Value != Constants.Conditions.OpenFunction)
             {
                 ThrowParseException($"Expected '{Constants.Conditions.OpenFunction}' to follow symbol", token);
             }
 
             // Validate a literal, hashtable, or function follows.
-            Token nextNextToken = tokenIndex + 1 < _tokens.Count ? _tokens[tokenIndex + 2] : null;
+            Token nextNextToken = tokenIndex + 2 < _tokens.Count ? _tokens[tokenIndex + 2] : null;
             if (nextNextToken as LiteralToken == null && nextNextToken as HashtableToken == null && nextNextToken as FunctionToken == null)
             {
                 ThrowParseException("Expected a value to follow symbol", nextToken);
@@ -171,17 +182,17 @@ namespace Microsoft.VisualStudio.Services.Agent
                 }
 
                 // Validate a literal, function, or hashtable follows.
-                Token nextToken = tokenIndex < _tokens.Count ? _tokens[tokenIndex + 1] : null;
+                Token nextToken = tokenIndex + 1 < _tokens.Count ? _tokens[tokenIndex + 1] : null;
                 if (nextToken == null ||
                     (!(nextToken is LiteralToken) && !(nextToken is FunctionToken) && !(nextToken is HashtableToken)))
                 {
-                    ThrowParseException("Expected another value to follow the separator symbol", token);
+                    ThrowParseException("Expected a value to follow the separator symbol", token);
                 }
             }
             else if (token.Value == Constants.Conditions.CloseHashtable)
             {
                 // Validate nothing follows, a separator follows, or close punction follows.
-                Token nextToken = tokenIndex < _tokens.Count ? _tokens[tokenIndex + 1] : null;
+                Token nextToken = tokenIndex + 1 < _tokens.Count ? _tokens[tokenIndex + 1] : null;
                 ValidateNullOrSeparatorOrClosePunctuation(nextToken);
             }
             else if (token.Value == Constants.Conditions.CloseFunction)
@@ -195,7 +206,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 }
 
                 // Validate nothing follows, a separator follows, or close punction follows.
-                Token nextToken = tokenIndex < _tokens.Count ? _tokens[tokenIndex + 1] : null;
+                Token nextToken = tokenIndex + 1 < _tokens.Count ? _tokens[tokenIndex + 1] : null;
                 ValidateNullOrSeparatorOrClosePunctuation(nextToken);
             }
         }
