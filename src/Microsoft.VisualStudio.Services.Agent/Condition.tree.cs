@@ -1,6 +1,7 @@
 ﻿using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -282,6 +283,12 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         private abstract class Node
         {
+            private readonly NumberStyles NumberStyles =
+                NumberStyles.AllowDecimalPoint |
+                NumberStyles.AllowLeadingSign |
+                NumberStyles.AllowLeadingWhite |
+                NumberStyles.AllowThousands;
+
             public Node(Token token)
             {
                 Token = token;
@@ -306,6 +313,66 @@ namespace Microsoft.VisualStudio.Services.Agent
                 }
 
                 return !string.IsNullOrEmpty(val as string);
+            }
+
+            public decimal GetValueAsNumber()
+            {
+                object val = GetValue();
+                decimal d;
+                if (TryConvertToNumber(val, out d))
+                {
+                    return d;
+                }
+
+                try
+                {
+                    return decimal.Parse(
+                        val as string ?? string.Empty,
+                        NumberStyles,
+                        CultureInfo.InvariantCulture);
+                }
+                catch (Exception ex)
+                {
+                    // TODO: loc
+                    throw new Exception($"Unable to convert value '{val}' to a number. {ex.Message}");
+                }
+            }
+
+            public string GetValueAsString()
+            {
+                return string.Format(CultureInfo.InvariantCulture, "{0}", GetValue());
+            }
+
+            public bool TryGetValueAsNumber(out decimal result)
+            {
+                return TryConvertToNumber(GetValue(), out result);
+            }
+
+            private bool TryConvertToNumber(object val, out decimal result)
+            {
+                if (val is bool)
+                {
+                    result = (bool)val ? 1m : 0m;
+                    return true;
+                }
+                else if (val is decimal)
+                {
+                    result = (decimal)val;
+                    return true;
+                }
+
+                string s = val as string ?? string.Empty;
+                if (string.IsNullOrEmpty(s))
+                {
+                    result = 0m;
+                    return true;
+                }
+
+                return decimal.TryParse(
+                    s,
+                    NumberStyles,
+                    CultureInfo.InvariantCulture,
+                    out result);
             }
         }
 
@@ -396,14 +463,14 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        private sealed class EqualFunction : FunctionNode
+        private class EqualFunction : FunctionNode
         {
             public EqualFunction(FunctionToken token)
                 : base(token, minParameters: 2, maxParameters: 2)
             {
             }
 
-            public sealed override object GetValue()
+            public override object GetValue()
             {
                 object left = Parameters[0].GetValue();
                 if (left is bool)
@@ -413,8 +480,13 @@ namespace Microsoft.VisualStudio.Services.Agent
                 }
                 else if (left is decimal)
                 {
-                    decimal right = Parameters[1].GetValueAsNumber();
-                    return (decimal)left == right;
+                    decimal right;
+                    if (Parameters[1].TryGetValueAsNumber(out right))
+                    {
+                        return (decimal)left == right;
+                    }
+
+                    return false;
                 }
 
                 string r = Parameters[1].GetValueAsString();
@@ -462,6 +534,19 @@ namespace Microsoft.VisualStudio.Services.Agent
             public sealed override object GetValue()
             {
                 return !Parameters[0].GetValueAsBool();
+            }
+        }
+
+        private sealed class NotEqualFunction : EqualFunction
+        {
+            public NotEqualFunction(FunctionToken token)
+                : base(token)
+            {
+            }
+
+            public sealed override object GetValue()
+            {
+                return !(bool)base.GetValue();
             }
         }
 
