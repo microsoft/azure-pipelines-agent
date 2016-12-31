@@ -10,7 +10,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         private void CreateTree()
         {
             _trace.Entering();
-            int indent = 0;
+            int level = 0;
             ContainerNode container = null;
             for (int tokenIndex = 0; tokenIndex < _tokens.Count; tokenIndex++)
             {
@@ -26,7 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                         punctuation.Value == Constants.Conditions.CloseHashtable)
                     {
                         container = container.Container; // Pop container.
-                        indent -= 2;
+                        level--;
                     }
 
                     continue;
@@ -39,24 +39,24 @@ namespace Microsoft.VisualStudio.Services.Agent
                     var literalToken = token as LiteralToken;
                     ValidateLiteral(literalToken, tokenIndex);
                     string traceFormat = literalToken is StringToken ? "'{0}' ({1})" : "{0} ({1})";
-                    _trace.Verbose(string.Empty.PadLeft(indent) + traceFormat, literalToken.Value, literalToken.Value.GetType().Name);
-                    newNode = new LiteralNode(literalToken);
+                    _trace.Verbose(string.Empty.PadLeft(level * 2) + traceFormat, literalToken.Value, literalToken.Value.GetType().Name);
+                    newNode = new LiteralNode(literalToken, _trace, level);
                 }
                 else if (token is FunctionToken)
                 {
                     var functionToken = token as FunctionToken;
                     ValidateFunction(functionToken, tokenIndex);
                     tokenIndex++; // Skip the open paren that follows.
-                    _trace.Verbose(string.Empty.PadLeft(indent) + $"{functionToken.Name} (Function)");
-                    newNode = CreateFunction(functionToken);
+                    _trace.Verbose(string.Empty.PadLeft(level * 2) + $"{functionToken.Name} (Function)");
+                    newNode = CreateFunction(functionToken, level);
                 }
                 else if (token is HashtableToken)
                 {
                     var hashtableToken = token as HashtableToken;
                     ValidateHashtable(hashtableToken, tokenIndex);
                     tokenIndex++; // Skip the open bracket that follows.
-                    _trace.Verbose(string.Empty.PadLeft(indent) + $"{hashtableToken.Name} (Hashtable)");
-                    newNode = CreateHashtable(hashtableToken);
+                    _trace.Verbose(string.Empty.PadLeft(level * 2) + $"{hashtableToken.Name} (Hashtable)");
+                    newNode = CreateHashtable(hashtableToken, level);
                 }
                 else
                 {
@@ -77,7 +77,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 if (newNode is ContainerNode)
                 {
                     container = newNode as ContainerNode;
-                    indent += 2;
+                    level++;
                 }
             }
         }
@@ -241,37 +241,37 @@ namespace Microsoft.VisualStudio.Services.Agent
             throw new ParseException($"{description}: '{rawToken}'. Located at position {position} within condition expression: {_raw}");
         }
 
-        private FunctionNode CreateFunction(FunctionToken token)
+        private FunctionNode CreateFunction(FunctionToken token, int level)
         {
             ArgUtil.NotNull(token, nameof(token));
             switch (token.Name)
             {
                 case Constants.Conditions.And:
-                    return new AndFunction(token);
+                    return new AndFunction(token, _trace, level);
                 case Constants.Conditions.Equal:
-                    return new EqualFunction(token);
+                    return new EqualFunction(token, _trace, level);
                 case Constants.Conditions.GreaterThan:
-                    return new GreaterThanFunction(token);
+                    return new GreaterThanFunction(token, _trace, level);
                 case Constants.Conditions.GreaterThanOrEqual:
-                    return new GreaterThanOrEqualFunction(token);
+                    return new GreaterThanOrEqualFunction(token, _trace, level);
                 case Constants.Conditions.LessThan:
-                    return new LessThanFunction(token);
+                    return new LessThanFunction(token, _trace, level);
                 case Constants.Conditions.LessThanOrEqual:
-                    return new LessThanOrEqualFunction(token);
+                    return new LessThanOrEqualFunction(token, _trace, level);
                 case Constants.Conditions.Not:
-                    return new NotFunction(token);
+                    return new NotFunction(token, _trace, level);
                 case Constants.Conditions.NotEqual:
-                    return new NotEqualFunction(token);
+                    return new NotEqualFunction(token, _trace, level);
                 case Constants.Conditions.Or:
-                    return new OrFunction(token);
+                    return new OrFunction(token, _trace, level);
                 case Constants.Conditions.Xor:
-                    return new XorFunction(token);
+                    return new XorFunction(token, _trace, level);
                 default:
                     throw new NotSupportedException($"Unexpected function token name: '{token.Name}'");
             }
         }
 
-        private HashtableNode CreateHashtable(HashtableToken token)
+        private HashtableNode CreateHashtable(HashtableToken token, int level)
         {
             ArgUtil.NotNull(token, nameof(token));
             switch (token.Name)
@@ -294,15 +294,20 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         private abstract class Node
         {
-            private readonly NumberStyles NumberStyles =
+            private static readonly NumberStyles NumberStyles =
                 NumberStyles.AllowDecimalPoint |
                 NumberStyles.AllowLeadingSign |
                 NumberStyles.AllowLeadingWhite |
-                NumberStyles.AllowThousands;
+                NumberStyles.AllowThousands |
+                NumberStyles.AllowTrailingWhite;
+            private readonly Tracing _trace;
+            private readonly int _level;
 
-            public Node(Token token)
+            public Node(Token token, Tracing trace, int level)
             {
                 Token = token;
+                _trace = trace;
+                _level = level;
             }
 
             public ContainerNode Container { get; set; }
@@ -314,24 +319,37 @@ namespace Microsoft.VisualStudio.Services.Agent
             public bool GetValueAsBool()
             {
                 object val = GetValue();
+                bool result;
                 if (val is bool)
                 {
-                    return (bool)val;
+                    result = (bool)val;
                 }
                 else if (val is decimal)
                 {
-                    return (decimal)val != 0m; // 0 converts to false, otherwise true.
+                    result = (decimal)val != 0m; // 0 converts to false, otherwise true.
+                    TraceValue(result);
+                }
+                else
+                {
+                    result = !string.IsNullOrEmpty(val as string);
+                    TraceValue(result);
                 }
 
-                return !string.IsNullOrEmpty(val as string);
+                return result;
             }
 
             public decimal GetValueAsNumber()
             {
                 object val = GetValue();
+                if (val is decimal)
+                {
+                    return (decimal)val;
+                }
+
                 decimal d;
                 if (TryConvertToNumber(val, out d))
                 {
+                    TraceValue(d);
                     return d;
                 }
 
@@ -351,12 +369,71 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             public string GetValueAsString()
             {
-                return string.Format(CultureInfo.InvariantCulture, "{0}", GetValue());
+                string result;
+                object val = GetValue();
+                if (object.ReferenceEquals(val, null) || val is string)
+                {
+                    result = val as string;
+                }
+                else if (val is bool)
+                {
+                    result = string.Format(CultureInfo.InvariantCulture, "{0}", val);
+                    TraceValue(result);
+                }
+                else
+                {
+                    decimal d = (decimal)val;
+                    result = d.ToString("G", CultureInfo.InvariantCulture);
+                    if (result.Contains("."))
+                    {
+                        result = result.TrimEnd('0', '.'); // Omit trailing zeros after the decimal point.
+                    }
+
+                    TraceValue(result);
+                }
+
+                return result;
             }
 
             public bool TryGetValueAsNumber(out decimal result)
             {
-                return TryConvertToNumber(GetValue(), out result);
+                object val = GetValue();
+                if (val is decimal)
+                {
+                    result = (decimal)val;
+                    return true;
+                }
+
+                if (TryConvertToNumber(val, out result))
+                {
+                    TraceValue(result);
+                    return true;
+                }
+
+                TraceValue(val: null, isUnconverted: false, isNotANumber: true);
+                return false;
+            }
+
+            protected void TraceInfo(string message)
+            {
+                _trace.Info(string.Empty.PadLeft(_level * 2) + (message ?? string.Empty));
+            }
+
+            protected void TraceValue(object val, bool isUnconverted = false, bool isNotANumber = false)
+            {
+                string prefix = isUnconverted ? string.Empty : "=> ";
+                if (isNotANumber)
+                {
+                    TraceInfo(StringUtil.Format("{0}NaN", prefix));
+                }
+                else if (val is bool || val is decimal)
+                {
+                    TraceInfo(StringUtil.Format("{0}{1} ({2})", prefix, val, val.GetType().Name));
+                }
+                else
+                {
+                    TraceInfo(StringUtil.Format("{0}{1} (String)", prefix, val));
+                }
             }
 
             private bool TryConvertToNumber(object val, out decimal result)
@@ -389,8 +466,8 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         private abstract class ContainerNode : Node
         {
-            public ContainerNode(Token token)
-                : base(token)
+            public ContainerNode(Token token, Tracing trace, int level)
+                : base(token, trace, level)
             {
             }
 
@@ -407,22 +484,24 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         private sealed class LiteralNode : Node
         {
-            public LiteralNode(LiteralToken token)
-                : base(token)
+            public LiteralNode(LiteralToken token, Tracing trace, int level)
+                : base(token, trace, level)
             {
                 ArgUtil.NotNull(token, nameof(token));
             }
 
             public sealed override object GetValue()
             {
-                return (Token as LiteralToken).Value;
+                object result = (Token as LiteralToken).Value;
+                TraceValue(result, isUnconverted: true);
+                return result;
             }
         }
 
         private abstract class HashtableNode : ContainerNode
         {
-            public HashtableNode(HashtableToken token)
-                : base(token)
+            public HashtableNode(HashtableToken token, Tracing trace, int level)
+                : base(token, trace, level)
             {
                 ArgUtil.NotNull(token, nameof(token));
             }
@@ -430,8 +509,8 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         private abstract class FunctionNode : ContainerNode
         {
-            public FunctionNode(FunctionToken token, int minParameters, int maxParameters)
-                : base(token)
+            public FunctionNode(FunctionToken token, Tracing trace, int level, int minParameters, int maxParameters)
+                : base(token, trace, level)
             {
                 ArgUtil.NotNull(token, nameof(token));
                 if (minParameters < 1)
@@ -451,200 +530,248 @@ namespace Microsoft.VisualStudio.Services.Agent
             public int MinParameters { get; }
             
             public int MaxParameters { get; }
+
+            protected void TraceName()
+            {
+                TraceInfo((Token as FunctionToken).Name + " (Function)");
+            }
         }
 
         private sealed class AndFunction : FunctionNode
         {
-            public AndFunction(FunctionToken token)
-                : base(token, minParameters: 2, maxParameters: int.MaxValue)
+            public AndFunction(FunctionToken token, Tracing trace, int level)
+                : base(token, trace, level, minParameters: 2, maxParameters: int.MaxValue)
             {
             }
 
             public sealed override object GetValue()
             {
+                TraceName();
+                bool result = true;
                 foreach (Node parameter in Parameters)
                 {
                     if (!parameter.GetValueAsBool())
                     {
-                        return false;
+                        result = false;
+                        break;
                     }
                 }
 
-                return true;
+                TraceValue(result);
+                return result;
             }
         }
 
         private class EqualFunction : FunctionNode
         {
-            public EqualFunction(FunctionToken token)
-                : base(token, minParameters: 2, maxParameters: 2)
+            public EqualFunction(FunctionToken token, Tracing trace, int level)
+                : base(token, trace, level, minParameters: 2, maxParameters: 2)
             {
             }
 
             public override object GetValue()
             {
+                TraceName();
+                bool result;
                 object left = Parameters[0].GetValue();
                 if (left is bool)
                 {
                     bool right = Parameters[1].GetValueAsBool();
-                    return (bool)left == right;
+                    result = (bool)left == right;
                 }
                 else if (left is decimal)
                 {
                     decimal right;
                     if (Parameters[1].TryGetValueAsNumber(out right))
                     {
-                        return (decimal)left == right;
+                        result = (decimal)left == right;
                     }
-
-                    return false;
+                    else
+                    {
+                        result = false;
+                    }
+                }
+                else
+                {
+                    string right = Parameters[1].GetValueAsString();
+                    result = string.Equals(
+                        left as string ?? string.Empty,
+                        right ?? string.Empty,
+                        StringComparison.OrdinalIgnoreCase);
                 }
 
-                string r = Parameters[1].GetValueAsString();
-                return string.Equals(
-                    left as string ?? string.Empty,
-                    r ?? string.Empty,
-                    StringComparison.OrdinalIgnoreCase);
+                TraceValue(result);
+                return result;
             }
         }
 
         private class GreaterThanFunction : FunctionNode
         {
-            public GreaterThanFunction(FunctionToken token)
-                : base(token, minParameters: 2, maxParameters: 2)
+            public GreaterThanFunction(FunctionToken token, Tracing trace, int level)
+                : base(token, trace, level, minParameters: 2, maxParameters: 2)
             {
             }
 
             public override object GetValue()
             {
+                TraceName();
+                bool result;
                 object left = Parameters[0].GetValue();
                 if (left is bool)
                 {
                     bool right = Parameters[1].GetValueAsBool();
-                    return ((bool)left).CompareTo(right) == 1;
+                    result = ((bool)left).CompareTo(right) == 1;
                 }
                 else if (left is decimal)
                 {
                     decimal right = Parameters[1].GetValueAsNumber();
-                    return ((decimal)left).CompareTo(right) == 1;
+                    result = ((decimal)left).CompareTo(right) == 1;
+                }
+                else
+                {
+                    string upperLeft = (left as string ?? string.Empty).ToUpperInvariant();
+                    string upperRight = (Parameters[1].GetValueAsString() ?? string.Empty).ToUpperInvariant();
+                    result = upperLeft.CompareTo(upperRight) == 1;
                 }
 
-                string upperLeft = (left as string ?? string.Empty).ToUpperInvariant();
-                string upperRight = (Parameters[1].GetValueAsString() ?? string.Empty).ToUpperInvariant();
-                return upperLeft.CompareTo(upperRight) == 1;
+                TraceValue(result);
+                return result;
             }
         }
 
         private class GreaterThanOrEqualFunction : FunctionNode
         {
-            public GreaterThanOrEqualFunction(FunctionToken token)
-                : base(token, minParameters: 2, maxParameters: 2)
+            public GreaterThanOrEqualFunction(FunctionToken token, Tracing trace, int level)
+                : base(token, trace, level, minParameters: 2, maxParameters: 2)
             {
             }
 
             public override object GetValue()
             {
+                TraceName();
+                bool result;
                 object left = Parameters[0].GetValue();
                 if (left is bool)
                 {
                     bool right = Parameters[1].GetValueAsBool();
-                    return ((bool)left).CompareTo(right) >= 0;
+                    result = ((bool)left).CompareTo(right) >= 0;
                 }
                 else if (left is decimal)
                 {
                     decimal right = Parameters[1].GetValueAsNumber();
-                    return ((decimal)left).CompareTo(right) >= 0;
+                    result = ((decimal)left).CompareTo(right) >= 0;
+                }
+                else
+                {
+                    string upperLeft = (left as string ?? string.Empty).ToUpperInvariant();
+                    string upperRight = (Parameters[1].GetValueAsString() ?? string.Empty).ToUpperInvariant();
+                    result = upperLeft.CompareTo(upperRight) >= 0;
                 }
 
-                string upperLeft = (left as string ?? string.Empty).ToUpperInvariant();
-                string upperRight = (Parameters[1].GetValueAsString() ?? string.Empty).ToUpperInvariant();
-                return upperLeft.CompareTo(upperRight) >= 0;
+                TraceValue(result);
+                return result;
             }
         }
 
         private sealed class LessThanFunction : GreaterThanOrEqualFunction
         {
-            public LessThanFunction(FunctionToken token)
-                : base(token)
+            public LessThanFunction(FunctionToken token, Tracing trace, int level)
+                : base(token, trace, level)
             {
             }
 
             public sealed override object GetValue()
             {
-                return !(bool)base.GetValue();
+                bool result = !(bool)base.GetValue();
+                TraceValue(result);
+                return result;
             }
         }
 
         private sealed class LessThanOrEqualFunction : GreaterThanFunction
         {
-            public LessThanOrEqualFunction(FunctionToken token)
-                : base(token)
+            public LessThanOrEqualFunction(FunctionToken token, Tracing trace, int level)
+                : base(token, trace, level)
             {
             }
 
             public sealed override object GetValue()
             {
-                return !(bool)base.GetValue();
+                bool result = !(bool)base.GetValue();
+                TraceValue(result);
+                return result;
             }
         }
 
         private sealed class NotEqualFunction : EqualFunction
         {
-            public NotEqualFunction(FunctionToken token)
-                : base(token)
+            public NotEqualFunction(FunctionToken token, Tracing trace, int level)
+                : base(token, trace, level)
             {
             }
 
             public sealed override object GetValue()
             {
-                return !(bool)base.GetValue();
+                bool result = !(bool)base.GetValue();
+                TraceValue(result);
+                return result;
             }
         }
 
         private sealed class NotFunction : FunctionNode
         {
-            public NotFunction(FunctionToken token)
-                : base(token, minParameters: 1, maxParameters: 1)
+            public NotFunction(FunctionToken token, Tracing trace, int level)
+                : base(token, trace, level, minParameters: 1, maxParameters: 1)
             {
             }
 
             public sealed override object GetValue()
             {
-                return !Parameters[0].GetValueAsBool();
+                TraceName();
+                bool result = !Parameters[0].GetValueAsBool();
+                TraceValue(result);
+                return result;
             }
         }
 
         private sealed class OrFunction : FunctionNode
         {
-            public OrFunction(FunctionToken token)
-                : base(token, minParameters: 2, maxParameters: int.MaxValue)
+            public OrFunction(FunctionToken token, Tracing trace, int level)
+                : base(token, trace, level, minParameters: 2, maxParameters: int.MaxValue)
             {
             }
 
             public sealed override object GetValue()
             {
+                TraceName();
+                bool result = false;
                 foreach (Node parameter in Parameters)
                 {
                     if (parameter.GetValueAsBool())
                     {
-                        return true;
+                        result = true;
+                        break;
                     }
                 }
 
-                return false;
+                TraceValue(result);
+                return result;
             }
         }
 
         private sealed class XorFunction : FunctionNode
         {
-            public XorFunction(FunctionToken token)
-                : base(token, minParameters: 2, maxParameters: 2)
+            public XorFunction(FunctionToken token, Tracing trace, int level)
+                : base(token, trace, level, minParameters: 2, maxParameters: 2)
             {
             }
 
             public sealed override object GetValue()
             {
-                return Parameters[0].GetValueAsBool() ^ Parameters[1].GetValueAsBool();
+                TraceName();
+                bool result = Parameters[0].GetValueAsBool() ^ Parameters[1].GetValueAsBool();
+                TraceValue(result);
+                return result;
             }
         }
     }

@@ -33,7 +33,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     case Constants.Conditions.OpenHashtable:
                     case Constants.Conditions.OpenFunction:
                     case Constants.Conditions.Separator:
-                        _trace.Verbose($"Punctuation: {c}");
+                        _trace.Verbose($"Pnctu: {c}");
                         _tokens.Add(new PunctuationToken(c, index++));
                         continue;
                     case '\'':
@@ -71,12 +71,12 @@ namespace Microsoft.VisualStudio.Services.Agent
                 CultureInfo.InvariantCulture,
                 out d))
             {
-                _trace.Verbose($"Number: {d}");
+                _trace.Verbose($"Numbr: {d}");
                 _tokens.Add(new NumberToken(d, startIndex, length));
                 return;
             }
 
-            _trace.Verbose($"Malformed number: '{str}'");
+            _trace.Verbose($"InvNm: '{str}'");
             _tokens.Add(new MalformedNumberToken(startIndex, length));
         }
 
@@ -95,12 +95,12 @@ namespace Microsoft.VisualStudio.Services.Agent
             string str = _raw.Substring(startIndex, length);
             if (str.Equals(bool.TrueString, StringComparison.OrdinalIgnoreCase))
             {
-                _trace.Verbose($"Bool: {true}");
+                _trace.Verbose($"Booln:  {true}");
                 _tokens.Add(new BooleanToken(true, startIndex, length));
             }
             else if (str.Equals(bool.FalseString, StringComparison.OrdinalIgnoreCase))
             {
-                _trace.Verbose($"Bool: {false}");
+                _trace.Verbose($"Booln:  {false}");
                 _tokens.Add(new BooleanToken(false, startIndex, length));
             }
             else if (str.Equals(Constants.Conditions.And, StringComparison.OrdinalIgnoreCase) ||
@@ -114,18 +114,18 @@ namespace Microsoft.VisualStudio.Services.Agent
                 str.Equals(Constants.Conditions.Or, StringComparison.OrdinalIgnoreCase) ||
                 str.Equals(Constants.Conditions.Xor, StringComparison.OrdinalIgnoreCase))
             {
-                _trace.Verbose($"Function: {str}");
+                _trace.Verbose($"Fnctn: {str}");
                 _tokens.Add(new FunctionToken(str, startIndex, length));
             }
             else if (str.Equals(Constants.Conditions.Capabilities, StringComparison.OrdinalIgnoreCase) ||
                 str.Equals(Constants.Conditions.Variables, StringComparison.OrdinalIgnoreCase))
             {
-                _trace.Verbose($"Hashtable: {str}");
+                _trace.Verbose($"Hasht: {str}");
                 _tokens.Add(new HashtableToken(str, startIndex, length));
             }
             else
             {
-                _trace.Verbose($"Unrecognized: {str}");
+                _trace.Verbose($"Unrec: {str}");
                 _tokens.Add(new UnrecognizedToken(startIndex, length));
             }
         }
@@ -160,12 +160,12 @@ namespace Microsoft.VisualStudio.Services.Agent
             int length = index - startIndex;
             if (closed)
             {
-                _trace.Verbose($"String: '{str.ToString()}'");
+                _trace.Verbose($"Strng: '{str.ToString()}'");
                 _tokens.Add(new StringToken(str.ToString(), startIndex, length));
                 return;
             }
 
-            _trace.Verbose($"Unterminated string: '{str.ToString()}'");
+            _trace.Verbose($"InvSt: '{str.ToString()}'");
             _tokens.Add(new UnterminatedStringToken(startIndex, length));
         }
 
