@@ -386,7 +386,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     result = d.ToString("G", CultureInfo.InvariantCulture);
                     if (result.Contains("."))
                     {
-                        result = result.TrimEnd('0', '.'); // Omit trailing zeros after the decimal point.
+                        result = result.TrimEnd('0').TrimEnd('.'); // Omit trailing zeros after the decimal point.
                     }
 
                     TraceValue(result);

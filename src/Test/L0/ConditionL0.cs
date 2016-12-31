@@ -30,6 +30,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 Assert.Equal(false, new Condition(hc, "eq(2,true)").Result);
                 Assert.Equal(true, new Condition(hc, "eq(123456.789,' +123,456.7890 ')").Result);
                 Assert.Equal(true, new Condition(hc, "eq(-123456.789,' -123,456.7890 ')").Result);
+                Assert.Equal(true, new Condition(hc, "eq(123000,' 123,000.000 ')").Result);
                 Assert.Equal(false, new Condition(hc, "eq(1,'not a number')").Result);
                 Assert.Equal(false, new Condition(hc, "eq(0,'not a number')").Result);
             }
