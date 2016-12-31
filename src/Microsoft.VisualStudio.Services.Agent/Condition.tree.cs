@@ -497,14 +497,14 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        private sealed class GreaterThanFunction : FunctionNode
+        private class GreaterThanFunction : FunctionNode
         {
             public GreaterThanFunction(FunctionToken token)
                 : base(token, minParameters: 2, maxParameters: 2)
             {
             }
 
-            public sealed override object GetValue()
+            public override object GetValue()
             {
                 object left = Parameters[0].GetValue();
                 if (left is bool)
@@ -524,16 +524,56 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        private sealed class NotFunction : FunctionNode
+        private class GreaterThanOrEqualFunction : FunctionNode
         {
-            public NotFunction(FunctionToken token)
-                : base(token, minParameters: 1, maxParameters: 1)
+            public GreaterThanOrEqualFunction(FunctionToken token)
+                : base(token, minParameters: 2, maxParameters: 2)
+            {
+            }
+
+            public override object GetValue()
+            {
+                object left = Parameters[0].GetValue();
+                if (left is bool)
+                {
+                    bool right = Parameters[1].GetValueAsBool();
+                    return ((bool)left).CompareTo(right) >= 0;
+                }
+                else if (left is decimal)
+                {
+                    decimal right = Parameters[1].GetValueAsNumber();
+                    return ((decimal)left).CompareTo(right) >= 0;
+                }
+
+                string upperLeft = (left as string ?? string.Empty).ToUpperInvariant();
+                string upperRight = (Parameters[1].GetValueAsString() ?? string.Empty).ToUpperInvariant();
+                return upperLeft.CompareTo(upperRight) >= 0;
+            }
+        }
+
+        private sealed class LessThanFunction : GreaterThanOrEqualFunction
+        {
+            public LessThanFunction(FunctionToken token)
+                : base(token)
             {
             }
 
             public sealed override object GetValue()
             {
-                return !Parameters[0].GetValueAsBool();
+                return !(bool)base.GetValue();
+            }
+        }
+
+        private sealed class LessThanOrEqualFunction : GreaterThanFunction
+        {
+            public LessThanOrEqualFunction(FunctionToken token)
+                : base(token)
+            {
+            }
+
+            public sealed override object GetValue()
+            {
+                return !(bool)base.GetValue();
             }
         }
 
@@ -547,6 +587,19 @@ namespace Microsoft.VisualStudio.Services.Agent
             public sealed override object GetValue()
             {
                 return !(bool)base.GetValue();
+            }
+        }
+
+        private sealed class NotFunction : FunctionNode
+        {
+            public NotFunction(FunctionToken token)
+                : base(token, minParameters: 1, maxParameters: 1)
+            {
+            }
+
+            public sealed override object GetValue()
+            {
+                return !Parameters[0].GetValueAsBool();
             }
         }
 
