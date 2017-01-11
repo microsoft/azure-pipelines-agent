@@ -12,55 +12,85 @@ namespace Microsoft.VisualStudio.Services.Agent
             _trace.Entering();
             int level = 0;
             ContainerNode container = null;
-            for (int tokenIndex = 0; tokenIndex < _tokens.Count; tokenIndex++)
+            Token token = null;
+            Token lastToken = null;
+            while ((token = GetNextToken()) != null)
             {
-                Token token = _tokens[tokenIndex];
-                ThrowIfInvalid(token);
-
-                // Check if punctuation.
-                var punctuation = token as PunctuationToken;
-                if (punctuation != null)
+                Node newNode = null;
+                switch (token.Kind)
                 {
-                    ValidatePunctuation(container, punctuation, tokenIndex);
-                    if (punctuation.Value == Constants.Conditions.CloseFunction ||
-                        punctuation.Value == Constants.Conditions.CloseHashtable)
-                    {
+                    case TokenKind.Unrecognized:
+                        ThrowParseException("Unrecognized value", token);
+                        break;
+
+                    // Punctuation
+                    case TokenKind.OpenFunction:
+                    case TokenKind.OpenHashtable:
+                        // Required opening punctuation is validated and skipped when a function or hashtable
+                        // is encountered. Any opening punctuation found at this point is an error.
+                        ThrowParseException("Unexpected symbol", token);
+                        break;
+                    case TokenKind.CloseFunction:
+                        ValidateCloseFunction(container, token, lastToken);
                         container = container.Container; // Pop container.
                         level--;
-                    }
+                        break;
+                    case TokenKind.CloseHashtable:
+                        ValidateCloseHashtable(container, token, lastToken);
+                        container = container.Container; // Pop container.
+                        level--;
+                        break;
+                    case TokenKind.Separator:
+                        ValidateSeparator(container, token, lastToken);
+                        break;
 
-                    continue;
-                }
+                    // Functions
+                    case TokenKind.And:
+                    case TokenKind.Equal:
+                    case TokenKind.GreaterThan:
+                    case TokenKind.GreaterThanOrEqual:
+                    case TokenKind.LessThan:
+                    case TokenKind.LessThanOrEqual:
+                    case TokenKind.Not:
+                    case TokenKind.NotEqual:
+                    case TokenKind.Or:
+                    case TokenKind.Xor:
+                        newNode = CreateFunction(token);
 
-                // Validate the token and create the node.
-                Node newNode = null;
-                if (token is LiteralToken)
-                {
-                    var literalToken = token as LiteralToken;
-                    ValidateLiteral(literalToken, tokenIndex);
-                    string traceFormat = literalToken is StringToken ? "'{0}' ({1})" : "{0} ({1})";
-                    _trace.Verbose(string.Empty.PadLeft(level * 2) + traceFormat, literalToken.Value, literalToken.Value.GetType().Name);
-                    newNode = new LiteralNode(literalToken, _trace, level);
-                }
-                else if (token is FunctionToken)
-                {
-                    var functionToken = token as FunctionToken;
-                    ValidateFunction(functionToken, tokenIndex);
-                    tokenIndex++; // Skip the open paren that follows.
-                    _trace.Verbose(string.Empty.PadLeft(level * 2) + $"{functionToken.Name} (Function)");
-                    newNode = CreateFunction(functionToken, level);
-                }
-                else if (token is HashtableToken)
-                {
-                    var hashtableToken = token as HashtableToken;
-                    ValidateHashtable(hashtableToken, tokenIndex);
-                    tokenIndex++; // Skip the open bracket that follows.
-                    _trace.Verbose(string.Empty.PadLeft(level * 2) + $"{hashtableToken.Name} (Hashtable)");
-                    newNode = CreateHashtable(hashtableToken, level);
-                }
-                else
-                {
-                    throw new NotSupportedException("Unexpected token type: " + token.GetType().FullName);
+                        // Get next token and validate is opening punctuation.
+                        lastToken = token;
+                        token = GetNextToken();
+                        if (token == null || token.Kind != TokenKind.OpenFunction)
+                        {
+                            ThrowParseException("Unexpected symbol", token);
+                        }
+
+                        break;
+
+                    // Hashtables
+                    case TokenKind.Capabilities:
+                    case TokenKind.Variables:
+                        newNode = CreateHashtable(token);
+
+                        // Get next token and validate is opening punctuation.
+                        lastToken = token;
+                        token = GetNextToken();
+                        if (token == null || token.Kind != TokenKind.OpenHashtable)
+                        {
+                            ThrowParseException("Unexpected symbol", token);
+                        }
+
+                        break;
+
+                    // Literal values
+                    case TokenKind.False:
+                    case TokenKind.True:
+                    case TokenKind.Number:
+                    case TokenKind.Version:
+                    case TokenKind.String:
+                        ValidateLiteral(container, token, lastToken);
+                        newNode = CreateLiteral(token);
+                        break;
                 }
 
                 // Update the tree.
@@ -82,156 +112,287 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        private void ThrowIfInvalid(Token token)
+        private void ValidateCloseFunction(ContainerNode container, Token token, Token lastToken)
         {
-            ArgUtil.NotNull(token, nameof(token));
-            if (token is InvalidToken)
-            {
-                if (token is MalformedNumberToken)
-                {
-                    ThrowParseException("Unable to parse number", token);
-                }
-                else if (token is UnterminatedStringToken)
-                {
-                    ThrowParseException("Unterminated string", token);
-                }
-                else if (token is UnrecognizedToken)
-                {
-                    ThrowParseException("Unrecognized keyword", token);
-                }
-
-                throw new NotSupportedException("Unexpected token type: " + token.GetType().FullName);
-            }
-        }
-
-        private void ValidateLiteral(LiteralToken token, int tokenIndex)
-        {
-            ArgUtil.NotNull(token, nameof(token));
-
-            // Validate nothing follows, a separator follows, or close punction follows.
-            Token nextToken = tokenIndex + 1 < _tokens.Count ? _tokens[tokenIndex + 1] : null;
-            ValidateNullOrSeparatorOrClosePunctuation(nextToken);
-        }
-
-        private void ValidateHashtable(HashtableToken token, int tokenIndex)
-        {
-            ArgUtil.NotNull(token, nameof(token));
-
-            // Validate open bracket follows.
-            PunctuationToken nextToken = tokenIndex + 1 < _tokens.Count ? _tokens[tokenIndex + 1] as PunctuationToken : null;
-            if (nextToken == null || nextToken.Value != Constants.Conditions.OpenHashtable)
-            {
-                ThrowParseException($"Expected '{Constants.Conditions.OpenHashtable}' to follow symbol", token);
-            }
-
-            // Validate a literal, hashtable, or function follows.
-            Token nextNextToken = tokenIndex + 2 < _tokens.Count ? _tokens[tokenIndex + 2] : null;
-            if (nextNextToken as LiteralToken == null && nextNextToken as HashtableToken == null && nextNextToken as FunctionToken == null)
-            {
-                ThrowParseException("Expected a value to follow symbol", nextToken);
-            }
-        }
-
-        private void ValidateFunction(FunctionToken token, int tokenIndex)
-        {
-            ArgUtil.NotNull(token, nameof(token));
-
-            // Valdiate open paren follows.
-            PunctuationToken nextToken = tokenIndex + 1 < _tokens.Count ? _tokens[tokenIndex + 1] as PunctuationToken : null;
-            if (nextToken == null || nextToken.Value != Constants.Conditions.OpenFunction)
-            {
-                ThrowParseException($"Expected '{Constants.Conditions.OpenFunction}' to follow symbol", token);
-            }
-
-            // Validate a literal, hashtable, or function follows.
-            Token nextNextToken = tokenIndex + 2 < _tokens.Count ? _tokens[tokenIndex + 2] : null;
-            if (nextNextToken as LiteralToken == null && nextNextToken as HashtableToken == null && nextNextToken as FunctionToken == null)
-            {
-                ThrowParseException("Expected a value to follow symbol", nextToken);
-            }
-        }
-
-        private void ValidatePunctuation(ContainerNode container, PunctuationToken token, int tokenIndex)
-        {
-            ArgUtil.NotNull(token, nameof(token));
-
-            // Required open brackets and parens are validated and skipped when a hashtable
-            // or function node is created. Any open bracket or paren tokens found at this
-            // point are errors.
-            if (token.Value == Constants.Conditions.OpenFunction ||
-                token.Value == Constants.Conditions.OpenHashtable)
+            var function = container as FunctionNode;
+            if (function == null ||                                     // Container should be a function
+                function.Parameters.Count < function.MinParameters ||   // Above min parameters threshold
+                lastToken.Kind == TokenKind.Separator)                  // Last token should not be a separator
             {
                 ThrowParseException("Unexpected symbol", token);
             }
+        }
 
-            if (container == null)
+        private void ValidateCloseHashtable(ContainerNode container, Token token, Token lastToken)
+        {
+            var hashtable = container as HashtableNode;
+            if (hashtable == null ||                // Container should be a hashtable
+                hashtable.Parameters.Count != 1)    // With exactly 1 parameter
             {
-                // A condition cannot lead with punction.
-                // And punction should not trail the closing of the root node.
                 ThrowParseException("Unexpected symbol", token);
             }
-
-            if (token.Value == Constants.Conditions.Separator)
-            {
-                // Validate current container is a function under max parameters threshold.
-                var function = container as FunctionNode;
-                if (function == null ||
-                    function.Parameters.Count >= function.MaxParameters)
-                {
-                    ThrowParseException("Unexpected symbol", token);
-                }
-
-                // Validate a literal, function, or hashtable follows.
-                Token nextToken = tokenIndex + 1 < _tokens.Count ? _tokens[tokenIndex + 1] : null;
-                if (nextToken == null ||
-                    (!(nextToken is LiteralToken) && !(nextToken is FunctionToken) && !(nextToken is HashtableToken)))
-                {
-                    ThrowParseException("Expected a value to follow the separator symbol", token);
-                }
-            }
-            else if (token.Value == Constants.Conditions.CloseHashtable)
-            {
-                // Validate nothing follows, a separator follows, or close punction follows.
-                Token nextToken = tokenIndex + 1 < _tokens.Count ? _tokens[tokenIndex + 1] : null;
-                ValidateNullOrSeparatorOrClosePunctuation(nextToken);
-            }
-            else if (token.Value == Constants.Conditions.CloseFunction)
-            {
-                // Validate current container is a function above min parameters threshold.
-                var function = container as FunctionNode;
-                if (function == null ||
-                    function.Parameters.Count < function.MinParameters)
-                {
-                    ThrowParseException("Unexpected symbol", token);
-                }
-
-                // Validate nothing follows, a separator follows, or close punction follows.
-                Token nextToken = tokenIndex + 1 < _tokens.Count ? _tokens[tokenIndex + 1] : null;
-                ValidateNullOrSeparatorOrClosePunctuation(nextToken);
-            }
         }
 
-        private void ValidateNullOrSeparatorOrClosePunctuation(Token token)
+        private void ValidateLiteral(ContainerNode container, Token token, Token lastToken)
         {
-            if (token == null)
+            bool expected = false;
+            if (lastToken == null) // The first token.
             {
-                return;
+                expected = true;
             }
-
-            var punctuation = token as PunctuationToken;
-            if (punctuation != null)
+            else if (container != null) // Inside a container
             {
-                switch (punctuation.Value)
+                if (lastToken.Kind == TokenKind.OpenFunction ||     // Preceeded by opening punctuation
+                    lastToken.Kind == TokenKind.OpenHashtable ||    // or by a separator.
+                    lastToken.Kind == TokenKind.Separator)
                 {
-                    case Constants.Conditions.CloseFunction:
-                    case Constants.Conditions.CloseHashtable:
-                    case Constants.Conditions.Separator:
-                        return;
+                    expected = true;
                 }
             }
 
-            ThrowParseException("Unexpected symbol", token);
+            if (!expected)
+            {
+                ThrowParseException("Unexpected symbol", token);
+            }
         }
+
+        private void ValidateSeparator(ContainerNode container, Token token, Token lastToken)
+        {
+            var function = container as FunctionNode;
+            if (function == null ||                                     // Container should be a function
+                function.Parameters.Count < 1 ||                        // With at least 1 parameter
+                function.Parameters.Count >= function.MaxParameters ||  // Under max parameters threshold
+                lastToken.Kind == TokenKind.Separator)                  // Last token should not be a separator
+            {
+                ThrowParseException("Unexpected symbol", token);
+            }
+        }
+
+        // // private void CreateTree_old()
+        // // {
+        // //     _trace.Entering();
+        // //     int level = 0;
+        // //     ContainerNode container = null;
+        // //     for (int tokenIndex = 0; tokenIndex < _tokens.Count; tokenIndex++)
+        // //     {
+        // //         Token token = _tokens[tokenIndex];
+        // //         ThrowIfInvalid(token);
+
+        // //         // Check if punctuation.
+        // //         var punctuation = token as PunctuationToken;
+        // //         if (punctuation != null)
+        // //         {
+        // //             ValidatePunctuation(container, punctuation, tokenIndex);
+        // //             if (punctuation.Value == Constants.Conditions.CloseFunction ||
+        // //                 punctuation.Value == Constants.Conditions.CloseHashtable)
+        // //             {
+        // //                 container = container.Container; // Pop container.
+        // //                 level--;
+        // //             }
+
+        // //             continue;
+        // //         }
+
+        // //         // Validate the token and create the node.
+        // //         Node newNode = null;
+        // //         if (token is LiteralToken)
+        // //         {
+        // //             var literalToken = token as LiteralToken;
+        // //             ValidateLiteral_old(literalToken, tokenIndex);
+        // //             string traceFormat = literalToken is StringToken ? "'{0}' ({1})" : "{0} ({1})";
+        // //             _trace.Verbose(string.Empty.PadLeft(level * 2) + traceFormat, literalToken.Value, literalToken.Value.GetType().Name);
+        // //             newNode = new LiteralNode(literalToken, _trace, level);
+        // //         }
+        // //         else if (token is FunctionToken)
+        // //         {
+        // //             var functionToken = token as FunctionToken;
+        // //             ValidateFunction_old(functionToken, tokenIndex);
+        // //             tokenIndex++; // Skip the open paren that follows.
+        // //             _trace.Verbose(string.Empty.PadLeft(level * 2) + $"{functionToken.Name} (Function)");
+        // //             newNode = CreateFunction(functionToken, level);
+        // //         }
+        // //         else if (token is HashtableToken)
+        // //         {
+        // //             var hashtableToken = token as HashtableToken;
+        // //             ValidateHashtable(hashtableToken, tokenIndex);
+        // //             tokenIndex++; // Skip the open bracket that follows.
+        // //             _trace.Verbose(string.Empty.PadLeft(level * 2) + $"{hashtableToken.Name} (Hashtable)");
+        // //             newNode = CreateHashtable(hashtableToken, level);
+        // //         }
+        // //         else
+        // //         {
+        // //             throw new NotSupportedException("Unexpected token type: " + token.GetType().FullName);
+        // //         }
+
+        // //         // Update the tree.
+        // //         if (_root == null)
+        // //         {
+        // //             _root = newNode;
+        // //         }
+        // //         else
+        // //         {
+        // //             container.AddParameter(newNode);
+        // //         }
+
+        // //         // Push the container node.
+        // //         if (newNode is ContainerNode)
+        // //         {
+        // //             container = newNode as ContainerNode;
+        // //             level++;
+        // //         }
+        // //     }
+        // // }
+
+        // // private void ThrowIfInvalid(Token token)
+        // // {
+        // //     ArgUtil.NotNull(token, nameof(token));
+        // //     if (token is InvalidToken)
+        // //     {
+        // //         if (token is MalformedNumberToken)
+        // //         {
+        // //             ThrowParseException("Unable to parse number", token);
+        // //         }
+        // //         else if (token is UnterminatedStringToken)
+        // //         {
+        // //             ThrowParseException("Unterminated string", token);
+        // //         }
+        // //         else if (token is UnrecognizedToken)
+        // //         {
+        // //             ThrowParseException("Unrecognized keyword", token);
+        // //         }
+
+        // //         throw new NotSupportedException("Unexpected token type: " + token.GetType().FullName);
+        // //     }
+        // // }
+
+        // // private void ValidateLiteral_old(LiteralToken token, int tokenIndex)
+        // // {
+        // //     ArgUtil.NotNull(token, nameof(token));
+
+        // //     // Validate nothing follows, a separator follows, or close punction follows.
+        // //     Token nextToken = tokenIndex + 1 < _tokens.Count ? _tokens[tokenIndex + 1] : null;
+        // //     ValidateNullOrSeparatorOrClosePunctuation(nextToken);
+        // // }
+
+        // // private void ValidateHashtable(HashtableToken token, int tokenIndex)
+        // // {
+        // //     ArgUtil.NotNull(token, nameof(token));
+
+        // //     // Validate open bracket follows.
+        // //     PunctuationToken nextToken = tokenIndex + 1 < _tokens.Count ? _tokens[tokenIndex + 1] as PunctuationToken : null;
+        // //     if (nextToken == null || nextToken.Value != Constants.Conditions.OpenHashtable)
+        // //     {
+        // //         ThrowParseException($"Expected '{Constants.Conditions.OpenHashtable}' to follow symbol", token);
+        // //     }
+
+        // //     // Validate a literal, hashtable, or function follows.
+        // //     Token nextNextToken = tokenIndex + 2 < _tokens.Count ? _tokens[tokenIndex + 2] : null;
+        // //     if (nextNextToken as LiteralToken == null && nextNextToken as HashtableToken == null && nextNextToken as FunctionToken == null)
+        // //     {
+        // //         ThrowParseException("Expected a value to follow symbol", nextToken);
+        // //     }
+        // // }
+
+        // // private void ValidateFunction_old(FunctionToken token, int tokenIndex)
+        // // {
+        // //     ArgUtil.NotNull(token, nameof(token));
+
+        // //     // Valdiate open paren follows.
+        // //     PunctuationToken nextToken = tokenIndex + 1 < _tokens.Count ? _tokens[tokenIndex + 1] as PunctuationToken : null;
+        // //     if (nextToken == null || nextToken.Value != Constants.Conditions.OpenFunction)
+        // //     {
+        // //         ThrowParseException($"Expected '{Constants.Conditions.OpenFunction}' to follow symbol", token);
+        // //     }
+
+        // //     // Validate a literal, hashtable, or function follows.
+        // //     Token nextNextToken = tokenIndex + 2 < _tokens.Count ? _tokens[tokenIndex + 2] : null;
+        // //     if (nextNextToken as LiteralToken == null && nextNextToken as HashtableToken == null && nextNextToken as FunctionToken == null)
+        // //     {
+        // //         ThrowParseException("Expected a value to follow symbol", nextToken);
+        // //     }
+        // // }
+
+        // // private void ValidatePunctuation(ContainerNode container, PunctuationToken token, int tokenIndex)
+        // // {
+        // //     ArgUtil.NotNull(token, nameof(token));
+
+        // //     // Required open brackets and parens are validated and skipped when a hashtable
+        // //     // or function node is created. Any open bracket or paren tokens found at this
+        // //     // point are errors.
+        // //     if (token.Value == Constants.Conditions.OpenFunction ||
+        // //         token.Value == Constants.Conditions.OpenHashtable)
+        // //     {
+        // //         ThrowParseException("Unexpected symbol", token);
+        // //     }
+
+        // //     if (container == null)
+        // //     {
+        // //         // A condition cannot lead with punction.
+        // //         // And punction should not trail the closing of the root node.
+        // //         ThrowParseException("Unexpected symbol", token);
+        // //     }
+
+        // //     if (token.Value == Constants.Conditions.Separator)
+        // //     {
+        // //         // Validate current container is a function under max parameters threshold.
+        // //         var function = container as FunctionNode;
+        // //         if (function == null ||
+        // //             function.Parameters.Count >= function.MaxParameters)
+        // //         {
+        // //             ThrowParseException("Unexpected symbol", token);
+        // //         }
+
+        // //         // Validate a literal, function, or hashtable follows.
+        // //         Token nextToken = tokenIndex + 1 < _tokens.Count ? _tokens[tokenIndex + 1] : null;
+        // //         if (nextToken == null ||
+        // //             (!(nextToken is LiteralToken) && !(nextToken is FunctionToken) && !(nextToken is HashtableToken)))
+        // //         {
+        // //             ThrowParseException("Expected a value to follow the separator symbol", token);
+        // //         }
+        // //     }
+        // //     else if (token.Value == Constants.Conditions.CloseHashtable)
+        // //     {
+        // //         // Validate nothing follows, a separator follows, or close punction follows.
+        // //         Token nextToken = tokenIndex + 1 < _tokens.Count ? _tokens[tokenIndex + 1] : null;
+        // //         ValidateNullOrSeparatorOrClosePunctuation(nextToken);
+        // //     }
+        // //     else if (token.Value == Constants.Conditions.CloseFunction)
+        // //     {
+        // //         // Validate current container is a function above min parameters threshold.
+        // //         var function = container as FunctionNode;
+        // //         if (function == null ||
+        // //             function.Parameters.Count < function.MinParameters)
+        // //         {
+        // //             ThrowParseException("Unexpected symbol", token);
+        // //         }
+
+        // //         // Validate nothing follows, a separator follows, or close punction follows.
+        // //         Token nextToken = tokenIndex + 1 < _tokens.Count ? _tokens[tokenIndex + 1] : null;
+        // //         ValidateNullOrSeparatorOrClosePunctuation(nextToken);
+        // //     }
+        // // }
+
+        // // private void ValidateNullOrSeparatorOrClosePunctuation(Token token)
+        // // {
+        // //     if (token == null)
+        // //     {
+        // //         return;
+        // //     }
+
+        // //     var punctuation = token as PunctuationToken;
+        // //     if (punctuation != null)
+        // //     {
+        // //         switch (punctuation.Value)
+        // //         {
+        // //             case Constants.Conditions.CloseFunction:
+        // //             case Constants.Conditions.CloseHashtable:
+        // //             case Constants.Conditions.Separator:
+        // //                 return;
+        // //         }
+        // //     }
+
+        // //     ThrowParseException("Unexpected symbol", token);
+        // // }
 
         private void ThrowParseException(string description, Token token)
         {
@@ -620,18 +781,18 @@ namespace Microsoft.VisualStudio.Services.Agent
                 if (left is bool)
                 {
                     bool right = Parameters[1].GetValueAsBool();
-                    result = ((bool)left).CompareTo(right) == 1;
+                    result = ((bool)left).CompareTo(right) >= 1;
                 }
                 else if (left is decimal)
                 {
                     decimal right = Parameters[1].GetValueAsNumber();
-                    result = ((decimal)left).CompareTo(right) == 1;
+                    result = ((decimal)left).CompareTo(right) >= 1;
                 }
                 else
                 {
                     string upperLeft = (left as string ?? string.Empty).ToUpperInvariant();
                     string upperRight = (Parameters[1].GetValueAsString() ?? string.Empty).ToUpperInvariant();
-                    result = upperLeft.CompareTo(upperRight) == 1;
+                    result = upperLeft.CompareTo(upperRight) >= 1;
                 }
 
                 TraceValue(result);

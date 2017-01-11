@@ -9,6 +9,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         private readonly Tracing _trace;
         private readonly List<Token> _tokens = new List<Token>();
         private readonly string _raw; // Raw condition string.
+        private int _index; // Index of raw condition string.
         private Node _root; // Parse tree.
 
         public Condition(IHostContext context, string condition)
@@ -18,7 +19,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             _trace = _context.GetTrace(nameof(Condition));
             _raw = condition;
             _trace.Info($"Parsing condition: {_raw}");
-            CreateTokens();
             CreateTree();
             Evaluate();
         }
