@@ -8,10 +8,166 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Agent.Worker.Release;
 using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
+    public interface IArtifactCommands
+    {
+        Task AssociateArtifactAsync(
+            IExecutionContext context,
+            IAsyncCommandContext commandContext,
+            VssConnection connection,
+            Guid projectId,
+            string name,
+            string type,
+            string data,
+            Dictionary<string, string> propertiesDictionary,
+            CancellationToken cancellationToken);
+
+        Task UploadArtifactAsync(
+            IExecutionContext context,
+            IAsyncCommandContext commandContext,
+            VssConnection connection,
+            Guid projectId,
+            string containerPath,
+            string name,
+            Dictionary<string, string> propertiesDictionary,
+            string source,
+            CancellationToken cancellationToken);
+    }
+
+    public class ReleaseArtifactCommands : IArtifactCommands
+    {
+        public async Task AssociateArtifactAsync(
+            IExecutionContext context,
+            IAsyncCommandContext commandContext,
+            VssConnection connection,
+            Guid projectId,
+            string name,
+            string type,
+            string data,
+            Dictionary<string, string> propertiesDictionary,
+            CancellationToken cancellationToken)
+        {
+            int? releaseId = context.Variables.Release_ReleaseId;
+            ArgUtil.NotNull(releaseId, nameof(releaseId));
+
+            int? releaseEnvironmentId = context.Variables.Release_ReleaseEnvironmentId;
+            ArgUtil.NotNull(releaseId, nameof(releaseEnvironmentId));
+
+            int? attempt = context.Variables.Release_Attempt;
+            ArgUtil.NotNull(releaseId, nameof(attempt));
+
+            long? containerId = context.Variables.Release_ContainerId;
+            ArgUtil.NotNull(containerId, nameof(containerId));
+
+            ServiceEndpoint vssEndpoint = context.Endpoints.FirstOrDefault(e => string.Equals(e.Name, ServiceEndpoints.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
+            ArgUtil.NotNull(vssEndpoint, nameof(vssEndpoint));
+            ArgUtil.NotNull(vssEndpoint.Url, nameof(vssEndpoint.Url));
+
+            context.Debug($"Connecting to {vssEndpoint.Url}/{projectId}");
+            var releaseServer = new ReleaseServer(vssEndpoint.Url, ApiUtil.GetVssCredential(vssEndpoint), projectId);
+            var artifact = await releaseServer.AssociateArtifact(releaseId.Value, releaseEnvironmentId.Value, Convert.ToInt32(context.Variables.Release_DeploymentId), name, type, data, propertiesDictionary, cancellationToken);
+            context.Output(StringUtil.Loc("AssociateArtifactWithRelease", artifact.Id, releaseId));
+        }
+
+        public async Task UploadArtifactAsync(
+            IExecutionContext context,
+            IAsyncCommandContext commandContext,
+            VssConnection connection,
+            Guid projectId,
+            string containerPath,
+            string name,
+            Dictionary<string, string> propertiesDictionary,
+            string source,
+            CancellationToken cancellationToken)
+        {
+            int? releaseId = context.Variables.Release_ReleaseId;
+            ArgUtil.NotNull(releaseId, nameof(releaseId));
+
+            int? releaseEnvironmentId = context.Variables.Release_ReleaseEnvironmentId;
+            ArgUtil.NotNull(releaseId, nameof(releaseEnvironmentId));
+
+            int? attempt = context.Variables.Release_Attempt;
+            ArgUtil.NotNull(releaseId, nameof(attempt));
+
+            long? containerId = context.Variables.Release_ContainerId;
+            ArgUtil.NotNull(containerId, nameof(containerId));
+
+            //var releaseContainerPath = releaseId + "/" + releaseEnvironmentId + "/" + context.Variables.Release_DeploymentId + "/" + containerPath;
+            var releaseContainerPath = releaseId + "/" + containerPath; // No folder change in build artifacts
+
+            context.Debug($"Upload artifact: {source} to server for release: {releaseId.Value} at backend.");
+            FileContainerServer fileContainerHelper = new FileContainerServer(connection, projectId, containerId.Value, releaseContainerPath);
+            await fileContainerHelper.CopyToContainerAsync(commandContext, source, cancellationToken);
+            string fileContainerFullPath = StringUtil.Format($"#/{containerId.Value}/{releaseContainerPath}");
+            context.Output(StringUtil.Loc("UploadToFileContainer", source, fileContainerFullPath));
+
+            ServiceEndpoint vssEndpoint = context.Endpoints.FirstOrDefault(e => string.Equals(e.Name, ServiceEndpoints.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
+            ArgUtil.NotNull(vssEndpoint, nameof(vssEndpoint));
+            ArgUtil.NotNull(vssEndpoint.Url, nameof(vssEndpoint.Url));
+
+            context.Debug($"Connecting to {vssEndpoint.Url}/{projectId}");
+            var releaseServer = new ReleaseServer(vssEndpoint.Url, ApiUtil.GetVssCredential(vssEndpoint), projectId);
+
+            var artifact = await releaseServer.AssociateArtifact(releaseId.Value, releaseEnvironmentId.Value, Convert.ToInt32(context.Variables.Release_DeploymentId), name, WellKnownArtifactResourceTypes.Container, fileContainerFullPath, propertiesDictionary, cancellationToken);
+            context.Output(StringUtil.Loc("AssociateArtifactWithRelease", artifact.Id, releaseId));
+        }
+    }
+
+    public class BuildArtifactCommands : IArtifactCommands
+    {
+        public async Task AssociateArtifactAsync(
+            IExecutionContext context,
+            IAsyncCommandContext commandContext,
+            VssConnection connection,
+            Guid projectId,
+            string name,
+            string type,
+            string data,
+            Dictionary<string, string> propertiesDictionary,
+            CancellationToken cancellationToken)
+        {
+            int? buildId = context.Variables.Build_BuildId;
+            ArgUtil.NotNull(buildId, nameof(buildId));
+
+            context.Debug($"Associate artifact: {name} with build: {buildId.Value} at backend.");
+            BuildServer buildHelper = new BuildServer(connection, projectId);
+            var artifact = await buildHelper.AssociateArtifact(buildId.Value, name, type, data, propertiesDictionary, cancellationToken);
+            context.Output(StringUtil.Loc("AssociateArtifactWithBuild", artifact.Id, buildId));
+        }
+
+        public async Task UploadArtifactAsync(
+            IExecutionContext context,
+            IAsyncCommandContext commandContext,
+            VssConnection connection,
+            Guid projectId,
+            string containerPath,
+            string name,
+            Dictionary<string, string> propertiesDictionary,
+            string source,
+            CancellationToken cancellationToken)
+        {
+            int? buildId = context.Variables.Build_BuildId;
+            ArgUtil.NotNull(buildId, nameof(buildId));
+
+            long? containerId = context.Variables.Build_ContainerId;
+            ArgUtil.NotNull(containerId, nameof(containerId));
+
+            context.Debug($"Upload artifact: {source} to server for build: {buildId.Value} at backend.");
+            FileContainerServer fileContainerHelper = new FileContainerServer(connection, projectId, containerId.Value, containerPath);
+            await fileContainerHelper.CopyToContainerAsync(commandContext, source, cancellationToken);
+            string fileContainerFullPath = StringUtil.Format($"#/{containerId.Value}/{containerPath}");
+            context.Output(StringUtil.Loc("UploadToFileContainer", source, fileContainerFullPath));
+
+            BuildServer buildHelper = new BuildServer(connection, projectId);
+            var artifact = await buildHelper.AssociateArtifact(buildId.Value, name, WellKnownArtifactResourceTypes.Container, fileContainerFullPath, propertiesDictionary, cancellationToken);
+            context.Output(StringUtil.Loc("AssociateArtifactWithBuild", artifact.Id, buildId));
+        }
+    }
+
     public sealed class ArtifactCommandExtension : AgentService, IWorkerCommandExtension
     {
         public Type ExtensionType => typeof(IWorkerCommandExtension);
@@ -20,13 +176,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public void ProcessCommand(IExecutionContext context, Command command)
         {
+            IArtifactCommands artifactCommands;
+            if (IsHostTypeRelease(context))
+            {
+                artifactCommands = new ReleaseArtifactCommands();
+            }
+            else
+            {
+                artifactCommands = new BuildArtifactCommands();
+            }
             if (string.Equals(command.Event, WellKnownArtifactCommand.Associate, StringComparison.OrdinalIgnoreCase))
             {
-                ProcessArtifactAssociateCommand(context, command.Properties, command.Data);
+                ProcessArtifactAssociateCommand(context, artifactCommands, command.Properties, command.Data);
             }
             else if (string.Equals(command.Event, WellKnownArtifactCommand.Upload, StringComparison.OrdinalIgnoreCase))
             {
-                ProcessArtifactUploadCommand(context, command.Properties, command.Data);
+                ProcessArtifactUploadCommand(context, artifactCommands, command.Properties, command.Data);
             }
             else
             {
@@ -34,7 +199,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
         }
 
-        private void ProcessArtifactAssociateCommand(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
+        private bool IsHostTypeRelease(IExecutionContext context)
+        {
+            var hostType = context.Variables.System_HostType;
+
+            if (hostType != null && String.Equals(hostType.ToString(), "release", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private void ProcessArtifactAssociateCommand(IExecutionContext context, IArtifactCommands artifactCommands, Dictionary<string, string> eventProperties, string data)
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(context.Endpoints, nameof(context.Endpoints));
@@ -48,9 +225,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             Guid projectId = context.Variables.System_TeamProjectId ?? Guid.Empty;
             ArgUtil.NotEmpty(projectId, nameof(projectId));
-
-            int? buildId = context.Variables.Build_BuildId;
-            ArgUtil.NotNull(buildId, nameof(buildId));
 
             string artifactName;
             if (!eventProperties.TryGetValue(ArtifactAssociateEventProperties.ArtifactName, out artifactName) ||
@@ -96,13 +270,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
 
             // queue async command task to associate artifact.
-            context.Debug($"Associate artifact: {artifactName} with build: {buildId.Value} at backend.");
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("AssociateArtifact"));
-            commandContext.Task = AssociateArtifactAsync(commandContext,
+            commandContext.Task = artifactCommands.AssociateArtifactAsync(context,
+                                                         commandContext,
                                                          WorkerUtilies.GetVssConnection(context),
                                                          projectId,
-                                                         buildId.Value,
                                                          artifactName,
                                                          artifactType,
                                                          artifactData,
@@ -111,19 +284,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             context.AsyncCommands.Add(commandContext);
         }
 
-        private void ProcessArtifactUploadCommand(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
+        private void ProcessArtifactUploadCommand(IExecutionContext context, IArtifactCommands artifactCommands, Dictionary<string, string> eventProperties, string data)
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(context.Endpoints, nameof(context.Endpoints));
 
             Guid projectId = context.Variables.System_TeamProjectId ?? Guid.Empty;
             ArgUtil.NotEmpty(projectId, nameof(projectId));
-
-            int? buildId = context.Variables.Build_BuildId;
-            ArgUtil.NotNull(buildId, nameof(buildId));
-
-            long? containerId = context.Variables.Build_ContainerId;
-            ArgUtil.NotNull(containerId, nameof(containerId));
 
             string artifactName;
             if (!eventProperties.TryGetValue(ArtifactAssociateEventProperties.ArtifactName, out artifactName) ||
@@ -160,37 +327,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 return;
             }
 
-            // queue async command task to associate artifact.
-            context.Debug($"Upload artifact: {fullPath} to server for build: {buildId.Value} at backend.");
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("UploadArtifact"));
-            commandContext.Task = UploadArtifactAsync(commandContext,
+            commandContext.Task = artifactCommands.UploadArtifactAsync(context,
+                                                      commandContext,
                                                       WorkerUtilies.GetVssConnection(context),
                                                       projectId,
-                                                      containerId.Value,
                                                       containerFolder,
-                                                      buildId.Value,
                                                       artifactName,
                                                       propertyDictionary,
                                                       fullPath,
                                                       context.CancellationToken);
             context.AsyncCommands.Add(commandContext);
-        }
-
-        private async Task AssociateArtifactAsync(
-            IAsyncCommandContext context,
-            VssConnection connection,
-            Guid projectId,
-            int buildId,
-            string name,
-            string type,
-            string data,
-            Dictionary<string, string> propertiesDictionary,
-            CancellationToken cancellationToken)
-        {
-            BuildServer buildHelper = new BuildServer(connection, projectId);
-            var artifact = await buildHelper.AssociateArtifact(buildId, name, type, data, propertiesDictionary, cancellationToken);
-            context.Output(StringUtil.Loc("AssociateArtifactWithBuild", artifact.Id, buildId));
         }
 
         private async Task UploadArtifactAsync(
