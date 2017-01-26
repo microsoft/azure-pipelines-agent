@@ -197,8 +197,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 catch (OperationCanceledException ex)
                 {
                     // set the job to canceled
+                    // don't log error issue to job ExecutionContext, since server owns the job level issue
                     Trace.Error($"Caught exception: {ex}");
-                    jobContext.Error(ex);
                     return await CompleteJobAsync(jobServer, jobContext, message, TaskResult.Canceled);
                 }
                 catch (Exception ex)
@@ -218,8 +218,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 catch (OperationCanceledException ex)
                 {
                     // set the job to canceled
+                    // don't log error issue to job ExecutionContext, since server owns the job level issue
                     Trace.Error($"Caught exception: {ex}");
-                    jobContext.Error(ex);
                     return await CompleteJobAsync(jobServer, jobContext, message, TaskResult.Canceled);
                 }
                 catch (Exception ex)
