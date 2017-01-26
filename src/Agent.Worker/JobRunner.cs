@@ -194,7 +194,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     await taskManager.DownloadAsync(jobContext, message.Tasks);
                 }
-                catch (OperationCanceledException ex)
+                catch (OperationCanceledException ex) when (jobContext.CancellationToken.IsCancellationRequested)
                 {
                     // set the job to canceled
                     // don't log error issue to job ExecutionContext, since server owns the job level issue
@@ -215,7 +215,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     await stepsRunner.RunAsync(jobContext, steps);
                 }
-                catch (OperationCanceledException ex)
+                catch (OperationCanceledException ex) when (jobContext.CancellationToken.IsCancellationRequested)
                 {
                     // set the job to canceled
                     // don't log error issue to job ExecutionContext, since server owns the job level issue
