@@ -11,28 +11,13 @@ using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 {
-    public sealed class StepsRunnerL0
+    public abstract class StepsRunnerL0Base
     {
-        private Mock<IExecutionContext> _ec;
-        private StepsRunner _stepsRunner;
-        private Variables _variables;
+        protected Mock<IExecutionContext> _ec;
 
-        private TestHostContext CreateTestContext([CallerMemberName] String testName = "")
-        {
-            var hc = new TestHostContext(this, testName);
-            List<string> warnings;
-            _variables = new Variables(
-                hostContext: hc,
-                copy: new Dictionary<string, string>(),
-                maskHints: new List<MaskHint>(),
-                warnings: out warnings);
-            _ec = new Mock<IExecutionContext>();
-            _ec.SetupAllProperties();
-            _ec.Setup(x => x.Variables).Returns(_variables);
-            _stepsRunner = new StepsRunner();
-            _stepsRunner.Initialize(hc);
-            return hc;
-        }
+        protected StepsRunner _stepsRunner;
+
+        protected Variables _variables;
 
         [Fact]
         [Trait("Level", "L0")]
@@ -138,6 +123,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                         Expected = TaskResult.Failed,
                     },
                 };
+
                 foreach (var variableSet in variableSets)
                 {
                     _ec.Object.Result = null;
@@ -316,6 +302,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     new[] { CreateStep(TaskResult.Failed, critical: true), CreateStep(TaskResult.Succeeded, continueOnError: true) },
                     new[] { CreateStep(TaskResult.Failed, critical: true), CreateStep(TaskResult.Succeeded, critical: true) },
                 };
+
                 foreach (var variableSet in variableSets)
                 {
                     _ec.Object.Result = null;
@@ -338,25 +325,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             }
         }
 
-        private Mock<IStep> CreateStep(TaskResult result, Boolean alwaysRun = false, Boolean continueOnError = false, Boolean critical = false, Boolean isFinally = false)
-        {
-            // Setup the step.
-            var step = new Mock<IStep>();
-            step.Setup(x => x.AlwaysRun).Returns(alwaysRun);
-            step.Setup(x => x.ContinueOnError).Returns(continueOnError);
-            step.Setup(x => x.Critical).Returns(critical);
-            step.Setup(x => x.Enabled).Returns(true);
-            step.Setup(x => x.Finally).Returns(isFinally);
-            step.Setup(x => x.RunAsync()).Returns(Task.CompletedTask);
+        protected abstract RunMode DetermineRunMode(bool alwaysRun, bool isRollback, bool isCustom);
 
-            // Setup the step execution context.
-            Mock<IExecutionContext> stepContext = CreateStepContext(result);
-            step.Setup(x => x.ExecutionContext).Returns(stepContext.Object);
-
-            return step;
-        }
-
-        private Mock<IExecutionContext> CreateStepContext(TaskResult? result = null)
+        protected Mock<IExecutionContext> CreateStepContext(TaskResult? result = null)
         {
             var stepContext = new Mock<IExecutionContext>();
             stepContext.SetupAllProperties();
@@ -366,7 +337,51 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             return stepContext;
         }
 
-        private string FormatSteps(IEnumerable<Mock<IStep>> steps)
+        protected TestHostContext CreateTestContext([CallerMemberName] String testName = "")
+        {
+            var hc = new TestHostContext(this, testName);
+            List<string> warnings;
+            _variables = new Variables(
+                hostContext: hc,
+                copy: new Dictionary<string, string>(),
+                maskHints: new List<MaskHint>(),
+                warnings: out warnings);
+            _ec = new Mock<IExecutionContext>();
+            _ec.SetupAllProperties();
+            _ec.Setup(x => x.Variables).Returns(_variables);
+            _stepsRunner = new StepsRunner();
+            _stepsRunner.Initialize(hc);
+            return hc;
+        }
+
+        protected Mock<IStep> CreateStep(
+            TaskResult result,
+            Boolean alwaysRun = false,
+            Boolean continueOnError = false,
+            Boolean critical = false,
+            Boolean isFinally = false,
+            Boolean isRollback = false,
+            Boolean isCustom = false)
+        {
+            // Setup the step.
+            var step = new Mock<IStep>();
+            step.Setup(x => x.AlwaysRun).Returns(alwaysRun);
+            step.Setup(x => x.RunMode).Returns(DetermineRunMode(alwaysRun, isRollback, isCustom));
+            step.Setup(x => x.ContinueOnError).Returns(continueOnError);
+            step.Setup(x => x.Critical).Returns(critical);
+            step.Setup(x => x.Enabled).Returns(true);
+            step.Setup(x => x.Finally).Returns(isFinally);
+            step.Setup(x => x.Conditions).Returns(new List<TaskCondition>());
+            step.Setup(x => x.RunAsync()).Returns(Task.CompletedTask);
+
+            // Setup the step execution context.
+            Mock<IExecutionContext> stepContext = CreateStepContext(result);
+            step.Setup(x => x.ExecutionContext).Returns(stepContext.Object);
+
+            return step;
+        }
+
+        private static string FormatSteps(IEnumerable<Mock<IStep>> steps)
         {
             return String.Join(
                 " ; ",
@@ -379,6 +394,161 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     x.Object.Critical,
                     x.Object.Enabled,
                     x.Object.Finally)));
+        }
+    }
+
+    public sealed class StepsRunnerL0Legacy : StepsRunnerL0Base
+    {
+        protected override RunMode DetermineRunMode(bool alwaysRun, bool isRollback, bool isCustom)
+        {
+            return RunMode.Undefined;
+        }
+    }
+
+    public sealed class StepsRunnerL0RunMode : StepsRunnerL0Base
+    {
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task RunsRollback()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            {
+                // Arrange.
+                var variableSets = new[]
+                {
+                    new
+                    {
+                        Steps = new[] { CreateStep(TaskResult.Succeeded), CreateStep(TaskResult.Succeeded, isRollback: true) },
+                        RollbackStepShouldBeSkipped = true,
+                        Expected = TaskResult.Succeeded,
+                    },
+                    new
+                    {
+                        Steps = new[] { CreateStep(TaskResult.Failed), CreateStep(TaskResult.Succeeded, isRollback: true) },
+                        RollbackStepShouldBeSkipped = false,
+                        Expected = TaskResult.Failed,
+                    },
+                    new
+                    {
+                        Steps = new[] { CreateStep(TaskResult.Failed), CreateStep(TaskResult.Failed, isRollback: true) },
+                        RollbackStepShouldBeSkipped = false,
+                        Expected = TaskResult.Failed,
+                    },
+                    new
+                    {
+                        Steps = new[] { CreateStep(TaskResult.Failed, critical: true), CreateStep(TaskResult.Failed, isRollback: true) },
+                        RollbackStepShouldBeSkipped = true,
+                        Expected = TaskResult.Failed,
+
+                    },
+                    new
+                    {
+                        Steps = new[] { CreateStep(TaskResult.Succeeded, critical: true), CreateStep(TaskResult.Succeeded, isFinally: true, isRollback: true) },
+                        RollbackStepShouldBeSkipped = false,
+                        Expected = TaskResult.Succeeded,
+                    }
+                };
+
+                foreach (var variableSet in variableSets)
+                {
+                    _ec.Object.Result = null;
+
+                    Mock<IExecutionContext> stepContext = CreateStepContext(variableSet.Steps[1].Object.ExecutionContext.Result);
+                    variableSet.Steps[1].Setup(x => x.ExecutionContext).Returns(stepContext.Object);
+
+                    // Act.
+                    await _stepsRunner.RunAsync(
+                        jobContext: _ec.Object,
+                        steps: variableSet.Steps.Select(x => x.Object).ToList());
+
+                    // Assert.
+                    Assert.Equal(variableSet.Expected, _ec.Object.Result ?? TaskResult.Succeeded);
+                    variableSet.Steps[0].Verify(x => x.RunAsync(), Times.Once);
+
+                    if (variableSet.RollbackStepShouldBeSkipped)
+                    {
+                        stepContext.Verify(x => x.Skip(), Times.Once);
+                    }
+                    else
+                    {
+                        variableSet.Steps[1].Verify(x => x.RunAsync(), Times.Once);
+                    }
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task RunsCustomMode()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            {
+                // Arrange.
+                var variableSets = new[]
+                {
+                    new
+                    {
+                        Steps = new[] { CreateStep(TaskResult.Succeeded), CreateStep(TaskResult.Succeeded, isCustom: true) },
+                        CustomStepShouldBeSkipped = false,
+                        Expected = TaskResult.Succeeded,
+                    },
+                    new
+                    {
+                        Steps = new[] { CreateStep(TaskResult.Failed), CreateStep(TaskResult.Succeeded, isCustom: true) },
+                        CustomStepShouldBeSkipped = true,
+                        Expected = TaskResult.Failed,
+                    }
+                };
+
+                foreach (var variableSet in variableSets)
+                {
+                    _ec.Object.Result = null;
+
+                    Mock<IExecutionContext> stepContext = CreateStepContext(variableSet.Steps[1].Object.ExecutionContext.Result);
+                    variableSet.Steps[1].Setup(x => x.ExecutionContext).Returns(stepContext.Object);
+
+                    // Act.
+                    await _stepsRunner.RunAsync(
+                        jobContext: _ec.Object,
+                        steps: variableSet.Steps.Select(x => x.Object).ToList());
+
+                    // Assert.
+                    Assert.Equal(variableSet.Expected, _ec.Object.Result ?? TaskResult.Succeeded);
+                    variableSet.Steps[0].Verify(x => x.RunAsync(), Times.Once);
+
+                    if (variableSet.CustomStepShouldBeSkipped)
+                    {
+                        stepContext.Verify(x => x.Skip(), Times.Once);
+                    }
+                    else
+                    {
+                        variableSet.Steps[1].Verify(x => x.RunAsync(), Times.Once);
+                    }
+                }
+            }
+        }
+
+        // All the three params are mutually exclusive
+        protected override RunMode DetermineRunMode(bool alwaysRun, bool isRollback, bool isCustom)
+        {
+            if (alwaysRun)
+            {
+                return RunMode.Always;
+            }
+            else if (isRollback)
+            {
+                return RunMode.Rollback;
+            }
+            else if(isCustom)
+            {
+                return RunMode.Custom;
+            }
+            else
+            {
+                return RunMode.Default;
+            }
         }
     }
 }
