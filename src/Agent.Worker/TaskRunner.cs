@@ -166,8 +166,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var extensionManager = HostContext.GetService<IExtensionManager>();
             IJobExtension[] extensions =
                 (extensionManager.GetExtensions<IJobExtension>() ?? new List<IJobExtension>())
-                .Where(x => string.Equals(x.HostType, ExecutionContext.Variables.System_HostType, StringComparison.OrdinalIgnoreCase))
+                .Where(x => string.Equals(x.HostType, ExecutionContext.Variables.System_HostType, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(x.HostType, "*", StringComparison.OrdinalIgnoreCase))
                 .ToArray();
+
             foreach (IJobExtension extension in extensions)
             {
                 fullPath = extension.GetRootedPath(ExecutionContext, inputValue);
