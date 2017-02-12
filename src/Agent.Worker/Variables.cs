@@ -142,6 +142,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public string Release_ReleaseUri => Get(Constants.Variables.Release.ReleaseUri);
 
+        public int? Release_ReleaseId => GetInt(Constants.Variables.Release.ReleaseId);
+
+        public int? Release_ReleaseEnvironmentId => GetInt("release.environmentId");
+
+        public int? Release_Attempt => GetInt("release.attemptNumber");
+
+        public string Release_DeploymentId => Get("release.deploymentId");
+
+        public long? Release_ContainerId => GetLong("release.containerid");
+
         public string System_CollectionId => Get(Constants.Variables.System.CollectionId);
 
         public bool? System_Debug => GetBoolean(Constants.Variables.System.Debug);
