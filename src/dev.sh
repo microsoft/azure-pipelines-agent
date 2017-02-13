@@ -4,6 +4,9 @@ DEV_SUBCMD=$2
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LAYOUT_DIR="$SCRIPT_DIR/../_layout"
 DOWNLOAD_DIR="$SCRIPT_DIR/../_downloads"
+DOTNETSDK_ROOT="$SCRIPT_DIR/../_dotnetsdk"
+DOTNETSDK_VERSION="1.0.0-rc3-004530"
+DOTNETSDK_INSTALLDIR="$DOTNETSDK_ROOT/$DOTNETSDK_VERSION"
 
 pushd $SCRIPT_DIR
 
@@ -315,6 +318,34 @@ function package ()
 
     popd > /dev/null
 }
+
+if [[ (! -d "${DOTNETSDK_INSTALLDIR}") || (! -e "${DOTNETSDK_INSTALLDIR}/.${DOTNETSDK_VERSION}") || (! -e "${DOTNETSDK_INSTALLDIR}/dotnet") ]]; then
+    
+    # Download dotnet SDK to ../_dotnetsdk directory
+    heading "Ensure Dotnet SDK"
+
+    # _dotnetsdk
+    #           \1.0.x
+    #                            \dotnet
+    #                            \.1.0.x
+    echo "Download dotnetsdk into ${DOTNETSDK_INSTALLDIR}"
+    rm -Rf ${DOTNETSDK_DIR}
+
+    # run dotnet-install.ps1 on windows, dotnet-install.sh on linux
+    if [[ ("$PLATFORM" == "windows") ]]; then
+        echo "Convert ${DOTNETSDK_INSTALLDIR} to Windows style path"
+        sdkinstallwindow_path=${DOTNETSDK_INSTALLDIR:1}
+        sdkinstallwindow_path=${sdkinstallwindow_path:0:1}:${sdkinstallwindow_path:1}
+        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"./Misc/dotnet-install.ps1\" -Version ${DOTNETSDK_VERSION} -InstallDir \"${sdkinstallwindow_path}\" -NoPath; exit $LastExitCode;" || checkRC dotnet-install.ps1
+    else
+        bash ./Misc/dotnet-install.sh --version ${DOTNETSDK_VERSION} --install-dir ${DOTNETSDK_INSTALLDIR} --no-path || checkRC dotnet-install.sh
+    fi
+
+    echo "${DOTNETSDK_VERSION}" > ${DOTNETSDK_INSTALLDIR}/.${DOTNETSDK_VERSION}
+fi
+
+echo "Prepend ${DOTNETSDK_INSTALLDIR} to %PATH%"
+export PATH=${DOTNETSDK_INSTALLDIR}:$PATH
 
 case $DEV_CMD in
    "build") build;;
