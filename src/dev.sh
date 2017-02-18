@@ -163,6 +163,28 @@ function build ()
     fi
 }
 
+function buildlistener ()
+{
+    #generateConstant
+    
+    if [[ "$define_os" == 'OS_WINDOWS' ]]; then
+        reg_out=`reg query "HKLM\SOFTWARE\Microsoft\MSBuild\ToolsVersions\4.0" -v MSBuildToolsPath`
+        msbuild_location=`echo $reg_out | tr -d '\r\n' | tr -s ' ' | cut -d' ' -f5 | tr -d '\r\n'`
+              
+        local rc=$?
+        if [ $rc -ne 0 ]; then
+            failed "Can not find msbuild location, failing build"
+        fi
+    fi
+
+    #rundotnet build failed build_dirs[@]
+    rundotnet build failed Agent.Listener
+
+    #if [[ "$define_os" == 'OS_WINDOWS' && "$msbuild_location" != "" ]]; then
+    #    $msbuild_location/msbuild.exe $WINDOWSAGENTSERVICE_PROJFILE
+    #fi
+}
+
 function restore ()
 {
     rundotnet restore warn build_dirs[@]
@@ -365,6 +387,7 @@ dotnet --version
 case $DEV_CMD in
    "build") build;;
    "b") build;;
+   "buildlistener") buildlistener;;
    "test") runtest;;
    "t") runtest;;
    "bt") buildtest;;   

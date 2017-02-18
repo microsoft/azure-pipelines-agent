@@ -31,7 +31,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Constants.Agent.CommandLine.Flags.Replace,
             Constants.Agent.CommandLine.Flags.RunAsService,
             Constants.Agent.CommandLine.Flags.Unattended,
-            Constants.Agent.CommandLine.Flags.Version
+            Constants.Agent.CommandLine.Flags.Version,
+            Constants.Agent.CommandLine.Flags.WhatIf
         };
 
         private readonly string[] validArgs =
@@ -50,7 +51,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Constants.Agent.CommandLine.Args.UserName,
             Constants.Agent.CommandLine.Args.WindowsLogonAccount,
             Constants.Agent.CommandLine.Args.WindowsLogonPassword,
-            Constants.Agent.CommandLine.Args.Work
+            Constants.Agent.CommandLine.Args.Work,
+            Constants.Agent.CommandLine.Args.Yaml
         };
 
         // Commands.
@@ -63,6 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         public bool Help => TestFlag(Constants.Agent.CommandLine.Flags.Help);
         public bool Unattended => TestFlag(Constants.Agent.CommandLine.Flags.Unattended);
         public bool Version => TestFlag(Constants.Agent.CommandLine.Flags.Version);
+        public bool WhatIf => TestFlag(Constants.Agent.CommandLine.Flags.WhatIf);
         public bool MachineGroup => TestFlag(Constants.Agent.CommandLine.Flags.MachineGroup) || TestFlag(Constants.Agent.CommandLine.Flags.DeploymentGroup);
 
         // Constructor.
@@ -269,6 +272,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         public string GetNotificationSocketAddress()
         {
             return GetArg(Constants.Agent.CommandLine.Args.NotificationSocketAddress);
+        }
+
+        public string GetYaml()
+        {
+            return GetArg(Constants.Agent.CommandLine.Args.Yaml);
+        }
+
+        public void SetUnattended()
+        {
+            _parser.Flags.Add(Constants.Agent.CommandLine.Flags.Unattended);
         }
 
         //

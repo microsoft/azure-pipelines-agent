@@ -1,0 +1,76 @@
+﻿---
+# All values which appear in the inputs section are overridable by a definition
+# which extends the template.
+#inputs:
+# Controls the name of the queue which jobs should use
+queueName: default
+
+# Controls the pattern for build project discovery
+projects: "**/project.json"
+
+# Controls the input pattern for test project discovery
+testProjects: "**/*Tests/project.json"
+
+# Controls whether or not web projects should be published
+publishWebProjects: true
+
+# Controls whether or not the published projects should be zipped
+zipPublishedProjects: true
+
+# Defines the input matrix for driving job generation from a template
+matrix:
+  - buildConfiguration: release
+    dotnet: 1.1
+---
+
+# In our resource list a self reference type is inferred by the system. The name 's' has been chosen in this
+# case for backward compatibility with the location of $(build.sourcesdirectory).
+resources:
+  - name: s
+    type: self
+
+jobs:
+{{#matrix}}
+  - name: "build-{{dotnet}}-{{buildConfiguration}}"
+    target: 
+      type: queue
+      name: "{{queueName}}"
+    variables:
+      "{{item}}"
+    steps:
+      - import: s
+      - group: before_install
+      - task: dotnetcore@0.*
+        name: install
+        inputs:
+          command: install
+          arguments: "--version {{dotnet}}"
+      - group: before_restore
+      - task: dotnetcore@0.*
+        name: restore
+        inputs:
+          command: restore
+          projects: "{{projects}}"
+      - group: before_build
+      - task: dotnetcore@0.*
+        name: build
+        inputs:
+          command: build
+          arguments: --configuration $(buildConfiguration)
+      - group: before_test
+      - task: dotnetcore@0.*
+        name: test
+        inputs:
+          command: test
+          projects: "{{testProjects}}"
+          arguments: --configuration $(buildConfiguration)
+      - group: before_publish
+      - task: dotnetcore@0.*
+        name: publish
+        inputs:
+          command: publish
+          arguments: --configuration $(buildConfiguration) --output $(build.artifactstagingdirectory)
+          publishWebProjects: "{{publishWebProjects}}"
+          zipPublishedProject: "{{zipPublishedProjects}}"
+      - group: after_publish
+{{/matrix}}

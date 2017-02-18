@@ -318,6 +318,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             ArgUtil.NotNullOrEmpty(pipeHandleOut, nameof(pipeHandleOut));
                             ArgUtil.NotNullOrEmpty(pipeHandleIn, nameof(pipeHandleIn));
 
+                            if (HostContext.RunMode == RunMode.Local)
+                            {
+                                processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) => term.WriteLine(e.Data);
+                                processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs e) => term.WriteLine(e.Data);
+                            }
+
                             // Start the child process.
                             var assemblyDirectory = IOUtil.GetBinPath();
                             string workerFileName = Path.Combine(assemblyDirectory, _workerProcessName);
