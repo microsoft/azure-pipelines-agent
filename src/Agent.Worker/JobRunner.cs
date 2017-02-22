@@ -153,9 +153,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     .Where(x => string.Equals(x.HostType, hostType, StringComparison.OrdinalIgnoreCase))
                     .ToArray();
 
+                List<IStep> steps = new List<IStep>();
+
+#if OS_WINDOWS
+                // Init script job extention.
+                var scriptJobExtension = new ScriptJobExtension();
+                scriptJobExtension.Initialize(HostContext);
+
+                // Add script pre steps.
+                if (scriptJobExtension.PrepareStep != null)
+                {
+                    Trace.Verbose($"Adding {scriptJobExtension.GetType().Name}.{nameof(scriptJobExtension.PrepareStep)}.");
+                    scriptJobExtension.PrepareStep.ExecutionContext = jobContext.CreateChild(Guid.NewGuid(), scriptJobExtension.PrepareStep.DisplayName);
+                    steps.Add(scriptJobExtension.PrepareStep);
+                }
+#endif
+
                 // Add the prepare steps.
                 Trace.Info("Adding job prepare extensions.");
-                List<IStep> steps = new List<IStep>();
                 foreach (IJobExtension extension in extensions)
                 {
                     if (extension.PrepareStep != null)
@@ -188,6 +203,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         steps.Add(extension.FinallyStep);
                     }
                 }
+
+#if OS_WINDOWS
+                // Add script post steps.
+                if (scriptJobExtension.FinallyStep != null)
+                {
+                    Trace.Verbose($"Adding {scriptJobExtension.GetType().Name}.{nameof(scriptJobExtension.FinallyStep)}.");
+                    scriptJobExtension.FinallyStep.ExecutionContext = jobContext.CreateChild(Guid.NewGuid(), scriptJobExtension.FinallyStep.DisplayName);
+                    steps.Add(scriptJobExtension.FinallyStep);
+                }
+#endif
 
                 // Download tasks if not already in the cache
                 Trace.Info("Downloading task definitions.");

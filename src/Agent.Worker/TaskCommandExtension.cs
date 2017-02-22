@@ -356,8 +356,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 string hostType = context.Variables.System_HostType;
                 IJobExtension extension =
                     (extensionManager.GetExtensions<IJobExtension>() ?? new List<IJobExtension>())
-                    .Where(x => string.Equals(x.HostType, hostType, StringComparison.OrdinalIgnoreCase) || 
-                        string.Equals(x.HostType, "*", StringComparison.OrdinalIgnoreCase))
+                    .Where(x => string.Equals(x.HostType, hostType, StringComparison.OrdinalIgnoreCase))
                     .FirstOrDefault();
 
                 if (extension != null)

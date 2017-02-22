@@ -8,12 +8,8 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
     // This class is for internal testing and is not publicly supported. This will be removed from the agent at a later time.
-    public class ScriptJobExtension : AgentService, IJobExtension
+    public class ScriptJobExtension : AgentService
     {
-        public Type ExtensionType => typeof(IJobExtension);
-
-        public string HostType => "*";
-
         public IStep PrepareStep { get; private set; }
         public IStep FinallyStep { get; private set; }
 
@@ -27,7 +23,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 PrepareStep = new JobExtensionRunner(
                     runAsync: PrepareAsync,
-                    alwaysRun: false,
                     continueOnError: false,
                     critical: true,
                     displayName: StringUtil.Loc("AgentInit"),
@@ -40,24 +35,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 FinallyStep = new JobExtensionRunner(
                     runAsync: FinallyAsync,
-                    alwaysRun: false,
                     continueOnError: false,
                     critical: false,
                     displayName: StringUtil.Loc("AgentCleanup"),
                     enabled: true,
                     @finally: true);
             }
-        }
-
-        public void ConvertLocalPath(IExecutionContext context, string localPath, out string repoName, out string sourcePath)
-        {
-            repoName = null;
-            sourcePath = null;
-        }
-
-        public string GetRootedPath(IExecutionContext context, string path)
-        {
-            return null;
         }
 
         private Task PrepareAsync()
