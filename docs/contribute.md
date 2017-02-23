@@ -39,8 +39,8 @@ From src:
 
 ## Editors
 
-Using Visual Studio 2017  
-Using Visual Studio Code
+[Using Visual Studio 2017](https://www.visualstudio.com/vs/)  
+[Using Visual Studio Code](https://code.visualstudio.com/)
 
 ## Styling
 
