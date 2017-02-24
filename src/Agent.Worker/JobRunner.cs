@@ -158,14 +158,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 #if OS_WINDOWS
                 // Init script job extention.
                 // This is for internal testing and is not publicly supported. This will be removed from the agent at a later time.
-                var prepareScript = Environment.GetEnvironmentVariable("agent.init");
+                var prepareScript = Environment.GetEnvironmentVariable("VSTS_AGENT_INIT");
                 if (!string.IsNullOrEmpty(prepareScript))
                 {
                     var prepareStep = new ManagementScriptStep(
                         scriptPath: prepareScript,
                         continueOnError: false,
                         critical: true,
-                        displayName: StringUtil.Loc("AgentInit"),
+                        displayName: "Agent Initialization",
                         enabled: true,
                         @finally: false);
 
@@ -216,14 +216,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 #if OS_WINDOWS
                 // Add script post steps.
                 // This is for internal testing and is not publicly supported. This will be removed from the agent at a later time.
-                var finallyScript = Environment.GetEnvironmentVariable("agent.cleanup");
+                var finallyScript = Environment.GetEnvironmentVariable("VSTS_AGENT_CLEANUP");
                 if (!string.IsNullOrEmpty(finallyScript))
                 {
                     var finallyStep = new ManagementScriptStep(
                         scriptPath: finallyScript,
                         continueOnError: false,
-                        critical: false,
-                        displayName: StringUtil.Loc("AgentCleanup"),
+                        critical: true,
+                        displayName: "Agent Cleanup",
                         enabled: true,
                         @finally: true);
 

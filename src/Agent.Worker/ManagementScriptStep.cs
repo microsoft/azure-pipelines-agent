@@ -7,6 +7,7 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
+    // This is for internal testing and is not publicly supported. This will be removed from the agent at a later time.
     public class ManagementScriptStep : AgentService, IStep
     {
         public ManagementScriptStep(

@@ -190,7 +190,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 (extensionManager.GetExtensions<IJobExtension>() ?? new List<IJobExtension>())
                 .Where(x => string.Equals(x.HostType, ExecutionContext.Variables.System_HostType, StringComparison.OrdinalIgnoreCase))
                 .ToArray();
-
             foreach (IJobExtension extension in extensions)
             {
                 fullPath = extension.GetRootedPath(ExecutionContext, inputValue);
