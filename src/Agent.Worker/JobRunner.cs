@@ -157,15 +157,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
 #if OS_WINDOWS
                 // Init script job extention.
-                var scriptJobExtension = new ScriptJobExtension();
-                scriptJobExtension.Initialize(HostContext);
-
-                // Add script pre steps.
-                if (scriptJobExtension.PrepareStep != null)
+                // This is for internal testing and is not publicly supported. This will be removed from the agent at a later time.
+                var prepareScript = Environment.GetEnvironmentVariable("agent.init");
+                if (!string.IsNullOrEmpty(prepareScript))
                 {
-                    Trace.Verbose($"Adding {scriptJobExtension.GetType().Name}.{nameof(scriptJobExtension.PrepareStep)}.");
-                    scriptJobExtension.PrepareStep.ExecutionContext = jobContext.CreateChild(Guid.NewGuid(), scriptJobExtension.PrepareStep.DisplayName);
-                    steps.Add(scriptJobExtension.PrepareStep);
+                    var prepareStep = new ManagementScriptStep(
+                        scriptPath: prepareScript,
+                        continueOnError: false,
+                        critical: true,
+                        displayName: StringUtil.Loc("AgentInit"),
+                        enabled: true,
+                        @finally: false);
+
+                    Trace.Verbose($"Adding agent init script step.");
+                    prepareStep.Initialize(HostContext);
+                    prepareStep.ExecutionContext = jobContext.CreateChild(Guid.NewGuid(), prepareStep.DisplayName);
+                    prepareStep.AccessToken = message.Environment.SystemConnection.Authorization.Parameters["AccessToken"];
+                    prepareStep.EndpointUrl = message.Environment.SystemConnection.Url;
+                    steps.Add(prepareStep);
                 }
 #endif
 
@@ -206,11 +215,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
 #if OS_WINDOWS
                 // Add script post steps.
-                if (scriptJobExtension.FinallyStep != null)
+                // This is for internal testing and is not publicly supported. This will be removed from the agent at a later time.
+                var finallyScript = Environment.GetEnvironmentVariable("agent.cleanup");
+                if (!string.IsNullOrEmpty(finallyScript))
                 {
-                    Trace.Verbose($"Adding {scriptJobExtension.GetType().Name}.{nameof(scriptJobExtension.FinallyStep)}.");
-                    scriptJobExtension.FinallyStep.ExecutionContext = jobContext.CreateChild(Guid.NewGuid(), scriptJobExtension.FinallyStep.DisplayName);
-                    steps.Add(scriptJobExtension.FinallyStep);
+                    var finallyStep = new ManagementScriptStep(
+                        scriptPath: finallyScript,
+                        continueOnError: false,
+                        critical: false,
+                        displayName: StringUtil.Loc("AgentCleanup"),
+                        enabled: true,
+                        @finally: true);
+
+                    Trace.Verbose($"Adding agent cleanup script step.");
+                    finallyStep.Initialize(HostContext);
+                    finallyStep.ExecutionContext = jobContext.CreateChild(Guid.NewGuid(), finallyStep.DisplayName);
+                    finallyStep.AccessToken = message.Environment.SystemConnection.Authorization.Parameters["AccessToken"];
+                    finallyStep.EndpointUrl = message.Environment.SystemConnection.Url;
+                    steps.Add(finallyStep);
                 }
 #endif
 
