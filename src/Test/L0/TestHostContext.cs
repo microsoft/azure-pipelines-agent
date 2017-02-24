@@ -63,6 +63,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
         public CultureInfo DefaultCulture { get; private set; }
 
+        public RunMode RunMode { get; set; }
+
         public string TraceFileName { get; private set; }
 
         public async Task Delay(TimeSpan delay, CancellationToken token)
