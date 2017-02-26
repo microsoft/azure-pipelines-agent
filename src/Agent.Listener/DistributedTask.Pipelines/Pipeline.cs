@@ -9,8 +9,11 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
         [YamlMember(Alias = "resources")]
         public List<PipelineResource> Resources { get; set; }
 
+        [YamlMember(Alias = "stepGroups")]
+        public IDictionary<String, List<PipelineJobStep>> StepGroups { get; set; }
+
         [YamlMember(Alias = "jobs")]
-        public List<PipelineJobTemplate> Jobs { get; set; }
+        public List<PipelineJob> Jobs { get; set; }
 
         [YamlMember(Alias = "template")]
         public PipelineTemplateReference Template { get; set; }
@@ -31,10 +34,16 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
     public abstract class PipelineJobStep
     {
         public String Name { get; set; }
+
+        public abstract PipelineJobStep Clone();
     }
 
     public sealed class ImportStep : PipelineJobStep
     {
+        public sealed override PipelineJobStep Clone()
+        {
+            return new ImportStep() { Name = Name };
+        }
     }
 
     public sealed class ExportStep : PipelineJobStep
@@ -42,14 +51,38 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
         public String ResourceType { get; set; }
 
         public IDictionary<String, String> Inputs { get; set; }
+
+        public sealed override PipelineJobStep Clone()
+        {
+            return new ExportStep()
+            {
+                Name = Name,
+                ResourceType = ResourceType,
+                Inputs = new Dictionary<String, String>(Inputs ?? new Dictionary<String, String>(0)),
+            };
+        }
     }
 
-    public sealed class GroupStep : PipelineJobStep
+    public sealed class GroupReferenceStep : PipelineJobStep
     {
+        public sealed override PipelineJobStep Clone()
+        {
+            return new GroupReferenceStep() { Name = Name };
+        }
     }
 
     public sealed class TaskReference
     {
+        public TaskReference()
+        {
+        }
+
+        public TaskReference(TaskReference copy)
+        {
+            Name = copy.Name;
+            Version = copy.Version;
+        }
+
         public String Name { get; set; }
 
         public String Version { get; set; }
@@ -60,15 +93,27 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
         public TaskReference Reference { get; set; }
 
         public IDictionary<String, String> Inputs { get; set; }
+
+        public override sealed PipelineJobStep Clone()
+        {
+            return new TaskStep()
+            {
+                Name = Name,
+                Reference = new TaskReference(Reference),
+                Inputs = new Dictionary<String, String>(Inputs ?? new Dictionary<String, String>(0)),
+            };
+        }
     }
 
-    public class PipelineJob
-    {
-    }
+    // public class PipelineJob
+    // {
+    //     [YamlMember(Alias = "variables")]
+    //     public IDictionary<String, String> Variables { get; set; }
+    // }
 
-    public sealed class PipelineJobTemplate
+    public sealed class PipelineJob
     {
-        public PipelineJobTemplate()
+        public PipelineJob()
         {
             Steps = new List<PipelineJobStep>();
         }
@@ -80,18 +125,18 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
         public IDictionary<String, String> Target { get; set; }
 
         [YamlMember(Alias = "variables")]
-        public VariableGroupTemplate Variables { get; set; }
+        public IDictionary<String, String> Variables { get; set; }
 
         [YamlMember(Alias = "steps")]
         public List<PipelineJobStep> Steps { get; set; }
 
-        [YamlMember(Alias = "with_items")]
-        public IteratorValueTemplate WithItems { get; set; }
+        // [YamlMember(Alias = "with_items")]
+        // public IteratorValueTemplate WithItems { get; set; }
 
-        public IList<PipelineJob> ApplyInputs(IDictionary<String, Object> inputs)
-        {
-            return new List<PipelineJob>();
-        }
+        // public IList<PipelineJob> ApplyInputs(IDictionary<String, Object> inputs)
+        // {
+        //     return new List<PipelineJob>();
+        // }
     }
 
     public sealed class PipelineTemplate
@@ -99,8 +144,11 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
         [YamlMember(Alias = "resources")]
         public List<PipelineResource> Resources { get; set; }
 
+        [YamlMember(Alias = "stepGroups")]
+        public IDictionary<String, List<PipelineJobStep>> StepGroups { get; set; }
+
         [YamlMember(Alias = "jobs")]
-        public List<PipelineJobTemplate> Jobs { get; set; }
+        public List<PipelineJob> Jobs { get; set; }
     }
 
     public sealed class PipelineTemplateReference
@@ -112,53 +160,53 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
         public IDictionary<String, Object> Parameters { get; set; }
     }
 
-    public class TaskGroup
-    {
-        public IDictionary<String, String> Inputs { get; set; }
+    // public class TaskGroup
+    // {
+    //     public IDictionary<String, String> Inputs { get; set; }
 
-        public List<TaskStep> Tasks { get; set; }
-    }
+    //     public List<TaskStep> Tasks { get; set; }
+    // }
 
-    public class VariableGroupTemplate
-    {
-        public VariableGroupTemplate(String templateValue)
-        {
-            m_templateValue = templateValue;
-        }
+    // public class VariableGroupTemplate
+    // {
+    //     public VariableGroupTemplate(String templateValue)
+    //     {
+    //         m_templateValue = templateValue;
+    //     }
 
-        public VariableGroupTemplate(IDictionary<String, String> literalValue)
-        {
-            m_literalValue = literalValue;
-        }
+    //     public VariableGroupTemplate(IDictionary<String, String> literalValue)
+    //     {
+    //         m_literalValue = literalValue;
+    //     }
 
-        public IDictionary<String, String> Resolve(PipelineTemplateContext context)
-        {
-            if (m_literalValue != null)
-            {
-                return m_literalValue;
-            }
-            else
-            {
-                return context.ResolveValue<IDictionary<String, String>>(m_templateValue);
-            }
-        }
+    //     public IDictionary<String, String> Resolve(PipelineTemplateContext context)
+    //     {
+    //         if (m_literalValue != null)
+    //         {
+    //             return m_literalValue;
+    //         }
+    //         else
+    //         {
+    //             return context.ResolveValue<IDictionary<String, String>>(m_templateValue);
+    //         }
+    //     }
 
-        private readonly String m_templateValue;
-        private readonly IDictionary<String, String> m_literalValue;
-    }
+    //     private readonly String m_templateValue;
+    //     private readonly IDictionary<String, String> m_literalValue;
+    // }
 
-    public abstract class IteratorValue
-    {
-        public abstract T Resolve<T>(PipelineTemplateContext context);
-    }
+    // public abstract class IteratorValue
+    // {
+    //     public abstract T Resolve<T>(PipelineTemplateContext context);
+    // }
 
-    public sealed class IteratorValueLiteral
-    {
-    }
+    // public sealed class IteratorValueLiteral
+    // {
+    // }
 
-    public sealed class IteratorValueExpression
-    {
-    }
+    // public sealed class IteratorValueExpression
+    // {
+    // }
 
     public sealed class IteratorValueTemplate
     {
@@ -177,21 +225,21 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
             m_mappingArrayLiteral = value;
         }
 
-        public T Resolve<T>(PipelineTemplateContext context)
-        {
-            if (m_stringArrayLiteral != null)
-            {
-                return (T)(Object)m_stringArrayLiteral;
-            }
-            else if (m_mappingArrayLiteral != null)
-            {
-                return (T)(Object)m_mappingArrayLiteral;
-            }
-            else
-            {
-                return context.ResolveValue<T>(m_templateValue);
-            }
-        }
+        // public T Resolve<T>(PipelineTemplateContext context)
+        // {
+        //     if (m_stringArrayLiteral != null)
+        //     {
+        //         return (T)(Object)m_stringArrayLiteral;
+        //     }
+        //     else if (m_mappingArrayLiteral != null)
+        //     {
+        //         return (T)(Object)m_mappingArrayLiteral;
+        //     }
+        //     else
+        //     {
+        //         return context.ResolveValue<T>(m_templateValue);
+        //     }
+        // }
 
         private String m_templateValue;
         private List<String> m_stringArrayLiteral;
@@ -209,10 +257,10 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
 
         protected Object Value { get; set; }
 
-        public virtual T Resolve<T>(PipelineTemplateContext context)
-        {
-            return (T)this.Value;
-        }
+        // public virtual T Resolve<T>(PipelineTemplateContext context)
+        // {
+        //     return (T)this.Value;
+        // }
 
         public static implicit operator PipelineValue(String value)
         {
@@ -262,10 +310,10 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
             }
         }
 
-        public override T Resolve<T>(PipelineTemplateContext context)
-        {
-            return context.ResolveValue<T>(this.Value);
-        }
+        // public override T Resolve<T>(PipelineTemplateContext context)
+        // {
+        //     return context.ResolveValue<T>(this.Value);
+        // }
 
         public static explicit operator String(StringValue val)
         {

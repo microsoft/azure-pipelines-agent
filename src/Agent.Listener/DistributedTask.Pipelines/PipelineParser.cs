@@ -10,24 +10,88 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
 {
     public static class PipelineParser
     {
+private static void Dump(String s)
+{
+// Console.WriteLine(s);
+}
+private static void Dump(Object o)
+{
+// Console.WriteLine("".PadLeft(80, '*'));
+// Serializer s = new Serializer();
+// Console.WriteLine(s.Serialize(o));
+// Console.WriteLine("".PadLeft(80, '*'));
+}
         public static async Task<Pipeline> LoadAsync(String filePath)
         {
+            // Load the target file.
             Pipeline pipeline = await LoadFileAsync<Pipeline>(filePath);
+            Dump(pipeline);
             if (pipeline.Template != null)
             {
+                // Load the template.
                 String directoryPath = Path.GetDirectoryName(filePath);
                 String templatePath = Path.Combine(directoryPath, pipeline.Template.Name);
                 PipelineTemplate template = await LoadFileAsync<PipelineTemplate>(templatePath, mustacheContext: pipeline.Template.Parameters);
+                Dump(template);
 
+                // Merge the target and template.
                 var mergedPipeline = new Pipeline();
                 mergedPipeline = new Pipeline();
-                mergedPipeline.Resources = new List<PipelineResource>();
+                mergedPipeline.Resources = new List<PipelineResource>(); // Append resources.
                 mergedPipeline.Resources.AddRange(pipeline.Resources ?? new List<PipelineResource>());
                 mergedPipeline.Resources.AddRange(template.Resources ?? new List<PipelineResource>());
+                mergedPipeline.StepGroups = new Dictionary<String, List<PipelineJobStep>>(StringComparer.OrdinalIgnoreCase); // Overlay step groups.
+                if (template.StepGroups != null)
+                {
+                    foreach (KeyValuePair<String, List<PipelineJobStep>> pair in template.StepGroups)
+                    {
+                        mergedPipeline.StepGroups[pair.Key] = pair.Value;
+                    }
+                }
+
+                if (pipeline.StepGroups != null)
+                {
+                    foreach (KeyValuePair<String, List<PipelineJobStep>> pair in pipeline.StepGroups)
+                    {
+                        mergedPipeline.StepGroups[pair.Key] = pair.Value;
+                    }
+                }
+
                 mergedPipeline.Jobs = template.Jobs;
                 pipeline = mergedPipeline;
             }
 
+            // Resolve step groups.
+            // todo: assert no recursion
+            pipeline.StepGroups = pipeline.StepGroups ?? new Dictionary<String, List<PipelineJobStep>>(0);
+            foreach (PipelineJob job in pipeline.Jobs ?? new List<PipelineJob>(0))
+            {
+                int i = 0;
+                while (i < (job.Steps ?? new List<PipelineJobStep>(0)).Count)
+                {
+                    if (job.Steps[i] is GroupReferenceStep)
+                    {
+                        var stepGroupRef = job.Steps[i] as GroupReferenceStep;
+                        job.Steps.RemoveAt(i);
+                        List<PipelineJobStep> stepGroup;
+                        if (pipeline.StepGroups.TryGetValue(stepGroupRef.Name, out stepGroup) && stepGroup != null)
+                        {
+                            foreach (PipelineJobStep subStep in stepGroup)
+                            {
+                                job.Steps.Insert(i, subStep.Clone());
+                                i++;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        i++;
+                    }
+                }
+            }
+
+            pipeline.StepGroups = null;
+            Dump(pipeline);
             return pipeline;
         }
 
@@ -92,6 +156,7 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
                     mustacheReplaced = mustacheParser.ReplaceValues(
                         template: await reader.ReadToEndAsync(),
                         replacementContext: frontMatter);
+                    Dump(mustacheReplaced);
                 }
                 finally
                 {
@@ -100,13 +165,12 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
                 }
             }
 
-
             // Deserialize
             DeserializerBuilder deserializerBuilder = new DeserializerBuilder();
             deserializerBuilder.WithTypeConverter(new PipelineStepYamlConverter());
             deserializerBuilder.WithTypeConverter(new PipelineValueYamlConverter());
-            deserializerBuilder.WithTypeConverter(new PipelineIteratorValueYamlConverter());
-            deserializerBuilder.WithTypeConverter(new VariableGroupTemplateYamlConverter());
+            // deserializerBuilder.WithTypeConverter(new PipelineIteratorValueYamlConverter());
+            // deserializerBuilder.WithTypeConverter(new VariableGroupTemplateYamlConverter());
             Deserializer deserializer = deserializerBuilder.Build();
             T pipeline = deserializer.Deserialize<T>(mustacheReplaced);
             return pipeline;
