@@ -93,7 +93,7 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
             else if (stepType.Value.Equals("group"))
             {
                 var groupName = parser.Expect<Scalar>();
-                step = new GroupStep { Name = groupName.Value };
+                step = new GroupReferenceStep { Name = groupName.Value };
             }
             else if (stepType.Value.Equals("task"))
             {
@@ -241,30 +241,30 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
         }
     }
 
-    internal sealed class VariableGroupTemplateYamlConverter : IYamlTypeConverter
-    {
-        public bool Accepts(Type type)
-        {
-            return typeof(VariableGroupTemplate).Equals(type);
-        }
+    // internal sealed class VariableGroupTemplateYamlConverter : IYamlTypeConverter
+    // {
+    //     public bool Accepts(Type type)
+    //     {
+    //         return typeof(VariableGroupTemplate).Equals(type);
+    //     }
 
-        public object ReadYaml(IParser parser, Type type)
-        {
-            if (parser.Accept<Scalar>())
-            {
-                // ex. {{ ref to some named variable group }}
-                // won't have this block at all if go mustache route
-                return new VariableGroupTemplate(parser.Expect<Scalar>().Value);
-            }
-            else
-            {
-                return new VariableGroupTemplate(parser.ReadMappingOfStringString());
-            }
-        }
+    //     public object ReadYaml(IParser parser, Type type)
+    //     {
+    //         if (parser.Accept<Scalar>())
+    //         {
+    //             // ex. {{ ref to some named variable group }}
+    //             // won't have this block at all if go mustache route
+    //             return new VariableGroupTemplate(parser.Expect<Scalar>().Value);
+    //         }
+    //         else
+    //         {
+    //             return new VariableGroupTemplate(parser.ReadMappingOfStringString());
+    //         }
+    //     }
 
-        public void WriteYaml(IEmitter emitter, object value, Type type)
-        {
-            throw new NotImplementedException();
-        }
-    }
+    //     public void WriteYaml(IEmitter emitter, object value, Type type)
+    //     {
+    //         throw new NotImplementedException();
+    //     }
+    // }
 }

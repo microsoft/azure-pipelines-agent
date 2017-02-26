@@ -1,4 +1,12 @@
-﻿template:
+﻿stepGroups:
+  before_install:
+    - task: cmdline@1.*
+      name: clean
+      inputs:
+        command: git
+        arguments: "clean -ffdx"
+
+template:
   name: template.yaml
   parameters:
     projects: myProject.sln
@@ -7,3 +15,6 @@
         dotnet: 1.1
       - buildConfiguration: debug
         dotnet: 1.1
+    additionalVariables:
+      myCustomVar1: my value 1
+      myCustomVar2: my value 2

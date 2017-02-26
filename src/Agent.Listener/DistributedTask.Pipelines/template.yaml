@@ -21,6 +21,8 @@ zipPublishedProjects: true
 matrix:
   - buildConfiguration: release
     dotnet: 1.1
+
+additionalVariables: {}
 ---
 
 # In our resource list a self reference type is inferred by the system. The name 's' has been chosen in this
@@ -29,6 +31,14 @@ resources:
   - name: s
     type: self
 
+stepGroups:
+  before_install:
+    - task: cmdline@1.*
+      name: clean
+      inputs:
+        command: git
+        arguments: clean -fdx
+
 jobs:
 {{#matrix}}
   - name: "build-{{dotnet}}-{{buildConfiguration}}"
@@ -36,7 +46,11 @@ jobs:
       type: queue
       name: "{{queueName}}"
     variables:
-      "{{item}}"
+      buildConfiguration: "{{buildConfiguration}}"
+      dotnet: "{{dotnet}}"
+{{#each @root.additionalVariables}}
+      {{@key}}: "{{this}}"
+{{/each}}
     steps:
       - import: s
       - group: before_install
