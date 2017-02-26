@@ -112,6 +112,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
             bool skipArtifactsDownload;
 
             IExecutionContext executionContext = PrepareStep.ExecutionContext;
+            new JobPrepareValidator().Validate(HostType, executionContext.Variables.GetInt(Constants.Variables.Release.ReleaseId) ?? 0, Trace);
 
             try
             {

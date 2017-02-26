@@ -119,6 +119,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             ArgUtil.NotNull(PrepareStep, nameof(PrepareStep));
             ArgUtil.NotNull(PrepareStep.ExecutionContext, nameof(PrepareStep.ExecutionContext));
             IExecutionContext executionContext = PrepareStep.ExecutionContext;
+            new JobPrepareValidator().Validate(HostType, executionContext.Variables.Build_BuildId ?? 0, Trace);
             var directoryManager = HostContext.GetService<IBuildDirectoryManager>();
 
             // This flag can be false for jobs like cleanup artifacts.
