@@ -158,7 +158,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 #if OS_WINDOWS
                 // Init script job extention.
                 // This is for internal testing and is not publicly supported. This will be removed from the agent at a later time.
-                var prepareScript = Environment.GetEnvironmentVariable("VSTS_AGENT_INIT");
+                var prepareScript = Environment.GetEnvironmentVariable("VSTS_AGENT_INIT_INTERNAL_TEMP_HACK");
                 if (!string.IsNullOrEmpty(prepareScript))
                 {
                     var prepareStep = new ManagementScriptStep(
@@ -216,7 +216,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 #if OS_WINDOWS
                 // Add script post steps.
                 // This is for internal testing and is not publicly supported. This will be removed from the agent at a later time.
-                var finallyScript = Environment.GetEnvironmentVariable("VSTS_AGENT_CLEANUP");
+                var finallyScript = Environment.GetEnvironmentVariable("VSTS_AGENT_CLEANUP_INTERNAL_TEMP_HACK");
                 if (!string.IsNullOrEmpty(finallyScript))
                 {
                     var finallyStep = new ManagementScriptStep(
