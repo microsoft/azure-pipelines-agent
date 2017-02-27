@@ -37,7 +37,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public TimeSpan? Timeout { get; private set; }
 
         public string AccessToken { get; set; }
-        public Uri EndpointUrl { get; set; }
         public IExecutionContext ExecutionContext { get; set; }
         
         public async Task RunAsync()
@@ -66,9 +65,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 taskDirectory: scriptDirectory,
                 filePathInputRootDirectory: string.Empty);
 
-            // Add the environment varibles to the handler.
-            handler.AddEnvironmentVariable("AccessToken", AccessToken);
-            handler.AddEnvironmentVariable("EndpointUrl", EndpointUrl.AbsoluteUri);
+            // Add the access token to the handler.
+            handler.AccessToken = AccessToken;
 
             // Run the task.
             await handler.RunAsync();

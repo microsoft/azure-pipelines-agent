@@ -173,7 +173,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     prepareStep.Initialize(HostContext);
                     prepareStep.ExecutionContext = jobContext.CreateChild(Guid.NewGuid(), prepareStep.DisplayName);
                     prepareStep.AccessToken = message.Environment.SystemConnection.Authorization.Parameters["AccessToken"];
-                    prepareStep.EndpointUrl = message.Environment.SystemConnection.Url;
                     steps.Add(prepareStep);
                 }
 #endif
@@ -231,7 +230,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     finallyStep.Initialize(HostContext);
                     finallyStep.ExecutionContext = jobContext.CreateChild(Guid.NewGuid(), finallyStep.DisplayName);
                     finallyStep.AccessToken = message.Environment.SystemConnection.Authorization.Parameters["AccessToken"];
-                    finallyStep.EndpointUrl = message.Environment.SystemConnection.Url;
                     steps.Add(finallyStep);
                 }
 #endif

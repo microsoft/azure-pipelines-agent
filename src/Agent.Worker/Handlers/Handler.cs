@@ -170,7 +170,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
         }
 
-        internal void AddEnvironmentVariable(string key, string value)
+        protected void AddEnvironmentVariable(string key, string value)
         {
             ArgUtil.NotNullOrEmpty(key, nameof(key));
             Trace.Verbose($"Setting env '{key}' to '{value}'.");
