@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using YamlDotNet.Serialization;
 
 namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipelines
@@ -9,8 +10,8 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
         [YamlMember(Alias = "resources")]
         public List<PipelineResource> Resources { get; set; }
 
-        [YamlMember(Alias = "stepGroups")]
-        public IDictionary<String, List<PipelineJobStep>> StepGroups { get; set; }
+        // [YamlMember(Alias = "stepGroups")]
+        // public IDictionary<String, List<PipelineJobStep>> StepGroups { get; set; }
 
         [YamlMember(Alias = "jobs")]
         public List<PipelineJob> Jobs { get; set; }
@@ -31,6 +32,13 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
         public IDictionary<String, Object> Data { get; set; }
     }
 
+    public interface ISimplePipelineJobStep
+    {
+        String Name { get; set; }
+
+        PipelineJobStep Clone();
+    }
+
     public abstract class PipelineJobStep
     {
         public String Name { get; set; }
@@ -38,7 +46,7 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
         public abstract PipelineJobStep Clone();
     }
 
-    public sealed class ImportStep : PipelineJobStep
+    public sealed class ImportStep : PipelineJobStep, ISimplePipelineJobStep
     {
         public sealed override PipelineJobStep Clone()
         {
@@ -46,7 +54,7 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
         }
     }
 
-    public sealed class ExportStep : PipelineJobStep
+    public sealed class ExportStep : PipelineJobStep, ISimplePipelineJobStep
     {
         public String ResourceType { get; set; }
 
@@ -63,11 +71,24 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
         }
     }
 
-    public sealed class GroupReferenceStep : PipelineJobStep
+    public sealed class StepHook : PipelineJobStep
     {
+        [YamlMember(Alias = "steps")]
+        public List<ISimplePipelineJobStep> Steps { get; set; }
+
         public sealed override PipelineJobStep Clone()
         {
-            return new GroupReferenceStep() { Name = Name };
+            var copy = new StepHook { Name = Name };
+            if (Steps != null)
+            {
+                copy.Steps = new List<ISimplePipelineJobStep>(Steps.Count);
+                foreach (ISimplePipelineJobStep step in Steps)
+                {
+                    copy.Steps.Add(step.Clone() as ISimplePipelineJobStep);
+                }
+            }
+
+            return copy;
         }
     }
 
@@ -88,7 +109,7 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
         public String Version { get; set; }
     }
 
-    public sealed class TaskStep : PipelineJobStep
+    public sealed class TaskStep : PipelineJobStep, ISimplePipelineJobStep
     {
         public TaskReference Reference { get; set; }
 
@@ -144,8 +165,8 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
         [YamlMember(Alias = "resources")]
         public List<PipelineResource> Resources { get; set; }
 
-        [YamlMember(Alias = "stepGroups")]
-        public IDictionary<String, List<PipelineJobStep>> StepGroups { get; set; }
+        // [YamlMember(Alias = "stepGroups")]
+        // public IDictionary<String, List<PipelineJobStep>> StepGroups { get; set; }
 
         [YamlMember(Alias = "jobs")]
         public List<PipelineJob> Jobs { get; set; }
@@ -158,6 +179,9 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
 
         [YamlMember(Alias = "parameters")]
         public IDictionary<String, Object> Parameters { get; set; }
+
+        [YamlMember(Alias = "stepHooks")]
+        public IDictionary<String, List<ISimplePipelineJobStep>> StepHooks { get; set; }
     }
 
     // public class TaskGroup

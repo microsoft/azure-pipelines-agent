@@ -1,0 +1,15 @@
+﻿template:
+  name: template-vsbuild.yaml
+  parameters:
+    projects: myProject.sln
+    matrix:
+      - buildConfiguration: debug
+        buildPlatform: any cpu
+      - buildConfiguration: release
+        buildPlatform: any cpu
+    additionalVariables:
+      myCustomVar1: my value 1
+      myCustomVar2: my value 2
+  stepHooks:
+    preBuild:
+      - task: credscan@1.*

@@ -10,29 +10,16 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
 {
     public static class PipelineParser
     {
-private static void Dump(String s)
-{
-// Console.WriteLine(s);
-}
-private static void Dump(Object o)
-{
-// Console.WriteLine("".PadLeft(80, '*'));
-// Serializer s = new Serializer();
-// Console.WriteLine(s.Serialize(o));
-// Console.WriteLine("".PadLeft(80, '*'));
-}
         public static async Task<Pipeline> LoadAsync(String filePath)
         {
             // Load the target file.
             Pipeline pipeline = await LoadFileAsync<Pipeline>(filePath);
-            Dump(pipeline);
             if (pipeline.Template != null)
             {
                 // Load the template.
                 String directoryPath = Path.GetDirectoryName(filePath);
                 String templatePath = Path.Combine(directoryPath, pipeline.Template.Name);
                 PipelineTemplate template = await LoadFileAsync<PipelineTemplate>(templatePath, mustacheContext: pipeline.Template.Parameters);
-                Dump(template);
 
                 // Merge the target and template.
                 var mergedPipeline = new Pipeline();
@@ -40,58 +27,34 @@ private static void Dump(Object o)
                 mergedPipeline.Resources = new List<PipelineResource>(); // Append resources.
                 mergedPipeline.Resources.AddRange(pipeline.Resources ?? new List<PipelineResource>());
                 mergedPipeline.Resources.AddRange(template.Resources ?? new List<PipelineResource>());
-                mergedPipeline.StepGroups = new Dictionary<String, List<PipelineJobStep>>(StringComparer.OrdinalIgnoreCase); // Overlay step groups.
-                if (template.StepGroups != null)
-                {
-                    foreach (KeyValuePair<String, List<PipelineJobStep>> pair in template.StepGroups)
-                    {
-                        mergedPipeline.StepGroups[pair.Key] = pair.Value;
-                    }
-                }
-
-                if (pipeline.StepGroups != null)
-                {
-                    foreach (KeyValuePair<String, List<PipelineJobStep>> pair in pipeline.StepGroups)
-                    {
-                        mergedPipeline.StepGroups[pair.Key] = pair.Value;
-                    }
-                }
-
                 mergedPipeline.Jobs = template.Jobs;
-                pipeline = mergedPipeline;
-            }
 
-            // Resolve step groups.
-            // todo: assert no recursion
-            pipeline.StepGroups = pipeline.StepGroups ?? new Dictionary<String, List<PipelineJobStep>>(0);
-            foreach (PipelineJob job in pipeline.Jobs ?? new List<PipelineJob>(0))
-            {
-                int i = 0;
-                while (i < (job.Steps ?? new List<PipelineJobStep>(0)).Count)
+                // Overlay the step hooks.
+                if (pipeline.Template.StepHooks != null)
                 {
-                    if (job.Steps[i] is GroupReferenceStep)
+                    foreach (PipelineJob job in mergedPipeline.Jobs ?? new List<PipelineJob>(0))
                     {
-                        var stepGroupRef = job.Steps[i] as GroupReferenceStep;
-                        job.Steps.RemoveAt(i);
-                        List<PipelineJobStep> stepGroup;
-                        if (pipeline.StepGroups.TryGetValue(stepGroupRef.Name, out stepGroup) && stepGroup != null)
+                        foreach (PipelineJobStep step in job.Steps ?? new List<PipelineJobStep>(0))
                         {
-                            foreach (PipelineJobStep subStep in stepGroup)
+                            List<ISimplePipelineJobStep> replacementSteps;
+                            var stepHook = step as StepHook;
+                            if (stepHook != null && pipeline.Template.StepHooks.TryGetValue(stepHook.Name, out replacementSteps))
                             {
-                                job.Steps.Insert(i, subStep.Clone());
-                                i++;
+                                replacementSteps = replacementSteps ?? new List<ISimplePipelineJobStep>(0);
+                                stepHook.Steps = new List<ISimplePipelineJobStep>(replacementSteps.Count);
+                                foreach (ISimplePipelineJobStep replacementStep in replacementSteps)
+                                {
+                                    stepHook.Steps.Add(replacementStep.Clone() as ISimplePipelineJobStep);
+                                }
                             }
                         }
                     }
-                    else
-                    {
-                        i++;
-                    }
                 }
+
+                pipeline = mergedPipeline;
+                Dump("Merged pipeline", pipeline);
             }
 
-            pipeline.StepGroups = null;
-            Dump(pipeline);
             return pipeline;
         }
 
@@ -156,7 +119,7 @@ private static void Dump(Object o)
                     mustacheReplaced = mustacheParser.ReplaceValues(
                         template: await reader.ReadToEndAsync(),
                         replacementContext: frontMatter);
-                    Dump(mustacheReplaced);
+                    Dump($"{Path.GetFileName(path)} after mustache replacement", mustacheReplaced);
                 }
                 finally
                 {
@@ -173,7 +136,38 @@ private static void Dump(Object o)
             // deserializerBuilder.WithTypeConverter(new VariableGroupTemplateYamlConverter());
             Deserializer deserializer = deserializerBuilder.Build();
             T pipeline = deserializer.Deserialize<T>(mustacheReplaced);
+            Dump($"{Path.GetFileName(path)} after deserialization ", pipeline);
             return pipeline;
+        }
+
+        private static void Dump(String header, String value)
+        {
+            Console.WriteLine();
+            Console.WriteLine(String.Empty.PadRight(80, '*'));
+            Console.WriteLine($"* {header}");
+            Console.WriteLine(String.Empty.PadRight(80, '*'));
+            Console.WriteLine();
+            using (StringReader reader = new StringReader(value))
+            {
+                Int32 lineNumber = 1;
+                String line = reader.ReadLine();
+                while (line != null)
+                {
+                    Console.WriteLine($"{lineNumber.ToString().PadLeft(4)}: {line}");
+                    line = reader.ReadLine();
+                    lineNumber++;
+                }
+            }
+        }
+        private static void Dump(String header, Object value)
+        {
+            Console.WriteLine();
+            Console.WriteLine(String.Empty.PadRight(80, '*'));
+            Console.WriteLine($"* {header}");
+            Console.WriteLine(String.Empty.PadRight(80, '*'));
+            Console.WriteLine();
+            Serializer s = new Serializer();
+            Console.WriteLine(s.Serialize(value));
         }
     }
 }
