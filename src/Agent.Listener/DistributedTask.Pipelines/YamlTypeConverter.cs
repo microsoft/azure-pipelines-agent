@@ -18,9 +18,7 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
             //     type == typeof(List<Dictionary<String, String>>);
         }
 
-        public object ReadYaml(
-            IParser parser,
-            Type type)
+        public object ReadYaml(IParser parser, Type type)
         {
             var stringToken = parser.Allow<Scalar>();
             if (stringToken == null)
@@ -65,20 +63,48 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
         }
     }
 
-    internal sealed class PipelineStepYamlConverter : IYamlTypeConverter
+    // internal sealed class PipelineSimpleStepYamlConverter : PipelineStepYamlConverter
+    // {
+    //     internal PipelineSimpleStepYamlConverter()
+    //     {
+    //     }
+
+    //     public sealed override bool Accepts(Type type)
+    //     {
+    //         return typeof(ISimplePipelineJobStep).IsAssignableFrom(type);
+    //     }
+
+    //     public sealed override Object ReadYaml(IParser parser, Type type)
+    //     {
+    //         return ReadYaml(parser, type, excludeHooks: true);
+    //     }
+    // }
+
+    internal class PipelineStepYamlConverter : IYamlTypeConverter
     {
-        public bool Accepts(Type type)
+        internal PipelineStepYamlConverter()
         {
-            return typeof(PipelineJobStep).IsAssignableFrom(type);
-            // return type == typeof(ImportStep) ||
-            //     type == typeof(ExportStep) ||
-            //     type == typeof(GroupStep) ||
-            //     type == typeof(TaskStep);
         }
 
-        public Object ReadYaml(
-            IParser parser,
+        public bool Accepts(Type type)
+        {
+            return typeof(PipelineJobStep).IsAssignableFrom(type) || typeof(ISimplePipelineJobStep).IsAssignableFrom(type);
+        }
+
+        public Object ReadYaml(IParser parser, Type type)
+        {
+            return ReadYaml(parser, type, allowHooks: typeof(PipelineJobStep).IsAssignableFrom(type));
+        }
+
+        public void WriteYaml(
+            IEmitter emitter,
+            Object value,
             Type type)
+        {
+            throw new NotImplementedException();
+        }
+
+        protected Object ReadYaml(IParser parser, Type type, Boolean allowHooks)
         {
             PipelineJobStep step = null;
 
@@ -90,10 +116,28 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
                 var resource = parser.Expect<Scalar>();
                 step = new ImportStep { Name = resource.Value };
             }
-            else if (stepType.Value.Equals("group"))
+            else if (stepType.Value.Equals("hook") && allowHooks)
             {
-                var groupName = parser.Expect<Scalar>();
-                step = new GroupReferenceStep { Name = groupName.Value };
+                var hookName = parser.Expect<Scalar>();
+                step = new StepHook { Name = hookName.Value };
+                var steps = parser.Allow<Scalar>();
+                if (steps != null)
+                {
+                    if (steps.Value.Equals("steps"))
+                    {
+                        parser.Expect<SequenceStart>();
+                        var stepHook = step as StepHook;
+                        stepHook.Steps = new List<ISimplePipelineJobStep>();
+                        while (parser.Allow<SequenceEnd>() == null)
+                        {
+                            stepHook.Steps.Add(ReadYaml(parser, type, allowHooks: false) as ISimplePipelineJobStep);
+                        }
+                    }
+                    else
+                    {
+                        throw new SyntaxErrorException(steps.Start, steps.End, $"Unexpected property {steps.Value}");
+                    }
+                }
             }
             else if (stepType.Value.Equals("task"))
             {
@@ -123,6 +167,10 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
                     {
                         inputs = parser.ReadMappingOfStringString();
                     }
+                    else
+                    {
+                        throw new SyntaxErrorException(nextProperty.Start, nextProperty.End, $"Unexpected property {nextProperty.Value}");
+                    }
                 }
 
                 step = new TaskStep
@@ -134,6 +182,7 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
             }
             else if (stepType.Value.Equals("export"))
             {
+                // todo: parse export
                 while (parser.Peek<MappingEnd>() == null)
                 {
                     parser.MoveNext();
@@ -148,14 +197,6 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
 
             parser.Expect<MappingEnd>();
             return step;
-        }
-
-        public void WriteYaml(
-            IEmitter emitter,
-            Object value,
-            Type type)
-        {
-            throw new NotImplementedException();
         }
     }
 

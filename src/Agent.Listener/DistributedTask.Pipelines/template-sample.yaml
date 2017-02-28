@@ -31,14 +31,6 @@ resources:
   - name: s
     type: self
 
-stepGroups:
-  before_install:
-    - task: cmdline@1.*
-      name: clean
-      inputs:
-        command: git
-        arguments: clean -fdx
-
 jobs:
 {{#matrix}}
   - name: "build-{{dotnet}}-{{buildConfiguration}}"
@@ -53,32 +45,38 @@ jobs:
 {{/each}}
     steps:
       - import: s
-      - group: before_install
+      - hook: before_install
+        steps:
+          - task: cmdline@1.*
+            name: clean
+            inputs:
+              command: git
+              arguments: clean -fdx
       - task: dotnetcore@0.*
         name: install
         inputs:
           command: install
           arguments: "--version {{dotnet}}"
-      - group: before_restore
+      - hook: before_restore
       - task: dotnetcore@0.*
         name: restore
         inputs:
           command: restore
           projects: "{{projects}}"
-      - group: before_build
+      - hook: before_build
       - task: dotnetcore@0.*
         name: build
         inputs:
           command: build
           arguments: --configuration $(buildConfiguration)
-      - group: before_test
+      - hook: before_test
       - task: dotnetcore@0.*
         name: test
         inputs:
           command: test
           projects: "{{testProjects}}"
           arguments: --configuration $(buildConfiguration)
-      - group: before_publish
+      - hook: before_publish
       - task: dotnetcore@0.*
         name: publish
         inputs:
@@ -86,5 +84,5 @@ jobs:
           arguments: --configuration $(buildConfiguration) --output $(build.artifactstagingdirectory)
           publishWebProjects: "{{publishWebProjects}}"
           zipPublishedProject: "{{zipPublishedProjects}}"
-      - group: after_publish
+      - hook: after_publish
 {{/matrix}}

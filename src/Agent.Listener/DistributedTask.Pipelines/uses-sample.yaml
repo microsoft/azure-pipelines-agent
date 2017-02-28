@@ -1,13 +1,5 @@
-﻿stepGroups:
-  before_install:
-    - task: cmdline@1.*
-      name: clean
-      inputs:
-        command: git
-        arguments: "clean -ffdx"
-
-template:
-  name: template.yaml
+﻿template:
+  name: template-sample.yaml
   parameters:
     projects: myProject.sln
     matrix:
@@ -18,3 +10,10 @@ template:
     additionalVariables:
       myCustomVar1: my value 1
       myCustomVar2: my value 2
+  stepHooks:
+    before_install:
+      - task: cmdline@1.*
+        name: clean
+        inputs:
+          command: git
+          arguments: "clean -ffdx"
