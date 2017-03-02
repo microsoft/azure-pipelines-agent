@@ -20,9 +20,42 @@ For debugging YAML configuration, a what-if mode is supported. This will load up
 
 ## YAML deserialization process
 
+### Outline
+
 1. Preprocess entry file (mustache)
 1. Deserialize into a pipeline
 1. If pipeline references a template
  1. Preprocess template file (mustache)
  1. Deserialize into a pipeline template
  1. Merge the pipeline with the template (merge resources, overlay hooks)
+
+### Mustache escaping rules
+
+Properties referenced using `{{property}}` will be JSON-string-escaped. Escaping can be omitted by using the triple-brace syntax: `{{{property}}}`.
+
+### Mustache context object
+
+Optional YAML front-matter can be used to define the mustache context object. YAML front-matter must be at the beginning of the document. The front-matter is indicated by the `---` section. For more details, refer to the example below.
+
+Within a template the mustache context object is a composition of the YAML-front matter + parameters from caller overlaid on top.
+
+Example YAML front-matter:
+
+```yaml
+---
+matrix:
+ - buildConfiguration: debug
+   buildPlatform: any cpu
+ - buildConfiguration: release
+   buildPlatform: any cpu
+---
+jobs:
+  {{#each matrix}}
+  - name: build-{{buildConfiguration}}-{{buildPlatform}}}
+    - task: VSBuild@1.*
+      inputs:
+        solution: "**/*.sln"
+        configuration: "{{buildConfiguration}}"
+        platform: "{{buildPlatform}}"
+  {{/each}}
+```
