@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-using Microsoft.VisualStudio.Services.Common.Internal;
 using Newtonsoft.Json.Linq;
 
 namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipelines.TextTemplating
@@ -173,10 +172,9 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
                         if (replacementObject != null && replacementObject.Type != JTokenType.Null)
                         {
                             String rawTokenString = replacementObject.ToString();
-// todo: disable html-encode here?
                             if (expression.Encode)
                             {
-                                rawTokenString = UriUtility.HtmlEncode(rawTokenString);
+                                rawTokenString = MustacheParsingUtil.JsonEscape(rawTokenString);
                             }
                             return rawTokenString;
                         }

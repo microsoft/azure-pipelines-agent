@@ -1018,11 +1018,10 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
                     return String.Empty;
                 }
                 String rawTokenString = currentToken.ToString();
-// todo: find a more elegant way to disable html-encode
-                // if (this.Encode)
-                // {
-                //     rawTokenString = UriUtility.HtmlEncode(rawTokenString);
-                // }
+                if (this.Encode)
+                {
+                    rawTokenString = MustacheParsingUtil.JsonEscape(rawTokenString);
+                }
                 return rawTokenString;
             }
 
@@ -1388,6 +1387,14 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
             }
 
             return sbReturnValue.ToString();
+        }
+
+        internal static String JsonEscape(String val)
+        {
+            String jsonString = JsonConvert.ToString(val ?? String.Empty);
+
+            // Remove leading/trailing double-quote
+            return jsonString.Substring(startIndex: 1, length: jsonString.Length - 2);
         }
     }
 }
