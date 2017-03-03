@@ -183,12 +183,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 validator: Validators.NonEmptyValidator);
         }
 
-        public string GetUrl()
+        // TODO: REMOVE defaultValue parameter after fix in master and rebase on master
+        public string GetUrl(string defaultValue = null)
         {
             return GetArgOrPrompt(
                 name: Constants.Agent.CommandLine.Args.Url,
                 description: StringUtil.Loc("ServerUrl"),
-                defaultValue: string.Empty,
+                defaultValue: defaultValue ?? string.Empty,
                 validator: Validators.ServerUrlValidator);
         }
 

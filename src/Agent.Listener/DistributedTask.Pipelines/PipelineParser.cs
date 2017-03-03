@@ -159,6 +159,7 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
                 }
             }
         }
+
         private static void Dump(String header, Object value)
         {
             Console.WriteLine();
