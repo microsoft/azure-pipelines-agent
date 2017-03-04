@@ -8,17 +8,46 @@ A goal of the agent is to support "run-local" mode for testing YAML configuratio
 
 When running local, the YAML will be converted into a pipeline, and worker processes invoked for each job.
 
-Note, this is not fully implemented yet. Currently, regardless of the YAML configuration, run-local runs the same hardcoded job every time.
+A definition variable `Agent.RunMode`=`Local` is added to each job.
+
+Note, this is not fully implemented yet.
+* Only task steps are supported, and not all task control options are currently deserialized. The basics, name@version and inputs, currently work.
+* Sync sources and resource import/export is not yet supported. Each job is run with syncSources=false.
+
+Example:
+```
+~/vsts-agent/_layout/bin/Agent.Listener --whatif --yaml ~/vsts-agent/src/Agent.Listener/DistributedTask.Pipelines/cmdline.yaml
+```
 
 ### What-if mode
 
-For debugging YAML configuration, a what-if mode is supported. This will load up the YAML configuration, and dump the deserialized pipeline to the console, and exit.
+A "what-if" mode is supported for debugging the YAML static expansion and deserialization process. What-if mode dumps the constructed pipeline to the console, and exits.
 
+Example:
 ```
 ~/vsts-agent/_layout/bin/Agent.Listener --whatif --yaml ~/vsts-agent/src/Agent.Listener/DistributedTask.Pipelines/uses-vsbuild.yaml
 ```
 
-## YAML deserialization process
+### Task version resolution and caching
+
+In run-local mode, all referenced tasks must either be pre-cached under \_work/\_tasks, or optionally credentials can be supplied to query and download each referenced task from VSTS/TFS.
+
+VSTS example:
+```
+~/vsts-agent/_layout/bin/Agent.Listener --url https://contoso.visualstudio.com --auth pat --token <TOKEN> --yaml ~/vsts-agent/src/Agent.Listener/DistributedTask.Pipelines/cmdline.yaml
+```
+
+TFS example (defaults to integrated):
+```
+~/vsts-agent/_layout/bin/Agent.Listener --url http://localhost:8080/tfs --yaml ~/vsts-agent/src/Agent.Listener/DistributedTask.Pipelines/cmdline.yaml
+```
+
+TFS example (negotiate, refer `--help` for all auth options):
+```
+~/vsts-agent/_layout/bin/Agent.Listener --url http://localhost:8080/tfs --auth negotiate --username <USERNAME> --password <PASSWORD> --yaml ~/vsts-agent/src/Agent.Listener/DistributedTask.Pipelines/cmdline.yaml
+```
+
+## YAML static expansion and deserialization process
 
 ### Outline
 
