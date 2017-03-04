@@ -111,9 +111,17 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
 
     public sealed class TaskStep : PipelineJobStep, ISimplePipelineJobStep
     {
-        public TaskReference Reference { get; set; }
+        public String Condition { get; set; }
+
+        public Boolean ContinueOnError { get; set; }
+
+        public Boolean Enabled { get; set; }
 
         public IDictionary<String, String> Inputs { get; set; }
+
+        public TaskReference Reference { get; set; }
+
+        public Int32 TimeoutInMinutes { get; set; }
 
         public override sealed PipelineJobStep Clone()
         {

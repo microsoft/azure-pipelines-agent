@@ -141,44 +141,47 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
             }
             else if (stepType.Value.Equals("task"))
             {
-                var taskRefString = parser.Expect<Scalar>();
-                var components = taskRefString.Value.Split('@');
-
-                var taskReference = new TaskReference
+                var refString = parser.Expect<Scalar>().Value;
+                String[] refComponents = refString.Split('@');
+                var task = new TaskStep
                 {
-                    Name = components[0],
+                    Enabled = true,
+                    Reference = new TaskReference
+                    {
+                        Name = refComponents[0],
+                        Version = refComponents.Length == 2 ? refComponents[1] : String.Empty,
+                    },
                 };
 
-                if (components.Length == 2)
-                {
-                    taskReference.Version = components[1];
-                }
-
-                String name = null;
-                var inputs = new Dictionary<String, String>(StringComparer.OrdinalIgnoreCase);
                 while (parser.Peek<MappingEnd>() == null)
                 {
                     var nextProperty = parser.Expect<Scalar>();
-                    if (nextProperty.Value.Equals("name"))
+                    switch (nextProperty.Value)
                     {
-                        name = parser.Expect<Scalar>().Value;
-                    }
-                    else if (nextProperty.Value.Equals("inputs"))
-                    {
-                        inputs = parser.ReadMappingOfStringString();
-                    }
-                    else
-                    {
-                        throw new SyntaxErrorException(nextProperty.Start, nextProperty.End, $"Unexpected property {nextProperty.Value}");
+                        case "condition":
+                            task.Condition = parser.Expect<Scalar>().Value;
+                            break;
+                        case "continueOnError":
+                            task.ContinueOnError = parser.ReadBoolean();
+                            break;
+                        case "enabled":
+                            task.Enabled = parser.ReadBoolean();
+                            break;
+                        case "name":
+                            task.Name = parser.Expect<Scalar>().Value;
+                            break;
+                        case "inputs":
+                            task.Inputs = parser.ReadMappingOfStringString();
+                            break;
+                        case "timeoutInMinutes":
+                            task.TimeoutInMinutes = parser.ReadInt32();
+                            break;
+                        default:
+                            throw new SyntaxErrorException(nextProperty.Start, nextProperty.End, $"Unexpected property {nextProperty.Value}");
                     }
                 }
 
-                step = new TaskStep
-                {
-                    Name = name,
-                    Inputs = inputs,
-                    Reference = taskReference,
-                };
+                step = task;
             }
             else if (stepType.Value.Equals("export"))
             {

@@ -10,9 +10,7 @@ When running local, the YAML will be converted into a pipeline, and worker proce
 
 A definition variable `Agent.RunMode`=`Local` is added to each job.
 
-Note, this is not fully implemented yet.
-* Only task steps are supported, and not all task control options are currently deserialized. The basics, name@version and inputs, currently work.
-* Sync sources and resource import/export is not yet supported. Each job is run with syncSources=false.
+Note, this is not fully implemented yet. Only task steps are supported. Sync-sources and resource-import/export are not supported yet. Each job is run with syncSources=false.
 
 Example:
 ```

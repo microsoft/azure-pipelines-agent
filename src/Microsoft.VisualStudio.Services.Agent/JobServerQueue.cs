@@ -185,7 +185,17 @@ namespace Microsoft.VisualStudio.Services.Agent
             Trace.Verbose("Enqueue web console line queue: {0}", line);
             if (HostContext.RunMode == RunMode.Local)
             {
-                _term.WriteLine(line);
+                if ((line ?? string.Empty).StartsWith("##[section]"))
+                {
+                    _term.WriteLine("******************************************************************************");
+                    _term.WriteLine(line.Substring("##[section]".Length));
+                    _term.WriteLine("******************************************************************************");
+                }
+                else
+                {
+                    _term.WriteLine(line);
+                }
+
                 return;
             }
 

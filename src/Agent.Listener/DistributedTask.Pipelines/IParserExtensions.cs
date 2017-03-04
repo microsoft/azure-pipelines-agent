@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
 
@@ -7,6 +8,43 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
 {
     internal static class IParserExtensions
     {
+        public static Boolean ReadBoolean(this IParser parser)
+        {
+            // todo: we may need to make this more strict, to ensure literal boolean was passed and not a string. using the style and tag, the strict determination can be made. we may also want to use 1.2 compliant boolean values, rather than 1.1.
+            Scalar scalar = parser.Expect<Scalar>();
+            switch ((scalar.Value ?? String.Empty).ToUpperInvariant())
+            {
+                case "TRUE":
+                case "Y":
+                case "YES":
+                case "ON":
+                    return true;
+                case "FALSE":
+                case "N":
+                case "NO":
+                case "OFF":
+                    return false;
+                default:
+                    throw new SyntaxErrorException(scalar.Start, scalar.End, $"Expected a boolean value. Actual: '{scalar.Value}'");
+            }
+        }
+
+        public static Int32 ReadInt32(this IParser parser)
+        {
+            Scalar scalar = parser.Expect<Scalar>();
+            Int32 result;
+            if (Int32.TryParse(
+                scalar.Value ?? String.Empty,
+                NumberStyles.AllowLeadingSign | NumberStyles.AllowThousands,
+                CultureInfo.InvariantCulture,
+                out result))
+            {
+                return result;
+            }
+
+            throw new SyntaxErrorException(scalar.Start, scalar.End, $"Expected an integer value. Actual: '{scalar.Value}'");
+        }
+
         /// <summary>
         /// Reads a mapping(string, string) from start to end using <c>StringComparer.OrdinalIgnoreCase</c>.
         /// </summary>
