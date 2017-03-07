@@ -73,9 +73,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 step.ExecutionContext.Variables.RecalculateExpanded(out expansionWarnings);
                 expansionWarnings?.ForEach(x => step.ExecutionContext.Warning(x));
 
-                // Record the job cancellation state prior evaluating the condition.
-                bool alreadyCanceled = jobContext.CancellationToken.IsCancellationRequested;
-
                 // Evaluate condition.
                 step.ExecutionContext.Debug($"Evaluating condition for step: '{step.DisplayName}'");
                 var expressionManager = HostContext.GetService<IExpressionManager>();
@@ -106,7 +103,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     else
                     {
                         // Run the step.
-                        await RunStepAsync(jobContext, step, alreadyCanceled, conditionTree);
+                        await RunStepAsync(jobContext, step, conditionTree);
                     }
                 }
 
@@ -131,51 +128,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        private async Task RunStepAsync(IExecutionContext jobContext, IStep step, bool alreadyCanceled, Expressions.INode conditionTree)
+        private async Task RunStepAsync(IExecutionContext jobContext, IStep step, Expressions.INode conditionTree)
         {
             // Start the step.
             Trace.Info("Starting the step.");
             step.ExecutionContext.Section(StringUtil.Loc("StepStarting", step.DisplayName));
             step.ExecutionContext.SetTimeout(timeout: step.Timeout);
-            Task stepTask = step.RunAsync();
-
-            // Re-evaluate the condition when the job cancellation token is fired.
-            if (!alreadyCanceled)
-            {
-                CancellationTokenSource evaluateTokenSource = null;
-                try
-                {
-                    // Do not use the job cancellation token directly for the delay task.
-                    // Otherwise, a delay task is leaked for each step.
-                    evaluateTokenSource = new CancellationTokenSource();
-                    Task evaluateDelay = Task.Delay(-1, evaluateTokenSource.Token);
-                    using (var registration = jobContext.CancellationToken.Register(() => evaluateTokenSource.Cancel()))
-                    {
-                        Task completedTask = await Task.WhenAny(new[] { stepTask, evaluateDelay });
-                        if (completedTask == evaluateDelay)
-                        {
-                            // Test the condition again. The job was canceled after the condition was originally evaluated.
-                            var expressionManager = HostContext.GetService<IExpressionManager>();
-                            // todo: what if evaluation fails here? if treat as critical then need to: 1) log the error (after task completes?) and 2) workaround continue-on-error logic below and 3) bubble flag back to caller to indicate critical error occurred
-                            if (!expressionManager.Evaluate(jobContext, step.ExecutionContext, conditionTree, hostTracingOnly: true))
-                            {
-                                // Cancel the step.
-                                step.ExecutionContext.CancelToken();
-                            }
-                        }
-                    }
-                }
-                finally
-                {
-                    evaluateTokenSource?.Cancel();
-                    evaluateTokenSource?.Dispose();
-                }
-            }
 
             List<OperationCanceledException> allCancelExceptions = new List<OperationCanceledException>();
             try
             {
-                await stepTask;
+                using (var register = jobContext.CancellationToken.Register(() =>
+                {
+                    // Test the condition again. The job was canceled after the condition was originally evaluated.
+                    var expressionManager = HostContext.GetService<IExpressionManager>();
+                    // todo: what if evaluation fails here? if treat as critical then need to: 
+                    //      1) log the error (after task completes?) and 
+                    //      2) workaround continue-on-error logic below and 
+                    //      3) bubble flag back to caller to indicate critical error occurred
+                    if (!expressionManager.Evaluate(jobContext, step.ExecutionContext, conditionTree, hostTracingOnly: true))
+                    {
+                        // Cancel the step.
+                        step.ExecutionContext.CancelToken();
+                    }
+                }))
+                {
+                    await step.RunAsync();
+                }
             }
             catch (OperationCanceledException ex)
             {
