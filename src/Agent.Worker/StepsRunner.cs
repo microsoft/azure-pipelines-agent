@@ -135,26 +135,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             step.ExecutionContext.Section(StringUtil.Loc("StepStarting", step.DisplayName));
             step.ExecutionContext.SetTimeout(timeout: step.Timeout);
 
+            CancellationTokenRegistration register;
             List<OperationCanceledException> allCancelExceptions = new List<OperationCanceledException>();
             try
             {
-                using (var register = jobContext.CancellationToken.Register(() =>
+                if (!jobContext.CancellationToken.IsCancellationRequested)
                 {
-                    // Test the condition again. The job was canceled after the condition was originally evaluated.
-                    var expressionManager = HostContext.GetService<IExpressionManager>();
-                    // todo: what if evaluation fails here? if treat as critical then need to: 
-                    //      1) log the error (after task completes?) and 
-                    //      2) workaround continue-on-error logic below and 
-                    //      3) bubble flag back to caller to indicate critical error occurred
-                    if (!expressionManager.Evaluate(jobContext, step.ExecutionContext, conditionTree, hostTracingOnly: true))
+                    register = jobContext.CancellationToken.Register(() =>
                     {
-                        // Cancel the step.
-                        step.ExecutionContext.CancelToken();
-                    }
-                }))
-                {
-                    await step.RunAsync();
+                        // Test the condition again. The job was canceled after the condition was originally evaluated.
+                        var expressionManager = HostContext.GetService<IExpressionManager>();
+                        // todo: what if evaluation fails here? if treat as critical then need to: 
+                        //      1) log the error (after task completes?) and 
+                        //      2) workaround continue-on-error logic below and 
+                        //      3) bubble flag back to caller to indicate critical error occurred
+                        if (!expressionManager.Evaluate(jobContext, step.ExecutionContext, conditionTree, hostTracingOnly: true))
+                        {
+                            // Cancel the step.
+                            step.ExecutionContext.CancelToken();
+                        }
+                    });
                 }
+
+                await step.RunAsync();
             }
             catch (OperationCanceledException ex)
             {
@@ -179,6 +182,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Trace.Error($"Caught exception from step: {ex}");
                 step.ExecutionContext.Error(ex);
                 step.ExecutionContext.Result = TaskResult.Failed;
+            }
+            finally
+            {
+                if (register != null)
+                {
+                    register.Dispose();
+                }
             }
 
             // Wait till all async commands finish.
