@@ -22,7 +22,7 @@ matrix:
   - buildConfiguration: release
     dotnet: 1.1
 
-additionalVariables: {}
+variables: {}
 ---
 
 # In our resource list a self reference type is inferred by the system. The name 's' has been chosen in this
@@ -45,7 +45,7 @@ jobs:
 {{/each}}
     steps:
       - import: s
-      - hook: before_install
+      - overridable: beforeInstall
         steps:
           - task: cmdline@1.*
             name: clean
@@ -57,26 +57,26 @@ jobs:
         inputs:
           command: install
           arguments: "--version {{dotnet}}"
-      - hook: before_restore
+      - overridable: beforeRestore
       - task: dotnetcore@0.*
         name: restore
         inputs:
           command: restore
           projects: "{{projects}}"
-      - hook: before_build
+      - overridable: beforeBuild
       - task: dotnetcore@0.*
         name: build
         inputs:
           command: build
           arguments: --configuration $(buildConfiguration)
-      - hook: before_test
+      - overridable: beforeTest
       - task: dotnetcore@0.*
         name: test
         inputs:
           command: test
           projects: "{{testProjects}}"
           arguments: --configuration $(buildConfiguration)
-      - hook: before_publish
+      - overridable: beforePublish
       - task: dotnetcore@0.*
         name: publish
         inputs:
@@ -84,5 +84,5 @@ jobs:
           arguments: --configuration $(buildConfiguration) --output $(build.artifactstagingdirectory)
           publishWebProjects: "{{publishWebProjects}}"
           zipPublishedProject: "{{zipPublishedProjects}}"
-      - hook: after_publish
+      - overridable: afterPublish
 {{/matrix}}

@@ -13,8 +13,7 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Newtonsoft.Json;
-using YamlDotNet.Serialization;
-using DTPipelines = Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipelines;
+using Pipelines = Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -59,14 +58,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             // Load the YAML file.
             string yamlFile = command.GetYaml();
             ArgUtil.File(yamlFile, nameof(yamlFile));
-            DTPipelines.Pipeline pipeline = await PipelineParser.LoadAsync(yamlFile);
-            ArgUtil.NotNull(pipeline, nameof(pipeline));
+            Pipelines.Process process = await PipelineParser.LoadAsync(yamlFile);
+            ArgUtil.NotNull(process, nameof(process));
             if (command.WhatIf)
             {
-                // What-if mode.
-                var yamlSerializer = new Serializer();
-                _term.WriteLine(yamlSerializer.Serialize(pipeline));
-                return 0;
+                return Constants.Agent.ReturnCode.Success;
             }
 
             // Create job message.
@@ -74,7 +70,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             try
             {
                 jobDispatcher = HostContext.CreateService<IJobDispatcher>();
-                foreach (JobInfo job in await ConvertToJobMessagesAsync(pipeline, token))
+                foreach (JobInfo job in await ConvertToJobMessagesAsync(process, token))
                 {
                     job.RequestMessage.Environment.Variables[Constants.Variables.Agent.RunMode] = RunMode.Local.ToString();
                     jobDispatcher.Run(job.RequestMessage);
@@ -101,39 +97,56 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             return Constants.Agent.ReturnCode.Success;
         }
 
-        private async Task<List<JobInfo>> ConvertToJobMessagesAsync(DTPipelines.Pipeline pipeline, CancellationToken token)
+        private async Task<List<JobInfo>> ConvertToJobMessagesAsync(Pipelines.Process process, CancellationToken token)
         {
             var jobs = new List<JobInfo>();
             int requestId = 1;
-            foreach (PipelineJob job in pipeline.Jobs ?? new List<PipelineJob>(0))
+            foreach (Phase phase in process.Phases ?? new List<IPhase>(0))
             {
-                var builder = new StringBuilder();
-                builder.Append($@"{{
-  ""tasks"": [");
-                IEnumerable<ISimplePipelineJobStep> steps = (job.Steps ?? new List<PipelineJobStep>(0))
-                    .SelectMany(step => step is StepHook ? (step as StepHook).Steps ?? new List<ISimplePipelineJobStep>(0) : (new[] { step as ISimplePipelineJobStep }).ToList());
-                bool firstStep = true;
-                foreach (ISimplePipelineJobStep step in steps)
+                foreach (Job job in phase.Jobs ?? new List<IJob>(0))
                 {
-                    if (!(step is TaskStep))
+                    var builder = new StringBuilder();
+                    builder.Append($@"{{
+  ""tasks"": [");
+                    var steps = new List<ISimpleStep>();
+                    foreach (IStep step in job.Steps ?? new List<IStep>(0))
                     {
-                        throw new Exception("Unable to run step type: " + step.GetType().FullName);
+                        if (step is ISimpleStep)
+                        {
+                            steps.Add(step as ISimpleStep);
+                        }
+                        else
+                        {
+                            var stepsPhase = step as StepsPhase;
+                            foreach (ISimpleStep nestedStep in stepsPhase.Steps ?? new List<ISimpleStep>(0))
+                            {
+                                steps.Add(nestedStep);
+                            }
+                        }
                     }
 
-                    var task = step as TaskStep;
-                    if (!task.Enabled)
+                    bool firstStep = true;
+                    foreach (ISimpleStep step in steps)
                     {
-                        continue;
-                    }
+                        if (!(step is TaskStep))
+                        {
+                            throw new Exception("Unable to run step type: " + step.GetType().FullName);
+                        }
 
-                    TaskDefinition definition = await GetDefinitionAsync(task, token);
-                    if (!firstStep)
-                    {
-                        builder.Append(",");
-                    }
+                        var task = step as TaskStep;
+                        if (!task.Enabled)
+                        {
+                            continue;
+                        }
 
-                    firstStep = false;
-                    builder.Append($@"
+                        TaskDefinition definition = await GetDefinitionAsync(task, token);
+                        if (!firstStep)
+                        {
+                            builder.Append(",");
+                        }
+
+                        firstStep = false;
+                        builder.Append($@"
     {{
       ""instanceId"": ""{Guid.NewGuid()}"",
       ""displayName"": {JsonConvert.ToString(definition.InstanceNameFormat)},
@@ -146,25 +159,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
       ""name"": {JsonConvert.ToString(definition.Name)},
       ""version"": {JsonConvert.ToString(GetVersion(definition).ToString())},
       ""inputs"": {{");
-                    bool firstInput = true;
-                    foreach (KeyValuePair<string, string> input in task.Inputs ?? new Dictionary<string, string>(0))
-                    {
-                        if (!firstInput)
+                        bool firstInput = true;
+                        foreach (KeyValuePair<string, string> input in task.Inputs ?? new Dictionary<string, string>(0))
                         {
-                            builder.Append(",");
+                            if (!firstInput)
+                            {
+                                builder.Append(",");
+                            }
+
+                            firstInput = false;
+                            builder.Append($@"
+        {JsonConvert.ToString(input.Key)}: {JsonConvert.ToString(input.Value)}");
                         }
 
-                        firstInput = false;
                         builder.Append($@"
-        {JsonConvert.ToString(input.Key)}: {JsonConvert.ToString(input.Value)}");
+      }}
+    }}");
                     }
 
                     builder.Append($@"
-      }}
-    }}");
-                }
-
-                builder.Append($@"
   ],
   ""requestId"": {requestId++},
   ""lockToken"": ""00000000-0000-0000-0000-000000000000"",
@@ -218,7 +231,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
       }}
     ],
     ""variables"": {{");
-                builder.Append($@"
+                    builder.Append($@"
       ""system"": ""build"",
       ""system.collectionId"": ""00000000-0000-0000-0000-000000000000"",
       ""system.teamProject"": ""gitTest"",
@@ -253,13 +266,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
       ""build.repository.uri"": ""https://127.0.0.1/vsts-agent-local-runner/_git/gitTest"",
       ""build.sourceVersionAuthor"": ""John Doe"",
       ""build.sourceVersionMessage"": ""Updated Program.cs""");
-                foreach (KeyValuePair<string, string> variable in job.Variables ?? new Dictionary<string, string>(0))
-                {
-                    builder.Append($@",
+                    foreach (KeyValuePair<string, string> variable in job.Variables ?? new Dictionary<string, string>(0))
+                    {
+                        builder.Append($@",
       {JsonConvert.ToString(variable.Key ?? string.Empty)}: {JsonConvert.ToString(variable.Value ?? string.Empty)}");
-                }
+                    }
 
-            builder.Append($@"
+                    builder.Append($@"
     }},
     ""systemConnection"": {{
       ""data"": {{
@@ -278,15 +291,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
     }}
   }}
 }}");
-                string message = builder.ToString();
-                try
-                {
-                    jobs.Add(new JobInfo(job, message));
-                }
-                catch
-                {
-                    Dump("Job message JSON", message);
-                    throw;
+                    string message = builder.ToString();
+                    try
+                    {
+                        jobs.Add(new JobInfo(job, message));
+                    }
+                    catch
+                    {
+                        Dump("Job message JSON", message);
+                        throw;
+                    }
                 }
             }
 
@@ -532,10 +546,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         private sealed class JobInfo
         {
-            public JobInfo(PipelineJob job, string requestMessage)
+            public JobInfo(Job job, string requestMessage)
             {
                 RequestMessage = JsonUtility.FromString<AgentJobRequestMessage>(requestMessage);
-                Timeout = TimeSpan.Parse(job.Timeout);
+                Timeout = job.Timeout ?? TimeSpan.FromHours(1);
             }
 
             public JobCancelMessage CancelMessage => new JobCancelMessage(RequestMessage.JobId, TimeSpan.FromSeconds(60));

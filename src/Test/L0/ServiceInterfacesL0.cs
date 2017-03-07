@@ -32,7 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 typeof(ICapabilitiesProvider),
                 typeof(ICredentialProvider),
                 typeof(IConfigurationProvider),
-                typeof(Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipelines.ISimplePipelineJobStep)
+                typeof(Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipelines.ISimplePipelineStep)
             };
             Validate(
                 assembly: typeof(IMessageListener).GetTypeInfo().Assembly,

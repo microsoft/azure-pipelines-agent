@@ -1,68 +1,156 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using YamlDotNet.Serialization;
 
 namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipelines
 {
-    public sealed class Pipeline
+    ////////////////////////////////////////
+    // Process classes
+    ////////////////////////////////////////
+
+    public sealed class Process : Phase
     {
-        [YamlMember(Alias = "resources")]
-        public List<PipelineResource> Resources { get; set; }
+        public List<ProcessResource> Resources { get; set; }
 
-        // [YamlMember(Alias = "stepGroups")]
-        // public IDictionary<String, List<PipelineJobStep>> StepGroups { get; set; }
+        public ProcessTemplateReference Template { get; set; }
 
-        [YamlMember(Alias = "jobs")]
-        public List<PipelineJob> Jobs { get; set; }
-
-        [YamlMember(Alias = "template")]
-        public PipelineTemplateReference Template { get; set; }
+        public List<IPhase> Phases { get; set; }
     }
 
-    public sealed class PipelineResource
+    public sealed class ProcessResource
     {
-        [YamlMember(Alias = "name")]
         public String Name { get; set; }
 
-        [YamlMember(Alias = "type")]
         public String Type { get; set; }
 
-        [YamlMember(Alias = "data")]
         public IDictionary<String, Object> Data { get; set; }
     }
 
-    public interface ISimplePipelineJobStep
+    public sealed class ProcessTemplateReference : PhasesTemplateReference
     {
-        String Name { get; set; }
-
-        PipelineJobStep Clone();
     }
 
-    public abstract class PipelineJobStep
+    // A process template cannot reference other process templates, but
+    // phases/jobs/steps within can reference templates.
+    public sealed class ProcessTemplate : PhasesTemplate
+    {
+        public List<ProcessResource> Resources { get; set; }
+    }
+
+    ////////////////////////////////////////
+    // Phase classes
+    ////////////////////////////////////////
+
+    public interface IPhase
+    {
+    }
+
+    public class Phase : Job, IPhase
+    {
+        public PhaseTarget Target { get; set; }
+
+        public List<IJob> Jobs { get; set; }
+    }
+
+    public sealed class PhaseTarget
+    {
+        public String Type { get; set; }
+
+        public String Name { get; set; }
+    }
+
+    public class PhasesTemplateReference : JobsTemplateReference, IPhase
+    {
+        public List<PhaseSelector> PhaseSelectors { get; set; }
+    }
+
+    public sealed class PhaseSelector : JobSelector
+    {
+        public List<JobSelector> JobSelectors { get; set; }
+    }
+
+    // A phase template cannot reference other phase templates, but
+    // jobs/steps within can reference templates.
+    public class PhasesTemplate : JobsTemplate
+    {
+        public List<IPhase> Phases { get; set; }
+    }
+
+    ////////////////////////////////////////
+    // Job classes
+    ////////////////////////////////////////
+
+    public interface IJob
+    {
+    }
+
+    public class Job : IJob
     {
         public String Name { get; set; }
 
-        public abstract PipelineJobStep Clone();
+        public TimeSpan? Timeout { get; set; }
+
+        public IDictionary<String, String> Variables { get; set; }
+
+        public List<IStep> Steps { get; set; }
     }
 
-    public sealed class ImportStep : PipelineJobStep, ISimplePipelineJobStep
+    public class JobsTemplateReference : StepsTemplateReference, IJob
     {
-        public sealed override PipelineJobStep Clone()
+        [YamlMember(Alias = "jobs")]
+        public List<JobSelector> JobSelectors { get; set; }
+    }
+
+    public class JobSelector
+    {
+        public String Name { get; set; }
+
+        [YamlMember(Alias = "steps")]
+        public Dictionary<String, List<ISimpleStep>> StepOverrides { get; set; }
+    }
+
+    // A job template cannot reference other job templates, but
+    // steps within can reference templates.
+    public class JobsTemplate : StepsTemplate
+    {
+        public List<IJob> Jobs { get; set; }
+    }
+
+    ////////////////////////////////////////
+    // Step classes
+    ////////////////////////////////////////
+
+    public interface IStep
+    {
+        String Name { get; set; }
+    }
+
+    public interface ISimpleStep : IStep
+    {
+        ISimpleStep Clone();
+    }
+
+    public sealed class ImportStep : ISimpleStep
+    {
+        public String Name { get; set; }
+
+        public ISimpleStep Clone()
         {
-            return new ImportStep() { Name = Name };
+            return new ImportStep { Name = Name };
         }
     }
 
-    public sealed class ExportStep : PipelineJobStep, ISimplePipelineJobStep
+    public sealed class ExportStep : ISimpleStep
     {
+        public String Name { get; set; }
+
         public String ResourceType { get; set; }
 
         public IDictionary<String, String> Inputs { get; set; }
 
-        public sealed override PipelineJobStep Clone()
+        public ISimpleStep Clone()
         {
-            return new ExportStep()
+            return new ExportStep
             {
                 Name = Name,
                 ResourceType = ResourceType,
@@ -71,46 +159,10 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
         }
     }
 
-    public sealed class StepHook : PipelineJobStep
+    public sealed class TaskStep : ISimpleStep
     {
-        [YamlMember(Alias = "steps")]
-        public List<ISimplePipelineJobStep> Steps { get; set; }
-
-        public sealed override PipelineJobStep Clone()
-        {
-            var copy = new StepHook { Name = Name };
-            if (Steps != null)
-            {
-                copy.Steps = new List<ISimplePipelineJobStep>(Steps.Count);
-                foreach (ISimplePipelineJobStep step in Steps)
-                {
-                    copy.Steps.Add(step.Clone() as ISimplePipelineJobStep);
-                }
-            }
-
-            return copy;
-        }
-    }
-
-    public sealed class TaskReference
-    {
-        public TaskReference()
-        {
-        }
-
-        public TaskReference(TaskReference copy)
-        {
-            Name = copy.Name;
-            Version = copy.Version;
-        }
-
         public String Name { get; set; }
 
-        public String Version { get; set; }
-    }
-
-    public sealed class TaskStep : PipelineJobStep, ISimplePipelineJobStep
-    {
         public String Condition { get; set; }
 
         public Boolean ContinueOnError { get; set; }
@@ -123,341 +175,56 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
 
         public Int32 TimeoutInMinutes { get; set; }
 
-        public override sealed PipelineJobStep Clone()
+        public ISimpleStep Clone()
         {
             return new TaskStep()
             {
                 Name = Name,
-                Reference = new TaskReference(Reference),
+                Condition = Condition,
+                ContinueOnError = ContinueOnError,
+                Enabled = Enabled,
                 Inputs = new Dictionary<String, String>(Inputs ?? new Dictionary<String, String>(0)),
+                Reference = Reference?.Clone(),
+                TimeoutInMinutes = TimeoutInMinutes,
             };
         }
     }
 
-    // public class PipelineJob
-    // {
-    //     [YamlMember(Alias = "variables")]
-    //     public IDictionary<String, String> Variables { get; set; }
-    // }
-
-    public sealed class PipelineJob
+    public sealed class TaskReference
     {
-        public PipelineJob()
-        {
-            Steps = new List<PipelineJobStep>();
-        }
-
-        [YamlMember(Alias = "name")]
         public String Name { get; set; }
 
-        [YamlMember(Alias = "target")]
-        public IDictionary<String, String> Target { get; set; }
+        public String Version { get; set; }
 
-        [YamlMember(Alias = "timeout")]
-        public String Timeout
+        public TaskReference Clone()
         {
-            get
+            return new TaskReference
             {
-                return m_timeout.ToString();
-            }
-
-            set
-            {
-                m_timeout = TimeSpan.Parse(value);
-            }
+                Name = Name,
+                Version = Version,
+            };
         }
-
-        [YamlMember(Alias = "variables")]
-        public IDictionary<String, String> Variables { get; set; }
-
-        [YamlMember(Alias = "steps")]
-        public List<PipelineJobStep> Steps { get; set; }
-
-        // [YamlMember(Alias = "with_items")]
-        // public IteratorValueTemplate WithItems { get; set; }
-
-        // public IList<PipelineJob> ApplyInputs(IDictionary<String, Object> inputs)
-        // {
-        //     return new List<PipelineJob>();
-        // }
-        private TimeSpan m_timeout = TimeSpan.FromHours(1);
     }
 
-    public sealed class PipelineTemplate
+    public sealed class StepsPhase : IStep
     {
-        [YamlMember(Alias = "resources")]
-        public List<PipelineResource> Resources { get; set; }
-
-        // [YamlMember(Alias = "stepGroups")]
-        // public IDictionary<String, List<PipelineJobStep>> StepGroups { get; set; }
-
-        [YamlMember(Alias = "jobs")]
-        public List<PipelineJob> Jobs { get; set; }
-    }
-
-    public sealed class PipelineTemplateReference
-    {
-        [YamlMember(Alias = "name")]
         public String Name { get; set; }
 
-        [YamlMember(Alias = "parameters")]
+        public List<ISimpleStep> Steps { get; set; }
+    }
+
+    public class StepsTemplateReference : IStep
+    {
+        public String Name { get; set; }
+
         public IDictionary<String, Object> Parameters { get; set; }
 
-        [YamlMember(Alias = "stepHooks")]
-        public IDictionary<String, List<ISimplePipelineJobStep>> StepHooks { get; set; }
+        public IDictionary<String, List<ISimpleStep>> StepOverrides { get; set; }
     }
 
-    // public class TaskGroup
-    // {
-    //     public IDictionary<String, String> Inputs { get; set; }
-
-    //     public List<TaskStep> Tasks { get; set; }
-    // }
-
-    // public class VariableGroupTemplate
-    // {
-    //     public VariableGroupTemplate(String templateValue)
-    //     {
-    //         m_templateValue = templateValue;
-    //     }
-
-    //     public VariableGroupTemplate(IDictionary<String, String> literalValue)
-    //     {
-    //         m_literalValue = literalValue;
-    //     }
-
-    //     public IDictionary<String, String> Resolve(PipelineTemplateContext context)
-    //     {
-    //         if (m_literalValue != null)
-    //         {
-    //             return m_literalValue;
-    //         }
-    //         else
-    //         {
-    //             return context.ResolveValue<IDictionary<String, String>>(m_templateValue);
-    //         }
-    //     }
-
-    //     private readonly String m_templateValue;
-    //     private readonly IDictionary<String, String> m_literalValue;
-    // }
-
-    // public abstract class IteratorValue
-    // {
-    //     public abstract T Resolve<T>(PipelineTemplateContext context);
-    // }
-
-    // public sealed class IteratorValueLiteral
-    // {
-    // }
-
-    // public sealed class IteratorValueExpression
-    // {
-    // }
-
-    public sealed class IteratorValueTemplate
+    // A step template cannot reference other step templates (enforced during deserialization).
+    public class StepsTemplate
     {
-        public IteratorValueTemplate(String value)
-        {
-            m_templateValue = value;
-        }
-
-        public IteratorValueTemplate(List<String> value)
-        {
-            m_stringArrayLiteral = value;
-        }
-
-        public IteratorValueTemplate(List<Dictionary<String, String>> value)
-        {
-            m_mappingArrayLiteral = value;
-        }
-
-        // public T Resolve<T>(PipelineTemplateContext context)
-        // {
-        //     if (m_stringArrayLiteral != null)
-        //     {
-        //         return (T)(Object)m_stringArrayLiteral;
-        //     }
-        //     else if (m_mappingArrayLiteral != null)
-        //     {
-        //         return (T)(Object)m_mappingArrayLiteral;
-        //     }
-        //     else
-        //     {
-        //         return context.ResolveValue<T>(m_templateValue);
-        //     }
-        // }
-
-        private String m_templateValue;
-        private List<String> m_stringArrayLiteral;
-        private List<Dictionary<String, String>> m_mappingArrayLiteral;
-    }
-
-    public abstract class PipelineValue
-    {
-        protected PipelineValue(Object value)
-        {
-            this.Value = value;
-        }
-
-        public abstract PipelineValueKind Kind { get; }
-
-        protected Object Value { get; set; }
-
-        // public virtual T Resolve<T>(PipelineTemplateContext context)
-        // {
-        //     return (T)this.Value;
-        // }
-
-        public static implicit operator PipelineValue(String value)
-        {
-            return new StringValue(value);
-        }
-
-        public static implicit operator PipelineValue(String[] value)
-        {
-            return new StringArrayValue(value);
-        }
-
-        public static implicit operator PipelineValue(List<String> value)
-        {
-            return new StringArrayValue(value);
-        }
-
-        public static implicit operator PipelineValue(Dictionary<String, String> value)
-        {
-            return new StringDictionaryValue(value);
-        }
-    }
-
-    public class StringValue : PipelineValue
-    {
-        public StringValue(String value)
-            : base(value)
-        {
-        }
-
-        public override PipelineValueKind Kind
-        {
-            get
-            {
-                return PipelineValueKind.String;
-            }
-        }
-
-        public new String Value
-        {
-            get
-            {
-                return (String)base.Value;
-            }
-            set
-            {
-                base.Value = value;
-            }
-        }
-
-        // public override T Resolve<T>(PipelineTemplateContext context)
-        // {
-        //     return context.ResolveValue<T>(this.Value);
-        // }
-
-        public static explicit operator String(StringValue val)
-        {
-            return val.Value;
-        }
-    }
-
-    public sealed class StringArrayValue : PipelineValue
-    {
-        public StringArrayValue(IList<String> value)
-            : base(value)
-        {
-        }
-
-        public override PipelineValueKind Kind
-        {
-            get
-            {
-                return PipelineValueKind.StringArray;
-            }
-        }
-
-        public new IList<String> Value
-        {
-            get
-            {
-                return (IList<String>)base.Value;
-            }
-            set
-            {
-                base.Value = value;
-            }
-        }
-    }
-
-    public sealed class StringDictionaryValue : PipelineValue
-    {
-        public StringDictionaryValue(IDictionary<String, String> value)
-            : base(value)
-        {
-        }
-
-        public override PipelineValueKind Kind
-        {
-            get
-            {
-                return PipelineValueKind.StringMapping;
-            }
-        }
-
-        public new IDictionary<String, String> Value
-        {
-            get
-            {
-                return (IDictionary<String, String>)base.Value;
-            }
-            set
-            {
-                base.Value = value;
-            }
-        }
-    }
-
-    public sealed class StringDictionaryArrayValue : PipelineValue
-    {
-        public StringDictionaryArrayValue(IList<IDictionary<String, String>> value)
-            : base(value)
-        {
-        }
-
-        public override PipelineValueKind Kind
-        {
-            get
-            {
-                return PipelineValueKind.StringMappingArray;
-            }
-        }
-
-        public new IList<IDictionary<String, String>> Value
-        {
-            get
-            {
-                return (IList<IDictionary<String, String>>)base.Value;
-            }
-            set
-            {
-                base.Value = value;
-            }
-        }
-    }
-
-    public enum PipelineValueKind
-    {
-        String,
-        StringArray,
-        StringMapping,
-        StringMappingArray,
-        VariableReference,
+        public List<IStep> Steps { get; set; }
     }
 }
