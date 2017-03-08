@@ -120,7 +120,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                         value: secureFile.Name
                     );
                     AddEnvironmentVariable(
-                        key: $"SECUREFILE_URL_{partialKey}",
+                        key: $"SECUREFILE_TICKET_{partialKey}",
                         value: secureFile.Ticket
                     );
                 }
