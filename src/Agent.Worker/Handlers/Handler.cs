@@ -105,24 +105,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         {
             Trace.Entering();
             ArgUtil.NotNull(ExecutionContext, nameof(ExecutionContext));
-            ArgUtil.NotNull(ExecutionContext.SecureFiles, nameof(ExecutionContext.SecureFiles));
-
-            // Add the secure files to the environment variable dictionary.
-            foreach (SecureFile secureFile in ExecutionContext.SecureFiles)
-            {
-                ArgUtil.NotNull(secureFile, nameof(secureFile));
-                
-                if (secureFile.Id > 0)
+            
+            if (ExecutionContext.SecureFiles != null && ExecutionContext.SecureFiles.Count >0) {
+                // Add the secure files to the environment variable dictionary.
+                foreach (SecureFile secureFile in ExecutionContext.SecureFiles)
                 {
-                    string partialKey = secureFile.Id.ToString();
-                    AddEnvironmentVariable(
-                        key: $"SECUREFILE_NAME_{partialKey}",
-                        value: secureFile.Name
-                    );
-                    AddEnvironmentVariable(
-                        key: $"SECUREFILE_TICKET_{partialKey}",
-                        value: secureFile.Ticket
-                    );
+                    if (secureFile != null && secureFile.Id > 0)
+                    {
+                        string partialKey = secureFile.Id.ToString();
+                        AddEnvironmentVariable(
+                            key: $"SECUREFILE_NAME_{partialKey}",
+                            value: secureFile.Name
+                        );
+                        AddEnvironmentVariable(
+                            key: $"SECUREFILE_TICKET_{partialKey}",
+                            value: secureFile.Ticket
+                        );
+                    }
                 }
             }
         }
