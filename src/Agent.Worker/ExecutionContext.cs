@@ -285,7 +285,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(message.Environment, nameof(message.Environment));
             ArgUtil.NotNull(message.Environment.SystemConnection, nameof(message.Environment.SystemConnection));
             ArgUtil.NotNull(message.Environment.Endpoints, nameof(message.Environment.Endpoints));
-            ArgUtil.NotNull(message.Environment.SecureFiles, nameof(message.Environment.SecureFiles));
             ArgUtil.NotNull(message.Environment.Variables, nameof(message.Environment.Variables));
             ArgUtil.NotNull(message.Plan, nameof(message.Plan));
 
