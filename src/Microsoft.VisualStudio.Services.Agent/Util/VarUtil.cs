@@ -43,6 +43,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             Environment.SetEnvironmentVariable(name, value);
         }
 
+        public static string GetEnvironmentVariable(string name, bool forceInsensitive = false)
+        {
+            ArgUtil.NotNullOrEmpty(name, nameof(name));
+            if (forceInsensitive)
+            {
+                return Environment.GetEnvironmentVariables().Keys
+                    .Where(x => string.Equals(name, x, StringComparison.OrdinalIgnoreCase))
+                    .Select(x => Environment.GetEnvironmentVariable(x))
+                    .FirstOrDefault();
+            }
+
+            return Environment.GetEnvironmentVariable(name);
+        }
+
         public static void ExpandEnvironmentVariables(IHostContext context, IDictionary<string, string> target)
         {
             ArgUtil.NotNull(context, nameof(context));
