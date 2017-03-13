@@ -64,7 +64,7 @@ At a high level, the deserialization process is:
 1. If structure references a template
  1. Preprocess template (mustache)
  1. Deserialize yaml
- 1. If structure references a template, recursively repeat 3.1
+ 1. If structure references a template, recursively repeat 3.i
  1. Merge structure into caller structure
 
 ## Mustache
@@ -112,7 +112,7 @@ Templates enable portions of a process to be imported from other files.
 
 When a template is referenced, the caller may pass parameters to the template. The parameters are overlaid onto any user defined context in the target file (YAML front matter). The overlaid object is used as the mustache context during template deserialization.
 
-Note, since the parameters are overlaid onto the user defined object, the user defined object may be used to provide default values.
+Default parameter values can be specified in the template's YAML front matter. Since the caller-defined parameter values are overlaid on top, any parameters that are not specified will not be overridden.
 
 TODO: What about the server generated context? Should that always be available in the mustache context during template deserialization without the caller explicitly passing it in? Should all outer root context?
 
@@ -136,6 +136,8 @@ TODO: EXAMPLES
 ### Template chaining
 
 Templates may reference other templates, but only at lower level objects in the hierarchy.
+
+For example, a process template can reference a phases template. A process template cannot reference another process template.
 
 ### TODO: Discuss overrides and selectors
 
@@ -190,163 +192,195 @@ All YAML definitions start with an entry \"process\" file.
 
 #### process
 
-<br />`# general properties`
-<br />`name: string`
-<br />
-<br />`# process properties`
-<br />`resources: [` [resource](#resource) `]`
-<br />`template: ` [processTemplateReference](#processTemplateReference)
-<br />`phases: [` [phase](#phase) `|` [phasesTemplateReference](#phasesTemplateReference) `]`
-<br />
-<br />`# phase properties - not allowed when higher level template or phases is defined`
-<br />`target:` [phaseTarget](#phaseTarget)
-<br />`jobs: [` [job](#job) `|` [jobsTemplateReference](#jobsTemplateReference) `]`
-<br />
-<br />`# job properties - not allowed when higher level template, phases, or jobs is defined`
-<br />`timeout: string # e.g. "0.01:30:00" (1 hour and 30 minutes)`
-<br />`variables: { string: string }`
-<br />`steps: [` [import](#import) `|` [export](#export) `|` [task](#task) `|` [stepsPhase](#stepsPhase) `|` [stepsTemplateReference](#stepsTemplateReference) `]`
+```yaml
+# general properties
+name: string
+
+# process properties
+resources: [ resource ]
+template:  processTemplateReference
+phases: [ phase | phasesTemplateReference ]
+
+# phase properties - not allowed when higher level template or phases is defined
+target: phaseTarget
+jobs: [ job | jobsTemplateReference ]
+
+# job properties - not allowed when higher level template, phases, or jobs is defined
+timeout: string # e.g. "0.01:30:00" (1 hour and 30 minutes)
+variables: { string: string }
+steps: [ import | export | task | stepsPhase | stepsTemplateReference ]
+```
 
 #### resource
 
-`name: string`
-<br />`type: string`
-<br />`data: { string: any }`
+```yaml
+name: string
+type: string
+data: { string: any }
+```
 
 #### processTemplateReference
 
-`name: string # relative path to process template`
-<br />`parameters: { string: any }`
-<br />`phases: [ # phase specific step overrides`
-<br />`  {`
-<br />`    name: string`
-<br />`    jobs: [ # phase and job specific step overrides`
-<br />`      {`
-<br />`        name: string`
-<br />`        steps: { string: [` [import](#import) `|` [export](#export) `|` [task](#task) `] }`
-<br />`      }`
-<br />`    ]`
-<br />`    steps: { string: [` [import](#import) `|` [export](#export) `|` [task](#task) `] }`
-<br />`  }`
-<br />`]`
-<br />`jobs: [ # job specific step overrides`
-<br />`  {`
-<br />`    name: string`
-<br />`    steps: { string: [` [import](#import) `|` [export](#export) `|` [task](#task) `] }`
-<br />`  }`
-<br />`]`
-<br />`steps: { string: [` [import](#import) `|` [export](#export) `|` [task](#task) `] } # step overrides`
+```yaml
+name: string # relative path to process template
+parameters: { string: any }
+phases: [ # phase specific step overrides
+  {
+    name: string
+    jobs: [ # phase and job specific step overrides
+      {
+        name: string
+        steps: { string: [ import | export | task ] }
+      }
+    ]
+    steps: { string: [ import | export | task ] }
+  }
+]
+jobs: [ # job specific step overrides
+  {
+    name: string
+    steps: { string: [ import | export | task ] }
+  }
+]
+steps: { string: [ import | export | task ] } # step overrides
+```
 
 #### processTemplate
 
-<br />`resources: [` [resource](#resource) `]`
-<br />`phases: [` [phase](#phase) `|` [phasesTemplateReference](#phasesTemplateReference) `]`
-<br />`jobs: [` [job](#job) `|` [jobsTemplateReference](#jobsTemplateReference) `]`
-<br />`steps: [` [import](#import) `|` [export](#export) `|` [task](#task) `|` [stepsPhase](#stepsPhase) `|` [stepsTemplateReference](#stepsTemplateReference) `]`
+```yaml
+resources: [ resource ]
+phases: [ phase | phasesTemplateReference ]
+jobs: [ job | jobsTemplateReference ]
+steps: [ import | export | task | stepsPhase | stepsTemplateReference ]
+```
 
 ### Phase structures
 
 #### phase
 
-`# phase properties`
-<br />`phase: string # name`
-<br />`target:` [phaseTarget](#phaseTarget)
-<br />`jobs: [` [job](#job) `|` [jobsTemplateReference](#jobsTemplateReference) `]`
-<br />
-<br />`# job properties`
-<br />`timeout: string # e.g. "0.01:30:00" (1 hour and 30 minutes)`
-<br />`variables: { string: string }`
-<br />`steps: [` [import](#import) `|` [export](#export) `|` [task](#task) `|` [stepsPhase](#stepsPhase) `|` [stepsTemplateReference](#stepsTemplateReference) `]`
+```yaml
+# phase properties
+phase: string # name
+target: phaseTarget
+jobs: [ job | jobsTemplateReference ]
+
+# job properties
+timeout: string # e.g. "0.01:30:00" (1 hour and 30 minutes)
+variables: { string: string }
+steps: [ import | export | task | stepsPhase | stepsTemplateReference ]
+```
 
 #### phasesTemplateReference
 
-`template: string # relative path`
-<br />`parameters: { string: any }`
-<br />`phases: [ # phase specific step overrides`
-<br />`  {`
-<br />`    name: string`
-<br />`    jobs: [ # phase and job specific step overrides`
-<br />`      {`
-<br />`        name: string`
-<br />`        steps: { string: [` [import](#import) `|` [export](#export) `|` [task](#task) `] }`
-<br />`      }`
-<br />`    ]`
-<br />`    steps: { string: [` [import](#import) `|` [export](#export) `|` [task](#task) `] }`
-<br />`  }`
-<br />`]`
-<br />`jobs: [ # job specific step overrides`
-<br />`  {`
-<br />`    name: string`
-<br />`    steps: { string: [` [import](#import) `|` [export](#export) `|` [task](#task) `] }`
-<br />`  }`
-<br />`]`
-<br />`steps: { string: [` [import](#import) `|` [export](#export) `|` [task](#task) `] } # step overrides`
+```yaml
+template: string # relative path
+parameters: { string: any }
+phases: [ # phase specific step overrides
+  {
+    name: string
+    jobs: [ # phase and job specific step overrides
+      {
+        name: string
+        steps: { string: [ import | export | task ] }
+      }
+    ]
+    steps: { string: [ import | export | task ] }
+  }
+]
+jobs: [ # job specific step overrides
+  {
+    name: string
+    steps: { string: [ import | export | task ] }
+  }
+]
+steps: { string: [ import | export | task ] } # step overrides
+```
 
 #### phasesTemplate
 
-<br />`phases: [` [phase](#phase) `]`
-<br />`jobs: [` [job](#job) `|` [jobsTemplateReference](#jobsTemplateReference) `]`
-<br />`steps: [` [import](#import) `|` [export](#export) `|` [task](#task) `|` [stepsPhase](#stepsPhase) `|` [stepsTemplateReference](#stepsTemplateReference) `]`
+```yaml
+phases: [ phase ]
+jobs: [ job | jobsTemplateReference ]
+steps: [ import | export | task | stepsPhase | stepsTemplateReference ]
+```
 
 ### Job structures
 
 #### job
 
-<br />`job: string # name`
-<br />`timeout: string # e.g. "0.01:30:00" (1 hour and 30 minutes)`
-<br />`variables: { string: string }`
-<br />`steps: [` [import](#import) `|` [export](#export) `|` [task](#task) `|` [stepsPhase](#stepsPhase) `|` [stepsTemplateReference](#stepsTemplateReference) `]`
+```yaml
+job: string # name
+timeout: string # e.g. "0.01:30:00" (1 hour and 30 minutes)
+variables: { string: string }
+steps: [ import | export | task | stepsPhase | stepsTemplateReference ]
+```
 
 #### jobsTemplateReference
 
-`template: string # relative path`
-<br />`parameters: { string: any }`
-<br />`jobs: [ # job specific step overrides`
-<br />`  {`
-<br />`    name: string`
-<br />`    steps: { string: [` [import](#import) `|` [export](#export) `|` [task](#task) `] }`
-<br />`  }`
-<br />`]`
-<br />`steps: { string: [` [import](#import) `|` [export](#export) `|` [task](#task) `] } # step overrides`
+```yaml
+template: string # relative path
+parameters: { string: any }
+jobs: [ # job specific step overrides
+  {
+    name: string
+    steps: { string: [ import | export | task ] }
+  }
+]
+steps: { string: [ import | export | task ] } # step overrides
+```
 
 #### jobsTemplate
 
-<br />`jobs: [` [job](#job) `]`
-<br />`steps: [` [import](#import) `|` [export](#export) `|` [task](#task) `|` [stepsPhase](#stepsPhase) `|` [stepsTemplateReference](#stepsTemplateReference) `]`
+```yaml
+jobs: [ job ]
+steps: [ import | export | task | stepsPhase | stepsTemplateReference ]
+```
 
 ### Step structures
 
 #### import
 
-`import: string # name`
-<br />`TODO`
+```yaml
+import: string # name
+TODO
+```
 
 #### export
 
-`export: string # name`
-<br />`TODO`
+```yaml
+export: string # name
+TODO
+```
 
 #### task
 
-`task: string # task reference, e.g. "VSBuild@1.*"`
-<br />`condition: string`
-<br />`continueOnError: true|false`
-<br />`enabled: true|false`
-<br />`name: true|false # TODO: what is this? display name?`
-<br />`inputs: { string: string }`
-<br />`timeoutInMinutes: number`
+```yaml
+task: string # task reference, e.g. "VSBuild@1.*"
+condition: string
+continueOnError: true|false
+enabled: true|false
+name: true|false # TODO: what is this? display name?
+inputs: { string: string }
+timeoutInMinutes: number
+```
 
 #### stepsPhase
 
-`phase: string # name`
-<br />`steps: [` [import](#import) `|` [export](#export) `|` [task](#task) `]`
+```yaml
+phase: string # name
+steps: [ import | export | task ]
+```
 
 #### stepsTemplateReference
 
-`template: string # relative path`
-<br />`parameters: { string: any }`
-<br />`steps: { string: [` [import](#import) `|` [export](#export) `|` [task](#task) `] } # step overrides`
+```yaml
+template: string # relative path
+parameters: { string: any }
+steps: { string: [ import | export | task ] } # step overrides
+```
 
 #### stepsTemplate
 
-<br />`steps: [` [import](#import) `|` [export](#export) `|` [task](#task) `|` [stepsPhase](#stepsPhase) `]`
+```yaml
+steps: [ import | export | task | stepsPhase ]
+```
