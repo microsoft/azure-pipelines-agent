@@ -24,6 +24,8 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
         internal const String Timeout = "timeout";
         internal const String TimeoutInMinutes = "timeoutInMinutes";
         internal const String Type = "type";
+        internal const String Value = "value";
         internal const String Variables = "variables";
+        internal const String Verbatim = "verbatim";
     }
 }

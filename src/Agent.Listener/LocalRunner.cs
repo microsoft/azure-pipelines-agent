@@ -266,10 +266,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
       ""build.repository.uri"": ""https://127.0.0.1/vsts-agent-local-runner/_git/gitTest"",
       ""build.sourceVersionAuthor"": ""John Doe"",
       ""build.sourceVersionMessage"": ""Updated Program.cs""");
-                    foreach (KeyValuePair<string, string> variable in job.Variables ?? new Dictionary<string, string>(0))
+                    foreach (Variable variable in job.Variables ?? new List<IVariable>(0))
                     {
                         builder.Append($@",
-      {JsonConvert.ToString(variable.Key ?? string.Empty)}: {JsonConvert.ToString(variable.Value ?? string.Empty)}");
+      {JsonConvert.ToString(variable.Name ?? string.Empty)}: {JsonConvert.ToString(variable.Value ?? string.Empty)}");
                     }
 
                     builder.Append($@"

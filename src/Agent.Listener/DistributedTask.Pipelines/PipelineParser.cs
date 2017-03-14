@@ -136,6 +136,10 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
             {
                 await ResolveTemplatesAsync(process.Jobs, rootDirectory);
             }
+            else if (process.Variables != null)
+            {
+                await ResolveTemplatesAsync(process.Variables, rootDirectory);
+            }
             else if (process.Steps != null)
             {
                 await ResolveTemplatesAsync(process.Steps, rootDirectory);
@@ -194,6 +198,10 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
                     {
                         await ResolveTemplatesAsync(phase.Jobs, rootDirectory);
                     }
+                    else if (phase.Variables != null)
+                    {
+                        await ResolveTemplatesAsync(phase.Variables, rootDirectory);
+                    }
                     else if (phase.Steps != null)
                     {
                         await ResolveTemplatesAsync(phase.Steps, rootDirectory);
@@ -217,7 +225,17 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
                     JobsTemplate template = await LoadFileAsync<JobsTemplate, JobsTemplateConverter>(templateFilePath, reference.Parameters);
 
                     // Resolve template references within the template.
-                    if (template.Steps != null)
+                    if (template.Jobs != null)
+                    {
+                        foreach (Job job in template.Jobs)
+                        {
+                            if (job.Variables != null)
+                            {
+                                await ResolveTemplatesAsync(job.Variables, rootDirectory: Path.GetDirectoryName(templateFilePath));
+                            }
+                        }
+                    }
+                    else if (template.Steps != null)
                     {
                         await ResolveTemplatesAsync(template.Steps, rootDirectory: Path.GetDirectoryName(templateFilePath));
                     }
@@ -241,11 +259,43 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
                 {
                     // Resolve nested template references.
                     var job = jobs[i] as Job;
+                    if (job.Variables != null)
+                    {
+                        await ResolveTemplatesAsync(job.Variables, rootDirectory);
+                    }
+
                     if (job.Steps != null)
                     {
                         await ResolveTemplatesAsync(job.Steps, rootDirectory);
                     }
 
+                    i++;
+                }
+            }
+        }
+
+        private static async Task ResolveTemplatesAsync(List<IVariable> variables, String rootDirectory)
+        {
+            variables = variables ?? new List<IVariable>(0);
+            for (int i = 0 ; i < variables.Count ; )
+            {
+                if (variables[i] is VariablesTemplateReference)
+                {
+                    // Load the template.
+                    var reference = variables[i] as VariablesTemplateReference;
+                    String templateFilePath = Path.Combine(rootDirectory, reference.Name);
+                    VariablesTemplate template = await LoadFileAsync<VariablesTemplate, VariablesTemplateConverter>(templateFilePath, reference.Parameters);
+
+                    // Merge the template.
+                    variables.RemoveAt(i);
+                    if (template.Variables != null)
+                    {
+                        variables.InsertRange(i, template.Variables);
+                        i += template.Variables.Count;
+                    }
+                }
+                else
+                {
                     i++;
                 }
             }

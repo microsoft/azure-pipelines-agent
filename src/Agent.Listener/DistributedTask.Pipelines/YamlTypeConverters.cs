@@ -91,7 +91,7 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
                         ValidateNull(result.Template, PipelineConstants.Template, PipelineConstants.Variables, scalar);
                         ValidateNull(result.Phases, PipelineConstants.Phases, PipelineConstants.Variables, scalar);
                         ValidateNull(result.Jobs, PipelineConstants.Jobs, PipelineConstants.Variables, scalar);
-                        result.Variables = ReadMappingOfStringString(parser, StringComparer.OrdinalIgnoreCase);
+                        result.Variables = ReadVariables(parser);
                         break;
 
                     case PipelineConstants.Steps:
@@ -349,6 +349,48 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
         }
     }
 
+    internal sealed class VariablesTemplateConverter : YamlTypeConverter
+    {
+        public override Boolean Accepts(Type type)
+        {
+            return typeof(VariablesTemplate) == type;
+        }
+
+        public override Object ReadYaml(IParser parser, Type type)
+        {
+            var result = new VariablesTemplate();
+            parser.Expect<MappingStart>();
+            while (parser.Allow<MappingEnd>() == null)
+            {
+                Scalar scalar = parser.Expect<Scalar>();
+                switch (scalar.Value ?? String.Empty)
+                {
+                    case PipelineConstants.Variables:
+                        result.Variables = ReadVariables(parser, simpleOnly: true);
+                        break;
+
+                    default:
+                        throw new SyntaxErrorException(scalar.Start, scalar.End, $"Unexpected variables template property: '{scalar.Value}'");
+                }
+            }
+
+            return result;
+        }
+
+        public override void WriteYaml(IEmitter emitter, Object value, Type type)
+        {
+            emitter.Emit(new MappingStart());
+            var template = value as VariablesTemplate;
+            if (template.Variables != null)
+            {
+                emitter.Emit(new Scalar(PipelineConstants.Variables));
+                WriteVariables(emitter, template.Variables);
+            }
+
+            emitter.Emit(new MappingEnd());
+        }
+    }
+
     internal sealed class StepsTemplateConverter : YamlTypeConverter
     {
         public override Boolean Accepts(Type type)
@@ -370,7 +412,7 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
                         break;
 
                     default:
-                        throw new SyntaxErrorException(scalar.Start, scalar.End, $"Unexpected process property: '{scalar.Value}'");
+                        throw new SyntaxErrorException(scalar.Start, scalar.End, $"Unexpected steps template property: '{scalar.Value}'");
                 }
             }
 
@@ -526,7 +568,7 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
 
                         case PipelineConstants.Variables:
                             ValidateNull(phase.Jobs, PipelineConstants.Jobs, PipelineConstants.Variables, scalar);
-                            phase.Variables = ReadMappingOfStringString(parser, StringComparer.OrdinalIgnoreCase);
+                            phase.Variables = ReadVariables(parser, simpleOnly: false);
                             break;
 
                         case PipelineConstants.Steps:
@@ -792,7 +834,7 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
                             break;
 
                         case PipelineConstants.Variables:
-                            job.Variables = ReadMappingOfStringString(parser, StringComparer.OrdinalIgnoreCase);
+                            job.Variables = ReadVariables(parser, simpleOnly: false);
                             break;
 
                         case PipelineConstants.Steps:
@@ -846,6 +888,70 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
                 }
 
                 result.Add(selector);
+            }
+
+            return result;
+        }
+
+        protected List<IVariable> ReadVariables(IParser parser, Boolean simpleOnly = false)
+        {
+            var result = new List<IVariable>();
+            parser.Expect<SequenceStart>();
+            while (parser.Allow<SequenceEnd>() == null)
+            {
+                parser.Expect<MappingStart>();
+                Scalar scalar = parser.Expect<Scalar>();
+                if (String.Equals(scalar.Value, PipelineConstants.Name, StringComparison.Ordinal))
+                {
+                    var variable = new Variable { Name = ReadNonEmptyString(parser) };
+                    while (parser.Allow<MappingEnd>() == null)
+                    {
+                        scalar = parser.Expect<Scalar>();
+                        switch (scalar.Value ?? String.Empty)
+                        {
+                            case PipelineConstants.Value:
+                                variable.Value = parser.Expect<Scalar>().Value;
+                                break;
+
+                            case PipelineConstants.Verbatim:
+                                variable.Verbatim = ReadBoolean(parser);
+                                break;
+
+                            default:
+                                throw new SyntaxErrorException(scalar.Start, scalar.End, $"Unexpected property: '{scalar.Value}.");
+                        }
+                    }
+
+                    result.Add(variable);
+                }
+                else if (String.Equals(scalar.Value, PipelineConstants.Template, StringComparison.Ordinal))
+                {
+                    if (simpleOnly)
+                    {
+                        throw new SyntaxErrorException(scalar.Start, scalar.End, $"A variables template cannot reference another variables '{PipelineConstants.Template}'.");
+                    }
+
+                    var reference = new VariablesTemplateReference { Name = ReadNonEmptyString(parser) };
+                    while (parser.Allow<MappingEnd>() == null)
+                    {
+                        scalar = parser.Expect<Scalar>();
+                        switch (scalar.Value ?? String.Empty)
+                        {
+                            case PipelineConstants.Parameters:
+                                reference.Parameters = ReadMapping(parser);
+                                break;
+
+                            default:
+                                throw new SyntaxErrorException(scalar.Start, scalar.End, $"Unexpected property: '{scalar.Value}'");
+                        }
+                    }
+
+                    result.Add(reference);
+                }
+                else
+                {
+                    throw new SyntaxErrorException(scalar.Start, scalar.End, $"Unknown job type: '{scalar.Value}'");
+                }
             }
 
             return result;
@@ -936,7 +1042,7 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
                 if (j.Variables != null)
                 {
                     emitter.Emit(new Scalar(PipelineConstants.Variables));
-                    WriteMapping(emitter, j.Variables);
+                    WriteVariables(emitter, j.Variables);
                 }
 
                 if (j.Steps != null)
@@ -950,6 +1056,43 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
             {
                 emitter.Emit(new MappingEnd());
             }
+        }
+
+        protected void WriteVariables(IEmitter emitter, List<IVariable> variables)
+        {
+            emitter.Emit(new SequenceStart(null, null, true, SequenceStyle.Block));
+            foreach (IVariable variable in variables)
+            {
+                emitter.Emit(new MappingStart());
+                if (variable is Variable)
+                {
+                    var v = variable as Variable;
+                    emitter.Emit(new Scalar(PipelineConstants.Name));
+                    emitter.Emit(new Scalar(v.Name));
+                    emitter.Emit(new Scalar(PipelineConstants.Value));
+                    emitter.Emit(new Scalar(v.Value));
+                    if (v.Verbatim)
+                    {
+                        emitter.Emit(new Scalar(PipelineConstants.Verbatim));
+                        emitter.Emit(new Scalar(v.Verbatim.ToString().ToLowerInvariant()));
+                    }
+                }
+                else
+                {
+                    var reference = variable as VariablesTemplateReference;
+                    emitter.Emit(new Scalar(PipelineConstants.Template));
+                    emitter.Emit(new Scalar(reference.Name));
+                    if (reference.Parameters != null)
+                    {
+                        emitter.Emit(new Scalar(PipelineConstants.Parameters));
+                        WriteMapping(emitter, reference.Parameters);
+                    }
+                }
+
+                emitter.Emit(new MappingEnd());
+            }
+
+            emitter.Emit(new SequenceEnd());
         }
 
         protected void WriteJobSelectors(IEmitter emitter, List<JobSelector> selectors)

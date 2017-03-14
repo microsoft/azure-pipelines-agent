@@ -57,10 +57,13 @@ phases:
       {{#matrix}}
       - name: "build-{{buildConfiguration}}-{{buildPlatform}}"
         variables:
-          BuildConfiguration: "{{buildConfiguration}}"
-          BuildPlatform: "{{buildPlatform}}"
+          - name: BuildConfiguration
+            value: "{{buildConfiguration}}"
+          - name: BuildPlatform
+            value: "{{buildPlatform}}"
           {{#each @root.variables}}
-          {{@key}}: "{{this}}"
+          - name: "{{@key}}"
+            value: "{{this}}"
           {{/each}}
         steps:
           - phase: preRestore

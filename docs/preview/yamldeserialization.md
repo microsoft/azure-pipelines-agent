@@ -1,12 +1,12 @@
 # VSTS YAML deserialization
 
-This document describes the details of the YAML deserialization process. This is not a \"getting started\" document.
+This document describes the details of the YAML deserialization process. This is not a "getting started" document.
 
 Several expansion mechanisms are available during the deserialization process. The goals are:
 1. Enable process reuse (maintainability)
 1. Enable a simple getting-started experience
 
-The deserialzation process occurs when a definition is triggered (manual, CI, or scheduled). All expansion mechanisms discussed in this document, occur during the deserialization process. In this sense, all mechanisms discussed here are \"static\". This document does not discuss dynamic mechanisms - i.e. adding additional jobs, after initial construction.
+The deserialzation process occurs when a definition is triggered (manual, CI, or scheduled). All expansion mechanisms discussed in this document, occur during the deserialization process. In this sense, all mechanisms discussed here are "static". This document does not discuss dynamic mechanisms - i.e. adding additional jobs, after initial construction.
 
 ## Structural overview
 
@@ -311,7 +311,7 @@ steps: [ import | export | task | stepsPhase | stepsTemplateReference ]
 ```yaml
 job: string # name
 timeout: string # e.g. "0.01:30:00" (1 hour and 30 minutes)
-variables: { string: string }
+variables: [ variable | variablesTemplateReference ]
 steps: [ import | export | task | stepsPhase | stepsTemplateReference ]
 ```
 
@@ -336,6 +336,27 @@ jobs: [ job ]
 steps: [ import | export | task | stepsPhase | stepsTemplateReference ]
 ```
 
+#### variable
+
+```yaml
+name: string
+value: string
+verbatim: bool # instructs agent not to uppercase/etc when setting env var
+```
+
+#### variablesTemplateReference
+
+```yaml
+template: string # relative path
+parameters: { string: any }
+```
+
+#### variablesTemplate
+
+```yaml
+variables: [ variable ]
+```
+
 ### Step structures
 
 #### import
@@ -357,9 +378,9 @@ TODO
 ```yaml
 task: string # task reference, e.g. "VSBuild@1.*"
 condition: string
-continueOnError: true|false
-enabled: true|false
-name: true|false # TODO: what is this? display name?
+continueOnError: true | false
+enabled: true | false
+name: string  # TODO: what is this? display name?
 inputs: { string: string }
 timeoutInMinutes: number
 ```

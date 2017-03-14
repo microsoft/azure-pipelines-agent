@@ -90,14 +90,26 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
 
         public TimeSpan? Timeout { get; set; }
 
-        public IDictionary<String, String> Variables { get; set; }
+        public List<IVariable> Variables { get; set; }
 
         public List<IStep> Steps { get; set; }
     }
 
+    public interface IVariable
+    {
+    }
+
+    public sealed class Variable : IVariable
+    {
+        public String Name { get; set; }
+
+        public String Value { get; set; }
+
+        public Boolean Verbatim { get; set; }
+    }
+
     public class JobsTemplateReference : StepsTemplateReference, IJob
     {
-        [YamlMember(Alias = "jobs")]
         public List<JobSelector> JobSelectors { get; set; }
     }
 
@@ -105,7 +117,6 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
     {
         public String Name { get; set; }
 
-        [YamlMember(Alias = "steps")]
         public Dictionary<String, List<ISimpleStep>> StepOverrides { get; set; }
     }
 
@@ -114,6 +125,18 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
     public class JobsTemplate : StepsTemplate
     {
         public List<IJob> Jobs { get; set; }
+    }
+
+    public sealed class VariablesTemplateReference : IVariable
+    {
+        public String Name { get; set; }
+
+        public IDictionary<String, Object> Parameters { get; set; }
+    }
+
+    public sealed class VariablesTemplate
+    {
+        public List<IVariable> Variables { get; set; }
     }
 
     ////////////////////////////////////////
