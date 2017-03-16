@@ -4,6 +4,8 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Linq;
+using System.IO;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
@@ -101,12 +103,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
         }
 
-        protected void AddSecureFilesToEnvironment() 
+        protected void AddSecureFilesToEnvironment()
         {
             Trace.Entering();
             ArgUtil.NotNull(ExecutionContext, nameof(ExecutionContext));
-            
-            if (ExecutionContext.SecureFiles != null && ExecutionContext.SecureFiles.Count >0) {
+
+            if (ExecutionContext.SecureFiles != null && ExecutionContext.SecureFiles.Count > 0)
+            {
                 // Add the secure files to the environment variable dictionary.
                 foreach (SecureFile secureFile in ExecutionContext.SecureFiles)
                 {
@@ -200,6 +203,44 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             ArgUtil.NotNullOrEmpty(key, nameof(key));
             Trace.Verbose($"Setting env '{key}' to '{value}'.");
             Environment[key] = value ?? string.Empty;
+        }
+
+        protected void AddTaskVariablesToEnvironment()
+        {
+            // Validate args.
+            Trace.Entering();
+            ArgUtil.NotNull(ExecutionContext.TaskVariables, nameof(ExecutionContext.TaskVariables));
+
+            foreach (KeyValuePair<string, string> pair in ExecutionContext.TaskVariables.Public)
+            {
+                // Add the variable using the formatted name.
+                string formattedKey = (pair.Key ?? string.Empty).Replace('.', '_').Replace(' ', '_').ToUpperInvariant();
+                AddEnvironmentVariable($"VSTS_TASKVARIABLE_{formattedKey}", pair.Value);
+            }
+
+            foreach (KeyValuePair<string, string> pair in ExecutionContext.TaskVariables.Private)
+            {
+                // Add the variable using the formatted name.
+                string formattedKey = (pair.Key ?? string.Empty).Replace('.', '_').Replace(' ', '_').ToUpperInvariant();
+                AddEnvironmentVariable($"VSTS_TASKVARIABLE_{formattedKey}", pair.Value);
+            }
+        }
+
+        protected void AddPrependPathToEnvironment()
+        {
+            // Validate args.
+            Trace.Entering();
+            ArgUtil.NotNull(ExecutionContext.PrependPath, nameof(ExecutionContext.PrependPath));
+            if (ExecutionContext.PrependPath.Count == 0)
+            {
+                return;
+            }
+
+            // prepend path section            
+            string prepend = string.Join(Path.PathSeparator.ToString(), ExecutionContext.PrependPath.Reverse<string>());
+            string originalPath = ExecutionContext.Variables.Get(Constants.PathVariable) ?? System.Environment.GetEnvironmentVariable(Constants.PathVariable) ?? string.Empty;
+            string newPath = VarUtil.PrependPath(prepend, originalPath);
+            AddEnvironmentVariable(Constants.PathVariable, newPath);
         }
     }
 }

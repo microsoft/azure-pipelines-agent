@@ -161,6 +161,8 @@ namespace Microsoft.VisualStudio.Services.Agent
         public static class Expressions
         {
             public static readonly string Always = "always";
+            public static readonly string Canceled = "canceled";
+            public static readonly string Failed = "failed";
             public static readonly string Succeeded = "succeeded";
             public static readonly string SucceededOrFailed = "succeededOrFailed";
             public static readonly string Variables = "variables";
@@ -173,7 +175,9 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static readonly string ExternalsDirectory = "externals";
             public static readonly string LegacyPSHostDirectory = "vstshost";
             public static readonly string ServerOMDirectory = "vstsom";
+            public static readonly string TempDirectory = "_temp";
             public static readonly string TeeDirectory = "tee";
+            public static readonly string ToolDirectory = "_tool";
             public static readonly string TaskJsonFile = "task.json";
             public static readonly string TasksDirectory = "_tasks";
             public static readonly string UpdateDirectory = "_update";
@@ -218,6 +222,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string ProxyPassword = "agent.proxypassword";
                 public static readonly string RootDirectory = "agent.RootDirectory";
                 public static readonly string ServerOMDirectory = "agent.ServerOMDirectory";
+                public static readonly string ToolCache = "agent.ToolCache";
                 public static readonly string Version = "agent.version";
                 public static readonly string WorkFolder = "agent.workfolder";
                 public static readonly string WorkingDirectory = "agent.WorkingDirectory";

@@ -14,21 +14,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     [ServiceLocator(Default = typeof(TaskManager))]
     public interface ITaskManager : IAgentService
     {
-        Task DownloadAsync(IExecutionContext jobExecutionContext, IEnumerable<TaskInstance> tasks);
+        Task DownloadAsync(IExecutionContext executionContext, IEnumerable<TaskInstance> tasks);
 
         Definition Load(TaskReference task);
-
-        IList<IStep> GetTasksPreJobSteps(IExecutionContext jobExecutionContext, IEnumerable<TaskInstance> tasks);
-        IList<IStep> GetTasksMainSteps(IExecutionContext jobExecutionContext, IEnumerable<TaskInstance> tasks);
-        IList<IStep> GetTasksPostJobSteps(IExecutionContext jobExecutionContext, IEnumerable<TaskInstance> tasks);
     }
 
     public sealed class TaskManager : AgentService, ITaskManager
     {
-        public async Task DownloadAsync(IExecutionContext jobExecutionContext, IEnumerable<TaskInstance> tasks)
+        public async Task DownloadAsync(IExecutionContext executionContext, IEnumerable<TaskInstance> tasks)
         {
-            ArgUtil.NotNull(jobExecutionContext, nameof(jobExecutionContext));
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNull(tasks, nameof(tasks));
+
+            executionContext.Output(StringUtil.Loc("EnsureTasksExist"));
 
             //remove duplicate and disabled tasks
             IEnumerable<TaskInstance> uniqueTasks =
@@ -41,9 +39,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 into taskGrouping
                 select taskGrouping.First();
+
+            if (uniqueTasks.Count() == 0)
+            {
+                executionContext.Debug("There is no required tasks need to download.");
+                return;
+            }
+
             foreach (TaskInstance task in uniqueTasks)
             {
-                await DownloadAsync(jobExecutionContext, task);
+                await DownloadAsync(executionContext, task);
             }
         }
 
@@ -71,66 +76,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return definition;
         }
 
-        public IList<IStep> GetTasksPreJobSteps(IExecutionContext jobExecutionContext, IEnumerable<TaskInstance> tasks)
-        {
-            List<IStep> preJobSteps = new List<IStep>();
-            foreach (var taskInstance in tasks)
-            {
-                Definition taskDefinition = Load(taskInstance);
-                if (taskDefinition.Data?.PreJobExecution != null)
-                {
-                    Trace.Verbose($"Adding Pre-Job {taskInstance.DisplayName}.");
-                    var taskRunner = HostContext.CreateService<ITaskRunner>();
-                    taskRunner.ExecutionContext = jobExecutionContext.CreateChild(Guid.NewGuid(), StringUtil.Loc("PreJob", taskInstance.DisplayName));
-                    taskRunner.TaskInstance = taskInstance;
-                    taskRunner.Stage = TaskRunStage.PreJob;
-                    preJobSteps.Add(taskRunner);
-                }
-            }
-
-            return preJobSteps;
-        }
-
-        public IList<IStep> GetTasksMainSteps(IExecutionContext jobExecutionContext, IEnumerable<TaskInstance> tasks)
-        {
-            List<IStep> mainSteps = new List<IStep>();
-            foreach (var taskInstance in tasks)
-            {
-                Definition taskDefinition = Load(taskInstance);
-                if (taskDefinition.Data?.Execution != null)
-                {
-                    Trace.Verbose($"Adding {taskInstance.DisplayName}.");
-                    var taskRunner = HostContext.CreateService<ITaskRunner>();
-                    taskRunner.ExecutionContext = jobExecutionContext.CreateChild(taskInstance.InstanceId, taskInstance.DisplayName);
-                    taskRunner.TaskInstance = taskInstance;
-                    taskRunner.Stage = TaskRunStage.Main;
-                    mainSteps.Add(taskRunner);
-                }
-            }
-
-            return mainSteps;
-        }
-
-        public IList<IStep> GetTasksPostJobSteps(IExecutionContext jobExecutionContext, IEnumerable<TaskInstance> tasks)
-        {
-            List<IStep> postJobSteps = new List<IStep>();
-            foreach (var taskInstance in tasks.Reverse())
-            {
-                Definition taskDefinition = Load(taskInstance);
-                if (taskDefinition.Data?.PostJobExecution != null)
-                {
-                    Trace.Verbose($"Adding Post-Job {taskInstance.DisplayName}.");
-                    var taskRunner = HostContext.CreateService<ITaskRunner>();
-                    taskRunner.ExecutionContext = jobExecutionContext.CreateChild(Guid.NewGuid(), StringUtil.Loc("PostJob", taskInstance.DisplayName));
-                    taskRunner.TaskInstance = taskInstance;
-                    taskRunner.Stage = TaskRunStage.PostJob;
-                    postJobSteps.Add(taskRunner);
-                }
-            }
-
-            return postJobSteps;
-        }
-
         private async Task DownloadAsync(IExecutionContext executionContext, TaskInstance task)
         {
             Trace.Entering();
@@ -144,7 +89,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Trace.Info($"Ensuring task exists: ID '{task.Id}', version '{task.Version}', name '{task.Name}', directory '{destDirectory}'.");
             if (File.Exists(destDirectory + ".completed"))
             {
-                Trace.Info("Task already downloaded.");
+                executionContext.Debug($"Task '{task.Name}' already downloaded at '{destDirectory}'.");
                 return;
             }
 
@@ -182,6 +127,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Trace.Verbose("Create watermark file indicate task download succeed.");
                 File.WriteAllText(destDirectory + ".completed", DateTime.UtcNow.ToString());
 
+                executionContext.Debug($"Task '{task.Name}' has been downloaded into '{destDirectory}'.");
                 Trace.Info("Finished getting task.");
             }
             finally
