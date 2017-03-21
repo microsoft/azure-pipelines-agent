@@ -10,6 +10,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Net.Http;
+using Microsoft.VisualStudio.Services.Agent.Worker.Docker;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {

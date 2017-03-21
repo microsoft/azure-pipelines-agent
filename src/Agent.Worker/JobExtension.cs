@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Expressions;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Agent.Worker.Docker;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -225,6 +226,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         initResult.PostJobStep.Add(finallyStep);
                     }
 #endif
+
+                    var dockerManger = HostContext.GetService<IDockerCommandManager>();
+                    string containerId = await dockerManger.DockerCreate(context, "ubuntu:16.04 sleep 1d");
+                    context.Output(containerId);
+                    string startedContainerId = await dockerManger.DockerStart(context, containerId);
+                    context.Output(startedContainerId);
+                    Int32 returnCode = await dockerManger.DockerExec(context, containerId, "printenv");
+                    context.Output(returnCode.ToString());
 
                     return initResult;
                 }
