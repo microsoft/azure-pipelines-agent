@@ -227,22 +227,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
 #endif
 
-                    var dockerManger = HostContext.GetService<IDockerCommandManager>();
-                    DirectoryMount mount = new DirectoryMount(HostContext.GetDirectory(WellKnownDirectory.Work), "/work", Permission.All);
-                    string containerId = await dockerManger.DockerCreate(context, "microsoft/vsts-agent:ubuntu-16.04-docker-1.12.1-standard sleep 1d", mount);
-                    context.Output(containerId);
-                    context.Docker.ContainerId = containerId;
-                    context.Docker.SharedDirectory = mount;
-
-                    string startedContainerId = await dockerManger.DockerStart(context, containerId);
-                    context.Output(startedContainerId);
-
-                    var returnCode = await dockerManger.DockerExec(context, containerId, "printenv");
-                    context.Output(returnCode.ToString());
-
-                    returnCode = await dockerManger.DockerExec(context, containerId, "ls /work");
-                    context.Output(returnCode.ToString());
-
                     return initResult;
                 }
                 catch (OperationCanceledException ex) when (jobContext.CancellationToken.IsCancellationRequested)

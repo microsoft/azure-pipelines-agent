@@ -167,6 +167,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     .FirstOrDefault();
                 ArgUtil.NotNull(jobExtension, nameof(jobExtension));
 
+                string dockerImage = jobContext.Variables.Get("VSTS_DOCKER_IMAGE");
+                if (!string.IsNullOrEmpty(dockerImage))
+                {
+                    jobContext.Output($"Run job in Docker use image: {dockerImage}");
+
+                    var dockerManger = HostContext.GetService<IDockerCommandManager>();
+                    int pullExitCode = await dockerManger.DockerPull(jobContext, dockerImage);
+                    if (pullExitCode != 0)
+                    {
+                        throw new InvalidOperationException($"Docker pull fail with exit code {pullExitCode}");
+                    }
+
+                    DirectoryMount mount = new DirectoryMount(HostContext.GetDirectory(WellKnownDirectory.Work), "/work", Permission.All);
+                    string containerId = await dockerManger.DockerCreate(jobContext, "microsoft/vsts-agent:ubuntu-16.04-docker-1.12.1-standard sleep 1d", mount);
+                    jobContext.Output(containerId);
+                    jobContext.Docker.ContainerId = containerId;
+                    jobContext.Docker.SharedDirectory = mount;
+
+                    string startedContainerId = await dockerManger.DockerStart(jobContext, containerId);
+                    jobContext.Output(startedContainerId);
+                }
+
                 List<IStep> preJobSteps = new List<IStep>();
                 List<IStep> jobSteps = new List<IStep>();
                 List<IStep> postJobSteps = new List<IStep>();
@@ -293,6 +315,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             // Clean TEMP.
             _tempDirectoryManager?.CleanupTempDirectory(jobContext);
+
+            if (!string.IsNullOrEmpty(jobContext.Docker.ContainerId))
+            {
+                jobContext.Output($"Stop and delete docker container: {jobContext.Docker.ContainerId}");
+
+                var dockerManger = HostContext.GetService<IDockerCommandManager>();
+                int stopExitCode = await dockerManger.DockerStop(jobContext, jobContext.Docker.ContainerId);
+                if (stopExitCode != 0)
+                {
+                    throw new InvalidOperationException($"Docker stop fail with exit code {stopExitCode}");
+                }
+
+                int rmExitCode = await dockerManger.DockerRM(jobContext, jobContext.Docker.ContainerId);
+                if (rmExitCode != 0)
+                {
+                    throw new InvalidOperationException($"Docker rm fail with exit code {rmExitCode}");
+                }
+            }
 
             jobContext.Section(StringUtil.Loc("StepFinishing", message.JobName));
             TaskResult result = jobContext.Complete(taskResult);
