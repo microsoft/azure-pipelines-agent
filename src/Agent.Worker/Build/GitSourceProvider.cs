@@ -170,6 +170,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 checkoutSubmodules = StringUtil.ConvertToBoolean(endpoint.Data[WellKnownEndpointData.CheckoutSubmodules]);
             }
 
+            bool checkoutNestedSubmodules = false;
+            if (endpoint.Data.ContainsKey(WellKnownEndpointData.CheckoutNestedSubmodules))
+            {
+                checkoutNestedSubmodules = StringUtil.ConvertToBoolean(endpoint.Data[WellKnownEndpointData.CheckoutNestedSubmodules]);
+            }
+
             int fetchDepth = 0;
             if (endpoint.Data.ContainsKey("fetchDepth") &&
                 (!int.TryParse(endpoint.Data["fetchDepth"], out fetchDepth) || fetchDepth < 0))
@@ -195,6 +201,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             Trace.Info($"sourceVersion={sourceVersion}");
             Trace.Info($"clean={clean}");
             Trace.Info($"checkoutSubmodules={checkoutSubmodules}");
+            Trace.Info($"checkoutNestedSubmodules={checkoutNestedSubmodules}");
             Trace.Info($"exposeCred={exposeCred}");
             Trace.Info($"fetchDepth={fetchDepth}");
             Trace.Info($"gitLfsSupport={gitLfsSupport}");
@@ -532,6 +539,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 sourcesToBuild = sourceVersion;
             }
 
+            // fetch lfs object upfront, this will avoid fetch lfs object during checkout which cause checkout taking forever
+            // since checkout will fetch lfs object 1 at a time, while git lfs fetch will fetch lfs object in parallel.
+            if (gitLfsSupport)
+            {
+                int exitCode_lfsFetch = await _gitCommandManager.GitLFSFetch(executionContext, targetPath, "origin", sourcesToBuild, string.Join(" ", additionalFetchArgs), cancellationToken);
+                if (exitCode_lfsFetch != 0)
+                {
+                    throw new InvalidOperationException($"Git fetch failed with exit code: {exitCode_lfsFetch}");
+                }
+            }
+
             // Finally, checkout the sourcesToBuild (if we didn't find a valid git object this will throw)
             int exitCode_checkout = await _gitCommandManager.GitCheckout(executionContext, targetPath, sourcesToBuild, cancellationToken);
             if (exitCode_checkout != 0)
@@ -551,12 +569,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 executionContext.Progress(90, "Updating submodules...");
-                int exitCode_submoduleInit = await _gitCommandManager.GitSubmoduleInit(executionContext, targetPath);
-                if (exitCode_submoduleInit != 0)
-                {
-                    throw new InvalidOperationException($"Git submodule init failed with exit code: {exitCode_submoduleInit}");
-                }
-
                 List<string> additionalSubmoduleUpdateArgs = new List<string>();
                 if (!_selfManageGitCreds)
                 {
@@ -575,7 +587,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     }
                 }
 
-                int exitCode_submoduleUpdate = await _gitCommandManager.GitSubmoduleUpdate(executionContext, targetPath, string.Join(" ", additionalSubmoduleUpdateArgs), cancellationToken);
+                int exitCode_submoduleUpdate = await _gitCommandManager.GitSubmoduleUpdate(executionContext, targetPath, string.Join(" ", additionalSubmoduleUpdateArgs), checkoutNestedSubmodules, cancellationToken);
                 if (exitCode_submoduleUpdate != 0)
                 {
                     throw new InvalidOperationException($"Git submodule update failed with exit code: {exitCode_submoduleUpdate}");

@@ -26,6 +26,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNull(tasks, nameof(tasks));
 
+            executionContext.Output(StringUtil.Loc("EnsureTasksExist"));
+
             //remove duplicate and disabled tasks
             IEnumerable<TaskInstance> uniqueTasks =
                 from task in tasks
@@ -37,6 +39,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 into taskGrouping
                 select taskGrouping.First();
+
+            if (uniqueTasks.Count() == 0)
+            {
+                executionContext.Debug("There is no required tasks need to download.");
+                return;
+            }
+
             foreach (TaskInstance task in uniqueTasks)
             {
                 await DownloadAsync(executionContext, task);
@@ -80,7 +89,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Trace.Info($"Ensuring task exists: ID '{task.Id}', version '{task.Version}', name '{task.Name}', directory '{destDirectory}'.");
             if (File.Exists(destDirectory + ".completed"))
             {
-                Trace.Info("Task already downloaded.");
+                executionContext.Debug($"Task '{task.Name}' already downloaded at '{destDirectory}'.");
                 return;
             }
 
@@ -118,6 +127,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Trace.Verbose("Create watermark file indicate task download succeed.");
                 File.WriteAllText(destDirectory + ".completed", DateTime.UtcNow.ToString());
 
+                executionContext.Debug($"Task '{task.Name}' has been downloaded into '{destDirectory}'.");
                 Trace.Info("Finished getting task.");
             }
             finally
@@ -166,7 +176,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public string Author { get; set; }
 
         public TaskInputDefinition[] Inputs { get; set; }
+        public ExecutionData PreJobExecution { get; set; }
         public ExecutionData Execution { get; set; }
+        public ExecutionData PostJobExecution { get; set; }
     }
 
     public sealed class ExecutionData

@@ -11,6 +11,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
     public interface IPowerShellExeHandler : IHandler
     {
         PowerShellExeHandlerData Data { get; set; }
+
+        string AccessToken { get; set; }
     }
 
     public sealed class PowerShellExeHandler : Handler, IPowerShellExeHandler
@@ -21,6 +23,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         private volatile int _errorCount;
         private bool _failOnStandardError;
         public PowerShellExeHandlerData Data { get; set; }
+        public string AccessToken { get; set; }
 
         public async Task RunAsync()
         {
@@ -33,6 +36,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             // Update the env dictionary.
             AddVariablesToEnvironment(excludeNames: true, excludeSecrets: true);
+            AddPrependPathToEnvironment();
+
+            // Add the access token to the environment variables, if the access token is set.
+            if (!string.IsNullOrEmpty(AccessToken))
+            {
+                string formattedKey = Constants.Variables.System.AccessToken.Replace('.', '_').Replace(' ', '_').ToUpperInvariant();
+                AddEnvironmentVariable(formattedKey, AccessToken);
+            }
 
             // Determine whether to fail on STDERR.
             _failOnStandardError = StringUtil.ConvertToBoolean(Data.FailOnStandardError, true); // Default to true.
@@ -76,7 +87,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 // data circumvents the logger's secret-masking behavior.
                 string entropy;
                 string powerShellExeArgs = StringUtil.Format(
-                    "-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command \"try {{ $null = [System.Security.Cryptography.ProtectedData] }} catch {{ Write-Verbose 'Adding assemly: System.Security' ; Add-Type -AssemblyName 'System.Security' ; $null = [System.Security.Cryptography.ProtectedData] }} ; Invoke-Expression -Command ([System.Text.Encoding]::UTF8.GetString([System.Security.Cryptography.ProtectedData]::Unprotect([System.Convert]::FromBase64String('{0}'), [System.Convert]::FromBase64String('{1}'), [System.Security.Cryptography.DataProtectionScope]::CurrentUser))) ; if (!(Test-Path -LiteralPath variable:\\LastExitCode)) {{ Write-Verbose 'Last exit code is not set.' }} else {{ Write-Verbose ('$LastExitCode: {{0}}' -f $LastExitCode) ; exit $LastExitCode }}\"",
+                    "-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command \"try {{ $null = [System.Security.Cryptography.ProtectedData] }} catch {{ Write-Verbose 'Adding assemly: System.Security' ; Add-Type -AssemblyName 'System.Security' ; $null = [System.Security.Cryptography.ProtectedData] ; $Error.Clear() }} ; Invoke-Expression -Command ([System.Text.Encoding]::UTF8.GetString([System.Security.Cryptography.ProtectedData]::Unprotect([System.Convert]::FromBase64String('{0}'), [System.Convert]::FromBase64String('{1}'), [System.Security.Cryptography.DataProtectionScope]::CurrentUser))) ; if (!(Test-Path -LiteralPath variable:\\LastExitCode)) {{ Write-Verbose 'Last exit code is not set.' }} else {{ Write-Verbose ('$LastExitCode: {{0}}' -f $LastExitCode) ; exit $LastExitCode }}\"",
                     Encrypt(nestedExpression, out entropy),
                     entropy);
 

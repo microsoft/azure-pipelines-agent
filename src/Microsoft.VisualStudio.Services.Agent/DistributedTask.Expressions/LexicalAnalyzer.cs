@@ -16,7 +16,7 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Expressi
 {
     internal sealed class LexicalAnalyzer
     {
-        public LexicalAnalyzer(String expression, ITraceWriter trace, IEnumerable<String> extensionNames)
+        public LexicalAnalyzer(String expression, ITraceWriter trace, IEnumerable<String> namedValues, IEnumerable<String> functions)
         {
             if (trace == null)
             {
@@ -25,7 +25,8 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Expressi
 
             m_expression = expression;
             m_trace = trace;
-            m_extensionNames = new HashSet<String>(extensionNames ?? new String[0], StringComparer.OrdinalIgnoreCase);
+            m_extensionNamedValues = new HashSet<String>(namedValues ?? new String[0], StringComparer.OrdinalIgnoreCase);
+            m_extensionFunctions = new HashSet<String>(functions ?? new String[0], StringComparer.OrdinalIgnoreCase);
         }
 
         public Boolean TryGetNextToken(ref Token token)
@@ -96,6 +97,22 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Expressi
             return true;
         }
 
+        public Boolean TryPeekNextToken(ref Token token)
+        {
+            // Record the state.
+            Int32 index = m_index;
+            Token lastToken = m_lastToken;
+
+            // Get next token.
+            Boolean result = TryGetNextToken(ref token);
+
+            // Restore the state.
+            m_index = index;
+            m_lastToken = lastToken;
+
+            return result;
+        }
+
         private Token ReadNumberOrVersionToken()
         {
             Int32 startIndex = m_index;
@@ -151,7 +168,7 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Expressi
             // Test if valid keyword character sequence.
             Int32 length = m_index - startIndex;
             String str = m_expression.Substring(startIndex, length);
-            if (s_keywordRegex.IsMatch(str))
+            if (TestKeyword(str))
             {
                 // Test if follows property dereference operator.
                 if (m_lastToken != null && m_lastToken.Kind == TokenKind.Dereference)
@@ -173,15 +190,20 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Expressi
                 {
                     return new Token(TokenKind.WellKnownFunction, str, startIndex);
                 }
+                // Extension value
+                else if (m_extensionNamedValues.Contains(str))
+                {
+                    return new Token(TokenKind.ExtensionNamedValue, str, startIndex);
+                }
                 // Extension function
-                else if (m_extensionNames.Contains(str))
+                else if (m_extensionFunctions.Contains(str))
                 {
                     return new Token(TokenKind.ExtensionFunction, str, startIndex);
                 }
             }
 
-            // Unrecognized
-            return new Token(TokenKind.Unrecognized, str, startIndex);
+            // Unknown keyword
+            return new Token(TokenKind.UnknownKeyword, str, startIndex);
         }
 
         private Token ReadStringToken()
@@ -220,6 +242,42 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Expressi
             return new Token(TokenKind.Unrecognized, rawValue, startIndex);
         }
 
+        private static Boolean TestKeyword(String str)
+        {
+            if (String.IsNullOrEmpty(str))
+            {
+                return false;
+            }
+
+            Char first = str[0];
+            if ((first >= 'a' && first <= 'z') ||
+                (first >= 'A' && first <= 'Z') ||
+                first == '_')
+            {
+                for (Int32 i = 1 ; i < str.Length ; i++)
+                {
+                    Char c = str[i];
+                    if ((c >= 'a' && c <= 'z') ||
+                        (c >= 'A' && c <= 'Z') ||
+                        (c >= '0' && c <= '9') ||
+                        c == '_')
+                    {
+                        // OK
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
         private static Boolean TestWhitespaceOrPunctuation(Char c)
         {
             switch (c)
@@ -244,10 +302,10 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Expressi
         private const Char Separator = ',';
         private const Char Dereference = '.';
 
-        private static readonly Regex s_keywordRegex = new Regex("^[a-zA-Z_][a-zA-Z0-9_]*$", RegexOptions.None);
         private readonly String m_expression; // Raw expression string.
         private readonly ITraceWriter m_trace;
-        private readonly HashSet<String> m_extensionNames;
+        private readonly HashSet<String> m_extensionFunctions;
+        private readonly HashSet<String> m_extensionNamedValues;
         private Int32 m_index; // Index of raw condition string.
         private Token m_lastToken;
     }

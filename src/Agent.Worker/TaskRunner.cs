@@ -6,43 +6,37 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Expressions;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
+    public enum JobRunStage
+    {
+        PreJob,
+        Main,
+        PostJob,
+    }
+
     [ServiceLocator(Default = typeof(TaskRunner))]
     public interface ITaskRunner : IStep, IAgentService
     {
+        JobRunStage Stage { get; set; }
         TaskInstance TaskInstance { get; set; }
     }
 
     public sealed class TaskRunner : AgentService, ITaskRunner
     {
-        public string Condition
-        {
-            get
-            {
-                if (ExecutionContext.Features.HasFlag(PlanFeatures.TaskCondition) || !string.IsNullOrEmpty(ExecutionContext.Variables.Get("VSTS_TEMP_FEATURE_TASKCONDITION")))
-                {
-                    return ExecutionContext.Variables.Get($"VSTS_TEMP_CONDITION_{DisplayName}"); //taskInstance.Condition;
-                }
-                else
-                {
-                    return TaskInstance.AlwaysRun ? $"{Constants.Expressions.SucceededOrFailed}()" : $"{Constants.Expressions.Succeeded}()";
-                }
-            }
-        }
+        public JobRunStage Stage { get; set; }
+
+        public INode Condition { get; set; }
 
         public bool ContinueOnError => TaskInstance?.ContinueOnError ?? default(bool);
-
-        public bool Critical => false;
 
         public string DisplayName => TaskInstance?.DisplayName;
 
         public bool Enabled => TaskInstance?.Enabled ?? default(bool);
 
         public IExecutionContext ExecutionContext { get; set; }
-
-        public bool Finally => false;
 
         public TaskInstance TaskInstance { get; set; }
 
@@ -69,29 +63,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Print out task metadata
             PrintTaskMetaData(definition);
 
-            if ((definition.Data?.Execution?.All.Any(x => x is PowerShell3HandlerData)).Value &&
-                (definition.Data?.Execution?.All.Any(x => x is PowerShellHandlerData && x.Platforms != null && x.Platforms.Contains("windows", StringComparer.OrdinalIgnoreCase))).Value)
+            ExecutionData currentExecution = null;
+            switch (Stage)
+            {
+                case JobRunStage.PreJob:
+                    currentExecution = definition.Data?.PreJobExecution;
+                    break;
+                case JobRunStage.Main:
+                    currentExecution = definition.Data?.Execution;
+                    break;
+                case JobRunStage.PostJob:
+                    currentExecution = definition.Data?.PostJobExecution;
+                    break;
+            };
+
+            if ((currentExecution?.All.Any(x => x is PowerShell3HandlerData)).Value &&
+                (currentExecution?.All.Any(x => x is PowerShellHandlerData && x.Platforms != null && x.Platforms.Contains("windows", StringComparer.OrdinalIgnoreCase))).Value)
             {
                 // When task contains both PS and PS3 implementations, we will always prefer PS3 over PS regardless of the platform pinning.
                 Trace.Info("Ignore platform pinning for legacy PowerShell execution handler.");
-                var legacyPShandler = definition.Data?.Execution?.All.Where(x => x is PowerShellHandlerData).FirstOrDefault();
+                var legacyPShandler = currentExecution?.All.Where(x => x is PowerShellHandlerData).FirstOrDefault();
                 legacyPShandler.Platforms = null;
             }
 
             HandlerData handlerData =
-                definition.Data?.Execution?.All
+                currentExecution?.All
                 .OrderBy(x => !x.PreferredOnCurrentPlatform()) // Sort true to false.
                 .ThenBy(x => x.Priority)
                 .FirstOrDefault();
             if (handlerData == null)
             {
-                string[] supportedHandlers;
-#if OS_WINDOWS
-                supportedHandlers = new string[] { "Node", "PowerShell3", "PowerShell", "AzurePowerShell", "PowerShellExe", "Process" };
-#else
-                supportedHandlers = new string[] { "Node" };
-#endif                
-                throw new Exception(StringUtil.Loc("SupportedTaskHandlerNotFound", string.Join(", ", supportedHandlers)));
+                throw new Exception(StringUtil.Loc("SupportedTaskHandlerNotFound"));
             }
 
             // Load the default input values from the definition.
@@ -188,7 +190,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var extensionManager = HostContext.GetService<IExtensionManager>();
             IJobExtension[] extensions =
                 (extensionManager.GetExtensions<IJobExtension>() ?? new List<IJobExtension>())
-                .Where(x => string.Equals(x.HostType, ExecutionContext.Variables.System_HostType, StringComparison.OrdinalIgnoreCase))
+                .Where(x => x.HostType.HasFlag(ExecutionContext.Variables.System_HostType))
                 .ToArray();
             foreach (IJobExtension extension in extensions)
             {
@@ -196,7 +198,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 if (!string.IsNullOrEmpty(fullPath))
                 {
                     // Stop on the first path root found.
-                    Trace.Info($"{extension.HostType} JobExtension resolved a rooted path:: {fullPath}");
+                    Trace.Info($"{extension.HostType.ToString()} JobExtension resolved a rooted path:: {fullPath}");
                     return fullPath;
                 }
             }

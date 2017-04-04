@@ -101,6 +101,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
 
         public string Agent_ServerOMDirectory => Get(Constants.Variables.Agent.ServerOMDirectory);
+        
+        public string Agent_TempDirectory => Get(Constants.Variables.Agent.TempDirectory);
 
         public string Agent_ProxyUrl => Get(Constants.Variables.Agent.ProxyUrl);
 
@@ -152,7 +154,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public bool? System_EnableAccessToken => GetBoolean(Constants.Variables.System.EnableAccessToken);
 
-        public string System_HostType => Get(Constants.Variables.System.HostType);
+        public HostTypes System_HostType => GetEnum<HostTypes>(Constants.Variables.System.HostType) ?? HostTypes.None;
 
         public string System_TaskDefinitionsUri => Get(WellKnownDistributedTaskVariables.TaskDefinitionsUrl);
 

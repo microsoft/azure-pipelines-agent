@@ -24,6 +24,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         // git fetch --tags --prune --progress [--depth=15] origin [+refs/pull/*:refs/remote/pull/*]
         Task<int> GitFetch(IExecutionContext context, string repositoryPath, string remoteName, int fetchDepth, List<string> refSpec, string additionalCommandLine, CancellationToken cancellationToken);
 
+        // git lfs fetch origin [ref]
+        Task<int> GitLFSFetch(IExecutionContext context, string repositoryPath, string remoteName, string refSpec, string additionalCommandLine, CancellationToken cancellationToken);
+
         // git checkout -f --progress <commitId/branch>
         Task<int> GitCheckout(IExecutionContext context, string repositoryPath, string committishOrBranchSpec, CancellationToken cancellationToken);
 
@@ -48,11 +51,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         // git submodule foreach git reset --hard HEAD
         Task<int> GitSubmoduleReset(IExecutionContext context, string repositoryPath);
 
-        // git submodule init
-        Task<int> GitSubmoduleInit(IExecutionContext context, string repositoryPath);
-
-        // git submodule update -f
-        Task<int> GitSubmoduleUpdate(IExecutionContext context, string repositoryPath, string additionalCommandLine, CancellationToken cancellationToken);
+        // git submodule update --init --force [--recursive]
+        Task<int> GitSubmoduleUpdate(IExecutionContext context, string repositoryPath, string additionalCommandLine, bool recursive, CancellationToken cancellationToken);
 
         // git config --get remote.origin.url
         Task<Uri> GitGetFetchUrl(IExecutionContext context, string repositoryPath);
@@ -185,6 +185,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return await ExecuteGitCommandAsync(context, repositoryPath, "fetch", options, additionalCommandLine, cancellationToken);
         }
 
+        // git lfs fetch origin [ref]
+        public async Task<int> GitLFSFetch(IExecutionContext context, string repositoryPath, string remoteName, string refSpec, string additionalCommandLine, CancellationToken cancellationToken)
+        {
+            context.Debug($"Fetch LFS objects for git repository at: {repositoryPath} remote: {remoteName}.");
+
+            // default options for git lfs fetch.
+            string options = StringUtil.Format($"fetch origin {refSpec}");
+            return await ExecuteGitCommandAsync(context, repositoryPath, "lfs", options, additionalCommandLine, cancellationToken);
+        }
+
         // git checkout -f --progress <commitId/branch>
         public async Task<int> GitCheckout(IExecutionContext context, string repositoryPath, string committishOrBranchSpec, CancellationToken cancellationToken)
         {
@@ -253,18 +263,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return await ExecuteGitCommandAsync(context, repositoryPath, "submodule", "foreach git reset --hard HEAD");
         }
 
-        // git submodule init
-        public async Task<int> GitSubmoduleInit(IExecutionContext context, string repositoryPath)
-        {
-            context.Debug("Initialize the git submodules.");
-            return await ExecuteGitCommandAsync(context, repositoryPath, "submodule", "init");
-        }
-
-        // git submodule update -f
-        public async Task<int> GitSubmoduleUpdate(IExecutionContext context, string repositoryPath, string additionalCommandLine, CancellationToken cancellationToken)
+        // git submodule update --init --force [--recursive]
+        public async Task<int> GitSubmoduleUpdate(IExecutionContext context, string repositoryPath, string additionalCommandLine, bool recursive, CancellationToken cancellationToken)
         {
             context.Debug("Update the registered git submodules.");
-            return await ExecuteGitCommandAsync(context, repositoryPath, "submodule", "update -f", additionalCommandLine, cancellationToken);
+            string options = "update --init --force";
+            if (recursive)
+            {
+                options = options + " --recursive";
+            }
+
+            return await ExecuteGitCommandAsync(context, repositoryPath, "submodule", options, additionalCommandLine, cancellationToken);
         }
 
         // git config --get remote.origin.url
