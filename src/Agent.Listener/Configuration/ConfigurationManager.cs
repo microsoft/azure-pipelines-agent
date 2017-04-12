@@ -191,7 +191,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     new AgentSettings { AgentName = agentName }, CancellationToken.None);
 
                 _term.WriteLine(StringUtil.Loc("ConnectToServer"));
-                agent = await GetAgent(agentName, poolId);
+                agent = await agentProvider.GetAgentAsync(poolId, agentName);
                 if (agent != null)
                 {
                     if (command.GetReplace())
@@ -396,12 +396,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     VssCredentials creds = credProvider.GetVssCredentials(HostContext);
                     Trace.Info("cred retrieved");
 
-                    Uri uri = new Uri(settings.ServerUrl);
-                    VssConnection conn = ApiUtil.CreateConnection(uri, creds);
-                    var agentSvr = HostContext.GetService<IAgentServer>();
-                    await agentSvr.ConnectAsync(conn);
-                    Trace.Info("Connect complete.");
-
                     bool isDeploymentGroup = (settings.MachineGroupId > 0) || (settings.DeploymentGroupId > 0);
 
                     Trace.Info("Agent configured for deploymentGroup : {0}", isDeploymentGroup.ToString());
@@ -414,8 +408,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     IConfigurationProvider agentProvider = (extensionManager.GetExtensions<IConfigurationProvider>()).FirstOrDefault(x => x.ConfigurationProviderType == agentType);
                     ArgUtil.NotNull(agentProvider, agentType);
 
-                    List<TaskAgent> agents = await agentSvr.GetAgentsAsync(settings.PoolId, settings.AgentName);
-                    if (agents.Count == 0)
+                    agentProvider.ReadAgentSetting(settings);
+                    await agentProvider.TestConnectionAsync(settings.ServerUrl, creds);
+                    TaskAgent agent = await agentProvider.GetAgentAsync(settings.PoolId, settings.AgentName);
+                    if (agent == null)
                     {
                         _term.WriteLine(StringUtil.Loc("Skipping") + currentAction);
                     }
@@ -481,15 +477,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             var provider = credentialManager.GetCredentialProvider(authType);
             provider.EnsureCredential(HostContext, command, serverUrl);
             return provider;
-        }
-
-        private async Task TestConnectAsync(string url, VssCredentials creds)
-        {
-            _term.WriteLine(StringUtil.Loc("ConnectingToServer"));
-            VssConnection connection = ApiUtil.CreateConnection(new Uri(url), creds);
-
-            _agentServer = HostContext.CreateService<IAgentServer>();
-            await _agentServer.ConnectAsync(connection);
         }
 
         private async Task<TaskAgent> GetAgent(string name, int poolId)

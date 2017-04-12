@@ -79,12 +79,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
 
             _capabilitiesManager = new CapabilitiesManager();
 
+            var expectedAgent = new TaskAgent(_expectedAgentName) { Id = 1 };
+            var expectedDeploymentMachine = new DeploymentMachine() { Agent = expectedAgent };
             _agentServer.Setup(x => x.ConnectAsync(It.IsAny<VssConnection>())).Returns(Task.FromResult<object>(null));
             _machineGroupServer.Setup(x => x.ConnectAsync(It.IsAny<VssConnection>())).Returns(Task.FromResult<object>(null));
-            _machineGroupServer.Setup(
-                x =>
-                    x.UpdateDeploymentMachinesAsync(It.IsAny<string>(), It.IsAny<int>(),
-                        It.IsAny<List<DeploymentMachine>>()));
+            _machineGroupServer.Setup(x => x.UpdateDeploymentMachinesAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<List<DeploymentMachine>>()));
+            _machineGroupServer.Setup(x => x.AddDeploymentMachineAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<DeploymentMachine>())).Returns(Task.FromResult(expectedDeploymentMachine));
+            _machineGroupServer.Setup(x => x.ReplaceDeploymentMachineAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<DeploymentMachine>())).Returns(Task.FromResult(expectedDeploymentMachine));
+            _machineGroupServer.Setup(x => x.GetDeploymentMachinesAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>())).Returns(Task.FromResult(new List<DeploymentMachine>(){}));
+            _machineGroupServer.Setup(x => x.DeleteDeploymentMachineAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>())).Returns(Task.FromResult<object>(null));
             _netFrameworkUtil.Setup(x => x.Test(It.IsAny<Version>())).Returns(true);
 
             _store.Setup(x => x.IsConfigured()).Returns(false);
@@ -109,7 +112,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             var expectedAgents = new List<TaskAgent>();
             _agentServer.Setup(x => x.GetAgentsAsync(It.IsAny<int>(), It.IsAny<string>())).Returns(Task.FromResult(expectedAgents));
 
-            var expectedAgent = new TaskAgent(_expectedAgentName) { Id = 1 };
             _agentServer.Setup(x => x.AddAgentAsync(It.IsAny<int>(), It.IsAny<TaskAgent>())).Returns(Task.FromResult(expectedAgent));
             _agentServer.Setup(x => x.UpdateAgentAsync(It.IsAny<int>(), It.IsAny<TaskAgent>())).Returns(Task.FromResult(expectedAgent));
 

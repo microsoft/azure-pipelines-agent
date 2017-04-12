@@ -46,6 +46,9 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         [DataMember(EmitDefaultValue = false)]
         public int DeploymentGroupId { get; set; }
+
+        [DataMember(EmitDefaultValue = false)]
+        public string CollectionName { get; set; }
     }
 
     [ServiceLocator(Default = typeof(ConfigurationStore))]
