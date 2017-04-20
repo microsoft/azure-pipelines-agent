@@ -18,21 +18,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         Task TestConnectionAsync(string tfsUrl, VssCredentials creds);
 
-        Task<int> GetPoolId(CommandSettings command);
+        Task<AgentMetaData> GetAgentMetaData(CommandSettings command);
 
         string GetFailedToFindPoolErrorString();
 
-        Task<TaskAgent> UpdateAgentAsync(int poolId, TaskAgent agent, CommandSettings command);
+        Task<TaskAgent> UpdateAgentAsync(AgentMetaData agentMetaData, TaskAgent agent, CommandSettings command);
 
-        Task<TaskAgent> AddAgentAsync(int poolId, TaskAgent agent, CommandSettings command);
+        Task<TaskAgent> AddAgentAsync(AgentMetaData agentMetaData, TaskAgent agent, CommandSettings command);
 
-        Task DeleteAgentAsync(int agentPoolId, int agentId);
+        Task DeleteAgentAsync(AgentMetaData agentMetaData, int agentId);
 
-        void UpdateAgentSetting(AgentSettings settings);
+        void UpdateAgentSetting(AgentMetaData agentMetaData, AgentSettings settings);
 
-        Task<TaskAgent> GetAgentAsync(int poolId, string agentName);
+        Task<TaskAgent> GetAgentAsync(AgentMetaData agentMetaData, string agentName);
 
-        void ReadAgentSetting(AgentSettings settings);
+        AgentMetaData ReadSettingsAndGetAgentMetaData(AgentSettings settings);
+
+        string GetAgentWithSameNameAlreadyExistErrorString(AgentMetaData agentMetaData, string agentName);
     }
 
     public sealed class BuildReleasesAgentConfigProvider : AgentService, IConfigurationProvider
@@ -51,14 +53,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _agentServer = HostContext.GetService<IAgentServer>();
         }
 
-        public void ReadAgentSetting(AgentSettings settings)
+        public AgentMetaData ReadSettingsAndGetAgentMetaData(AgentSettings settings)
         {
-            // No implementation required
+            return new AgentMetaData { poolId = settings.PoolId}; 
         }
 
-        public void UpdateAgentSetting(AgentSettings settings)
+        public void UpdateAgentSetting(AgentMetaData agentMetaData, AgentSettings settings)
         {
-            // No implementation required
+            settings.PoolId = agentMetaData.poolId;
         }
 
         public string GetServerUrl(CommandSettings command)
@@ -66,7 +68,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             return command.GetUrl();
         }
 
-        public async Task<int> GetPoolId(CommandSettings command)
+        public async Task<AgentMetaData> GetAgentMetaData(CommandSettings command)
         {
             int poolId = 0;
             string poolName;
@@ -75,24 +77,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             poolId = await GetPoolIdAsync(poolName);
             Trace.Info($"PoolId for agent pool '{poolName}' is '{poolId}'.");
  
-            return poolId;
+            return new AgentMetaData() { poolId = poolId };
         }
 
         public string GetFailedToFindPoolErrorString() => StringUtil.Loc("FailedToFindPool");
 
-        public Task<TaskAgent> UpdateAgentAsync(int poolId, TaskAgent agent, CommandSettings command)
+        public string GetAgentWithSameNameAlreadyExistErrorString(AgentMetaData agentMetaData, string agentName)
         {
-            return _agentServer.UpdateAgentAsync(poolId, agent);
+            return StringUtil.Loc("AgentWithSameNameAlreadyExistInPool", agentMetaData.poolId, agentName);
         }
 
-        public Task<TaskAgent> AddAgentAsync(int poolId, TaskAgent agent, CommandSettings command)
+        public Task<TaskAgent> UpdateAgentAsync(AgentMetaData agentMetaData, TaskAgent agent, CommandSettings command)
+        {
+            return _agentServer.UpdateAgentAsync(agentMetaData.poolId, agent);
+        }
+
+        public Task<TaskAgent> AddAgentAsync(AgentMetaData agentMetaData, TaskAgent agent, CommandSettings command)
         { 
-            return _agentServer.AddAgentAsync(poolId, agent);
+            return _agentServer.AddAgentAsync(agentMetaData.poolId, agent);
         }
 
-        public Task DeleteAgentAsync(int agentPoolId, int agentId)
+        public Task DeleteAgentAsync(AgentMetaData agentMetaData, int agentId)
         {
-            return _agentServer.DeleteAgentAsync(agentPoolId, agentId);
+            return _agentServer.DeleteAgentAsync(agentMetaData.poolId, agentId);
         }
 
         public async Task TestConnectionAsync(string url, VssCredentials creds)
@@ -103,9 +110,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             await _agentServer.ConnectAsync(connection);
         }
 
-        public async Task<TaskAgent> GetAgentAsync(int poolId, string agentName)
+        public async Task<TaskAgent> GetAgentAsync(AgentMetaData agentMetaData, string agentName)
         {
-            var agents = await _agentServer.GetAgentsAsync(poolId, agentName);
+            var agents = await _agentServer.GetAgentsAsync(agentMetaData.poolId, agentName);
             Trace.Verbose("Returns {0} agents", agents.Count);
             return agents.FirstOrDefault();
         }
@@ -129,10 +136,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
     {
         public Type ExtensionType => typeof(IConfigurationProvider);
         private ITerminal _term;
-
         private string _projectName = string.Empty;
         private string _collectionName;
-        private int _deploymentGroupId;
+        
         private string _serverUrl;
         private bool _isHosted = false;
         private IDeploymentGroupServer _deploymentGroupServer = null;
@@ -147,11 +153,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _deploymentGroupServer = HostContext.GetService<IDeploymentGroupServer>();
         }
 
-        public void ReadAgentSetting(AgentSettings settings)
+        public AgentMetaData ReadSettingsAndGetAgentMetaData(AgentSettings settings)
         {
-            _projectName = settings.ProjectName;
-            _deploymentGroupId = settings.DeploymentGroupId;
             _collectionName = settings.CollectionName;
+            return new AgentMetaData { poolId = settings.PoolId, deploymentGroupId = settings.DeploymentGroupId, projectName = settings.ProjectName };
         }
 
         public string GetServerUrl(CommandSettings command)
@@ -171,42 +176,45 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             return _serverUrl;
         }
 
-        public async Task<int> GetPoolId(CommandSettings command)
+        public async Task<AgentMetaData> GetAgentMetaData(CommandSettings command)
         {
-            int poolId;
-
             _projectName = command.GetProjectName(_projectName);
             var deploymentGroupName = command.GetDeploymentGroupName();
 
-            poolId =  await GetPoolIdAsync(_projectName, deploymentGroupName);
-            Trace.Info($"PoolId for deployment group '{deploymentGroupName}' is '{poolId}'.");
-            
-            return poolId;
+            var deploymentGroup =  await GetPoolIdAsync(_projectName, deploymentGroupName);
+            Trace.Info($"PoolId for deployment group '{deploymentGroupName}' is '{deploymentGroup.Pool.Id}'.");
+
+            return new AgentMetaData() { deploymentGroupId = deploymentGroup.Id, projectName = _projectName, poolId = deploymentGroup.Pool.Id };
         }
 
         public string GetFailedToFindPoolErrorString() => StringUtil.Loc("FailedToFindDeploymentGroup");
 
-        public async Task<TaskAgent> UpdateAgentAsync(int poolId, TaskAgent agent, CommandSettings command)
+        public string GetAgentWithSameNameAlreadyExistErrorString(AgentMetaData agentMetaData, string agentName)
+        {
+            return StringUtil.Loc("DeploymentMachineWithSameNameAlreadyExistInDeploymentGroup", agentMetaData.deploymentGroupId, agentName);
+        }
+
+        public async Task<TaskAgent> UpdateAgentAsync(AgentMetaData agentMetaData, TaskAgent agent, CommandSettings command)
         {
             var deploymentMachine = new DeploymentMachine() { Agent = agent };
-            deploymentMachine = await _deploymentGroupServer.ReplaceDeploymentMachineAsync(_projectName, _deploymentGroupId, agent.Id, deploymentMachine);
-            await GetAndAddTags(agent, command);
+            deploymentMachine = await _deploymentGroupServer.ReplaceDeploymentMachineAsync(agentMetaData.projectName, agentMetaData.deploymentGroupId, agent.Id, deploymentMachine);
+            await GetAndAddTags(agentMetaData, agent, command);
 
             return deploymentMachine.Agent;
         }
 
-        public async Task<TaskAgent> AddAgentAsync(int poolId, TaskAgent agent, CommandSettings command)
+        public async Task<TaskAgent> AddAgentAsync(AgentMetaData agentMetaData, TaskAgent agent, CommandSettings command)
         {
             var deploymentMachine = new DeploymentMachine(){ Agent = agent };
-            deploymentMachine = await _deploymentGroupServer.AddDeploymentMachineAsync(_projectName, _deploymentGroupId, deploymentMachine);
-            await GetAndAddTags(deploymentMachine.Agent, command);
+            deploymentMachine = await _deploymentGroupServer.AddDeploymentMachineAsync(agentMetaData.projectName, agentMetaData.deploymentGroupId, deploymentMachine);
+            await GetAndAddTags(agentMetaData, deploymentMachine.Agent, command);
 
             return deploymentMachine.Agent;
         }
 
-        public Task DeleteAgentAsync(int agentPoolId, int agentId)
+        public Task DeleteAgentAsync(AgentMetaData agentMetaData, int agentId)
         {
-            return _deploymentGroupServer.DeleteDeploymentMachineAsync(_projectName, agentPoolId, agentId);
+            return _deploymentGroupServer.DeleteDeploymentMachineAsync(agentMetaData.projectName, agentMetaData.deploymentGroupId, agentId);
         }
 
         public async Task TestConnectionAsync(string url, VssCredentials creds)
@@ -229,16 +237,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Trace.Info("Connect complete for deployment group");
         }
 
-        public void UpdateAgentSetting(AgentSettings settings)
+        public void UpdateAgentSetting(AgentMetaData agentMetaData, AgentSettings settings)
         {
-            settings.DeploymentGroupId = _deploymentGroupId;
-            settings.ProjectName = _projectName;
+            settings.DeploymentGroupId = agentMetaData.deploymentGroupId;
+            settings.ProjectName = agentMetaData.projectName;
+            settings.PoolId = agentMetaData.poolId;
             settings.CollectionName = _collectionName;
         }
 
-        public async Task<TaskAgent> GetAgentAsync(int poolId, string agentName)
+        public async Task<TaskAgent> GetAgentAsync(AgentMetaData agentMetaData, string agentName)
         {
-            var machines = await _deploymentGroupServer.GetDeploymentMachinesAsync(_projectName, poolId, agentName);
+            var machines = await _deploymentGroupServer.GetDeploymentMachinesAsync(agentMetaData.projectName, agentMetaData.deploymentGroupId, agentName);
             Trace.Verbose("Returns {0} machines", machines.Count);
             var machine = machines.FirstOrDefault();
             if (machine != null)
@@ -249,7 +258,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             return null;
         }
 
-        private async Task GetAndAddTags(TaskAgent agent, CommandSettings command)
+        private async Task GetAndAddTags(AgentMetaData agentMetaData, TaskAgent agent, CommandSettings command)
         {
             // Get and apply Tags in case agent is configured against Deployment Group
             bool needToAddTags = command.GetDeploymentGroupTagsRequired();
@@ -277,7 +286,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                                 Tags = tagsList
                             };
 
-                            await _deploymentGroupServer.UpdateDeploymentMachinesAsync(_projectName, _deploymentGroupId,
+                            await _deploymentGroupServer.UpdateDeploymentMachinesAsync(agentMetaData.projectName, agentMetaData.deploymentGroupId,
                                            new List<DeploymentMachine>() { deploymentMachine });
 
                             _term.WriteLine(StringUtil.Loc("DeploymentGroupTagsAddedMsg"));
@@ -293,7 +302,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
-        private async Task<int> GetPoolIdAsync(string projectName, string deploymentGroupName)
+        private async Task<DeploymentGroup> GetPoolIdAsync(string projectName, string deploymentGroupName)
         {
             ArgUtil.NotNull(_deploymentGroupServer, nameof(_deploymentGroupServer));
 
@@ -304,11 +313,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 throw new DeploymentGroupNotFoundException(StringUtil.Loc("DeploymentGroupNotFound", deploymentGroupName));
             }
 
-            _deploymentGroupId = deploymentGroup.Id;
             Trace.Info("Found deployment group {0} with id {1}", deploymentGroupName, deploymentGroup.Id);
             Trace.Info("Found poolId {0} for deployment group {1}", deploymentGroup.Pool.Id, deploymentGroupName);
 
-            return deploymentGroup.Pool.Id;
+            return deploymentGroup;
         }
     }
 }

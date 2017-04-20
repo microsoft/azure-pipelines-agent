@@ -81,6 +81,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
 
             var expectedAgent = new TaskAgent(_expectedAgentName) { Id = 1 };
             var expectedDeploymentMachine = new DeploymentMachine() { Agent = expectedAgent };
+            expectedAgent.Authorization = new TaskAgentAuthorization
+            {
+                ClientId = Guid.NewGuid(),
+                AuthorizationUrl = new Uri("http://localhost:8080/tfs"),
+            };
+
             _agentServer.Setup(x => x.ConnectAsync(It.IsAny<VssConnection>())).Returns(Task.FromResult<object>(null));
             _machineGroupServer.Setup(x => x.ConnectAsync(It.IsAny<VssConnection>())).Returns(Task.FromResult<object>(null));
             _machineGroupServer.Setup(x => x.UpdateDeploymentMachinesAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<List<DeploymentMachine>>()));
@@ -111,14 +117,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
 
             var expectedAgents = new List<TaskAgent>();
             _agentServer.Setup(x => x.GetAgentsAsync(It.IsAny<int>(), It.IsAny<string>())).Returns(Task.FromResult(expectedAgents));
-
-            var expectedAgent = new TaskAgent(_expectedAgentName);
-            expectedAgent.Id = 1;
-            expectedAgent.Authorization = new TaskAgentAuthorization
-            {
-                ClientId = Guid.NewGuid(),
-                AuthorizationUrl = new Uri("http://localhost:8080/tfs"),
-            };
 
             _agentServer.Setup(x => x.AddAgentAsync(It.IsAny<int>(), It.IsAny<TaskAgent>())).Returns(Task.FromResult(expectedAgent));
             _agentServer.Setup(x => x.UpdateAgentAsync(It.IsAny<int>(), It.IsAny<TaskAgent>())).Returns(Task.FromResult(expectedAgent));
