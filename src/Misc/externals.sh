@@ -140,7 +140,8 @@ if [[ "$PLATFORM" == "windows" ]]; then
     acquireExternalTool "$CONTAINER_URL/vstsom/m108_1_eba79898/vstsom.zip" vstsom
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/win-x64/node.exe" node/bin
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/win-x64/node.lib" node/bin
-    acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v3.3.0/nuget.exe" nuget
+    acquireExternalTool "$CONTAINER_URL/NuGet/3.5.1-beta1-1621/NuGet.zip" nuget
+    acquireExternalTool "$CONTAINER_URL/CredentialProvider.TeamBuild/15.104.25518.0/CredentialProvider.TeamBuild.zip" nuget
 fi
 
 # Download the external tools only for OSX.
