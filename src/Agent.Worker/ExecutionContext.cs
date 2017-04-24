@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
+using Microsoft.VisualStudio.Services.Agent.Worker.Docker;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -26,6 +27,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         Variables TaskVariables { get; }
         List<IAsyncCommandContext> AsyncCommands { get; }
         List<string> PrependPath { get; }
+        DockerInfo Docker { get; }
 
         // Initialize
         void InitializeJob(JobRequestMessage message, CancellationToken token);
@@ -76,6 +78,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public Variables TaskVariables { get; private set; }
         public bool WriteDebug { get; private set; }
         public List<string> PrependPath { get; private set; }
+        public DockerInfo Docker { get; private set; }
 
         public List<IAsyncCommandContext> AsyncCommands => _asyncCommands;
 
@@ -139,6 +142,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             child.WriteDebug = WriteDebug;
             child._parentExecutionContext = this;
             child.PrependPath = PrependPath;
+            child.Docker = Docker;
 
             // the job timeline record is at order 1.
             child.InitializeTimelineRecord(_mainTimelineId, recordId, _record.Id, ExecutionContextType.Task, name, _childExecutionContextCount + 2);
@@ -320,6 +324,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Prepend Path
             PrependPath = new List<string>();
+
+            // Docker 
+            Docker = new DockerInfo();
 
             // Proxy variables
             var proxyConfiguration = HostContext.GetService<IProxyConfiguration>();

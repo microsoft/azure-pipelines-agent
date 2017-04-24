@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Expressions;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Agent.Worker.Docker;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {

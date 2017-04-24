@@ -38,6 +38,10 @@ namespace Microsoft.VisualStudio.Services.Agent
             {
                 return string.Empty;
             }
+            else if(!string.IsNullOrEmpty(input))
+            {
+                return input;
+            }
 
             // get indexes and lengths of all substrings that will be replaced
             var positionsToReplace = new List<ReplacementPosition>();
