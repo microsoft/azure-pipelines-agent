@@ -161,7 +161,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             // Loop getting agent name and pool name
             string poolName = null;
-            AgentMetaData agentMetaData;
+            AgentConfigSettings agentConfigSettings;
             string agentName = null;
             WriteSection(StringUtil.Loc("RegisterAgentSectionHeader"));
 
@@ -169,7 +169,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 try
                 {
-                    agentMetaData = await agentProvider.GetAgentMetaData(command);
+                    agentConfigSettings = await agentProvider.GetAgentConfigSettings(command);
                     break;
                 }
                 catch (Exception e) when (!command.Unattended)
@@ -191,7 +191,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     new AgentSettings { AgentName = agentName }, CancellationToken.None);
 
                 _term.WriteLine(StringUtil.Loc("ConnectToServer"));
-                agent = await agentProvider.GetAgentAsync(agentMetaData, agentName);
+                agent = await agentProvider.GetAgentAsync(agentConfigSettings, agentName);
                 if (agent != null)
                 {
                     if (command.GetReplace())
@@ -201,7 +201,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                         try
                         {
-                            agent = await agentProvider.UpdateAgentAsync(agentMetaData, agent, command);
+                            agent = await agentProvider.UpdateAgentAsync(agentConfigSettings, agent, command);
                             _term.WriteLine(StringUtil.Loc("AgentReplaced"));
                             break;
                         }
@@ -214,7 +214,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     else if (command.Unattended)
                     {
                         // if not replace and it is unattended config.
-                        throw new TaskAgentExistsException(agentProvider.GetAgentWithSameNameAlreadyExistErrorString(agentMetaData, agentName));
+                        throw new TaskAgentExistsException(agentProvider.GetAgentWithSameNameAlreadyExistErrorString(agentConfigSettings, agentName));
                     }
                 }
                 else
@@ -224,7 +224,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                     try
                     {
-                        agent = await agentProvider.AddAgentAsync(agentMetaData, agent, command);
+                        agent = await agentProvider.AddAgentAsync(agentConfigSettings, agent, command);
                         _term.WriteLine(StringUtil.Loc("AgentAddedSuccessfully"));
                         break;
                     }
@@ -331,13 +331,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 AgentName = agentName,
                 NotificationPipeName = notificationPipeName,
                 NotificationSocketAddress = notificationSocketAddress,
+                PoolId = agentConfigSettings.PoolId,
                 PoolName = poolName,
                 ServerUrl = serverUrl,
                 WorkFolder = workFolder
             };
 
             // This is required in case agent is configured as DeploymentAgent. It will make entry for projectName and DeploymentGroup
-            agentProvider.UpdateAgentSetting(agentMetaData, settings);
+            agentProvider.UpdateAgentSetting(agentConfigSettings, settings);
 
             _store.SaveSettings(settings);
             _term.WriteLine(StringUtil.Loc("SavedSettings", DateTime.UtcNow));
@@ -419,18 +420,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     IConfigurationProvider agentProvider = (extensionManager.GetExtensions<IConfigurationProvider>()).FirstOrDefault(x => x.ConfigurationProviderType == agentType);
                     ArgUtil.NotNull(agentProvider, agentType);
 
-                    var agentMetaData = agentProvider.ReadSettingsAndGetAgentMetaData(settings);
+                    var agentConfigSettings = agentProvider.ReadSettingsAndGetAgentConfigSettings(settings);
                     await agentProvider.TestConnectionAsync(settings.ServerUrl, creds);
-                    TaskAgent agent = await agentProvider.GetAgentAsync(agentMetaData, settings.AgentName);
-                    if (agent == null)
-                    {
-                        _term.WriteLine(StringUtil.Loc("Skipping") + currentAction);
-                    }
-                    else
-                    {
-                        await agentProvider.DeleteAgentAsync(agentMetaData, settings.AgentId);
-                        _term.WriteLine(StringUtil.Loc("Success") + currentAction);
-                    }
+
+                    await agentProvider.DeleteAgentAsync(agentConfigSettings, settings, currentAction);
                 }
                 else
                 {
@@ -488,15 +481,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             var provider = credentialManager.GetCredentialProvider(authType);
             provider.EnsureCredential(HostContext, command, serverUrl);
             return provider;
-        }
-
-        private async Task<TaskAgent> GetAgent(string name, int poolId)
-        {
-            List<TaskAgent> agents = await _agentServer.GetAgentsAsync(poolId, name);
-            Trace.Verbose("Returns {0} agents", agents.Count);
-            TaskAgent agent = agents.FirstOrDefault();
-
-            return agent;
         }
 
         private TaskAgent UpdateExistingAgent(TaskAgent agent, RSAParameters publicKey, Dictionary<string, string> systemCapabilities)

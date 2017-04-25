@@ -48,6 +48,9 @@ namespace Microsoft.VisualStudio.Services.Agent
         public int DeploymentGroupId { get; set; }
 
         [DataMember(EmitDefaultValue = false)]
+        public string ProjectId { get; set; }
+
+        [DataMember(EmitDefaultValue = false)]
         public string CollectionName { get; set; }
     }
 

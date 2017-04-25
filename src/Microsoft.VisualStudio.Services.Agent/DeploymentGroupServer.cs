@@ -15,19 +15,23 @@ namespace Microsoft.VisualStudio.Services.Agent
         Task<List<DeploymentGroup>> GetDeploymentGroupsAsync(string projectName, string machineGroupName);
 
         // Update Machine Group ( Used for adding tags)
-        Task<List<DeploymentMachine>> UpdateDeploymentMachinesAsync(string projectName, int machineGroupId, List<DeploymentMachine> deploymentMachines);
+        Task<DeploymentMachine> UpdateDeploymentMachineAsync(Guid projectId, int deploymentGroupId, int machineId, DeploymentMachine deploymentMachine);
 
         // Add Deployment Machine
-        Task<DeploymentMachine> AddDeploymentMachineAsync(string projectName, int deploymentGroupId, DeploymentMachine machine);
+        Task<DeploymentMachine> AddDeploymentMachineAsync(Guid projectId, int deploymentGroupId, DeploymentMachine machine);
 
         // Replace Deployment Machine
-        Task<DeploymentMachine> ReplaceDeploymentMachineAsync(string projectName, int deploymentGroupId, int machineId, DeploymentMachine machine);
+        Task<DeploymentMachine> ReplaceDeploymentMachineAsync(Guid projectId, int deploymentGroupId, int machineId, DeploymentMachine machine);
 
         // Delete Deployment Machine
         Task DeleteDeploymentMachineAsync(string projectName, int deploymentGroupId, int machineId);
 
+        Task DeleteDeploymentMachineAsync(Guid projectId, int deploymentGroupId, int machineId);
+
         // Get Deployment Machines
         Task<List<DeploymentMachine>> GetDeploymentMachinesAsync(string projectName, int deploymentGroupId, string machineName);
+
+        Task<List<DeploymentMachine>> GetDeploymentMachinesAsync(Guid projectGuid, int deploymentGroupId, string machineName);
     }
 
     public sealed class DeploymentGroupServer : AgentService, IDeploymentGroupServer
@@ -65,16 +69,16 @@ namespace Microsoft.VisualStudio.Services.Agent
             return _taskAgentClient.GetDeploymentGroupsAsync(projectName, machineGroupName);
         }
 
-        public Task<DeploymentMachine> AddDeploymentMachineAsync(string projectName, int deploymentGroupId, DeploymentMachine machine)
+        public Task<DeploymentMachine> AddDeploymentMachineAsync(Guid projectId, int deploymentGroupId, DeploymentMachine machine)
         {
             CheckConnection();
-            return _taskAgentClient.AddDeploymentMachineAsync(projectName, deploymentGroupId, machine);
+            return _taskAgentClient.AddDeploymentMachineAsync(projectId, deploymentGroupId, machine);
         }
 
-        public Task<DeploymentMachine> ReplaceDeploymentMachineAsync(string projectName, int deploymentGroupId, int machineId, DeploymentMachine machine)
+        public Task<DeploymentMachine> ReplaceDeploymentMachineAsync(Guid projectId, int deploymentGroupId, int machineId, DeploymentMachine machine)
         {
             CheckConnection();
-            return _taskAgentClient.ReplaceDeploymentMachineAsync(projectName, deploymentGroupId, machineId, machine);
+            return _taskAgentClient.ReplaceDeploymentMachineAsync(projectId, deploymentGroupId, machineId, machine);
         }
 
         public Task DeleteDeploymentMachineAsync(string projectName, int deploymentGroupId, int machineId)
@@ -83,19 +87,31 @@ namespace Microsoft.VisualStudio.Services.Agent
             return _taskAgentClient.DeleteDeploymentMachineAsync(projectName, deploymentGroupId, machineId);
         }
 
+        public Task DeleteDeploymentMachineAsync(Guid projectId, int deploymentGroupId, int machineId)
+        {
+            CheckConnection();
+            return _taskAgentClient.DeleteDeploymentMachineAsync(projectId, deploymentGroupId, machineId);
+        }
+
         public Task<List<DeploymentMachine>> GetDeploymentMachinesAsync(string projectName, int deploymentGroupId, string machineName)
         {
             CheckConnection();
             return _taskAgentClient.GetDeploymentMachinesAsync(projectName, deploymentGroupId, null, machineName);
         }
 
+        public Task<List<DeploymentMachine>> GetDeploymentMachinesAsync(Guid projectGuid, int deploymentGroupId, string machineName)
+        {
+            CheckConnection();
+            return _taskAgentClient.GetDeploymentMachinesAsync(projectGuid, deploymentGroupId, null, machineName);
+        }
+
         //-----------------------------------------------------------------
         // Update
         //-----------------------------------------------------------------
-        public Task<List<DeploymentMachine>> UpdateDeploymentMachinesAsync(string projectName, int machineGroupId, List<DeploymentMachine> deploymentMachines)
+        public Task<DeploymentMachine> UpdateDeploymentMachineAsync(Guid projectId, int deploymentGroupId, int machineId, DeploymentMachine deploymentMachine)
         {
             CheckConnection();
-            return _taskAgentClient.UpdateDeploymentMachinesAsync(projectName, machineGroupId, deploymentMachines);
+            return _taskAgentClient.UpdateDeploymentMachineAsync(projectId, deploymentGroupId, machineId, deploymentMachine);
         }
     }
 }
