@@ -196,8 +196,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _projectName = command.GetProjectName(_projectName);
             var deploymentGroupName = command.GetDeploymentGroupName();
 
-            var deploymentGroup =  await GetPoolIdAsync(_projectName, deploymentGroupName);
+            var deploymentGroup =  await GetDeploymentGroupAsync(_projectName, deploymentGroupName);
             Trace.Info($"PoolId for deployment group '{deploymentGroupName}' is '{deploymentGroup.Pool.Id}'.");
+            Trace.Info($"Project id for deployment group '{deploymentGroupName}' is '{deploymentGroup.Project.Id.ToString()}'.");
 
             return new DeploymentAgentConfigSettings(deploymentGroup.Pool.Id, deploymentGroup.Id, deploymentGroup.Project.Id.ToString());
         }
@@ -336,7 +337,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
-        private async Task<DeploymentGroup> GetPoolIdAsync(string projectName, string deploymentGroupName)
+        private async Task<DeploymentGroup> GetDeploymentGroupAsync(string projectName, string deploymentGroupName)
         {
             ArgUtil.NotNull(_deploymentGroupServer, nameof(_deploymentGroupServer));
 
@@ -348,8 +349,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
 
             Trace.Info("Found deployment group {0} with id {1}", deploymentGroupName, deploymentGroup.Id);
-            Trace.Info("Found poolId {0} for deployment group {1}", deploymentGroup.Pool.Id, deploymentGroupName);
-
             return deploymentGroup;
         }
 
