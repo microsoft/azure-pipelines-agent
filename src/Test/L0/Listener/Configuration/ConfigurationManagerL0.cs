@@ -50,6 +50,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
         private string _expectedAuthType = "pat";
         private string _expectedWorkFolder = "_work";
         private int _expectedPoolId = 1;
+        private int _expectedDeploymentMachineId = 81;
         private RSA rsa = null;
         private AgentSettings _configMgrAgentSettings = new AgentSettings();
 
@@ -82,7 +83,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             _capabilitiesManager = new CapabilitiesManager();
 
             var expectedAgent = new TaskAgent(_expectedAgentName) { Id = 1 };
-            var expectedDeploymentMachine = new DeploymentMachine() { Agent = expectedAgent };
+            var expectedDeploymentMachine = new DeploymentMachine() { Agent = expectedAgent, Id = _expectedDeploymentMachineId };
             expectedAgent.Authorization = new TaskAgentAuthorization
             {
                 ClientId = Guid.NewGuid(),
@@ -361,6 +362,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             string expectedProcessedTags = string.Empty;
             string tags = "Tag3, ,, Tag4  , , ,  Tag1,  , tag3 ";
             string expectedTags = "Tag3,Tag4,Tag1";
+            int receivedMachineId = -1;
 
             _machineGroupServer.Setup(x =>
                 x.UpdateDeploymentMachineAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<int>(),
@@ -368,6 +370,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
                     {
                         receivedProjectId = project;
                         expectedProcessedTags = string.Join(",",deploymentMachine.Tags.ToArray());
+                        receivedMachineId = machineId;
                     }
                 );
 
@@ -428,6 +431,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
 
                 Assert.True(receivedProjectId.Equals(new Guid(_expectedProjectId)), "UpdateDeploymentMachineGroupAsync should get call with correct project name");
                 Assert.True(expectedTags.Equals(expectedProcessedTags),"Before applying the tags, should get processed ( Trim, Remove duplicate)");
+                Assert.True(receivedMachineId.Equals(_expectedDeploymentMachineId), "UpdateDeploymentMachineGroupAsync should get call with correct machine id");
                 // Tags logic should get trigger
                 _machineGroupServer.Verify(x =>
                     x.UpdateDeploymentMachineAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<int>(),
