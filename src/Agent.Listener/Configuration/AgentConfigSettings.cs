@@ -1,7 +1,6 @@
 ﻿
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
-
     public class AgentConfigSettings
     {
         public int PoolId;

@@ -26,7 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         Task<TaskAgent> AddAgentAsync(AgentConfigSettings agentConfigSettings, TaskAgent agent, CommandSettings command);
 
-        Task DeleteAgentAsync(AgentConfigSettings agentConfigSettings, AgentSettings settings, string currentAction);
+        Task DeleteAgentAsync(AgentConfigSettings agentConfigSettings, AgentSettings settings);
 
         void UpdateAgentSetting(AgentConfigSettings agentConfigSettings, AgentSettings settings);
 
@@ -96,8 +96,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             return _agentServer.AddAgentAsync(agentConfigSettings.PoolId, agent);
         }
 
-        public async Task DeleteAgentAsync(AgentConfigSettings agentConfigSettings, AgentSettings settings, string currentAction)
+        public async Task DeleteAgentAsync(AgentConfigSettings agentConfigSettings, AgentSettings settings)
         {
+            string currentAction = StringUtil.Loc("UninstallingService");
             TaskAgent agent = await GetAgentAsync(agentConfigSettings, settings.AgentName);
             if (agent == null)
             {
@@ -164,8 +165,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public AgentConfigSettings ReadSettingsAndGetAgentConfigSettings(AgentSettings settings)
         {
             _collectionName = settings.CollectionName;
-            
-            // project name back compat
+
             var projectId = settings.ProjectId;
             if(string.IsNullOrWhiteSpace(projectId))
             {
@@ -215,7 +215,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             var deploymentMachine = new DeploymentMachine() { Agent = agent };
             deploymentMachine = await _deploymentGroupServer.ReplaceDeploymentMachineAsync(new Guid(((DeploymentAgentConfigSettings)agentConfigSettings).ProjectId), ((DeploymentAgentConfigSettings)agentConfigSettings).DeploymentGroupId, agent.Id, deploymentMachine);
 
-            await GetAndAddTags(agentConfigSettings, agent, deploymentMachine.Id, command);
+            await GetAndAddTags(deploymentMachine.Id, agentConfigSettings, agent, command);
             return deploymentMachine.Agent;
         }
 
@@ -224,13 +224,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             var deploymentMachine = new DeploymentMachine(){ Agent = agent };
             deploymentMachine = await _deploymentGroupServer.AddDeploymentMachineAsync(new Guid(((DeploymentAgentConfigSettings)agentConfigSettings).ProjectId), ((DeploymentAgentConfigSettings)agentConfigSettings).DeploymentGroupId, deploymentMachine);
             
-            await GetAndAddTags(agentConfigSettings, deploymentMachine.Agent, deploymentMachine.Id, command);
+            await GetAndAddTags(deploymentMachine.Id, agentConfigSettings, deploymentMachine.Agent, command);
 
             return deploymentMachine.Agent;
         }
 
-        public async Task DeleteAgentAsync(AgentConfigSettings agentConfigSettings, AgentSettings settings, string currentAction)
+        public async Task DeleteAgentAsync(AgentConfigSettings agentConfigSettings, AgentSettings settings)
         {
+            string currentAction = StringUtil.Loc("UninstallingService");
             var machines = await GetDeploymentMachinesAsync(agentConfigSettings, settings.AgentName);
             Trace.Verbose("Returns {0} machines with name {1}", machines.Count, settings.AgentName);
             var machine = machines.FirstOrDefault();
@@ -241,8 +242,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             else
             {
                 Guid projectGuid;
-                var isProjectIdAvailable = Guid.TryParseExact(((DeploymentAgentConfigSettings)agentConfigSettings).ProjectId, "D", out projectGuid);
-                if (isProjectIdAvailable)
+                if (Guid.TryParseExact(((DeploymentAgentConfigSettings)agentConfigSettings).ProjectId, "D", out projectGuid))
                 {
                     await _deploymentGroupServer.DeleteDeploymentMachineAsync(projectGuid, ((DeploymentAgentConfigSettings)agentConfigSettings).DeploymentGroupId, machine.Id);
                 }
@@ -294,7 +294,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             return null;
         }
 
-        private async Task GetAndAddTags(AgentConfigSettings agentConfigSettings, TaskAgent agent, int machineId, CommandSettings command)
+        private async Task GetAndAddTags(int machineId, AgentConfigSettings agentConfigSettings, TaskAgent agent, CommandSettings command)
         {
             // Get and apply Tags in case agent is configured against Deployment Group
             bool needToAddTags = command.GetDeploymentGroupTagsRequired();
@@ -356,8 +356,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         {
             Guid projectGuid;
             List<DeploymentMachine> machines;
-            var isProjectIdAvailable = Guid.TryParseExact(((DeploymentAgentConfigSettings)agentConfigSettings).ProjectId, "D", out projectGuid);
-            if (isProjectIdAvailable)
+            if (Guid.TryParseExact(((DeploymentAgentConfigSettings)agentConfigSettings).ProjectId, "D", out projectGuid))
             {
                 machines = await _deploymentGroupServer.GetDeploymentMachinesAsync(projectGuid, ((DeploymentAgentConfigSettings)agentConfigSettings).DeploymentGroupId, agentName);
             }

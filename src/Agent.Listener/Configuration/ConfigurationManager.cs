@@ -423,7 +423,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     var agentConfigSettings = agentProvider.ReadSettingsAndGetAgentConfigSettings(settings);
                     await agentProvider.TestConnectionAsync(settings.ServerUrl, creds);
 
-                    await agentProvider.DeleteAgentAsync(agentConfigSettings, settings, currentAction);
+                    await agentProvider.DeleteAgentAsync(agentConfigSettings, settings);
                 }
                 else
                 {
