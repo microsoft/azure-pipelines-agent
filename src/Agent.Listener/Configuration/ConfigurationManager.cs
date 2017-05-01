@@ -161,7 +161,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             // Loop getting agent name and pool name
             string poolName = null;
-            AgentConfigSettings agentConfigSettings;
+            AgentSettings agentSettings;
             string agentName = null;
             WriteSection(StringUtil.Loc("RegisterAgentSectionHeader"));
 
@@ -169,7 +169,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 try
                 {
-                    agentConfigSettings = await agentProvider.GetAgentConfigSettings(command);
+                    agentSettings = await agentProvider.GetPoolId(command);
                     break;
                 }
                 catch (Exception e) when (!command.Unattended)
@@ -191,7 +191,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     new AgentSettings { AgentName = agentName }, CancellationToken.None);
 
                 _term.WriteLine(StringUtil.Loc("ConnectToServer"));
-                agent = await agentProvider.GetAgentAsync(agentConfigSettings, agentName);
+                agent = await agentProvider.GetAgentAsync(agentSettings, agentName);
                 if (agent != null)
                 {
                     if (command.GetReplace())
@@ -201,7 +201,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                         try
                         {
-                            agent = await agentProvider.UpdateAgentAsync(agentConfigSettings, agent, command);
+                            agent = await agentProvider.UpdateAgentAsync(agentSettings, agent, command);
                             _term.WriteLine(StringUtil.Loc("AgentReplaced"));
                             break;
                         }
@@ -214,7 +214,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     else if (command.Unattended)
                     {
                         // if not replace and it is unattended config.
-                        throw new TaskAgentExistsException(agentProvider.GetAgentWithSameNameAlreadyExistErrorString(agentConfigSettings, agentName));
+                        throw new TaskAgentExistsException(agentProvider.GetAgentWithSameNameAlreadyExistErrorString(agentSettings, agentName));
                     }
                 }
                 else
@@ -224,7 +224,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                     try
                     {
-                        agent = await agentProvider.AddAgentAsync(agentConfigSettings, agent, command);
+                        agent = await agentProvider.AddAgentAsync(agentSettings, agent, command);
                         _term.WriteLine(StringUtil.Loc("AgentAddedSuccessfully"));
                         break;
                     }
@@ -323,24 +323,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             string notificationSocketAddress = command.GetNotificationSocketAddress();
 
-            // Get Agent settings
-            var settings = new AgentSettings
-            {
-                AcceptTeeEula = acceptTeeEula,
-                AgentId = agent.Id,
-                AgentName = agentName,
-                NotificationPipeName = notificationPipeName,
-                NotificationSocketAddress = notificationSocketAddress,
-                PoolId = agentConfigSettings.PoolId,
-                PoolName = poolName,
-                ServerUrl = serverUrl,
-                WorkFolder = workFolder
-            };
+            //Add Agent settings
+            agentSettings.AcceptTeeEula = acceptTeeEula;
+            agentSettings.AgentId = agent.Id;
+            agentSettings.AgentName = agentName;
+            agentSettings.NotificationPipeName = notificationPipeName;
+            agentSettings.NotificationSocketAddress = notificationSocketAddress;
+            agentSettings.PoolName = poolName;
+            agentSettings.ServerUrl = serverUrl;
+            agentSettings.WorkFolder = workFolder;
 
-            // This is required in case agent is configured as DeploymentAgent. It will make entry for projectName and DeploymentGroup
-            agentProvider.UpdateAgentSetting(agentConfigSettings, settings);
-
-            _store.SaveSettings(settings);
+            _store.SaveSettings(agentSettings);
             _term.WriteLine(StringUtil.Loc("SavedSettings", DateTime.UtcNow));
 
 #if OS_WINDOWS
@@ -356,12 +349,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                 Trace.Info("Configuring to run the agent as service");
                 var serviceControlManager = HostContext.GetService<IWindowsServiceControlManager>();
-                serviceControlManager.ConfigureService(settings, command);
+                serviceControlManager.ConfigureService(agentSettings, command);
             }
 #elif OS_LINUX || OS_OSX
             // generate service config script for OSX and Linux, GenerateScripts() will no-opt on windows.
             var serviceControlManager = HostContext.GetService<ILinuxServiceControlManager>();
-            serviceControlManager.GenerateScripts(settings);
+            serviceControlManager.GenerateScripts(agentSettings);
 #endif
         }
 
@@ -420,10 +413,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     IConfigurationProvider agentProvider = (extensionManager.GetExtensions<IConfigurationProvider>()).FirstOrDefault(x => x.ConfigurationProviderType == agentType);
                     ArgUtil.NotNull(agentProvider, agentType);
 
-                    var agentConfigSettings = agentProvider.ReadSettingsAndGetAgentConfigSettings(settings);
+                    agentProvider.ReadSettings(settings);
                     await agentProvider.TestConnectionAsync(settings.ServerUrl, creds);
 
-                    await agentProvider.DeleteAgentAsync(agentConfigSettings, settings);
+                    await agentProvider.DeleteAgentAsync(settings);
                 }
                 else
                 {
