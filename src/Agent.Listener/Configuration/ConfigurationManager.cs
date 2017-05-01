@@ -162,7 +162,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             // Loop getting agent name and pool name
             string poolName = null;
             AgentSettings agentSettings;
-            string agentName = null;
             WriteSection(StringUtil.Loc("RegisterAgentSectionHeader"));
 
             while (true)
@@ -182,16 +181,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             TaskAgent agent;
             while (true)
             {
-                agentName = command.GetAgentName();
+                agentSettings.AgentName = command.GetAgentName();
 
                 // Get the system capabilities.
                 // TODO: Hook up to ctrl+c cancellation token.
                 _term.WriteLine(StringUtil.Loc("ScanToolCapabilities"));
                 Dictionary<string, string> systemCapabilities = await HostContext.GetService<ICapabilitiesManager>().GetCapabilitiesAsync(
-                    new AgentSettings { AgentName = agentName }, CancellationToken.None);
+                    new AgentSettings { AgentName = agentSettings.AgentName }, CancellationToken.None);
 
                 _term.WriteLine(StringUtil.Loc("ConnectToServer"));
-                agent = await agentProvider.GetAgentAsync(agentSettings, agentName);
+                agent = await agentProvider.GetAgentAsync(agentSettings);
                 if (agent != null)
                 {
                     if (command.GetReplace())
@@ -214,13 +213,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     else if (command.Unattended)
                     {
                         // if not replace and it is unattended config.
-                        throw new TaskAgentExistsException(agentProvider.GetAgentWithSameNameAlreadyExistErrorString(agentSettings, agentName));
+                        throw new TaskAgentExistsException(agentProvider.GetAgentWithSameNameAlreadyExistErrorString(agentSettings));
                     }
                 }
                 else
                 {
                     // Create a new agent. 
-                    agent = CreateNewAgent(agentName, publicKey, systemCapabilities);
+                    agent = CreateNewAgent(agentSettings.AgentName, publicKey, systemCapabilities);
 
                     try
                     {
@@ -326,7 +325,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             //Add Agent settings
             agentSettings.AcceptTeeEula = acceptTeeEula;
             agentSettings.AgentId = agent.Id;
-            agentSettings.AgentName = agentName;
             agentSettings.NotificationPipeName = notificationPipeName;
             agentSettings.NotificationSocketAddress = notificationSocketAddress;
             agentSettings.PoolName = poolName;
