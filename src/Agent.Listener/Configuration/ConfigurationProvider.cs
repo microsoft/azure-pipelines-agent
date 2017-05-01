@@ -261,11 +261,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Trace.Info("Connect complete for deployment group");
         }
 
-        public void UpdateAgentSetting(AgentSettings agentSettings)
-        {
-            
-        }
-
         public async Task<TaskAgent> GetAgentAsync(AgentSettings agentSettings)
         {
             var machines = await GetDeploymentMachinesAsync(agentSettings);
