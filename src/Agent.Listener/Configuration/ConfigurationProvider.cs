@@ -18,7 +18,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         Task TestConnectionAsync(string tfsUrl, VssCredentials creds);
 
-        Task<AgentSettings> GetPoolId(CommandSettings command);
+        Task GetPoolId(AgentSettings agentSettings, CommandSettings command);
 
         string GetFailedToFindPoolErrorString();
 
@@ -32,7 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         void ReadSettings(AgentSettings settings);
 
-        string GetAgentWithSameNameAlreadyExistErrorString(AgentSettings agentSettings);
+        void ThrowTaskAgentExistException(AgentSettings agentSettings);
     }
 
     public sealed class BuildReleasesAgentConfigProvider : AgentService, IConfigurationProvider
@@ -60,7 +60,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             return command.GetUrl();
         }
 
-        public async Task<AgentSettings> GetPoolId(CommandSettings command)
+        public async Task GetPoolId(AgentSettings agentSettings, CommandSettings command)
         {
             int poolId = 0;
             string poolName;
@@ -69,14 +69,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             poolId = await GetPoolIdAsync(poolName);
             Trace.Info($"PoolId for agent pool '{poolName}' is '{poolId}'.");
 
-            return new AgentSettings() { PoolId = poolId};
+            agentSettings.PoolId = poolId;
         }
 
         public string GetFailedToFindPoolErrorString() => StringUtil.Loc("FailedToFindPool");
 
-        public string GetAgentWithSameNameAlreadyExistErrorString(AgentSettings agentSettings)
+        public void ThrowTaskAgentExistException(AgentSettings agentSettings)
         {
-            return StringUtil.Loc("AgentWithSameNameAlreadyExistInPool", agentSettings.PoolId, agentSettings.AgentName);
+            throw new TaskAgentExistsException(StringUtil.Loc("AgentWithSameNameAlreadyExistInPool", agentSettings.PoolId, agentSettings.AgentName));
         }
 
         public Task<TaskAgent> UpdateAgentAsync(AgentSettings agentSettings, TaskAgent agent, CommandSettings command)
@@ -91,7 +91,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public async Task DeleteAgentAsync(AgentSettings agentSettings)
         {
-            string currentAction = StringUtil.Loc("UninstallingService");
+            string currentAction = StringUtil.Loc("UnregisteringAgent");
             TaskAgent agent = await GetAgentAsync(agentSettings);
             if (agent == null)
             {
@@ -177,7 +177,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             return _serverUrl;
         }
 
-        public async Task<AgentSettings> GetPoolId(CommandSettings command)
+        public async Task GetPoolId(AgentSettings agentSettings, CommandSettings command)
         {
             _projectName = command.GetProjectName(_projectName);
             var deploymentGroupName = command.GetDeploymentGroupName();
@@ -186,14 +186,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Trace.Info($"PoolId for deployment group '{deploymentGroupName}' is '{deploymentGroup.Pool.Id}'.");
             Trace.Info($"Project id for deployment group '{deploymentGroupName}' is '{deploymentGroup.Project.Id.ToString()}'.");
 
-            return new AgentSettings() { PoolId = deploymentGroup.Pool.Id, DeploymentGroupId = deploymentGroup.Id, ProjectId = deploymentGroup.Project.Id.ToString()};
+            agentSettings.PoolId = deploymentGroup.Pool.Id;
+            agentSettings.DeploymentGroupId = deploymentGroup.Id;
+            agentSettings.ProjectId = deploymentGroup.Project.Id.ToString();
         }
 
         public string GetFailedToFindPoolErrorString() => StringUtil.Loc("FailedToFindDeploymentGroup");
 
-        public string GetAgentWithSameNameAlreadyExistErrorString(AgentSettings agentSettings)
+        public void ThrowTaskAgentExistException(AgentSettings agentSettings)
         {
-            return StringUtil.Loc("DeploymentMachineWithSameNameAlreadyExistInDeploymentGroup", agentSettings.DeploymentGroupId, agentSettings.AgentName);
+            throw new TaskAgentExistsException(StringUtil.Loc("DeploymentMachineWithSameNameAlreadyExistInDeploymentGroup", agentSettings.DeploymentGroupId, agentSettings.AgentName));
         }
 
         public async Task<TaskAgent> UpdateAgentAsync(AgentSettings agentSettings, TaskAgent agent, CommandSettings command)
@@ -217,7 +219,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public async Task DeleteAgentAsync(AgentSettings agentSettings)
         {
-            string currentAction = StringUtil.Loc("UninstallingService");
+            string currentAction = StringUtil.Loc("UnregisteringAgent");
             var machines = await GetDeploymentMachinesAsync(agentSettings);
             Trace.Verbose("Returns {0} machines with name {1}", machines.Count, agentSettings.AgentName);
             var machine = machines.FirstOrDefault();

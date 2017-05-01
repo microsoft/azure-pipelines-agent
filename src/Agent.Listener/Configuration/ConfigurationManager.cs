@@ -76,8 +76,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 throw new InvalidOperationException(StringUtil.Loc("AlreadyConfiguredError"));
             }
 
+            AgentSettings agentSettings = new AgentSettings();
             // TEE EULA
-            bool acceptTeeEula = false;
+            agentSettings.AcceptTeeEula = false;
             switch (Constants.Agent.Platform)
             {
                 case Constants.OSPlatform.OSX:
@@ -94,7 +95,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     _term.WriteLine();
 
                     // Prompt to acccept the TEE EULA.
-                    acceptTeeEula = command.GetAcceptTeeEula();
+                    agentSettings.AcceptTeeEula = command.GetAcceptTeeEula();
                     break;
                 case Constants.OSPlatform.Windows:
                     // Warn and continue if .NET 4.6 is not installed.
@@ -123,23 +124,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             // TODO: Check if its running with elevated permission and stop early if its not
 
             // Loop getting url and creds until you can connect
-            string serverUrl = null;
             ICredentialProvider credProvider = null;
             VssCredentials creds = null;
             WriteSection(StringUtil.Loc("ConnectSectionHeader"));
             while (true)
             {
                 // Get the URL
-                serverUrl = agentProvider.GetServerUrl(command);
+                agentSettings.ServerUrl = agentProvider.GetServerUrl(command);
 
                 // Get the credentials
-                credProvider = GetCredentialProvider(command, serverUrl);
+                credProvider = GetCredentialProvider(command, agentSettings.ServerUrl);
                 creds = credProvider.GetVssCredentials(HostContext);
                 Trace.Info("cred retrieved");
                 try
                 {
                     // Validate can connect.
-                    await agentProvider.TestConnectionAsync(serverUrl, creds);
+                    await agentProvider.TestConnectionAsync(agentSettings.ServerUrl, creds);
                     Trace.Info("Test Connection complete.");
                     break;
                 }
@@ -160,15 +160,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
 
             // Loop getting agent name and pool name
-            string poolName = null;
-            AgentSettings agentSettings;
             WriteSection(StringUtil.Loc("RegisterAgentSectionHeader"));
 
             while (true)
             {
                 try
                 {
-                    agentSettings = await agentProvider.GetPoolId(command);
+                    await agentProvider.GetPoolId(agentSettings, command);
                     break;
                 }
                 catch (Exception e) when (!command.Unattended)
@@ -213,7 +211,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     else if (command.Unattended)
                     {
                         // if not replace and it is unattended config.
-                        throw new TaskAgentExistsException(agentProvider.GetAgentWithSameNameAlreadyExistErrorString(agentSettings));
+                        agentProvider.ThrowTaskAgentExistException(agentSettings);
                     }
                 }
                 else
@@ -244,17 +242,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 Trace.Info($"Agent server url resolve by server: '{agentServerUrl}'.");
 
                 // we need make sure the Host component of the url remain the same.
-                UriBuilder inputServerUrl = new UriBuilder(serverUrl);
+                UriBuilder inputServerUrl = new UriBuilder(agentSettings.ServerUrl);
                 UriBuilder serverReturnedServerUrl = new UriBuilder(agentServerUrl);
                 if (Uri.Compare(inputServerUrl.Uri, serverReturnedServerUrl.Uri, UriComponents.Host, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase) != 0)
                 {
                     inputServerUrl.Path = serverReturnedServerUrl.Path;
                     Trace.Info($"Replace server returned url's host component with user input server url's host: '{inputServerUrl.Uri.AbsoluteUri}'.");
-                    serverUrl = inputServerUrl.Uri.AbsoluteUri;
+                    agentSettings.ServerUrl = inputServerUrl.Uri.AbsoluteUri;
                 }
                 else
                 {
-                    serverUrl = agentServerUrl;
+                    agentSettings.ServerUrl = agentServerUrl;
                 }
             }
 
@@ -298,7 +296,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _term.WriteLine(StringUtil.Loc("TestAgentConnection"));
             var credMgr = HostContext.GetService<ICredentialManager>();
             VssCredentials credential = credMgr.LoadCredentials();
-            VssConnection conn = ApiUtil.CreateConnection(new Uri(serverUrl), credential);
+            VssConnection conn = ApiUtil.CreateConnection(new Uri(agentSettings.ServerUrl), credential);
             var agentSvr = HostContext.GetService<IAgentServer>();
             try
             {
@@ -315,7 +313,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
 
             // We will Combine() what's stored with root.  Defaults to string a relative path
-            string workFolder = command.GetWork();
+            agentSettings.WorkFolder = command.GetWork();
 
             // notificationPipeName for Hosted agent provisioner.
             string notificationPipeName = command.GetNotificationPipeName();
@@ -323,13 +321,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             string notificationSocketAddress = command.GetNotificationSocketAddress();
 
             //Add Agent settings
-            agentSettings.AcceptTeeEula = acceptTeeEula;
             agentSettings.AgentId = agent.Id;
             agentSettings.NotificationPipeName = notificationPipeName;
             agentSettings.NotificationSocketAddress = notificationSocketAddress;
-            agentSettings.PoolName = poolName;
-            agentSettings.ServerUrl = serverUrl;
-            agentSettings.WorkFolder = workFolder;
 
             _store.SaveSettings(agentSettings);
             _term.WriteLine(StringUtil.Loc("SavedSettings", DateTime.UtcNow));
