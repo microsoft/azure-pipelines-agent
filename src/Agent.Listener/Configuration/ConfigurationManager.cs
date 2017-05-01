@@ -130,7 +130,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             while (true)
             {
                 // Get the URL
-                agentSettings.ServerUrl = agentProvider.GetServerUrl(command);
+                agentProvider.GetServerUrl(agentSettings, command);
 
                 // Get the credentials
                 credProvider = GetCredentialProvider(command, agentSettings.ServerUrl);
@@ -139,7 +139,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 try
                 {
                     // Validate can connect.
-                    await agentProvider.TestConnectionAsync(agentSettings.ServerUrl, creds);
+                    await agentProvider.TestConnectionAsync(agentSettings, creds);
                     Trace.Info("Test Connection complete.");
                     break;
                 }
@@ -405,8 +405,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     IConfigurationProvider agentProvider = (extensionManager.GetExtensions<IConfigurationProvider>()).FirstOrDefault(x => x.ConfigurationProviderType == agentType);
                     ArgUtil.NotNull(agentProvider, agentType);
 
-                    agentProvider.ReadSettings(settings);
-                    await agentProvider.TestConnectionAsync(settings.ServerUrl, creds);
+                    await agentProvider.TestConnectionAsync(settings, creds);
 
                     await agentProvider.DeleteAgentAsync(settings);
                 }

@@ -14,9 +14,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
     {
         string ConfigurationProviderType { get; }
 
-        string GetServerUrl(CommandSettings command);
+        void GetServerUrl(AgentSettings agentSettings, CommandSettings command);
 
-        Task TestConnectionAsync(string tfsUrl, VssCredentials creds);
+        Task TestConnectionAsync(AgentSettings agentSettings, VssCredentials creds);
 
         Task GetPoolId(AgentSettings agentSettings, CommandSettings command);
 
@@ -29,8 +29,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         Task DeleteAgentAsync(AgentSettings agentSettings);
 
         Task<TaskAgent> GetAgentAsync(AgentSettings agentSettings);
-
-        void ReadSettings(AgentSettings settings);
 
         void ThrowTaskAgentExistException(AgentSettings agentSettings);
     }
@@ -51,13 +49,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _agentServer = HostContext.GetService<IAgentServer>();
         }
 
-        public void ReadSettings(AgentSettings settings)
+        public void GetServerUrl(AgentSettings agentSettings, CommandSettings command)
         {
-        }
-
-        public string GetServerUrl(CommandSettings command)
-        {
-            return command.GetUrl();
+            agentSettings.ServerUrl =  command.GetUrl();
         }
 
         public async Task GetPoolId(AgentSettings agentSettings, CommandSettings command)
@@ -104,10 +98,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
-        public async Task TestConnectionAsync(string url, VssCredentials creds)
+        public async Task TestConnectionAsync(AgentSettings agentSettings, VssCredentials creds)
         {
             _term.WriteLine(StringUtil.Loc("ConnectingToServer"));
-            VssConnection connection = ApiUtil.CreateConnection(new Uri(url), creds);
+            VssConnection connection = ApiUtil.CreateConnection(new Uri(agentSettings.ServerUrl), creds);
 
             await _agentServer.ConnectAsync(connection);
         }
@@ -139,9 +133,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public Type ExtensionType => typeof(IConfigurationProvider);
         private ITerminal _term;
         private string _projectName = string.Empty;
-        private string _collectionName;
-        
-        private string _serverUrl;
+
         private bool _isHosted = false;
         private IDeploymentGroupServer _deploymentGroupServer = null;
 
@@ -155,26 +147,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _deploymentGroupServer = HostContext.GetService<IDeploymentGroupServer>();
         }
 
-        public void ReadSettings(AgentSettings settings)
+        public void GetServerUrl(AgentSettings agentSettings, CommandSettings command)
         {
-            _collectionName = settings.CollectionName;
-        }
+            agentSettings.ServerUrl =  command.GetUrl();
+            Trace.Info("url - {0}", agentSettings.ServerUrl);
 
-        public string GetServerUrl(CommandSettings command)
-        {
-            _serverUrl =  command.GetUrl();
-            Trace.Info("url - {0}", _serverUrl);
-
-            _isHosted = UrlUtil.IsHosted(_serverUrl);
+            _isHosted = UrlUtil.IsHosted(agentSettings.ServerUrl);
 
             // for onprem tfs, collection is required for deploymentGroup
             if (! _isHosted)
             {
                 Trace.Info("Provided url is for onprem tfs, need collection name");
-                _collectionName = command.GetCollectionName();
+                agentSettings.CollectionName = command.GetCollectionName();
             }
-
-            return _serverUrl;
         }
 
         public async Task GetPoolId(AgentSettings agentSettings, CommandSettings command)
@@ -241,17 +226,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
-        public async Task TestConnectionAsync(string url, VssCredentials creds)
+        public async Task TestConnectionAsync(AgentSettings agentSettings, VssCredentials creds)
         {
+            var url = agentSettings.ServerUrl;  // Ensure not to update back the url with agentSettings !!!
             _term.WriteLine(StringUtil.Loc("ConnectingToServer"));
             VssConnection connection = ApiUtil.CreateConnection(new Uri(url), creds);
 
             // Create the connection for deployment group 
             Trace.Info("Test connection with deployment group");
-            if (!_isHosted && !_collectionName.IsNullOrEmpty()) // For on-prm validate the collection by making the connection
+            if (!_isHosted && !string.IsNullOrWhiteSpace(agentSettings.CollectionName)) // For on-prm validate the collection by making the connection
             {
                 UriBuilder uriBuilder = new UriBuilder(new Uri(url));
-                uriBuilder.Path = uriBuilder.Path + "/" + _collectionName;
+                uriBuilder.Path = uriBuilder.Path + "/" + agentSettings.CollectionName;
                 Trace.Info("Tfs Collection level url to connect - {0}", uriBuilder.Uri.AbsoluteUri);
                 url = uriBuilder.Uri.AbsoluteUri;
             }
