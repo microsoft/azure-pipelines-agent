@@ -83,19 +83,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             return _agentServer.AddAgentAsync(agentSettings.PoolId, agent);
         }
 
-        public async Task DeleteAgentAsync(AgentSettings agentSettings)
+        public Task DeleteAgentAsync(AgentSettings agentSettings)
         {
-            string currentAction = StringUtil.Loc("UnregisteringAgent");
-            TaskAgent agent = await GetAgentAsync(agentSettings);
-            if (agent == null)
-            {
-                _term.WriteLine(StringUtil.Loc("Skipping") + currentAction);
-            }
-            else
-            {
-                await _agentServer.DeleteAgentAsync(agentSettings.PoolId, agentSettings.AgentId);
-                _term.WriteLine(StringUtil.Loc("Success") + currentAction);
-            }
+            return  _agentServer.DeleteAgentAsync(agentSettings.PoolId, agentSettings.AgentId);
         }
 
         public async Task TestConnectionAsync(AgentSettings agentSettings, VssCredentials creds)
@@ -204,15 +194,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public async Task DeleteAgentAsync(AgentSettings agentSettings)
         {
-            string currentAction = StringUtil.Loc("UnregisteringAgent");
             var machines = await GetDeploymentMachinesAsync(agentSettings);
             Trace.Verbose("Returns {0} machines with name {1}", machines.Count, agentSettings.AgentName);
             var machine = machines.FirstOrDefault();
-            if (machine == null)
-            {
-                _term.WriteLine(StringUtil.Loc("Skipping") + currentAction);
-            }
-            else
+            if(machine != null)
             {
                 if (!string.IsNullOrWhiteSpace(agentSettings.ProjectId))
                 {
@@ -222,7 +207,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 {
                     await _deploymentGroupServer.DeleteDeploymentMachineAsync(agentSettings.ProjectName, agentSettings.DeploymentGroupId, machine.Id);
                 }
-                _term.WriteLine(StringUtil.Loc("Success") + currentAction);
             }
         }
 

@@ -403,7 +403,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                     await agentProvider.TestConnectionAsync(settings, creds);
 
-                    await agentProvider.DeleteAgentAsync(settings);
+                    TaskAgent agent = await agentProvider.GetAgentAsync(settings);
+                    if (agent == null)
+                    {
+                        _term.WriteLine(StringUtil.Loc("Skipping") + currentAction);
+                    }
+                    else
+                    {
+                        await agentProvider.DeleteAgentAsync(settings);
+                        _term.WriteLine(StringUtil.Loc("Success") + currentAction);
+                    }
                 }
                 else
                 {
