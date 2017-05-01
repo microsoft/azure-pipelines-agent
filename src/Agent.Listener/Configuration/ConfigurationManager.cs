@@ -184,8 +184,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 // Get the system capabilities.
                 // TODO: Hook up to ctrl+c cancellation token.
                 _term.WriteLine(StringUtil.Loc("ScanToolCapabilities"));
-                Dictionary<string, string> systemCapabilities = await HostContext.GetService<ICapabilitiesManager>().GetCapabilitiesAsync(
-                    new AgentSettings { AgentName = agentSettings.AgentName }, CancellationToken.None);
+                Dictionary<string, string> systemCapabilities = await HostContext.GetService<ICapabilitiesManager>().GetCapabilitiesAsync(agentSettings, CancellationToken.None);
 
                 _term.WriteLine(StringUtil.Loc("ConnectToServer"));
                 agent = await agentProvider.GetAgentAsync(agentSettings);
@@ -232,6 +231,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     }
                 }
             }
+            // Add Agent Id to settings
+            agentSettings.AgentId = agent.Id;
 
             // respect the serverUrl resolve by server.
             // in case of agent configured using collection url instead of account url.
@@ -316,14 +317,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             agentSettings.WorkFolder = command.GetWork();
 
             // notificationPipeName for Hosted agent provisioner.
-            string notificationPipeName = command.GetNotificationPipeName();
+            agentSettings.NotificationPipeName = command.GetNotificationPipeName();
 
-            string notificationSocketAddress = command.GetNotificationSocketAddress();
-
-            //Add Agent settings
-            agentSettings.AgentId = agent.Id;
-            agentSettings.NotificationPipeName = notificationPipeName;
-            agentSettings.NotificationSocketAddress = notificationSocketAddress;
+            agentSettings.NotificationSocketAddress = command.GetNotificationSocketAddress();
 
             _store.SaveSettings(agentSettings);
             _term.WriteLine(StringUtil.Loc("SavedSettings", DateTime.UtcNow));

@@ -38,6 +38,8 @@ namespace Microsoft.VisualStudio.Services.Agent
         [DataMember(EmitDefaultValue = false)]
         public string WorkFolder { get; set; }
 
+        // Do not use Project Name any more to save in agent settings file. Ensure to use ProjectId. 
+        // Deployment Group scenario will not work for project rename scneario if we work with projectName
         [DataMember(EmitDefaultValue = false)]
         public string ProjectName { get; set; }
 

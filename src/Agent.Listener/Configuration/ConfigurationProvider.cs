@@ -230,7 +230,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         {
             var url = agentSettings.ServerUrl;  // Ensure not to update back the url with agentSettings !!!
             _term.WriteLine(StringUtil.Loc("ConnectingToServer"));
-            VssConnection connection = ApiUtil.CreateConnection(new Uri(url), creds);
 
             // Create the connection for deployment group 
             Trace.Info("Test connection with deployment group");
