@@ -123,8 +123,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public Type ExtensionType => typeof(IConfigurationProvider);
         private ITerminal _term;
         private string _projectName = string.Empty;
-
-        private bool _isHosted = false;
         private IDeploymentGroupServer _deploymentGroupServer = null;
 
         public string ConfigurationProviderType
@@ -142,10 +140,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             agentSettings.ServerUrl =  command.GetUrl();
             Trace.Info("url - {0}", agentSettings.ServerUrl);
 
-            _isHosted = UrlUtil.IsHosted(agentSettings.ServerUrl);
+            var isHosted = UrlUtil.IsHosted(agentSettings.ServerUrl);
 
             // for onprem tfs, collection is required for deploymentGroup
-            if (! _isHosted)
+            if (! isHosted)
             {
                 Trace.Info("Provided url is for onprem tfs, need collection name");
                 agentSettings.CollectionName = command.GetCollectionName();
@@ -213,11 +211,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public async Task TestConnectionAsync(AgentSettings agentSettings, VssCredentials creds)
         {
             var url = agentSettings.ServerUrl;  // Ensure not to update back the url with agentSettings !!!
+            var isHosted = UrlUtil.IsHosted(url);
             _term.WriteLine(StringUtil.Loc("ConnectingToServer"));
 
             // Create the connection for deployment group 
             Trace.Info("Test connection with deployment group");
-            if (!_isHosted && !string.IsNullOrWhiteSpace(agentSettings.CollectionName)) // For on-prm validate the collection by making the connection
+            if (!isHosted && !string.IsNullOrWhiteSpace(agentSettings.CollectionName)) // For on-prm validate the collection by making the connection
             {
                 UriBuilder uriBuilder = new UriBuilder(new Uri(url));
                 uriBuilder.Path = uriBuilder.Path + "/" + agentSettings.CollectionName;
