@@ -65,7 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
     public sealed class BitbucketSourceProvider : GitSourceProvider
     {
         // TODO: Replace this with correct type lookup WellKnownRepositoryTypes.Bitbucket
-        public override string RepositoryType => "bitbucket";
+        public override string RepositoryType => "Bitbucket";
 
         public override bool UseAuthHeaderCmdlineArg
         {
@@ -85,7 +85,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         public override string GenerateAuthHeader(string username, string password)
         {
             // Bitbucket use basic auth header with username:password in base64encoding. 
-            string authHeader = $"{username ?? string.Empty}:{password ?? string.Empty}";
+            string authHeader = $"{username?? string.Empty}:{password ?? string.Empty}";
             string base64encodedAuthHeader = Convert.ToBase64String(Encoding.UTF8.GetBytes(authHeader));
 
             // add base64 encoding auth header into secretMasker.
