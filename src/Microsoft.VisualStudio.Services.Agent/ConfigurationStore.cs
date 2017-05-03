@@ -20,6 +20,9 @@ namespace Microsoft.VisualStudio.Services.Agent
         [DataMember(EmitDefaultValue = false)]
         public string AgentName { get; set; }
 
+        [IgnoreDataMember]
+        public bool IsHosted => !string.IsNullOrEmpty(NotificationPipeName) || !string.IsNullOrEmpty(NotificationSocketAddress);
+
         [DataMember(EmitDefaultValue = false)]
         public string NotificationPipeName { get; set; }
 
@@ -38,6 +41,8 @@ namespace Microsoft.VisualStudio.Services.Agent
         [DataMember(EmitDefaultValue = false)]
         public string WorkFolder { get; set; }
 
+        // Do not use Project Name any more to save in agent settings file. Ensure to use ProjectId. 
+        // Deployment Group scenario will not work for project rename scneario if we work with projectName
         [DataMember(EmitDefaultValue = false)]
         public string ProjectName { get; set; }
 
@@ -46,6 +51,12 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         [DataMember(EmitDefaultValue = false)]
         public int DeploymentGroupId { get; set; }
+
+        [DataMember(EmitDefaultValue = false)]
+        public string ProjectId { get; set; }
+
+        [DataMember(EmitDefaultValue = false)]
+        public string CollectionName { get; set; }
     }
 
     [ServiceLocator(Default = typeof(ConfigurationStore))]
