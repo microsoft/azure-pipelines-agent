@@ -396,6 +396,9 @@ namespace Microsoft.VisualStudio.Services.Agent
                     }
                 }
 
+                // we need track whether we have new sub-timeline been created on the last run.
+                // if so, we need continue update timeline record even we on the last run.
+                bool pendingSubtimelineUpdate = false;
                 if (pendingUpdates.Count > 0)
                 {
                     foreach (var update in pendingUpdates)
@@ -416,6 +419,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                                 {
                                     Timeline newTimeline = await _jobServer.CreateTimelineAsync(_scopeIdentifier, _hubName, _planId, detailTimeline.Details.Id, default(CancellationToken));
                                     _allTimelines.Add(newTimeline.Id);
+                                    pendingSubtimelineUpdate = true;
                                 }
                                 catch (TimelineExistsException)
                                 {
@@ -448,7 +452,17 @@ namespace Microsoft.VisualStudio.Services.Agent
 
                 if (runOnce)
                 {
-                    break;
+                    // continue process timeline records update, 
+                    // we might have more records need update, 
+                    // since we just create a new sub-timeline
+                    if (pendingSubtimelineUpdate)
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        break;
+                    }
                 }
                 else
                 {
@@ -542,7 +556,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     var taskLog = await _jobServer.CreateLogAsync(_scopeIdentifier, _hubName, _planId, new TaskLog(String.Format(@"logs\{0:D}", file.TimelineRecordId)), default(CancellationToken));
 
                     // Upload the contents
-                    using (FileStream fs = File.OpenRead(file.Path))
+                    using (FileStream fs = File.Open(file.Path, FileMode.Open, FileAccess.Read, FileShare.Read))
                     {
                         var logUploaded = await _jobServer.AppendLogContentAsync(_scopeIdentifier, _hubName, _planId, taskLog.Id, fs, default(CancellationToken));
                     }
@@ -554,7 +568,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 else
                 {
                     // Create attachment
-                    using (FileStream fs = File.OpenRead(file.Path))
+                    using (FileStream fs = File.Open(file.Path, FileMode.Open, FileAccess.Read, FileShare.Read))
                     {
                         var result = await _jobServer.CreateAttachmentAsync(_scopeIdentifier, _hubName, _planId, file.TimelineId, file.TimelineRecordId, file.Type, file.Name, fs, default(CancellationToken));
                     }

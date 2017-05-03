@@ -16,7 +16,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             IExecutionContext executionContext,
             ServiceEndpoint endpoint,
             string hashKey,
-            string file);
+            string file,
+            bool overrideBuildDirectory);
 
         TrackingConfigBase LoadIfExists(IExecutionContext executionContext, string file);
 
@@ -35,7 +36,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             IExecutionContext executionContext,
             ServiceEndpoint endpoint,
             string hashKey,
-            string file)
+            string file,
+            bool overrideBuildDirectory)
         {
             Trace.Entering();
 
@@ -56,9 +58,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     value: File.ReadAllText(topLevelFile));
             }
 
+            // Determine the build directory.
+            if (overrideBuildDirectory)
+            {
+                // This should only occur during hosted builds. This was added due to TFVC.
+                // TFVC does not allow a local path for a single machine to be mapped in multiple
+                // workspaces. The machine name for a hosted images is not unique.
+                //
+                // So if a customer is running two hosted builds at the same time, they could run
+                // into the local mapping conflict.
+                //
+                // The workaround is to force the build directory to be different across all concurrent
+                // hosted builds (for TFVC). The agent ID will be unique across all concurrent hosted
+                // builds so that can safely be used as the build directory.
+                ArgUtil.Equal(default(int), topLevelConfig.LastBuildDirectoryNumber, nameof(topLevelConfig.LastBuildDirectoryNumber));
+                var configurationStore = HostContext.GetService<IConfigurationStore>();
+                AgentSettings settings = configurationStore.GetSettings();
+                topLevelConfig.LastBuildDirectoryNumber = settings.AgentId;
+            }
+            else
+            {
+                topLevelConfig.LastBuildDirectoryNumber++;
+            }
+
             // Update the top-level tracking config.
             topLevelConfig.LastBuildDirectoryCreatedOn = DateTimeOffset.Now;
-            topLevelConfig.LastBuildDirectoryNumber++;
             WriteToFile(topLevelFile, topLevelConfig);
 
             // Create the new tracking config.
@@ -208,6 +232,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         public void DisposeCollectedGarbage(IExecutionContext executionContext)
         {
             Trace.Entering();
+            PrintOutDiskUsage(executionContext);
 
             string gcDirectory = Path.Combine(
                 HostContext.GetDirectory(WellKnownDirectory.Work),
@@ -228,25 +253,56 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
 
             Trace.Info($"Find {gcTrackingFiles.Count()} GC tracking files.");
-            foreach (string gcFile in gcTrackingFiles)
+
+            if (gcTrackingFiles.Count() > 0)
             {
-                try
+                foreach (string gcFile in gcTrackingFiles)
                 {
-                    var gcConfig = LoadIfExists(executionContext, gcFile) as TrackingConfig;
-                    ArgUtil.NotNull(gcConfig, nameof(TrackingConfig));
+                    try
+                    {
+                        var gcConfig = LoadIfExists(executionContext, gcFile) as TrackingConfig;
+                        ArgUtil.NotNull(gcConfig, nameof(TrackingConfig));
 
-                    string fullPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), gcConfig.BuildDirectory);
-                    executionContext.Output(StringUtil.Loc("Deleting", fullPath));
-                    IOUtil.DeleteDirectory(fullPath, CancellationToken.None);
+                        string fullPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), gcConfig.BuildDirectory);
+                        executionContext.Output(StringUtil.Loc("Deleting", fullPath));
+                        IOUtil.DeleteDirectory(fullPath, executionContext.CancellationToken);
 
-                    executionContext.Output(StringUtil.Loc("DeleteGCTrackingFile", fullPath));
-                    IOUtil.DeleteFile(gcFile);
+                        executionContext.Output(StringUtil.Loc("DeleteGCTrackingFile", fullPath));
+                        IOUtil.DeleteFile(gcFile);
+                    }
+                    catch (Exception ex)
+                    {
+                        executionContext.Error(StringUtil.Loc("ErrorDuringBuildGCDelete", gcFile));
+                        executionContext.Error(ex);
+                    }
                 }
-                catch (Exception ex)
-                {
-                    executionContext.Error(StringUtil.Loc("ErrorDuringBuildGCDelete", gcFile));
-                    executionContext.Error(ex);
-                }
+
+                PrintOutDiskUsage(executionContext);
+            }
+        }
+
+        private void PrintOutDiskUsage(IExecutionContext context)
+        {
+            // Print disk usage should be best effort, since DriveInfo can't detect usage of UNC share.
+            try
+            {
+                context.Output($"Disk usage for working directory: {HostContext.GetDirectory(WellKnownDirectory.Work)}");
+                var workDirectoryDrive = new DriveInfo(HostContext.GetDirectory(WellKnownDirectory.Work));
+                long freeSpace = workDirectoryDrive.AvailableFreeSpace;
+                long totalSpace = workDirectoryDrive.TotalSize;
+#if OS_WINDOWS
+                context.Output($"Working directory belongs to drive: '{workDirectoryDrive.Name}'");
+#else
+                context.Output($"Information about file system on which working directory resides.");
+#endif
+                context.Output($"Total size: '{totalSpace / 1024.0 / 1024.0} MB'");
+                context.Output($"Available space: '{freeSpace / 1024.0 / 1024.0} MB'");
+            }
+            catch (Exception ex)
+            {
+                context.Warning($"Unable inspect disk usage for working directory {HostContext.GetDirectory(WellKnownDirectory.Work)}.");
+                Trace.Error(ex);
+                context.Debug(ex.ToString());
             }
         }
 
