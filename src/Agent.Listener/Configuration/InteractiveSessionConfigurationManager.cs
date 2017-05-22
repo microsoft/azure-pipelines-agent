@@ -150,7 +150,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             ConfigureAutoLogon(regHelper, userName, domainName, logonPassword);
 
             //startup process
-            var startupProcessPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), "agent.service.exe");
+            var startupProcessPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), "agentservice.exe");
             var startupCommand = string.Format($@"{startupProcessPath} runAsProcess");
             Trace.Verbose($"Setting startup command as {startupCommand}");
 
