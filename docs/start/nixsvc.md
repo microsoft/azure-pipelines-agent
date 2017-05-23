@@ -14,7 +14,7 @@ Key Points:
 Install will create a LaunchAgent plist on OSX or a systemd unit file on Linux
 
 ```bash
-$ ./svc.sh install
+$ sudo ./svc.sh install
 ...
 Creating runsvc.sh
 Creating .Service
