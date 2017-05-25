@@ -11,6 +11,7 @@ using System.Diagnostics;
 using Microsoft.VisualStudio.Services.WebApi;
 using System.Net.Http;
 using System.Net;
+using Microsoft.VisualStudio.Services.FileContainer;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -28,6 +29,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         private string _containerPath;
         private int _filesProcessed = 0;
         private string _sourceParentDirectory;
+        private const int _fileMetadataCreationBatchSizeLimit = 100;
 
         public FileContainerServer(
             VssConnection connection,
@@ -80,6 +82,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
                 try
                 {
+                    // create all files' metadata up front to save tfs SQL CPU.
+                    int metadataCreationProcessedFileCount = 0;
+                    List<FileContainerItem> fcItemsBatch = new List<FileContainerItem>();
+                    foreach (var file in files)
+                    {
+                        metadataCreationProcessedFileCount++;
+                        FileContainerItem item = new FileContainerItem()
+                        {
+                            ContainerId = _containerId,
+                            ItemType = ContainerItemType.File,
+                            Path = (_containerPath.TrimEnd('/') + "/" + file.Remove(0, _sourceParentDirectory.Length + 1)).Replace('\\', '/'),
+                            FileLength = new FileInfo(file).Length
+                        };
+
+                        fcItemsBatch.Add(item);
+
+                        // batch size reach limit or the batch is the last batch
+                        if (metadataCreationProcessedFileCount % _fileMetadataCreationBatchSizeLimit == 0 ||
+                            metadataCreationProcessedFileCount == files.Count)
+                        {
+                            var metadataCreation = await _fileContainerHttpClient.CreateItemsAsync(_containerId, fcItemsBatch, _projectId, _uploadCancellationTokenSource.Token);
+                            fcItemsBatch.Clear();
+                            context.Output($"Preparing for file upload: ({metadataCreationProcessedFileCount}/{files.Count})");
+                        }
+                    }
+
                     // try upload all files for the first time.
                     List<string> failedFiles = await ParallelUploadAsync(context, files, maxConcurrentUploads, _uploadCancellationTokenSource.Token);
 
