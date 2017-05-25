@@ -319,6 +319,12 @@ function package ()
         tar_name="${agent_pkg_name}.tar.gz"
         echo "Creating $tar_name in ${LAYOUT_DIR}"
         tar -czf "${tar_name}" -C ${LAYOUT_DIR} .
+        echo "Calculate SHA256 checksum for $tar_name"
+        if [[ ("$PLATFORM" == "linux") ]]; then
+            sha256sum "${tar_name}" | cut -b 1-64 > ./Checksum_SHA256.txt
+        else
+            openssl dgst -sha256 "${tar_name}" | tail -c 64 > ./Checksum_SHA256.txt
+        fi    
     elif [[ ("$PLATFORM" == "windows") ]]; then
         zip_name="${agent_pkg_name}.zip"
         echo "Convert ${LAYOUT_DIR} to Windows style path"
@@ -326,6 +332,8 @@ function package ()
         window_path=${window_path:0:1}:${window_path:1}
         echo "Creating $zip_name in ${window_path}"
         powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "Add-Type -Assembly \"System.IO.Compression.FileSystem\"; [System.IO.Compression.ZipFile]::CreateFromDirectory(\"${window_path}\", \"${zip_name}\")"
+        echo "Calculate SHA256 checksum for $zip_name"
+        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "\$(Get-FileHash -Path .\\$zip_name -Algorithm SHA256).Hash | Out-File .\\Checksum_SHA256.txt"
     fi
 
     popd > /dev/null
