@@ -185,9 +185,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             await RunCommandAsync(FormatFlags.OmitCollectionUrl, "undo", "-recursive", localPath);
         }
 
-        public async Task UnshelveAsync(string shelveset)
+        public async Task UnshelveAsync(string shelveset, bool useLocalMapping)
         {
             ArgUtil.NotNullOrEmpty(shelveset, nameof(shelveset));
+            ArgUtil.Equal(false, useLocalMapping, nameof(useLocalMapping));
             await RunCommandAsync("unshelve", "-format:detailed", $"-workspace:{WorkspaceName}", shelveset);
         }
 

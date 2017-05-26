@@ -36,7 +36,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         bool TestEulaAccepted();
         Task<bool> TryWorkspaceDeleteAsync(ITfsVCWorkspace workspace);
         Task UndoAsync(string localPath);
-        Task UnshelveAsync(string shelveset);
+        Task UnshelveAsync(string shelveset, bool useLocalMapping);
         Task WorkfoldCloakAsync(string serverPath);
         Task WorkfoldMapAsync(string serverPath, string localPath);
         Task WorkfoldUnmapAsync(string serverPath);
@@ -329,8 +329,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         // Indicates whether the "loginType" parameter is supported.
         LoginType = 16,
 
+        // Indicates whether the agent supports unshelving a shelveset and ignoring files
+        // that do not map into the local workspace.
+        PartialShelveset = 32,
+
         // Indicates whether the "scorch" subcommand is supported.
-        Scorch = 32,
+        Scorch = 64,
     }
 
     public sealed class TfsVCPorcelainCommandResult

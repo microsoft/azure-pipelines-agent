@@ -226,10 +226,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             await RunCommandAsync(FormatFlags.OmitCollectionUrl, "vc", "undo", "/recursive", localPath);
         }
 
-        public async Task UnshelveAsync(string shelveset)
+        public async Task UnshelveAsync(string shelveset, bool useLocalMapping)
         {
             ArgUtil.NotNullOrEmpty(shelveset, nameof(shelveset));
-            await RunCommandAsync(FormatFlags.OmitCollectionUrl, "vc", "unshelve", shelveset);
+            if (useLocalMapping)
+            {
+                await RunCommandAsync(FormatFlags.OmitCollectionUrl, "vc", "unshelve", shelveset, "*", "/recursive");
+            }
+            else
+            {
+                await RunCommandAsync(FormatFlags.OmitCollectionUrl, "vc", "unshelve", shelveset);
+            }
         }
 
         public async Task WorkfoldCloakAsync(string serverPath)
