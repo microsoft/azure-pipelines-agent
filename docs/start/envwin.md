@@ -4,10 +4,16 @@
 
 No known system pre-requisistes are known at this time.
 
-## Windows 7 to Windows 8.1 and Windows Server 2012 R2 (64-bit)
+## Windows 7 to Windows 8.1 and Windows Server 2012 (64-bit) to Windows Server 2012 R2 (64-bit)
 
 [PowerShell 3.0 or higher](https://msdn.microsoft.com/en-us/powershell/scripting/setup/installing-windows-powershell)
+
+[.NET Framework 4.5.2 or higher](https://www.microsoft.com/en-us/download/details.aspx?id=42642)
 
 ## Visual Studio
 
 Even though not technically required by the agent, many build scenarios require Visual Studio installed to get all the tools.  We recommend Visual Studio 2015 or later.
+
+##TFVC
+
+.NET Framework 4.6 x64 or higher is required to sync TFVC repositories. It is not required to sync Git repositories.
