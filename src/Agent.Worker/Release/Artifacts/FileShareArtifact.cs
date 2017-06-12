@@ -120,7 +120,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
 
                 dropLocation = Path.Combine(dropLocation.TrimEnd(trimChars), relativePath.Trim(trimChars));
 
-                string robocopyArguments = dropLocation + " " + downloadFolderPath + " /E /Z /NP";
+                string robocopyArguments = "\"" + dropLocation + "\" \"" + downloadFolderPath + "\" /E /Z /NP";
                 if (verbose != true)
                 {
                     robocopyArguments = robocopyArguments + " /NDL /NFL";
