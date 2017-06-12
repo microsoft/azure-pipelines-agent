@@ -80,7 +80,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
 
                 var artifact = new JenkinsArtifact();
                 artifact.Initialize(tc);
-                string expectedUrl = $"{details.Url}/job/{details.JobName}/{details.EndCommitArtifactVersion}";
+                string expectedUrl = $"{details.Url}/job/{details.JobName}/{details.EndCommitArtifactVersion}/api/json?tree=number,result,changeSet[items[commitId,date,msg,author[fullName]]]";
                 await artifact.DownloadCommitsAsync(_ec.Object, _artifactDefinition, tc.GetDirectory(WellKnownDirectory.Root));
                 _httpClient.Verify(x => x.GetStringAsync(It.Is<string>(y => y.StartsWith(expectedUrl)), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>()), Times.Once);
             }
@@ -129,6 +129,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
                 _httpClient.Verify(x => x.GetStringAsync(It.Is<string>(y => y.StartsWith(expectedUrl)), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
             }
         }
+        
         [Fact]
         [TraitAttribute("Level", "L0")]
         [TraitAttribute("Category", "Worker")]
