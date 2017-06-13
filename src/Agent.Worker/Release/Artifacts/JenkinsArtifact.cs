@@ -227,7 +227,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
 
             if (isGitRepo && !string.IsNullOrEmpty(rootUrl))
             {
-                change.DisplayUri = new Uri(StringUtil.Format("{0}/commits/{1}", rootUrl, change.Id));
+                change.DisplayUri = new Uri(StringUtil.Format("{0}/commit/{1}", rootUrl, change.Id));
             }
 
             context.Debug(StringUtil.Format("Found commit {0}", change.Id));
@@ -281,8 +281,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             var commitsResult = await DownloadCommitsJsonContent(context, commitsUrl, artifactDetails, "$.changeSet.items[*]");
 
             string rootUrl;
-            bool gitRepo = isGitRepo(context, artifactDetails, jobId, out rootUrl);
-            return commitsResult.Select(x => ConvertCommitToChange(context, x, gitRepo, rootUrl));
+            bool isGitRepo = IsGitRepo(context, artifactDetails, jobId, out rootUrl);
+            return commitsResult.Select(x => ConvertCommitToChange(context, x, isGitRepo, rootUrl));
         }
 
         private async Task<IEnumerable<Change>> DownloadCommits(IExecutionContext context, JenkinsArtifactDetails artifactDetails, int startJobId, int endJobId)
@@ -306,8 +306,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             var changeSetResult = await DownloadCommitsJsonContent(context, commitsUrl, artifactDetails, StringUtil.Format("$.{0}[*].changeSet.items[*]", buildParameter));
             
             string rootUrl;
-            bool gitRepo = isGitRepo(context, artifactDetails, endJobId, out rootUrl);
-            return changeSetResult.Select(x => ConvertCommitToChange(context, x, gitRepo, rootUrl));
+            bool isGitRepo = IsGitRepo(context, artifactDetails, endJobId, out rootUrl);
+            return changeSetResult.Select(x => ConvertCommitToChange(context, x, isGitRepo, rootUrl));
         }
 
         private async Task<string> DownloadCommitsJsonContent(IExecutionContext executionContext, string url, JenkinsArtifactDetails artifactDetails) 
@@ -339,7 +339,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             return new List<JToken>();
         }
 
-        private bool isGitRepo(IExecutionContext executionContext, JenkinsArtifactDetails artifactDetails, int jobId, out string rootUrl)
+        private bool IsGitRepo(IExecutionContext executionContext, JenkinsArtifactDetails artifactDetails, int jobId, out string rootUrl)
         {
             bool isGitRepo = false;
             rootUrl = string.Empty;
