@@ -1,8 +1,10 @@
+using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 {
@@ -34,13 +36,36 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
     {
         public void CleanupDirectory(string directoryPath, CancellationToken cancellationToken)
         {
-            var path = ValidatePath(directoryPath);
-            if (Directory.Exists(path))
+            try
             {
-                IOUtil.DeleteDirectory(path, cancellationToken);
-            }
+                var path = ValidatePath(directoryPath);
+                if (Directory.Exists(path))
+                {
+                    IOUtil.DeleteDirectory(path, cancellationToken);
+                }
 
-            EnsureDirectoryExists(path);
+                EnsureDirectoryExists(path);
+            }
+            catch (AggregateException aggregateEx)
+            {
+                var exception = ((AggregateException)aggregateEx).Flatten().InnerException;
+                if (exception is DirectoryNotFoundException ||
+                    exception is UnauthorizedAccessException ||
+                    exception is IOException ||
+                    exception is OperationCanceledException)
+                {
+                    throw new ArtifactCleanupFailedException(StringUtil.Loc("FailedCleaningupRMArtifactDirectory", directoryPath), exception);
+                }
+            }
+            catch (Exception ex) when (
+                ex is DirectoryNotFoundException || 
+                ex is UnauthorizedAccessException ||
+                ex is IOException ||
+                ex is OperationCanceledException
+                )
+            {
+                throw new ArtifactCleanupFailedException(StringUtil.Loc("FailedCleaningupRMArtifactDirectory", directoryPath), ex);
+            }
         }
 
         public StreamReader GetFileReader(string filePath)

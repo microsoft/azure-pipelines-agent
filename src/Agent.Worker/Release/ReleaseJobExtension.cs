@@ -225,14 +225,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                         {
                             var releaseFileSystemManager = HostContext.GetService<IReleaseFileSystemManager>();
                             executionContext.Output(StringUtil.Loc("RMEnsureArtifactFolderExistsAndIsClean", downloadFolderPath));
-                            try
-                            {
-                                releaseFileSystemManager.CleanupDirectory(downloadFolderPath, executionContext.CancellationToken);
-                            }
-                            catch (Exception ex) when (ex is DirectoryNotFoundException || ex is UnauthorizedAccessException)
-                            {
-                                throw new ArtifactCleanupFailedException(StringUtil.Loc("FailedCleaningupRMArtifactDirectory", downloadFolderPath), ex);
-                            }
+                            releaseFileSystemManager.CleanupDirectory(downloadFolderPath, executionContext.CancellationToken);
 
                             await extension.DownloadAsync(executionContext, artifactDefinition, downloadFolderPath);
                         });
@@ -261,19 +254,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                 {
                     executionContext.Output(StringUtil.Loc("RMCleaningArtifactsDirectory", artifactsWorkingFolder));
 
-                    try
-                    {
-                        if (Directory.Exists(artifactsWorkingFolder))
-                        {
-                            IOUtil.DeleteDirectory(artifactsWorkingFolder, executionContext.CancellationToken);
-                        }
-
-                        Directory.CreateDirectory(artifactsWorkingFolder);
-                    }
-                    catch (Exception ex) when (ex is DirectoryNotFoundException || ex is UnauthorizedAccessException)
-                    {
-                        throw new ArtifactCleanupFailedException(StringUtil.Loc("FailedCleaningupRMArtifactDirectory", artifactsWorkingFolder), ex);
-                    }
+                    var releaseFileSystemManager = HostContext.GetService<IReleaseFileSystemManager>();
+                    releaseFileSystemManager.EnsureDirectoryExists(artifactsWorkingFolder);
                 });
 
             executionContext.Output(StringUtil.Loc("RMCleanedUpArtifactsDirectory", artifactsWorkingFolder));
@@ -393,7 +375,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 
         private void LogDownloadFailureTelemetry(IExecutionContext executionContext, Exception ex)
         {
-            var code = (ex is Artifacts.ArtifactDownloadException || ex is ArtifactCleanupFailedException) ? DownloadArtifactsFailureUserError : DownloadArtifactsFailureSystemError;
+            var code = (ex is Artifacts.ArtifactDownloadException || 
+                        ex is ArtifactCleanupFailedException || 
+                        ex is IOException ||
+                        ex is UnauthorizedAccessException) ? DownloadArtifactsFailureUserError : DownloadArtifactsFailureSystemError;
             var issue = new Issue
             {
                 Type = IssueType.Error,
