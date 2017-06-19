@@ -15,7 +15,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 
         Task WriteStreamToFile(Stream stream, string filePath, int bufferSize, CancellationToken cancellationToken);
 
-        void CleanupDirectory(string directoryPath, CancellationToken cancellationToken);
+        void EnsureEmptyDirectory(string directoryPath, CancellationToken cancellationToken);
 
         void EnsureDirectoryExists(string directoryPath);
 
@@ -34,7 +34,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 
     public class ReleaseFileSystemManager : AgentService, IReleaseFileSystemManager
     {
-        public void CleanupDirectory(string directoryPath, CancellationToken cancellationToken)
+        public void EnsureEmptyDirectory(string directoryPath, CancellationToken cancellationToken)
         {
             try
             {
@@ -46,25 +46,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 
                 EnsureDirectoryExists(path);
             }
-            catch (AggregateException aggregateEx)
+            catch (Exception ex)
             {
-                var exception = ((AggregateException)aggregateEx).Flatten().InnerException;
+                var exception = ex;
+                
+                if (ex is AggregateException)
+                {
+                    exception = ((AggregateException)ex).Flatten().InnerException;
+                }
+
                 if (exception is DirectoryNotFoundException ||
                     exception is UnauthorizedAccessException ||
                     exception is IOException ||
                     exception is OperationCanceledException)
                 {
-                    throw new ArtifactCleanupFailedException(StringUtil.Loc("FailedCleaningupRMArtifactDirectory", directoryPath), exception);
+                    throw new ArtifactDirectoryCreationFailedException(StringUtil.Loc("RMFailedCreatingArtifactDirectory", directoryPath), exception);
                 }
-            }
-            catch (Exception ex) when (
-                ex is DirectoryNotFoundException || 
-                ex is UnauthorizedAccessException ||
-                ex is IOException ||
-                ex is OperationCanceledException
-                )
-            {
-                throw new ArtifactCleanupFailedException(StringUtil.Loc("FailedCleaningupRMArtifactDirectory", directoryPath), ex);
+                else
+                {
+                    throw;
+                }
             }
         }
 
