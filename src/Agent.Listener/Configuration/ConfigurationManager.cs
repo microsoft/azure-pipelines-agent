@@ -2,16 +2,17 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Listener.Capabilities;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Common;
+using Microsoft.VisualStudio.Services.OAuth;
+using Microsoft.VisualStudio.Services.WebApi;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Security.Cryptography;
-using Microsoft.VisualStudio.Services.WebApi;
-using Microsoft.VisualStudio.Services.OAuth;
-using System.Security.Principal;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
@@ -339,6 +340,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 var serviceControlManager = HostContext.GetService<IWindowsServiceControlManager>();
                 serviceControlManager.ConfigureService(agentSettings, command);
             }
+            //This will be enabled with AutoLogon code changes are tested
+            // else
+            // {
+            //     Trace.Info("Agent is going to run as process so 'InteractiveSession' capability will be set for the agent.");
+            //     ConfigureAutoLogonIfNeeded(command);
+            // }
+
 #elif OS_LINUX || OS_OSX
             // generate service config script for OSX and Linux, GenerateScripts() will no-opt on windows.
             var serviceControlManager = HostContext.GetService<ILinuxServiceControlManager>();
@@ -374,11 +382,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 #endif
                 }
 
-                //delete agent from the server
-                currentAction = StringUtil.Loc("UnregisteringAgent");
-                _term.WriteLine(currentAction);
                 bool isConfigured = _store.IsConfigured();
                 bool hasCredentials = _store.HasCredentials();
+
+#if OS_WINDOWS
+                //This will be enabled with AutoLogon code changes are tested
+                // if(isConfigured && !_store.IsServiceConfigured())
+                // {
+                //     UnConfigureAutoLogonIfNeeded();
+                // }
+#endif
+                //delete agent from the server
+                currentAction = StringUtil.Loc("UnregisteringAgent");
+                _term.WriteLine(currentAction);                
                 if (isConfigured && hasCredentials)
                 {
                     AgentSettings settings = _store.GetSettings();
@@ -454,6 +470,96 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
+#if OS_WINDOWS
+        private void ConfigureAutoLogonIfNeeded(CommandSettings command)
+        {
+            Trace.Info(nameof(ConfigureAutoLogonIfNeeded));
+
+            bool enableAutoLogon = command.GetEnableAutoLogon();
+            if(!enableAutoLogon)
+            {
+                return;
+            }
+
+            try
+            {
+                AssertAdminAccess();
+                
+                var iConfigManager = HostContext.GetService<IInteractiveSessionConfigurationManager>();
+                iConfigManager.Configure(command);
+
+                if(iConfigManager.RestartNeeded())
+                {
+                    Trace.Info("AutoLogon is configured for a different user than the current user. Machine needs a restart.");
+                    _term.WriteLine(StringUtil.Loc("RestartMessage"));
+                    var shallRestart = command.GetRestartNow();
+                    if(shallRestart)
+                    {
+                        var whichUtil = HostContext.GetService<IWhichUtil>();
+                        var shutdownExePath = whichUtil.Which("shutdown.exe");
+
+                        Trace.Info("Restarting the machine in 5 seconds");
+                        _term.WriteLine(StringUtil.Loc("RestartIn5SecMessage"));
+                        string msg = StringUtil.Loc("ShutdownMessage");                        
+                        Process.Start(shutdownExePath, $"-r -t 5 -c {msg}");
+                    }
+                    else
+                    {
+                        Trace.Info("No restart happened. As the interactive session is configured for a different user agent will not be launched");
+                    }
+                    return;
+                }
+
+                var startupProcessPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), "agentservice.exe");
+                Trace.Info("Launching the agent process.");
+                _term.WriteLine(StringUtil.Loc("AgentLaunch"));
+                
+                var processInfo = new ProcessStartInfo();
+                processInfo.UseShellExecute = false;
+                processInfo.CreateNoWindow = true;
+                processInfo.FileName = startupProcessPath;
+                processInfo.Arguments = "runasprocess";                
+
+                var agentServiceProcess = Process.Start(processInfo);
+                Trace.Verbose($"Started the agentservice process. Id - {agentServiceProcess.Id}");
+            }
+            catch(Exception ex)
+            {
+                Trace.Error(ex);
+                _term.WriteLine(StringUtil.Loc("AutoLogonConfigurationFailureMessage"));
+            }
+        }
+
+        private void UnConfigureAutoLogonIfNeeded()
+        {            
+            var iConfigManager = HostContext.GetService<IInteractiveSessionConfigurationManager>();
+            if (!iConfigManager.IsInteractiveSessionConfigured())
+            {
+                Trace.Verbose("Interactive session was not configured on the agent. Returning.");
+                return;
+            }
+            AssertAdminAccess(true);      
+            var listenerProcessId = GetAgentListenerProcessId();                
+            iConfigManager.UnConfigure(listenerProcessId);
+        }
+#endif
+
+        private int GetAgentListenerProcessId()
+        {
+            Process[] processes = Process.GetProcessesByName("agent.listener");
+            var currentProcessId = Process.GetCurrentProcess().Id;
+            var executionPath = HostContext.GetDirectory(WellKnownDirectory.Bin);
+            foreach (var process in processes)
+            {
+                if (process.Id != currentProcessId 
+                    && Path.GetDirectoryName(process.MainModule.FileName).Equals(executionPath, StringComparison.CurrentCultureIgnoreCase))
+                {
+                    return process.Id;
+                }
+            }
+            return -1;
+        }
+        
         private ICredentialProvider GetCredentialProvider(CommandSettings command, string serverUrl)
         {
             Trace.Info(nameof(GetCredentialProvider));
@@ -470,6 +576,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             var provider = credentialManager.GetCredentialProvider(authType);
             provider.EnsureCredential(HostContext, command, serverUrl);
             return provider;
+        }
+
+        private void AssertAdminAccess(bool unConfigure = false)
+        {
+            if (new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator))
+            {
+                return;
+            }
+
+            if(unConfigure)
+            {
+                Trace.Error("Needs Administrator privileges to unconfigure an agent running with autologon capability.");          
+                throw new SecurityException(StringUtil.Loc("NeedAdminForAutologonRemoval"));                
+            }
+            else
+            {
+                Trace.Error("Needs Administrator privileges for configure agent as interactive process with autologon capability.");
+                Trace.Error("You will need to unconfigure the agent and then re-configure with Administrative rights");            
+                throw new SecurityException(StringUtil.Loc("NeedAdminForAutologonCapability"));
+            }
         }
 
         private TaskAgent UpdateExistingAgent(TaskAgent agent, RSAParameters publicKey, Dictionary<string, string> systemCapabilities)

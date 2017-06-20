@@ -55,6 +55,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         void CreateVstsAgentRegistryKey();
 
         void DeleteVstsAgentRegistryKey();
+
+        bool HasActiveSession(string domainName, string userName);
+        
+        string GetSecurityId(string domainName, string userName);
+        
+        void SetAutoLogonPassword(string password);
     }
 
     public class NativeWindowsServiceHelper : AgentService, INativeWindowsServiceHelper
@@ -789,15 +795,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
+        public bool HasActiveSession(string domainName, string userName)
+        {
+            return EnumerateUsers.IsActiveSessionExists(domainName, userName);
+        }
+
+        public string GetSecurityId(string domainName, string userName)
+        {
+            var account = new NTAccount(domainName, userName);
+            var sid = account.Translate(typeof(SecurityIdentifier));
+            return sid != null ? sid.ToString() : null;
+        }
+
+        public void SetAutoLogonPassword(string password)
+        {
+            using (LsaPolicy lsaPolicy = new LsaPolicy(LSA_AccessPolicy.POLICY_CREATE_SECRET))
+            {
+                lsaPolicy.SetSecretData(LsaPolicy.DefaultPassword, password);
+            }
+        }
+
         // Helper class not to repeat whenever we deal with LSA* api
         internal class LsaPolicy : IDisposable
         {
             public IntPtr Handle { get; set; }
 
-            public LsaPolicy()
+            public LsaPolicy() 
+                : this(LSA_AccessPolicy.POLICY_ALL_ACCESS)
+            {
+            }
+
+            public LsaPolicy(LSA_AccessPolicy access)
             {
                 LSA_UNICODE_STRING system = new LSA_UNICODE_STRING();
-
                 LSA_OBJECT_ATTRIBUTES attrib = new LSA_OBJECT_ATTRIBUTES()
                 {
                     Length = 0,
@@ -808,13 +838,48 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 };
 
                 IntPtr handle = IntPtr.Zero;
-                uint result = LsaOpenPolicy(ref system, ref attrib, LSA_POLICY_ALL_ACCESS, out handle);
-                if (result != 0 || handle == IntPtr.Zero)
+                uint hr = LsaOpenPolicy(ref system, ref attrib, (uint)access, out handle);
+                if (hr != 0 || handle == IntPtr.Zero)
                 {
-                    throw new Exception(StringUtil.Loc("OperationFailed", nameof(LsaOpenPolicy), result));
+                    throw new Exception(StringUtil.Loc("OperationFailed", nameof(LsaOpenPolicy), hr));
                 }
 
                 Handle = handle;
+            }
+
+            public void SetSecretData(string key, string value)
+            {
+                LSA_UNICODE_STRING secretData = new LSA_UNICODE_STRING();
+                LSA_UNICODE_STRING secretName = new LSA_UNICODE_STRING();
+
+                secretName.Buffer = Marshal.StringToHGlobalUni(key);                
+                
+                var charSize = sizeof(char);
+
+                secretName.Length = (UInt16)(key.Length * charSize);
+                secretName.MaximumLength = (UInt16)((key.Length + 1) * charSize);
+
+                if (value.Length > 0)
+                {
+                    // Create data and key
+                    secretData.Buffer = Marshal.StringToHGlobalUni(value);
+                    secretData.Length = (UInt16)(value.Length * charSize);
+                    secretData.MaximumLength = (UInt16)((value.Length + 1) * charSize);
+                }
+                else
+                {
+                    // Delete data and key
+                    secretData.Buffer = IntPtr.Zero;
+                    secretData.Length = 0;
+                    secretData.MaximumLength = 0;
+                }
+
+                uint result = LsaStorePrivateData(Handle, ref secretName, ref secretData);
+                uint winErrorCode = LsaNtStatusToWinError(result);
+                if (winErrorCode != 0)
+                {
+                    throw new Exception(StringUtil.Loc("OperationFailed", nameof(LsaNtStatusToWinError), winErrorCode));
+                }
             }
 
             void IDisposable.Dispose()
@@ -823,10 +888,202 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 LsaClose(Handle);
                 GC.SuppressFinalize(this);
             }
+
+            internal static string DefaultPassword = "DefaultPassword";
         }
 
+        internal static class EnumerateUsers
+        {
+            [DllImport("wtsapi32.dll")]
+            static extern IntPtr WTSOpenServer([MarshalAs(UnmanagedType.LPStr)] String pServerName);
+
+            [DllImport("wtsapi32.dll")]
+            static extern void WTSCloseServer(IntPtr hServer);
+
+            [DllImport("wtsapi32.dll")]
+            static extern Int32 WTSEnumerateSessions(
+                IntPtr hServer,
+                [MarshalAs(UnmanagedType.U4)] Int32 Reserved,
+                [MarshalAs(UnmanagedType.U4)] Int32 Version,
+                ref IntPtr ppSessionInfo,
+                [MarshalAs(UnmanagedType.U4)] ref Int32 pCount);
+
+            [DllImport("wtsapi32.dll")]
+            static extern void WTSFreeMemory(IntPtr pMemory);
+
+            [DllImport("Wtsapi32.dll")]
+            static extern bool WTSQuerySessionInformation(
+                System.IntPtr hServer, int sessionId, WTS_INFO_CLASS wtsInfoClass, out System.IntPtr ppBuffer, out uint pBytesReturned);
+
+            [StructLayout(LayoutKind.Sequential)]
+            private struct WTS_SESSION_INFO
+            {
+                public Int32 SessionID;
+
+                [MarshalAs(UnmanagedType.LPStr)]
+                public String pWinStationName;
+
+                public WTS_CONNECTSTATE_CLASS State;
+            }
+
+            public enum WTS_INFO_CLASS
+            {
+                WTSInitialProgram,
+                WTSApplicationName,
+                WTSWorkingDirectory,
+                WTSOEMId,
+                WTSSessionId,
+                WTSUserName,
+                WTSWinStationName,
+                WTSDomainName,
+                WTSConnectState,
+                WTSClientBuildNumber,
+                WTSClientName,
+                WTSClientDirectory,
+                WTSClientProductId,
+                WTSClientHardwareId,
+                WTSClientAddress,
+                WTSClientDisplay,
+                WTSClientProtocolType
+            }
+            public enum WTS_CONNECTSTATE_CLASS
+            {
+                WTSActive,
+                WTSConnected,
+                WTSConnectQuery,
+                WTSShadow,
+                WTSDisconnected,
+                WTSIdle,
+                WTSListen,
+                WTSReset,
+                WTSDown,
+                WTSInit
+            }
+
+            public static IntPtr OpenServer(String Name)
+            {
+                IntPtr server = WTSOpenServer(Name);
+                return server;
+            }
+
+            public static void CloseServer(IntPtr ServerHandle)
+            {
+                WTSCloseServer(ServerHandle);
+            }
+
+            public static bool IsActiveSessionExists(string testUserDomain, string testUsername)
+            {
+                var serverHandle = IntPtr.Zero;
+                serverHandle = OpenServer(Environment.MachineName);
+                var SessionInfoPtr = IntPtr.Zero;
+
+                try
+                {
+                    var userPtr = IntPtr.Zero;
+                    var domainPtr = IntPtr.Zero;
+                    var sessionCount = 0;
+                    var retVal = WTSEnumerateSessions(serverHandle, 0, 1, ref SessionInfoPtr, ref sessionCount);
+                    var dataSize = Marshal.SizeOf(typeof(WTS_SESSION_INFO));
+                    var currentSession = SessionInfoPtr;
+
+                    if (retVal != 0)
+                    {
+                        for (var i = 0; i < sessionCount; i++)
+                        {
+                            uint bytes = 0;
+                            var si = (WTS_SESSION_INFO)Marshal.PtrToStructure(currentSession, typeof(WTS_SESSION_INFO));
+                            currentSession += dataSize;
+
+                            WTSQuerySessionInformation(serverHandle, si.SessionID, WTS_INFO_CLASS.WTSUserName, out userPtr, out bytes);
+                            WTSQuerySessionInformation(serverHandle, si.SessionID, WTS_INFO_CLASS.WTSDomainName, out domainPtr, out bytes);
+
+                            var domain = Marshal.PtrToStringAnsi(domainPtr);
+                            var username = Marshal.PtrToStringAnsi(userPtr);
+
+                            if (testUserDomain.Equals(domain, StringComparison.OrdinalIgnoreCase) &&
+                                testUsername.Equals(username, StringComparison.OrdinalIgnoreCase) &&
+                                si.State == WTS_CONNECTSTATE_CLASS.WTSActive)
+                            {
+                                WTSFreeMemory(userPtr);
+                                WTSFreeMemory(domainPtr);
+                                return true;
+                            }
+                            WTSFreeMemory(userPtr);
+                            WTSFreeMemory(domainPtr);
+                        }
+                    }
+                }
+                finally
+                {
+                    WTSFreeMemory(SessionInfoPtr);
+                    CloseServer(serverHandle);
+                }
+                return false;
+            }
+        }
+
+        internal enum LSA_AccessPolicy : long
+        {
+            POLICY_VIEW_LOCAL_INFORMATION = 0x00000001L,
+            POLICY_VIEW_AUDIT_INFORMATION = 0x00000002L,
+            POLICY_GET_PRIVATE_INFORMATION = 0x00000004L,
+            POLICY_TRUST_ADMIN = 0x00000008L,
+            POLICY_CREATE_ACCOUNT = 0x00000010L,
+            POLICY_CREATE_SECRET = 0x00000020L,
+            POLICY_CREATE_PRIVILEGE = 0x00000040L,
+            POLICY_SET_DEFAULT_QUOTA_LIMITS = 0x00000080L,
+            POLICY_SET_AUDIT_REQUIREMENTS = 0x00000100L,
+            POLICY_AUDIT_LOG_ADMIN = 0x00000200L,
+            POLICY_SERVER_ADMIN = 0x00000400L,
+            POLICY_LOOKUP_NAMES = 0x00000800L,
+            POLICY_NOTIFICATION = 0x00001000L,
+            POLICY_ALL_ACCESS = 0x00001FFFL
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct LSA_UNICODE_STRING
+        {
+            public UInt16 Length;
+            public UInt16 MaximumLength;
+
+            // We need to use an IntPtr because if we wrap the Buffer with a SafeHandle-derived class, we get a failure during LsaAddAccountRights
+            public IntPtr Buffer;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct PROFILEINFO
+        {
+            public int dwSize;
+            public int dwFlags;
+            [MarshalAs(UnmanagedType.LPTStr)]
+            public String lpUserName;
+            [MarshalAs(UnmanagedType.LPTStr)]
+            public String lpProfilePath;
+            [MarshalAs(UnmanagedType.LPTStr)]
+            public String lpDefaultPath;
+            [MarshalAs(UnmanagedType.LPTStr)]
+            public String lpServerName;
+            [MarshalAs(UnmanagedType.LPTStr)]
+            public String lpPolicyPath;
+            public IntPtr hProfile;
+        }
+
+        [DllImport("advapi32.dll", SetLastError = true, PreserveSig = true)]
+        public static extern uint LsaStorePrivateData(
+            IntPtr policyHandle,
+            ref LSA_UNICODE_STRING KeyName,
+            ref LSA_UNICODE_STRING PrivateData
+        );
+
+        [DllImport("advapi32.dll", SetLastError = true, PreserveSig = true)]
+        public static extern uint LsaNtStatusToWinError(
+            uint status
+        );
+
+        // [DllImport("userenv.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        // public static extern bool LoadUserProfile(IntPtr hToken, ref PROFILEINFO lpProfileInfo);            
+
         // Declaration of external pinvoke functions
-        private static readonly uint LSA_POLICY_ALL_ACCESS = 0x1FFF;
         private static readonly string s_logonAsServiceName = "SeServiceLogonRight";
 
         private const UInt32 LOGON32_LOGON_NETWORK = 3;
@@ -879,16 +1136,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             public string Name;
             [MarshalAs(UnmanagedType.LPWStr)]
             public string Comment;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        public struct LSA_UNICODE_STRING
-        {
-            public UInt16 Length;
-            public UInt16 MaximumLength;
-
-            // We need to use an IntPtr because if we wrap the Buffer with a SafeHandle-derived class, we get a failure during LsaAddAccountRights
-            public IntPtr Buffer;
         }
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
@@ -1018,12 +1265,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                                                           int level,
                                                           ref LocalGroupMemberInfo buf,
                                                           int totalEntries);
-        [DllImport("Netapi32.dll")]
-        public extern static int NetLocalGroupDelMembers([MarshalAs(UnmanagedType.LPWStr)] string serverName,
-                                                         [MarshalAs(UnmanagedType.LPWStr)] string groupName,
-                                                         int level,
-                                                         ref LocalGroupMemberInfo buf,
-                                                         int totalEntries);
 
         [DllImport("Netapi32.dll")]
         public extern static int NetLocalGroupDel([MarshalAs(UnmanagedType.LPWStr)] string servername, [MarshalAs(UnmanagedType.LPWStr)] string groupname);
@@ -1100,7 +1341,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         [DllImport("kernel32.dll")]
         static extern uint GetLastError();
-
     }
 }
 #endif

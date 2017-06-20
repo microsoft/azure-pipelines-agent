@@ -35,7 +35,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Constants.Agent.CommandLine.Flags.Replace,
             Constants.Agent.CommandLine.Flags.RunAsService,
             Constants.Agent.CommandLine.Flags.Unattended,
-            Constants.Agent.CommandLine.Flags.Version
+            Constants.Agent.CommandLine.Flags.Version,
+            Constants.Agent.CommandLine.Flags.EnableAutoLogon
         };
 
         private readonly string[] validArgs =
@@ -161,6 +162,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 name: Constants.Agent.CommandLine.Flags.RunAsService,
                 description: StringUtil.Loc("RunAgentAsServiceDescription"),
                 defaultValue: false);
+        }
+
+        public bool GetEnableAutoLogon()
+        {
+            return TestFlagOrPrompt(
+                name: Constants.Agent.CommandLine.Flags.EnableAutoLogon,
+                description: StringUtil.Loc("EnableAutoLogon"),
+                defaultValue: false);
+        }
+
+        public bool GetRestartNow()
+        {
+            return TestFlagOrPrompt(
+                name: Constants.Agent.CommandLine.Flags.RestartNow,
+                description: StringUtil.Loc("RestartNow"),
+                defaultValue: true);
+        }
+
+        public string GetAutoLogonUserName()
+        {
+            return GetArgOrPrompt(
+                name: Constants.Agent.CommandLine.Args.WindowsLogonAccount,
+                description: StringUtil.Loc("AutoLogonAccountNameDescription"),
+                defaultValue: string.Empty,
+                validator: Validators.NTAccountValidator);
         }
 
         public bool GetDeploymentGroupTagsRequired()
