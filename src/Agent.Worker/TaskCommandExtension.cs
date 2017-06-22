@@ -437,8 +437,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             context.Result = TaskResultUtil.MergeTaskResults(context.Result, result);
-            eventProperties.TryGetValue(TaskCompleteEventProperties.Code, out resultCode);
-            context.ResultCode = resultCode;
+            if (eventProperties.TryGetValue(TaskCompleteEventProperties.Code, out resultCode))
+            {
+                context.ResultCode = resultCode;
+            }
             context.Progress(100, data);
         }
 
