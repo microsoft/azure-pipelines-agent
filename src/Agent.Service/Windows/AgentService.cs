@@ -273,9 +273,9 @@ namespace AgentService
                     return AgentUpdateResult.Failed;
                 }
 
-                if (DateTime.UtcNow - latestLogTimestamp > TimeSpan.FromSeconds(15))
+                if (DateTime.UtcNow - latestLogTimestamp > TimeSpan.FromSeconds(20))
                 {
-                    // the latest update log we find is more than 15 sec old, the update process is busted.
+                    // the latest update log we find is more than 20 sec old, the update process is busted.
                     return AgentUpdateResult.Failed;
                 }
                 else
