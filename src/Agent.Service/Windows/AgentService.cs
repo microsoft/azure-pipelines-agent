@@ -16,7 +16,6 @@ namespace AgentService
         public const string EventSourceName = "VstsAgentService";
         private const int CTRL_C_EVENT = 0;
         private const int CTRL_BREAK_EVENT = 1;
-        private bool _restart = false;
         private Process AgentListener { get; set; }
         private bool Stopping { get; set; }
         private object ServiceLock { get; set; }
@@ -90,10 +89,11 @@ namespace AgentService
                                         }
                                         else if (updateResult == AgentUpdateResult.SucceedNeedRestart)
                                         {
+                                            // throw exception make the service crash, so SCM will trigger recovery option.
+                                            // in this way we can self-update the service host.
                                             WriteInfo(Resource.AgentUpdateRestartNeeded);
-                                            _restart = true;
-                                            ExitCode = int.MaxValue;
-                                            Stop();
+                                            ThreadPool.QueueUserWorkItem((x) => { throw new Exception(Resource.CrashServiceHost); });
+                                            Thread.Sleep(Timeout.Infinite);
                                         }
                                         break;
                                     default:
@@ -172,14 +172,6 @@ namespace AgentService
             lock (ServiceLock)
             {
                 Stopping = true;
-
-                // throw exception during OnStop() will make SCM think the service crash and trigger recovery option.
-                // in this way we can self-update the service host.
-                if (_restart)
-                {
-                    throw new Exception(Resource.CrashServiceHost);
-                }
-
                 SendCtrlSignalToAgentListener(CTRL_C_EVENT);
             }
         }
