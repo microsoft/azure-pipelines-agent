@@ -349,10 +349,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             try
             {
                 //stop, uninstall service and remove service config file
-                _term.WriteLine(currentAction);
                 if (_store.IsServiceConfigured())
                 {
                     currentAction = StringUtil.Loc("UninstallingService");
+                    _term.WriteLine(currentAction);
 #if OS_WINDOWS
                     var serviceControlManager = HostContext.GetService<IWindowsServiceControlManager>();
                     serviceControlManager.UnconfigureService();
@@ -372,6 +372,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     if (_store.IsAutoLogonConfigured())
                     {
                         currentAction = StringUtil.Loc("UnconfigAutologon");
+                        _term.WriteLine(currentAction);
                         var autoLogonConfigManager = HostContext.GetService<IAutoLogonManager>();
                         autoLogonConfigManager.Unconfigure();         
                         _term.WriteLine(StringUtil.Loc("Success") + currentAction);               
