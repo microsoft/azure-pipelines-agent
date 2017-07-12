@@ -80,13 +80,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             if (currentAutoLogonUserName != null
                     && !userName.Equals(currentAutoLogonUserName, StringComparison.CurrentCultureIgnoreCase)
                     && !domainName.Equals(currentAutoLogonUserDomainName, StringComparison.CurrentCultureIgnoreCase))
-            {            
-                if ((string.IsNullOrEmpty(domainName) || domainName.Equals(".", StringComparison.CurrentCultureIgnoreCase)) && !logonAccount.Contains("@"))
+            {
+                string currentAutoLogonAccount = String.Format("{0}\\{1}", currentAutoLogonUserDomainName, currentAutoLogonUserName);
+                if (string.IsNullOrEmpty(currentAutoLogonUserDomainName) || currentAutoLogonUserDomainName.Equals(".", StringComparison.CurrentCultureIgnoreCase))
                 {
-                    logonAccount = String.Format("{0}\\{1}", Environment.MachineName, userName);
+                    currentAutoLogonAccount = String.Format("{0}\\{1}", Environment.MachineName, currentAutoLogonUserName);
                 }
-                Trace.Warning($"AutoLogon already enabled for {logonAccount}.");    
-                if(!command.GetOverwriteAutoLogonSettings(logonAccount))
+
+                Trace.Warning($"AutoLogon already enabled for {currentAutoLogonAccount}.");    
+                if(!command.GetOverwriteAutoLogonSettings(currentAutoLogonAccount))
                 {
                     Trace.Info($"Skipping the autologon configuration.");
                     _terminal.WriteLine(StringUtil.Loc("SkipAutoLogonConfiguration"));
