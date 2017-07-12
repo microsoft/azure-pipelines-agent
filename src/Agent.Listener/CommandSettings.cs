@@ -30,13 +30,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Constants.Agent.CommandLine.Flags.AddDeploymentGroupTags,
             Constants.Agent.CommandLine.Flags.Commit,
             Constants.Agent.CommandLine.Flags.DeploymentGroup,
-            Constants.Agent.CommandLine.Flags.KeepScreenSaver,
             Constants.Agent.CommandLine.Flags.EnableAutoLogon,
             Constants.Agent.CommandLine.Flags.Help,
             Constants.Agent.CommandLine.Flags.MachineGroup,
-            Constants.Agent.CommandLine.Flags.Replace,
-            Constants.Agent.CommandLine.Flags.RunAsService,
             Constants.Agent.CommandLine.Flags.NoRestart,
+            Constants.Agent.CommandLine.Flags.OverwriteAutoLogonSettings,
+            Constants.Agent.CommandLine.Flags.Replace,
+            Constants.Agent.CommandLine.Flags.RunAsService,            
             Constants.Agent.CommandLine.Flags.Unattended,
             Constants.Agent.CommandLine.Flags.Version
         };
@@ -175,11 +175,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 defaultValue: false);
         }
 
-        public bool GetKeepScreenSaver()
+        public bool GetOverwriteAutoLogonSettings(string logonAccount)
         {
             return TestFlagOrPrompt(
-                name: Constants.Agent.CommandLine.Flags.KeepScreenSaver,
-                description: StringUtil.Loc("KeepScreenSaver"),
+                name: Constants.Agent.CommandLine.Flags.OverwriteAutoLogonSettings,
+                description: StringUtil.Loc("OverwriteAutoLogonSettings", logonAccount),
                 defaultValue: false);
         }
 

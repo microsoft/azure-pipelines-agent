@@ -75,6 +75,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 _terminal.WriteError(StringUtil.Loc("InvalidAutoLogonCredential"));
             }
 
+            _autoLogonRegManager.GetAutoLogonUserDetails(out string currentAutoLogonUserDomainName, out string currentAutoLogonUserName);
+
+            if (currentAutoLogonUserName != null
+                    && !userName.Equals(currentAutoLogonUserName, StringComparison.CurrentCultureIgnoreCase)
+                    && !domainName.Equals(currentAutoLogonUserDomainName, StringComparison.CurrentCultureIgnoreCase))
+            {            
+                if ((string.IsNullOrEmpty(domainName) || domainName.Equals(".", StringComparison.CurrentCultureIgnoreCase)) && !logonAccount.Contains("@"))
+                {
+                    logonAccount = String.Format("{0}\\{1}", Environment.MachineName, userName);
+                }
+                Trace.Warning($"AutoLogon already enabled for {logonAccount}.");    
+                if(!command.GetOverwriteAutoLogonSettings(logonAccount))
+                {
+                    Trace.Info($"Skipping the autologon configuration.");
+                    _terminal.WriteLine(StringUtil.Loc("SkipAutoLogonConfiguration"));
+                    return;
+                }                
+                Trace.Info($"Continuing with the autologon configuration.");                
+            }
+
             _autoLogonRegManager.UpdateRegistrySettings(command, domainName, userName, logonPassword);
             _windowsServiceHelper.SetAutoLogonPassword(logonPassword);
 

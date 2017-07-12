@@ -100,8 +100,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public static readonly string AddMachineGroupTags = "addmachinegrouptags";
                     public static readonly string Commit = "commit";
                     public static readonly string DeploymentGroup = "deploymentgroup";
-                    public static readonly string KeepScreenSaver = "keepscreensaver";
                     public static readonly string EnableAutoLogon = "enableautologon";
+                    public static readonly string OverwriteAutoLogonSettings = "overwriteautologonsettings";
                     public static readonly string Help = "help";
                     public static readonly string MachineGroup = "machinegroup";
                     public static readonly string Replace = "replace";
