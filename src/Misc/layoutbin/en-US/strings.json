@@ -29,6 +29,7 @@
   "AttemptRemoveCredFromConfig": "An unsuccessful attempt was made using git command line to remove \"http.extraheader\" from the git config. Attempting to modify the git config file directly to remove the credential.",
   "AuthenticationType": "authentication type",
   "AutoLogonAccountNameDescription": "User account to use for autologon",
+  "AutoLogonOverwriteDeniedError": "Unable to configure autologon as it is already configured for a different user ({0}) on the machine. Use '--overwriteautologonsettings' if you wish to overwrite.",
   "AutoLogonPolicies_LegalNotice": "Legal Notice",
   "AutoLogonPolicies_ShutdownReason": "Shutdown reason",
   "AutoLogonPoliciesInspection": "Checking for policies that may prevent autologon from working correctly.",
