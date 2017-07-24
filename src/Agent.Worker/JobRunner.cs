@@ -196,17 +196,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     .FirstOrDefault();
                 ArgUtil.NotNull(jobExtension, nameof(jobExtension));
 
-                List<IStep> preJobSteps = new List<IStep>();
-                List<IStep> jobSteps = new List<IStep>();
-                List<IStep> postJobSteps = new List<IStep>();
+                IEnumerable<IStep> preJobSteps = new List<IStep>();
+                IEnumerable<IStep> jobSteps = new List<IStep>();
+                IEnumerable<IStep> postJobSteps = new List<IStep>();
 
                 try
                 {
                     Trace.Info("Initialize job. Getting all job steps.");
                     var initializeResult = await jobExtension.InitializeJob(jobContext, message);
-                    preJobSteps = initializeResult.PreJobSteps;
-                    jobSteps = initializeResult.JobSteps;
-                    postJobSteps = initializeResult.PostJobStep;
+                    IStepsQueue stepsQueue = new StepsQueue(HostContext, initializeResult);
+                    preJobSteps = stepsQueue.GetPreJobSteps();
+                    jobSteps = stepsQueue.GetJobSteps();
+                    postJobSteps = stepsQueue.GetPostJobSteps();
                 }
                 catch (OperationCanceledException ex) when (jobContext.CancellationToken.IsCancellationRequested)
                 {
@@ -224,16 +225,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     Trace.Error($"Caught exception from {nameof(jobExtension.InitializeJob)}: {ex}");
                     return await CompleteJobAsync(jobServer, jobContext, message, TaskResult.Failed);
                 }
-
-                // trace out all steps
-                Trace.Info($"Total pre-job steps: {preJobSteps.Count}.");
-                Trace.Verbose($"Pre-job steps: '{string.Join(", ", preJobSteps.Select(x => x.DisplayName))}'");
-
-                Trace.Info($"Total job steps: {jobSteps.Count}.");
-                Trace.Verbose($"Job steps: '{string.Join(", ", jobSteps.Select(x => x.DisplayName))}'");
-
-                Trace.Info($"Total post-job steps: {postJobSteps.Count}.");
-                Trace.Verbose($"Post-job steps: '{string.Join(", ", postJobSteps.Select(x => x.DisplayName))}'");
 
                 // Run all pre job steps
                 // All pre job steps are critical to the job

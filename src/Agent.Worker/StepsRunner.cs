@@ -24,13 +24,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     [ServiceLocator(Default = typeof(StepsRunner))]
     public interface IStepsRunner : IAgentService
     {
-        Task RunAsync(IExecutionContext jobContext, IList<IStep> steps, JobRunStage stage);
+        Task RunAsync(IExecutionContext jobContext, IEnumerable<IStep> steps, JobRunStage stage);
     }
 
     public sealed class StepsRunner : AgentService, IStepsRunner
     {
         // StepsRunner should never throw exception to caller
-        public async Task RunAsync(IExecutionContext jobContext, IList<IStep> steps, JobRunStage stage)
+        public async Task RunAsync(IExecutionContext jobContext, IEnumerable<IStep> steps, JobRunStage stage)
         {
             ArgUtil.NotNull(jobContext, nameof(jobContext));
             ArgUtil.NotNull(steps, nameof(steps));
