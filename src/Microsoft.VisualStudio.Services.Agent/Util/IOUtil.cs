@@ -128,6 +128,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 Constants.Path.TasksDirectory);
         }
 
+        public static string GetDevelopmentPath(IHostContext hostContext)
+        {
+            return Path.Combine(
+                GetWorkPath(hostContext),
+                Constants.Path.DevelopmentDirectory);
+        }
+
         public static void Delete(string path, CancellationToken cancellationToken)
         {
             DeleteDirectory(path, cancellationToken);

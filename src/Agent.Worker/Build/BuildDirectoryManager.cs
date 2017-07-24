@@ -19,6 +19,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             IExecutionContext executionContext,
             string description, string path,
             bool deleteExisting);
+        
+        void SaveDevelopmentSnapshot(
+            IExecutionContext executionContext, 
+            string name
+        );
     }
 
     public sealed class BuildDirectoryManager : AgentService, IBuildDirectoryManager, IMaintenanceServiceProvider
@@ -131,6 +136,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 deleteExisting: cleanOption == BuildCleanOption.Source);
 
             return newConfig;
+        }
+
+        public void SaveDevelopmentSnapshot(IExecutionContext executionContext, string name)
+        {
+            Trace.Entering();
+            IOUtil.CopyDirectory(
+                executionContext.Variables.Agent_BuildDirectory,
+                Path.Combine(IOUtil.GetDevelopmentPath(HostContext), name),
+                executionContext.CancellationToken);
         }
 
         public void RunMaintenanceOperation(IExecutionContext executionContext)

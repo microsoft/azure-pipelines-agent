@@ -204,7 +204,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     Trace.Info("Initialize job. Getting all job steps.");
                     var initializeResult = await jobExtension.InitializeJob(jobContext, message);
-                    IStepsQueue stepsQueue = new StepsQueue(HostContext, initializeResult);
+                    IStepsQueue stepsQueue = new StepsQueue(HostContext, jobContext, initializeResult);
                     preJobSteps = stepsQueue.GetPreJobSteps();
                     jobSteps = stepsQueue.GetJobSteps();
                     postJobSteps = stepsQueue.GetPostJobSteps();
