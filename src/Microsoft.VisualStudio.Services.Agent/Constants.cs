@@ -151,6 +151,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string TestResultsDirectory = "TestResults";
                 public static readonly string TopLevelTrackingConfigFile = "Mappings.json";
                 public static readonly string TrackingConfigFile = "SourceFolder.json";
+                public static readonly string VariablesMappingDirectory = "v";
             }
         }
 
@@ -198,6 +199,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static readonly string TasksDirectory = "_tasks";
             public static readonly string UpdateDirectory = "_update";
             public static readonly string WorkDirectory = "_work";
+            public static readonly string DevelopmentDirectory = "_dev";
         }
 
         public static class Release
