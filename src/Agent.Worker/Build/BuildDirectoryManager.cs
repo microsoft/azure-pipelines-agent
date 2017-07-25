@@ -24,6 +24,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             IExecutionContext executionContext, 
             string name
         );
+
+        void RestoreDevelopmentSnapshot(
+            IExecutionContext executionContext, 
+            string name
+        );
     }
 
     public sealed class BuildDirectoryManager : AgentService, IBuildDirectoryManager, IMaintenanceServiceProvider
@@ -141,9 +146,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         public void SaveDevelopmentSnapshot(IExecutionContext executionContext, string name)
         {
             Trace.Entering();
+            IOUtil.DeleteDirectory(
+                Path.Combine(IOUtil.GetDevelopmentPath(HostContext), name),
+                executionContext.CancellationToken);
             IOUtil.CopyDirectory(
                 executionContext.Variables.Agent_BuildDirectory,
                 Path.Combine(IOUtil.GetDevelopmentPath(HostContext), name),
+                executionContext.CancellationToken);
+        }
+
+        public void RestoreDevelopmentSnapshot(IExecutionContext executionContext, string name)
+        {
+            Trace.Entering();
+            IOUtil.DeleteDirectory(
+                executionContext.Variables.Agent_BuildDirectory,
+                executionContext.CancellationToken);
+            IOUtil.CopyDirectory(
+                Path.Combine(IOUtil.GetDevelopmentPath(HostContext), name),
+                executionContext.Variables.Agent_BuildDirectory,
                 executionContext.CancellationToken);
         }
 
