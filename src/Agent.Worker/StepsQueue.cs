@@ -24,7 +24,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private sealed class FinalStep : IStep
         {
             public static readonly string FinalStepName = "StepsQueueFinalStep";
-            private readonly Func<IExecutionContext, Task> _runAsync;
 
             public FinalStep()
             {
