@@ -55,7 +55,7 @@ function Get-MaxInfoFromSqlServerDtaf {
                 }
             } |
             Sort-Object -Descending
-        foreach ($version in $versions) {
+       foreach ($version in $versions) {
             # Get the install directory.
             $installDir = Get-RegistryValue -Hive 'LocalMachine' -View $view -KeyName "$dtafKeyName\$version" -Value 'InstallDir'
             if (!$installDir) {
@@ -77,37 +77,21 @@ function Get-MaxInfoFromSqlServerDtaf {
     }
 }
 
-function Get-MaxInfoFromVisualStudioLatest {
+function Get-MaxInfoFromVisualStudio_15_0 {
     [CmdletBinding()]
     param()
 
-    $visualStudioLatestKeyName = 'Software\WOW6432Node\Microsoft\VisualStudio\SxS\VS7'
-    foreach ($view in @( 'Registry32', 'Registry64' )) {
-        $versions =
-            Get-RegistryValueNames -Hive 'LocalMachine' -View $view -KeyName $visualStudioLatestKeyName |
-            # Filter to include integer key names only.
-            ForEach-Object {
-                $d = 0
-                if (([decimal]::TryParse($_, [ref]$d))) {
-                    $d
-                }
-            } |
-            Sort-Object -Descending
-        foreach ($version in $versions) {
-            # Get the install directory.
-            $installDir = Get-RegistryValue -Hive 'LocalMachine' -View $view -KeyName "$visualStudioLatestKeyName" -Value $version
-            if (!$installDir) {
-                continue
-            }
+    $vs15 = Get-VisualStudio_15_0
+    if ($vs15 -and $vs15.installationPath) {
+        # End with "\" for consistency with old ShellFolder values.
+        $shellFolder15 = $vs15.installationPath.TrimEnd('\'[0]) + "\"
 
-            # Test for the DAC directory.
-            $dacDirectory = [System.IO.Path]::Combine($installDir, 'Common7', 'IDE', 'Extensions', 'Microsoft', 'SQLDB', 'DAC')
-            $sqlPacakgeInfo = Get-SqlPacakgeFromDacDirectory -dacDirectory $dacDirectory
+        # Test for the DAC directory.
+        $dacDirectory = [System.IO.Path]::Combine($shellFolder15, 'Common7', 'IDE', 'Extensions', 'Microsoft', 'SQLDB', 'DAC')
+        $sqlPacakgeInfo = Get-SqlPacakgeFromDacDirectory -dacDirectory $dacDirectory
 
-            if($sqlPacakgeInfo -and $sqlPacakgeInfo.File)
-            {
-                return $sqlPacakgeInfo
-            }
+        if($sqlPacakgeInfo -and $sqlPacakgeInfo.File) {
+            return $sqlPacakgeInfo
         }
     }
 }
@@ -140,7 +124,7 @@ function Get-MaxInfoFromVisualStudio {
             $sqlPacakgeInfo = Get-SqlPacakgeFromDacDirectory -dacDirectory $dacDirectory
 
             if($sqlPacakgeInfo -and $sqlPacakgeInfo.File)
-            {
+           {
                 return $sqlPacakgeInfo
             }
         }
@@ -187,7 +171,7 @@ $sqlPackageInfo = @( )
 $sqlPackageInfo += (Get-MaxInfoFromSqlServer)
 $sqlPackageInfo += (Get-MaxInfoFromSqlServerDtaf)
 $sqlPackageInfo += (Get-MaxInfoFromVisualStudio)
-$sqlPackageInfo += (Get-MaxInfoFromVisualStudioLatest)
+$sqlPackageInfo += (Get-MaxInfoFromVisualStudio_15_0)
 $sqlPackageInfo |
     Sort-Object -Property Version -Descending |
     Select -First 1 |
