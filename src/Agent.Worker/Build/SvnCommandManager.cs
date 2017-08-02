@@ -548,6 +548,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
 
             formattedArgs.Add("--non-interactive");
+            formattedArgs.Add("--no-auth-cache");
 
             // Add proxy setting parameters
             var agentProxy = HostContext.GetService<IVstsAgentWebProxy>();
