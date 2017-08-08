@@ -41,22 +41,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             return Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
         }
 
-        // public static string GetBinPathHash()
-        // {
-        //     string hashString = GetBinPath().ToLowerInvariant();
-        //     using (SHA256 sha256hash = SHA256.Create())
-        //     {
-        //         byte[] data = sha256hash.ComputeHash(Encoding.UTF8.GetBytes(hashString));
-        //         StringBuilder sBuilder = new StringBuilder();
-        //         for (int i = 0; i < data.Length; i++)
-        //         {
-        //             sBuilder.Append(data[i].ToString("x2"));
-        //         }
+        public static string GetBinPathHash()
+        {
+            string hashString = GetBinPath().ToLowerInvariant();
+            using (SHA256 sha256hash = SHA256.Create())
+            {
+                byte[] data = sha256hash.ComputeHash(Encoding.UTF8.GetBytes(hashString));
+                StringBuilder sBuilder = new StringBuilder();
+                for (int i = 0; i < data.Length; i++)
+                {
+                    sBuilder.Append(data[i].ToString("x2"));
+                }
 
-        //         string hash = sBuilder.ToString();
-        //         return hash;
-        //     }
-        // }
+                string hash = sBuilder.ToString();
+                return hash;
+            }
+        }
 
         // TODO: Get rid of this too, use host context. Last reference to this is HostTraceContext, not sure how to remove there.
         public static string GetDiagPath()
