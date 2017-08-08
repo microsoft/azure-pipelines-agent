@@ -109,7 +109,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             _binPath = HostContext.GetDirectory(WellKnownDirectory.Bin);
             Trace.Info("binPath: {0}", _binPath);
 
-            RootFolder = IOUtil.GetRootPath();
+            RootFolder = HostContext.GetDirectory(WellKnownDirectory.Root);
             Trace.Info("RootFolder: {0}", RootFolder);
 
             _configFilePath = IOUtil.GetConfigFilePath();
