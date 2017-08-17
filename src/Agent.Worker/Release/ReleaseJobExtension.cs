@@ -291,7 +291,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                 executionContext.Variables.System_TeamProjectId.ToString(),
                 releaseDefinition);
 
-            ReleaseWorkingFolder = releaseDefinitionToFolderMap.ReleaseDirectory;
+            ReleaseWorkingFolder = Path.Combine(IOUtil.GetWorkPath(HostContext), releaseDefinitionToFolderMap.ReleaseDirectory);
             ArtifactsWorkingFolder = Path.Combine(
                 IOUtil.GetWorkPath(HostContext),
                 releaseDefinitionToFolderMap.ReleaseDirectory,
@@ -305,7 +305,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                 Directory.CreateDirectory(ArtifactsWorkingFolder);
             }
 
-            SetLocalVariables(executionContext, ArtifactsWorkingFolder);
+            SetLocalVariables(executionContext, ArtifactsWorkingFolder, ReleaseWorkingFolder);
 
             // Log the environment variables available after populating the variable service with our variables
             LogEnvironmentVariables(executionContext);
@@ -324,7 +324,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 
         }
 
-        private void SetLocalVariables(IExecutionContext executionContext, string artifactsDirectoryPath)
+        private void SetLocalVariables(IExecutionContext executionContext, string artifactsDirectoryPath, string releaseWorkingDirectoryPath)
         {
             Trace.Entering();
 
@@ -334,6 +334,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
             // Set the ArtifactsDirectory even when artifacts downloaded is skipped. Reason: The task might want to access the old artifact.
             executionContext.Variables.Set(Constants.Variables.Release.ArtifactsDirectory, artifactsDirectoryPath);
             executionContext.Variables.Set(Constants.Variables.System.DefaultWorkingDirectory, artifactsDirectoryPath);
+
+            // set the AgentReleaseRootDirectory to .../_work/r1 
+            executionContext.Variables.Set(Constants.Variables.Release.AgentReleaseRootDirectory, releaseWorkingDirectoryPath);
         }
 
         private void LogEnvironmentVariables(IExecutionContext executionContext)

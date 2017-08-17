@@ -308,6 +308,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 // Keep alphabetical
                 //
                 public static readonly string AgentReleaseDirectory = "agent.releaseDirectory";
+                public static readonly string AgentReleaseRootDirectory = "agent.releaseRootDirectory";
                 public static readonly string ArtifactsDirectory = "system.artifactsDirectory";
                 public static readonly string AttemptNumber = "release.attemptNumber";
                 public static readonly string DisableRobocopy = "release.disableRobocopy";
