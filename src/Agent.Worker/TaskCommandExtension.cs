@@ -67,6 +67,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 ProcessTaskSetTaskVariableCommand(context, command.Properties, command.Data);
             }
+            else if (String.Equals(command.Event, WellKnownTaskCommand.SetEndpoint, StringComparison.OrdinalIgnoreCase))
+            {
+                ProcessTaskSetEndpointCommand(context, command.Properties, command.Data);
+            }
             else if (String.Equals(command.Event, WellKnownTaskCommand.PrependPath, StringComparison.OrdinalIgnoreCase))
             {
                 ProcessTaskPrepandPathCommand(context, command.Data);
@@ -511,6 +515,69 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             context.TaskVariables.Set(name, data, isSecret);
         }
 
+        private void ProcessTaskSetEndpointCommand(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
+        {
+            String endpointIdInput;
+            if (!eventProperties.TryGetValue(TaskSetEndpointEventProperties.EndpointId, out endpointIdInput) || String.IsNullOrEmpty(endpointIdInput))
+            {
+                throw new Exception(StringUtil.Loc("MissingEndpointID"));
+            }
+
+            Guid endpointId;
+            if (!Guid.TryParse(endpointIdInput, out endpointId))
+            {
+                throw new Exception(StringUtil.Loc("InvalidEndpointId"));
+            }
+
+            String key;
+            if (!eventProperties.TryGetValue(TaskSetEndpointEventProperties.Key, out key) || String.IsNullOrEmpty(key))
+            {
+                throw new Exception(StringUtil.Loc("MissingEndpointKey"));
+            }
+
+            var endpoint = context.Endpoints.Find(a => a.Id == endpointId);
+            if (EqualityComparer<ServiceEndpoint>.Default.Equals(endpoint, default(ServiceEndpoint)))
+            {
+                throw new Exception(StringUtil.Loc("InvalidEndpointId"));
+            }
+
+            String field;
+            if (!eventProperties.TryGetValue(TaskSetEndpointEventProperties.Field, out field) || String.IsNullOrEmpty(field))
+            {
+                throw new Exception(StringUtil.Loc("MissingEndpointField"));
+            }
+
+            Boolean isSecret = false;
+            String isSecretValue;
+            if (eventProperties.TryGetValue(TaskSetEndpointEventProperties.IsSecret, out isSecretValue))
+            {
+                Boolean.TryParse(isSecretValue, out isSecret);
+            }
+
+            if(String.Equals(field, "dataParameter", StringComparison.OrdinalIgnoreCase))
+            {
+                endpoint.Data[key]=data;
+            }
+            else if(String.Equals(field, "authParameter", StringComparison.OrdinalIgnoreCase))
+            {
+                endpoint.Authorization.Parameters[key]= data;
+            }
+            else if(String.Equals(field, "url", StringComparison.OrdinalIgnoreCase))
+            {
+                Uri uri;
+                if(!Uri.TryCreate(data, UriKind.Absolute, out uri))
+                {
+                    throw new Exception(StringUtil.Loc("InvalidUrl"));
+                }
+
+                endpoint.Url = uri;
+            }
+            else
+            {
+                throw new Exception(StringUtil.Loc("InvalidEndpointField"));
+            }            
+        }
+
         private void ProcessTaskPrepandPathCommand(IExecutionContext context, string data)
         {
             ArgUtil.NotNullOrEmpty(data, nameof(WellKnownTaskCommand.PrependPath));
@@ -554,6 +621,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public static readonly String SetSecret = "setsecret";
         public static readonly String SetVariable = "setvariable";
         public static readonly String SetTaskVariable = "settaskvariable";
+        public static readonly String SetEndpoint = "setendpoint";
         public static readonly String UploadFile = "uploadfile";
         public static readonly String UploadSummary = "uploadsummary";
     }
@@ -612,6 +680,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     internal static class TaskSetTaskVariableEventProperties
     {
         public static readonly String Variable = "variable";
+        public static readonly String IsSecret = "issecret";
+    }
+
+    internal static class TaskSetEndpointEventProperties
+    {
+        public static readonly String EndpointId = "endpointid";
+        public static readonly String Field = "field";
+        public static readonly String Key = "key";
         public static readonly String IsSecret = "issecret";
     }
 }
