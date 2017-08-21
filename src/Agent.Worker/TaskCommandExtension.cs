@@ -547,13 +547,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 throw new Exception(StringUtil.Loc("MissingEndpointField"));
             }
 
-            Boolean isSecret = false;
-            String isSecretValue;
-            if (eventProperties.TryGetValue(TaskSetEndpointEventProperties.IsSecret, out isSecretValue))
-            {
-                Boolean.TryParse(isSecretValue, out isSecret);
-            }
-
             if(String.Equals(field, "dataParameter", StringComparison.OrdinalIgnoreCase))
             {
                 endpoint.Data[key]=data;
@@ -688,6 +681,5 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public static readonly String EndpointId = "endpointid";
         public static readonly String Field = "field";
         public static readonly String Key = "key";
-        public static readonly String IsSecret = "issecret";
     }
 }
