@@ -9,9 +9,9 @@ if (!(Add-CapabilityFromRegistry -Name 'Xamarin.Android' -Hive 'LocalMachine' -V
         $xamarinAndroidDir = ([System.IO.Path]::Combine($shellFolder15, 'MSBuild', 'Xamarin', 'Android')) + '\'
         if ((Test-Container -LiteralPath $xamarinAndroidDir)) {
             $versionFile = ([System.IO.Path]::Combine($xamarinAndroidDir, 'Version'))
-            $version = Get-Content $versionFile
+            $version = Get-Content -erroraction ignore -totalcount 1 $versionFile 
             if ($version) {
-                Write-Capability -Name 'Xamarin.Android' -Value $version
+                Write-Capability -Name 'Xamarin.Android' -Value $version.trim()
             }
         }
     }
