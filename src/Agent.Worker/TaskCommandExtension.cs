@@ -517,10 +517,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private void ProcessTaskSetEndpointCommand(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
         {
+            if (!string.IsNullOrEmpty(data))
+            {
+                var _secretMasker = HostContext.GetService<ISecretMasker>();
+                _secretMasker.AddRegex(data);
+            }
+
             String endpointIdInput;
             if (!eventProperties.TryGetValue(TaskSetEndpointEventProperties.EndpointId, out endpointIdInput) || String.IsNullOrEmpty(endpointIdInput))
             {
-                throw new Exception(StringUtil.Loc("MissingEndpointID"));
+                throw new Exception(StringUtil.Loc("MissingEndpointId"));
             }
 
             Guid endpointId;
@@ -547,20 +553,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 throw new Exception(StringUtil.Loc("MissingEndpointField"));
             }
 
-            if(String.Equals(field, "dataParameter", StringComparison.OrdinalIgnoreCase))
+            if (String.Equals(field, "dataParameter", StringComparison.OrdinalIgnoreCase))
             {
-                endpoint.Data[key]=data;
+                endpoint.Data[key] = data;
             }
-            else if(String.Equals(field, "authParameter", StringComparison.OrdinalIgnoreCase))
+            else if (String.Equals(field, "authParameter", StringComparison.OrdinalIgnoreCase))
             {
-                endpoint.Authorization.Parameters[key]= data;
+                endpoint.Authorization.Parameters[key] = data;
             }
-            else if(String.Equals(field, "url", StringComparison.OrdinalIgnoreCase))
+            else if (String.Equals(field, "url", StringComparison.OrdinalIgnoreCase))
             {
                 Uri uri;
-                if(!Uri.TryCreate(data, UriKind.Absolute, out uri))
+                if (!Uri.TryCreate(data, UriKind.Absolute, out uri))
                 {
-                    throw new Exception(StringUtil.Loc("InvalidUrl"));
+                    throw new Exception(StringUtil.Loc("InvalidEndpointUrl"));
                 }
 
                 endpoint.Url = uri;
@@ -678,7 +684,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
     internal static class TaskSetEndpointEventProperties
     {
-        public static readonly String EndpointId = "endpointid";
+        public static readonly String EndpointId = "id";
         public static readonly String Field = "field";
         public static readonly String Key = "key";
     }
