@@ -44,21 +44,35 @@ Set the environment variable before you launch the agent.listener
 
 ## (Alternate) Http Tracing Windows
 
-Start [Fiddler](http://www.telerik.com/fiddler).  
-It's recommended to only listen to agent traffic.  File > Capture Traffic off (F12)  
-Enable decrypting HTTPS traffic.  Tools > Fiddler Options > HTTPS tab. Decrypt HTTPS traffic
+### Prerequisites
+1. Download and install [Fiddler](http://www.telerik.com/fiddler).
+2. Turn off file capture (File > Capture Traffic)
+3. Enable decrypting HTTPS traffic (Tools > Fiddler Options > HTTPS tab. Check Decrypt HTTPS traffic)
+4. If your agent is pointing to localhost, you must reconfigure.
+    1. Navigate to your _layout folder in cmd
+    2. Type config remove and hit enter
+    3. Type config to reset the agent. When you set the endpoint, you must set it as http://{your-machine-name}:8080/tfs, not http://localhost:8080/tfs.
 
-Let the agent know to use the proxy:
-
+### Steps
+1. Open cmd.exe and browse to your Agent folder.
+2. Set the Agent to use Fiddler as a proxy.
 ```bash
-set VSTS_HTTP_PROXY=http://127.0.0.1:8888
+\vsts-agent> set VSTS_HTTP_PROXY=http://127.0.0.1:8888
+```
+Type set again and ensure that the variable is there.
+
+NOTE: This is scoped to your current window. If you start again from a new cmd you will need to set this again. If you are running the Agent as a service you can set an environment variable with the same name and value.
+
+3. Navigate to the _layout folder and type run to start the agent.
+```bash
+\vsts-agent> cd _layout
+\vsts-agent\_layout> run
 ```
 
-Run the agent interactively.  If you're running as a service, you can set as the environment variable in control panel for the account the service is running as.
+4. You can now do things in VSTS and see the requests that come from the Agent. A good example is queueing a new build. After you do that you should see requests in Fiddler coming from the agent.worker Process.
 
-Restart the agent.
-
-TODO: video
+### Potentially Helpful Hints
+1. If you don't see the Process column in Fiddler, restart and while it's loading hold Shift. This will reset the UI.
 
 ## (Alternate) Http Tracing OSX / Linux
 
