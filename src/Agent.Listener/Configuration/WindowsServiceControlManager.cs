@@ -142,6 +142,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             string workFolder = IOUtil.GetWorkPath(HostContext);
             Directory.CreateDirectory(workFolder);
             Trace.Info(StringUtil.Format("Set full access control to group for the folder {0}", workFolder));
+            Trace.Info(StringUtil.Loc("GrantingFilePermissions"));
             _windowsServiceHelper.GrantFullControlToGroup(workFolder, groupName);
         }
 
