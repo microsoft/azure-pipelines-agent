@@ -517,12 +517,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private void ProcessTaskSetEndpointCommand(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
         {
-            if (!string.IsNullOrEmpty(data))
+            String field;
+            if (!eventProperties.TryGetValue(TaskSetEndpointEventProperties.Field, out field) || String.IsNullOrEmpty(field))
+            {
+                throw new Exception(StringUtil.Loc("MissingEndpointField"));
+            }
+
+            if (String.Equals(field, "authParameter", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(data))
             {
                 var _secretMasker = HostContext.GetService<ISecretMasker>();
                 _secretMasker.AddRegex(data);
             }
-
+            
             String endpointIdInput;
             if (!eventProperties.TryGetValue(TaskSetEndpointEventProperties.EndpointId, out endpointIdInput) || String.IsNullOrEmpty(endpointIdInput))
             {
@@ -545,12 +551,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             if (EqualityComparer<ServiceEndpoint>.Default.Equals(endpoint, default(ServiceEndpoint)))
             {
                 throw new Exception(StringUtil.Loc("InvalidEndpointId"));
-            }
-
-            String field;
-            if (!eventProperties.TryGetValue(TaskSetEndpointEventProperties.Field, out field) || String.IsNullOrEmpty(field))
-            {
-                throw new Exception(StringUtil.Loc("MissingEndpointField"));
             }
 
             if (String.Equals(field, "dataParameter", StringComparison.OrdinalIgnoreCase))
