@@ -517,13 +517,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private void ProcessTaskSetEndpointCommand(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
         {
+            if (string.IsNullOrEmpty(data))
+            {
+                throw new Exception(StringUtil.Loc("EnterValidValueFor0", "setendpoint"));
+            }
+
             String field;
             if (!eventProperties.TryGetValue(TaskSetEndpointEventProperties.Field, out field) || String.IsNullOrEmpty(field))
             {
                 throw new Exception(StringUtil.Loc("MissingEndpointField"));
             }
 
-            if (String.Equals(field, "authParameter", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(data))
+            // Mask auth parameter data upfront to avoid accidental secret exposure by invalid endpoint/key/data 
+            if (String.Equals(field, "authParameter", StringComparison.OrdinalIgnoreCase))
             {
                 var _secretMasker = HostContext.GetService<ISecretMasker>();
                 _secretMasker.AddRegex(data);
@@ -541,16 +547,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 throw new Exception(StringUtil.Loc("InvalidEndpointId"));
             }
 
-            String key;
-            if (!eventProperties.TryGetValue(TaskSetEndpointEventProperties.Key, out key) || String.IsNullOrEmpty(key))
-            {
-                throw new Exception(StringUtil.Loc("MissingEndpointKey"));
-            }
-
             var endpoint = context.Endpoints.Find(a => a.Id == endpointId);
             if (EqualityComparer<ServiceEndpoint>.Default.Equals(endpoint, default(ServiceEndpoint)))
             {
                 throw new Exception(StringUtil.Loc("InvalidEndpointId"));
+            }
+            
+            if (String.Equals(field, "url", StringComparison.OrdinalIgnoreCase))
+            {
+                Uri uri;
+                if (!Uri.TryCreate(data, UriKind.Absolute, out uri))
+                {
+                    throw new Exception(StringUtil.Loc("InvalidEndpointUrl"));
+                }
+
+                endpoint.Url = uri;
+                return;
+            }
+
+            String key;
+            if (!eventProperties.TryGetValue(TaskSetEndpointEventProperties.Key, out key) || String.IsNullOrEmpty(key))
+            {
+                throw new Exception(StringUtil.Loc("MissingEndpointKey"));
             }
 
             if (String.Equals(field, "dataParameter", StringComparison.OrdinalIgnoreCase))
@@ -560,16 +578,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             else if (String.Equals(field, "authParameter", StringComparison.OrdinalIgnoreCase))
             {
                 endpoint.Authorization.Parameters[key] = data;
-            }
-            else if (String.Equals(field, "url", StringComparison.OrdinalIgnoreCase))
-            {
-                Uri uri;
-                if (!Uri.TryCreate(data, UriKind.Absolute, out uri))
-                {
-                    throw new Exception(StringUtil.Loc("InvalidEndpointUrl"));
-                }
-
-                endpoint.Url = uri;
             }
             else
             {

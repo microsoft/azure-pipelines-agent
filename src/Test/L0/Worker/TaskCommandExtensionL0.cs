@@ -72,6 +72,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        public void SetEndpointWithoutValue()
+        {
+            SetupMocks();
+            TaskCommandExtension commandExtension = new TaskCommandExtension();
+            var cmd = new Command("task", "setEndpoint");
+            Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
         public void SetEndpointWithoutEndpointField()
         {
             SetupMocks();
@@ -129,7 +140,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             SetupMocks();
             TaskCommandExtension commandExtension = new TaskCommandExtension();
             var cmd = new Command("task", "setEndpoint");
-            cmd.Properties.Add("field", "url");
+            cmd.Properties.Add("field", "authParameter");
             cmd.Properties.Add("id", Guid.Empty.ToString());
 
             Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
@@ -138,7 +149,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void SetEndpointUrlParameter_invalidUrl()
+        public void SetEndpointUrlWithInvalidValue()
         {
             SetupMocks();
             TaskCommandExtension commandExtension = new TaskCommandExtension();
@@ -146,7 +157,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             cmd.Data = "blah";
             cmd.Properties.Add("field", "url");
             cmd.Properties.Add("id", Guid.Empty.ToString());
-            cmd.Properties.Add("key", "test");
 
             Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
         }
