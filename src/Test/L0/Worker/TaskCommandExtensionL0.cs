@@ -62,7 +62,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             cmd.Data = "http://blah/";
             cmd.Properties.Add("field", "url");
             cmd.Properties.Add("id", Guid.Empty.ToString());
-            cmd.Properties.Add("key", "test");
 
             commandExtension.ProcessCommand(_ec.Object, cmd);
 
