@@ -77,6 +77,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             SetupMocks();
             TaskCommandExtension commandExtension = new TaskCommandExtension();
             var cmd = new Command("task", "setEndpoint");
+
             Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
         }
 
@@ -130,6 +131,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             var cmd = new Command("task", "setEndpoint");
             cmd.Properties.Add("field", "url");
             cmd.Properties.Add("id", Guid.Empty.ToString());
+
             Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
         }
 
@@ -145,6 +147,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             cmd.Properties.Add("field", "url");
             cmd.Properties.Add("id", Guid.Empty.ToString());
             cmd.Properties.Add("key", "test");
+
             Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
         }
 
@@ -153,7 +156,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             _hc = new TestHostContext(this, name);
             _ec = new Mock<IExecutionContext>();
 
-             _endpoint = new ServiceEndpoint()
+            _endpoint = new ServiceEndpoint()
             {
                 Id = Guid.Empty,
                 Url = new Uri("https://test.com"),
