@@ -50,6 +50,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Capabilities
             builder.Check(name: "JDK", fileName: "javac");
             builder.Check(name: "make");
             builder.Check(name: "maven", fileName: "mvn");
+            builder.Check(name: "meteor");
             builder.Check(name: "MSBuild", fileName: "xbuild");
             builder.Check(name: "node.js", fileName: "node");
             builder.Check(name: "node.js", fileName: "nodejs");
