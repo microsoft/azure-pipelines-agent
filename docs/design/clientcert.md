@@ -9,7 +9,7 @@
 
 ## Pre-requirements
 
-  - CA root certificate in `.pem` format (This should contains the public key and signature of the CA root certificate)  
+  - CA certificate(s) in `.pem` format (This should contains the public key and signature of the CA certificate, you need put the root ca certificate and all your intermediate ca certificates into one `.pem` file)  
   - Client certificate in `.pem` format (This should contains the public key and signature of the Client certificate)  
   - Client certificate private key in `.pem` format (This should contains only the private key of the Client certificate)  
   - Client certificate archive package in `.pfx` format (This should contains the signature, public key and private key of the Client certificate)  
@@ -33,7 +33,20 @@ You can use `OpenSSL` to get all pre-required certificates format ready easily a
 Windows has a pretty good built-in certificate manger, the `Windows Certificate Manager`, it will make most Windows based application deal with certificate problem easily. However, most Linux background application (Git) and technologies (Node.js) won't check the `Windows Certificate Manager`, they just expect all certificates are just a file on disk.  
 
 Use the following step to setup pre-reqs on Windows, assume you already installed your corporation's `CA root cert` into local machine's `Trusted CA Store`, and you have your client cert `clientcert.pfx` file on disk and you know the `password` for it.  
-  - Export CA cert from `Trusted CA Store`, use `Base64 Encoding X.509 (.CER)` format, name the export cert to something like `ca.pem`.  
+  - Export CA cert from `Trusted Root CA Store`, use `Base64 Encoding X.509 (.CER)` format, name the export cert to something like `ca.pem`.  
+  - Export any intermediate CA cert from `Intermediate CA Store`, use `Base64 Encoding X.509 (.CER)` format, name the export cert to something like `ca_inter_1/2/3.pem`. Concatenate all intermediate ca certs into `ca.pem`, your `ca.pem` might looks like following:  
+```
+-----BEGIN CERTIFICATE----- 
+(Your Root CA certificate: ca.pem) 
+-----END CERTIFICATE-----
+-----BEGIN CERTIFICATE----- 
+(Your Intermediate CA certificate: ca_inter_1.pem) 
+-----END CERTIFICATE-----
+...
+-----BEGIN CERTIFICATE----- 
+(Your Intermediate CA certificate: ca_inter_n.pem) 
+-----END CERTIFICATE-----
+```  
   - Extract Client cert and Client cert private key from `.pfx` file. You need `OpenSSL` to do this, you either install `OpenSSL for Windows` or just use `Git Bash`, since `Git Bash` has `OpenSSL` baked in.
 ```
 Inside Git Bash:    
