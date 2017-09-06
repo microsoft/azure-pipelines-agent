@@ -154,9 +154,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                             {
                                 versionString = "4.6.1";
                             }
-                            else if (release > 394271)
+                            else if (release > 394271 && release <= 460797)
                             {
-                                versionString = "4.6.2";
+                                versionString = "4.6.1";
+                            }
+                            else if (release > 460797)
+                            {
+                                versionString = "4.7.0";
                             }
                             else
                             {
