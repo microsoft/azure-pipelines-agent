@@ -104,3 +104,22 @@ Please reference [VSTS-Task-Lib doc](https://github.com/Microsoft/vsts-task-lib/
  - Fetch git repository [DONE]
  - Fetch tfvc repository [Only supported in Windows agent]
  - Expose client cert info to task sdk [DONE]
+
+## Self-Signed CA Certificates
+
+I would assume there are some self-signed CA certificates along with the client certificate, however the current agent doesn't has a good way to handle self-signed CA certificates.  
+
+The work of the client certificate support do add a `--sslcacert` option to agent configuration, but it currentlly just for some of the downstream tools your Build/Release job and not for the agent infrastructure. In order to use self-signed CA certificates with the agent, you need to maunally install all self-signed CA certificates into your OS's certificate store, like: `Windows certificate manager` on `Windows`, `OpenSSL CA store` on `Linux`. Just like you have to manually configure your browser to take those certificates. We might be able to improve this when we consume netcore 2.0 in the agent.  
+
+The next problem is about all different downstream tools you used in your Build/Release job, the way they find CA certificates might all different.  
+Ex:
+ - Git (version < 2.14.x) expect a `--cainfo` option and point to the CA file.  
+ - Git (version >= 2.14.x) has a config option to let Git to read CA from `Windows Certificate Manager` on `Windows`.  
+ - Tf.exe expect read CA from `Windows Certificate Manager`.  
+ - TEE (tf on linux) expect read CA from `Java Certificate Store`.  
+ - PowerShell expect read CA from `Windows Certificate Manager`.  
+ - Node.js expect a `ca` parameter on `tls.options`.  
+ - Node.js (version >= 7.3) also expect an environment vairble to point to the CA file `NODE_EXTRA_CA_CERTS`, however the agent current use Node.js version 6.x which mean we can't use that envirinment variable.  
+
+At this point, I would sugguest when you have a self-signed CA cert, please make sure the tools or technologies you used within your Build/Release works with your self-signed CA cert first, then try to configure the agent.  
+In this way, even you get an error within your build/release job, you might have better idea of where is the error coming from.  
