@@ -436,6 +436,7 @@
   "RMCachingAllItems": "Caching all items in the file container...",
   "RMCachingComplete": "Caching complete. ({0} ms)",
   "RMCachingContainerItems": "Caching items under '{0}' in the file container...",
+  "RMContainerFetchTimeout": "Container fetch timeout: {0}",
   "RMContainerItemNotSupported": "Container Item type '{0}' not supported.",
   "RMContainerItemPathDoesnotExist": "File container item path doesn't start with {0}: {1}",
   "RMContainerItemRequestTimedOut": "Request timed out after {0} seconds; sleeping for {1} seconds and attempting again. Request: {2} {3}",

@@ -305,7 +305,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEng
 
                     if (!getFileTask.IsCompleted)
                     {
-                        throw new TimeoutException(StringUtil.Loc("RMGetFileAsyncTimedOut", GetFileAsyncTimeoutMinutes));
+                        throw new TimeoutException(StringUtil.Loc("RMGetFileAsyncTimedOut", ContainerFetchEngineOptions.GetFileAsyncTimeout.Seconds));
                     }
 
                     ExecutionLogger.Debug(StringUtil.Format("Writing contents of file {0} to disk", tmpDownloadPath));
@@ -393,7 +393,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEng
         private static readonly TimeSpan ProgressInterval = TimeSpan.FromSeconds(5);
         private static readonly TimeSpan TaskDiagThreshold = TimeSpan.FromMinutes(1);
 
-        private const int GetFileAsyncTimeoutMinutes = 5;
         public ContainerFetchEngineOptions ContainerFetchEngineOptions { get; set; }
     }
 }
