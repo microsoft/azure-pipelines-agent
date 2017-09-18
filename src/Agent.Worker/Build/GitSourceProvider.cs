@@ -30,8 +30,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             throw new NotSupportedException(nameof(ExternalGitSourceProvider.GenerateAuthHeader));
         }
     }
-    
-   public abstract class AuthenticatedGitSourceProvider : GitSourceProvider
+
+    public abstract class AuthenticatedGitSourceProvider : GitSourceProvider
     {
         public override bool GitUseAuthHeaderCmdlineArg
         {
