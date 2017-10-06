@@ -33,11 +33,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         void ThrowTaskAgentExistException(AgentSettings agentSettings);
     }
 
-    public sealed class BuildReleasesAgentConfigProvider : AgentService, IConfigurationProvider
+    public class BuildReleasesAgentConfigProvider : AgentService, IConfigurationProvider
     {
         public Type ExtensionType => typeof(IConfigurationProvider);
         private ITerminal _term;
-        private IAgentServer _agentServer;
+        protected IAgentServer _agentServer;
 
         public string ConfigurationProviderType
             => Constants.Agent.AgentConfigurationProvider.BuildReleasesAgentConfiguration;
@@ -54,7 +54,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             agentSettings.ServerUrl = command.GetUrl();
         }
 
-        public async Task GetPoolId(AgentSettings agentSettings, CommandSettings command)
+        public virtual async Task GetPoolId(AgentSettings agentSettings, CommandSettings command)
         {
             int poolId = 0;
             string poolName;
@@ -310,6 +310,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
 
             return machines;
+        }
+    }
+
+    public class SharedDeploymentAgentConfigProvider : BuildReleasesAgentConfigProvider, IConfigurationProvider
+    {
+        public new string ConfigurationProviderType
+            => Constants.Agent.AgentConfigurationProvider.SharedDeploymentAgentConfiguration;
+
+        public override async Task GetPoolId(AgentSettings agentSettings, CommandSettings command)
+        {
+            int poolId = 0;
+            string poolName;
+
+            poolName = command.GetDeploymentPoolName();
+
+            TaskAgentPool agentPool = (await _agentServer.GetAgentPoolsAsync(poolName, TaskAgentPoolType.Deployment)).FirstOrDefault();
+            if (agentPool == null)
+            {
+                throw new TaskAgentPoolNotFoundException(StringUtil.Loc("DeploymentPoolNotFound", poolName));
+            }
+            else
+            {
+                Trace.Info("Found deployment pool {0} with id {1}", poolName, agentPool.Id);
+                agentSettings.PoolId = agentPool.Id;
+            }
+
+            Trace.Info($"PoolId for deployment pool '{poolName}' is '{poolId}'.");
         }
     }
 }
