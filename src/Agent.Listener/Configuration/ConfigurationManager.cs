@@ -176,11 +176,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             // Create the configuration provider as per agent type.
             string agentType = Constants.Agent.AgentConfigurationProvider.BuildReleasesAgentConfiguration;
 
-            if(command.DeploymentGroup)
+            if (command.DeploymentGroup)
             {
                 agentType = Constants.Agent.AgentConfigurationProvider.DeploymentAgentConfiguration;
             }
-            else if(command.DeploymentPool)
+            else if (command.DeploymentPool)
             {
                 agentType = Constants.Agent.AgentConfigurationProvider.SharedDeploymentAgentConfiguration;
             }
