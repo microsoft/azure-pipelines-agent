@@ -106,20 +106,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Trace.Verbose("Returns {0} agents", agents.Count);
             return agents.FirstOrDefault();
         }
-
-        private async Task<int> GetPoolIdAsync(string poolName)
-        {
-            TaskAgentPool agentPool = (await _agentServer.GetAgentPoolsAsync(poolName)).FirstOrDefault();
-            if (agentPool == null)
-            {
-                throw new TaskAgentPoolNotFoundException(StringUtil.Loc("PoolNotFound", poolName));
-            }
-            else
-            {
-                Trace.Info("Found pool {0} with id {1}", poolName, agentPool.Id);
-                return agentPool.Id;
-            }
-        }
     }
 
     public sealed class DeploymentGroupAgentConfigProvider : AgentService, IConfigurationProvider
