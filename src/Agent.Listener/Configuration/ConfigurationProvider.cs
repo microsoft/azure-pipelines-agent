@@ -56,14 +56,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public virtual async Task GetPoolId(AgentSettings agentSettings, CommandSettings command)
         {
-            int poolId = 0;
-            string poolName;
+            string poolName = command.GetPool();
 
-            poolName = command.GetPool();
-            poolId = await GetPoolIdAsync(poolName);
-            Trace.Info($"PoolId for agent pool '{poolName}' is '{poolId}'.");
-
-            agentSettings.PoolId = poolId;
+            TaskAgentPool agentPool = (await _agentServer.GetAgentPoolsAsync(poolName)).FirstOrDefault();
+            if (agentPool == null)
+            {
+                throw new TaskAgentPoolNotFoundException(StringUtil.Loc("PoolNotFound", poolName));
+            }
+            else
+            {
+                Trace.Info("Found pool {0} with id {1}", poolName, agentPool.Id);
+                agentSettings.PoolId = agentPool.Id;
+            }
         }
 
         public string GetFailedToFindPoolErrorString() => StringUtil.Loc("FailedToFindPool");
@@ -332,8 +336,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 Trace.Info("Found deployment pool {0} with id {1}", poolName, agentPool.Id);
                 agentSettings.PoolId = agentPool.Id;
             }
-
-            Trace.Info($"PoolId for deployment pool '{poolName}' is '{agentSettings.PoolId}'.");
         }
     }
 }
