@@ -320,10 +320,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public override async Task GetPoolId(AgentSettings agentSettings, CommandSettings command)
         {
-            int poolId = 0;
-            string poolName;
-
-            poolName = command.GetDeploymentPoolName();
+            string poolName = command.GetDeploymentPoolName();
 
             TaskAgentPool agentPool = (await _agentServer.GetAgentPoolsAsync(poolName, TaskAgentPoolType.Deployment)).FirstOrDefault();
             if (agentPool == null)
@@ -336,7 +333,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 agentSettings.PoolId = agentPool.Id;
             }
 
-            Trace.Info($"PoolId for deployment pool '{poolName}' is '{poolId}'.");
+            Trace.Info($"PoolId for deployment pool '{poolName}' is '{agentSettings.PoolId}'.");
         }
     }
 }
