@@ -105,6 +105,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     {
                         await _testResultsServer.CreateTestResultAttachmentAsync(attachmentRequestModel, _projectName, testRun.Id, testresults[j].Id, cancellationToken);
                     }
+
+                    // Upload standard error as attachment
+                    string standardError = testResults[i + j].StandardError;
+                    TestAttachmentRequestModel stdErrAttachmentRequestModel = GetStandardErrorAttachmentRequestModel(standardError);
+                    if (stdErrAttachmentRequestModel != null)
+                    {
+                        await _testResultsServer.CreateTestResultAttachmentAsync(stdErrAttachmentRequestModel, _projectName, testRun.Id, testresults[j].Id, cancellationToken);
+                    }
                 }
             }
 
@@ -298,7 +306,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             Trace.Entering();
             if (!string.IsNullOrWhiteSpace(consoleLog))
             {
-                string consoleLogFileName = "Standard Console Output.log";
+                string consoleLogFileName = "Standard_Console_Output.log";
 
                 if (consoleLog.Length <= TCM_MAX_FILESIZE)
                 {
@@ -310,6 +318,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 else
                 {
                     _executionContext.Warning(StringUtil.Loc("AttachmentExceededMaximum", consoleLogFileName));
+                }
+            }
+
+            return null;
+        }
+
+        private TestAttachmentRequestModel GetStandardErrorAttachmentRequestModel(string stdErr)
+        {
+            Trace.Entering();
+            if (string.IsNullOrWhiteSpace(stdErr) == false)
+            {
+                const string stdErrFileName = "Standard_Console_Error.log";
+
+                if (stdErr.Length <= TCM_MAX_FILESIZE)
+                {
+                    byte[] bytes = System.Text.Encoding.UTF8.GetBytes(stdErr);
+                    string encodedData = Convert.ToBase64String(bytes);
+                    return new TestAttachmentRequestModel(encodedData, stdErrFileName, "",
+                        AttachmentType.ConsoleLog.ToString());
+                }
+                else
+                {
+                    _executionContext.Warning(StringUtil.Loc("AttachmentExceededMaximum", stdErrFileName));
                 }
             }
 

@@ -4,7 +4,7 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.VisualStudio.Services.Common;
+using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -32,7 +32,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             try
             {
                 var agentWebProxy = HostContext.GetService<IVstsAgentWebProxy>();
-                VssHttpMessageHandler.DefaultWebProxy = agentWebProxy;
+                var agentCertManager = HostContext.GetService<IAgentCertificateManager>();
+                ApiUtil.InitializeVssClientSettings(agentWebProxy, agentCertManager);
 
                 _inConfigStage = true;
                 _completedCommand.Reset();

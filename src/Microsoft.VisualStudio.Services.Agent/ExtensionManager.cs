@@ -52,6 +52,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 case "Microsoft.VisualStudio.Services.Agent.Listener.Configuration.IConfigurationProvider":
                     Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Listener.Configuration.BuildReleasesAgentConfigProvider, Agent.Listener");
                     Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Listener.Configuration.DeploymentGroupAgentConfigProvider, Agent.Listener");
+                    Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Listener.Configuration.SharedDeploymentAgentConfigProvider, Agent.Listener");
                     break;
                 // Worker job extensions.
                 case "Microsoft.VisualStudio.Services.Agent.Worker.IJobExtension":
@@ -73,6 +74,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 case "Microsoft.VisualStudio.Services.Agent.Worker.Build.ISourceProvider":
                     Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.Build.ExternalGitSourceProvider, Agent.Worker");
                     Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.Build.GitHubSourceProvider, Agent.Worker");
+                    Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.Build.GitHubEnterpriseSourceProvider, Agent.Worker");
                     Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.Build.BitbucketSourceProvider, Agent.Worker");
                     Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.Build.SvnSourceProvider, Agent.Worker");
                     Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.Build.TfsGitSourceProvider, Agent.Worker");
