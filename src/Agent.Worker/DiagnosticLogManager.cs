@@ -237,7 +237,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        // TODO: Async/await?
         private async Task<string> GetPsVersionInfo()
         {
             var builder = new StringBuilder();
@@ -246,23 +245,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             string arguments = @"Write-Host ($psversiontable | Out-String)";
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
             {
-                processInvoker.OutputDataReceived +=
-                    (object sender, ProcessDataReceivedEventArgs args) =>
-                    {
-                        Trace.Info($"STDOUT: {args.Data}");
-                        //Capability capability;
-                        // if (TryParseCapability(args.Data, out capability))
-                        // {
-                        //     Trace.Info($"Adding '{capability.Name}': '{capability.Value}'");
-                        //     capabilities.Add(capability);
-                        // }
-                        builder.AppendLine(args.Data);
-                    };
-                processInvoker.ErrorDataReceived +=
-                    (object sender, ProcessDataReceivedEventArgs args) =>
-                    {
-                        Trace.Info($"STDERR: {args.Data}");
-                    };
+                processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+                {
+                    Trace.Info($"STDOUT: {args.Data}");
+                    builder.AppendLine(args.Data);
+                };
+
+                processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+                {
+                    Trace.Info($"STDERR: {args.Data}");
+                };
+                
                 await processInvoker.ExecuteAsync(
                     workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Bin),
                     fileName: powerShellExe,
