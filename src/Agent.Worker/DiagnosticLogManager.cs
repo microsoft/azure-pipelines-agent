@@ -68,7 +68,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             executionContext.Debug("Creating diagnostic log environment file.");
             string environmentFile = Path.Combine(supportFilesFolder, "environment.txt");
-            string content = await GetEnvironmentContent(executionContext, agentId, agentName, message.Tasks);
+            string content = await GetEnvironmentContent(agentId, agentName, message.Tasks);
             File.WriteAllText(environmentFile, content);
 
             // Create the capabilities file
@@ -176,7 +176,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return workerLogFiles;
         }
 
-        private async Task<string> GetEnvironmentContent(IExecutionContext executionContext, int agentId, string agentName, ReadOnlyCollection<TaskInstance> tasks)
+        private async Task<string> GetEnvironmentContent(int agentId, string agentName, ReadOnlyCollection<TaskInstance> tasks)
         {
             var builder = new StringBuilder();
 
@@ -201,7 +201,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // $psversiontable
             builder.AppendLine("Powershell Version Info:");
-            builder.AppendLine(await GetPsVersionInfo(executionContext));
+            builder.AppendLine(await GetPsVersionInfo());
 #endif
 
             return builder.ToString();
@@ -237,7 +237,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        private async Task<string> GetPsVersionInfo(IExecutionContext executionContext)
+        private async Task<string> GetPsVersionInfo()
         {
             var builder = new StringBuilder();
 
