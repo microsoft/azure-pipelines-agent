@@ -247,13 +247,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
                 {
-                    executionContext.Output($"STDOUT: {args.Data}");
                     builder.AppendLine(args.Data);
                 };
 
                 processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
                 {
-                    executionContext.Output($"STDERR: {args.Data}");
+                    builder.AppendLine(args.Data);
                 };
 
                 await processInvoker.ExecuteAsync(
