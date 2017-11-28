@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Microsoft.VisualStudio.Services.Agent.Listener.Capabilities
+namespace Microsoft.VisualStudio.Services.Agent.Capabilities
 {
     public sealed class NixCapabilitiesProvider : AgentService, ICapabilitiesProvider
     {
@@ -44,13 +44,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Capabilities
             builder.Check(name: "clang");
             builder.Check(name: "cmake");
             builder.Check(name: "curl");
+            builder.Check(name: "docker");
             builder.Check(name: "git");
             builder.Check(name: "gulp");
             builder.Check(name: "java");
             builder.Check(name: "JDK", fileName: "javac");
             builder.Check(name: "make");
             builder.Check(name: "maven", fileName: "mvn");
-            builder.Check(name: "MSBuild", fileName: "xbuild");
+            builder.Check(name: "MSBuild", fileName: "xbuild",  filePaths: new [] { "/Library/Frameworks/Mono.framework/Commands/xbuild" });
+            builder.Check(name: "MSBuild", fileName: "msbuild", filePaths: new [] { "/Library/Frameworks/Mono.framework/Commands/msbuild" });
             builder.Check(name: "node.js", fileName: "node");
             builder.Check(name: "node.js", fileName: "nodejs");
             builder.Check(name: "npm");

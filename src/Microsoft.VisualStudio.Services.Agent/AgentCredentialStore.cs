@@ -16,6 +16,7 @@ using System.Security.Cryptography;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
+    // The purpose of this class is to store user's credential during agent configuration and retrive the credential back at runtime.
 #if OS_WINDOWS
     [ServiceLocator(Default = typeof(WindowsAgentCredentialStore))]
 #elif OS_OSX
@@ -35,8 +36,38 @@ namespace Microsoft.VisualStudio.Services.Agent
     }
 
 #if OS_WINDOWS
+    // Windows credential store is per user.
+    // This is a limitation for user configure the agent run as windows service, when user's current login account is different with the service run as account.
+    // Ex: I login the box as domain\admin, configure the agent as windows service and run as domian\buildserver
+    // domain\buildserver won't read the stored credential from domain\admin's windows credential store.
+    // To workaround this limitation.
+    // Anytime we try to save a credential:
+    //   1. store it into current user's windows credential store 
+    //   2. use DP-API do a machine level encrypt and store the encrypted content on disk.
+    // At the first time we try to read the credential:
+    //   1. read from current user's windows credential store, delete the DP-API encrypted backup content on disk if the windows credential store read succeed.
+    //   2. if credential not found in current user's windows credential store, read from the DP-API encrypted backup content on disk, 
+    //      write the credential back the current user's windows credential store and delete the backup on disk.
     public sealed class WindowsAgentCredentialStore : AgentService, IAgentCredentialStore
     {
+        private string _credStoreFile;
+        private Dictionary<string, string> _credStore;
+
+        public override void Initialize(IHostContext hostContext)
+        {
+            base.Initialize(hostContext);
+
+            _credStoreFile = IOUtil.GetAgentCredStoreFilePath();
+            if (File.Exists(_credStoreFile))
+            {
+                _credStore = IOUtil.LoadObject<Dictionary<string, string>>(_credStoreFile);
+            }
+            else
+            {
+                _credStore = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            }
+        }
+
         public NetworkCredential Write(string target, string username, string password)
         {
             Trace.Entering();
@@ -44,6 +75,118 @@ namespace Microsoft.VisualStudio.Services.Agent
             ArgUtil.NotNullOrEmpty(username, nameof(username));
             ArgUtil.NotNullOrEmpty(password, nameof(password));
 
+            // save to .credential_store file first, then Windows credential store
+            string usernameBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(username));
+            string passwordBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(password));
+
+            // Base64Username:Base64Password -> DP-API machine level encrypt -> Base64Encoding
+            string encryptedUsernamePassword = Convert.ToBase64String(ProtectedData.Protect(Encoding.UTF8.GetBytes($"{usernameBase64}:{passwordBase64}"), null, DataProtectionScope.LocalMachine));
+            Trace.Info($"Credentials for '{target}' written to credential store file.");
+            _credStore[target] = encryptedUsernamePassword;
+
+            // save to .credential_store file
+            SyncCredentialStoreFile();
+
+            // save to Windows Credential Store
+            return WriteInternal(target, username, password);
+        }
+
+        public NetworkCredential Read(string target)
+        {
+            Trace.Entering();
+            ArgUtil.NotNullOrEmpty(target, nameof(target));
+            IntPtr credPtr = IntPtr.Zero;
+            try
+            {
+                if (CredRead(target, CredentialType.Generic, 0, out credPtr))
+                {
+                    Credential credStruct = (Credential)Marshal.PtrToStructure(credPtr, typeof(Credential));
+                    int passwordLength = (int)credStruct.CredentialBlobSize;
+                    string password = passwordLength > 0 ? Marshal.PtrToStringUni(credStruct.CredentialBlob, passwordLength / sizeof(char)) : String.Empty;
+                    string username = Marshal.PtrToStringUni(credStruct.UserName);
+                    Trace.Info($"Credentials for '{target}' read from windows credential store.");
+
+                    // delete from .credential_store file since we are able to read it from windows credential store
+                    if (_credStore.Remove(target))
+                    {
+                        Trace.Info($"Delete credentials for '{target}' from credential store file.");
+                        SyncCredentialStoreFile();
+                    }
+
+                    return new NetworkCredential(username, password);
+                }
+                else
+                {
+                    // Can't read from Windows Credential Store, fail back to .credential_store file
+                    if (_credStore.ContainsKey(target) && !string.IsNullOrEmpty(_credStore[target]))
+                    {
+                        Trace.Info($"Credentials for '{target}' read from credential store file.");
+
+                        // Base64Decode -> DP-API machine level decrypt -> Base64Username:Base64Password -> Base64Decode
+                        string decryptedUsernamePassword = Encoding.UTF8.GetString(ProtectedData.Unprotect(Convert.FromBase64String(_credStore[target]), null, DataProtectionScope.LocalMachine));
+
+                        string[] credential = decryptedUsernamePassword.Split(':');
+                        if (credential.Length == 2 && !string.IsNullOrEmpty(credential[0]) && !string.IsNullOrEmpty(credential[1]))
+                        {
+                            string username = Encoding.UTF8.GetString(Convert.FromBase64String(credential[0]));
+                            string password = Encoding.UTF8.GetString(Convert.FromBase64String(credential[1]));
+
+                            // store back to windows credential store for current user
+                            NetworkCredential creds = WriteInternal(target, username, password);
+
+                            // delete from .credential_store file since we are able to write the credential to windows credential store for current user.
+                            if (_credStore.Remove(target))
+                            {
+                                Trace.Info($"Delete credentials for '{target}' from credential store file.");
+                                SyncCredentialStoreFile();
+                            }
+
+                            return creds;
+                        }
+                        else
+                        {
+                            throw new ArgumentOutOfRangeException(nameof(decryptedUsernamePassword));
+                        }
+                    }
+
+                    throw new Win32Exception(Marshal.GetLastWin32Error(), $"CredRead throw an error for '{target}'");
+                }
+            }
+            finally
+            {
+                if (credPtr != IntPtr.Zero)
+                {
+                    CredFree(credPtr);
+                }
+            }
+        }
+
+        public void Delete(string target)
+        {
+            Trace.Entering();
+            ArgUtil.NotNullOrEmpty(target, nameof(target));
+
+            // remove from .credential_store file
+            if (_credStore.Remove(target))
+            {
+                Trace.Info($"Delete credentials for '{target}' from credential store file.");
+                SyncCredentialStoreFile();
+            }
+
+            // remove from windows credential store
+            if (!CredDelete(target, CredentialType.Generic, 0))
+            {
+                throw new Win32Exception(Marshal.GetLastWin32Error(), $"Failed to delete credentials for {target}");
+            }
+            else
+            {
+                Trace.Info($"Credentials for '{target}' deleted from windows credential store.");
+            }
+        }
+
+        private NetworkCredential WriteInternal(string target, string username, string password)
+        {
+            // save to Windows Credential Store
             Credential credential = new Credential()
             {
                 Type = CredentialType.Generic,
@@ -62,7 +205,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             {
                 if (CredWrite(ref credential, 0))
                 {
-                    Trace.Info($"credentials for '{target}' written to store.");
+                    Trace.Info($"Credentials for '{target}' written to windows credential store.");
                     return new NetworkCredential(username, password);
                 }
                 else
@@ -88,48 +231,22 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        public NetworkCredential Read(string target)
+        private void SyncCredentialStoreFile()
         {
-            Trace.Entering();
-            ArgUtil.NotNullOrEmpty(target, nameof(target));
-            IntPtr credPtr = IntPtr.Zero;
-            try
-            {
-                if (CredRead(target, CredentialType.Generic, 0, out credPtr))
-                {
-                    Credential credStruct = (Credential)Marshal.PtrToStructure(credPtr, typeof(Credential));
-                    int passwordLength = (int)credStruct.CredentialBlobSize;
-                    string password = passwordLength > 0 ? Marshal.PtrToStringUni(credStruct.CredentialBlob, passwordLength / sizeof(char)) : String.Empty;
-                    string username = Marshal.PtrToStringUni(credStruct.UserName);
-                    Trace.Info($"Credentials for '{target}' read from store.");
-                    return new NetworkCredential(username, password);
-                }
-                else
-                {
-                    throw new Win32Exception(Marshal.GetLastWin32Error(), $"CredRead throw an error for '{target}'");
-                }
-            }
-            finally
-            {
-                if (credPtr != IntPtr.Zero)
-                {
-                    CredFree(credPtr);
-                }
-            }
-        }
+            Trace.Info("Sync in-memory credential store with credential store file.");
 
-        public void Delete(string target)
-        {
-            Trace.Entering();
-            ArgUtil.NotNullOrEmpty(target, nameof(target));
+            // delete the cred store file first anyway, since it's a readonly file.
+            IOUtil.DeleteFile(_credStoreFile);
 
-            if (!CredDelete(target, CredentialType.Generic, 0))
+            // delete cred store file when all creds gone
+            if (_credStore.Count == 0)
             {
-                throw new Win32Exception(Marshal.GetLastWin32Error(), $"Failed to delete credentials for {target}");
+                return;
             }
             else
             {
-                Trace.Info($"Credentials for '{target}' deleted from store.");
+                IOUtil.SaveObject(_credStore, _credStoreFile);
+                File.SetAttributes(_credStoreFile, File.GetAttributes(_credStoreFile) | FileAttributes.Hidden);
             }
         }
 
@@ -178,6 +295,86 @@ namespace Microsoft.VisualStudio.Services.Agent
 #elif OS_OSX
     public sealed class MacOSAgentCredentialStore : AgentService, IAgentCredentialStore
     {
+        private const string _osxAgentCredStoreKeyChainName = "_VSTS_AGENT_CREDSTORE_INTERNAL_";
+
+        private const string _osxAgentCredStoreKeyChainPassword = "A1DC2A63B3D14817A64619FDDBC92264";
+
+        private string _securityUtil;
+
+        private string _agentCredStoreKeyChain;
+
+        public override void Initialize(IHostContext hostContext)
+        {
+            base.Initialize(hostContext);
+
+            var whichUtil = HostContext.GetService<IWhichUtil>();
+            _securityUtil = whichUtil.Which("security", true);
+
+            _agentCredStoreKeyChain = IOUtil.GetAgentCredStoreFilePath();
+
+            // Create osx key chain if it doesn't exists.
+            if (!File.Exists(_agentCredStoreKeyChain))
+            {
+                List<string> securityOut = new List<string>();
+                List<string> securityError = new List<string>();
+                object outputLock = new object();
+                using (var p = HostContext.CreateService<IProcessInvoker>())
+                {
+                    p.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stdout)
+                    {
+                        if (!string.IsNullOrEmpty(stdout.Data))
+                        {
+                            lock (outputLock)
+                            {
+                                securityOut.Add(stdout.Data);
+                            }
+                        }
+                    };
+
+                    p.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stderr)
+                    {
+                        if (!string.IsNullOrEmpty(stderr.Data))
+                        {
+                            lock (outputLock)
+                            {
+                                securityError.Add(stderr.Data);
+                            }
+                        }
+                    };
+
+                    // make sure the 'security' has access to the key so we won't get prompt at runtime.
+                    int exitCode = p.ExecuteAsync(workingDirectory: IOUtil.GetRootPath(),
+                                                  fileName: _securityUtil,
+                                                  arguments: $"create-keychain -p {_osxAgentCredStoreKeyChainPassword} \"{_agentCredStoreKeyChain}\"",
+                                                  environment: null,
+                                                  cancellationToken: CancellationToken.None).GetAwaiter().GetResult();
+                    if (exitCode == 0)
+                    {
+                        Trace.Info($"Successfully create-keychain for {_agentCredStoreKeyChain}");
+                    }
+                    else
+                    {
+                        if (securityOut.Count > 0)
+                        {
+                            Trace.Error(string.Join(Environment.NewLine, securityOut));
+                        }
+                        if (securityError.Count > 0)
+                        {
+                            Trace.Error(string.Join(Environment.NewLine, securityError));
+                        }
+
+                        throw new InvalidOperationException($"'security create-keychain' failed with exit code {exitCode}.");
+                    }
+                }
+            }
+            else
+            {
+                // Try unlock and lock the keychain, make sure it's still in good stage
+                UnlockKeyChain();
+                LockKeyChain();
+            }
+        }
+
         public NetworkCredential Write(string target, string username, string password)
         {
             Trace.Entering();
@@ -185,15 +382,230 @@ namespace Microsoft.VisualStudio.Services.Agent
             ArgUtil.NotNullOrEmpty(username, nameof(username));
             ArgUtil.NotNullOrEmpty(password, nameof(password));
 
-            var whichUtil = HostContext.GetService<IWhichUtil>();
-            string securityUtil = whichUtil.Which("security", true);
+            try
+            {
+                UnlockKeyChain();
 
-            // base64encode username + ':' + base64encode password
-            // OSX keychain requires you provide -s target and -a username to retrieve password
-            // So, we will trade both username and password as 'secret' store into keychain
-            string usernameBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(username));
-            string passwordBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(password));
-            string secretForKeyChain = $"{usernameBase64}:{passwordBase64}";
+                // base64encode username + ':' + base64encode password
+                // OSX keychain requires you provide -s target and -a username to retrieve password
+                // So, we will trade both username and password as 'secret' store into keychain
+                string usernameBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(username));
+                string passwordBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(password));
+                string secretForKeyChain = $"{usernameBase64}:{passwordBase64}";
+
+                List<string> securityOut = new List<string>();
+                List<string> securityError = new List<string>();
+                object outputLock = new object();
+                using (var p = HostContext.CreateService<IProcessInvoker>())
+                {
+                    p.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stdout)
+                    {
+                        if (!string.IsNullOrEmpty(stdout.Data))
+                        {
+                            lock (outputLock)
+                            {
+                                securityOut.Add(stdout.Data);
+                            }
+                        }
+                    };
+
+                    p.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stderr)
+                    {
+                        if (!string.IsNullOrEmpty(stderr.Data))
+                        {
+                            lock (outputLock)
+                            {
+                                securityError.Add(stderr.Data);
+                            }
+                        }
+                    };
+
+                    // make sure the 'security' has access to the key so we won't get prompt at runtime.
+                    int exitCode = p.ExecuteAsync(workingDirectory: IOUtil.GetRootPath(),
+                                                fileName: _securityUtil,
+                                                arguments: $"add-generic-password -s {target} -a VSTSAGENT -w {secretForKeyChain} -T \"{_securityUtil}\" \"{_agentCredStoreKeyChain}\"",
+                                                environment: null,
+                                                cancellationToken: CancellationToken.None).GetAwaiter().GetResult();
+                    if (exitCode == 0)
+                    {
+                        Trace.Info($"Successfully add-generic-password for {target} (VSTSAGENT)");
+                    }
+                    else
+                    {
+                        if (securityOut.Count > 0)
+                        {
+                            Trace.Error(string.Join(Environment.NewLine, securityOut));
+                        }
+                        if (securityError.Count > 0)
+                        {
+                            Trace.Error(string.Join(Environment.NewLine, securityError));
+                        }
+
+                        throw new InvalidOperationException($"'security add-generic-password' failed with exit code {exitCode}.");
+                    }
+                }
+
+                return new NetworkCredential(username, password);
+            }
+            finally
+            {
+                LockKeyChain();
+            }
+        }
+
+        public NetworkCredential Read(string target)
+        {
+            Trace.Entering();
+            ArgUtil.NotNullOrEmpty(target, nameof(target));
+
+            try
+            {
+                UnlockKeyChain();
+
+                string username;
+                string password;
+
+                List<string> securityOut = new List<string>();
+                List<string> securityError = new List<string>();
+                object outputLock = new object();
+                using (var p = HostContext.CreateService<IProcessInvoker>())
+                {
+                    p.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stdout)
+                    {
+                        if (!string.IsNullOrEmpty(stdout.Data))
+                        {
+                            lock (outputLock)
+                            {
+                                securityOut.Add(stdout.Data);
+                            }
+                        }
+                    };
+
+                    p.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stderr)
+                    {
+                        if (!string.IsNullOrEmpty(stderr.Data))
+                        {
+                            lock (outputLock)
+                            {
+                                securityError.Add(stderr.Data);
+                            }
+                        }
+                    };
+
+                    int exitCode = p.ExecuteAsync(workingDirectory: IOUtil.GetRootPath(),
+                                                  fileName: _securityUtil,
+                                                  arguments: $"find-generic-password -s {target} -a VSTSAGENT -w -g \"{_agentCredStoreKeyChain}\"",
+                                                  environment: null,
+                                                  cancellationToken: CancellationToken.None).GetAwaiter().GetResult();
+                    if (exitCode == 0)
+                    {
+                        string keyChainSecret = securityOut.First();
+                        string[] secrets = keyChainSecret.Split(':');
+                        if (secrets.Length == 2 && !string.IsNullOrEmpty(secrets[0]) && !string.IsNullOrEmpty(secrets[1]))
+                        {
+                            Trace.Info($"Successfully find-generic-password for {target} (VSTSAGENT)");
+                            username = Encoding.UTF8.GetString(Convert.FromBase64String(secrets[0]));
+                            password = Encoding.UTF8.GetString(Convert.FromBase64String(secrets[1]));
+                            return new NetworkCredential(username, password);
+                        }
+                        else
+                        {
+                            throw new ArgumentOutOfRangeException(nameof(keyChainSecret));
+                        }
+                    }
+                    else
+                    {
+                        if (securityOut.Count > 0)
+                        {
+                            Trace.Error(string.Join(Environment.NewLine, securityOut));
+                        }
+                        if (securityError.Count > 0)
+                        {
+                            Trace.Error(string.Join(Environment.NewLine, securityError));
+                        }
+
+                        throw new InvalidOperationException($"'security find-generic-password' failed with exit code {exitCode}.");
+                    }
+                }
+            }
+            finally
+            {
+                LockKeyChain();
+            }
+        }
+
+        public void Delete(string target)
+        {
+            Trace.Entering();
+            ArgUtil.NotNullOrEmpty(target, nameof(target));
+
+            try
+            {
+                UnlockKeyChain();
+
+                List<string> securityOut = new List<string>();
+                List<string> securityError = new List<string>();
+                object outputLock = new object();
+
+                using (var p = HostContext.CreateService<IProcessInvoker>())
+                {
+                    p.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stdout)
+                    {
+                        if (!string.IsNullOrEmpty(stdout.Data))
+                        {
+                            lock (outputLock)
+                            {
+                                securityOut.Add(stdout.Data);
+                            }
+                        }
+                    };
+
+                    p.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stderr)
+                    {
+                        if (!string.IsNullOrEmpty(stderr.Data))
+                        {
+                            lock (outputLock)
+                            {
+                                securityError.Add(stderr.Data);
+                            }
+                        }
+                    };
+
+                    int exitCode = p.ExecuteAsync(workingDirectory: IOUtil.GetRootPath(),
+                                                  fileName: _securityUtil,
+                                                  arguments: $"delete-generic-password -s {target} -a VSTSAGENT \"{_agentCredStoreKeyChain}\"",
+                                                  environment: null,
+                                                  cancellationToken: CancellationToken.None).GetAwaiter().GetResult();
+                    if (exitCode == 0)
+                    {
+                        Trace.Info($"Successfully delete-generic-password for {target} (VSTSAGENT)");
+                    }
+                    else
+                    {
+                        if (securityOut.Count > 0)
+                        {
+                            Trace.Error(string.Join(Environment.NewLine, securityOut));
+                        }
+                        if (securityError.Count > 0)
+                        {
+                            Trace.Error(string.Join(Environment.NewLine, securityError));
+                        }
+
+                        throw new InvalidOperationException($"'security delete-generic-password' failed with exit code {exitCode}.");
+                    }
+                }
+            }
+            finally
+            {
+                LockKeyChain();
+            }
+        }
+
+        private void UnlockKeyChain()
+        {
+            Trace.Entering();
+            ArgUtil.NotNullOrEmpty(_securityUtil, nameof(_securityUtil));
+            ArgUtil.NotNullOrEmpty(_agentCredStoreKeyChain, nameof(_agentCredStoreKeyChain));
 
             List<string> securityOut = new List<string>();
             List<string> securityError = new List<string>();
@@ -224,13 +636,13 @@ namespace Microsoft.VisualStudio.Services.Agent
 
                 // make sure the 'security' has access to the key so we won't get prompt at runtime.
                 int exitCode = p.ExecuteAsync(workingDirectory: IOUtil.GetRootPath(),
-                                              fileName: securityUtil,
-                                              arguments: $"add-generic-password -s {target} -a VSTSAGENT -w {secretForKeyChain} -T \"{securityUtil}\"",
+                                              fileName: _securityUtil,
+                                              arguments: $"unlock-keychain -p {_osxAgentCredStoreKeyChainPassword} \"{_agentCredStoreKeyChain}\"",
                                               environment: null,
                                               cancellationToken: CancellationToken.None).GetAwaiter().GetResult();
                 if (exitCode == 0)
                 {
-                    Trace.Info($"Successfully add-generic-password for {target} (VSTSAGENT)");
+                    Trace.Info($"Successfully unlock-keychain for {_agentCredStoreKeyChain}");
                 }
                 else
                 {
@@ -243,22 +655,16 @@ namespace Microsoft.VisualStudio.Services.Agent
                         Trace.Error(string.Join(Environment.NewLine, securityError));
                     }
 
-                    throw new InvalidOperationException($"'security add-generic-password' failed with exit code {exitCode}.");
+                    throw new InvalidOperationException($"'security unlock-keychain' failed with exit code {exitCode}.");
                 }
             }
-
-            return new NetworkCredential(username, password);
         }
 
-        public NetworkCredential Read(string target)
+        private void LockKeyChain()
         {
             Trace.Entering();
-            ArgUtil.NotNullOrEmpty(target, nameof(target));
-            string username;
-            string password;
-
-            var whichUtil = HostContext.GetService<IWhichUtil>();
-            string securityUtil = whichUtil.Which("security", true);
+            ArgUtil.NotNullOrEmpty(_securityUtil, nameof(_securityUtil));
+            ArgUtil.NotNullOrEmpty(_agentCredStoreKeyChain, nameof(_agentCredStoreKeyChain));
 
             List<string> securityOut = new List<string>();
             List<string> securityError = new List<string>();
@@ -287,87 +693,15 @@ namespace Microsoft.VisualStudio.Services.Agent
                     }
                 };
 
+                // make sure the 'security' has access to the key so we won't get prompt at runtime.
                 int exitCode = p.ExecuteAsync(workingDirectory: IOUtil.GetRootPath(),
-                                                fileName: securityUtil,
-                                                arguments: $"find-generic-password -s {target} -a VSTSAGENT -w -g",
-                                                environment: null,
-                                                cancellationToken: CancellationToken.None).GetAwaiter().GetResult();
-                if (exitCode == 0)
-                {
-                    string keyChainSecret = securityOut.First();
-                    string[] secrets = keyChainSecret.Split(':');
-                    if (secrets.Length == 2 && !string.IsNullOrEmpty(secrets[0]) && !string.IsNullOrEmpty(secrets[1]))
-                    {
-                        Trace.Info($"Successfully find-generic-password for {target} (VSTSAGENT)");
-                        username = Encoding.UTF8.GetString(Convert.FromBase64String(secrets[0]));
-                        password = Encoding.UTF8.GetString(Convert.FromBase64String(secrets[1]));
-                        return new NetworkCredential(username, password);
-                    }
-                    else
-                    {
-                        throw new ArgumentOutOfRangeException(nameof(keyChainSecret));
-                    }
-                }
-                else
-                {
-                    if (securityOut.Count > 0)
-                    {
-                        Trace.Error(string.Join(Environment.NewLine, securityOut));
-                    }
-                    if (securityError.Count > 0)
-                    {
-                        Trace.Error(string.Join(Environment.NewLine, securityError));
-                    }
-
-                    throw new InvalidOperationException($"'security find-generic-password' failed with exit code {exitCode}.");
-                }
-            }
-        }
-
-        public void Delete(string target)
-        {
-            Trace.Entering();
-            ArgUtil.NotNullOrEmpty(target, nameof(target));
-
-            var whichUtil = HostContext.GetService<IWhichUtil>();
-            string securityUtil = whichUtil.Which("security", true);
-
-            List<string> securityOut = new List<string>();
-            List<string> securityError = new List<string>();
-            object outputLock = new object();
-
-            using (var p = HostContext.CreateService<IProcessInvoker>())
-            {
-                p.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stdout)
-                {
-                    if (!string.IsNullOrEmpty(stdout.Data))
-                    {
-                        lock (outputLock)
-                        {
-                            securityOut.Add(stdout.Data);
-                        }
-                    }
-                };
-
-                p.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stderr)
-                {
-                    if (!string.IsNullOrEmpty(stderr.Data))
-                    {
-                        lock (outputLock)
-                        {
-                            securityError.Add(stderr.Data);
-                        }
-                    }
-                };
-
-                int exitCode = p.ExecuteAsync(workingDirectory: IOUtil.GetRootPath(),
-                                              fileName: securityUtil,
-                                              arguments: $"delete-generic-password -s {target} -a VSTSAGENT",
+                                              fileName: _securityUtil,
+                                              arguments: $"lock-keychain \"{_agentCredStoreKeyChain}\"",
                                               environment: null,
                                               cancellationToken: CancellationToken.None).GetAwaiter().GetResult();
                 if (exitCode == 0)
                 {
-                    Trace.Info($"Successfully delete-generic-password for {target} (VSTSAGENT)");
+                    Trace.Info($"Successfully lock-keychain for {_agentCredStoreKeyChain}");
                 }
                 else
                 {
@@ -380,7 +714,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                         Trace.Error(string.Join(Environment.NewLine, securityError));
                     }
 
-                    throw new InvalidOperationException($"'security delete-generic-password' failed with exit code {exitCode}.");
+                    throw new InvalidOperationException($"'security lock-keychain' failed with exit code {exitCode}.");
                 }
             }
         }

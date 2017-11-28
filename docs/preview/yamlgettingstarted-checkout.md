@@ -1,4 +1,4 @@
-# YAML getting started - Checkout options (internal only, public preview soon)
+# YAML getting started - Checkout options
 
 ## Checkout step
 
@@ -54,6 +54,6 @@ phases:
 
 ```yaml
 clean: true | false
-fetchDeptch: number
+fetchDepth: number
 lfs: true | false
 ```

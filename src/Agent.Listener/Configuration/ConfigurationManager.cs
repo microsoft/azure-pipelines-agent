@@ -1,5 +1,5 @@
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
-using Microsoft.VisualStudio.Services.Agent.Listener.Capabilities;
+using Microsoft.VisualStudio.Services.Agent.Capabilities;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.OAuth;
@@ -13,6 +13,7 @@ using System.Security.Cryptography;
 using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Runtime.InteropServices;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
@@ -88,6 +89,54 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 saveProxySetting = true;
             }
 
+            // Populate cert setting from commandline args
+            var agentCertManager = HostContext.GetService<IAgentCertificateManager>();
+            bool saveCertSetting = false;
+            bool skipCertValidation = command.GetSkipCertificateValidation();
+            string caCert = command.GetCACertificate();
+            string clientCert = command.GetClientCertificate();
+            string clientCertKey = command.GetClientCertificatePrivateKey();
+            string clientCertArchive = command.GetClientCertificateArchrive();
+            string clientCertPassword = command.GetClientCertificatePassword();
+
+            // We require all Certificate files are under agent root.
+            // So we can set ACL correctly when configure as service
+            if (!string.IsNullOrEmpty(caCert))
+            {
+                caCert = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), caCert);
+                ArgUtil.File(caCert, nameof(caCert));
+            }
+
+            if (!string.IsNullOrEmpty(clientCert) &&
+                !string.IsNullOrEmpty(clientCertKey) &&
+                !string.IsNullOrEmpty(clientCertArchive))
+            {
+                // Ensure all client cert pieces are there.
+                clientCert = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), clientCert);
+                clientCertKey = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), clientCertKey);
+                clientCertArchive = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), clientCertArchive);
+
+                ArgUtil.File(clientCert, nameof(clientCert));
+                ArgUtil.File(clientCertKey, nameof(clientCertKey));
+                ArgUtil.File(clientCertArchive, nameof(clientCertArchive));
+            }
+            else if (!string.IsNullOrEmpty(clientCert) ||
+                     !string.IsNullOrEmpty(clientCertKey) ||
+                     !string.IsNullOrEmpty(clientCertArchive))
+            {
+                // Print out which args are missing.
+                ArgUtil.NotNullOrEmpty(Constants.Agent.CommandLine.Args.SslClientCert, Constants.Agent.CommandLine.Args.SslClientCert);
+                ArgUtil.NotNullOrEmpty(Constants.Agent.CommandLine.Args.SslClientCertKey, Constants.Agent.CommandLine.Args.SslClientCertKey);
+                ArgUtil.NotNullOrEmpty(Constants.Agent.CommandLine.Args.SslClientCertArchive, Constants.Agent.CommandLine.Args.SslClientCertArchive);
+            }
+
+            if (skipCertValidation || !string.IsNullOrEmpty(caCert) || !string.IsNullOrEmpty(clientCert))
+            {
+                Trace.Info("Reset agent cert setting base on commandline args.");
+                (agentCertManager as AgentCertificateManager).SetupCertificate(skipCertValidation, caCert, clientCert, clientCertKey, clientCertArchive, clientCertPassword);
+                saveCertSetting = true;
+            }
+
             AgentSettings agentSettings = new AgentSettings();
             // TEE EULA
             agentSettings.AcceptTeeEula = false;
@@ -124,9 +173,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
 
             // Create the configuration provider as per agent type.
-            string agentType = command.DeploymentGroup
-                ? Constants.Agent.AgentConfigurationProvider.DeploymentAgentConfiguration
-                : Constants.Agent.AgentConfigurationProvider.BuildReleasesAgentConfiguration;
+            string agentType;
+            if (command.DeploymentGroup)
+            {
+                agentType = Constants.Agent.AgentConfigurationProvider.DeploymentAgentConfiguration;
+            }
+            else if (command.DeploymentPool)
+            {
+                agentType = Constants.Agent.AgentConfigurationProvider.SharedDeploymentAgentConfiguration;
+            }
+            else
+            {
+                agentType = Constants.Agent.AgentConfigurationProvider.BuildReleasesAgentConfiguration;
+            }
+
             var extensionManager = HostContext.GetService<IExtensionManager>();
             IConfigurationProvider agentProvider =
                 (extensionManager.GetExtensions<IConfigurationProvider>())
@@ -272,17 +332,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 agent.Authorization.ClientId != Guid.Empty &&
                 agent.Authorization.AuthorizationUrl != null)
             {
-                // For TFS, we need make sure the Schema/Host/Port component of the authorization url also match configuration url.
+                // We use authorizationUrl as the oauth endpoint url by default.
+                // For TFS, we need make sure the Schema/Host/Port component of the oauth endpoint url also match configuration url. (Incase of customer's agent configure URL and TFS server public URL are different)
+                // Which means, we will keep use the original authorizationUrl in the VssOAuthJwtBearerClientCredential (authorizationUrl is the audience),
+                // But might have different Url in VssOAuthCredential (connection url)
                 // We can't do this for VSTS, since its SPS/TFS urls are different.
                 UriBuilder configServerUrl = new UriBuilder(agentSettings.ServerUrl);
-                UriBuilder authorizationUrl = new UriBuilder(agent.Authorization.AuthorizationUrl);
+                UriBuilder oauthEndpointUrlBuilder = new UriBuilder(agent.Authorization.AuthorizationUrl);
                 if (!UrlUtil.IsHosted(configServerUrl.Uri.AbsoluteUri) &&
-                    Uri.Compare(configServerUrl.Uri, authorizationUrl.Uri, UriComponents.SchemeAndServer, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase) != 0)
+                    Uri.Compare(configServerUrl.Uri, oauthEndpointUrlBuilder.Uri, UriComponents.SchemeAndServer, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase) != 0)
                 {
-                    authorizationUrl.Scheme = configServerUrl.Scheme;
-                    authorizationUrl.Host = configServerUrl.Host;
-                    authorizationUrl.Port = configServerUrl.Port;
-                    Trace.Info($"Replace authorization url's scheme://host:port component with agent configure url's scheme://host:port: '{authorizationUrl.Uri.AbsoluteUri}'.");
+                    oauthEndpointUrlBuilder.Scheme = configServerUrl.Scheme;
+                    oauthEndpointUrlBuilder.Host = configServerUrl.Host;
+                    oauthEndpointUrlBuilder.Port = configServerUrl.Port;
+                    Trace.Info($"Set oauth endpoint url's scheme://host:port component to match agent configure url's scheme://host:port: '{oauthEndpointUrlBuilder.Uri.AbsoluteUri}'.");
                 }
 
                 var credentialData = new CredentialData
@@ -291,7 +354,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     Data =
                     {
                         { "clientId", agent.Authorization.ClientId.ToString("D") },
-                        { "authorizationUrl", authorizationUrl.Uri.AbsoluteUri },
+                        { "authorizationUrl", agent.Authorization.AuthorizationUrl.AbsoluteUri },
+                        { "oauthEndpointUrl", oauthEndpointUrlBuilder.Uri.AbsoluteUri },
                     },
                 };
 
@@ -352,6 +416,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 (vstsProxy as VstsAgentWebProxy).SaveProxySetting();
             }
 
+            if (saveCertSetting)
+            {
+                Trace.Info("Save agent cert setting to disk.");
+                (agentCertManager as AgentCertificateManager).SaveCertificateSetting();
+            }
+
             _term.WriteLine(StringUtil.Loc("SavedSettings", DateTime.UtcNow));
 
 #if OS_WINDOWS
@@ -365,7 +435,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
             // config auto logon
             else if (command.GetRunAsAutoLogon())
-            {                
+            {
                 Trace.Info("Agent is going to run as process setting up the 'AutoLogon' capability for the agent.");
                 var autoLogonConfigManager = HostContext.GetService<IAutoLogonManager>();
                 await autoLogonConfigManager.ConfigureAsync(command);
@@ -412,8 +482,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                         currentAction = StringUtil.Loc("UnconfigAutologon");
                         _term.WriteLine(currentAction);
                         var autoLogonConfigManager = HostContext.GetService<IAutoLogonManager>();
-                        autoLogonConfigManager.Unconfigure();         
-                        _term.WriteLine(StringUtil.Loc("Success") + currentAction);               
+                        autoLogonConfigManager.Unconfigure();
+                        _term.WriteLine(StringUtil.Loc("Success") + currentAction);
                     }
                     else
                     {
@@ -487,7 +557,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 _term.WriteLine(currentAction);
                 if (isConfigured)
                 {
+                    // delete proxy setting
                     (HostContext.GetService<IVstsAgentWebProxy>() as VstsAgentWebProxy).DeleteProxySetting();
+
+                    // delete agent cert setting
+                    (HostContext.GetService<IAgentCertificateManager>() as AgentCertificateManager).DeleteCertificateSetting();
+
                     _store.DeleteSettings();
                     _term.WriteLine(StringUtil.Loc("Success") + currentAction);
                 }
@@ -531,6 +606,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             // update - update instead of delete so we don't lose user capabilities etc...
             agent.Version = Constants.Agent.Version;
+            agent.OSDescription = RuntimeInformation.OSDescription;
 
             foreach (KeyValuePair<string, string> capability in systemCapabilities)
             {
@@ -549,7 +625,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     PublicKey = new TaskAgentPublicKey(publicKey.Exponent, publicKey.Modulus),
                 },
                 MaxParallelism = 1,
-                Version = Constants.Agent.Version
+                Version = Constants.Agent.Version,
+                OSDescription = RuntimeInformation.OSDescription,
             };
 
             foreach (KeyValuePair<string, string> capability in systemCapabilities)

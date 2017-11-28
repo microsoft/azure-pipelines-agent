@@ -111,8 +111,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public string Agent_ToolsDirectory => Get(Constants.Variables.Agent.ToolsDirectory);
 
-        public bool? Agent_UseNode5 => GetBoolean(Constants.Variables.Agent.UseNode5);
-
         public string Agent_WorkFolder => Get(Constants.Variables.Agent.WorkFolder);
 
         public int? Build_BuildId => GetInt(BuildWebApi.WellKnownBuildVariables.BuildId);
@@ -128,6 +126,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public bool? Build_GatedRunCI => GetBoolean(Constants.Variables.Build.GatedRunCI);
 
         public string Build_GatedShelvesetName => Get(Constants.Variables.Build.GatedShelvesetName);
+
+        public string Build_Number => Get(Constants.Variables.Build.Number);
 
         public string Build_RepoTfvcWorkspace => Get(Constants.Variables.Build.RepoTfvcWorkspace);
 
@@ -164,6 +164,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public bool? System_EnableAccessToken => GetBoolean(Constants.Variables.System.EnableAccessToken);
 
         public HostTypes System_HostType => GetEnum<HostTypes>(Constants.Variables.System.HostType) ?? HostTypes.None;
+
+        public string System_PhaseDisplayName => Get(Constants.Variables.System.PhaseDisplayName);
 
         public string System_TaskDefinitionsUri => Get(WellKnownDistributedTaskVariables.TaskDefinitionsUrl);
 

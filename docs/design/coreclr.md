@@ -20,8 +20,8 @@ For that reason, we have separated the work into two clear phases.  Move the age
 
 **Windows**: Windows 7 SP1+, Server 2008 R2 SP1+  
 **Mac OS**: 10.12 (Sierra)+ (reduction)  
-**RedHat Linux**: 7.3+ minimum.  6+ stretch goal as part of this work (mitigated with containers)  
-**Ubuntu Linux**: 14.04+ (LTS versions)
+**Fedora Based Linux**: RedHat/CentOS/Oracle Linux 7+ and Fedora 25+  
+**Debian Based Linux**: Ubuntu 17.04/16.04/14.04, Debian 8.7+ and Linux Mint 17+  
 **openSUSE Linux**: 42.2+
 
 ### Expanding Linux
@@ -38,11 +38,14 @@ We will attempt to make versions like RedHat 6 work, but the ultimate Linux solu
 
 ### OS Dependencies
 
-Customers need to install OS dependencies.  Getting the OS dependencies installed [has been a pain point for customers](https://github.com/Microsoft/vsts-agent/issues/232).  For tasks and docker container support, it's critical (covered in phase 2 below). 
+Customers need to install OS dependencies.  Getting the OS dependencies installed [has been a pain point for customers](https://github.com/Microsoft/vsts-agent/issues/232).  
+In order to improve the customer experience around getting OS dependencies, we will add OS dependencies check as part of agent configuration.  
+When a required .net core dependency is missing, customer can just run another script we added to install all missing dependencies.  
 
 Here is a [list of the OS dependencies](https://github.com/dotnet/core/blob/master/Documentation/prereqs.md).
 
-For OSX, openssl via homebrew will no longer be required in core clr 2.0.  For Linux, core CLR 2.0 has a new feature to allow loading OS dependencies from a folder for [self contained linux apps](https://github.com/dotnet/core/blob/master/Documentation/self-contained-linux-apps.md).
+For OSX, openssl via homebrew will no longer be required in core clr 2.0.  For Linux, core CLR 2.0 has a new feature to allow loading OS dependencies from a folder for [self contained linux apps](https://github.com/dotnet/core/blob/master/Documentation/self-contained-linux-apps.md).  
+However we can't really levage this feature since we can't redistribute those native OS binary due to legal issue. 
 
 ### Reducing Supported Versions Implications
 
@@ -54,7 +57,7 @@ RedHat is a soft limit so we will attempt to work back to RH6.  OSX is a hard te
 
 Customers can update their agents from our web UI.  New tasks and new features can demand a new agent version.  *Customers will find themselves stuck as they are potentially surprised they need to update yet updates will not work until they upgrade their OS*.  This is a mac OS and Redhat 7.2 issue.
 
-Agents query the server for advertised versions by platform by querying https://{account}.visualstudio.com/_apis/distributedtask/packages/agent.  The backend holds a registry of agents by platform and version.  It will currently download from github releases by version and platform.  For example: https://github.com/Microsoft/vsts-agent/releases/download/v2.114.0/vsts-agent-win7-x64-2.114.0.zip
+The backend holds a registry of agents by platform and version.  It will currently download from github releases by version and platform.  For example: https://github.com/Microsoft/vsts-agent/releases/download/v2.114.0/vsts-agent-win7-x64-2.114.0.zip
 
 Currently, we advertise these platforms in the UI and APIs.
 
@@ -63,36 +66,32 @@ Currently, we advertise these platforms in the UI and APIs.
   - rhel.7.2-x64
   - ubuntu.14.04-x64
   - ubuntu.16.04-x64
+  
+When customers request agent update from web UI, the service will base the agent's current version and the latest version has been registered in the backend to decide whether to send an `Agent Update` message to the agent.  
 
-We will change the build to only produce.
+With Consuming CoreCLR 2.0 in the agent, we will change to have only 3 agent packages instead of 5.  
 
-  - win7-x64
-  - osx.10.12-x64 (ouch)
+  - win-x64
+  - osx-x64
   - linux-x64
 
-We will change download urls to an azure blob url (firewall considerations) but we will continue to offer [release metadata](https://github.com/Microsoft/vsts-agent/releases) along with the source.  
+We will change download urls to an Azure CDN url backed by Azure blob storage (firewall considerations and github throttling during agent update) but we will continue to offer [release metadata](https://github.com/Microsoft/vsts-agent/releases) along with the source.  
 
 The agent major version will remain 2.x.  Agents will still update along major version lines if we choose to register the appropriate paths.
 
 The UI will only show **Windows, Mac OS and Linux** tabs (drop distro specific tabs).
 
-The REST APIs (what drives updates) and the backend will continue to point our old platform names to the new drop names so it just works for them.
+If 2.125.0 is the first agent version that build from CoreCLR 2.0, then here is what will happen during agent updates:
 
-There will be a sprint cutoff where (1) stop incrementing a osx 10.11 drop and (2) start redirecting old platform names to linux-x86.
+**Existing Installed Agent (version < 2.125.0)  --> 2.125.0 Drops**    
+win7-x64  --> win-x64-2.125.zip  
+osx.10.11-x64 --> osx-x64-2.125.0.zip (Darwin version >= 16.0.0)  
+osx.10.11-x64 --> Deadend. (Darwin version < 16.0.0, about 10% of all osx agents in VSTS)  
+rhel.7.2-x64 --> linux-x64-2.125.0.zip.  Redirection for old agents  
+ubuntu.14.04-x64 --> linux-x64-2.125.0.zip.  Redirection for old agents  
+ubuntu.16.04-x64 --> linux-x64-2.125.0.zip.  Redirection for old agents  
 
-So, if sprint # is {SSS}, then at that sprint cutoff:
-
-**Platform --> Drop**    
-win7-x64  --> win7-x64-{SSS}.zip  
-osx.10.11-x64 --> osx.10.11-x64-{SSS-1}.zip  Deadend.  
-osx.10.12-x64 --> osx.10.12-x64-{SSS}.zip.  New Installs and forward  
-linux-x64 --> linux-x64-{SSS}.zip.  New Installs and forward  
-rhel.7.2-x64 --> linux-x64-{SSS}.zip.  Redirection for old agents  
-ubuntu.14.04-x64 --> linux-x64-{SSS}.zip.  Redirection for old agents  
-ubuntu.16.04-x64 --> linux-x64-{SSS}.zip.  Redirection for old agents  
-
-Unfortunately every release will still have to write the redirection rows for our old dist story but that can easily be automated.
-
+In order to make the agent update experience smoothly to most of customers, the service will start tracking the agent OS information as first class concept. So anytime customers request agent updates, the service will not only base on the agent's current version but also base on agent's OS to decide whether to send `Agent Update` message to the agent.  
 
 **Alternatives**  
 

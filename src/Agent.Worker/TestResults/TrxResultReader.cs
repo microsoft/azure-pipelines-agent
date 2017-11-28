@@ -73,11 +73,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             DateTime runFinishDate = DateTime.MinValue;
             if (node != null && node.Attributes["start"] != null && node.Attributes["finish"] != null)
             {
-                if (DateTime.TryParse(node.Attributes["start"].Value, DateTimeFormatInfo.InvariantInfo,DateTimeStyles.None, out runStartDate))
+                if (DateTime.TryParse(node.Attributes["start"].Value, DateTimeFormatInfo.InvariantInfo,DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out runStartDate))
                 {
                     _executionContext.Debug(string.Format(CultureInfo.InvariantCulture, "Setting run start and finish times."));
                     //Only if there is a valid start date.
-                    DateTime.TryParse(node.Attributes["finish"].Value, DateTimeFormatInfo.InvariantInfo,DateTimeStyles.None, out runFinishDate);
+                    DateTime.TryParse(node.Attributes["finish"].Value, DateTimeFormatInfo.InvariantInfo,DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out runFinishDate);
                     if (runFinishDate < runStartDate)
                     {
                         runFinishDate = runStartDate = DateTime.MinValue;
@@ -288,11 +288,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 DateTime startedDate;
                 if (resultNode.Attributes["startTime"] != null && resultNode.Attributes["startTime"].Value != null)
                 {
-                    DateTime.TryParse(resultNode.Attributes["startTime"].Value, DateTimeFormatInfo.InvariantInfo, DateTimeStyles.None, out startedDate);
+                    DateTime.TryParse(resultNode.Attributes["startTime"].Value, DateTimeFormatInfo.InvariantInfo, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out startedDate);
                 }
                 else
                 {
-                    startedDate = DateTime.Now;
+                    startedDate = DateTime.UtcNow;
                 }
                 resultCreateModel.StartedDate = startedDate;
 
@@ -384,7 +384,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
                 if (resultCreateModel.Outcome.Equals("Failed"))
                 {
-                    XmlNode errorMessage, errorStackTrace, consoleLog;
+                    XmlNode errorMessage, errorStackTrace, consoleLog, standardError;
 
                     if ((errorMessage = resultNode.SelectSingleNode("./Output/ErrorInfo/Message")) != null && !string.IsNullOrWhiteSpace(errorMessage.InnerText))
                     {
@@ -401,6 +401,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     if ((consoleLog = resultNode.SelectSingleNode("./Output/StdOut")) != null && !string.IsNullOrWhiteSpace(consoleLog.InnerText))
                     {
                         resultCreateModel.ConsoleLog = consoleLog.InnerText;
+                    }
+
+                    // standard error
+                    if ((standardError = resultNode.SelectSingleNode("./Output/StdErr")) != null && !string.IsNullOrWhiteSpace(standardError.InnerText))
+                    {
+                        resultCreateModel.StandardError = standardError.InnerText;
                     }
                 }
 

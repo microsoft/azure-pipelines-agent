@@ -51,6 +51,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 tf.SetupProxy(executionContext.Variables.Agent_ProxyUrl, executionContext.Variables.Agent_ProxyUsername, executionContext.Variables.Agent_ProxyPassword);
             }
 
+            // Setup client certificate.
+            var agentCertManager = HostContext.GetService<IAgentCertificateManager>();
+            if (agentCertManager.SkipServerCertificateValidation)
+            {
+#if OS_WINDOWS
+                executionContext.Debug("TF.exe does not support ignore SSL certificate validation error.");
+#else
+                executionContext.Debug("TF does not support ignore SSL certificate validation error.");
+#endif
+            }
+
+            var configUrl = new Uri(HostContext.GetService<IConfigurationStore>().GetSettings().ServerUrl);
+            if (!string.IsNullOrEmpty(agentCertManager.ClientCertificateFile) &&
+                Uri.Compare(endpoint.Url, configUrl, UriComponents.SchemeAndServer, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase) == 0)
+            {
+                executionContext.Debug($"Configure '{tf.FilePath}' to work with client cert '{agentCertManager.ClientCertificateFile}'.");
+                tf.SetupClientCertificate(agentCertManager.ClientCertificateFile, agentCertManager.ClientCertificatePrivateKeyFile, agentCertManager.ClientCertificateArchiveFile, agentCertManager.ClientCertificatePassword);
+            }
+
             // Add TF to the PATH.
             string tfPath = tf.FilePath;
             ArgUtil.File(tfPath, nameof(tfPath));

@@ -1,4 +1,3 @@
-using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.Win32;
 using System;
@@ -6,7 +5,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Microsoft.VisualStudio.Services.Agent.Listener.Capabilities
+namespace Microsoft.VisualStudio.Services.Agent.Capabilities
 {
     public sealed class AgentCapabilitiesProvider : AgentService, ICapabilitiesProvider
     {
@@ -27,6 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Capabilities
             Add(capabilities, "InteractiveSession", (HostContext.StartupType != StartupType.Service).ToString());
             Add(capabilities, "Agent.Version", Constants.Agent.Version);
             Add(capabilities, "Agent.ComputerName", Environment.MachineName ?? string.Empty);
+            Add(capabilities, "Agent.HomeDirectory", HostContext.GetDirectory(WellKnownDirectory.Root));
             return Task.FromResult(capabilities);
         }
 

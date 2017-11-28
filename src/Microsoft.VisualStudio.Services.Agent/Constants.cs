@@ -32,6 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 #endif
         public static string SecretMask = "********";
         public static string TFBuild = "TF_BUILD";
+        public static string ProcessLookupId = "VSTS_PROCESS_LOOKUP_ID";
 
         // This enum is embedded within the Constants class to make it easier to reference and avoid
         // ambiguous type reference with System.Runtime.InteropServices.OSPlatform.
@@ -44,7 +45,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public static class Agent
         {
-            public static readonly string Version = "2.122.0";
+            public static readonly string Version = "2.126.0";
 
 #if OS_LINUX
             public static readonly OSPlatform Platform = OSPlatform.Linux;
@@ -65,6 +66,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public static readonly string Auth = "auth";
                     public static readonly string CollectionName = "collectionname";
                     public static readonly string DeploymentGroupName = "deploymentgroupname";
+                    public static readonly string DeploymentPoolName = "deploymentpoolname";
                     public static readonly string DeploymentGroupTags = "deploymentgrouptags";
                     public static readonly string MachineGroupName = "machinegroupname";
                     public static readonly string MachineGroupTags = "machinegrouptags";
@@ -76,6 +78,11 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public static readonly string ProjectName = "projectname";
                     public static readonly string ProxyUrl = "proxyurl";
                     public static readonly string ProxyUserName = "proxyusername";
+                    public static readonly string SslCACert = "sslcacert";
+                    public static readonly string SslClientCert = "sslclientcert";
+                    public static readonly string SslClientCertKey = "sslclientcertkey";
+                    public static readonly string SslClientCertArchive = "sslclientcertarchive";
+                    public static readonly string SslClientCertPassword = "sslclientcertpassword";
                     public static readonly string StartupType = "startuptype";
                     public static readonly string Url = "url";
                     public static readonly string UserName = "username";
@@ -92,6 +99,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     {
                         Password,
                         ProxyPassword,
+                        SslClientCertPassword,
                         Token,
                         WindowsLogonPassword,
                     };
@@ -114,6 +122,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public static readonly string AddMachineGroupTags = "addmachinegrouptags";
                     public static readonly string Commit = "commit";
                     public static readonly string DeploymentGroup = "deploymentgroup";
+                    public static readonly string DeploymentPool = "deploymentpool";
                     public static readonly string OverwriteAutoLogon = "overwriteautologon";
                     public static readonly string Help = "help";
                     public static readonly string MachineGroup = "machinegroup";
@@ -121,6 +130,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public static readonly string NoRestart = "norestart";
                     public static readonly string RunAsAutoLogon = "runasautologon";
                     public static readonly string RunAsService = "runasservice";
+                    public static readonly string SslSkipCertValidation = "sslskipcertvalidation";
                     public static readonly string Unattended = "unattended";
                     public static readonly string Version = "version";
                     public static readonly string WhatIf = "whatif";
@@ -139,6 +149,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             {
                 public static readonly string BuildReleasesAgentConfiguration = "BuildReleasesAgentConfiguration";
                 public static readonly string DeploymentAgentConfiguration = "DeploymentAgentConfiguration";
+                public static readonly string SharedDeploymentAgentConfiguration = "SharedDeploymentAgentConfiguration";
             }
         }
 
@@ -236,6 +247,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string AllowAllEndpoints = "agent.allowAllEndpoints"; // remove after sprint 120 or so.
                 public static readonly string AllowAllSecureFiles = "agent.allowAllSecureFiles"; // remove after sprint 121 or so.
                 public static readonly string BuildDirectory = "agent.builddirectory";
+                public static readonly string Diagnostic = "agent.diagnostic";
                 public static readonly string HomeDirectory = "agent.homedirectory";
                 public static readonly string Id = "agent.id";
                 public static readonly string JobName = "agent.jobname";
@@ -251,10 +263,15 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string RootDirectory = "agent.RootDirectory";
                 public static readonly string RunMode = "agent.runmode";
                 public static readonly string ServerOMDirectory = "agent.ServerOMDirectory";
+                public static readonly string SslCAInfo = "agent.cainfo";
+                public static readonly string SslClientCert = "agent.clientcert";
+                public static readonly string SslClientCertKey = "agent.clientcertkey";
+                public static readonly string SslClientCertArchive = "agent.clientcertarchive";
+                public static readonly string SslClientCertPassword = "agent.clientcertpassword";
+                public static readonly string SslSkipCertValidation = "agent.skipcertvalidation";
                 public static readonly string TempDirectory = "agent.TempDirectory";
                 public static readonly string ToolsDirectory = "agent.ToolsDirectory";
                 public static readonly string Version = "agent.version";
-                public static readonly string UseNode5 = "agent.usenode5";
                 public static readonly string WorkFolder = "agent.workfolder";
                 public static readonly string WorkingDirectory = "agent.WorkingDirectory";
             }
@@ -266,6 +283,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 //
                 public static readonly string ArtifactStagingDirectory = "build.artifactstagingdirectory";
                 public static readonly string BinariesDirectory = "build.binariesdirectory";
+                public static readonly string Number = "build.buildNumber";
                 public static readonly string Clean = "build.clean";
                 public static readonly string DefinitionName = "build.definitionname";
                 public static readonly string GatedRunCI = "build.gated.runci";
@@ -342,6 +360,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string DefinitionId = "system.definitionid";
                 public static readonly string EnableAccessToken = "system.enableAccessToken";
                 public static readonly string HostType = "system.hosttype";
+                public static readonly string PhaseDisplayName = "system.phaseDisplayName";
                 public static readonly string PreferGitFromPath = "system.prefergitfrompath";
                 public static readonly string SelfManageGitCreds = "system.selfmanagegitcreds";
                 public static readonly string TFServerUrl = "system.TeamFoundationServerUri"; // back compat variable, do not document

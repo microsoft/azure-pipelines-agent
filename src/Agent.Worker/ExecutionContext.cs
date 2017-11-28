@@ -351,9 +351,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             PrependPath = new List<string>();
 
             // Docker 
+            string imageName = Variables.Get("_PREVIEW_VSTS_DOCKER_IMAGE");
+            if (string.IsNullOrEmpty(imageName))
+            {
+                imageName = Environment.GetEnvironmentVariable("_PREVIEW_VSTS_DOCKER_IMAGE");
+            }
+
             Container = new ContainerInfo()
             {
-                ContainerImage = Variables.Get("_PREVIEW_VSTS_DOCKER_IMAGE"),
+                ContainerImage = imageName,
                 ContainerName = $"VSTS_{Variables.System_HostType.ToString()}_{message.JobId.ToString("D")}",
             };
 
@@ -379,6 +385,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 if (agentWebProxy.ProxyBypassList.Count > 0)
                 {
                     Variables.Set(Constants.Variables.Agent.ProxyBypassList, JsonUtility.ToString(agentWebProxy.ProxyBypassList));
+                }
+            }
+
+            // Certificate variables
+            var agentCert = HostContext.GetService<IAgentCertificateManager>();
+            if (agentCert.SkipServerCertificateValidation)
+            {
+                Variables.Set(Constants.Variables.Agent.SslSkipCertValidation, bool.TrueString);
+            }
+
+            if (!string.IsNullOrEmpty(agentCert.CACertificateFile))
+            {
+                Variables.Set(Constants.Variables.Agent.SslCAInfo, agentCert.CACertificateFile);
+            }
+
+            if (!string.IsNullOrEmpty(agentCert.ClientCertificateFile) &&
+                !string.IsNullOrEmpty(agentCert.ClientCertificatePrivateKeyFile) &&
+                !string.IsNullOrEmpty(agentCert.ClientCertificateArchiveFile))
+            {
+                Variables.Set(Constants.Variables.Agent.SslClientCert, agentCert.ClientCertificateFile);
+                Variables.Set(Constants.Variables.Agent.SslClientCertKey, agentCert.ClientCertificatePrivateKeyFile);
+                Variables.Set(Constants.Variables.Agent.SslClientCertArchive, agentCert.ClientCertificateArchiveFile);
+
+                if (!string.IsNullOrEmpty(agentCert.ClientCertificatePassword))
+                {
+                    Variables.Set(Constants.Variables.Agent.SslClientCertPassword, agentCert.ClientCertificatePassword, true);
                 }
             }
 

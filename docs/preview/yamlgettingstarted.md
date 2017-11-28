@@ -1,10 +1,14 @@
-# YAML getting started (internal only, public preview soon)
+# YAML getting started
 
-# Create a definition
-- Set feature flag Build2.Yaml
-- Opt in to YAML definition editor preview feature
+To create a YAML build definition, you must opt-in to the account-level preview feature: `Build YAML definitions`
 
-# Samples
+YAML builds require the latest agent. When a YAML build is queued, your agent will automatically update if it is not the latest version.
+
+## Hello world
+
+[Create a definition](yamlgettingstarted-definition.md)
+
+## Examples
 
 [Run scripts](yamlgettingstarted-scripts.md)
 
@@ -16,18 +20,20 @@
 
 [Checkout options](yamlgettingstarted-checkout.md)
 
+[Queues](yamlgettingstarted-queues.md)
+
+[Endpoints](yamlgettingstarted-endpoints.md)
+
 [Phase options](yamlgettingstarted-phase.md)
 
 [Multiple phases](yamlgettingstarted-phases.md)
 
-<!--
-[Mustache text templating](yamlgettingstarted-mustache.md)
--->
+[Build number format](yamlgettingstarted-name.md)
+
+## Misc
 
 [Schema reference](yamlgettingstarted-schema.md)
 
-<!--
-[Process templates](yamlgettingstarted-templates.md)
--->
+[Resource authorization](yamlgettingstarted-authz.md)
 
-[Local run](yamlgettingstarted-localrun.md)
+[Feature gaps](yamlgettingstarted-features.md)
