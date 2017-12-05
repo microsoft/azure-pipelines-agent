@@ -10,6 +10,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.TeamFoundation.TestClient.PublishTestResults;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
@@ -138,6 +139,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         {
             Trace.Entering();
             RunUpdateModel updateModel = new RunUpdateModel(
+                startedDate: testRunData.StartDate,
                 completedDate: testRunData.CompleteDate,
                 state: TestRunState.Completed.ToString()
                 );

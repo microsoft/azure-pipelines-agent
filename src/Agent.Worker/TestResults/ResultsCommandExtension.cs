@@ -1,11 +1,16 @@
 ﻿using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using StringUtil = Microsoft.VisualStudio.Services.Agent.Util.StringUtil;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.TeamFoundation.Common.Internal;
+using Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider.Helpers;
+using Microsoft.VisualStudio.Services.Gallery.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
@@ -23,6 +28,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private bool _publishRunLevelAttachments;
         private int _runCounter = 0;
         private readonly object _sync = new object();
+        private AsyncLazy<TestRun> testRunInitializationAsyncLazy;
+        private ManualResetEventSlim resultsExist = new ManualResetEventSlim(false);
 
         public Type ExtensionType => typeof(IWorkerCommandExtension);
 
@@ -83,21 +90,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
 
-            if (_mergeResults)
-            {
-                commandContext.Task = PublishAllTestResultsToSingleTestRunAsync(_testResultFiles, publisher, buildId, runContext, resultReader.Name, context.CancellationToken);
-            }
-            else
-            {
-                commandContext.Task = PublishToNewTestRunPerTestResultFileAsync(_testResultFiles, publisher, runContext, resultReader.Name, PublishBatchSize, context.CancellationToken);
-            }
+            commandContext.Task = _mergeResults
+                ? PublishAllTestResultsToSingleTestRunAsync(_testResultFiles, publisher, buildId, runContext,
+                    resultReader.Name, context.CancellationToken)
+                : PublishToNewTestRunPerTestResultFileAsync(_testResultFiles, publisher, runContext, resultReader.Name,
+                    PublishBatchSize, context.CancellationToken);
             _executionContext.AsyncCommands.Add(commandContext);
         }
 
         /// <summary>
         /// Publish single test run
         /// </summary>
-        private async Task PublishAllTestResultsToSingleTestRunAsync(List<string> resultFiles, ITestRunPublisher publisher, int buildId, TestRunContext runContext, string resultReader, CancellationToken cancellationToken)
+        private async Task PublishAllTestResultsToSingleTestRunAsync(IList<string> resultFiles, ITestRunPublisher publisher, int buildId, TestRunContext runContext, string resultReader, CancellationToken cancellationToken)
         {
             try
             {
@@ -108,8 +112,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 bool dateFormatError = false;
                 TimeSpan totalTestCaseDuration = TimeSpan.Zero;
                 List<string> runAttachments = new List<string>();
-                List<TestCaseResultData> runResults = new List<TestCaseResultData>();
+                List<Task> publishTasks = new List<Task>();
 
+                InitializeTestRunAsyncLazy(publisher, buildId, runContext);
+                
                 //read results from each file
                 foreach (string resultFile in resultFiles)
                 {
@@ -118,7 +124,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     _executionContext.Debug(StringUtil.Format("Reading test results from file '{0}'", resultFile));
                     TestRunData resultFileRunData = publisher.ReadResultsFromFile(runContext, resultFile);
 
-                    if (resultFileRunData != null && resultFileRunData.Results != null && resultFileRunData.Results.Length > 0)
+                    if (resultFileRunData?.Results != null && resultFileRunData.Results.Length > 0)
                     {
                         try
                         {
@@ -153,7 +159,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                             totalTestCaseDuration = totalTestCaseDuration.Add(TimeSpan.FromMilliseconds(durationInMs));
                         }
 
-                        runResults.AddRange(resultFileRunData.Results);
+                        if (resultFileRunData.Results.Length > 0)
+                        {
+                            var pTask = publisher.AddResultsAsync(testRunInitializationAsyncLazy.Value.Result, resultFileRunData.Results, _executionContext.CancellationToken);
+                            publishTasks.Add(pTask);
+                            resultsExist.Set();
+                        }
 
                         //run attachments
                         if (resultFileRunData.Attachments != null)
@@ -165,14 +176,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     {
                         _executionContext.Warning(StringUtil.Loc("InvalidResultFiles", resultFile, resultReader));
                     }
-                }                
+                }
 
-                //publish run if there are results.
-                if (runResults.Count > 0)
+                if(resultsExist.IsSet)
                 {
-                    string runName = string.IsNullOrWhiteSpace(_runTitle)
-                    ? StringUtil.Format("{0}_TestResults_{1}", _testRunner, buildId)
-                    : _runTitle;
+                    // Waiting for all the tasks to complete.
+                    Task.WaitAll(publishTasks.ToArray());
 
                     if (DateTime.Compare(minStartDate, maxCompleteDate) > 0)
                     {
@@ -181,27 +190,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     }
 
                     minStartDate = DateTime.Equals(minStartDate, DateTime.MaxValue) ? presentTime : minStartDate;
-                    maxCompleteDate = dateFormatError || DateTime.Equals(maxCompleteDate, DateTime.MinValue) ? minStartDate.Add(totalTestCaseDuration) : maxCompleteDate;
+                    maxCompleteDate = dateFormatError || DateTime.Equals(maxCompleteDate, DateTime.MinValue)
+                        ? minStartDate.Add(totalTestCaseDuration)
+                        : maxCompleteDate;
 
-                    //creat test run
-                    TestRunData testRunData = new TestRunData(
-                        name: runName,
-                        startedDate: minStartDate.ToString("o"),
-                        completedDate: maxCompleteDate.ToString("o"),
-                        state: "InProgress",
-                        isAutomated: true,
-                        buildId: runContext != null ? runContext.BuildId : 0,
-                        buildFlavor: runContext != null ? runContext.Configuration : string.Empty,
-                        buildPlatform: runContext != null ? runContext.Platform : string.Empty,
-                        releaseUri: runContext != null ? runContext.ReleaseUri : null,
-                        releaseEnvironmentUri: runContext != null ? runContext.ReleaseEnvironmentUri : null
-                    );
 
-                    testRunData.Attachments = runAttachments.ToArray();
-
-                    TestRun testRun = await publisher.StartTestRunAsync(testRunData, _executionContext.CancellationToken);
-                    await publisher.AddResultsAsync(testRun, runResults.ToArray(), _executionContext.CancellationToken);
-                    await publisher.EndTestRunAsync(testRunData, testRun.Id, true, _executionContext.CancellationToken);
+                    var testRunDataEnd =
+                        new TestRunData(startedDate: minStartDate.ToString("o"),
+                            completedDate: maxCompleteDate.ToString("o")) {Attachments = runAttachments.ToArray()};
+                    await publisher.EndTestRunAsync(testRunDataEnd, testRunInitializationAsyncLazy.Value.Result.Id, true, _executionContext.CancellationToken);
                 }
             }
             catch (Exception ex) when (!(ex is OperationCanceledException))
@@ -211,13 +208,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
         }
 
+        private void InitializeTestRunAsyncLazy(ITestRunPublisher publisher, int buildId, TestRunContext runContext)
+        {
+            string runName = string.IsNullOrWhiteSpace(_runTitle)
+                ? StringUtil.Format("{0}_TestResults_{1}", _testRunner, buildId)
+                : _runTitle;
+
+            // create test run
+            TestRunData testRunData = new TestRunData(
+                name: runName,
+                state: "InProgress",
+                isAutomated: true,
+                buildId: runContext?.BuildId ?? 0,
+                buildFlavor: runContext?.Configuration ?? string.Empty,
+                buildPlatform: runContext?.Platform ?? string.Empty,
+                releaseUri: runContext?.ReleaseUri,
+                releaseEnvironmentUri: runContext?.ReleaseEnvironmentUri
+            );
+
+            testRunInitializationAsyncLazy = new AsyncLazy<TestRun>(async () =>
+                await publisher.StartTestRunAsync(testRunData, _executionContext.CancellationToken));
+        }
+
         /// <summary>
         /// Publish separate test run for each result file that has results.
         /// </summary>
-        private async Task PublishToNewTestRunPerTestResultFileAsync(List<string> resultFiles, 
-            ITestRunPublisher publisher, 
-            TestRunContext runContext, 
-            string resultReader, 
+        private async Task PublishToNewTestRunPerTestResultFileAsync(List<string> resultFiles,
+            ITestRunPublisher publisher,
+            TestRunContext runContext,
+            string resultReader,
             int batchSize,
             CancellationToken cancellationToken)
         {
@@ -229,7 +248,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     .Select(bucket => bucket.Select(pair => pair.file).ToList())
                     .ToList();
 
-                foreach(var files in groupedFiles)
+                foreach (var files in groupedFiles)
                 {
                     // Publish separate test run for each result file that has results.
                     var publishTasks = files.Select(async resultFile =>
