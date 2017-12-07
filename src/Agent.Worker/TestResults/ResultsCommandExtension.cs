@@ -1,6 +1,7 @@
 ﻿using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using StringUtil = Microsoft.VisualStudio.Services.Agent.Util.StringUtil;
+using Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider.Helpers;
+using Microsoft.VisualStudio.Services.WebApi;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -8,10 +9,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.TeamFoundation.Common.Internal;
-using Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider.Helpers;
-using Microsoft.VisualStudio.Services.Gallery.WebApi;
-using Microsoft.VisualStudio.Services.WebApi;
+using StringUtil = Microsoft.VisualStudio.Services.Agent.Util.StringUtil;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
@@ -30,6 +28,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private readonly object _sync = new object();
         private AsyncLazy<TestRun> testRunInitializationAsyncLazy;
         private ManualResetEventSlim resultsExist = new ManualResetEventSlim(false);
+        private ManualResetEventSlim finishedParsing = new ManualResetEventSlim(false);
+        private List<Task> publishTasks = new List<Task>();
+        private ConcurrentQueue<TestCaseResultData[]> resultsQueue = new ConcurrentQueue<TestCaseResultData[]>();
+        private SemaphoreSlim publishTaskThrottler = new SemaphoreSlim(10);
 
         public Type ExtensionType => typeof(IWorkerCommandExtension);
 
@@ -112,11 +114,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 bool dateFormatError = false;
                 TimeSpan totalTestCaseDuration = TimeSpan.Zero;
                 List<string> runAttachments = new List<string>();
-                List<Task> publishTasks = new List<Task>();
-
                 InitializeTestRunAsyncLazy(publisher, buildId, runContext);
-                
-                //read results from each file
+
+                if (resultFiles.Count == 0)
+                {
+                    return;
+                }
+
+                // Starting a Task which will publish the results from the resultsQueue.
+                var publishingTask = Task.Run(() => PublishResults(publisher, cancellationToken));
+
+                // read results from each file
                 foreach (string resultFile in resultFiles)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -153,17 +161,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                         }
 
                         //continue to calculate duration as a fallback for case: if there is issue with format or dates are null or empty
-                        foreach (TestCaseResultData tcResult in resultFileRunData.Results)
+                        foreach (var tcResult in resultFileRunData.Results)
                         {
-                            int durationInMs = Convert.ToInt32(tcResult.DurationInMs);
+                            var durationInMs = Convert.ToInt32(tcResult.DurationInMs);
                             totalTestCaseDuration = totalTestCaseDuration.Add(TimeSpan.FromMilliseconds(durationInMs));
                         }
 
                         if (resultFileRunData.Results.Length > 0)
                         {
-                            var pTask = publisher.AddResultsAsync(testRunInitializationAsyncLazy.Value.Result, resultFileRunData.Results, _executionContext.CancellationToken);
-                            publishTasks.Add(pTask);
                             resultsExist.Set();
+                            resultsQueue.Enqueue(resultFileRunData.Results);
                         }
 
                         //run attachments
@@ -178,10 +185,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     }
                 }
 
+                finishedParsing.Set();
+
                 if(resultsExist.IsSet)
                 {
-                    // Waiting for all the tasks to complete.
-                    Task.WaitAll(publishTasks.ToArray());
+                    // Waiting for the publishing task to complete.
+                    publishingTask.Wait(cancellationToken);
 
                     if (DateTime.Compare(minStartDate, maxCompleteDate) > 0)
                     {
@@ -203,9 +212,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
             catch (Exception ex) when (!(ex is OperationCanceledException))
             {
+                finishedParsing.Set();
+
                 //Do not fail the task.
                 LogPublishTestResultsFailureWarning(ex);
             }
+        }
+
+        private async Task PublishResults(ITestRunPublisher publisher, CancellationToken cancellationToken)
+        {
+            while (resultsQueue.Count > 0 || !finishedParsing.IsSet)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (resultsQueue.TryDequeue(out var results))
+                {
+                    await publishTaskThrottler.WaitAsync(cancellationToken);
+
+                    var pTask = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await publisher.AddResultsAsync(testRunInitializationAsyncLazy.Value.Result, results,
+                                _executionContext.CancellationToken);
+                        }
+                        finally
+                        {
+                            publishTaskThrottler.Release();
+                        }
+                    });
+                    publishTasks.Add(pTask);
+                }
+            }
+            // Waiting for all the publishing tasks to complete
+            Task.WaitAll(publishTasks.ToArray());
         }
 
         private void InitializeTestRunAsyncLazy(ITestRunPublisher publisher, int buildId, TestRunContext runContext)
