@@ -114,6 +114,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 bool dateFormatError = false;
                 TimeSpan totalTestCaseDuration = TimeSpan.Zero;
                 List<string> runAttachments = new List<string>();
+
                 InitializeTestRunAsyncLazy(publisher, buildId, runContext);
 
                 if (resultFiles.Count == 0)
@@ -160,10 +161,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                             dateFormatError = true;
                         }
 
-                        //continue to calculate duration as a fallback for case: if there is issue with format or dates are null or empty
-                        foreach (var tcResult in resultFileRunData.Results)
+                        // Continue to calculate duration as a fallback for case: if there is issue with format or dates are null or empty
+                        foreach (TestCaseResultData tcResult in resultFileRunData.Results)
                         {
-                            var durationInMs = Convert.ToInt32(tcResult.DurationInMs);
+                            int durationInMs = Convert.ToInt32(tcResult.DurationInMs);
                             totalTestCaseDuration = totalTestCaseDuration.Add(TimeSpan.FromMilliseconds(durationInMs));
                         }
 
@@ -207,7 +208,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     var testRunDataEnd =
                         new TestRunData(startedDate: minStartDate.ToString("o"),
                             completedDate: maxCompleteDate.ToString("o")) {Attachments = runAttachments.ToArray()};
-                    await publisher.EndTestRunAsync(testRunDataEnd, testRunInitializationAsyncLazy.Value.Result.Id, true, _executionContext.CancellationToken);
+                    TestRun testRun = await testRunInitializationAsyncLazy.Value;
+                    await publisher.EndTestRunAsync(testRunDataEnd, testRun.Id, true, _executionContext.CancellationToken);
                 }
             }
             catch (Exception ex) when (!(ex is OperationCanceledException))
@@ -232,7 +234,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     {
                         try
                         {
-                            await publisher.AddResultsAsync(testRunInitializationAsyncLazy.Value.Result, results,
+                            TestRun testRun = await testRunInitializationAsyncLazy.Value;
+                            await publisher.AddResultsAsync(testRun, results,
                                 _executionContext.CancellationToken);
                         }
                         finally
