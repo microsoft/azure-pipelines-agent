@@ -1,3 +1,4 @@
+using Microsoft.TeamFoundation.Core.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Build;
@@ -172,6 +173,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public string System_TeamProject => Get(BuildWebApi.WellKnownBuildVariables.TeamProject);
 
         public Guid? System_TeamProjectId => GetGuid(BuildWebApi.WellKnownBuildVariables.TeamProjectId);
+
+        public ProjectVisibility System_TeamProjectVisibility => GetEnum<ProjectVisibility>(Constants.Variables.System.TeamProjectVisibility) ?? ProjectVisibility.Unchanged;
 
         public string System_TFCollectionUrl => Get(WellKnownDistributedTaskVariables.TFCollectionUrl);
 
