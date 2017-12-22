@@ -285,7 +285,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             ValidateRegistryValue(RegistryHive.Users,
                                     $"{securityId}\\{RegistryConstants.UserSettings.SubKeys.ScreenSaver}",
                                     RegistryConstants.UserSettings.ValueNames.ScreenSaver,
-                                    "0");      
+                                    "0");
         }
 
         public void ValidateRegistryValue(RegistryHive hive, string subKeyName, string name, string expectedValue)
