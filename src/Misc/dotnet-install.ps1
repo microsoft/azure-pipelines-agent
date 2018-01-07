@@ -449,11 +449,11 @@ function DownloadFile([Uri]$Uri, [string]$OutPath) {
 function Prepend-Sdk-InstallRoot-To-Path([string]$InstallRoot, [string]$BinFolderRelativePath) {
     $BinPath = Get-Absolute-Path $(Join-Path -Path $InstallRoot -ChildPath $BinFolderRelativePath)
     if (-Not $NoPath) {
-        Say "Adding to current process PATH: `"$BinPath`". Note: This change will not be visible if PowerShell was run as a child process."
+        script:Say "Adding to current process PATH: `"$BinPath`". Note: This change will not be visible if PowerShell was run as a child process."
         $env:path = "$BinPath;" + $env:path
     }
     else {
-        Say "Binaries of dotnet can be found in $BinPath"
+        script:Say "Binaries of dotnet can be found in $BinPath"
     }
 }
 
@@ -463,10 +463,10 @@ $DownloadLink = Get-Download-Link -AzureFeed $AzureFeed -SpecificVersion $Specif
 $LegacyDownloadLink = Get-LegacyDownload-Link -AzureFeed $AzureFeed -SpecificVersion $SpecificVersion -CLIArchitecture $CLIArchitecture
 
 if ($DryRun) {
-    Say "Payload URLs:"
-    Say "Primary - $DownloadLink"
-    Say "Legacy - $LegacyDownloadLink"
-    Say "Repeatable invocation: .\$($MyInvocation.Line)"
+    script:Say "Payload URLs:"
+    script:Say "Primary - $DownloadLink"
+    script:Say "Legacy - $LegacyDownloadLink"
+    script:Say "Repeatable invocation: .\$($MyInvocation.Line)"
     exit 0
 }
 
@@ -476,7 +476,7 @@ Say-Verbose "InstallRoot: $InstallRoot"
 $IsSdkInstalled = Is-Dotnet-Package-Installed -InstallRoot $InstallRoot -RelativePathToPackage "sdk" -SpecificVersion $SpecificVersion
 Say-Verbose ".NET SDK installed? $IsSdkInstalled"
 if ($IsSdkInstalled) {
-    Say ".NET SDK version $SpecificVersion is already installed."
+    script:Say ".NET SDK version $SpecificVersion is already installed."
     Prepend-Sdk-InstallRoot-To-Path -InstallRoot $InstallRoot -BinFolderRelativePath $BinFolderRelativePath
     exit 0
 }
@@ -486,31 +486,31 @@ New-Item -ItemType Directory -Force -Path $InstallRoot | Out-Null
 $installDrive = $((Get-Item $InstallRoot).PSDrive.Name);
 $free = Get-CimInstance -Class win32_logicaldisk | where Deviceid -eq "${installDrive}:"
 if ($free.Freespace / 1MB -le 100 ) {
-    Say "There is not enough disk space on drive ${installDrive}:"
+    script:Say "There is not enough disk space on drive ${installDrive}:"
     exit 0
 }
 
 $ZipPath = [System.IO.Path]::combine([System.IO.Path]::GetTempPath(), [System.IO.Path]::GetRandomFileName())
 Say-Verbose "Zip path: $ZipPath"
-Say "Downloading link: $DownloadLink"
+script:Say "Downloading link: $DownloadLink"
 try {
     DownloadFile -Uri $DownloadLink -OutPath $ZipPath
 }
 catch {
-    Say "Cannot download: $DownloadLink"
+    script:Say "Cannot download: $DownloadLink"
     $DownloadLink = $LegacyDownloadLink
     $ZipPath = [System.IO.Path]::combine([System.IO.Path]::GetTempPath(), [System.IO.Path]::GetRandomFileName())
     Say-Verbose "Legacy zip path: $ZipPath"
-    Say "Downloading legacy link: $DownloadLink"
+    script:Say "Downloading legacy link: $DownloadLink"
     DownloadFile -Uri $DownloadLink -OutPath $ZipPath
 }
 
-Say "Extracting zip from $DownloadLink"
+script:Say "Extracting zip from $DownloadLink"
 Extract-Dotnet-Package -ZipPath $ZipPath -OutPath $InstallRoot
 
 Remove-Item $ZipPath
 
 Prepend-Sdk-InstallRoot-To-Path -InstallRoot $InstallRoot -BinFolderRelativePath $BinFolderRelativePath
 
-Say "Installation finished"
+script:Say "Installation finished"
 exit 0
