@@ -330,12 +330,14 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string AttemptNumber = "release.attemptNumber";
                 public static readonly string DisableRobocopy = "release.disableRobocopy";
                 public static readonly string ReleaseDefinitionName = "release.definitionName";
+                public static readonly string ReleaseDeploymentRequestedForEmail = "release.Deployment.RequestedForEmail";
                 public static readonly string ReleaseEnvironmentName = "release.environmentName";
                 public static readonly string ReleaseEnvironmentUri = "release.environmentUri";
                 public static readonly string ReleaseDefinitionId = "release.definitionId";
                 public static readonly string ReleaseDescription = "release.releaseDescription";
                 public static readonly string ReleaseId = "release.releaseId";
                 public static readonly string ReleaseName = "release.releaseName";
+                public static readonly string ReleaseRequestedForEmail = "release.requestedForEmail";
                 public static readonly string ReleaseRequestedForId = "release.requestedForId";
                 public static readonly string ReleaseUri = "release.releaseUri";
                 public static readonly string ReleaseDownloadBufferSize = "release.artifact.download.buffersize";
@@ -366,6 +368,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string TFServerUrl = "system.TeamFoundationServerUri"; // back compat variable, do not document
                 public static readonly string TeamProject = "system.teamproject";
                 public static readonly string TeamProjectId = "system.teamProjectId";
+                public static readonly string TeamProjectVisibility = "system.teamProjectVisibility";
                 public static readonly string WorkFolder = "system.workfolder";
             }
 

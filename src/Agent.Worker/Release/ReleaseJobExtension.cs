@@ -398,7 +398,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
         private void LogEnvironmentVariables(IExecutionContext executionContext)
         {
             Trace.Entering();
-            string stringifiedEnvironmentVariables = AgentUtilities.GetPrintableEnvironmentVariables(executionContext.Variables.Public);
+            string stringifiedEnvironmentVariables = AgentUtilities.GetPrintableEnvironmentVariables(executionContext);
 
             // Use LogMessage to ensure that the logs reach the TWA UI, but don't spam the console cmd window
             executionContext.Output(StringUtil.Loc("RMEnvironmentVariablesAvailable", stringifiedEnvironmentVariables));
