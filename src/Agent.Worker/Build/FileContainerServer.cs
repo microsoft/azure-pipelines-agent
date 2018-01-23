@@ -14,31 +14,31 @@ using System.Net;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
-    public class FileContainerServer
+    [ServiceLocator(Default = typeof(FileContainerServer))]
+    public interface IFileContainerServer : IAgentService
+    {
+        Task ConnectAsync(VssConnection connection);
+        Task CopyToContainerAsync(IAsyncCommandContext context, Guid projectId, long containerId, string containerPath, String source, CancellationToken cancellationToken);
+    }
+
+    public sealed class FileContainerServer : AgentService, IFileContainerServer
     {
         private readonly ConcurrentQueue<string> _fileUploadQueue = new ConcurrentQueue<string>();
         private readonly ConcurrentDictionary<string, ConcurrentQueue<string>> _fileUploadTraceLog = new ConcurrentDictionary<string, ConcurrentQueue<string>>();
         private readonly ConcurrentDictionary<string, ConcurrentQueue<string>> _fileUploadProgressLog = new ConcurrentDictionary<string, ConcurrentQueue<string>>();
-        private readonly FileContainerHttpClient _fileContainerHttpClient;
+        private readonly object _lock = new object();
 
+        private FileContainerHttpClient _fileContainerHttpClient;
+        private VssConnection _fileContainerClientConnection;
         private CancellationTokenSource _uploadCancellationTokenSource;
         private TaskCompletionSource<int> _uploadFinished;
-        private Guid _projectId;
-        private long _containerId;
-        private string _containerPath;
         private int _filesProcessed = 0;
         private string _sourceParentDirectory;
+        private bool _hasConnection;
+        private bool _occupied = false;
 
-        public FileContainerServer(
-            VssConnection connection,
-            Guid projectId,
-            long containerId,
-            string containerPath)
+        public async Task ConnectAsync(VssConnection connection)
         {
-            _projectId = projectId;
-            _containerId = containerId;
-            _containerPath = containerPath;
-
             // default file upload request timeout to 600 seconds
             var fileContainerClientConnectionSetting = connection.Settings.Clone();
             if (fileContainerClientConnectionSetting.SendTimeout < TimeSpan.FromSeconds(600))
@@ -46,15 +46,52 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 fileContainerClientConnectionSetting.SendTimeout = TimeSpan.FromSeconds(600);
             }
 
-            var fileContainerClientConnection = new VssConnection(connection.Uri, connection.Credentials, fileContainerClientConnectionSetting);
-            _fileContainerHttpClient = fileContainerClientConnection.GetClient<FileContainerHttpClient>();
+            _fileContainerClientConnection = new VssConnection(connection.Uri, connection.Credentials, fileContainerClientConnectionSetting);
+
+            int attemptCount = 5;
+            while (!_fileContainerClientConnection.HasAuthenticated && attemptCount-- > 0)
+            {
+                try
+                {
+                    await _fileContainerClientConnection.ConnectAsync();
+                    break;
+                }
+                catch (Exception ex) when (attemptCount > 0)
+                {
+                    Trace.Info($"Catch exception during connect. {attemptCount} attempt left.");
+                    Trace.Error(ex);
+                }
+
+                await Task.Delay(100);
+            }
+
+            _fileContainerHttpClient = _fileContainerClientConnection.GetClient<FileContainerHttpClient>();
+            _hasConnection = true;
         }
 
         public async Task CopyToContainerAsync(
             IAsyncCommandContext context,
+            Guid projectId,
+            long containerId,
+            string containerPath,
             String source,
             CancellationToken cancellationToken)
         {
+            CheckConnection();
+
+            // prevent this instance from reusing.
+            lock (_lock)
+            {
+                if (_occupied)
+                {
+                    throw new InvalidOperationException(nameof(FileContainerServer));
+                }
+                else
+                {
+                    _occupied = true;
+                }
+            }
+
             //set maxConcurrentUploads up to 2 until figure out how to use WinHttpHandler.MaxConnectionsPerServer modify DefaultConnectionLimit
             int maxConcurrentUploads = Math.Min(Environment.ProcessorCount, 2);
             //context.Output($"Max Concurrent Uploads {maxConcurrentUploads}");
@@ -81,7 +118,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 try
                 {
                     // try upload all files for the first time.
-                    List<string> failedFiles = await ParallelUploadAsync(context, files, maxConcurrentUploads, _uploadCancellationTokenSource.Token);
+                    List<string> failedFiles = await ParallelUploadAsync(context, projectId, containerId, containerPath, files, maxConcurrentUploads, _uploadCancellationTokenSource.Token);
 
                     if (failedFiles.Count == 0)
                     {
@@ -103,7 +140,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
                     // Retry upload all failed files.
                     context.Output(StringUtil.Loc("FileUploadRetry", failedFiles.Count));
-                    failedFiles = await ParallelUploadAsync(context, failedFiles, maxConcurrentUploads, _uploadCancellationTokenSource.Token);
+                    failedFiles = await ParallelUploadAsync(context, projectId, containerId, containerPath, failedFiles, maxConcurrentUploads, _uploadCancellationTokenSource.Token);
 
                     if (failedFiles.Count == 0)
                     {
@@ -124,7 +161,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
         }
 
-        private async Task<List<string>> ParallelUploadAsync(IAsyncCommandContext context, List<string> files, int concurrentUploads, CancellationToken token)
+        private void CheckConnection()
+        {
+            if (!_hasConnection)
+            {
+                throw new InvalidOperationException("SetConnection");
+            }
+        }
+
+        private async Task<List<string>> ParallelUploadAsync(IAsyncCommandContext context, Guid projectId, long containerId, string containerPath, List<string> files, int concurrentUploads, CancellationToken token)
         {
             // return files that fail to upload
             List<string> failedFiles = new List<string>();
@@ -156,9 +201,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             // Start parallel upload tasks.
             List<Task<List<string>>> parallelUploadingTasks = new List<Task<List<string>>>();
-            for (int uploader = 0; uploader < concurrentUploads; uploader++)
+            for (int upload_worker = 0; upload_worker < concurrentUploads; upload_worker++)
             {
-                parallelUploadingTasks.Add(UploadAsync(context, uploader, _uploadCancellationTokenSource.Token));
+                parallelUploadingTasks.Add(UploadAsync(context, upload_worker, projectId, containerId, containerPath, _uploadCancellationTokenSource.Token));
             }
 
             // Wait for parallel upload finish.
@@ -176,7 +221,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return failedFiles;
         }
 
-        private async Task<List<string>> UploadAsync(IAsyncCommandContext context, int uploaderId, CancellationToken token)
+        private async Task<List<string>> UploadAsync(IAsyncCommandContext context, int upload_workerId, Guid projectId, long containerId, string containerPath, CancellationToken token)
         {
             List<string> failedFiles = new List<string>();
             string fileToUpload;
@@ -186,13 +231,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 token.ThrowIfCancellationRequested();
                 using (FileStream fs = File.Open(fileToUpload, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
-                    string itemPath = (_containerPath.TrimEnd('/') + "/" + fileToUpload.Remove(0, _sourceParentDirectory.Length + 1)).Replace('\\', '/');
+                    string itemPath = (containerPath.TrimEnd('/') + "/" + fileToUpload.Remove(0, _sourceParentDirectory.Length + 1)).Replace('\\', '/');
                     uploadTimer.Restart();
                     bool catchExceptionDuringUpload = false;
                     HttpResponseMessage response = null;
                     try
                     {
-                        response = await _fileContainerHttpClient.UploadFileAsync(_containerId, itemPath, fs, _projectId, cancellationToken: token, chunkSize: 4 * 1024 * 1024);
+                        response = await _fileContainerHttpClient.UploadFileAsync(containerId, itemPath, fs, projectId, cancellationToken: token, chunkSize: 4 * 1024 * 1024);
                     }
                     catch (OperationCanceledException) when (token.IsCancellationRequested)
                     {

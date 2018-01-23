@@ -112,8 +112,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string buildNumber,
             CancellationToken cancellationToken)
         {
-            BuildServer buildServer = new BuildServer(connection, projectId);
-            var build = await buildServer.UpdateBuildNumber(buildId, buildNumber, cancellationToken);
+            var buildServer = HostContext.CreateService<IBuildServer>();
+            await buildServer.ConnectAsync(connection);
+            var build = await buildServer.UpdateBuildNumber(projectId, buildId, buildNumber, cancellationToken);
             context.Output(StringUtil.Loc("UpdateBuildNumberForBuild", build.BuildNumber, build.Id));
         }
 
@@ -156,8 +157,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string buildTag,
             CancellationToken cancellationToken)
         {
-            BuildServer buildServer = new BuildServer(connection, projectId);
-            var tags = await buildServer.AddBuildTag(buildId, buildTag, cancellationToken);
+            var buildServer = HostContext.CreateService<IBuildServer>();
+            await buildServer.ConnectAsync(connection);
+            var tags = await buildServer.AddBuildTag(projectId, buildId, buildTag, cancellationToken);
 
             if (tags == null || !tags.Any(t => t.Equals(buildTag, StringComparison.OrdinalIgnoreCase)))
             {

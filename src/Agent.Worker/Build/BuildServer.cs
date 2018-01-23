@@ -9,21 +9,55 @@ using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
-    public class BuildServer
+    [ServiceLocator(Default = typeof(BuildServer))]
+    public interface IBuildServer : IAgentService
     {
-        private readonly Build2.BuildHttpClient _buildHttpClient;
-        private Guid _projectId;
+        Task ConnectAsync(VssConnection connection);
+        Task<Build2.BuildArtifact> AssociateArtifact(Guid projectId, int buildId, string name, string type, string data, Dictionary<string, string> propertiesDictionary, CancellationToken cancellationToken);
+        Task<Build2.Build> UpdateBuildNumber(Guid projectId, int buildId, string buildNumber, CancellationToken cancellationToken);
+        Task<IEnumerable<string>> AddBuildTag(Guid projectId, int buildId, string buildTag, CancellationToken cancellationToken);
+    }
 
-        public BuildServer(VssConnection connection, Guid projectId)
+    public sealed class BuildServer : AgentService, IBuildServer
+    {
+        private bool _hasConnection;
+        private VssConnection _connection;
+        private Build2.BuildHttpClient _buildHttpClient;
+
+        public async Task ConnectAsync(VssConnection connection)
         {
-            ArgUtil.NotNull(connection, nameof(connection));
-            ArgUtil.NotEmpty(projectId, nameof(projectId));
+            _connection = connection;
+            int attemptCount = 5;
+            while (!_connection.HasAuthenticated && attemptCount-- > 0)
+            {
+                try
+                {
+                    await _connection.ConnectAsync();
+                    break;
+                }
+                catch (Exception ex) when (attemptCount > 0)
+                {
+                    Trace.Info($"Catch exception during connect. {attemptCount} attempt left.");
+                    Trace.Error(ex);
+                }
 
-            _projectId = projectId;
-            _buildHttpClient = connection.GetClient<Build2.BuildHttpClient>();
+                await Task.Delay(100);
+            }
+
+            _buildHttpClient = _connection.GetClient<Build2.BuildHttpClient>();
+            _hasConnection = true;
+        }
+
+        private void CheckConnection()
+        {
+            if (!_hasConnection)
+            {
+                throw new InvalidOperationException("SetConnection");
+            }
         }
 
         public async Task<Build2.BuildArtifact> AssociateArtifact(
+            Guid projectId,
             int buildId,
             string name,
             string type,
@@ -31,6 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             Dictionary<string, string> propertiesDictionary,
             CancellationToken cancellationToken = default(CancellationToken))
         {
+            CheckConnection();
             Build2.BuildArtifact artifact = new Build2.BuildArtifact()
             {
                 Name = name,
@@ -42,33 +77,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 }
             };
 
-            return await _buildHttpClient.CreateArtifactAsync(artifact, _projectId, buildId, cancellationToken: cancellationToken);
+            return await _buildHttpClient.CreateArtifactAsync(artifact, projectId, buildId, cancellationToken: cancellationToken);
         }
 
         public async Task<Build2.Build> UpdateBuildNumber(
+            Guid projectId,
             int buildId,
             string buildNumber,
             CancellationToken cancellationToken = default(CancellationToken))
         {
+            CheckConnection();
             Build2.Build build = new Build2.Build()
             {
                 Id = buildId,
                 BuildNumber = buildNumber,
                 Project = new TeamProjectReference()
                 {
-                    Id = _projectId,
+                    Id = projectId,
                 },
             };
 
-            return await _buildHttpClient.UpdateBuildAsync(build, _projectId, buildId, cancellationToken: cancellationToken);
+            return await _buildHttpClient.UpdateBuildAsync(build, projectId, buildId, cancellationToken: cancellationToken);
         }
 
         public async Task<IEnumerable<string>> AddBuildTag(
+            Guid projectId,
             int buildId,
             string buildTag,
             CancellationToken cancellationToken = default(CancellationToken))
         {
-            return await _buildHttpClient.AddBuildTagAsync(_projectId, buildId, buildTag, cancellationToken: cancellationToken);
+            CheckConnection();
+            return await _buildHttpClient.AddBuildTagAsync(projectId, buildId, buildTag, cancellationToken: cancellationToken);
         }
     }
 }
