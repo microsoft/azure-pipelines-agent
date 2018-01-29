@@ -347,8 +347,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 throw new Exception($"issue type {issueType} is not an expected issue type.");
             }
 
-            string messageToLog = message;
-
             String sourcePath;
             if (properties.TryGetValue(ProjectIssueProperties.SourcePath, out sourcePath))
             {
@@ -392,7 +390,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     properties.TryGetValue(ProjectIssueProperties.Code, out codeValue);
 
                     //ex. Program.cs(13, 18): error CS1002: ; expected
-                    messageToLog = String.Format(CultureInfo.InvariantCulture, "{0}({1},{2}): {3} {4}: {5}",
+                    message = String.Format(CultureInfo.InvariantCulture, "{0}({1},{2}): {3} {4}: {5}",
                         sourcePathValue,
                         lineNumberValue,
                         columnNumberValue,
@@ -410,7 +408,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
             }
 
-            issue.Message = messageToLog;
+            issue.Message = message;
 
             return issue;
         }

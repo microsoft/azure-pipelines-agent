@@ -68,7 +68,19 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             string line = $"{DateTime.UtcNow.ToString("O")} {message}";
             _pageWriter.WriteLine(line);
+
             _totalLines++;
+            if (line.IndexOf('\n') != -1)
+            {
+                foreach (char c in line)
+                {
+                    if (c == '\n')
+                    {
+                        _totalLines++;
+                    }
+                }
+            }
+
             _byteCount += System.Text.Encoding.UTF8.GetByteCount(line);
             if (_byteCount >= PageSize)
             {

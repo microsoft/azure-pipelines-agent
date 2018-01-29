@@ -464,8 +464,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             long totalLines;
             lock (_loggerLock)
             {
+                totalLines = _logger.TotalLines + 1;
                 _logger.Write(msg);
-                totalLines = _logger.TotalLines;
             }
 
             // write to job level execution context's log file.
