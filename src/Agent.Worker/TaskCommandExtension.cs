@@ -315,7 +315,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             String issueType;
             if (eventProperties.TryGetValue(TaskIssueEventProperties.Type, out issueType))
             {
-                taskIssue = CreateIssue(context, issueType, data, eventProperties, out logLine);
+                taskIssue = CreateIssue(context, issueType, data, eventProperties);
             }
 
             if (taskIssue == null)
@@ -325,21 +325,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             context.AddIssue(taskIssue);
-
-            if (!String.IsNullOrEmpty(logLine))
-            {
-                if (taskIssue.Type == IssueType.Error)
-                {
-                    context.Write(WellKnownTags.Error, logLine);
-                }
-                else
-                {
-                    context.Write(WellKnownTags.Warning, logLine);
-                }
-            }
         }
 
-        private Issue CreateIssue(IExecutionContext context, string issueType, String message, Dictionary<String, String> properties, out String messageToLog)
+        private Issue CreateIssue(IExecutionContext context, string issueType, String message, Dictionary<String, String> properties)
         {
             Issue issue = new Issue()
             {
@@ -359,7 +347,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 throw new Exception($"issue type {issueType} is not an expected issue type.");
             }
 
-            messageToLog = message;
+            string messageToLog = message;
 
             String sourcePath;
             if (properties.TryGetValue(ProjectIssueProperties.SourcePath, out sourcePath))
