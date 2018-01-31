@@ -59,6 +59,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             _jobServerQueue.Start(message);
 
             IExecutionContext jobContext = null;
+            CancellationTokenRegistration? agentShutdownRegistration = null;
             try
             {
                 // Create the job execution context.
@@ -67,6 +68,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Trace.Info("Starting the job execution context.");
                 jobContext.Start();
                 jobContext.Section(StringUtil.Loc("StepStarting", message.JobName));
+
+                agentShutdownRegistration = HostContext.AgentShutdownToken.Register(() =>
+                {
+                    // log an issue, then agent get shutdown by Ctrl-C or Ctrl-Break.
+                    // the server will use Ctrl-Break to tells the agent that operating system is shutting down.
+                    string errorMessage;
+                    switch (HostContext.AgentShutdownReason)
+                    {
+                        case ShutdownReason.UserCancelled:
+                            errorMessage = StringUtil.Loc("UserShutdownAgent");
+                            break;
+                        case ShutdownReason.OperatingSystemShutdown:
+                            errorMessage = StringUtil.Loc("OperatingSystemShutdown", Environment.MachineName);
+                            break;
+                        default:
+                            throw new ArgumentException(HostContext.AgentShutdownReason.ToString(), nameof(HostContext.AgentShutdownReason));
+                    }
+                    jobContext.AddIssue(new Issue() { Type = IssueType.Error, Message = errorMessage });
+                });
 
                 // Set agent version variable.
                 jobContext.Variables.Set(Constants.Variables.Agent.Version, Constants.Agent.Version);
@@ -284,7 +304,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
             finally
             {
-                await ShutdownQueue();
+                if (agentShutdownRegistration != null)
+                {
+                    agentShutdownRegistration.Value.Dispose();
+                    agentShutdownRegistration = null;
+                }
+
+                await ShutdownQueue(throwOnFailure: false);
             }
         }
 
@@ -296,18 +322,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             jobContext.Section(StringUtil.Loc("StepFinishing", message.JobName));
             TaskResult result = jobContext.Complete(taskResult);
 
+            try
+            {
+                await ShutdownQueue(throwOnFailure: true);
+            }
+            catch (Exception ex)
+            {
+                Trace.Error($"Caught exception from {nameof(JobServerQueue)}.{nameof(_jobServerQueue.ShutdownAsync)}");
+                Trace.Error("This indicate a failure during publish output variables. Fail the job to prevent unexpected job outputs.");
+                Trace.Error(ex);
+                result = TaskResultUtil.MergeTaskResults(result, TaskResult.Failed);
+            }
+
             if (!jobContext.Features.HasFlag(PlanFeatures.JobCompletedPlanEvent))
             {
                 Trace.Info($"Skip raise job completed event call from worker because Plan version is {message.Plan.Version}");
                 return result;
             }
 
-            await ShutdownQueue();
-
             Trace.Info("Raising job completed event.");
-            IEnumerable<Variable> outputVariables = jobContext.Variables.GetOutputVariables();
-            //var webApiVariables = outputVariables.ToJobCompletedEventOutputVariables();
-            //var jobCompletedEvent = new JobCompletedEvent(message.RequestId, message.JobId, result, webApiVariables);
             var jobCompletedEvent = new JobCompletedEvent(message.RequestId, message.JobId, result);
 
             var completeJobRetryLimit = 5;
@@ -321,12 +354,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 catch (TaskOrchestrationPlanNotFoundException ex)
                 {
-                    Trace.Error($"TaskOrchestrationPlanNotFoundException received, while attempting to raise JobCompletedEvent for job {message.JobId}. Error: {ex}");
+                    Trace.Error($"TaskOrchestrationPlanNotFoundException received, while attempting to raise JobCompletedEvent for job {message.JobId}.");
+                    Trace.Error(ex);
                     return TaskResult.Failed;
                 }
                 catch (TaskOrchestrationPlanSecurityException ex)
                 {
-                    Trace.Error($"TaskOrchestrationPlanSecurityException received, while attempting to raise JobCompletedEvent for job {message.JobId}. Error: {ex}");
+                    Trace.Error($"TaskOrchestrationPlanSecurityException received, while attempting to raise JobCompletedEvent for job {message.JobId}.");
+                    Trace.Error(ex);
                     return TaskResult.Failed;
                 }
                 catch (Exception ex)
@@ -344,7 +379,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             throw new AggregateException(exceptions);
         }
 
-        private async Task ShutdownQueue()
+        private async Task ShutdownQueue(bool throwOnFailure)
         {
             if (_jobServerQueue != null)
             {
@@ -353,9 +388,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     Trace.Info("Shutting down the job server queue.");
                     await _jobServerQueue.ShutdownAsync();
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (!throwOnFailure)
                 {
-                    Trace.Error($"Caught exception from {nameof(JobServerQueue)}.{nameof(_jobServerQueue.ShutdownAsync)}: {ex}");
+                    Trace.Error($"Caught exception from {nameof(JobServerQueue)}.{nameof(_jobServerQueue.ShutdownAsync)}");
+                    Trace.Error(ex);
                 }
                 finally
                 {

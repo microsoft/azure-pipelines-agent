@@ -115,6 +115,24 @@ get_current_os_name() {
     if [ "$uname" = "Darwin" ]; then
         echo "osx"
         return 0
+    else
+        if [ "$uname" = "Linux" ]; then
+            echo "linux"
+            return 0
+        fi
+    fi
+    
+    say_err "OS name could not be detected: $ID.$VERSION_ID"
+    return 1
+}
+
+get_distro_specific_os_name() {
+    eval $invocation
+
+    local uname=$(uname)
+    if [ "$uname" = "Darwin" ]; then
+        echo "osx"
+        return 0
     elif [ -n "$runtime_id" ]; then
         echo $(get_os_download_name_from_platform "${runtime_id%-*}" || echo "${runtime_id%-*}")
         return 0
@@ -129,7 +147,7 @@ get_current_os_name() {
         fi
     fi
     
-    say_err "OS name could not be detected: $ID.$VERSION_ID"
+    say_verbose "Distribution specific OS name and version could not be detected: $ID.$VERSION_ID"
     return 1
 }
 
@@ -140,12 +158,19 @@ machine_has() {
     return $?
 }
 
+
 check_min_reqs() {
-    if ! machine_has "curl"; then
-        say_err "curl is required to download dotnet. Install curl to proceed."
+    local hasMinimum=false
+    if machine_has "curl"; then
+        hasMinimum=true
+    elif machine_has "wget"; then
+        hasMinimum=true
+    fi
+
+    if [ "$hasMinimum" = "false" ]; then
+        say_err "curl (recommended) or wget are required to download dotnet. Install missing prerequisite to proceed."
         return 1
     fi
-    
     return 0
 }
 
@@ -168,7 +193,6 @@ check_pre_reqs() {
 
         [ -z "$($LDCONFIG_COMMAND -p | grep libunwind)" ] && say_err "Unable to locate libunwind. Install libunwind to continue" && failing=true
         [ -z "$($LDCONFIG_COMMAND -p | grep libssl)" ] && say_err "Unable to locate libssl. Install libssl to continue" && failing=true
-        [ -z "$($LDCONFIG_COMMAND -p | grep libcurl)" ] && say_err "Unable to locate libcurl. Install libcurl to continue" && failing=true
         [ -z "$($LDCONFIG_COMMAND -p | grep libicu)" ] && say_err "Unable to locate libicu. Install libicu to continue" && failing=true
     fi
 
@@ -252,12 +276,12 @@ get_normalized_architecture_from_architecture() {
             return 0
             ;;
         x86)
-            say_err "Architecture ``x86`` currently not supported"
+            say_err "Architecture \`x86\` currently not supported"
             return 1
             ;;
     esac
    
-    say_err "Architecture ``$architecture`` not supported. If you think this is a bug, please report it at https://github.com/dotnet/cli/issues"
+    say_err "Architecture \`$architecture\` not supported. If you think this is a bug, please report it at https://github.com/dotnet/cli/issues"
     return 1
 }
 
@@ -307,23 +331,25 @@ is_dotnet_package_installed() {
 
 # args:
 # azure_feed - $1
-# azure_channel - $2
+# channel - $2
 # normalized_architecture - $3
 get_latest_version_info() {
     eval $invocation
     
     local azure_feed=$1
-    local azure_channel=$2
+    local channel=$2
     local normalized_architecture=$3
-    
-    local osname
-    osname=$(get_current_os_name) || return 1
+    local coherent=$4
 
     local version_file_url=null
     if [ "$shared_runtime" = true ]; then
-        version_file_url="$uncached_feed/$azure_channel/dnvm/latest.sharedfx.$osname.$normalized_architecture.version"
+        version_file_url="$uncached_feed/Runtime/$channel/latest.version"
     else
-        version_file_url="$uncached_feed/Sdk/$azure_channel/latest.version"
+        if [ "$coherent" = true ]; then
+            version_file_url="$uncached_feed/Sdk/$channel/latest.coherent.version"
+        else
+            version_file_url="$uncached_feed/Sdk/$channel/latest.version"
+        fi
     fi
     say_verbose "get_latest_version_info: latest url: $version_file_url"
     
@@ -332,49 +358,32 @@ get_latest_version_info() {
 }
 
 # args:
-# channel - $1
-get_azure_channel_from_channel() {
-    eval $invocation
-    
-    local channel=$(to_lowercase $1)
-    case $channel in
-        future|dev)
-            echo "dev"
-            return 0
-            ;;
-        production)
-            say_err "Production channel does not exist yet"
-            return 1
-    esac
-    
-	echo $channel
-    return 0
-}
-
-# args:
 # azure_feed - $1
-# azure_channel - $2
+# channel - $2
 # normalized_architecture - $3
 # version - $4
 get_specific_version_from_version() {
     eval $invocation
     
     local azure_feed=$1
-    local azure_channel=$2
+    local channel=$2
     local normalized_architecture=$3
     local version=$(to_lowercase $4)
 
     case $version in
         latest)
             local version_info
-	    version_info="$(get_latest_version_info $azure_feed $azure_channel $normalized_architecture)" || return 1
+            version_info="$(get_latest_version_info $azure_feed $channel $normalized_architecture false)" || return 1
             say_verbose "get_specific_version_from_version: version_info=$version_info"
             echo "$version_info" | get_version_from_version_info
             return 0
             ;;
-        lkg)
-            say_err "``--version LKG`` not supported yet."
-            return 1
+        coherent)
+            local version_info
+            version_info="$(get_latest_version_info $azure_feed $channel $normalized_architecture true)" || return 1
+            say_verbose "get_specific_version_from_version: version_info=$version_info"
+            echo "$version_info" | get_version_from_version_info
+            return 0
             ;;
         *)
             echo $version
@@ -385,28 +394,55 @@ get_specific_version_from_version() {
 
 # args:
 # azure_feed - $1
-# azure_channel - $2
+# channel - $2
 # normalized_architecture - $3
 # specific_version - $4
 construct_download_link() {
     eval $invocation
     
     local azure_feed=$1
-    local azure_channel=$2
+    local channel=$2
     local normalized_architecture=$3
     local specific_version=${4//[$'\t\r\n']}
     
     local osname
     osname=$(get_current_os_name) || return 1
-    
+
     local download_link=null
     if [ "$shared_runtime" = true ]; then
-        download_link="$azure_feed/$azure_channel/Binaries/$specific_version/dotnet-$osname-$normalized_architecture.$specific_version.tar.gz"
+        download_link="$azure_feed/Runtime/$specific_version/dotnet-runtime-$specific_version-$osname-$normalized_architecture.tar.gz"
     else
-        download_link="$azure_feed/Sdk/$specific_version/dotnet-dev-$osname-$normalized_architecture.$specific_version.tar.gz"
+        download_link="$azure_feed/Sdk/$specific_version/dotnet-sdk-$specific_version-$osname-$normalized_architecture.tar.gz"
     fi
     
     echo "$download_link"
+    return 0
+}
+
+# args:
+# azure_feed - $1
+# channel - $2
+# normalized_architecture - $3
+# specific_version - $4
+construct_legacy_download_link() {
+    eval $invocation
+    
+    local azure_feed=$1
+    local channel=$2
+    local normalized_architecture=$3
+    local specific_version=${4//[$'\t\r\n']}
+
+    local distro_specific_osname
+    distro_specific_osname=$(get_distro_specific_os_name) || return 1
+
+    local legacy_download_link=null
+    if [ "$shared_runtime" = true ]; then
+        legacy_download_link="$azure_feed/Runtime/$specific_version/dotnet-$distro_specific_osname-$normalized_architecture.$specific_version.tar.gz"
+    else
+        legacy_download_link="$azure_feed/Sdk/$specific_version/dotnet-dev-$distro_specific_osname-$normalized_architecture.$specific_version.tar.gz"
+    fi
+
+    echo "$legacy_download_link"
     return 0
 }
 
@@ -520,49 +556,94 @@ extract_dotnet_package() {
 # [out_path] - $2 - stdout if not provided
 download() {
     eval $invocation
-    
+
+    local remote_path=$1
+    local out_path=${2:-}
+
+    local failed=false
+    if machine_has "curl"; then
+        downloadcurl $remote_path $out_path || failed=true
+    elif machine_has "wget"; then
+        downloadwget $remote_path $out_path || failed=true
+    else
+        failed=true
+    fi
+    if [ "$failed" = true ]; then
+        say_verbose "Download failed: $remote_path"
+        return 1
+    fi
+    return 0
+}
+
+downloadcurl() {
+    eval $invocation
     local remote_path=$1
     local out_path=${2:-}
 
     local failed=false
     if [ -z "$out_path" ]; then
-        curl --fail -s $remote_path || failed=true
+        curl --retry 10 -sSL -f --create-dirs $remote_path || failed=true
     else
-        curl --fail -s -o $out_path $remote_path || failed=true
+        curl --retry 10 -sSL -f --create-dirs -o $out_path $remote_path || failed=true
     fi
-    
     if [ "$failed" = true ]; then
-        say_err "Download failed"
+        say_verbose "Curl download failed"
         return 1
     fi
+    return 0
+}
+
+downloadwget() {
+    eval $invocation
+    local remote_path=$1
+    local out_path=${2:-}
+
+    local failed=false
+    if [ -z "$out_path" ]; then
+        wget -q --tries 10 $remote_path || failed=true
+    else
+        wget -v --tries 10 -O $out_path $remote_path || failed=true
+    fi
+    if [ "$failed" = true ]; then
+        say_verbose "Wget download failed"
+        return 1
+    fi
+    return 0
 }
 
 calculate_vars() {
     eval $invocation
-    
-    azure_channel=$(get_azure_channel_from_channel "$channel")
-    say_verbose "azure_channel=$azure_channel"
-    
+    valid_legacy_download_link=true
+
     normalized_architecture=$(get_normalized_architecture_from_architecture "$architecture")
     say_verbose "normalized_architecture=$normalized_architecture"
     
-    specific_version=$(get_specific_version_from_version $azure_feed $azure_channel $normalized_architecture $version)
+    specific_version=$(get_specific_version_from_version $azure_feed $channel $normalized_architecture $version)
     say_verbose "specific_version=$specific_version"
     if [ -z "$specific_version" ]; then
         say_err "Could not get version information."
         return 1
     fi
     
-    download_link=$(construct_download_link $azure_feed $azure_channel $normalized_architecture $specific_version)
+    download_link=$(construct_download_link $azure_feed $channel $normalized_architecture $specific_version)
     say_verbose "download_link=$download_link"
-    
+
+    legacy_download_link=$(construct_legacy_download_link $azure_feed $channel $normalized_architecture $specific_version) || valid_legacy_download_link=false
+
+    if [ "$valid_legacy_download_link" = true ]; then
+        say_verbose "legacy_download_link=$legacy_download_link"
+    else
+        say_verbose "Cound not construct a legacy_download_link; omitting..."
+    fi
+
     install_root=$(resolve_installation_path $install_dir)
     say_verbose "install_root=$install_root"
 }
 
 install_dotnet() {
     eval $invocation
-    
+    local download_failed=false
+
     if is_dotnet_package_installed $install_root "sdk" $specific_version; then
         say ".NET SDK version $specific_version is already installed."
         return 0
@@ -571,12 +652,21 @@ install_dotnet() {
     mkdir -p $install_root
     zip_path=$(mktemp $temporary_file_template)
     say_verbose "Zip path: $zip_path"
+
+    say "Downloading link: $download_link"
+    download "$download_link" $zip_path || download_failed=true
+
+    #  if the download fails, download the legacy_download_link
+    if [ "$download_failed" = true ] && [ "$valid_legacy_download_link" = true ]; then
+        say "Cannot download: $download_link"
+        download_link=$legacy_download_link
+        zip_path=$(mktemp $temporary_file_template)
+        say_verbose "Legacy zip path: $zip_path"
+        say "Downloading legacy link: $download_link"
+        download "$download_link" $zip_path
+    fi
     
-    say "Downloading $download_link"
-    download "$download_link" $zip_path
-    say_verbose "Downloaded file exists and readable? $(if [ -r $zip_path ]; then echo "yes"; else echo "no"; fi)"
-    
-    say "Extracting zip"
+    say "Extracting zip from $download_link"
     extract_dotnet_package $zip_path $install_root
     
     return 0
@@ -586,11 +676,10 @@ local_version_file_relative_path="/.version"
 bin_folder_relative_path=""
 temporary_file_template="${TMPDIR:-/tmp}/dotnet.XXXXXXXXX"
 
-channel="rel-1.0.0"
+channel="LTS"
 version="Latest"
 install_dir="<auto>"
 architecture="<auto>"
-debug_symbols=false
 dry_run=false
 no_path=false
 azure_feed="https://dotnetcli.azureedge.net/dotnet"
@@ -622,9 +711,6 @@ do
         --shared-runtime|-[Ss]hared[Rr]untime)
             shared_runtime=true
             ;;
-        --debug-symbols|-[Dd]ebug[Ss]ymbols)
-            debug_symbols=true
-            ;;
         --dry-run|-[Dd]ry[Rr]un)
             dry_run=true
             ;;
@@ -637,6 +723,10 @@ do
         --azure-feed|-[Aa]zure[Ff]eed)
             shift
             azure_feed="$1"
+            ;;
+        --uncached-feed|-[Uu]ncached[Ff]eed)
+            shift
+            uncached_feed="$1"
             ;;
         --runtime-id|-[Rr]untime[Ii]d)
             shift
@@ -651,21 +741,34 @@ do
             echo "$script_name is a simple command line interface for obtaining dotnet cli."
             echo ""
             echo "Options:"
-            echo "  -c,--channel <CHANNEL>         Download from the CHANNEL specified (default: $channel)."
+            echo "  -c,--channel <CHANNEL>         Download from the CHANNEL specified, Defaults to \`$channel\`."
             echo "      -Channel"
-            echo "  -v,--version <VERSION>         Use specific version, ``latest`` or ``lkg``. Defaults to ``latest``."
+            echo "          Possible values:"
+            echo "          - Current - most current release"
+            echo "          - LTS - most current supported release"
+            echo "          - 2-part version in a format A.B - represents a specific release"
+            echo "              examples: 2.0; 1.0"
+            echo "          - Branch name"
+            echo "              examples: release/2.0.0; Master"
+            echo "  -v,--version <VERSION>         Use specific VERSION, Defaults to \`$version\`."
             echo "      -Version"
+            echo "          Possible values:"
+            echo "          - latest - most latest build on specific channel"
+            echo "          - coherent - most latest coherent build on specific channel"
+            echo "              coherent applies only to SDK downloads"
+            echo "          - 3-part version in a format A.B.C - represents specific version of build"
+            echo "              examples: 2.0.0-preview2-006120; 1.1.0"
             echo "  -i,--install-dir <DIR>         Install under specified location (see Install Location below)"
             echo "      -InstallDir"
             echo "  --architecture <ARCHITECTURE>  Architecture of .NET Tools. Currently only x64 is supported."
             echo "      --arch,-Architecture,-Arch"
             echo "  --shared-runtime               Installs just the shared runtime bits, not the entire SDK."
             echo "      -SharedRuntime"
-            echo "  --debug-symbols,-DebugSymbols  Specifies if symbols should be included in the installation."
             echo "  --dry-run,-DryRun              Do not perform installation. Display download link."
             echo "  --no-path, -NoPath             Do not set PATH for the current process."
             echo "  --verbose,-Verbose             Display diagnostics information."
-            echo "  --azure-feed,-AzureFeed        Azure feed location. Defaults to $azure_feed"
+            echo "  --azure-feed,-AzureFeed        Azure feed location. Defaults to $azure_feed, This parameter typically is not changed by the user."
+            echo "  --uncached-feed,-UncachedFeed  Uncached feed location. This parameter typically is not changed by the user."
             echo "  --runtime-id                   Installs the .NET Tools for the given platform (use linux-x64 for portable linux)."
             echo "      -RuntimeId"
             echo "  -?,--?,-h,--help,-Help         Shows this help message"
@@ -688,8 +791,12 @@ done
 
 check_min_reqs
 calculate_vars
+
 if [ "$dry_run" = true ]; then
     say "Payload URL: $download_link"
+    if [ "$valid_legacy_download_link" = true ]; then
+        say "Legacy payload URL: $legacy_download_link"
+    fi
     say "Repeatable invocation: ./$(basename $0) --version $specific_version --channel $channel --install-dir $install_dir"
     exit 0
 fi
@@ -699,7 +806,7 @@ install_dotnet
 
 bin_path=$(get_absolute_path $(combine_paths $install_root $bin_folder_relative_path))
 if [ "$no_path" = false ]; then
-    say "Adding to current process PATH: ``$bin_path``. Note: This change will be visible only when sourcing script."
+    say "Adding to current process PATH: \`$bin_path\`. Note: This change will be visible only when sourcing script."
     export PATH=$bin_path:$PATH
 else
     say "Binaries of dotnet can be found in $bin_path"

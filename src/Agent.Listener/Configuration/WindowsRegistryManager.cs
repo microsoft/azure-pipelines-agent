@@ -1,59 +1,88 @@
 #if OS_WINDOWS
+using Microsoft.Win32;
+using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
 using System.Security.Principal;
-using Microsoft.Win32;
-using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
     [ServiceLocator(Default = typeof(WindowsRegistryManager))]
     public interface IWindowsRegistryManager : IAgentService
     {
-        string GetKeyValue(string path, string subKeyName);
-        void SetKeyValue(string path, string subKeyName, string subKeyValue);
-        void DeleteKey(RegistryScope scope, string path, string subKeyName);
-        bool RegsitryExists(string securityId);
+        string GetValue(RegistryHive hive, string subKeyName, string name);
+        void SetValue(RegistryHive hive, string subKeyName, string name, string value);
+        void DeleteValue(RegistryHive hive, string subKeyName, string name);
+        bool SubKeyExists(RegistryHive hive, string subKeyName);
     }
 
     public class WindowsRegistryManager : AgentService, IWindowsRegistryManager
     {
-        public void DeleteKey(RegistryScope scope, string path, string subKeyName)
-        {
-            RegistryKey key = null;
-            switch(scope)
+        public void DeleteValue(RegistryHive hive, string subKeyName, string name)
+        {            
+            using(RegistryKey key = OpenRegistryKey(hive, subKeyName, true))
             {
-                case RegistryScope.CurrentUser :
-                    key = Registry.CurrentUser.OpenSubKey(path, true);                    
-                    break;
-                case RegistryScope.LocalMachine:
-                    key = Registry.LocalMachine.OpenSubKey(path, true);                    
-                    break;
-            }
-
-            if(key != null)
-            {
-                using(key)
+                if (key != null)
                 {
-                    key.DeleteSubKey(subKeyName, false);
+                    key.DeleteValue(name, false);
                 }
             }
         }
 
-        public string GetKeyValue(string path, string subKeyName)
-        {
-            var regValue = Registry.GetValue(path, subKeyName, null);
-            return regValue != null ? regValue.ToString() : null;
+        public string GetValue(RegistryHive hive, string subKeyName, string name)
+        {            
+            using(RegistryKey key = OpenRegistryKey(hive, subKeyName, false))
+            {
+                if(key == null)
+                {
+                    return null;
+                }
+
+                var value = key.GetValue(name, null);
+                return value != null ? value.ToString() : null;
+            }
         }
 
-        public void SetKeyValue(string path, string subKeyName, string subKeyValue)
+        public void SetValue(RegistryHive hive, string subKeyName, string name, string value)
         {
-            Registry.SetValue(path, subKeyName, subKeyValue, RegistryValueKind.String);
+            using(RegistryKey key = OpenRegistryKey(hive, subKeyName, true))
+            {
+                if(key == null)
+                {
+                    //today all the subkeys are well defined and exist on the machine. 
+                    //having following in the logs is very less likely but good to log such occurances
+                    Trace.Warning($"Couldnt get the subkey '{subKeyName}. Will not be able to set the value.");
+                    return;
+                }
+
+                key.SetValue(name, value);
+            }
         }
 
-        public bool RegsitryExists(string securityId)
+        public bool SubKeyExists(RegistryHive hive, string subKeyName)
         {
-            return Registry.Users.OpenSubKey(securityId) != null;
+            using(RegistryKey key = OpenRegistryKey(hive, subKeyName, false))
+            {
+                return key != null;
+            }
+        }
+
+        private RegistryKey OpenRegistryKey(RegistryHive hive, string subKeyName, bool writable = true)
+        {
+            RegistryKey key = null;
+            switch (hive)
+            {
+                case RegistryHive.CurrentUser :
+                    key = Registry.CurrentUser.OpenSubKey(subKeyName, writable);                    
+                    break;
+                case RegistryHive.Users :
+                    key = Registry.Users.OpenSubKey(subKeyName, writable);
+                    break;
+                case RegistryHive.LocalMachine:
+                    key = Registry.LocalMachine.OpenSubKey(subKeyName, writable);                    
+                    break;
+            }
+            return key;
         }
     }
 }

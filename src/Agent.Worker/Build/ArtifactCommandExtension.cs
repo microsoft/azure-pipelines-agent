@@ -18,7 +18,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public string CommandArea => "artifact";
 
-        public HostTypes SupportedHostTypes => HostTypes.Build;
+        public HostTypes SupportedHostTypes => HostTypes.Build | HostTypes.Release;
 
         public void ProcessCommand(IExecutionContext context, Command command)
         {
@@ -61,40 +61,47 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 throw new Exception(StringUtil.Loc("ArtifactNameRequired"));
             }
 
-            string artifactLocation = data;
-            if (string.IsNullOrEmpty(artifactLocation))
-            {
-                throw new Exception(StringUtil.Loc("ArtifactLocationRequired"));
-            }
-
             string artifactType;
             if (!eventProperties.TryGetValue(ArtifactAssociateEventProperties.ArtifactType, out artifactType))
             {
-                artifactType = InferArtifactResourceType(context, artifactLocation);
+                artifactType = InferArtifactResourceType(context, data);
             }
 
             if (string.IsNullOrEmpty(artifactType))
             {
                 throw new Exception(StringUtil.Loc("ArtifactTypeRequired"));
             }
+            else if ((artifactType.Equals(WellKnownArtifactResourceTypes.Container, StringComparison.OrdinalIgnoreCase) ||
+                      artifactType.Equals(WellKnownArtifactResourceTypes.FilePath, StringComparison.OrdinalIgnoreCase) ||
+                      artifactType.Equals(WellKnownArtifactResourceTypes.VersionControl, StringComparison.OrdinalIgnoreCase)) &&
+                     string.IsNullOrEmpty(data))
+            {
+                throw new Exception(StringUtil.Loc("ArtifactLocationRequired"));
+            }
+
+            if (!artifactType.Equals(WellKnownArtifactResourceTypes.FilePath, StringComparison.OrdinalIgnoreCase) &&
+                context.Variables.System_HostType != HostTypes.Build)
+            {
+                throw new Exception(StringUtil.Loc("AssociateArtifactCommandNotSupported", context.Variables.System_HostType));
+            }
 
             var propertyDictionary = ExtractArtifactProperties(eventProperties);
 
             string artifactData = "";
-            if (IsContainerPath(artifactLocation) ||
-                IsValidServerPath(artifactLocation))
+            if (IsContainerPath(data) ||
+                IsValidServerPath(data))
             {
-                //if artifactlocation is a file container path or a tfvc server path
-                artifactData = artifactLocation;
+                //if data is a file container path or a tfvc server path
+                artifactData = data;
             }
-            else if (IsUncSharePath(context, artifactLocation))
+            else if (IsUncSharePath(context, data))
             {
-                //if artifactlocation is a UNC share path
-                artifactData = new Uri(artifactLocation).LocalPath;
+                //if data is a UNC share path
+                artifactData = new Uri(data).LocalPath;
             }
             else
             {
-                throw new Exception(StringUtil.Loc("ArtifactLocationNotSupport", artifactLocation));
+                artifactData = data ?? string.Empty;
             }
 
             // queue async command task to associate artifact.
@@ -102,7 +109,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("AssociateArtifact"));
             commandContext.Task = AssociateArtifactAsync(commandContext,
-                                                         WorkerUtilies.GetVssConnection(context),
+                                                         WorkerUtilities.GetVssConnection(context),
                                                          projectId,
                                                          buildId.Value,
                                                          artifactName,
@@ -149,6 +156,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 throw new Exception(StringUtil.Loc("ArtifactLocationRequired"));
             }
 
+            if (!IsUncSharePath(context, localPath) && (context.Variables.System_HostType != HostTypes.Build))
+            {
+                throw new Exception(StringUtil.Loc("UploadArtifactCommandNotSupported", context.Variables.System_HostType));
+            }
+
             string fullPath = Path.GetFullPath(localPath);
             if (!File.Exists(fullPath) && !Directory.Exists(fullPath))
             {
@@ -167,7 +179,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("UploadArtifact"));
             commandContext.Task = UploadArtifactAsync(commandContext,
-                                                      WorkerUtilies.GetVssConnection(context),
+                                                      WorkerUtilities.GetVssConnection(context),
                                                       projectId,
                                                       containerId.Value,
                                                       containerFolder,
@@ -284,7 +296,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             if (string.IsNullOrEmpty(type))
             {
-                throw new Exception(StringUtil.Loc("UnableResolveArtifactType", artifactLocation));
+                throw new Exception(StringUtil.Loc("UnableResolveArtifactType", artifactLocation ?? string.Empty));
             }
 
             return type;

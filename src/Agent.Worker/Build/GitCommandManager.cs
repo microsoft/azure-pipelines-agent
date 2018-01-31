@@ -21,7 +21,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         // git init <LocalDir>
         Task<int> GitInit(IExecutionContext context, string repositoryPath);
 
-        // git fetch --tags --prune --progress [--depth=15] origin [+refs/pull/*:refs/remote/pull/*]
+        // git fetch --tags --prune --progress --no-recurse-submodules [--depth=15] origin [+refs/pull/*:refs/remote/pull/*]
         Task<int> GitFetch(IExecutionContext context, string repositoryPath, string remoteName, int fetchDepth, List<string> refSpec, string additionalCommandLine, CancellationToken cancellationToken);
 
         // git lfs fetch origin [ref]
@@ -161,7 +161,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return await ExecuteGitCommandAsync(context, repositoryPath, "init", StringUtil.Format($"{repoRootEscapeSpace}"));
         }
 
-        // git fetch --tags --prune --progress [--depth=15] origin [+refs/pull/*:refs/remote/pull/*]
+        // git fetch --tags --prune --progress --no-recurse-submodules [--depth=15] origin [+refs/pull/*:refs/remote/pull/*]
         public async Task<int> GitFetch(IExecutionContext context, string repositoryPath, string remoteName, int fetchDepth, List<string> refSpec, string additionalCommandLine, CancellationToken cancellationToken)
         {
             context.Debug($"Fetch git repository at: {repositoryPath} remote: {remoteName}.");
@@ -171,20 +171,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
 
             // default options for git fetch.
-            string options = StringUtil.Format($"--tags --prune --progress {remoteName} {string.Join(" ", refSpec)}");
+            string options = StringUtil.Format($"--tags --prune --progress --no-recurse-submodules {remoteName} {string.Join(" ", refSpec)}");
 
             // If shallow fetch add --depth arg
             // If the local repository is shallowed but there is no fetch depth provide for this build,
             // add --unshallow to convert the shallow repository to a complete repository
             if (fetchDepth > 0)
             {
-                options = StringUtil.Format($"--tags --prune --progress --depth={fetchDepth} {remoteName} {string.Join(" ", refSpec)}");
+                options = StringUtil.Format($"--tags --prune --progress --no-recurse-submodules --depth={fetchDepth} {remoteName} {string.Join(" ", refSpec)}");
             }
             else
             {
                 if (File.Exists(Path.Combine(repositoryPath, ".git", "shallow")))
                 {
-                    options = StringUtil.Format($"--tags --prune --progress --unshallow {remoteName} {string.Join(" ", refSpec)}");
+                    options = StringUtil.Format($"--tags --prune --progress --no-recurse-submodules --unshallow {remoteName} {string.Join(" ", refSpec)}");
                 }
             }
 
@@ -514,6 +514,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             {
                 // Add the variable using the formatted name.
                 string formattedKey = (pair.Key ?? string.Empty).Replace('.', '_').Replace(' ', '_').ToUpperInvariant();
+
+                // Skip any GIT_TRACE variable since GIT_TRACE will affect ouput from every git command.
+                // This will fail the parse logic for detect git version, remote url, etc.
+                // Ex. 
+                //      SET GIT_TRACE=true
+                //      git version 
+                //      11:39:58.295959 git.c:371               trace: built-in: git 'version'
+                //      git version 2.11.1.windows.1
+                if (formattedKey == "GIT_TRACE" || formattedKey.StartsWith("GIT_TRACE_"))
+                {
+                    continue;
+                }
+
                 gitEnv[formattedKey] = pair.Value ?? string.Empty;
             }
 

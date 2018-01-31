@@ -61,9 +61,6 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resource.resx</DependentUpon>
     </Compile>
-    <Compile Include="AgentListener.cs" />
-    <Compile Include="EventLogger.cs" />
-    <Compile Include="ProcessHelper.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

@@ -1,13 +1,13 @@
 ﻿using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Common;
+using Microsoft.VisualStudio.Services.WebApi;
 using System;
 using System.Linq;
-using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
-    public class WorkerUtilies
+    public class WorkerUtilities
     {
         public static VssConnection GetVssConnection(IExecutionContext context)
         {

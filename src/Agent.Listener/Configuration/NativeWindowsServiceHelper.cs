@@ -1,4 +1,6 @@
 #if OS_WINDOWS
+using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.Win32;
 using System;
 using System.Collections;
 using System.ComponentModel;
@@ -10,8 +12,6 @@ using System.Security.AccessControl;
 using System.Security.Principal;
 using System.ServiceProcess;
 using System.Threading;
-using Microsoft.VisualStudio.Services.Agent.Util;
-using Microsoft.Win32;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
@@ -55,12 +55,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         void CreateVstsAgentRegistryKey();
 
         void DeleteVstsAgentRegistryKey();
-
-        bool HasActiveSession(string domainName, string userName);
         
         string GetSecurityId(string domainName, string userName);
         
         void SetAutoLogonPassword(string password);
+        
+        void ResetAutoLogonPassword();
+
+        bool IsRunningInElevatedMode();
+
+        void LoadUserProfile(string domain, string userName, string logonPassword, out IntPtr tokenHandle, out PROFILEINFO userProfile);
+
+        void UnloadUserProfile(IntPtr tokenHandle, PROFILEINFO userProfile);
+
+        bool IsValidAutoLogonCredential(string domain, string userName, string logonPassword);
     }
 
     public class NativeWindowsServiceHelper : AgentService, INativeWindowsServiceHelper
@@ -370,32 +378,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public bool IsValidCredential(string domain, string userName, string logonPassword)
         {
-            Trace.Entering();
-            IntPtr tokenHandle = IntPtr.Zero;
+            return IsValidCredentialInternal(domain, userName, logonPassword, LOGON32_LOGON_NETWORK);
+        }
 
-            ArgUtil.NotNullOrEmpty(userName, nameof(userName));
-
-            Trace.Info($"Verify credential for account {userName}.");
-            int result = LogonUser(userName, domain, logonPassword, LOGON32_LOGON_NETWORK, LOGON32_PROVIDER_DEFAULT, out tokenHandle);
-
-            if (tokenHandle.ToInt32() != 0)
-            {
-                if (!CloseHandle(tokenHandle))
-                {
-                    Trace.Error("Failed during CloseHandle on token from LogonUser");
-                }
-            }
-
-            if (result != 0)
-            {
-                Trace.Info($"Credential for account '{userName}' is valid.");
-                return true;
-            }
-            else
-            {
-                Trace.Info($"Credential for account '{userName}' is invalid.");
-                return false;
-            }
+        public bool IsValidAutoLogonCredential(string domain, string userName, string logonPassword)
+        {
+            return IsValidCredentialInternal(domain, userName, logonPassword, LOGON32_LOGON_INTERACTIVE);            
         }
 
         public NTAccount GetDefaultServiceAccount()
@@ -779,6 +767,103 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
+        public string GetSecurityId(string domainName, string userName)
+        {
+            var account = new NTAccount(domainName, userName);
+            var sid = account.Translate(typeof(SecurityIdentifier));
+            return sid != null ? sid.ToString() : null;
+        }
+
+        public void SetAutoLogonPassword(string password)
+        {
+            using (LsaPolicy lsaPolicy = new LsaPolicy(LSA_AccessPolicy.POLICY_CREATE_SECRET))
+            {
+                lsaPolicy.SetSecretData(LsaPolicy.DefaultPassword, password);
+            }
+        }
+
+        public void ResetAutoLogonPassword()
+        {
+            using (LsaPolicy lsaPolicy = new LsaPolicy(LSA_AccessPolicy.POLICY_CREATE_SECRET))
+            {
+                lsaPolicy.SetSecretData(LsaPolicy.DefaultPassword, null);
+            }
+        }
+
+        public bool IsRunningInElevatedMode()
+        {
+            return new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator);
+        }
+
+        public void LoadUserProfile(string domain, string userName, string logonPassword, out IntPtr tokenHandle, out PROFILEINFO userProfile)
+        {
+            Trace.Entering();
+            tokenHandle = IntPtr.Zero;
+
+            ArgUtil.NotNullOrEmpty(userName, nameof(userName));
+            if(LogonUser(userName, domain, logonPassword, LOGON32_LOGON_INTERACTIVE, LOGON32_PROVIDER_DEFAULT, out tokenHandle) == 0)
+            {
+                throw new Win32Exception(Marshal.GetLastWin32Error());
+            }
+
+            userProfile = new PROFILEINFO();
+            userProfile.dwSize = Marshal.SizeOf(typeof(PROFILEINFO));
+            userProfile.lpUserName = userName;
+            if (!LoadUserProfile(tokenHandle, ref userProfile))
+            {
+                throw new Win32Exception(Marshal.GetLastWin32Error());
+            }
+            
+            Trace.Info($"Successfully loaded the profile for {domain}\\{userName}.");
+        }
+
+        public void UnloadUserProfile(IntPtr tokenHandle, PROFILEINFO userProfile)
+        {
+            Trace.Entering();
+            
+            if(tokenHandle == IntPtr.Zero)
+            {
+                Trace.Verbose("The handle to unload user profile is not set. Returning.");
+            }
+            
+            if (!UnloadUserProfile(tokenHandle, userProfile.hProfile))
+            {
+                throw new Win32Exception(Marshal.GetLastWin32Error());
+            }
+            
+            Trace.Info($"Successfully unloaded the profile for {userProfile.lpUserName}.");
+        }
+
+        private bool IsValidCredentialInternal(string domain, string userName, string logonPassword, UInt32 logonType)
+        {
+            Trace.Entering();
+            IntPtr tokenHandle = IntPtr.Zero;
+
+            ArgUtil.NotNullOrEmpty(userName, nameof(userName));
+
+            Trace.Info($"Verify credential for account {userName}.");
+            int result = LogonUser(userName, domain, logonPassword, logonType, LOGON32_PROVIDER_DEFAULT, out tokenHandle);
+
+            if (tokenHandle.ToInt32() != 0)
+            {
+                if (!CloseHandle(tokenHandle))
+                {
+                    Trace.Error("Failed during CloseHandle on token from LogonUser");
+                }
+            }
+
+            if (result != 0)
+            {
+                Trace.Info($"Credential for account '{userName}' is valid.");
+                return true;
+            }
+            else
+            {
+                Trace.Info($"Credential for account '{userName}' is invalid.");
+                return false;
+            }
+        }
+
         private byte[] GetSidBinaryFromWindows(string domain, string user)
         {
             try
@@ -792,26 +877,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 Trace.Error(exception);
                 return null;
-            }
-        }
-
-        public bool HasActiveSession(string domainName, string userName)
-        {
-            return EnumerateUsers.IsActiveSessionExists(domainName, userName);
-        }
-
-        public string GetSecurityId(string domainName, string userName)
-        {
-            var account = new NTAccount(domainName, userName);
-            var sid = account.Translate(typeof(SecurityIdentifier));
-            return sid != null ? sid.ToString() : null;
-        }
-
-        public void SetAutoLogonPassword(string password)
-        {
-            using (LsaPolicy lsaPolicy = new LsaPolicy(LSA_AccessPolicy.POLICY_CREATE_SECRET))
-            {
-                lsaPolicy.SetSecretData(LsaPolicy.DefaultPassword, password);
             }
         }
 
@@ -859,7 +924,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 secretName.Length = (UInt16)(key.Length * charSize);
                 secretName.MaximumLength = (UInt16)((key.Length + 1) * charSize);
 
-                if (value.Length > 0)
+                if (value != null && value.Length > 0)
                 {
                     // Create data and key
                     secretData.Buffer = Marshal.StringToHGlobalUni(value);
@@ -892,136 +957,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             internal static string DefaultPassword = "DefaultPassword";
         }
 
-        internal static class EnumerateUsers
-        {
-            [DllImport("wtsapi32.dll")]
-            static extern IntPtr WTSOpenServer([MarshalAs(UnmanagedType.LPStr)] String pServerName);
-
-            [DllImport("wtsapi32.dll")]
-            static extern void WTSCloseServer(IntPtr hServer);
-
-            [DllImport("wtsapi32.dll")]
-            static extern Int32 WTSEnumerateSessions(
-                IntPtr hServer,
-                [MarshalAs(UnmanagedType.U4)] Int32 Reserved,
-                [MarshalAs(UnmanagedType.U4)] Int32 Version,
-                ref IntPtr ppSessionInfo,
-                [MarshalAs(UnmanagedType.U4)] ref Int32 pCount);
-
-            [DllImport("wtsapi32.dll")]
-            static extern void WTSFreeMemory(IntPtr pMemory);
-
-            [DllImport("Wtsapi32.dll")]
-            static extern bool WTSQuerySessionInformation(
-                System.IntPtr hServer, int sessionId, WTS_INFO_CLASS wtsInfoClass, out System.IntPtr ppBuffer, out uint pBytesReturned);
-
-            [StructLayout(LayoutKind.Sequential)]
-            private struct WTS_SESSION_INFO
-            {
-                public Int32 SessionID;
-
-                [MarshalAs(UnmanagedType.LPStr)]
-                public String pWinStationName;
-
-                public WTS_CONNECTSTATE_CLASS State;
-            }
-
-            public enum WTS_INFO_CLASS
-            {
-                WTSInitialProgram,
-                WTSApplicationName,
-                WTSWorkingDirectory,
-                WTSOEMId,
-                WTSSessionId,
-                WTSUserName,
-                WTSWinStationName,
-                WTSDomainName,
-                WTSConnectState,
-                WTSClientBuildNumber,
-                WTSClientName,
-                WTSClientDirectory,
-                WTSClientProductId,
-                WTSClientHardwareId,
-                WTSClientAddress,
-                WTSClientDisplay,
-                WTSClientProtocolType
-            }
-            public enum WTS_CONNECTSTATE_CLASS
-            {
-                WTSActive,
-                WTSConnected,
-                WTSConnectQuery,
-                WTSShadow,
-                WTSDisconnected,
-                WTSIdle,
-                WTSListen,
-                WTSReset,
-                WTSDown,
-                WTSInit
-            }
-
-            public static IntPtr OpenServer(String Name)
-            {
-                IntPtr server = WTSOpenServer(Name);
-                return server;
-            }
-
-            public static void CloseServer(IntPtr ServerHandle)
-            {
-                WTSCloseServer(ServerHandle);
-            }
-
-            public static bool IsActiveSessionExists(string testUserDomain, string testUsername)
-            {
-                var serverHandle = IntPtr.Zero;
-                serverHandle = OpenServer(Environment.MachineName);
-                var SessionInfoPtr = IntPtr.Zero;
-
-                try
-                {
-                    var userPtr = IntPtr.Zero;
-                    var domainPtr = IntPtr.Zero;
-                    var sessionCount = 0;
-                    var retVal = WTSEnumerateSessions(serverHandle, 0, 1, ref SessionInfoPtr, ref sessionCount);
-                    var dataSize = Marshal.SizeOf(typeof(WTS_SESSION_INFO));
-                    var currentSession = SessionInfoPtr;
-
-                    if (retVal != 0)
-                    {
-                        for (var i = 0; i < sessionCount; i++)
-                        {
-                            uint bytes = 0;
-                            var si = (WTS_SESSION_INFO)Marshal.PtrToStructure(currentSession, typeof(WTS_SESSION_INFO));
-                            currentSession += dataSize;
-
-                            WTSQuerySessionInformation(serverHandle, si.SessionID, WTS_INFO_CLASS.WTSUserName, out userPtr, out bytes);
-                            WTSQuerySessionInformation(serverHandle, si.SessionID, WTS_INFO_CLASS.WTSDomainName, out domainPtr, out bytes);
-
-                            var domain = Marshal.PtrToStringAnsi(domainPtr);
-                            var username = Marshal.PtrToStringAnsi(userPtr);
-
-                            if (testUserDomain.Equals(domain, StringComparison.OrdinalIgnoreCase) &&
-                                testUsername.Equals(username, StringComparison.OrdinalIgnoreCase) &&
-                                si.State == WTS_CONNECTSTATE_CLASS.WTSActive)
-                            {
-                                WTSFreeMemory(userPtr);
-                                WTSFreeMemory(domainPtr);
-                                return true;
-                            }
-                            WTSFreeMemory(userPtr);
-                            WTSFreeMemory(domainPtr);
-                        }
-                    }
-                }
-                finally
-                {
-                    WTSFreeMemory(SessionInfoPtr);
-                    CloseServer(serverHandle);
-                }
-                return false;
-            }
-        }
-
         internal enum LSA_AccessPolicy : long
         {
             POLICY_VIEW_LOCAL_INFORMATION = 0x00000001L,
@@ -1040,34 +975,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             POLICY_ALL_ACCESS = 0x00001FFFL
         }
 
-        [StructLayout(LayoutKind.Sequential)]
-        public struct LSA_UNICODE_STRING
-        {
-            public UInt16 Length;
-            public UInt16 MaximumLength;
-
-            // We need to use an IntPtr because if we wrap the Buffer with a SafeHandle-derived class, we get a failure during LsaAddAccountRights
-            public IntPtr Buffer;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        public struct PROFILEINFO
-        {
-            public int dwSize;
-            public int dwFlags;
-            [MarshalAs(UnmanagedType.LPTStr)]
-            public String lpUserName;
-            [MarshalAs(UnmanagedType.LPTStr)]
-            public String lpProfilePath;
-            [MarshalAs(UnmanagedType.LPTStr)]
-            public String lpDefaultPath;
-            [MarshalAs(UnmanagedType.LPTStr)]
-            public String lpServerName;
-            [MarshalAs(UnmanagedType.LPTStr)]
-            public String lpPolicyPath;
-            public IntPtr hProfile;
-        }
-
         [DllImport("advapi32.dll", SetLastError = true, PreserveSig = true)]
         public static extern uint LsaStorePrivateData(
             IntPtr policyHandle,
@@ -1080,13 +987,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             uint status
         );
 
-        // [DllImport("userenv.dll", SetLastError = true, CharSet = CharSet.Auto)]
-        // public static extern bool LoadUserProfile(IntPtr hToken, ref PROFILEINFO lpProfileInfo);            
+        private static UInt32 LOGON32_LOGON_INTERACTIVE = 2;
+        private const UInt32 LOGON32_LOGON_NETWORK = 3;
 
         // Declaration of external pinvoke functions
-        private static readonly string s_logonAsServiceName = "SeServiceLogonRight";
+        private static readonly string s_logonAsServiceName = "SeServiceLogonRight";        
 
-        private const UInt32 LOGON32_LOGON_NETWORK = 3;
         private const UInt32 LOGON32_PROVIDER_DEFAULT = 0;
 
         private const int SERVICE_WIN32_OWN_PROCESS = 0x00000010;
@@ -1127,7 +1033,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             public const int NERR_GroupExists = 2223;
             public const int NERR_UserInGroup = 2236;
             public const uint STATUS_ACCESS_DENIED = 0XC0000022; //NTSTATUS error code: Access Denied
-        }
+        }     
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
         public struct LocalGroupInfo
@@ -1136,6 +1042,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             public string Name;
             [MarshalAs(UnmanagedType.LPWStr)]
             public string Comment;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct LSA_UNICODE_STRING
+        {
+            public UInt16 Length;
+            public UInt16 MaximumLength;
+
+            // We need to use an IntPtr because if we wrap the Buffer with a SafeHandle-derived class, we get a failure during LsaAddAccountRights
+            public IntPtr Buffer;
         }
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
@@ -1299,6 +1215,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         public static extern int LogonUser(string userName, string domain, string password, uint logonType, uint logonProvider, out IntPtr tokenHandle);
 
+        [DllImport("userenv.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        public static extern Boolean LoadUserProfile(IntPtr hToken, ref PROFILEINFO lpProfileInfo);
+
+        [DllImport("userenv.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        public static extern Boolean UnloadUserProfile(IntPtr hToken, IntPtr hProfile);
+
         [DllImport("kernel32", SetLastError = true)]
         public static extern bool CloseHandle(IntPtr handle);
 
@@ -1341,6 +1263,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         [DllImport("kernel32.dll")]
         static extern uint GetLastError();
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct PROFILEINFO
+    {
+        public int dwSize;
+        public int dwFlags;
+        [MarshalAs(UnmanagedType.LPTStr)]
+        public String lpUserName;
+        [MarshalAs(UnmanagedType.LPTStr)]
+        public String lpProfilePath;
+        [MarshalAs(UnmanagedType.LPTStr)]
+        public String lpDefaultPath;
+        [MarshalAs(UnmanagedType.LPTStr)]
+        public String lpServerName;
+        [MarshalAs(UnmanagedType.LPTStr)]
+        public String lpPolicyPath;
+        public IntPtr hProfile;
     }
 }
 #endif

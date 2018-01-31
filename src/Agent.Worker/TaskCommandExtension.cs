@@ -427,6 +427,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             string resultText;
             TaskResult result;
+            string resultCode;
+
             if (!eventProperties.TryGetValue(TaskCompleteEventProperties.Result, out resultText) ||
                 String.IsNullOrEmpty(resultText) ||
                 !Enum.TryParse<TaskResult>(resultText, out result))
@@ -435,6 +437,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             context.Result = TaskResultUtil.MergeTaskResults(context.Result, result);
+            if (eventProperties.TryGetValue(TaskCompleteEventProperties.Code, out resultCode))
+            {
+                context.ResultCode = resultCode;
+            }
             context.Progress(100, data);
         }
 
@@ -468,7 +474,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             String name;
             if (!eventProperties.TryGetValue(TaskSetVariableEventProperties.Variable, out name) || String.IsNullOrEmpty(name))
             {
-                return;
+                throw new Exception(StringUtil.Loc("MissingVariableName"));
             }
 
             String isSecretValue;
@@ -478,7 +484,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Boolean.TryParse(isSecretValue, out isSecret);
             }
 
-            context.Variables.Set(name, data, secret: isSecret, output: true);
+            String isOutputValue;
+            Boolean isOutput = false;
+            if (eventProperties.TryGetValue(TaskSetVariableEventProperties.IsOutput, out isOutputValue))
+            {
+                Boolean.TryParse(isOutputValue, out isOutput);
+            }
+
+            context.SetVariable(name, data, isSecret, isOutput);
         }
 
         private void ProcessTaskDebugCommand(IExecutionContext context, String data)
@@ -491,7 +504,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             String name;
             if (!eventProperties.TryGetValue(TaskSetTaskVariableEventProperties.Variable, out name) || String.IsNullOrEmpty(name))
             {
-                return;
+                throw new Exception(StringUtil.Loc("MissingTaskVariableName"));
             }
 
             String isSecretValue;
@@ -560,11 +573,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         public static readonly String Variable = "variable";
         public static readonly String IsSecret = "issecret";
+        public static readonly String IsOutput = "isoutput";
     }
 
     internal static class TaskCompleteEventProperties
     {
         public static readonly String Result = "result";
+        public static readonly String Code = "code";
     }
 
     internal static class TaskIssueEventProperties

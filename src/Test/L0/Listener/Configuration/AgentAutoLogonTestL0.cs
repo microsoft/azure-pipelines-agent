@@ -2,6 +2,7 @@
 using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.Agent.Listener;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.Win32;
 using Moq;
 using System;
 using System.Collections.Generic;
@@ -17,14 +18,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         private Mock<INativeWindowsServiceHelper> _windowsServiceHelper;
         private Mock<IPromptManager> _promptManager;
         private Mock<IProcessInvoker> _processInvoker;
+        private Mock<IConfigurationStore> _store;
+        private MockRegistryManager _mockRegManager;
+        private AutoLogonSettings _autoLogonSettings;
         private CommandSettings _command;
-        private string _sid = "007";
+
+        private string _sid = "001";
+        private string _sidForDifferentUser = "007";
         private string _userName = "ironMan";
         private string _domainName = "avengers";
-        private MockRegistryManager _mockRegManager;
+        
         private bool _powerCfgCalledForACOption = false;
         private bool _powerCfgCalledForDCOption = false;
-        private bool _stopListenerCalled = false;
 
         [Fact]
         [Trait("Level", "L0")]
@@ -33,16 +38,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         {
             using (var hc = new TestHostContext(this))
             {
-                SetupTestEnv(hc);
+                SetupTestEnv(hc, _sid);
 
-                var iConfigManager = new InteractiveSessionConfigurationManager();
+                var iConfigManager = new AutoLogonManager();
                 iConfigManager.Initialize(hc);
-                iConfigManager.Configure(_command);
+                await iConfigManager.ConfigureAsync(_command);
 
-                VerifyTheRegistryChanges(_userName, _domainName);
+                VerifyRegistryChanges(_sid);
                 Assert.True(_powerCfgCalledForACOption);
                 Assert.True(_powerCfgCalledForDCOption);
-                Assert.Equal(false, iConfigManager.RestartNeeded());
             }
         }
 
@@ -53,27 +57,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         {
             using (var hc = new TestHostContext(this))
             {
-                SetupTestEnv(hc);
+                SetupTestEnv(hc, _sidForDifferentUser);
 
-                //override behavior
-                _windowsServiceHelper.Setup(x => x.HasActiveSession(It.IsAny<string>(), It.IsAny<string>())).Returns(false);
-
-                var iConfigManager = new InteractiveSessionConfigurationManager();
+                var iConfigManager = new AutoLogonManager();
                 iConfigManager.Initialize(hc);
-                iConfigManager.Configure(_command);
+                await iConfigManager.ConfigureAsync(_command);
                 
-                VerifyTheRegistryChanges(_userName, _domainName, _sid);
+                VerifyRegistryChanges(_sidForDifferentUser);
                 Assert.True(_powerCfgCalledForACOption);
                 Assert.True(_powerCfgCalledForDCOption);
-                Assert.Equal(true, iConfigManager.RestartNeeded());
             }
         }
 
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void TestInteractiveSessionUnConfigure()
-        {            
+        public async void TestAutoLogonUnConfigure()
+        {
             //strategy-
             //1. fill some existing values in the registry
             //2. run configure
@@ -83,87 +83,117 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
 
             using (var hc = new TestHostContext(this))
             {
-                SetupTestEnv(hc);
+                SetupTestEnv(hc, _sid);
+                SetupRegistrySettings(_sid);
 
-                SetupRegistrySettings(hc);
-
-                var iConfigManager = new InteractiveSessionConfigurationManager();
+                var iConfigManager = new AutoLogonManager();
                 iConfigManager.Initialize(hc);
-                iConfigManager.Configure(_command);
+                await iConfigManager.ConfigureAsync(_command);
 
                 //make sure the backup was taken for the keys
-                RegistryVerificationForUnConfigure(hc, checkBackupKeys:true);
+                RegistryVerificationForBackup(_sid);
 
-                iConfigManager.UnConfigure(-1);
-
+                // Debugger.Launch();
+                iConfigManager.Unconfigure();
+                
                 //original values were reverted
-                RegistryVerificationForUnConfigure(hc);
-                Assert.True(_stopListenerCalled, "Stop listener was not called as part of unconfigure.");
+                RegistryVerificationForUnConfigure(_sid);
             }
         }
 
-        private void RegistryVerificationForUnConfigure(TestHostContext hc, string sid = null, bool checkBackupKeys=false)
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Agent")]
+        public async void TestAutoLogonUnConfigureForDifferentUser()
         {
-            var regManager = hc.GetService<IWindowsRegistryManager>();
+            //strategy-
+            //1. fill some existing values in the registry
+            //2. run configure
+            //3. make sure the old values are there in the backup
+            //4. unconfigure
+            //5. make sure original values are reverted back
 
-            var userRegistryRootPath = string.IsNullOrEmpty(sid) 
-                                        ? RegistryConstants.CurrentUserRootPath : String.Format(RegistryConstants.DifferentUserRootPath, sid);
+            using (var hc = new TestHostContext(this))
+            {
+                SetupTestEnv(hc, _sidForDifferentUser);
+
+                SetupRegistrySettings(_sidForDifferentUser);
+
+                var iConfigManager = new AutoLogonManager();
+                iConfigManager.Initialize(hc);
+                await iConfigManager.ConfigureAsync(_command);
+
+                //make sure the backup was taken for the keys
+                RegistryVerificationForBackup(_sidForDifferentUser);
+                
+                iConfigManager.Unconfigure();
+
+                //original values were reverted
+                RegistryVerificationForUnConfigure(_sidForDifferentUser);
+            }
+        }
+
+        private void RegistryVerificationForBackup(string securityId)
+        {
+            //screen saver (user specific)            
+            ValidateRegistryValue(RegistryHive.Users, 
+                                    $"{securityId}\\{RegistryConstants.UserSettings.SubKeys.ScreenSaver}", 
+                                    GetBackupValueName(RegistryConstants.UserSettings.ValueNames.ScreenSaver),
+                                    "1");
             
-            //screen saver (user specific)
-            var screenSaverKeyPath = string.Format($@"{userRegistryRootPath}\{RegistryConstants.RegPaths.ScreenSaver}");
-            var keyName = checkBackupKeys 
-                            ? RegistryConstants.GetBackupKeyName(WellKnownRegistries.ScreenSaver)
-                            : RegistryConstants.KeyNames.ScreenSaver;
-            var screenSaverValue = regManager.GetKeyValue(screenSaverKeyPath, keyName);
-            var expectedValue = "1";
-            var validationPassed = string.Equals(expectedValue, screenSaverValue, StringComparison.OrdinalIgnoreCase);
-
-            Assert.True(validationPassed, $"UnConfigure (verifying backupkeys - {checkBackupKeys}) : {WellKnownRegistries.ScreenSaver} Key value is not correct. Expected - {expectedValue} Actual - {screenSaverValue}");
-
-            //autologon (machine wide)
-            var autoLogonKeyPath = string.Format($@"{RegistryConstants.LocalMachineRootPath}\{RegistryConstants.RegPaths.AutoLogon}");
-            keyName = checkBackupKeys 
-                        ? RegistryConstants.GetBackupKeyName(WellKnownRegistries.AutoLogon)
-                        : RegistryConstants.KeyNames.AutoLogon;
-
-            var autoLogonValue = regManager.GetKeyValue(autoLogonKeyPath, keyName);
-            expectedValue = "0";
-            validationPassed = string.Equals(expectedValue, autoLogonValue, StringComparison.OrdinalIgnoreCase);
-            Assert.True(validationPassed, $"UnConfigure (verifying backupkeys - {checkBackupKeys}) : {WellKnownRegistries.AutoLogon} Key value is not correct. Expected - {expectedValue} Actual - {autoLogonValue}");
+            //HKLM setting
+            ValidateRegistryValue(RegistryHive.LocalMachine, 
+                                    RegistryConstants.MachineSettings.SubKeys.AutoLogon, 
+                                    GetBackupValueName(RegistryConstants.MachineSettings.ValueNames.AutoLogon),
+                                    "0");
 
             //autologon password (delete key)
-            keyName = checkBackupKeys 
-                        ? RegistryConstants.GetBackupKeyName(WellKnownRegistries.AutoLogonPassword)
-                        : RegistryConstants.KeyNames.AutoLogonPassword;
-            var autologonPwdValue = regManager.GetKeyValue(autoLogonKeyPath, keyName);
-            expectedValue = "xyz";
-            validationPassed = string.Equals(expectedValue, autologonPwdValue, StringComparison.OrdinalIgnoreCase);
-            Assert.True(validationPassed, $"UnConfigure (verifying backupkeys - {checkBackupKeys}) : {WellKnownRegistries.AutoLogonPassword} Key value is not correct. Expected - {expectedValue} Actual - {autologonPwdValue}");
+            ValidateRegistryValue(RegistryHive.LocalMachine, 
+                                    RegistryConstants.MachineSettings.SubKeys.AutoLogon,
+                                    GetBackupValueName(RegistryConstants.MachineSettings.ValueNames.AutoLogonPassword),
+                                    "xyz");
         }
 
-        private void SetupRegistrySettings(TestHostContext hc, string sid = null)
+        private string GetBackupValueName(string valueName)
         {
-            var regManager = hc.GetService<IWindowsRegistryManager>();
+            return string.Concat(RegistryConstants.BackupKeyPrefix, valueName);
+        }
 
-            var userRegistryRootPath = string.IsNullOrEmpty(sid) 
-                                        ? RegistryConstants.CurrentUserRootPath : String.Format(RegistryConstants.DifferentUserRootPath, sid);
+        private void RegistryVerificationForUnConfigure(string securityId)
+        {
+            //screen saver (user specific)
+            ValidateRegistryValue(RegistryHive.Users, $"{securityId}\\{RegistryConstants.UserSettings.SubKeys.ScreenSaver}", RegistryConstants.UserSettings.ValueNames.ScreenSaver, "1");
+
+            //HKLM setting
+            ValidateRegistryValue(RegistryHive.LocalMachine, RegistryConstants.MachineSettings.SubKeys.AutoLogon, RegistryConstants.MachineSettings.ValueNames.AutoLogon, "0");
+
+            //autologon password (delete key)
+            ValidateRegistryValue(RegistryHive.LocalMachine, RegistryConstants.MachineSettings.SubKeys.AutoLogon, RegistryConstants.MachineSettings.ValueNames.AutoLogonPassword, "xyz");
+
+            //when done with reverting back the original settings we need to make sure we dont leave behind any extra setting            
+            //user specific
+            ValidateRegistryValue(RegistryHive.Users,
+                                    $"{securityId}\\{RegistryConstants.UserSettings.SubKeys.StartupProcess}",
+                                    RegistryConstants.UserSettings.ValueNames.StartupProcess,
+                                    null);
+        }
+
+        private void SetupRegistrySettings(string securityId)
+        {
+            //HKLM setting
+            _mockRegManager.SetValue(RegistryHive.LocalMachine, RegistryConstants.MachineSettings.SubKeys.AutoLogon, RegistryConstants.MachineSettings.ValueNames.AutoLogon, "0");
+
+            //setting that we delete
+            _mockRegManager.SetValue(RegistryHive.LocalMachine, RegistryConstants.MachineSettings.SubKeys.AutoLogon, RegistryConstants.MachineSettings.ValueNames.AutoLogonPassword, "xyz");
             
             //screen saver (user specific)
-            var screenSaverKeyPath = string.Format($@"{userRegistryRootPath}\{RegistryConstants.RegPaths.ScreenSaver}");
-            regManager.SetKeyValue(screenSaverKeyPath, RegistryConstants.KeyNames.ScreenSaver, "1");            
-
-            //autologon (machine wide)
-            var autoLogonKeyPath = string.Format($@"{RegistryConstants.LocalMachineRootPath}\{RegistryConstants.RegPaths.AutoLogon}");
-            regManager.SetKeyValue(autoLogonKeyPath, RegistryConstants.KeyNames.AutoLogon, "0");
-
-            //autologon password (delete key)            
-            regManager.SetKeyValue(autoLogonKeyPath, RegistryConstants.KeyNames.AutoLogonPassword , "xyz");
+            _mockRegManager.SetValue(RegistryHive.Users, $"{securityId}\\{RegistryConstants.UserSettings.SubKeys.ScreenSaver}", RegistryConstants.UserSettings.ValueNames.ScreenSaver, "1");
         }
 
-        private void SetupTestEnv(TestHostContext hc)
+        private void SetupTestEnv(TestHostContext hc, string securityId)
         {
             _powerCfgCalledForACOption = _powerCfgCalledForDCOption = false;
-            _stopListenerCalled = false;
+            _autoLogonSettings = null;
 
             _windowsServiceHelper = new Mock<INativeWindowsServiceHelper>();
             hc.SetSingleton<INativeWindowsServiceHelper>(_windowsServiceHelper.Object);
@@ -183,19 +213,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     It.IsAny<bool>())) // unattended
                 .Returns(string.Format(@"{0}\{1}", _domainName, _userName));
 
-            _windowsServiceHelper.Setup(x => x.IsValidCredential(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).Returns(true);
+            _windowsServiceHelper.Setup(x => x.IsValidAutoLogonCredential(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).Returns(true);
             _windowsServiceHelper.Setup(x => x.SetAutoLogonPassword(It.IsAny<string>()));
-            _windowsServiceHelper.Setup(x => x.HasActiveSession(It.IsAny<string>(), It.IsAny<string>())).Returns(true);             
-            _windowsServiceHelper.Setup(x => x.GetSecurityId(It.IsAny<string>(), It.IsAny<string>())).Returns(_sid);
+            _windowsServiceHelper.Setup(x => x.GetSecurityId(It.IsAny<string>(), It.IsAny<string>())).Returns(() => securityId);
+            _windowsServiceHelper.Setup(x => x.IsRunningInElevatedMode()).Returns(true);
 
             _processInvoker = new Mock<IProcessInvoker>();
             hc.EnqueueInstance<IProcessInvoker>(_processInvoker.Object);
             hc.EnqueueInstance<IProcessInvoker>(_processInvoker.Object);
-            hc.EnqueueInstance<IProcessInvoker>(_processInvoker.Object);
+
             _processInvoker.Setup(x => x.ExecuteAsync(
                                                 It.IsAny<String>(), 
                                                 "powercfg.exe", 
-                                                "/Change monitor-timeout-ac 0", 
+                                                "/Change monitor-timeout-ac 0",
                                                 null,
                                                 It.IsAny<CancellationToken>())).Returns(Task.FromResult<int>(SetPowerCfgFlags(true)));
 
@@ -206,13 +236,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                                                 null,
                                                 It.IsAny<CancellationToken>())).Returns(Task.FromResult<int>(SetPowerCfgFlags(false)));
 
-            _processInvoker.Setup(x => x.ExecuteAsync(
-                                                It.IsAny<String>(),
-                                                It.IsAny<String>(),
-                                                "stopagentlistener -1",
-                                                null,
-                                                It.IsAny<CancellationToken>())).Returns(Task.FromResult<int>(CallStopListener()));
-
             _mockRegManager = new MockRegistryManager();
             hc.SetSingleton<IWindowsRegistryManager>(_mockRegManager);
 
@@ -221,13 +244,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 new[]
                 {
                     "--windowslogonaccount", "wont be honored",
-                    "--windowslogonpassword", "sssh"
+                    "--windowslogonpassword", "sssh",
+                    "--DisableScreenSaver"
                 });
+            
+            _store = new Mock<IConfigurationStore>();
+            _store.Setup(x => x.SaveAutoLogonSettings(It.IsAny<AutoLogonSettings>()))
+                .Callback((AutoLogonSettings settings) =>
+                {
+                    _autoLogonSettings = settings;
+                });
+            
+            _store.Setup(x => x.IsAutoLogonConfigured()).Returns(() => _autoLogonSettings != null);
+            _store.Setup(x => x.GetAutoLogonSettings()).Returns(() => _autoLogonSettings);
+
+            
+
+            hc.SetSingleton<IConfigurationStore>(_store.Object);
+
+            hc.SetSingleton<IAutoLogonRegistryManager>(new AutoLogonRegistryManager());
         }
 
         private int SetPowerCfgFlags(bool isForACOption)
         {
-            if(isForACOption)
+            if (isForACOption)
             {
                 _powerCfgCalledForACOption = true;
             }
@@ -238,85 +278,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             return 0;
         }
 
-        private int CallStopListener()
+        public void VerifyRegistryChanges(string securityId)
         {
-            _stopListenerCalled = true;
-            return 0;
-        }
+            ValidateRegistryValue(RegistryHive.LocalMachine,
+                                    RegistryConstants.MachineSettings.SubKeys.AutoLogon,
+                                    RegistryConstants.MachineSettings.ValueNames.AutoLogon,
+                                    "1");
 
-        public void VerifyTheRegistryChanges(string expectedUserName, string expectedDomainName, string userSid = null)
-        {
-            ValidateRegistryValue(WellKnownRegistries.ScreenSaver, "0", userSid);
-            ValidateRegistryValue(WellKnownRegistries.ScreenSaverDomainPolicy, "0", userSid);
+            ValidateRegistryValue(RegistryHive.LocalMachine,
+                                    RegistryConstants.MachineSettings.SubKeys.AutoLogon,
+                                    RegistryConstants.MachineSettings.ValueNames.AutoLogonUserName,
+                                    _userName);
+
+            ValidateRegistryValue(RegistryHive.LocalMachine,
+                                    RegistryConstants.MachineSettings.SubKeys.AutoLogon,
+                                    RegistryConstants.MachineSettings.ValueNames.AutoLogonPassword,
+                                    null);
             
-            //autologon
-            ValidateRegistryValue(WellKnownRegistries.AutoLogon, "1", userSid);
-            ValidateRegistryValue(WellKnownRegistries.AutoLogonUserName, expectedUserName, userSid);
-            ValidateRegistryValue(WellKnownRegistries.AutoLogonDomainName, expectedDomainName, userSid);
-            ValidateRegistryValue(WellKnownRegistries.AutoLogonCount, null, userSid);
-            ValidateRegistryValue(WellKnownRegistries.AutoLogonPassword, null, userSid);
-
-            //shutdown reason
-            ValidateRegistryValue(WellKnownRegistries.ShutdownReason, "0", userSid);
-            ValidateRegistryValue(WellKnownRegistries.ShutdownReasonUI, "0", userSid);
-
-            //todo: startup process validation
-            // ValidateRegistryValue(WellKnownRegistries.StartupProcess, , usersid);
-
-            // regPath = GetRegistryKeyPath(WellKnownRegistries.StartupProcess, userSid);
-            // var processPath = regManager.GetKeyValue(regPath, WellKnownRegistries.StartupProcess);
+            ValidateRegistryValue(RegistryHive.Users,
+                                    $"{securityId}\\{RegistryConstants.UserSettings.SubKeys.ScreenSaver}",
+                                    RegistryConstants.UserSettings.ValueNames.ScreenSaver,
+                                    "0");
         }
 
-        public void ValidateRegistryValue(WellKnownRegistries registry, string expectedValue, string userSid)
+        public void ValidateRegistryValue(RegistryHive hive, string subKeyName, string name, string expectedValue)
         {
-            var regPath = GetRegistryKeyPath(registry, userSid);
-            var regKey = RegistryConstants.GetActualKeyNameForWellKnownRegistry(registry);
-            var actualValue = _mockRegManager.GetKeyValue(regPath, regKey);
+            var actualValue = _mockRegManager.GetValue(hive, subKeyName, name);
 
             var validationPassed = string.Equals(expectedValue, actualValue, StringComparison.OrdinalIgnoreCase);
-            Assert.True(validationPassed, $"{registry.ToString()} validation failed. Expected - {expectedValue} Actual - {actualValue}");
-        }
-
-        private string GetUserRegistryRootPath(string sid)
-        {
-            return string.IsNullOrEmpty(sid) ?
-                RegistryConstants.CurrentUserRootPath :
-                String.Format(RegistryConstants.DifferentUserRootPath, sid);
-        }
-
-        private string GetRegistryKeyPath(WellKnownRegistries targetRegistryKey, string userSid = null)
-        {
-            var userHivePath = GetUserRegistryRootPath(userSid);
-            switch(targetRegistryKey)
-            {
-                //user specific registry settings
-                case WellKnownRegistries.ScreenSaver :
-                    return string.Format($@"{userHivePath}\{RegistryConstants.RegPaths.ScreenSaver}");
-
-                case WellKnownRegistries.ScreenSaverDomainPolicy:
-                    return string.Format($@"{userHivePath}\{RegistryConstants.RegPaths.ScreenSaverDomainPolicy}");
-
-                case WellKnownRegistries.StartupProcess:
-                    return string.Format($@"{userHivePath}\{RegistryConstants.RegPaths.StartupProcess}");
-
-                //machine specific registry settings         
-                case WellKnownRegistries.AutoLogon :
-                case WellKnownRegistries.AutoLogonUserName:
-                case WellKnownRegistries.AutoLogonDomainName :
-                case WellKnownRegistries.AutoLogonPassword:
-                case WellKnownRegistries.AutoLogonCount:
-                    return string.Format($@"{RegistryConstants.LocalMachineRootPath}\{RegistryConstants.RegPaths.AutoLogon}");
-
-                case WellKnownRegistries.ShutdownReason :
-                case WellKnownRegistries.ShutdownReasonUI :
-                    return string.Format($@"{RegistryConstants.LocalMachineRootPath}\{RegistryConstants.RegPaths.ShutdownReasonDomainPolicy}");
-
-                case WellKnownRegistries.LegalNoticeCaption :
-                case WellKnownRegistries.LegalNoticeText :
-                    return string.Format($@"{RegistryConstants.LocalMachineRootPath}\{RegistryConstants.RegPaths.LegalNotice}");
-                default:
-                   return null;
-            }
+            Assert.True(validationPassed, $"Validation failed for '{subKeyName}\\{name}'. Expected - {expectedValue} Actual - {actualValue}");
         }
     }
 
@@ -328,46 +318,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         {
             _regStore = new Dictionary<string, string>();
         }
-        
-        public void DeleteKey(RegistryScope scope, string path, string keyName)
-        {
-            var completePath = path;
-            switch(scope)
-            {
-                case RegistryScope.CurrentUser :
-                    completePath = string.Format($@"{RegistryConstants.CurrentUserRootPath}\{path}");
-                    break;
-                case RegistryScope.LocalMachine:
-                    completePath = string.Format($@"{RegistryConstants.LocalMachineRootPath}\{path}");
-                    break;
-                default:
-                    throw new InvalidOperationException("wrong scope");
-            }
 
-            var key = string.Concat(completePath, keyName);
-            _regStore.Remove(key);
-        }
-
-        public string GetKeyValue(string path, string keyName)
+        public string GetValue(RegistryHive hive, string subKeyName, string name)
         {
-            var key = string.Concat(path, keyName);
+            var key = string.Concat(hive.ToString(), subKeyName, name);
             return _regStore.ContainsKey(key) ? _regStore[key] : null;
         }
 
-        public void SetKeyValue(string path, string keyName, string keyValue)
+        public void SetValue(RegistryHive hive, string subKeyName, string name, string value)
         {
-            var key = string.Concat(path, keyName);
-            if(_regStore.ContainsKey(key))
+            var key = string.Concat(hive.ToString(), subKeyName, name);
+            if (_regStore.ContainsKey(key))
             {
-                _regStore[key] = keyValue;
+                _regStore[key] = value;
             }
             else
             {
-                _regStore.Add(key, keyValue);
-            }
+                _regStore.Add(key, value);
+            }            
         }
 
-        public bool RegsitryExists(string securityId)
+        public void DeleteValue(RegistryHive hive, string subKeyName, string name)
+        {
+            var key = string.Concat(hive.ToString(), subKeyName, name);
+            _regStore.Remove(key);
+        }
+
+        public bool SubKeyExists(RegistryHive hive, string subKeyName)
         {
             return true;
         }

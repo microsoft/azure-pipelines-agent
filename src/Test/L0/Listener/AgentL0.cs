@@ -19,6 +19,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         private Mock<IJobDispatcher> _jobDispatcher;
         private Mock<IAgentServer> _agentServer;
         private Mock<ITerminal> _term;
+        private Mock<IConfigurationStore> _configStore;
         private Mock<IVstsAgentWebProxy> _proxy;
 
         public AgentL0()
@@ -30,6 +31,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             _jobDispatcher = new Mock<IJobDispatcher>();
             _agentServer = new Mock<IAgentServer>();
             _term = new Mock<ITerminal>();
+            _configStore = new Mock<IConfigurationStore>();
             _proxy = new Mock<IVstsAgentWebProxy>();
         }
 
@@ -40,7 +42,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             JobEnvironment environment = new JobEnvironment();
             List<TaskInstance> tasks = new List<TaskInstance>();
             Guid JobId = Guid.NewGuid();
-            var jobRequest = new AgentJobRequestMessage(plan, timeline, JobId, jobName, environment, tasks);
+            var jobRequest = new AgentJobRequestMessage(plan, timeline, JobId, jobName, jobName, environment, tasks);
             return jobRequest as AgentJobRequestMessage;
         }
 
@@ -57,17 +59,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         public async void TestRunAsync()
         {
             using (var hc = new TestHostContext(this))
-            using (var tokenSource = new CancellationTokenSource())
             {
                 //Arrange
                 var agent = new Agent.Listener.Agent();
-                agent.TokenSource = tokenSource;
                 hc.SetSingleton<IConfigurationManager>(_configurationManager.Object);
                 hc.SetSingleton<IJobNotification>(_jobNotification.Object);
                 hc.SetSingleton<IMessageListener>(_messageListener.Object);
                 hc.SetSingleton<IPromptManager>(_promptManager.Object);
                 hc.SetSingleton<IAgentServer>(_agentServer.Object);
                 hc.SetSingleton<IVstsAgentWebProxy>(_proxy.Object);
+                hc.SetSingleton<IConfigurationStore>(_configStore.Object);
                 agent.Initialize(hc);
                 var settings = new AgentSettings
                 {
@@ -96,7 +97,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                             if (0 == messages.Count)
                             {
                                 signalWorkerComplete.Release();
-                                await Task.Delay(2000, tokenSource.Token);
+                                await Task.Delay(2000, hc.AgentShutdownToken);
                             }
 
                             return messages.Dequeue();
@@ -118,11 +119,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 _jobNotification.Setup(x => x.StartClient(It.IsAny<String>()))
                     .Callback(() =>
                     {
-                    
+
                     });
 
                 hc.EnqueueInstance<IJobDispatcher>(_jobDispatcher.Object);
 
+                _configStore.Setup(x => x.IsServiceConfigured()).Returns(false);
                 //Act
                 var command = new CommandSettings(hc, new string[] { "run" });
                 Task agentTask = agent.ExecuteCommand(command);
@@ -136,7 +138,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 else
                 {
                     //Act
-                    tokenSource.Cancel(); //stop Agent
+                    hc.ShutdownAgent(ShutdownReason.UserCancelled); //stop Agent
 
                     //Assert
                     Task[] taskToWait2 = { agentTask, Task.Delay(2000) };
@@ -176,19 +178,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 hc.SetSingleton<IPromptManager>(_promptManager.Object);
                 hc.SetSingleton<IMessageListener>(_messageListener.Object);
                 hc.SetSingleton<IVstsAgentWebProxy>(_proxy.Object);
+                hc.SetSingleton<IConfigurationStore>(_configStore.Object);
 
                 var command = new CommandSettings(hc, args);
 
                 _configurationManager.Setup(x => x.IsConfigured()).Returns(true);
                 _configurationManager.Setup(x => x.LoadSettings())
                     .Returns(new AgentSettings { });
-                _configurationManager.Setup(x => x.IsServiceConfigured()).Returns(configureAsService);
+                
+                _configStore.Setup(x => x.IsServiceConfigured()).Returns(configureAsService);
+
                 _messageListener.Setup(x => x.CreateSessionAsync(It.IsAny<CancellationToken>()))
                     .Returns(Task.FromResult(false));
 
                 var agent = new Agent.Listener.Agent();
                 agent.Initialize(hc);
-                agent.TokenSource = new CancellationTokenSource();
                 await agent.ExecuteCommand(command);
 
                 _messageListener.Verify(x => x.CreateSessionAsync(It.IsAny<CancellationToken>()), expectedTimes);
@@ -207,6 +211,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 hc.SetSingleton<IPromptManager>(_promptManager.Object);
                 hc.SetSingleton<IMessageListener>(_messageListener.Object);
                 hc.SetSingleton<IVstsAgentWebProxy>(_proxy.Object);
+                hc.SetSingleton<IConfigurationStore>(_configStore.Object);
 
                 var command = new CommandSettings(hc, new[] { "run" });
 
@@ -214,14 +219,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     Returns(true);
                 _configurationManager.Setup(x => x.LoadSettings())
                     .Returns(new AgentSettings { });
-                _configurationManager.Setup(x => x.IsServiceConfigured()).
-                    Returns(false);
+                    
+                _configStore.Setup(x => x.IsServiceConfigured())
+                    .Returns(false);
+
                 _messageListener.Setup(x => x.CreateSessionAsync(It.IsAny<CancellationToken>()))
                     .Returns(Task.FromResult(false));
 
                 var agent = new Agent.Listener.Agent();
                 agent.Initialize(hc);
-                agent.TokenSource = new CancellationTokenSource();
                 await agent.ExecuteCommand(command);
 
                 _messageListener.Verify(x => x.CreateSessionAsync(It.IsAny<CancellationToken>()), Times.Once());
@@ -240,6 +246,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 hc.SetSingleton<IPromptManager>(_promptManager.Object);
                 hc.SetSingleton<IMessageListener>(_messageListener.Object);
                 hc.SetSingleton<IVstsAgentWebProxy>(_proxy.Object);
+                hc.SetSingleton<IConfigurationStore>(_configStore.Object);
 
                 var command = new CommandSettings(hc, new string[] { });
 
@@ -247,14 +254,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     Returns(true);
                 _configurationManager.Setup(x => x.LoadSettings())
                     .Returns(new AgentSettings { });
-                _configurationManager.Setup(x => x.IsServiceConfigured()).
-                    Returns(false);
+                
+                _configStore.Setup(x => x.IsServiceConfigured())
+                    .Returns(false);
+
                 _messageListener.Setup(x => x.CreateSessionAsync(It.IsAny<CancellationToken>()))
                     .Returns(Task.FromResult(false));
 
                 var agent = new Agent.Listener.Agent();
                 agent.Initialize(hc);
-                agent.TokenSource = new CancellationTokenSource();
                 await agent.ExecuteCommand(command);
 
                 _messageListener.Verify(x => x.CreateSessionAsync(It.IsAny<CancellationToken>()), Times.Once());

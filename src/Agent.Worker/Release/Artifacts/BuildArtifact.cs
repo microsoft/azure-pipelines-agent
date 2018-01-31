@@ -103,7 +103,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             var tfsUrl = context.Variables.Get(WellKnownDistributedTaskVariables.TFCollectionUrl);
 
             Guid projectId = context.Variables.System_TeamProjectId ?? Guid.Empty;
-            if(artifactDetails.ContainsKey("Project"))
+            if (artifactDetails.ContainsKey("Project"))
             {
                 Guid.TryParse(artifactDetails["Project"], out projectId);
             }
@@ -155,6 +155,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
         {
             var downloadFolderPath = Path.Combine(localFolderPath, buildArtifact.Name);
             var buildArtifactDetails = artifactDefinition.Details as BuildArtifactDetails;
+
             if ((buildArtifact.Resource.Type == null && buildArtifact.Id == 0) // bug on build API Bug 378900
                 || string.Equals(buildArtifact.Resource.Type, WellKnownArtifactResourceTypes.FilePath, StringComparison.OrdinalIgnoreCase))
             {

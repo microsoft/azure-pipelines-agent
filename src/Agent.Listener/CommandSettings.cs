@@ -30,13 +30,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Constants.Agent.CommandLine.Flags.AddDeploymentGroupTags,
             Constants.Agent.CommandLine.Flags.Commit,
             Constants.Agent.CommandLine.Flags.DeploymentGroup,
+            Constants.Agent.CommandLine.Flags.DisableScreenSaver,
+            Constants.Agent.CommandLine.Flags.EnableAutoLogon,
             Constants.Agent.CommandLine.Flags.Help,
             Constants.Agent.CommandLine.Flags.MachineGroup,
             Constants.Agent.CommandLine.Flags.Replace,
             Constants.Agent.CommandLine.Flags.RunAsService,
+            Constants.Agent.CommandLine.Flags.RestartNow,
             Constants.Agent.CommandLine.Flags.Unattended,
-            Constants.Agent.CommandLine.Flags.Version,
-            Constants.Agent.CommandLine.Flags.EnableAutoLogon
+            Constants.Agent.CommandLine.Flags.Version
         };
 
         private readonly string[] validArgs =
@@ -52,6 +54,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Constants.Agent.CommandLine.Args.Password,
             Constants.Agent.CommandLine.Args.Pool,
             Constants.Agent.CommandLine.Args.ProjectName,
+            Constants.Agent.CommandLine.Args.StartupType,
             Constants.Agent.CommandLine.Args.Token,
             Constants.Agent.CommandLine.Args.Url,
             Constants.Agent.CommandLine.Args.UserName,
@@ -172,21 +175,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 defaultValue: false);
         }
 
+        public bool GetDisableScreenSaver()
+        {
+            return TestFlagOrPrompt(
+                name: Constants.Agent.CommandLine.Flags.DisableScreenSaver,
+                description: StringUtil.Loc("DisableScreenSaver"),
+                defaultValue: true);
+        }
+
         public bool GetRestartNow()
         {
             return TestFlagOrPrompt(
                 name: Constants.Agent.CommandLine.Flags.RestartNow,
                 description: StringUtil.Loc("RestartNow"),
                 defaultValue: true);
-        }
-
-        public string GetAutoLogonUserName()
-        {
-            return GetArgOrPrompt(
-                name: Constants.Agent.CommandLine.Args.WindowsLogonAccount,
-                description: StringUtil.Loc("AutoLogonAccountNameDescription"),
-                defaultValue: string.Empty,
-                validator: Validators.NTAccountValidator);
         }
 
         public bool GetDeploymentGroupTagsRequired()
@@ -310,11 +312,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 validator: Validators.NonEmptyValidator);
         }
 
-        public string GetWindowsLogonAccount(string defaultValue)
+        public string GetWindowsLogonAccount(string defaultValue, string descriptionMsg)
         {
             return GetArgOrPrompt(
                 name: Constants.Agent.CommandLine.Args.WindowsLogonAccount,
-                description: StringUtil.Loc("WindowsLogonAccountNameDescription"),
+                description: descriptionMsg,
                 defaultValue: defaultValue,
                 validator: Validators.NTAccountValidator);
         }
@@ -345,6 +347,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         public string GetNotificationSocketAddress()
         {
             return GetArg(Constants.Agent.CommandLine.Args.NotificationSocketAddress);
+        }
+
+        ///This is used to find out the source from where the agent.listner.exe was launched at the time of run
+        public string GetStartupType()
+        {
+            return GetArg(Constants.Agent.CommandLine.Args.StartupType);
         }
 
         //

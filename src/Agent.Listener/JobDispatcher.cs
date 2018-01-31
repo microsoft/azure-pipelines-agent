@@ -33,7 +33,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         private readonly ConcurrentDictionary<Guid, WorkerDispatcher> _jobInfos = new ConcurrentDictionary<Guid, WorkerDispatcher>();
 
         //allow up to 30sec for any data to be transmitted over the process channel
-        private readonly TimeSpan ChannelTimeout = TimeSpan.FromSeconds(30);
+        //timeout limit can be overwrite by environment VSTS_AGENT_CHANNEL_TIMEOUT
+        private TimeSpan _channelTimeout;
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -43,6 +44,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             var configurationStore = hostContext.GetService<IConfigurationStore>();
             AgentSettings agentSetting = configurationStore.GetSettings();
             _poolId = agentSetting.PoolId;
+
+            int channelTimeoutSeconds;
+            if (!int.TryParse(Environment.GetEnvironmentVariable("VSTS_AGENT_CHANNEL_TIMEOUT") ?? string.Empty, out channelTimeoutSeconds))
+            {
+                channelTimeoutSeconds = 30;
+            }
+
+            // _channelTimeout should in range [30,  300] seconds
+            _channelTimeout = TimeSpan.FromSeconds(Math.Min(Math.Max(channelTimeoutSeconds, 30), 300));
+            Trace.Info($"Set agent/worker IPC timeout to {_channelTimeout.TotalSeconds} seconds.");
         }
 
         public void Run(AgentJobRequestMessage jobRequestMessage)
@@ -364,7 +375,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     try
                     {
                         Trace.Info($"Send job request message to worker for job {message.JobId}.");
-                        using (var csSendJobRequest = new CancellationTokenSource(ChannelTimeout))
+                        using (var csSendJobRequest = new CancellationTokenSource(_channelTimeout))
                         {
                             await processChannel.SendAsync(
                                 messageType: MessageType.NewJobRequest,
@@ -452,14 +463,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         }
 
                         // renew job request completed or job request cancellation token been fired for RunAsync(jobrequestmessage)
-                        // cancel worker gracefully first, then kill it after 45 sec
+                        // cancel worker gracefully first, then kill it after worker cancel timeout
                         try
                         {
                             Trace.Info($"Send job cancellation message to worker for job {message.JobId}.");
-                            using (var csSendCancel = new CancellationTokenSource(ChannelTimeout))
+                            using (var csSendCancel = new CancellationTokenSource(_channelTimeout))
                             {
+                                var messageType = MessageType.CancelRequest;
+                                if (HostContext.AgentShutdownToken.IsCancellationRequested)
+                                {
+                                    switch (HostContext.AgentShutdownReason)
+                                    {
+                                        case ShutdownReason.UserCancelled:
+                                            messageType = MessageType.AgentShutdown;
+                                            break;
+                                        case ShutdownReason.OperatingSystemShutdown:
+                                            messageType = MessageType.OperatingSystemShutdown;
+                                            break;
+                                    }
+                                }
+
                                 await processChannel.SendAsync(
-                                    messageType: MessageType.CancelRequest,
+                                    messageType: messageType,
                                     body: string.Empty,
                                     cancellationToken: csSendCancel.Token);
                             }

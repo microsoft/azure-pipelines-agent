@@ -11,9 +11,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
     public interface IHandler : IAgentService
     {
+        List<ServiceEndpoint> Endpoints { get; set; }
         IExecutionContext ExecutionContext { get; set; }
         string FilePathInputRootDirectory { get; set; }
         Dictionary<string, string> Inputs { get; set; }
+        List<SecureFile> SecureFiles { get; set; }
         string TaskDirectory { get; set; }
 
         Task RunAsync();
@@ -24,9 +26,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         protected IWorkerCommandManager CommandManager { get; private set; }
         protected Dictionary<string, string> Environment { get; private set; }
 
+        public List<ServiceEndpoint> Endpoints { get; set; }
         public IExecutionContext ExecutionContext { get; set; }
         public string FilePathInputRootDirectory { get; set; }
         public Dictionary<string, string> Inputs { get; set; }
+        public List<SecureFile> SecureFiles { get; set; }
         public string TaskDirectory { get; set; }
 
         public override void Initialize(IHostContext hostContext)
@@ -39,11 +43,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         protected void AddEndpointsToEnvironment()
         {
             Trace.Entering();
+            ArgUtil.NotNull(Endpoints, nameof(Endpoints));
             ArgUtil.NotNull(ExecutionContext, nameof(ExecutionContext));
             ArgUtil.NotNull(ExecutionContext.Endpoints, nameof(ExecutionContext.Endpoints));
 
+            List<ServiceEndpoint> endpoints;
+            if ((ExecutionContext.Variables.GetBoolean(Constants.Variables.Agent.AllowAllEndpoints) ?? false) ||
+                string.Equals(System.Environment.GetEnvironmentVariable("AGENT_ALLOWALLENDPOINTS") ?? string.Empty, bool.TrueString, StringComparison.OrdinalIgnoreCase))
+            {
+                endpoints = ExecutionContext.Endpoints; // todo: remove after sprint 120 or so
+            }
+            else
+            {
+                endpoints = Endpoints;
+            }
+
             // Add the endpoints to the environment variable dictionary.
-            foreach (ServiceEndpoint endpoint in ExecutionContext.Endpoints)
+            foreach (ServiceEndpoint endpoint in endpoints)
             {
                 ArgUtil.NotNull(endpoint, nameof(endpoint));
 
@@ -107,24 +123,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         {
             Trace.Entering();
             ArgUtil.NotNull(ExecutionContext, nameof(ExecutionContext));
+            ArgUtil.NotNull(SecureFiles, nameof(SecureFiles));
 
-            if (ExecutionContext.SecureFiles != null && ExecutionContext.SecureFiles.Count > 0)
+            List<SecureFile> secureFiles;
+            if ((ExecutionContext.Variables.GetBoolean(Constants.Variables.Agent.AllowAllSecureFiles) ?? false) ||
+                string.Equals(System.Environment.GetEnvironmentVariable("AGENT_ALLOWALLSECUREFILES") ?? string.Empty, bool.TrueString, StringComparison.OrdinalIgnoreCase))
             {
-                // Add the secure files to the environment variable dictionary.
-                foreach (SecureFile secureFile in ExecutionContext.SecureFiles)
+                secureFiles = ExecutionContext.SecureFiles ?? new List<SecureFile>(0); // todo: remove after sprint 121 or so
+            }
+            else
+            {
+                secureFiles = SecureFiles;
+            }
+
+            // Add the secure files to the environment variable dictionary.
+            foreach (SecureFile secureFile in secureFiles)
+            {
+                if (secureFile != null && secureFile.Id != Guid.Empty)
                 {
-                    if (secureFile != null && secureFile.Id != Guid.Empty)
-                    {
-                        string partialKey = secureFile.Id.ToString();
-                        AddEnvironmentVariable(
-                            key: $"SECUREFILE_NAME_{partialKey}",
-                            value: secureFile.Name
-                        );
-                        AddEnvironmentVariable(
-                            key: $"SECUREFILE_TICKET_{partialKey}",
-                            value: secureFile.Ticket
-                        );
-                    }
+                    string partialKey = secureFile.Id.ToString();
+                    AddEnvironmentVariable(
+                        key: $"SECUREFILE_NAME_{partialKey}",
+                        value: secureFile.Name);
+                    AddEnvironmentVariable(
+                        key: $"SECUREFILE_TICKET_{partialKey}",
+                        value: secureFile.Ticket);
                 }
             }
         }
@@ -173,7 +196,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             // Add the public variable names.
             if (!excludeNames)
             {
-                AddEnvironmentVariable("VSTS_PUBLIC_VARIABLES", StringUtil.ConvertToJson(names));
+                AddEnvironmentVariable("VSTS_PUBLIC_VARIABLES", JsonUtility.ToString(names));
             }
 
             if (!excludeSecrets)
@@ -193,7 +216,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 // Add the secret variable names.
                 if (!excludeNames)
                 {
-                    AddEnvironmentVariable("VSTS_SECRET_VARIABLES", StringUtil.ConvertToJson(secretNames));
+                    AddEnvironmentVariable("VSTS_SECRET_VARIABLES", JsonUtility.ToString(secretNames));
                 }
             }
         }
