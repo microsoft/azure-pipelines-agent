@@ -63,6 +63,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
             builder.Check(name: "ruby");
             builder.Check(name: "rake");
             builder.Check(name: "svn");
+            builder.Check(name: "mysql");
             builder.Check(
                 name: "Xamarin.iOS",
                 fileName: "mdtool",
