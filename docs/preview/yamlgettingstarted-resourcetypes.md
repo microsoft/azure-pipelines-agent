@@ -1,4 +1,5 @@
-Resources
+# Resources
+
 Global resources in a YAML are available to all the stages. An example of a resource can be resources published by another CI/CD definition viz. builds/artifacts, repositories etc. 
 
 Resources in YAML represent sources of type builds, repositories, packages and containers. 
