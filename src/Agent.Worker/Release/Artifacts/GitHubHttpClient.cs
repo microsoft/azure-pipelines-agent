@@ -42,7 +42,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             request.Headers.Add("User-Agent", "VSTS-Agent/" + Constants.Agent.Version);
 
             using (var httpClientHandler = HostContext.CreateHttpClientHandler())
-            using (var httpClient = new HttpClient(httpClientHandler) { Timeout = new TimeSpan(0, 0, 30) })
+            using (var httpClient = new HttpClient(httpClientHandler) { Timeout = new TimeSpan(0, 0, 100) })
             {
                 errorMessage = string.Empty;
                 Task<HttpResponseMessage> sendAsyncTask = httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
