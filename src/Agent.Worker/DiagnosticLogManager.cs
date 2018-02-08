@@ -18,15 +18,17 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
+using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
     [ServiceLocator(Default = typeof(DiagnosticLogManager))]
     public interface IDiagnosticLogManager : IAgentService
     {
-        Task UploadDiagnosticLogsAsync(IExecutionContext executionContext,
-                                  AgentJobRequestMessage message,
-                                  DateTime jobStartTimeUtc);
+        Task UploadDiagnosticLogsAsync(
+            IExecutionContext executionContext, 
+            Pipelines.AgentJobRequestMessage message, 
+            DateTime jobStartTimeUtc);
     }
 
     // This class manages gathering data for support logs, zipping the data, and uploading it.
@@ -38,9 +40,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     //          support.zip
     public sealed class DiagnosticLogManager : AgentService, IDiagnosticLogManager
     {
-        public async Task UploadDiagnosticLogsAsync(IExecutionContext executionContext,
-                                         AgentJobRequestMessage message,
-                                         DateTime jobStartTimeUtc)
+        public async Task UploadDiagnosticLogsAsync(
+            IExecutionContext executionContext, 
+            Pipelines.AgentJobRequestMessage message,
+            DateTime jobStartTimeUtc)
         {
             executionContext.Debug("Starting diagnostic file upload.");
 
@@ -69,9 +72,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             executionContext.Debug("Creating diagnostic log environment file.");
             string environmentFile = Path.Combine(supportFilesFolder, "environment.txt");
 #if OS_WINDOWS            
-            string content = await GetEnvironmentContent(agentId, agentName, message.Tasks);
+            string content = await GetEnvironmentContent(agentId, agentName, message.Steps);
 #else            
-            string content = GetEnvironmentContent(agentId, agentName, message.Tasks);
+            string content = GetEnvironmentContent(agentId, agentName, message.Steps);
 #endif            
             File.WriteAllText(environmentFile, content);
 
@@ -181,7 +184,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
 
 #if OS_WINDOWS
-        private async Task<string> GetEnvironmentContent(int agentId, string agentName, ReadOnlyCollection<TaskInstance> tasks)
+        private async Task<string> GetEnvironmentContent(int agentId, string agentName, IList<Pipelines.JobStep> steps)
         {
             var builder = new StringBuilder();
 
@@ -190,11 +193,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             builder.AppendLine($"Agent Id: {agentId}");
             builder.AppendLine($"Agent Name: {agentName}");
             builder.AppendLine($"OS: {System.Runtime.InteropServices.RuntimeInformation.OSDescription}");
-            builder.AppendLine("Tasks:");
+            builder.AppendLine("Steps:");
 
-            foreach (TaskInstance task in tasks)
+            foreach (Pipelines.JobStep step in steps)
             {
-                builder.AppendLine($"\tName: {task.Name} Version: {task.Version}");
+                if (step.Type == Pipelines.StepType.Task)
+                {
+                    var task = step as Pipelines.TaskStep;
+                    builder.AppendLine($"\tName: {task.Reference.Name} Version: {task.Reference.Version}");
+                }
+                else if (step.Type == Pipelines.StepType.Group)
+                {
+                    var group = step as Pipelines.GroupStep;
+                    foreach (var task in group.Steps)
+                    {
+                        builder.AppendLine($"\tName: {task.Reference.Name} Version: {task.Reference.Version} Group: {step.DisplayName}");
+                    }
+                }
             }
 
             // windows defender on/off
@@ -270,7 +285,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return builder.ToString();
         }
 #else
-        private string GetEnvironmentContent(int agentId, string agentName, ReadOnlyCollection<TaskInstance> tasks)
+        private string GetEnvironmentContent(int agentId, string agentName, IList<Pipelines.JobStep> steps)
         {
             var builder = new StringBuilder();
 
@@ -279,11 +294,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             builder.AppendLine($"Agent Id: {agentId}");
             builder.AppendLine($"Agent Name: {agentName}");
             builder.AppendLine($"OS: {System.Runtime.InteropServices.RuntimeInformation.OSDescription}");
-            builder.AppendLine("Tasks:");
+            builder.AppendLine("Steps:");
 
-            foreach (TaskInstance task in tasks)
+            foreach (Pipelines.JobStep step in steps)
             {
-                builder.AppendLine($"\tName: {task.Name} Version: {task.Version}");
+                if(step.Type==Pipelines.StepType.Task)
+                {
+                    var task = step as Pipelines.TaskStep;
+                    builder.AppendLine($"\tName: {task.Reference.Name} Version: {task.Reference.Version}");
+                }
+                else if(step.Type==Pipelines.StepType.Group)
+                {
+                    var group = step as Pipelines.GroupStep;
+                    foreach(var task in group.Steps)
+                    {
+                        builder.AppendLine($"\tName: {task.Reference.Name} Version: {task.Reference.Version} Group: {step.DisplayName}");
+                    }
+                }
             }
 
             return builder.ToString();

@@ -1,7 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.TeamFoundation.DistributedTask.ServiceEndpoints;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
@@ -10,6 +15,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
     {
         IHandler Create(
             IExecutionContext executionContext,
+            IStepHost handlerInvoker,
             List<ServiceEndpoint> endpoints,
             List<SecureFile> secureFiles,
             HandlerData data,
@@ -23,6 +29,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
     {
         public IHandler Create(
             IExecutionContext executionContext,
+            IStepHost handlerInvoker,
             List<ServiceEndpoint> endpoints,
             List<SecureFile> secureFiles,
             HandlerData data,
@@ -34,6 +41,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             // Validate args.
             Trace.Entering();
             ArgUtil.NotNull(executionContext, nameof(executionContext));
+            ArgUtil.NotNull(handlerInvoker, nameof(handlerInvoker));
             ArgUtil.NotNull(endpoints, nameof(endpoints));
             ArgUtil.NotNull(secureFiles, nameof(secureFiles));
             ArgUtil.NotNull(data, nameof(data));
@@ -88,6 +96,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             handler.Endpoints = endpoints;
             handler.Environment = environment;
             handler.ExecutionContext = executionContext;
+            handler.StepHost = handlerInvoker;
             handler.FilePathInputRootDirectory = filePathInputRootDirectory;
             handler.Inputs = inputs;
             handler.SecureFiles = secureFiles;

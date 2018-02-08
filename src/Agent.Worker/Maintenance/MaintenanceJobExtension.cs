@@ -1,6 +1,7 @@
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Maintenance
 {
@@ -14,10 +15,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Maintenance
     {
         public override Type ExtensionType => typeof(IJobExtension);
         public override HostTypes HostType => HostTypes.PoolMaintenance;
+
         public override IStep GetExtensionPreJobStep(IExecutionContext jobContext)
         {
             return new JobExtensionRunner(
-                context: jobContext.CreateChild(Guid.NewGuid(), StringUtil.Loc("Maintenance"), nameof(MaintenanceJobExtension)),
+                data: null,
                 runAsync: MaintainAsync,
                 condition: ExpressionManager.Succeeded,
                 displayName: StringUtil.Loc("Maintenance"));
@@ -39,7 +41,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Maintenance
             repoName = string.Empty;
         }
 
-        private async Task MaintainAsync(IExecutionContext executionContext)
+        private async Task MaintainAsync(IExecutionContext executionContext, object data)
         {
             // Validate args.
             Trace.Entering();

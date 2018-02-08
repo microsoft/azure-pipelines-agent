@@ -1,4 +1,5 @@
-﻿using Microsoft.TeamFoundation.DistributedTask.WebApi;
+﻿using Microsoft.TeamFoundation.DistributedTask.ServiceEndpoints;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;

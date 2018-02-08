@@ -139,7 +139,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 await _jobRunner.RunAsync(_message, _tokenSource.Token);
 
                 Assert.Equal(TaskResult.Failed, _jobEc.Result);
-                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.IsAny<IList<IStep>>(), JobRunStage.PreJob), Times.Never);
+                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.IsAny<IList<IStep>>(), TaskRunStage.PreScope), Times.Never);
             }
         }
 
@@ -157,7 +157,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 await _jobRunner.RunAsync(_message, _tokenSource.Token);
 
                 Assert.Equal(TaskResult.Canceled, _jobEc.Result);
-                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.IsAny<IList<IStep>>(), JobRunStage.PreJob), Times.Never);
+                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.IsAny<IList<IStep>>(), TaskRunStage.PreScope), Times.Never);
             }
         }
 
@@ -168,15 +168,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         {
             using (TestHostContext hc = CreateTestContext())
             {
-                _stepRunner.Setup(x => x.RunAsync(_jobEc, _initResult.PreJobSteps, JobRunStage.PreJob))
+                _stepRunner.Setup(x => x.RunAsync(_jobEc, _initResult.PreJobSteps, TaskRunStage.PreScope))
                     .Callback(() => { _jobEc.Result = TaskResult.Failed; })
                     .Returns(Task.CompletedTask);
 
                 await _jobRunner.RunAsync(_message, _tokenSource.Token);
 
                 Assert.Equal(TaskResult.Failed, _jobEc.Result);
-                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.PreJobSteps)), JobRunStage.PreJob), Times.Once);
-                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.JobSteps)), JobRunStage.Main), Times.Never);
+                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.PreJobSteps)), TaskRunStage.PreScope), Times.Once);
+                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.JobSteps)), TaskRunStage.Main), Times.Never);
             }
         }
 
@@ -187,15 +187,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         {
             using (TestHostContext hc = CreateTestContext())
             {
-                _stepRunner.Setup(x => x.RunAsync(_jobEc, _initResult.PreJobSteps, JobRunStage.PreJob))
+                _stepRunner.Setup(x => x.RunAsync(_jobEc, _initResult.PreJobSteps, TaskRunStage.PreScope))
                     .Callback(() => { _jobEc.Result = TaskResult.Canceled; })
                     .Returns(Task.CompletedTask);
 
                 await _jobRunner.RunAsync(_message, _tokenSource.Token);
 
                 Assert.Equal(TaskResult.Canceled, _jobEc.Result);
-                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.PreJobSteps)), JobRunStage.PreJob), Times.Once);
-                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.JobSteps)), JobRunStage.Main), Times.Never);
+                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.PreJobSteps)), TaskRunStage.PreScope), Times.Once);
+                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.JobSteps)), TaskRunStage.Main), Times.Never);
             }
         }
 
@@ -206,15 +206,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         {
             using (TestHostContext hc = CreateTestContext())
             {
-                _stepRunner.Setup(x => x.RunAsync(_jobEc, _initResult.PreJobSteps, JobRunStage.PreJob))
+                _stepRunner.Setup(x => x.RunAsync(_jobEc, _initResult.PreJobSteps, TaskRunStage.PreScope))
                     .Callback(() => { _jobEc.Result = TaskResult.Failed; })
                     .Returns(Task.CompletedTask); ;
 
                 await _jobRunner.RunAsync(_message, _tokenSource.Token);
 
                 Assert.Equal(TaskResult.Failed, _jobEc.Result);
-                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.PreJobSteps)), JobRunStage.PreJob), Times.Once);
-                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.PostJobStep)), JobRunStage.PostJob), Times.Once);
+                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.PreJobSteps)), TaskRunStage.PreScope), Times.Once);
+                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.PostJobStep)), TaskRunStage.PostScope), Times.Once);
             }
         }
 
@@ -225,15 +225,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         {
             using (TestHostContext hc = CreateTestContext())
             {
-                _stepRunner.Setup(x => x.RunAsync(_jobEc, _initResult.PreJobSteps, JobRunStage.PreJob))
+                _stepRunner.Setup(x => x.RunAsync(_jobEc, _initResult.PreJobSteps, TaskRunStage.PreScope))
                     .Callback(() => { _jobEc.Result = TaskResult.Canceled; })
                     .Returns(Task.CompletedTask); ;
 
                 await _jobRunner.RunAsync(_message, _tokenSource.Token);
 
                 Assert.Equal(TaskResult.Canceled, _jobEc.Result);
-                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.PreJobSteps)), JobRunStage.PreJob), Times.Once);
-                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.PostJobStep)), JobRunStage.PostJob), Times.Once);
+                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.PreJobSteps)), TaskRunStage.PreScope), Times.Once);
+                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.PostJobStep)), TaskRunStage.PostScope), Times.Once);
             }
         }
 
@@ -244,19 +244,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         {
             using (TestHostContext hc = CreateTestContext())
             {
-                _stepRunner.Setup(x => x.RunAsync(_jobEc, _initResult.PreJobSteps, JobRunStage.PreJob))
+                _stepRunner.Setup(x => x.RunAsync(_jobEc, _initResult.PreJobSteps, TaskRunStage.PreScope))
                     .Returns(Task.CompletedTask);
 
-                _stepRunner.Setup(x => x.RunAsync(_jobEc, _initResult.JobSteps, JobRunStage.Main))
+                _stepRunner.Setup(x => x.RunAsync(_jobEc, _initResult.JobSteps, TaskRunStage.Main))
                     .Callback(() => { _jobEc.Result = TaskResult.Failed; })
                     .Returns(Task.CompletedTask); ;
 
                 await _jobRunner.RunAsync(_message, _tokenSource.Token);
 
                 Assert.Equal(TaskResult.Failed, _jobEc.Result);
-                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.PreJobSteps)), JobRunStage.PreJob), Times.Once);
-                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.JobSteps)), JobRunStage.Main), Times.Once);
-                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.PostJobStep)), JobRunStage.PostJob), Times.Once);
+                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.PreJobSteps)), TaskRunStage.PreScope), Times.Once);
+                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.JobSteps)), TaskRunStage.Main), Times.Once);
+                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.PostJobStep)), TaskRunStage.PostScope), Times.Once);
             }
         }
 
@@ -267,19 +267,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         {
             using (TestHostContext hc = CreateTestContext())
             {
-                _stepRunner.Setup(x => x.RunAsync(_jobEc, _initResult.PreJobSteps, JobRunStage.PreJob))
+                _stepRunner.Setup(x => x.RunAsync(_jobEc, _initResult.PreJobSteps, TaskRunStage.PreScope))
                     .Returns(Task.CompletedTask);
 
-                _stepRunner.Setup(x => x.RunAsync(_jobEc, _initResult.JobSteps, JobRunStage.Main))
+                _stepRunner.Setup(x => x.RunAsync(_jobEc, _initResult.JobSteps, TaskRunStage.Main))
                     .Callback(() => { _jobEc.Result = TaskResult.Canceled; })
                     .Returns(Task.CompletedTask); ;
 
                 await _jobRunner.RunAsync(_message, _tokenSource.Token);
 
                 Assert.Equal(TaskResult.Canceled, _jobEc.Result);
-                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.PreJobSteps)), JobRunStage.PreJob), Times.Once);
-                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.JobSteps)), JobRunStage.Main), Times.Once);
-                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.PostJobStep)), JobRunStage.PostJob), Times.Once);
+                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.PreJobSteps)), TaskRunStage.PreScope), Times.Once);
+                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.JobSteps)), TaskRunStage.Main), Times.Once);
+                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.Is<IList<IStep>>(s => s.Equals(_initResult.PostJobStep)), TaskRunStage.PostScope), Times.Once);
             }
         }
 

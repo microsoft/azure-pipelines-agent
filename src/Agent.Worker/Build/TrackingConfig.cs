@@ -1,4 +1,5 @@
-﻿using Microsoft.TeamFoundation.DistributedTask.WebApi;
+﻿using Microsoft.TeamFoundation.DistributedTask.ServiceEndpoints;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Newtonsoft.Json;
 using System;
 using System.ComponentModel;

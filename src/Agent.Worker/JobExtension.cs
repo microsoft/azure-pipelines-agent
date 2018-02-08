@@ -2,16 +2,19 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Expressions;
+using Microsoft.TeamFoundation.DistributedTask.ServiceEndpoints;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
+using System.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
     public interface IJobExtension : IExtension
     {
         HostTypes HostType { get; }
-        Task<JobInitializeResult> InitializeJob(IExecutionContext jobContext, AgentJobRequestMessage message);
+        Task<List<IStep>> InitializeJob(IExecutionContext jobContext, Pipelines.AgentJobRequestMessage message);
         string GetRootedPath(IExecutionContext context, string path);
         void ConvertLocalPath(IExecutionContext context, string localPath, out string repoName, out string sourcePath);
     }
@@ -33,14 +36,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public abstract Type ExtensionType { get; }
 
-        // Anything job extension want to do before building the steps list.
+        // Anything job extension want to do before building the steps list. This will be deprecated when GetSource move to a task.
         public abstract void InitializeJobExtension(IExecutionContext context);
 
-        // Anything job extension want to add to pre-job steps list.
-        public abstract IStep GetExtensionPreJobStep(IExecutionContext jobContext);
+        // Anything job extension want to add to pre-job steps list. This will be deprecated when GetSource move to a task.
+        public abstract IStep GetExtensionPreJobStep(IExecutionContext context);
 
-        // Anything job extension want to add to post-job steps list.
-        public abstract IStep GetExtensionPostJobStep(IExecutionContext jobContext);
+        // Anything job extension want to add to post-job steps list. This will be deprecated when GetSource move to a task.
+        public abstract IStep GetExtensionPostJobStep(IExecutionContext context);
 
         public abstract string GetRootedPath(IExecutionContext context, string path);
 
@@ -48,8 +51,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         // download all required tasks.
         // make sure all task's condition inputs are valid.
-        // build up three list of steps for jobrunner. (pre-job, job, post-job)
-        public async Task<JobInitializeResult> InitializeJob(IExecutionContext jobContext, AgentJobRequestMessage message)
+        // build up a list of steps for jobrunner.
+        public async Task<List<IStep>> InitializeJob(IExecutionContext jobContext, Pipelines.AgentJobRequestMessage message)
         {
             Trace.Entering();
             ArgUtil.NotNull(jobContext, nameof(jobContext));
@@ -58,7 +61,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // create a new timeline record node for 'Initialize job'
             IExecutionContext context = jobContext.CreateChild(Guid.NewGuid(), StringUtil.Loc("InitializeJob"), nameof(JobExtension));
 
-            JobInitializeResult initResult = new JobInitializeResult();
             using (var register = jobContext.CancellationToken.Register(() => { context.CancelToken(); }))
             {
                 try
@@ -66,39 +68,40 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     context.Start();
                     context.Section(StringUtil.Loc("StepStarting", StringUtil.Loc("InitializeJob")));
 
-                    // Give job extension a chance to initalize
+                    // Give job extension a chance to initialize
                     Trace.Info($"Run initial step from extension {this.GetType().Name}.");
                     InitializeJobExtension(context);
 
                     // Download tasks if not already in the cache
                     Trace.Info("Downloading task definitions.");
                     var taskManager = HostContext.GetService<ITaskManager>();
-                    await taskManager.DownloadAsync(context, message.Tasks);
+                    await taskManager.DownloadAsync(context, message.Steps);
 
-                    // Parse all Task conditions.
-                    Trace.Info("Parsing all task's condition inputs.");
-                    var expression = HostContext.GetService<IExpressionManager>();
-                    Dictionary<Guid, INode> taskConditionMap = new Dictionary<Guid, INode>();
-                    foreach (var task in message.Tasks)
+                    // Container preview image env
+                    string imageName = context.Variables.Get("_PREVIEW_VSTS_DOCKER_IMAGE");
+                    if (string.IsNullOrEmpty(imageName))
                     {
-                        INode condition;
-                        if (!string.IsNullOrEmpty(task.Condition))
-                        {
-                            context.Debug($"Task '{task.DisplayName}' has following condition: '{task.Condition}'.");
-                            condition = expression.Parse(context, task.Condition);
-                        }
-                        else if (task.AlwaysRun)
-                        {
-                            condition = ExpressionManager.SucceededOrFailed;
-                        }
-                        else
-                        {
-                            condition = ExpressionManager.Succeeded;
-                        }
-
-                        taskConditionMap[task.InstanceId] = condition;
+                        imageName = Environment.GetEnvironmentVariable("_PREVIEW_VSTS_DOCKER_IMAGE");
                     }
 
+                    // The preview variable only take affect when none of step has container declared (compat for hosted linux pool)
+                    if (!string.IsNullOrEmpty(imageName) && jobContext.Containers.Count == 0)
+                    {
+                        foreach (var step in message.Steps)
+                        {
+                            step.Container = "vsts_preview_container";
+                        }
+
+                        var dockerContainer = new Pipelines.ContainerReference()
+                        {
+                            Name = "vsts_preview_container"
+                        };
+                        dockerContainer.Data["image"] = imageName;
+                        jobContext.Containers.Add(new ContainerInfo(dockerContainer));
+                    }
+
+                    // build the top level steps list.
+                    var stepsBuilder = HostContext.CreateService<IStepsBuilder>();
 #if OS_WINDOWS
                     // This is for internal testing and is not publicly supported. This will be removed from the agent at a later time.
                     var prepareScript = Environment.GetEnvironmentVariable("VSTS_AGENT_INIT_INTERNAL_TEMP_HACK");
@@ -111,125 +114,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                         Trace.Verbose($"Adding agent init script step.");
                         prepareStep.Initialize(HostContext);
-                        prepareStep.ExecutionContext = jobContext.CreateChild(Guid.NewGuid(), prepareStep.DisplayName, nameof(ManagementScriptStep));
-                        prepareStep.AccessToken = message.Environment.SystemConnection.Authorization.Parameters["AccessToken"];
-                        initResult.PreJobSteps.Add(prepareStep);
-                    }
-#endif
-
-                    // build up 3 lists of steps, pre-job, job, post-job
-                    Stack<IStep> postJobStepsBuilder = new Stack<IStep>();
-                    Dictionary<Guid, Variables> taskVariablesMapping = new Dictionary<Guid, Variables>();
-                    foreach (var taskInstance in message.Tasks)
-                    {
-                        var taskDefinition = taskManager.Load(taskInstance);
-
-                        List<string> warnings;
-                        taskVariablesMapping[taskInstance.InstanceId] = new Variables(HostContext, new Dictionary<string, string>(), message.Environment.MaskHints, out warnings);
-
-                        // Add pre-job steps from Tasks
-                        if (taskDefinition.Data?.PreJobExecution != null)
-                        {
-                            Trace.Info($"Adding Pre-Job {taskInstance.DisplayName}.");
-                            var taskRunner = HostContext.CreateService<ITaskRunner>();
-                            taskRunner.TaskInstance = taskInstance;
-                            taskRunner.Stage = JobRunStage.PreJob;
-                            taskRunner.Condition = taskConditionMap[taskInstance.InstanceId];
-                            initResult.PreJobSteps.Add(taskRunner);
-                        }
-
-                        // Add execution steps from Tasks
-                        if (taskDefinition.Data?.Execution != null)
-                        {
-                            Trace.Verbose($"Adding {taskInstance.DisplayName}.");
-                            var taskRunner = HostContext.CreateService<ITaskRunner>();
-                            taskRunner.TaskInstance = taskInstance;
-                            taskRunner.Stage = JobRunStage.Main;
-                            taskRunner.Condition = taskConditionMap[taskInstance.InstanceId];
-                            initResult.JobSteps.Add(taskRunner);
-                        }
-
-                        // Add post-job steps from Tasks
-                        if (taskDefinition.Data?.PostJobExecution != null)
-                        {
-                            Trace.Verbose($"Adding Post-Job {taskInstance.DisplayName}.");
-                            var taskRunner = HostContext.CreateService<ITaskRunner>();
-                            taskRunner.TaskInstance = taskInstance;
-                            taskRunner.Stage = JobRunStage.PostJob;
-                            taskRunner.Condition = taskConditionMap[taskInstance.InstanceId];
-                            postJobStepsBuilder.Push(taskRunner);
-                        }
+                        ServiceEndpoint systemConnection = context.Endpoints.Single(x => string.Equals(x.Name, ServiceEndpoints.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
+                        prepareStep.AccessToken = systemConnection.Authorization.Parameters["AccessToken"];
+                        (stepsBuilder as StepsBuilder).AddPreStep(prepareStep);
                     }
 
-                    // create task execution context for all pre-job steps from task
-                    foreach (var step in initResult.PreJobSteps)
-                    {
-#if OS_WINDOWS
-                        if (step is ManagementScriptStep)
-                        {
-                            continue;
-                        }
-#endif
-                        ITaskRunner taskStep = step as ITaskRunner;
-                        ArgUtil.NotNull(taskStep, step.DisplayName);
-                        taskStep.ExecutionContext = jobContext.CreateChild(Guid.NewGuid(), StringUtil.Loc("PreJob", taskStep.DisplayName), taskStep.TaskInstance.RefName, taskVariablesMapping[taskStep.TaskInstance.InstanceId]);
-                    }
-
-#if !OS_WINDOWS
-                    if (!string.IsNullOrEmpty(jobContext.Container.ContainerImage))
-                    {
-                        var containerProvider = HostContext.GetService<IContainerOperationProvider>();
-                        initResult.PreJobSteps.Insert(0, containerProvider.GetContainerStartStep(jobContext));
-                    }
-#endif
-                    // Add pre-job step from Extension
-                    Trace.Info("Adding pre-job step from extension.");
-                    var extensionPreJobStep = GetExtensionPreJobStep(jobContext);
-                    if (extensionPreJobStep != null)
-                    {
-                        initResult.PreJobSteps.Add(extensionPreJobStep);
-                    }
-
-                    // create task execution context for all job steps from task
-                    foreach (var step in initResult.JobSteps)
-                    {
-                        ITaskRunner taskStep = step as ITaskRunner;
-                        ArgUtil.NotNull(taskStep, step.DisplayName);
-                        taskStep.ExecutionContext = jobContext.CreateChild(taskStep.TaskInstance.InstanceId, taskStep.DisplayName, taskStep.TaskInstance.RefName, taskVariablesMapping[taskStep.TaskInstance.InstanceId]);
-                    }
-
-                    // Add post-job steps from Tasks
-                    Trace.Info("Adding post-job steps from tasks.");
-                    while (postJobStepsBuilder.Count > 0)
-                    {
-                        initResult.PostJobStep.Add(postJobStepsBuilder.Pop());
-                    }
-
-                    // create task execution context for all post-job steps from task
-                    foreach (var step in initResult.PostJobStep)
-                    {
-                        ITaskRunner taskStep = step as ITaskRunner;
-                        ArgUtil.NotNull(taskStep, step.DisplayName);
-                        taskStep.ExecutionContext = jobContext.CreateChild(Guid.NewGuid(), StringUtil.Loc("PostJob", taskStep.DisplayName), taskStep.TaskInstance.RefName, taskVariablesMapping[taskStep.TaskInstance.InstanceId]);
-                    }
-
-                    // Add post-job step from Extension
-                    Trace.Info("Adding post-job step from extension.");
-                    var extensionPostJobStep = GetExtensionPostJobStep(jobContext);
-                    if (extensionPostJobStep != null)
-                    {
-                        initResult.PostJobStep.Add(extensionPostJobStep);
-                    }
-
-#if !OS_WINDOWS
-                    if (!string.IsNullOrEmpty(jobContext.Container.ContainerImage))
-                    {
-                        var containerProvider = HostContext.GetService<IContainerOperationProvider>();
-                        initResult.PostJobStep.Add(containerProvider.GetContainerStopStep(jobContext));
-                    }
-#endif
-
-#if OS_WINDOWS
                     // Add script post steps.
                     // This is for internal testing and is not publicly supported. This will be removed from the agent at a later time.
                     var finallyScript = Environment.GetEnvironmentVariable("VSTS_AGENT_CLEANUP_INTERNAL_TEMP_HACK");
@@ -242,13 +131,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                         Trace.Verbose($"Adding agent cleanup script step.");
                         finallyStep.Initialize(HostContext);
-                        finallyStep.ExecutionContext = jobContext.CreateChild(Guid.NewGuid(), finallyStep.DisplayName, nameof(ManagementScriptStep));
-                        finallyStep.AccessToken = message.Environment.SystemConnection.Authorization.Parameters["AccessToken"];
-                        initResult.PostJobStep.Add(finallyStep);
+                        ServiceEndpoint systemConnection = context.Endpoints.Single(x => string.Equals(x.Name, ServiceEndpoints.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
+                        finallyStep.AccessToken = systemConnection.Authorization.Parameters["AccessToken"];
+                        (stepsBuilder as StepsBuilder).AddPostStep(finallyStep);
                     }
 #endif
 
-                    return initResult;
+                    // build the job top level steps
+                    stepsBuilder.Build(context, message.Steps);
+
+                    // Add pre-job step from Extension
+                    Trace.Info("Adding pre-job step from extension.");
+                    var extensionPreJobStep = GetExtensionPreJobStep(context);
+                    if (extensionPreJobStep != null)
+                    {
+                        (stepsBuilder as StepsBuilder).AddPreStep(extensionPreJobStep);
+                    }
+
+                    // Add post-job step from Extension
+                    Trace.Info("Adding post-job step from extension.");
+                    var extensionPostJobStep = GetExtensionPostJobStep(context);
+                    if (extensionPostJobStep != null)
+                    {
+                        (stepsBuilder as StepsBuilder).AddPostStep(extensionPostJobStep);
+                    }
+
+                    // create task execution context for all job steps
+                    foreach (var step in stepsBuilder.Result)
+                    {
+                        ArgUtil.NotNull(step, step.DisplayName);
+                        step.InitializeStep(jobContext);
+                    }
+
+                    return stepsBuilder.Result;
                 }
                 catch (OperationCanceledException ex) when (jobContext.CancellationToken.IsCancellationRequested)
                 {

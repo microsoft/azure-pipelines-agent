@@ -1,4 +1,5 @@
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Newtonsoft.Json;
 using System;
@@ -8,34 +9,59 @@ using System.IO.Compression;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Expressions;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
+    public class TaskLoadResult
+    {
+        public Definition TaskDefinition { get; set; }
+        public ITaskRunner PreScopeStep { get; set; }
+        public ITaskRunner MainScopeStep { get; set; }
+        public ITaskRunner PostScopeStep { get; set; }
+    }
+
     [ServiceLocator(Default = typeof(TaskManager))]
     public interface ITaskManager : IAgentService
     {
-        Task DownloadAsync(IExecutionContext executionContext, IEnumerable<TaskInstance> tasks);
+        Task DownloadAsync(IExecutionContext executionContext, IEnumerable<Pipelines.JobStep> steps);
 
-        Definition Load(TaskReference task);
+        TaskLoadResult Load(IExecutionContext executionContext, Pipelines.TaskStep task);
     }
 
     public sealed class TaskManager : AgentService, ITaskManager
     {
-        public async Task DownloadAsync(IExecutionContext executionContext, IEnumerable<TaskInstance> tasks)
+        public async Task DownloadAsync(IExecutionContext executionContext, IEnumerable<Pipelines.JobStep> steps)
         {
             ArgUtil.NotNull(executionContext, nameof(executionContext));
-            ArgUtil.NotNull(tasks, nameof(tasks));
+            ArgUtil.NotNull(steps, nameof(steps));
 
             executionContext.Output(StringUtil.Loc("EnsureTasksExist"));
 
-            //remove duplicate and disabled tasks
-            IEnumerable<TaskInstance> uniqueTasks =
+            // Expand GroupStep to get all required tasks
+            List<Pipelines.TaskStep> tasks = new List<Pipelines.TaskStep>();
+            foreach (var step in steps)
+            {
+                if (step.Type == Pipelines.StepType.Task)
+                {
+                    tasks.Add(step as Pipelines.TaskStep);
+                }
+                else if (step.Type == Pipelines.StepType.Group)
+                {
+                    foreach (var task in (step as Pipelines.GroupStep).Steps)
+                    {
+                        tasks.Add(task);
+                    }
+                }
+            }
+
+            //remove duplicate, disabled and built-in tasks
+            IEnumerable<Pipelines.TaskStep> uniqueTasks =
                 from task in tasks
-                where task.Enabled
                 group task by new
                 {
-                    task.Id,
-                    task.Version
+                    task.Reference.Id,
+                    task.Reference.Version
                 }
                 into taskGrouping
                 select taskGrouping.First();
@@ -46,20 +72,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 return;
             }
 
-            foreach (TaskInstance task in uniqueTasks)
+            foreach (var task in uniqueTasks.Select(x => x.Reference))
             {
                 await DownloadAsync(executionContext, task);
             }
         }
 
-        public Definition Load(TaskReference task)
+        public TaskLoadResult Load(IExecutionContext executionContext, Pipelines.TaskStep task)
         {
             // Validate args.
             Trace.Entering();
             ArgUtil.NotNull(task, nameof(task));
 
+            TaskLoadResult result = new TaskLoadResult();
+
             // Initialize the definition wrapper object.
-            var definition = new Definition() { Directory = GetDirectory(task) };
+            var definition = new Definition() { Directory = GetDirectory(task.Reference) };
 
             // Deserialize the JSON.
             string file = Path.Combine(definition.Directory, Constants.Path.TaskJsonFile);
@@ -73,10 +101,63 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 handlerData?.ReplaceMacros(HostContext, definition);
             }
 
-            return definition;
+            INode condition;
+            var expression = HostContext.GetService<IExpressionManager>();
+            if (!string.IsNullOrEmpty(task.Condition))
+            {
+                executionContext.Debug($"Task '{task.DisplayName}' has following condition: '{task.Condition}'.");
+                condition = expression.Parse(executionContext, task.Condition);
+            }
+            else
+            {
+                condition = ExpressionManager.Succeeded;
+            }
+
+            List<string> warnings;
+            var intraTaskVariables = new Variables(HostContext, new Dictionary<string, VariableValue>(), out warnings);
+
+            // load pre-scope step from Task
+            if (definition.Data?.PreJobExecution != null)
+            {
+                Trace.Info($"Loading Pre-scope task step {task.DisplayName}.");
+                var taskRunner = HostContext.CreateService<ITaskRunner>();
+                taskRunner.Stage = TaskRunStage.PreScope;
+                taskRunner.Task = task;
+                taskRunner.Condition = ExpressionManager.Succeeded;
+                taskRunner.IntraTaskVariables = intraTaskVariables;
+                result.PreScopeStep = taskRunner;
+            }
+
+            // Add execution steps from Tasks
+            if (definition.Data?.Execution != null)
+            {
+                Trace.Verbose($"Loading task step {task.DisplayName}.");
+                var taskRunner = HostContext.CreateService<ITaskRunner>();
+                taskRunner.Stage = TaskRunStage.MainScope;
+                taskRunner.Task = task;
+                taskRunner.Condition = condition;
+                taskRunner.IntraTaskVariables = intraTaskVariables;
+                result.MainScopeStep = taskRunner;
+            }
+
+            // Add post-job steps from Tasks
+            if (definition.Data?.PostJobExecution != null)
+            {
+                Trace.Verbose($"Loading Post-scope task step {task.DisplayName}.");
+                var taskRunner = HostContext.CreateService<ITaskRunner>();
+                taskRunner.Stage = TaskRunStage.PostScope;
+                taskRunner.Task = task;
+                taskRunner.Condition = ExpressionManager.Always;
+                taskRunner.IntraTaskVariables = intraTaskVariables;
+                result.PostScopeStep = taskRunner;
+            }
+
+            result.TaskDefinition = definition;
+
+            return result;
         }
 
-        private async Task DownloadAsync(IExecutionContext executionContext, TaskInstance task)
+        private async Task DownloadAsync(IExecutionContext executionContext, Pipelines.TaskStepDefinitionReference task)
         {
             Trace.Entering();
             ArgUtil.NotNull(executionContext, nameof(executionContext));
@@ -150,7 +231,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        private string GetDirectory(TaskReference task)
+        private string GetDirectory(Pipelines.TaskStepDefinitionReference task)
         {
             ArgUtil.NotEmpty(task.Id, nameof(task.Id));
             ArgUtil.NotNull(task.Name, nameof(task.Name));

@@ -1,4 +1,5 @@
 using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.TeamFoundation.DistributedTask.ServiceEndpoints;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
@@ -20,18 +21,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         public override IStep GetExtensionPreJobStep(IExecutionContext jobContext)
         {
             return new JobExtensionRunner(
-                context: jobContext.CreateChild(Guid.NewGuid(), StringUtil.Loc("GetSources"), nameof(BuildJobExtension)),
+                data: null, 
                 runAsync: GetSourceAsync,
-                condition: ExpressionManager.Succeeded,
+                condition: ExpressionManager.Succeeded, 
                 displayName: StringUtil.Loc("GetSources"));
         }
 
         public override IStep GetExtensionPostJobStep(IExecutionContext jobContext)
         {
             return new JobExtensionRunner(
-                context: jobContext.CreateChild(Guid.NewGuid(), StringUtil.Loc("Cleanup"), nameof(BuildJobExtension)),
-                runAsync: PostJobCleanupAsync,
-                condition: ExpressionManager.Always,
+                data: null, 
+                runAsync: PostJobCleanupAsync, 
+                condition: ExpressionManager.Always, 
                 displayName: StringUtil.Loc("Cleanup"));
         }
 
@@ -191,7 +192,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             SourceProvider.SetVariablesInEndpoint(executionContext, SourceEndpoint);
         }
 
-        private async Task GetSourceAsync(IExecutionContext executionContext)
+        private async Task GetSourceAsync(IExecutionContext executionContext, object data)
         {
             // Validate args.
             Trace.Entering();
@@ -208,7 +209,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             ArgUtil.NotNull(SourceEndpoint, nameof(SourceEndpoint));
             ArgUtil.NotNull(SourceProvider, nameof(SourceProvider));
 
-            // Read skipSyncSource property fron endpoint data
+            // Read skipSyncSource property from endpoint data
             string skipSyncSourceText;
             bool skipSyncSource = false;
             if (SourceEndpoint.Data.TryGetValue("skipSyncSource", out skipSyncSourceText))
@@ -230,7 +231,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
         }
 
-        private async Task PostJobCleanupAsync(IExecutionContext executionContext)
+        private async Task PostJobCleanupAsync(IExecutionContext executionContext, object data)
         {
             // Validate args.
             Trace.Entering();
@@ -246,7 +247,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             ArgUtil.NotNull(SourceEndpoint, nameof(SourceEndpoint));
             ArgUtil.NotNull(SourceProvider, nameof(SourceProvider));
 
-            // Read skipSyncSource property fron endpoint data
+            // Read skipSyncSource property from endpoint data
             string skipSyncSourceText;
             bool skipSyncSource = false;
             if (SourceEndpoint != null && SourceEndpoint.Data.TryGetValue("skipSyncSource", out skipSyncSourceText))

@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-
+using Microsoft.TeamFoundation.DistributedTask.ServiceEndpoints;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts.Definition

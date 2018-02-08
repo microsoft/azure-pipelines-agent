@@ -1,4 +1,5 @@
 using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.TeamFoundation.DistributedTask.ServiceEndpoints;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
@@ -360,7 +361,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         }
                         break;
                     default:
-                        executionContext.Warning($"Unsupport endpoint authorization schemes: {endpoint.Authorization.Scheme}");
+                        executionContext.Warning($"Unsupported endpoint authorization schemes: {endpoint.Authorization.Scheme}");
                         break;
                 }
             }

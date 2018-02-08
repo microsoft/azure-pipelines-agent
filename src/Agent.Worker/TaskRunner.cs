@@ -4,43 +4,70 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Expressions;
+using Microsoft.TeamFoundation.DistributedTask.ServiceEndpoints;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
+using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
-    public enum JobRunStage
+    public enum TaskRunStage
     {
-        PreJob,
-        Main,
-        PostJob,
+        PreScope,
+        MainScope,
+        PostScope,
     }
 
     [ServiceLocator(Default = typeof(TaskRunner))]
     public interface ITaskRunner : IStep, IAgentService
     {
-        JobRunStage Stage { get; set; }
-        TaskInstance TaskInstance { get; set; }
+        Variables ScopeSharedVariables { get; set; }
+        Variables IntraTaskVariables { get; set; }
+        TaskRunStage Stage { get; set; }
+        Pipelines.TaskStep Task { get; set; }
     }
 
     public sealed class TaskRunner : AgentService, ITaskRunner
     {
-        public JobRunStage Stage { get; set; }
+        public Variables IntraTaskVariables { get; set; }
+
+        public Variables ScopeSharedVariables { get; set; }
+
+        public TaskRunStage Stage { get; set; }
 
         public INode Condition { get; set; }
 
-        public bool ContinueOnError => TaskInstance?.ContinueOnError ?? default(bool);
+        public ContainerInfo Container => !string.IsNullOrEmpty(Task?.Container) ? ExecutionContext.Containers.Single(x => x.ContainerName.Equals(Task.Container, StringComparison.OrdinalIgnoreCase)) : null;
 
-        public string DisplayName => TaskInstance?.DisplayName;
+        public bool ContinueOnError => Task?.ContinueOnError ?? default(bool);
 
-        public bool Enabled => TaskInstance?.Enabled ?? default(bool);
+        public string DisplayName => Task?.DisplayName;
+
+        public bool Enabled => Task?.Enabled ?? default(bool);
 
         public IExecutionContext ExecutionContext { get; set; }
 
-        public TaskInstance TaskInstance { get; set; }
+        public Pipelines.TaskStep Task { get; set; }
 
-        public TimeSpan? Timeout => (TaskInstance?.TimeoutInMinutes ?? 0) > 0 ? (TimeSpan?)TimeSpan.FromMinutes(TaskInstance.TimeoutInMinutes) : null;
+        public TimeSpan? Timeout => (Task?.TimeoutInMinutes ?? 0) > 0 ? (TimeSpan?)TimeSpan.FromMinutes(Task.TimeoutInMinutes) : null;
+
+        public void InitializeStep(IExecutionContext executionContext)
+        {
+            if (Stage == TaskRunStage.PreScope)
+            {
+                ExecutionContext = executionContext.CreateChild(Guid.NewGuid(), StringUtil.Loc("PreJob", Task.DisplayName), Task.Name, IntraTaskVariables, ScopeSharedVariables);
+            }
+            else if (Stage == TaskRunStage.PostScope)
+            {
+                ExecutionContext = executionContext.CreateChild(Guid.NewGuid(), StringUtil.Loc("PostJob", Task.DisplayName), Task.Name, IntraTaskVariables, ScopeSharedVariables);
+            }
+            else
+            {
+                ExecutionContext = executionContext.CreateChild(Task.Id, Task.DisplayName, Task.Name, IntraTaskVariables, ScopeSharedVariables);
+            }
+        }
 
         public async Task RunAsync()
         {
@@ -48,7 +75,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Trace.Entering();
             ArgUtil.NotNull(ExecutionContext, nameof(ExecutionContext));
             ArgUtil.NotNull(ExecutionContext.Variables, nameof(ExecutionContext.Variables));
-            ArgUtil.NotNull(TaskInstance, nameof(TaskInstance));
+            ArgUtil.NotNull(Task, nameof(Task));
             var taskManager = HostContext.GetService<ITaskManager>();
             var handlerFactory = HostContext.GetService<IHandlerFactory>();
 
@@ -57,7 +84,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Load the task definition and choose the handler.
             // TODO: Add a try catch here to give a better error message.
-            Definition definition = taskManager.Load(TaskInstance);
+            TaskLoadResult loadResult = taskManager.Load(ExecutionContext, Task);
+            Definition definition = loadResult.TaskDefinition;
             ArgUtil.NotNull(definition, nameof(definition));
 
             // Print out task metadata
@@ -66,13 +94,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ExecutionData currentExecution = null;
             switch (Stage)
             {
-                case JobRunStage.PreJob:
+                case TaskRunStage.PreScope:
                     currentExecution = definition.Data?.PreJobExecution;
                     break;
-                case JobRunStage.Main:
+                case TaskRunStage.MainScope:
                     currentExecution = definition.Data?.Execution;
                     break;
-                case JobRunStage.PostJob:
+                case TaskRunStage.PostScope:
                     currentExecution = definition.Data?.PostJobExecution;
                     break;
             };
@@ -110,7 +138,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Merge the instance inputs.
             Trace.Verbose("Loading instance inputs.");
-            foreach (var input in (TaskInstance.Inputs as IEnumerable<KeyValuePair<string, string>> ?? new KeyValuePair<string, string>[0]))
+            foreach (var input in (Task.Inputs as IEnumerable<KeyValuePair<string, string>> ?? new KeyValuePair<string, string>[0]))
             {
                 string key = input.Key?.Trim() ?? string.Empty;
                 if (!string.IsNullOrEmpty(key))
@@ -138,7 +166,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Load the task environment.
             Trace.Verbose("Loading task environment.");
             var environment = new Dictionary<string, string>(VarUtil.EnvironmentVariableKeyComparer);
-            foreach (var env in (TaskInstance.Environment ?? new Dictionary<string, string>(0)))
+            foreach (var env in (Task.Environment ?? new Dictionary<string, string>(0)))
             {
                 string key = env.Key?.Trim() ?? string.Empty;
                 if (!string.IsNullOrEmpty(key))
@@ -240,9 +268,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
             }
 
+            IStepHost stepHost;
+            // Get the container this task is going to use
+            if (Container != null)
+            {
+                // Make sure required container is already created.
+                ArgUtil.NotNullOrEmpty(Container.ContainerId, nameof(Container.ContainerId));
+                var containerHandlerInvoker = HostContext.CreateService<IContainerStepHost>();
+                containerHandlerInvoker.Container = Container;
+                stepHost = containerHandlerInvoker;
+            }
+            else
+            {
+                stepHost = HostContext.CreateService<IDefaultStepHost>();
+            }
+
             // Create the handler.
             IHandler handler = handlerFactory.Create(
                 ExecutionContext,
+                stepHost,
                 endpoints,
                 secureFiles,
                 handlerData,
@@ -313,12 +357,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private void PrintTaskMetaData(Definition taskDefinition)
         {
-            ArgUtil.NotNull(TaskInstance, nameof(TaskInstance));
+            ArgUtil.NotNull(Task, nameof(Task));
+            ArgUtil.NotNull(Task.Reference, nameof(Task.Reference));
             ArgUtil.NotNull(taskDefinition.Data, nameof(taskDefinition.Data));
             ExecutionContext.Output("==============================================================================");
             ExecutionContext.Output($"Task         : {taskDefinition.Data.FriendlyName}");
             ExecutionContext.Output($"Description  : {taskDefinition.Data.Description}");
-            ExecutionContext.Output($"Version      : {TaskInstance.Version}");
+            ExecutionContext.Output($"Version      : {Task.Reference.Version}");
             ExecutionContext.Output($"Author       : {taskDefinition.Data.Author}");
             ExecutionContext.Output($"Help         : {taskDefinition.Data.HelpMarkDown}");
             ExecutionContext.Output("==============================================================================");
