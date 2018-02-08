@@ -2,11 +2,12 @@
 param()
 
 function Get-MysqlExePath {
+    # First checking in registry
     $hiveViewPairs = @(
         @{ Hive = 'LocalMachine' ; View = 'Registry64' }
         @{ Hive = 'LocalMachine' ; View = 'Registry32' }
     )
-    
+
     foreach ($pair in $hiveViewPairs) {
         $mysqlKeyPaths = Get-RegistrySubKeyNames -Hive $pair.Hive -View $pair.View  -KeyName 'Software\MySQL AB'  | Where-Object { $_ -like 'MySQL Server*' }
         if($mysqlKeyPaths){
@@ -19,8 +20,14 @@ function Get-MysqlExePath {
             }
         }
     }
+
+    # If it is not in registry checking in environment path
+    $command = Get-Command -Name 'mysql'
+    if($command){
+        return $command.Source;
+    }
 }
-    
+
 $mysqlPath = Get-MysqlExePath
 if (!$mysqlPath) {
     return
