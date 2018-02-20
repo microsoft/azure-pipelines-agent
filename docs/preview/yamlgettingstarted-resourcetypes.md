@@ -1,11 +1,9 @@
 # Resources
 
-Global resources in a YAML are available to all the stages. An example of a resource can be resources published by another CI/CD definition viz. builds/artifacts, repositories etc. 
+An example of a resource can be resources published by another CI/CD definition viz. builds/artifacts, repositories etc. 
 
 Resources in YAML represent sources of type builds, repositories, packages and containers. 
-Assumption: 
-* Variable Group is not part of resources. Variable groups can be modeled as 'Queues' and can be discovered and authorized against the stages.
-* In case of container type resources, there is no explicit download step involved, however the source variables viz. source branch, build definition id, build id etc. are set. 
+In case of container type resources, there is no explicit download step involved, however the source variables viz. source branch, build definition id, build id etc. are set. 
 
 Example resource with builds
 
@@ -61,11 +59,8 @@ resources:
     containerRepository: adventworks/sample-app
 ```
 
-Example with opt-in model download of resources, and selective download of resources.
+Example with implicit download of resources. Resources can be selectively downloaded using `downloadBuilds` for resources of type build or `checkout` step for repositories type.
 
-Resources can be selectively downloaded using `getResources` and it will translate to equivalent tasks at runtime based on the resource type. i.e, either `downloadArtifact` step or `checkout` step.
-
-**Note:** Today checkout is an implicit step and with opt-in model we are probably making it harder 
 
 ```yaml
 resources:
@@ -75,6 +70,8 @@ resources:
     project: DevOps
     source: mySampleApp.CI              
     defaultVersion: latest
+  - name: mysample-app2
+    type: build
   repositories:
   - name: customerService
     type: Git
@@ -82,22 +79,29 @@ resources:
     branch: master
     clean: true
   packages:
-  - name: feed1
+  - name: myfeed1
   containers:
-  - name: foo
+  - name: dev1
+    image: ubuntu:17.10
+    registry: privatedockerhub  
 stages: 
 - stage: dev
-  type: release
   phases:
-  - phase: A                                              # resource download is skipped.
+  - phase: A                                              
     steps:
-    - script: echo hello from phase A
+    - script: dir /s /b $(system.artifactsDirectory)                      #build, repositories and packages are implicitly downloaded
+      displayName: List artifact (Windows)
+      condition: and(succeeded(), eq(variables['agent.os'], 'Windows_NT'))    
   - phase: B
     steps:
-    - getResources:                                       #opt-in to download individual resources.
-      - name: customerService
-        clean: false                                      #overrides clean, inherits rest from global resource definition
-      - name: mysample-app
+      - checkout: customerService                     #overrides clean, inherits rest from global resource definition
+        clean: false                                      
+      - downloadBuilds: none                          #builds are skipped
+      - script: echo hello from phase B
+  - phase: C
+    steps:
+      - checkout: none                                    #repository download is skipped
+      - downloadBuilds: mysample-app2
         artifact:                                         #selective artifacts download. 
         - drop2
         - drop3
