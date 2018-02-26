@@ -10,12 +10,12 @@ Example resource with builds
 ```yaml
 resources:                         # types: builds | repositories | packages | containers
   builds:
-  - name: mysample-app
+  - build: mysample-app
     type: build
     project: DevOps
     source: mySampleApp.CI              
     defaultVersion: latest
-  - name: sample-app               
+  - build: sample-app               
     type: Jenkins
     source: sampleAppJob
     connection: myJenkisConnection
@@ -25,7 +25,7 @@ Example resources with repositories
 ```yaml
 resources:
   repositories:
-  - name: customerService
+  - repository: customerService
     type: Git
     source: CoreApps/sample-app
     branch: master
@@ -34,7 +34,7 @@ resources:
     lfs: true | false
     sync: true | false
     reportStatus: true | false
-  - name: sampleService
+  - repository: sampleService
     type: GitHub
     connection: myGitHubConnection
     source: Microsoft/sample-service
@@ -46,14 +46,14 @@ Example resources with packages and containers
 ```yaml
 resources:
   packages:
-  - name: feedSampleApp
+  - package: feedSampleApp
     type: package
     feed: feed-CI
     package: feedSampleApp
     defaultVersion: latest
   containers:
-  - name: adventworks-sample
-    type: container
+  - container: adventworks-sample
+    type: docker
     connection: myConnection
     registry: adventworks
     containerRepository: adventworks/sample-app
@@ -65,23 +65,23 @@ Example with implicit download of resources. Resources can be selectively downlo
 ```yaml
 resources:
   builds:
-  - name: mysample-app
+  - build: mysample-app
     type: build
     project: DevOps
     source: mySampleApp.CI              
     defaultVersion: latest
-  - name: mysample-app2
+  - build: mysample-app2
     type: build
   repositories:
-  - name: customerService
+  - repository: customerService
     type: Git
     source: CoreApps/sample-app
     branch: master
     clean: true
   packages:
-  - name: myfeed1
+  - package: myfeed1
   containers:
-  - name: dev1
+  - container: dev1
     image: ubuntu:17.10
     registry: privatedockerhub  
 stages: 
