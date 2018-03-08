@@ -263,7 +263,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
                     Interlocked.Increment(ref _filesProcessed);
                 } 
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     context.Output(StringUtil.Loc("FileUploadFileOpenFailed", ex.Message, fileToUpload));
                     throw ex;
