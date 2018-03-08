@@ -184,6 +184,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             while (_fileUploadQueue.TryDequeue(out fileToUpload))
             {
                 token.ThrowIfCancellationRequested();
+                context.Debug(StringUtil.Loc("FileUploadCurrentFile", fileToUpload));
                 using (FileStream fs = File.Open(fileToUpload, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     string itemPath = (_containerPath.TrimEnd('/') + "/" + fileToUpload.Remove(0, _sourceParentDirectory.Length + 1)).Replace('\\', '/');
