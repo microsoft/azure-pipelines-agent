@@ -265,7 +265,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 } 
                 catch(Exception ex)
                 {
-                    context.Debug($"Error '{ex.ToString()}' processing file: '{fileToUpload}'");
+                    context.Output(StringUtil.Loc("FileUploadFileOpenFailed", ex.Message, fileToUpload));
                     throw ex;
                 } 
             }
