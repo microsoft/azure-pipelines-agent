@@ -280,7 +280,6 @@
   "FileNotFound": "File not found: '{0}'",
   "FilePathNotFound": "Cannot find the file path for '{0}'.",
   "FileUploadCancelled": "File upload has been cancelled during upload file: '{0}'.",
-  "FileUploadCurrentFile": "Beginning upload of file: '{0}'",
   "FileUploadDetailTrace": "Detail upload trace for file that fail to upload: {0}",
   "FileUploadFailed": "Fail to upload '{0}' due to '{1}'.",
   "FileUploadFailedAfterRetry": "File upload failed even after retry.",
