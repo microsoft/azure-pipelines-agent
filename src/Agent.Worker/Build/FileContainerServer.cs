@@ -184,7 +184,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             while (_fileUploadQueue.TryDequeue(out fileToUpload))
             {
                 token.ThrowIfCancellationRequested();
-                try {
+                try 
+                {
                     using (FileStream fs = File.Open(fileToUpload, FileMode.Open, FileAccess.Read, FileShare.Read))
                     {
                         string itemPath = (_containerPath.TrimEnd('/') + "/" + fileToUpload.Remove(0, _sourceParentDirectory.Length + 1)).Replace('\\', '/');
@@ -261,7 +262,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     }
 
                     Interlocked.Increment(ref _filesProcessed);
-                } catch(Exception ex) {
+                } 
+                catch(Exception ex)
+                {
                     context.Debug($"Error '{ex.ToString()}' processing file: '{fileToUpload}'");
                     throw ex;
                 } 
