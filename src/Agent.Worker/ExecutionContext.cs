@@ -487,7 +487,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
             }
 
-            _jobServerQueue.QueueWebConsoleLine(msg);
+            _jobServerQueue.QueueWebConsoleLine(_record.Id, msg);
             return totalLines;
         }
 
