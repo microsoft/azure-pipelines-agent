@@ -55,6 +55,6 @@ $ ls -la /usr/local/bin/git
 
 The agent distributes team explorer everywhere.
 
-But, if you are using TfsVc, install Oracle Java 1.6+ as TEE uses Java.
+But, if you are using TfsVc, install Oracle [Java SE Development Kit](http://www.oracle.com/technetwork/java/javaseproducts/downloads/index.html) (JDK) 1.6+. Note that the JRE is not sufficient, even though that's what the agent will direct you to if you don't have hte JDK installed.
 
 ## [More .Net Core Prerequisites Information](https://docs.microsoft.com/en-us/dotnet/core/macos-prerequisites?tabs=netcore2x)
