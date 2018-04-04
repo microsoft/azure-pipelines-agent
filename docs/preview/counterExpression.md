@@ -32,7 +32,7 @@ The second parameter is the counter seed. On the first build, this is the counte
 
 ### Rules
 
-`counter` may reference other variables through the standard object indexing rules. For example, `counter(variable['prefix'], variable['seed'])` should be a perfectly cromulent expression.
+`counter` may reference other variables through the standard object indexing rules. For example, `counter(variable['prefix'], variable['seed'])` should be a valid expression.
 
 The result of expanding `counter` can be assigned to a phase-level variable. Assignment to another top-level variable is not supported at this time.
 
