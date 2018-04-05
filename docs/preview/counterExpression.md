@@ -2,7 +2,9 @@
 
 ## Overview
 
-This feature adds a new expression function, `counter`, which will atomically increment a variable value at the start of each build. The value of this variable will remain the same across phases, regardless of how or where those phases are executed. This expression will be unique to top-level definition variables, and not valid in phase variables.
+This feature adds a new expression function, `counter`, which will atomically increment a variable value at the start of each build. The value of this variable will remain the same across phases, regardless of how or where those phases are executed.
+
+`counter` values are identified by their "prefix" which acts as a lookup key, meaning the same `counter` can be used in each phase or as a top-level variable, and it will be incremented exactly once for the build. The value of `counter` is unique to the build definition in which it is defined, regardless of the prefix.
 
 ## Syntax
 
@@ -14,7 +16,7 @@ Example: Produce a variable with a prefix from the `$BuildNumberPrefix` which st
 \
 `counter(variables['BuildNumberPrefix'], variables['BuildNumberSeed'])`
 
-Example: On the first build, the variable will have the string value `100` and then increment on each subsequent build
+Example: On the first build, the variable will have the string value `100` which then increments on each subsequent build (`101`, `102`, ...)
 \
 `counter('', 100)`
 
@@ -24,16 +26,32 @@ Example: On the first build, the variable will have the string value `100` and t
 
 #### Prefix
 
-The first parameter is the counter prefix. For example, `counter('prefix ', 0)` will create a variable value of `prefix 0` for the first build. The expanded parameter value will be treated as a raw string, and prepended directly to the final counter value (with no spaces or punctuation added). If the expanded value changes, the counter will reset back to the seed value.
+The first parameter is the counter prefix. For example, `counter('prefix ', 0)` will create a variable value of `prefix 0` for the first build. The expanded parameter value will be treated as a raw string, and prepended directly to the final counter value (with no spaces or punctuation added). If the expanded value changes, the integer portion of the counter will be reset to the seed value.
 
 #### Seed
 
-The second parameter is the counter seed. On the first build, this is the counter value. Each subsequent build with an unchanged prefix value will increment the counter by one.
+The second parameter is the counter seed. On the first build, this is the counter value. Each subsequent build with an unchanged prefix value will increment the counter by one. Should the prefix string change, the integer portion of the counter will be reset back to the seed.
 
 ### Rules
 
+#### Variables and expressions
+
 `counter` may reference other variables through the standard object indexing rules. For example, `counter(variable['prefix'], variable['seed'])` should be a valid expression.
 
-The result of expanding `counter` can be assigned to a phase-level variable. Assignment to another top-level variable is not supported at this time.
+If the counter expression variable is a top-level variable, it may be assigned to any phase-level variable. Assignment to another top-level variable is not supported at this time. If the counter expression variable is a phase-level variable, it may be assigned to any other phase-level variable _for this phase only_. This includes output variables, which will allow the value to be passed to subsequent phases.
 
-In order to be valid, `counter` *must* be defined at the definition level. A phase-level `counter` expression should fail to parse. This restriction may be lifted in the future if we decide on a good definition for how a phase-level `counter` would operate.
+#### Multiple references
+
+Two more more variables may be assigned the same counter prefix across the whole build definition. The first one to be evaluated will increment the counter value, and all other variables will be assigned that new value. For example,
+
+```yaml
+phases:
+- phase: A
+  variables:
+    var_a: $[ counter('id: ', 100) ]
+- phase: B
+  variables:
+    var_b: $[ counter('id: ', 0) ]
+```
+
+When phase `A` executes, it will assign `"id: 100"` to `var_a`. When phase `B` executes, the counter with prefix `"id: "` has already been incremented for this build and it will also be assigned `"id: 100"`.
