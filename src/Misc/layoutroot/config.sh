@@ -4,8 +4,7 @@ user_id=`id -u`
 
 # we want to snapshot the environment of the config user
 if [ $user_id -eq 0 ]; then
-    echo "Must not run with sudo"
-    exit 1
+    echo "Caution, running as root, service must be launched as root as well"
 fi
 
 # Check dotnet core 2.0 dependencies for Linux
