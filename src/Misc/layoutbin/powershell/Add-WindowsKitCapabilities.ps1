@@ -19,8 +19,13 @@ foreach ($valueName in $valueNames) {
         continue
     }
 
+	$inputVersion = $splitInstallDirectory[-1]
+	if ($inputVersion -notcontains ".") {
+		$inputVersion += ".0"
+	}
+
     $version = $null
-    if (!([System.Version]::TryParse($splitInstallDirectory[-1], [ref]$version))) {
+    if (!([System.Version]::TryParse($inputVersion, [ref]$version))) {
         continue
     }
 
