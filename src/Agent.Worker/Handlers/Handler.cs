@@ -1,3 +1,4 @@
+
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -26,6 +27,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
     public abstract class Handler : AgentService
     {
+        private const int _environmentVariableMaximumSize = 32766;
+    
         protected IWorkerCommandManager CommandManager { get; private set; }
 
         public List<ServiceEndpoint> Endpoints { get; set; }
