@@ -224,10 +224,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
         }
 
-        protected virtual void AddEnvironmentVariable(string key, string value)
+        protected void AddEnvironmentVariable(string key, string value)
         {
             ArgUtil.NotNullOrEmpty(key, nameof(key));
             Trace.Verbose($"Setting env '{key}' to '{value}'.");
+            
+            if (!string.IsNullOrEmpty(value) && value.Length > _environmentVariableMaximumSize)
+            {
+                ExecutionContext.Warning(StringUtil.Loc("EnvironmentVariableExceedsMaximumLength", key, value.Length, _environmentVariableMaximumSize));
+            }
+            
             Environment[key] = value ?? string.Empty;
         }
 
