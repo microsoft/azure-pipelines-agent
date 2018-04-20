@@ -1,4 +1,4 @@
-using Microsoft.VisualStudio.Services.Agent.Util;
+ing Microsoft.VisualStudio.Services.Agent.Util;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -18,7 +18,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
     public sealed class NodeHandler : Handler, INodeHandler
     {
-        private const int _environmentVariableMaximumSize = 32766;
         private static Regex _vstsTaskLibVersionNeedsFix = new Regex("^[0-2]\\.[0-9]+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static string[] _extensionsNode6 ={
             "if (process.versions.node && process.versions.node.match(/^5\\./)) {",
@@ -134,16 +133,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                         cancellationToken: ExecutionContext.CancellationToken);
         }
 
-        protected override void AddEnvironmentVariable(string key, string value)
-        {
-            if (!string.IsNullOrEmpty(value) && value.Length > _environmentVariableMaximumSize)
-            {
-                ExecutionContext.Warning(StringUtil.Loc("EnvironmentVariableExceedsMaximumLength", key, value.Length, _environmentVariableMaximumSize));
-            }
-
-            base.AddEnvironmentVariable(key, value);
-        }
-        
         private void OnDataReceived(object sender, ProcessDataReceivedEventArgs e)
         {
             // This does not need to be inside of a critical section.
