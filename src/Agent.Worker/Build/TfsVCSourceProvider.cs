@@ -143,35 +143,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             
             if (endpoint.Data.ContainsKey(EndpointData.Clean))
             {
-                // Get an Expression Manager so we can evaluate conditions
-                var expressionManager = HostContext.GetService<IExpressionManager>();
-                try
+                if (!GetConditionLiteralBool(endpoint.Data[EndpointData.Clean], out clean))
                 {
-                    switch (endpoint.Data[EndpointData.Clean])
+                    var expressionManager = HostContext.GetService<IExpressionManager>();
+                    try
                     {
-                        case "1":
-                        case "true":
-                        case "$true":
-                            clean = true;
-                            break;
-                        case "0":
-                        case "false":
-                        case "$false":
-                            clean = false;
-                            break;
-                        default:
-                            clean = expressionManager.Evaluate(
-                                executionContext, expressionManager.Parse(executionContext, endpoint.Data[EndpointData.Clean])
-                                ).Value;
-                            break;
+                        clean = expressionManager.Evaluate(
+                            executionContext, expressionManager.Parse(executionContext, endpoint.Data[EndpointData.Clean])
+                            ).Value;
                     }
-                }
-                catch (Exception ex)
-                {
-                    Trace.Info("Caught exception from expression.");
-                    Trace.Error(ex);
-                    clean = false;
-                    executionContext.Error(ex);
+                    catch (Exception ex)
+                    {
+                        Trace.Info("Caught exception from expression.");
+                        Trace.Error(ex);
+                        clean = false;
+                        executionContext.Error(ex);
+                    }
                 }
             }
 
