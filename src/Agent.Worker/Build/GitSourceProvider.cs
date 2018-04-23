@@ -245,9 +245,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             bool clean = false;
             if (endpoint.Data.ContainsKey(EndpointData.Clean))
             {
-                clean = StringUtil.ConvertToBoolean(endpoint.Data[EndpointData.Clean]);
+                if (!GetConditionLiteralBool(endpoint.Data[EndpointData.Clean], out clean))
+                {
+                    var expressionManager = HostContext.GetService<IExpressionManager>();
+                    try
+                    {
+                        clean = expressionManager.Evaluate(
+                            executionContext, expressionManager.Parse(executionContext, endpoint.Data[EndpointData.Clean])
+                            ).Value;
+                    }
+                    catch (Exception ex)
+                    {
+                        Trace.Info("Caught exception from expression.");
+                        Trace.Error(ex);
+                        clean = false;
+                        executionContext.Error(ex);
+                    }
+                }
             }
-
+            
             bool checkoutSubmodules = false;
             if (endpoint.Data.ContainsKey(EndpointData.CheckoutSubmodules))
             {
