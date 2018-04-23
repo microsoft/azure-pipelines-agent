@@ -139,8 +139,42 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // Attempt to re-use an existing workspace if the command manager supports scorch
             // or if clean is not specified.
             ITfsVCWorkspace existingTFWorkspace = null;
-            bool clean = endpoint.Data.ContainsKey(EndpointData.Clean) &&
-                StringUtil.ConvertToBoolean(endpoint.Data[EndpointData.Clean], defaultValue: false);
+            bool clean = false;
+            
+            if (endpoint.Data.ContainsKey(EndpointData.Clean))
+            {
+                // Get an Expression Manager so we can evaluate conditions
+                var expressionManager = HostContext.GetService<IExpressionManager>();
+                try
+                {
+                    switch (endpoint.Data[EndpointData.Clean])
+                    {
+                        case "1":
+                        case "true":
+                        case "$true":
+                            clean = true;
+                            break;
+                        case "0":
+                        case "false":
+                        case "$false":
+                            clean = false;
+                            break;
+                        default:
+                            clean = expressionManager.Evaluate(
+                                executionContext, expressionManager.Parse(executionContext, endpoint.Data[EndpointData.Clean])
+                                ).Value;
+                            break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Trace.Info("Caught exception from expression.");
+                    Trace.Error(ex);
+                    clean = false;
+                    executionContext.Error(ex);
+                }
+            }
+
             if (tf.Features.HasFlag(TfsVCFeatures.Scorch) || !clean)
             {
                 existingTFWorkspace = WorkspaceUtil.MatchExactWorkspace(
