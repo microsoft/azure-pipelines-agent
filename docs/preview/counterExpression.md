@@ -13,7 +13,7 @@ This example increases the Semantic Versioning patch number on each build by usi
 ```yaml
 variables:
   majorMinorVersion: 1.0.
-  semanticVersion: counter(variables['majorMinorVersion'], 0)
+  semanticVersion: $[ counter(variables['majorMinorVersion'], 0) ]
 steps:
 - powershell: |
     ./updateVersion.ps1 -version $(semanticVersion)
