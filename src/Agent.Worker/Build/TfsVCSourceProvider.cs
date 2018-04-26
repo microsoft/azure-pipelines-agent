@@ -679,7 +679,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         bool expectedCloak = definitionMapping.MappingType == DefinitionMappingType.Cloak;
                         if (tfMapping.Cloak != expectedCloak)
                         {
-                            executionContext.Debug($"Expected mapping[{i}] cloak: '{expectedCloak}'. Actual: '{tfMapping.Cloak}'");
+                            executionContext.Output($"Expected mapping[{i}] cloak: '{expectedCloak}'. Actual: '{tfMapping.Cloak}'");
                             allMatch = false;
                             break;
                         }
@@ -687,7 +687,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         // Compare the recursive flag.
                         if (!expectedCloak && tfMapping.Recursive != definitionMapping.Recursive)
                         {
-                            executionContext.Debug($"Expected mapping[{i}] recursive: '{definitionMapping.Recursive}'. Actual: '{tfMapping.Recursive}'");
+                            executionContext.Output($"Expected mapping[{i}] recursive: '{definitionMapping.Recursive}'. Actual: '{tfMapping.Recursive}'");
                             allMatch = false;
                             break;
                         }
@@ -696,7 +696,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         string expectedServerPath = definitionMapping.NormalizedServerPath;
                         if (!string.Equals(tfMapping.ServerPath, expectedServerPath, StringComparison.Ordinal))
                         {
-                            executionContext.Debug($"Expected mapping[{i}] server path: '{expectedServerPath}'. Actual: '{tfMapping.ServerPath}'");
+                            executionContext.Output($"Expected mapping[{i}] server path: '{expectedServerPath}'. Actual: '{tfMapping.ServerPath}'");
                             allMatch = false;
                             break;
                         }
@@ -707,7 +707,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                             string expectedLocalPath = definitionMapping.GetRootedLocalPath(sourcesDirectory);
                             if (!string.Equals(tfMapping.LocalPath, expectedLocalPath, StringComparison.Ordinal))
                             {
-                                executionContext.Debug($"Expected mapping[{i}] local path: '{expectedLocalPath}'. Actual: '{tfMapping.LocalPath}'");
+                                executionContext.Output($"Expected mapping[{i}] local path: '{expectedLocalPath}'. Actual: '{tfMapping.LocalPath}'");
                                 allMatch = false;
                                 break;
                             }
