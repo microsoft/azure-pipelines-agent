@@ -50,3 +50,82 @@ Note, path filters are only supported for Git repositories in VSTS.
 Continuous integration builds can be turned off by specifying `trigger: none`
 
 Optionally, the triggers can be managed from the web definition editor, on the Triggers tab.
+
+
+## Trigger syntax for resource types  (for discussion only)
+
+CD triggers are configured per resource. 
+
+For repository resource type, syntax for trigger: 
+
+```yaml
+resources:
+  repositories:
+  - repository: string
+    type: git
+    trigger:
+      branches:
+        include: [string]
+        exclude: [string]
+      paths:
+        include: [string]
+        exclude: [string]
+...
+
+For example:
+
+```yaml
+resources:
+  repositories:
+  - repository: mygitrepo
+    type: git
+    trigger:
+      branches:
+        include:
+        - master
+        - releases/*
+        exclude:
+        - releases/old*
+```
+
+
+For build resource type, syntax for trigger
+
+```yaml
+resources:
+  builds:
+  - build: string
+    type: build  
+    trigger:  
+      include:
+      - branch: string
+        tags: [string]  # build tags
+      exclude:      
+      - branch: string
+        tags: [string]
+```
+
+For example,
+
+```yaml
+resources:
+  builds:
+  - build: myBuild
+    type: build  
+    trigger:  
+      include:
+      - branch: master
+        tags: 
+        - verified    # build tags
+        - succeeded
+      exclude:      
+      - branch: releases/old*
+        tags: 
+        - donotpick
+```
+
+## CD is opt-out
+
+With resource authorization per branch, CD is opt-out as well. 
+Continuous delivery deployments can be turned off by specifying `trigger: none`
+
