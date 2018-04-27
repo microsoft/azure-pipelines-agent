@@ -1,7 +1,3 @@
-using Microsoft.TeamFoundation.Build.WebApi;
-using Microsoft.TeamFoundation.DistributedTask.WebApi;
-using Microsoft.VisualStudio.Services.Agent.Util;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -9,6 +5,9 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Newtonsoft.Json;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -679,7 +678,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         bool expectedCloak = definitionMapping.MappingType == DefinitionMappingType.Cloak;
                         if (tfMapping.Cloak != expectedCloak)
                         {
-                            executionContext.Output($"Expected mapping[{i}] cloak: '{expectedCloak}'. Actual: '{tfMapping.Cloak}'");
+                            var output = StringUtil.Loc("ExpectedMappingCloak", i, expectedCloak, tfMapping.Cloak);
+                            executionContext.Output(output);
                             allMatch = false;
                             break;
                         }
@@ -687,7 +687,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         // Compare the recursive flag.
                         if (!expectedCloak && tfMapping.Recursive != definitionMapping.Recursive)
                         {
-                            executionContext.Output($"Expected mapping[{i}] recursive: '{definitionMapping.Recursive}'. Actual: '{tfMapping.Recursive}'");
+                            var output = StringUtil.Loc("ExpectedMappingRecursive", i, definitionMapping.Recursive, tfMapping.Recursive);
+                            executionContext.Output(output);
                             allMatch = false;
                             break;
                         }
@@ -696,7 +697,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         string expectedServerPath = definitionMapping.NormalizedServerPath;
                         if (!string.Equals(tfMapping.ServerPath, expectedServerPath, StringComparison.Ordinal))
                         {
-                            executionContext.Output($"Expected mapping[{i}] server path: '{expectedServerPath}'. Actual: '{tfMapping.ServerPath}'");
+                            var output = StringUtil.Loc("ExpectedMappingServerPath", i, expectedServerPath, tfMapping.ServerPath);
+                            executionContext.Output(output);
                             allMatch = false;
                             break;
                         }
@@ -707,7 +709,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                             string expectedLocalPath = definitionMapping.GetRootedLocalPath(sourcesDirectory);
                             if (!string.Equals(tfMapping.LocalPath, expectedLocalPath, StringComparison.Ordinal))
                             {
-                                executionContext.Output($"Expected mapping[{i}] local path: '{expectedLocalPath}'. Actual: '{tfMapping.LocalPath}'");
+                                var output = StringUtil.Loc("ExpectedMappingLocalPath", i, expectedLocalPath, tfMapping.LocalPath);
+                                executionContext.Output(output);
                                 allMatch = false;
                                 break;
                             }
