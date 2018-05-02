@@ -26,6 +26,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
     public abstract class Handler : AgentService
     {
+        // The maximum supported size of a environment variable value is 32k, value lengthier than this isn't stored
+        // and retrieval of the same returns empty string. 
         private const int _environmentVariableMaximumSize = 32766;
     
         protected IWorkerCommandManager CommandManager { get; private set; }
