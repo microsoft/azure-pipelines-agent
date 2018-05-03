@@ -26,9 +26,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
     public abstract class Handler : AgentService
     {
-        // The maximum supported size of a environment variable value is 32k, value lengthier than this isn't stored
-        // and retrieval of the same returns empty string. 
+#if OS_WINDOWS
+        // In windows OS the maximum supported size of a environment variable value is 32k.
+        // You can set environment variable greater then 32K, but that variable will not be able to read in node.exe.
         private const int _environmentVariableMaximumSize = 32766;
+#endif
     
         protected IWorkerCommandManager CommandManager { get; private set; }
 
@@ -233,12 +235,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             ArgUtil.NotNullOrEmpty(key, nameof(key));
             Trace.Verbose($"Setting env '{key}' to '{value}'.");
             
-            if (!string.IsNullOrEmpty(value) && value.Length > _environmentVariableMaximumSize)
+            Environment[key] = value ?? string.Empty;
+
+#if OS_WINDOWS
+            if (Environment[key].Length > _environmentVariableMaximumSize)
             {
                 ExecutionContext.Warning(StringUtil.Loc("EnvironmentVariableExceedsMaximumLength", key, value.Length, _environmentVariableMaximumSize));
             }
-            
-            Environment[key] = value ?? string.Empty;
+#endif
         }
 
         protected void AddTaskVariablesToEnvironment()
