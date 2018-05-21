@@ -38,7 +38,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             {
                 if (!string.IsNullOrEmpty(pathSegment) && Directory.Exists(pathSegment))
                 {
-                    string[] matches;
+                    string[] matches = null;
 #if OS_WINDOWS
                     string pathExt = Environment.GetEnvironmentVariable("PATHEXT");
                     if (string.IsNullOrEmpty(pathExt))
@@ -52,7 +52,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                     // if command already has an extension.
                     if (pathExtSegments.Any(ext => command.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
                     {
-                        matches = Directory.GetFiles(pathSegment, command);
+                        try
+                        {
+                            matches = Directory.GetFiles(pathSegment, command);
+                        }
+                        catch (UnauthorizedAccessException ex)
+                        {
+                            Trace.Error("Ignore UnauthorizedAccess exception during Which.");
+                            Trace.Error(ex);
+                        }
+
                         if (matches != null && matches.Length > 0)
                         {
                             Trace.Info("Location: '{0}'", matches.First());
@@ -63,7 +72,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                     {
                         string searchPattern;
                         searchPattern = StringUtil.Format($"{command}.*");
-                        matches = Directory.GetFiles(pathSegment, searchPattern);
+                        try
+                        {
+                            matches = Directory.GetFiles(pathSegment, searchPattern);
+                        }
+                        catch (UnauthorizedAccessException ex)
+                        {
+                            Trace.Error("Ignore UnauthorizedAccess exception during Which.");
+                            Trace.Error(ex);
+                        }
+
                         if (matches != null && matches.Length > 0)
                         {
                             // add extension.
@@ -79,7 +97,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                         }
                     }
 #else
-                    matches = Directory.GetFiles(pathSegment, command);
+                    try
+                    {
+                        matches = Directory.GetFiles(pathSegment, command);
+                    }
+                    catch (UnauthorizedAccessException ex)
+                    {
+                        Trace.Error("Ignore UnauthorizedAccess exception during Which.");
+                        Trace.Error(ex);
+                    }
+
                     if (matches != null && matches.Length > 0)
                     {
                         Trace.Info("Location: '{0}'", matches.First());
