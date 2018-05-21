@@ -8,7 +8,7 @@ No known system prerequisites are known at this time.
 
 [PowerShell 3.0 or higher](https://msdn.microsoft.com/en-us/powershell/scripting/setup/installing-windows-powershell)
 
-[.NET Framework x64 4.5 or higher](https://www.microsoft.com/en-us/download/details.aspx?id=36359)
+[.NET Framework x64 4.5 or higher](https://docs.microsoft.com/en-us/dotnet/framework/install/)
 
 ## Visual Studio
 
