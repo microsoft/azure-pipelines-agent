@@ -1,14 +1,17 @@
 ﻿using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.BlobStore.Common;
+using Microsoft.VisualStudio.Services.Content.Common.Tracing;
+using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Common;
+using Microsoft.VisualStudio.Services.WebApi;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -29,6 +32,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             else if (string.Equals(command.Event, WellKnownArtifactCommand.Upload, StringComparison.OrdinalIgnoreCase))
             {
                 ProcessArtifactUploadCommand(context, command.Properties, command.Data);
+            }
+            else if (string.Equals(command.Event, WellKnownArtifactCommand.Download, StringComparison.OrdinalIgnoreCase))
+            {
+                ProcessArtifactDownloadCommand(context, command.Properties, command.Data);
             }
             else
             {
@@ -180,11 +187,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 return;
             }
 
+            string uploadService;
+            if (!eventProperties.TryGetValue(ArtifactUploadEventProperties.UploadService, out uploadService) ||
+                string.IsNullOrEmpty(uploadService))
+            {
+                uploadService = ArtifactUploadService.Container;
+            }
+
             // queue async command task to associate artifact.
             context.Debug($"Upload artifact: {fullPath} to server for build: {buildId.Value} at backend.");
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("UploadArtifact"));
-            commandContext.Task = UploadArtifactAsync(commandContext,
+
+            if (string.Compare(uploadService, ArtifactUploadService.Container, StringComparison.OrdinalIgnoreCase) == 0)
+            {
+                commandContext.Task = UploadContainerArtifactAsync(commandContext,
                                                       WorkerUtilities.GetVssConnection(context),
                                                       projectId,
                                                       containerId.Value,
@@ -194,6 +211,75 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                                                       propertyDictionary,
                                                       fullPath,
                                                       context.CancellationToken);
+            }
+            else if (string.Compare(uploadService, ArtifactUploadService.Drop, StringComparison.OrdinalIgnoreCase) == 0)
+            {
+                commandContext.Task = UploadDropArtifactAsync(commandContext,
+                                                      WorkerUtilities.GetVssConnection(context),
+                                                      projectId,
+                                                      buildId.Value,
+                                                      artifactName,
+                                                      propertyDictionary,
+                                                      fullPath,
+                                                      context.CancellationToken);
+            }
+            else
+            {
+                throw new Exception(StringUtil.Loc("ArtifactUploadServiceNotSupported", uploadService));
+            }
+
+            context.AsyncCommands.Add(commandContext);
+        }
+
+        private void ProcessArtifactDownloadCommand(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(context.Endpoints, nameof(context.Endpoints));
+
+            Guid projectId = context.Variables.System_TeamProjectId ?? Guid.Empty;
+            ArgUtil.NotEmpty(projectId, nameof(projectId));
+
+            string artifacttype;
+            if (!eventProperties.TryGetValue(ArtifactDownloadEventProperties.ArtifactType, out artifacttype) ||
+                string.IsNullOrEmpty(artifacttype))
+            {
+                throw new Exception(StringUtil.Loc("ArtifactTypeRequired"));
+            }
+
+            if (string.Compare(artifacttype, ArtifactResourceTypes.Drop, StringComparison.OrdinalIgnoreCase) != 0)
+            {
+                throw new Exception(StringUtil.Loc("ArtifactTypeNotSupported", artifacttype));
+            }
+
+            string localPath = data;
+            if (string.IsNullOrEmpty(localPath))
+            {
+                throw new Exception(StringUtil.Loc("ArtifactLocationRequired"));
+            }
+
+            string fullPath = Path.GetFullPath(localPath);
+
+            string manifestId;
+            if (!eventProperties.TryGetValue(ArtifactDownloadEventProperties.ManifestId, out manifestId) ||
+                string.IsNullOrEmpty(manifestId))
+            {
+                throw new Exception(StringUtil.Loc("ManifestIdRequired"));
+            }
+
+            // TODO add file pattern filtering
+
+            // queue async command task to associate artifact.
+            context.Debug($"Download artifact to {fullPath}.");
+            var commandContext = HostContext.CreateService<IAsyncCommandContext>();
+            commandContext.InitializeCommandContext(context, StringUtil.Loc("DownloadArtifact"));
+
+            commandContext.Task = DownloadDropArtifactAsync(commandContext,
+                                                  WorkerUtilities.GetVssConnection(context),
+                                                  projectId,
+                                                  manifestId,
+                                                  fullPath,
+                                                  context.CancellationToken);
+
             context.AsyncCommands.Add(commandContext);
         }
 
@@ -213,7 +299,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             context.Output(StringUtil.Loc("AssociateArtifactWithBuild", artifact.Id, buildId));
         }
 
-        private async Task UploadArtifactAsync(
+        private async Task UploadContainerArtifactAsync(
             IAsyncCommandContext context,
             VssConnection connection,
             Guid projectId,
@@ -233,6 +319,50 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             BuildServer buildHelper = new BuildServer(connection, projectId);
             var artifact = await buildHelper.AssociateArtifact(buildId, name, ArtifactResourceTypes.Container, fileContainerFullPath, propertiesDictionary, cancellationToken);
             context.Output(StringUtil.Loc("AssociateArtifactWithBuild", artifact.Id, buildId));
+        }
+		
+        private async Task UploadDropArtifactAsync(
+            IAsyncCommandContext context,
+            VssConnection connection,
+            Guid projectId,
+            int buildId,
+            string name,
+            Dictionary<string, string> propertiesDictionary,
+            string source,
+            CancellationToken cancellationToken)
+        {
+            var httpclient = connection.GetClient<DedupStoreHttpClient>();
+            var tracer = new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information, false);
+            httpclient.SetTracer(tracer);
+            var client = new DedupStoreClientWithDataport(httpclient, 16 * Environment.ProcessorCount);
+
+            var buildDropManager = new BuildDropManager(client, tracer);
+            var result = await buildDropManager.PublishAsync(source, cancellationToken);
+            context.Output(StringUtil.Loc("UploadToDrop", source));
+
+            BuildServer buildHelper = new BuildServer(connection, projectId);
+            propertiesDictionary.Add("RootId", result.RootId.ValueString);
+            propertiesDictionary.Add("ProofNodes", result.ProofNodes);
+            var artifact = await buildHelper.AssociateArtifact(buildId, name, ArtifactResourceTypes.Drop, result.ManifestId.ValueString, propertiesDictionary, cancellationToken);
+            context.Output(StringUtil.Loc("AssociateArtifactWithBuild", artifact.Id, buildId));
+        }
+
+        private async Task DownloadDropArtifactAsync(
+            IAsyncCommandContext context,
+            VssConnection connection,
+            Guid projectId,
+            string manifestId,
+            string target,
+            CancellationToken cancellationToken)
+        {
+            var httpclient = connection.GetClient<DedupStoreHttpClient>();
+            var tracer = new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information, false);
+            httpclient.SetTracer(tracer);
+            var client = new DedupStoreClientWithDataport(httpclient, 16 * Environment.ProcessorCount);
+
+            var buildDropManager = new BuildDropManager(client, tracer);
+            await buildDropManager.DownloadAsync(DedupIdentifier.Create(manifestId), target, cancellationToken);
+            context.Output(StringUtil.Loc("DownloadFromDrop", target));
         }
 
         private Boolean IsContainerPath(string path)
@@ -312,7 +442,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             return eventProperties.Where(pair => !(string.Compare(pair.Key, ArtifactUploadEventProperties.ContainerFolder, StringComparison.OrdinalIgnoreCase) == 0 ||
                                                   string.Compare(pair.Key, ArtifactUploadEventProperties.ArtifactName, StringComparison.OrdinalIgnoreCase) == 0 ||
-                                                  string.Compare(pair.Key, ArtifactUploadEventProperties.ArtifactType, StringComparison.OrdinalIgnoreCase) == 0)).ToDictionary(pair => pair.Key, pair => pair.Value);
+                                                  string.Compare(pair.Key, ArtifactUploadEventProperties.ArtifactType, StringComparison.OrdinalIgnoreCase) == 0 ||
+                                                  string.Compare(pair.Key, ArtifactUploadEventProperties.UploadService, StringComparison.OrdinalIgnoreCase) == 0 ||
+                                                  string.Compare(pair.Key, ArtifactDownloadEventProperties.ManifestId, StringComparison.OrdinalIgnoreCase) == 0 ||
+                                                  string.Compare(pair.Key, ArtifactDownloadEventProperties.ItemPattern, StringComparison.OrdinalIgnoreCase) == 0)).ToDictionary(pair => pair.Key, pair => pair.Value);
         }
     }
 
@@ -320,6 +453,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
     {
         public static readonly string Associate = "associate";
         public static readonly string Upload = "upload";
+        public static readonly string Download = "download";
     }
 
     internal static class ArtifactAssociateEventProperties
@@ -332,8 +466,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
     internal static class ArtifactUploadEventProperties
     {
         public static readonly string ContainerFolder = "containerfolder";
+        public static readonly string UploadService = "uploadservice";
         public static readonly string ArtifactName = "artifactname";
         public static readonly string ArtifactType = "artifacttype";
         public static readonly string Browsable = "Browsable";
+    }
+
+    internal static class ArtifactDownloadEventProperties
+    {
+        public static readonly string ManifestId = "manifestid";
+        public static readonly string ArtifactName = "artifactname";
+        public static readonly string ArtifactType = "artifacttype";
+        public static readonly string ItemPattern = "itempattern";
+    }
+
+    internal static class ArtifactUploadService
+    {
+        public static readonly string Container = "container";
+        public static readonly string Drop = "drop";
     }
 }

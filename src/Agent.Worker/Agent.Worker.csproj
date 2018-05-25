@@ -14,8 +14,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="vss-api-netcore" Version="0.5.63-private" />
+    <PackageReference Include="vss-api-netcore" Version="0.5.newversion-private" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="4.4.0" />
+    <PackageReference Include="WindowsAzure.Storage" Version="8.7.0" />
   </ItemGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
