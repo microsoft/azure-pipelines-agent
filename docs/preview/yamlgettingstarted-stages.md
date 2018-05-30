@@ -162,10 +162,21 @@ stages:
     steps:
     - script: echo hello from QA2
 - stage: production
-  startType: manual             #startType: manual 
   dependsOn: 
   - QA1
   - QA2
+  trigger:     # trigger: none  for manual
+    schedule:
+    # scheduling options, future 
+    resource:
+    - myBuild
+        include:  
+        - branch: master
+          tags: 
+          - verified             # build tags
+          - succeeded
+          exclude:      
+          - branch: releases/old* 
   phases:
     - phase:
       steps:
