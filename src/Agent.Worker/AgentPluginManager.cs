@@ -37,7 +37,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private readonly HashSet<string> _commandPlugins = new HashSet<string>()
         {
-            "Agent.Plugins.Drop.ArtifactUploadCommand, Agent.Plugins"
+            "Agent.Plugins.Drop.ArtifactUploadCommand, Agent.Plugins",
+            "Agent.Plugins.Drop.DropArtifactUploadCommand, Agent.Plugins",
+            "Agent.Plugins.Drop.DropArtifactDownloadCommand, Agent.Plugins"
         };
 
         public override void Initialize(IHostContext hostContext)

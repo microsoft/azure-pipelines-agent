@@ -49,7 +49,7 @@ namespace Agent.Plugins.Drop
 
     public class ArtifactUploadCommand : IAgentCommandPlugin
     {
-        public string Area => "artifact";
+        public string Area => "artifact_old";
 
         public string Event => "upload";
 
