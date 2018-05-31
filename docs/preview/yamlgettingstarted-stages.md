@@ -138,9 +138,9 @@ stages:
 
 ## Manual start for stages
 
-You can specify start type for a stage. If not specified, they are automatically started by default.  Stages that are manually started can be represented as `startType: manual`.
+You can specify start type for a stage. If not specified, they are automatically started by default.  Stages that are manually started can be represented as `trigger: none`.
 
-Example of a stage (production) that is started manually after the dependencies are met. 
+Example of a stage (production) that is triggered with resource filter after the dependencies are met. 
 
 ```yaml
 stages: 
@@ -165,15 +165,15 @@ stages:
   dependsOn: 
   - QA1
   - QA2
-  trigger:     # trigger: none  for manual
+  trigger:                             # trigger: none  for manual
     schedule:
-    # scheduling options, future 
+    # ...                              scheduling options, future 
     resource:
     - myBuild
         include:  
         - branch: master
           tags: 
-          - verified             # build tags
+          - verified                   # build tags
           - succeeded
           exclude:      
           - branch: releases/old* 
