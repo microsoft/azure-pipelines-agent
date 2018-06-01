@@ -9,8 +9,8 @@ function Get-VisualStudio_15_0 {
         # version may something like 15.2.
         Write-Host "Getting latest Visual Studio 15 setup instance."
         $output = New-Object System.Text.StringBuilder
-        Write-Host "& $PSScriptRoot\..\..\..\externals\vswhere\vswhere.exe -version '[15.0,16.0)' -latest -format json"
-        & $PSScriptRoot\..\..\..\externals\vswhere\vswhere.exe -version '[15.0,16.0)' -latest -format json 2>&1 |
+        Write-Host "& $PSScriptRoot\..\..\..\externals\vswhere\vswhere.exe -all -version '[15.0,16.0)' -latest -format json"
+        & $PSScriptRoot\..\..\..\externals\vswhere\vswhere.exe -all -version '[15.0,16.0)' -latest -format json 2>&1 |
             ForEach-Object {
                 if ($_ -is [System.Management.Automation.ErrorRecord]) {
                     Write-Host "STDERR: $($_.Exception.Message)"
@@ -27,8 +27,8 @@ function Get-VisualStudio_15_0 {
             if (!$instance) {
                 Write-Host "Getting latest BuildTools 15 setup instance."
                 $output = New-Object System.Text.StringBuilder
-                Write-Host "& $PSScriptRoot\..\..\..\externals\vswhere\vswhere.exe -version '[15.0,16.0)' -products Microsoft.VisualStudio.Product.BuildTools -latest -format json"
-                & $PSScriptRoot\..\..\..\externals\vswhere\vswhere.exe -version '[15.0,16.0)' -products Microsoft.VisualStudio.Product.BuildTools -latest -format json 2>&1 |
+                Write-Host "& $PSScriptRoot\..\..\..\externals\vswhere\vswhere.exe -all -version '[15.0,16.0)' -products Microsoft.VisualStudio.Product.BuildTools -latest -format json"
+                & $PSScriptRoot\..\..\..\externals\vswhere\vswhere.exe -all -version '[15.0,16.0)' -products Microsoft.VisualStudio.Product.BuildTools -latest -format json 2>&1 |
                     ForEach-Object {
                         if ($_ -is [System.Management.Automation.ErrorRecord]) {
                             Write-Host "STDERR: $($_.Exception.Message)"
