@@ -65,7 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         public void Run(Pipelines.AgentJobRequestMessage jobRequestMessage)
         {
-            Trace.Info($"Job request {jobRequestMessage.JobId} received.");
+            Trace.Info($"Job request {jobRequestMessage.RequestId} for plan {jobRequestMessage.Plan.PlanId} job {jobRequestMessage.JobId} received.");
 
             WorkerDispatcher currentDispatch = null;
             if (_jobDispatchedQueue.Count > 0)
@@ -663,7 +663,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 return;
             }
 
-            if (ApiUtil.GetFeatures(message.Plan).HasFlag(PlanFeatures.JobCompletedPlanEvent))
+            if (PlanUtil.GetFeatures(message.Plan).HasFlag(PlanFeatures.JobCompletedPlanEvent))
             {
                 Trace.Verbose($"Skip FinishAgentRequest call from Listener because Plan version is {message.Plan.Version}");
                 return;
@@ -713,7 +713,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 ArgUtil.NotNull(systemConnection, nameof(systemConnection));
 
                 var jobServer = HostContext.GetService<IJobServer>();
-                VssCredentials jobServerCredential = ApiUtil.GetVssCredential(systemConnection);
+                VssCredentials jobServerCredential = VssUtil.GetVssCredential(systemConnection);
                 Uri jobServerUrl = systemConnection.Url;
 
                 // Make sure SystemConnection Url match Config Url base for OnPremises server
@@ -743,7 +743,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     }
                 }
 
-                VssConnection jobConnection = ApiUtil.CreateConnection(jobServerUrl, jobServerCredential);
+                VssConnection jobConnection = VssUtil.CreateConnection(jobServerUrl, jobServerCredential);
                 await jobServer.ConnectAsync(jobConnection);
                 var timeline = await jobServer.GetTimelineAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, CancellationToken.None);
                 ArgUtil.NotNull(timeline, nameof(timeline));
