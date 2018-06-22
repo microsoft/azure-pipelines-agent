@@ -238,7 +238,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     {
                         cancellationToken.ThrowIfCancellationRequested();
                         string runName = null;
-                        if (!string.IsNullOrWhiteSpace(_runTitle))
+                        if (!string.IsNullOrWhiteSpace(_runTitle) && resultFiles.Count > 1)
                         {
                             runName = GetRunTitle();
                         }
