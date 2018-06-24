@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -44,8 +45,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             executionContext.Debug($"revision={revision}");
 
-            bool clean = endpoint.Data.ContainsKey(EndpointData.Clean) &&
-                StringUtil.ConvertToBoolean(endpoint.Data[EndpointData.Clean], defaultValue: false);
+            bool clean = false;
+            
+            if (endpoint.Data.ContainsKey(EndpointData.Clean))
+            {
+                if (!GetConditionLiteralBool(endpoint.Data[EndpointData.Clean], out clean))
+                {
+                    var expressionManager = HostContext.GetService<IExpressionManager>();
+                    try
+                    {
+                        clean = expressionManager.Evaluate(
+                            executionContext, expressionManager.Parse(executionContext, endpoint.Data[EndpointData.Clean])
+                            ).Value;
+                    }
+                    catch (Exception ex)
+                    {
+                        Trace.Info("Caught exception from expression.");
+                        Trace.Error(ex);
+                        clean = false;
+                        executionContext.Error(ex);
+                    }
+                }
+            }
+            
             executionContext.Debug($"clean={clean}");
 
             // Get the definition mappings.

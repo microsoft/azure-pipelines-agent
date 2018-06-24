@@ -137,8 +137,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // Attempt to re-use an existing workspace if the command manager supports scorch
             // or if clean is not specified.
             ITfsVCWorkspace existingTFWorkspace = null;
-            bool clean = endpoint.Data.ContainsKey(EndpointData.Clean) &&
-                StringUtil.ConvertToBoolean(endpoint.Data[EndpointData.Clean], defaultValue: false);
+            bool clean = false;
+            
+            if (endpoint.Data.ContainsKey(EndpointData.Clean))
+            {
+                if (!GetConditionLiteralBool(endpoint.Data[EndpointData.Clean], out clean))
+                {
+                    var expressionManager = HostContext.GetService<IExpressionManager>();
+                    try
+                    {
+                        clean = expressionManager.Evaluate(
+                            executionContext, expressionManager.Parse(executionContext, endpoint.Data[EndpointData.Clean])
+                            ).Value;
+                    }
+                    catch (Exception ex)
+                    {
+                        Trace.Info("Caught exception from expression.");
+                        Trace.Error(ex);
+                        clean = false;
+                        executionContext.Error(ex);
+                    }
+                }
+            }
+
             if (tf.Features.HasFlag(TfsVCFeatures.Scorch) || !clean)
             {
                 existingTFWorkspace = WorkspaceUtil.MatchExactWorkspace(

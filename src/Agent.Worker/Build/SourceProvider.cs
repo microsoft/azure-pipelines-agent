@@ -98,5 +98,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             return false;
         }
+
+        public bool GetConditionLiteralBool(string value, out bool result)
+        {
+            switch (value.ToLowerInvariant())
+            {
+                case "1":
+                case "true":
+                case "$true":
+                    result = true;
+                    return true;
+                case "0":
+                case "false":
+                case "$false":
+                    result = false;
+                    return true;
+                default:
+                    result = false;
+                    return false;
+            }
+        }
     }
 }
