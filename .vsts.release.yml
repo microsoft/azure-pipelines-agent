@@ -258,16 +258,17 @@ phases:
       }
       [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
       $releaseCreated = Invoke-RestMethod @releaseParams
+      Write-Host $releaseCreated
       $releaseId = $releaseCreated.id
       $assets = [System.IO.File]::ReadAllText("$(Build.SourcesDirectory)\assets.json").Replace("<AGENT_VERSION>","$(ReleaseAgentVersion)")
       $assetsParams = @{
-        Uri = "https://api.github.com/repos/Microsoft/vsts-agent/releases/releaseId/assets?name=assets.json"
+        Uri = "https://uploads.github.com/repos/Microsoft/vsts-agent/releases/$releaseId/assets?name=assets.json"
         Method = 'POST';
         Headers = @{
           Authorization = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("vsts:$(GithubToken)"));
         }
         ContentType = 'application/octet-stream';
-        Body = [system.Text.Encoding]::UTF8.GetBytes(assets)
+        Body = [system.Text.Encoding]::UTF8.GetBytes($assets)
       }
       Invoke-RestMethod @assetsParams
     displayName: Create agent release on Github
