@@ -11,42 +11,6 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 
 namespace Agent.Plugins.Drop
 {
-    public class DownloadDropTask : IAgentTaskPlugin
-    {
-        // Same as: https://github.com/Microsoft/vsts-tasks/blob/master/Tasks/DownloadBuildArtifacts/task.json
-        // You can change the guid if you decide to create a new task.
-        public Guid Id => new Guid("a433f589-fce1-4460-9ee6-44a624aeb1fb");
-
-        // 1.x preview or any version make sense to you.
-        public string Version => "1.135.0";
-
-        public string Stage => "main";
-
-        public Task RunAsync(AgentTaskPluginExecutionContext executionContext, CancellationToken token)
-        {
-            // put your download artifact code here
-            throw new NotImplementedException();
-        }
-    }
-
-    public class PublishDropTask : IAgentTaskPlugin
-    {
-        // Same as: https://github.com/Microsoft/vsts-tasks/blob/master/Tasks/PublishBuildArtifacts/task.json
-        // You can change the guid if you decide to create a new task.
-        public Guid Id => new Guid("2FF763A7-CE83-4E1F-BC89-0AE63477CEBE");
-
-        // 2.x preview or any version make sense to you.
-        public string Version => "2.135.0";
-
-        public string Stage => "main";
-
-        public Task RunAsync(AgentTaskPluginExecutionContext executionContext, CancellationToken token)
-        {
-            // put your upload artifact code here
-            throw new NotImplementedException();
-        }
-    }
-
     public class ArtifactUploadCommand : IAgentCommandPlugin
     {
         public string Area => "artifact_old";

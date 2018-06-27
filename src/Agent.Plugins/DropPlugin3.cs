@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -10,21 +10,19 @@ using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
-using Microsoft.VisualStudio.Services.Agent.Util;
 using Agent.Sdk;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Agent.Plugins.Drop
 {
-    // These commands will eventually replace ArtifactUploadCommand in DropPlugin.cs
-    public abstract class DropArtifactCommand : IAgentCommandPlugin
+    public abstract class ArtifactDropTaskPlugin : IAgentTaskPlugin
     {
-        public string Area => "artifact";
+        public virtual Guid Id { get; }
+        public virtual string Version { get; }
+        public virtual string Stage { get; }
 
-        public abstract string Event { get; }
-
-        public abstract string DisplayName { get; }
-
-        public async Task ProcessCommandAsync(AgentCommandPluginExecutionContext context, CancellationToken token)
+        public async Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
             ArgUtil.NotNull(context, nameof(context));
 
@@ -44,25 +42,32 @@ namespace Agent.Plugins.Drop
             }
 
             string artifactName;
-            if (!context.Properties.TryGetValue(ArtifactEventProperties.ArtifactName, out artifactName) ||
+            if (!context.Inputs.TryGetValue(ArtifactEventProperties.ArtifactName, out artifactName) ||
                 string.IsNullOrEmpty(artifactName))
             {
                 throw new Exception(StringUtil.Loc("ArtifactNameRequired"));
             }
 
-            var propertyDictionary = ExtractArtifactProperties(context.Properties);
+            var propertyDictionary = ExtractArtifactProperties(context.Inputs);
 
-            string localPath = context.Data;
-            if (context.ContainerPathMappings.Count > 0)
-            {
-                // Translate file path back from container path
-                localPath = context.TranslateContainerPathToHostPath(localPath);
-            }
-
-            if (string.IsNullOrEmpty(localPath))
+            string localPath;
+            if (!context.Inputs.TryGetValue(ArtifactEventProperties.TargetPath, out localPath) ||
+                string.IsNullOrEmpty(localPath))
             {
                 throw new Exception(StringUtil.Loc("ArtifactLocationRequired"));
             }
+
+            //string localPath = context.Data;
+            // if (context.ContainerPathMappings.Count > 0)
+            // {
+            //     // Translate file path back from container path
+            //     localPath = context.TranslateContainerPathToHostPath(localPath);
+            // }
+
+            // if (string.IsNullOrEmpty(localPath))
+            // {
+            //     throw new Exception(StringUtil.Loc("ArtifactLocationRequired"));
+            // }
 
             PreprocessResult result = CheckAndTrasformTargetPath(context, localPath, propertyDictionary, artifactName);
             if (result != null)
@@ -73,11 +78,11 @@ namespace Agent.Plugins.Drop
 
         // Run checks and conversions before processing. Returns null if the operation should be aborted.
         protected abstract PreprocessResult CheckAndTrasformTargetPath(
-            AgentCommandPluginExecutionContext context, string localPath, Dictionary<string, string> propertyDict, string artifactName);
+            AgentTaskPluginExecutionContext context, string localPath, Dictionary<string, string> propertyDict, string artifactName);
 
         // Process the command with preprocessed arguments.
         protected abstract Task ProcessCommandInternalAsync(
-            AgentCommandPluginExecutionContext context, Guid projectId, int buildId, string artifactName, Dictionary<string, string> propertyDict, PreprocessResult result, CancellationToken token);
+            AgentTaskPluginExecutionContext context, Guid projectId, int buildId, string artifactName, Dictionary<string, string> propertyDict, PreprocessResult result, CancellationToken token);
 
         private Dictionary<string, string> ExtractArtifactProperties(Dictionary<string, string> eventProperties)
         {
@@ -85,16 +90,33 @@ namespace Agent.Plugins.Drop
                                                   string.Compare(pair.Key, ArtifactEventProperties.ArtifactName, StringComparison.OrdinalIgnoreCase) == 0 ||
                                                   string.Compare(pair.Key, ArtifactEventProperties.ArtifactType, StringComparison.OrdinalIgnoreCase) == 0)).ToDictionary(pair => pair.Key, pair => pair.Value);
         }
+
+        // protected VssConnection GetConnection(AgentTaskPluginExecutionContext context)
+        // {
+        //     ServiceEndpoint systemConnection = context.Endpoints.FirstOrDefault(
+        //         e => string.Equals(e.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
+        //     ArgUtil.NotNull(systemConnection, nameof(systemConnection));
+        //     ArgUtil.NotNull(systemConnection.Url, nameof(systemConnection.Url));
+
+        //     VssCredentials credentials = ArgUtil.GetVssCredential(systemConnection);
+        //     ArgUtil.NotNull(credentials, nameof(credentials));
+        //     return ArgUtil.CreateConnection(systemConnection.Url, credentials);
+        // }
     }
 
-    public class DropArtifactUploadCommand : DropArtifactCommand
+    public class PublishDropTask : ArtifactDropTaskPlugin
     {
-        public override string Event => "upload";
+        // Same as: https://github.com/Microsoft/vsts-tasks/blob/master/Tasks/PublishBuildArtifacts/task.json
+        // You can change the guid if you decide to create a new task.
+        public override Guid Id => new Guid("2FF763A7-CE83-4E1F-BC89-0AE63477CEBE");
 
-        public override string DisplayName => StringUtil.Loc("UploadArtifact");
+        // 2.x preview or any version make sense to you.
+        public override string Version => "2.135.1";
+
+        public override string Stage => "main";
 
         protected override PreprocessResult CheckAndTrasformTargetPath(
-            AgentCommandPluginExecutionContext context, string localPath, Dictionary<string, string> propertyDict, string artifactName)
+            AgentTaskPluginExecutionContext context, string localPath, Dictionary<string, string> propertyDict, string artifactName)
         { 
             string hostType = context.Variables.GetValueOrDefault("system.hosttype")?.Value;
             if (!IsUncSharePath(context, localPath) && !string.Equals(hostType, "Build", StringComparison.OrdinalIgnoreCase))
@@ -121,7 +143,7 @@ namespace Agent.Plugins.Drop
         }
 
         protected override async Task ProcessCommandInternalAsync(
-            AgentCommandPluginExecutionContext context, 
+            AgentTaskPluginExecutionContext context, 
             Guid projectId, 
             int buildId, 
             string artifactName, 
@@ -136,7 +158,7 @@ namespace Agent.Plugins.Drop
             context.Output($"Upload artifact finished.");
         }
 
-        private Boolean IsUncSharePath(AgentCommandPluginExecutionContext context, string path)
+        private Boolean IsUncSharePath(AgentTaskPluginExecutionContext context, string path)
         {
             if (string.IsNullOrEmpty(path))
             {
@@ -166,13 +188,19 @@ namespace Agent.Plugins.Drop
         }
     }
 
-    public class DropArtifactDownloadCommand : DropArtifactCommand
+    public class DownloadDropTask : ArtifactDropTaskPlugin
     {
-        public override string Event => "download";
+        // Same as: https://github.com/Microsoft/vsts-tasks/blob/master/Tasks/DownloadBuildArtifacts/task.json
+        // You can change the guid if you decide to create a new task.
+        public override Guid Id => new Guid("a433f589-fce1-4460-9ee6-44a624aeb1fb");
 
-        public override string DisplayName => StringUtil.Loc("DownloadArtifact");
+        // 1.x preview or any version make sense to you.
+        public override string Version => "1.135.0";
 
-        protected override PreprocessResult CheckAndTrasformTargetPath(AgentCommandPluginExecutionContext context, string localPath, Dictionary<string, string> propertyDict, string artifactName)
+        public override string Stage => "main";
+
+        protected override PreprocessResult CheckAndTrasformTargetPath(
+            AgentTaskPluginExecutionContext context, string localPath, Dictionary<string, string> propertyDict, string artifactName)
         { 
             string fullPath = Path.GetFullPath(localPath);
 
@@ -190,7 +218,7 @@ namespace Agent.Plugins.Drop
         }
 
         protected override async Task ProcessCommandInternalAsync(
-            AgentCommandPluginExecutionContext context, 
+            AgentTaskPluginExecutionContext context, 
             Guid projectId, 
             int buildId, 
             string artifactName, 
@@ -211,19 +239,4 @@ namespace Agent.Plugins.Drop
         }
     }
 
-    internal static class ArtifactEventProperties
-    {
-        public static readonly string ContainerFolder = "containerfolder";
-        public static readonly string ArtifactName = "artifactname";
-        public static readonly string ArtifactType = "artifacttype";
-        public static readonly string Browsable = "Browsable";
-        public static readonly string ManifestId = "manifestid";
-        public static readonly string ItemPattern = "itempattern";
-        public static readonly string TargetPath = "targetpath";
-    }
-
-    public class PreprocessResult {
-        internal string FullPath { get; set; }
-        internal object ExtraData { get; set; }
-    }
 }
