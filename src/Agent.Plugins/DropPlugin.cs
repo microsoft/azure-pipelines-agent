@@ -1,25 +1,28 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.TeamFoundation.Build.WebApi;
 using Agent.Sdk;
-using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.VisualStudio.Services.BlobStore.Common;
+using Microsoft.VisualStudio.Services.Content.Common.Tracing;
+using Microsoft.VisualStudio.Services.BlobStore.WebApi;
+using Microsoft.VisualStudio.Services.Common;
+using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Agent.Plugins.Drop
 {
-    public class ArtifactUploadCommand : IAgentCommandPlugin
+    public abstract class ArtifactDropTaskPlugin : IAgentTaskPlugin
     {
-        public string Area => "artifact_old";
+        public abstract Guid Id { get; }
+        public abstract string Version { get; }
+        public abstract string Stage { get; }
 
-        public string Event => "upload";
-
-        public string DisplayName => StringUtil.Loc("UploadArtifact");
-
-        public async Task ProcessCommandAsync(AgentCommandPluginExecutionContext context, CancellationToken token)
+        public async Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
             ArgUtil.NotNull(context, nameof(context));
 
@@ -39,33 +42,48 @@ namespace Agent.Plugins.Drop
             }
 
             string artifactName;
-            if (!context.Properties.TryGetValue(ArtifactUploadEventProperties.ArtifactName, out artifactName) ||
+            if (!context.Inputs.TryGetValue(ArtifactEventProperties.ArtifactName, out artifactName) ||
                 string.IsNullOrEmpty(artifactName))
             {
                 throw new Exception(StringUtil.Loc("ArtifactNameRequired"));
             }
 
-            string containerFolder;
-            if (!context.Properties.TryGetValue(ArtifactUploadEventProperties.ContainerFolder, out containerFolder) ||
-                string.IsNullOrEmpty(containerFolder))
-            {
-                containerFolder = artifactName;
-            }
-
-            var propertyDictionary = ExtractArtifactProperties(context.Properties);
-
-            string localPath = context.Data;
-            if (context.ContainerPathMappings.Count > 0)
-            {
-                // Translate file path back from container path
-                localPath = context.TranslateContainerPathToHostPath(localPath);
-            }
-
-            if (string.IsNullOrEmpty(localPath))
+            string localPath;
+            if (!context.Inputs.TryGetValue(ArtifactEventProperties.TargetPath, out localPath) ||
+                string.IsNullOrEmpty(localPath))
             {
                 throw new Exception(StringUtil.Loc("ArtifactLocationRequired"));
             }
 
+            PreprocessResult result = CheckAndTransformTargetPath(context, localPath, artifactName);
+            if (result != null)
+            {
+                await ProcessCommandInternalAsync(context, projectId, buildId, artifactName, result, token);
+            }
+        }
+
+        // Run checks and conversions before processing. Returns null if the operation should be aborted.
+        protected abstract PreprocessResult CheckAndTransformTargetPath(
+            AgentTaskPluginExecutionContext context, string localPath, string artifactName);
+
+        // Process the command with preprocessed arguments.
+        protected abstract Task ProcessCommandInternalAsync(
+            AgentTaskPluginExecutionContext context, Guid projectId, int buildId, string artifactName, PreprocessResult result, CancellationToken token);
+    }
+
+    // To be invoked by PublishBuildArtifacts task
+    public class PublishDropTask : ArtifactDropTaskPlugin
+    {
+        // Same as: https://github.com/Microsoft/vsts-tasks/blob/master/Tasks/PublishBuildArtifacts/task.json
+        public override Guid Id => new Guid("2FF763A7-CE83-4E1F-BC89-0AE63477CEBE");
+
+        public override string Version => "2.135.1";
+
+        public override string Stage => "main";
+
+        protected override PreprocessResult CheckAndTransformTargetPath(
+            AgentTaskPluginExecutionContext context, string localPath, string artifactName)
+        { 
             string hostType = context.Variables.GetValueOrDefault("system.hosttype")?.Value;
             if (!IsUncSharePath(context, localPath) && !string.Equals(hostType, "Build", StringComparison.OrdinalIgnoreCase))
             {
@@ -73,48 +91,42 @@ namespace Agent.Plugins.Drop
             }
 
             string fullPath = Path.GetFullPath(localPath);
-            if (!File.Exists(fullPath) && !Directory.Exists(fullPath))
+
+            bool isFile = File.Exists(fullPath);
+            bool isDir = Directory.Exists(fullPath);
+            if (!isFile && !isDir)
             {
-                // if localPath is not a file or folder on disk
+                // if localPath is niether file nor folder
                 throw new FileNotFoundException(StringUtil.Loc("PathNotExist", localPath));
             }
-            else if (Directory.Exists(fullPath) && Directory.EnumerateFiles(fullPath, "*", SearchOption.AllDirectories).FirstOrDefault() == null)
+            else if (isDir && Directory.EnumerateFiles(fullPath, "*", SearchOption.AllDirectories).FirstOrDefault() == null)
             {
-                // if localPath is a folder but the folder contains nothing
+                // if localPath is a folder which contains nothing
                 context.Output(StringUtil.Loc("DirectoryIsEmptyForArtifact", fullPath, artifactName));
-                return;
+                return null;
             }
 
-            // Upload to file container
-            context.Output(StringUtil.Loc("UploadArtifact"));
-            FileContainerServer fileContainerHelper = new FileContainerServer(context.VssConnection, projectId, containerId, containerFolder);
-            await fileContainerHelper.CopyToContainerAsync(context, fullPath, token);
-            string fileContainerFullPath = StringUtil.Format($"#/{containerId}/{containerFolder}");
-            context.Output(StringUtil.Loc("UploadToFileContainer", fullPath, fileContainerFullPath));
-
-            // Associate build artifact
-            BuildServer buildHelper = new BuildServer(context.VssConnection);
-            var artifact = await buildHelper.AssociateArtifact(projectId, buildId, artifactName, ArtifactResourceTypes.Container, fileContainerFullPath, propertyDictionary, token);
-            context.Output(StringUtil.Loc("AssociateArtifactWithBuild", artifact.Id, buildId));
+            return new PreprocessResult {
+                FullPath = fullPath
+            };
         }
 
-
-        private static class ArtifactUploadEventProperties
-        {
-            public static readonly string ContainerFolder = "containerfolder";
-            public static readonly string ArtifactName = "artifactname";
-            public static readonly string ArtifactType = "artifacttype";
-            public static readonly string Browsable = "Browsable";
+        protected override async Task ProcessCommandInternalAsync(
+            AgentTaskPluginExecutionContext context, 
+            Guid projectId, 
+            int buildId, 
+            string artifactName,
+            PreprocessResult preprocResult,
+            CancellationToken token)
+        { 
+            // Upload to VSTS BlobStore, and associate the artifact with the build.
+            context.Output($"Upload artifact: {preprocResult.FullPath} to server for build: {buildId} at backend.");
+            BuildDropClient server = new BuildDropClient();
+            await server.UploadDropArtifactAsync(context, context.VssConnection, projectId, buildId, artifactName, preprocResult.FullPath, token);
+            context.Output($"Upload artifact finished.");
         }
 
-        private Dictionary<string, string> ExtractArtifactProperties(Dictionary<string, string> eventProperties)
-        {
-            return eventProperties.Where(pair => !(string.Compare(pair.Key, ArtifactUploadEventProperties.ContainerFolder, StringComparison.OrdinalIgnoreCase) == 0 ||
-                                                  string.Compare(pair.Key, ArtifactUploadEventProperties.ArtifactName, StringComparison.OrdinalIgnoreCase) == 0 ||
-                                                  string.Compare(pair.Key, ArtifactUploadEventProperties.ArtifactType, StringComparison.OrdinalIgnoreCase) == 0)).ToDictionary(pair => pair.Key, pair => pair.Value);
-        }
-
-        private Boolean IsUncSharePath(AgentCommandPluginExecutionContext context, string path)
+        private Boolean IsUncSharePath(AgentTaskPluginExecutionContext context, string path)
         {
             if (string.IsNullOrEmpty(path))
             {
@@ -142,5 +154,81 @@ namespace Agent.Plugins.Drop
 
             return false;
         }
+    }
+
+    // To be invoked by DownloadBuildArtifacts task
+    public class DownloadDropTask : ArtifactDropTaskPlugin
+    {
+        // Same as https://github.com/Microsoft/vsts-tasks/blob/master/Tasks/DownloadBuildArtifacts/task.json
+        public override Guid Id => new Guid("a433f589-fce1-4460-9ee6-44a624aeb1fb");
+
+        public override string Version => "1.135.1";
+
+        public override string Stage => "main";
+
+        protected override PreprocessResult CheckAndTransformTargetPath(
+            AgentTaskPluginExecutionContext context, string localPath, string artifactName)
+        { 
+
+            string fullPath = Path.GetFullPath(localPath);
+
+            bool isDir = Directory.Exists(fullPath);
+            if (!isDir)
+            {
+                Directory.CreateDirectory(fullPath);
+            }
+
+            PreprocessResult result = new PreprocessResult {
+                FullPath = fullPath
+            };
+
+            if (context.Inputs.TryGetValue(ArtifactEventProperties.BuildId, out string buildId) && 
+                UInt32.TryParse(buildId, out uint value) &&
+                value != 0)
+            {
+                context.Output($"Download from the specified build: #{ value }");
+                result.BuildId = value;
+            }
+            else
+            {
+                context.Output("Download from the current build.");
+            }
+
+            return result;
+        }
+
+        protected override async Task ProcessCommandInternalAsync(
+            AgentTaskPluginExecutionContext context, 
+            Guid projectId, 
+            int buildId, 
+            string artifactName, 
+            PreprocessResult preprocResult,
+            CancellationToken token)
+        { 
+            // Download from VSTS BlobStore.
+            context.Output($"Download artifact to: {preprocResult.FullPath}");
+
+            // Overwrite build id if specified by the user
+            buildId = preprocResult.BuildId.HasValue ? (int)preprocResult.BuildId.Value : buildId;
+            BuildDropClient server = new BuildDropClient();
+            await server.DownloadDropArtifactAsync(context, context.VssConnection, projectId, buildId, artifactName, preprocResult.FullPath, token);
+            context.Output($"Download artifact finished.");
+        }
+    }
+
+    internal static class ArtifactEventProperties
+    {
+        // Properties set by plugins
+        public static readonly string RootId = "RootId";
+        public static readonly string ProofNodes = "ProofNodes";
+        // Properties set by tasks
+        public static readonly string ArtifactName = "artifactname";
+        public static readonly string TargetPath = "targetpath";
+        public static readonly string BuildId = "buildid";
+    }
+
+    public class PreprocessResult {
+        internal string FullPath { get; set; }
+        internal uint? BuildId { get; set; }
     }
 }

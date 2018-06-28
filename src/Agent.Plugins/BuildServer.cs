@@ -10,16 +10,18 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Agent.Plugins.Drop
 {
-    public class BuildServer
+    // A client wrapper interacting with TFS/Build's Artifact API
+    public class BuildServiceClient
     {
         private readonly BuildHttpClient _buildHttpClient;
 
-        public BuildServer(VssConnection connection)
+        public BuildServiceClient(VssConnection connection)
         {
             ArgUtil.NotNull(connection, nameof(connection));
             _buildHttpClient = connection.GetClient<BuildHttpClient>();
         }
 
+        // Associate the specified artifact with a build, along with custom data.
         public async Task<BuildArtifact> AssociateArtifact(
             Guid projectId,
             int buildId,
@@ -41,6 +43,16 @@ namespace Agent.Plugins.Drop
             };
 
             return await _buildHttpClient.CreateArtifactAsync(artifact, projectId, buildId, cancellationToken: cancellationToken);
+        }
+
+        // Get named artifact from a build
+        public async Task<BuildArtifact> GetArtifact(
+            Guid projectId,
+            int buildId,
+            string name,
+            CancellationToken cancellationToken = default(CancellationToken))
+        {
+            return await _buildHttpClient.GetArtifactAsync(projectId, buildId, name, null, cancellationToken);
         }
     }
 }
