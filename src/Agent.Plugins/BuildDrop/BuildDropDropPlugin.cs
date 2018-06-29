@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Agent.Sdk;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
@@ -13,10 +12,11 @@ using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Agent.Sdk;
 
-namespace Agent.Plugins.Drop
+namespace Agent.Plugins.BuildDrop
 {
-    public abstract class ArtifactDropTaskPlugin : IAgentTaskPlugin
+    public abstract class BuildDropTaskPluginBase : IAgentTaskPlugin
     {
         public abstract Guid Id { get; }
         public abstract string Version { get; }
@@ -72,12 +72,12 @@ namespace Agent.Plugins.Drop
     }
 
     // To be invoked by PublishBuildArtifacts task
-    public class PublishDropTask : ArtifactDropTaskPlugin
+    public class PublishBuildDropTask : BuildDropTaskPluginBase
     {
         // Same as: https://github.com/Microsoft/vsts-tasks/blob/master/Tasks/PublishBuildArtifacts/task.json
-        public override Guid Id => new Guid("2FF763A7-CE83-4E1F-BC89-0AE63477CEBE");
+        public override Guid Id => new Guid("ECDC45F6-832D-4AD9-B52B-EE49E94659BE");
 
-        public override string Version => "2.135.1";
+        public override string Version => "0.137.0";
 
         public override string Stage => "main";
 
@@ -157,12 +157,12 @@ namespace Agent.Plugins.Drop
     }
 
     // To be invoked by DownloadBuildArtifacts task
-    public class DownloadDropTask : ArtifactDropTaskPlugin
+    public class DownloadBuildDropTask : BuildDropTaskPluginBase
     {
         // Same as https://github.com/Microsoft/vsts-tasks/blob/master/Tasks/DownloadBuildArtifacts/task.json
-        public override Guid Id => new Guid("a433f589-fce1-4460-9ee6-44a624aeb1fb");
+        public override Guid Id => new Guid("61F2A582-95AE-4948-B34D-A1B3C4F6A737");
 
-        public override string Version => "1.135.1";
+        public override string Version => "0.137.0";
 
         public override string Stage => "main";
 

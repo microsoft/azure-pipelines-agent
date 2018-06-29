@@ -31,8 +31,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             "Agent.Plugins.Repository.CheckoutTask, Agent.Plugins",
             "Agent.Plugins.Repository.CleanupTask, Agent.Plugins",
-            "Agent.Plugins.Drop.DownloadDropTask, Agent.Plugins",
-            "Agent.Plugins.Drop.PublishDropTask, Agent.Plugins"
+            "Agent.Plugins.BuildDrop.DownloadBuildDropTask, Agent.Plugins",
+            "Agent.Plugins.BuildDrop.PublishBuildDropTask, Agent.Plugins"
         };
 
         private readonly HashSet<string> _commandPlugins = new HashSet<string>()

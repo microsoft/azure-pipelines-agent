@@ -1,14 +1,14 @@
-﻿using Microsoft.TeamFoundation.Core.WebApi;
-using Agent.Sdk;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.TeamFoundation.Core.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Agent.Sdk;
 
-namespace Agent.Plugins.Drop
+namespace Agent.Plugins.BuildDrop
 {
     // A client wrapper interacting with TFS/Build's Artifact API
     public class BuildServiceClient
