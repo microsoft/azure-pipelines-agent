@@ -11,11 +11,11 @@ using Agent.Sdk;
 namespace Agent.Plugins.BuildDrop
 {
     // A client wrapper interacting with TFS/Build's Artifact API
-    public class BuildServiceClient
+    public class BuildServer
     {
         private readonly BuildHttpClient _buildHttpClient;
 
-        public BuildServiceClient(VssConnection connection)
+        public BuildServer(VssConnection connection)
         {
             ArgUtil.NotNull(connection, nameof(connection));
             _buildHttpClient = connection.GetClient<BuildHttpClient>();
@@ -52,7 +52,7 @@ namespace Agent.Plugins.BuildDrop
             string name,
             CancellationToken cancellationToken = default(CancellationToken))
         {
-            return await _buildHttpClient.GetArtifactAsync(projectId, buildId, name, null, cancellationToken);
+            return await _buildHttpClient.GetArtifactAsync(projectId, buildId, name, userState: null, cancellationToken: cancellationToken);
         }
     }
 }
