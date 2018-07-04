@@ -46,7 +46,7 @@ namespace Agent.Plugins.BuildDrop
             BuildServer buildHelper = new BuildServer(connection);
             Dictionary<string, string> propertiesDictionary = new Dictionary<string, string>();
             propertiesDictionary.Add(RootId, result.RootId.ValueString);
-            propertiesDictionary.Add(ProofNodes, JsonConvert.SerializeObject(result.ProofNodes.ToArray()));
+            propertiesDictionary.Add(ProofNodes, StringUtil.ConvertToJson(result.ProofNodes.ToArray()));
             var artifact = await buildHelper.AssociateArtifact(projectId, buildId, name, ArtifactResourceTypes.Drop, result.ManifestId.ValueString, propertiesDictionary, cancellationToken);
             context.Output(StringUtil.Loc("AssociateArtifactWithBuild", artifact.Id, buildId));
         }

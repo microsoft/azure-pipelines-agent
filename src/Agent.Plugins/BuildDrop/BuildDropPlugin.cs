@@ -26,34 +26,20 @@ namespace Agent.Plugins.BuildDrop
         {
             ArgUtil.NotNull(context, nameof(context));
 
-            // Project ID
-            Guid projectId = new Guid(context.Variables.GetValueOrDefault(BuildVariables.TeamProjectId)?.Value ?? Guid.Empty.ToString());
-            ArgUtil.NotEmpty(projectId, nameof(projectId));
-
             // Artifact Name
-            string artifactName;
-            if (!context.Inputs.TryGetValue(ArtifactEventProperties.ArtifactName, out artifactName) ||
-                string.IsNullOrEmpty(artifactName))
-            {
-                throw new Exception(StringUtil.Loc("ArtifactNameRequired"));
-            }
+            string artifactName = context.GetInput(ArtifactEventProperties.ArtifactName, required: true);
 
             // Path
-            string targetPath;
-            if (!context.Inputs.TryGetValue(ArtifactEventProperties.TargetPath, out targetPath) ||
-                string.IsNullOrEmpty(targetPath))
-            {
-                throw new Exception(StringUtil.Loc("ArtifactLocationRequired"));
-            }
+            // TODO: Translate targetPath from container to host (Ting)
+            string targetPath = context.GetInput(ArtifactEventProperties.TargetPath, required: true);
 
-            await ProcessCommandInternalAsync(context, targetPath, projectId, artifactName, token);
+            await ProcessCommandInternalAsync(context, targetPath, artifactName, token);
         }
 
         // Process the command with preprocessed arguments.
         protected abstract Task ProcessCommandInternalAsync(
             AgentTaskPluginExecutionContext context, 
             string targetPath, 
-            Guid projectId,
             string artifactName, 
             CancellationToken token);
     }
@@ -68,26 +54,25 @@ namespace Agent.Plugins.BuildDrop
         protected override async Task ProcessCommandInternalAsync(
             AgentTaskPluginExecutionContext context, 
             string targetPath, 
-            Guid projectId,
             string artifactName,
             CancellationToken token)
         {
-            // Build ID - support publishing in a build run or a release run should the build drop be the artifact.
+            string hostType = context.Variables.GetValueOrDefault("system.hosttype")?.Value; 
+            if (!string.Equals(hostType, "Build", StringComparison.OrdinalIgnoreCase)) {
+                throw new InvalidOperationException(
+                    StringUtil.Loc("CannotUploadFromCurrentEnvironment", hostType ?? string.Empty)); 
+            }
+
+            // Project ID
+            Guid projectId = new Guid(context.Variables.GetValueOrDefault(BuildVariables.TeamProjectId)?.Value ?? Guid.Empty.ToString());
+            ArgUtil.NotEmpty(projectId, nameof(projectId));
+
+            // Build ID
             string buildIdStr = context.Variables.GetValueOrDefault(BuildVariables.BuildId)?.Value ?? string.Empty;
             if (!int.TryParse(buildIdStr, out int buildId))
             {
-                string hostType = context.Variables.GetValueOrDefault("system.hosttype")?.Value; 
-                if (string.Equals(hostType, "Release", StringComparison.OrdinalIgnoreCase)) {
-                    throw new InvalidOperationException(
-                        $"Trying to upload build drop in '{ hostType ?? string.Empty }' environment but build id is not present. " + 
-                        $"Can only upload to a build drop from '{ hostType ?? string.Empty }' environment if the artifact is a build."); 
-                } else if (!string.Equals(hostType, "Build", StringComparison.OrdinalIgnoreCase)) {
-                    throw new InvalidOperationException(
-                        $"Cannot upload to a build drop from '{ hostType ?? string.Empty }' environment."); 
-                } else {
-                    // This should not happen since the build id comes from build environment. But a user may override that so we must be careful.
-                    throw new ArgumentException($"Build Id is not valid: #{ buildIdStr }");
-                }
+                // This should not happen since the build id comes from build environment. But a user may override that so we must be careful.
+                throw new ArgumentException(StringUtil.Loc("BuildIdIsNotValid", buildIdStr));
             }
 
             string fullPath = Path.GetFullPath(targetPath);
@@ -105,10 +90,10 @@ namespace Agent.Plugins.BuildDrop
             }
 
             // Upload to VSTS BlobStore, and associate the artifact with the build.
-            context.Output($"Uploading drop from { fullPath } for build: { buildId }");
+            context.Output(StringUtil.Loc("UploadingBuildDrop", fullPath, buildId));
             BuildDropServer server = new BuildDropServer();
             await server.UploadDropArtifactAsync(context, projectId, buildId, artifactName, fullPath, token);
-            context.Output($"Finished drop uploading.");
+            context.Output(StringUtil.Loc("UploadArtifactFinished"));
         }
     }
 
@@ -122,7 +107,6 @@ namespace Agent.Plugins.BuildDrop
         protected override async Task ProcessCommandInternalAsync(
             AgentTaskPluginExecutionContext context, 
             string targetPath, 
-            Guid projectId,
             string artifactName,
             CancellationToken token)
         {
@@ -134,50 +118,49 @@ namespace Agent.Plugins.BuildDrop
                 Directory.CreateDirectory(fullPath);
             }
 
+            // Project ID
+            // TODO: use a constant for project id, which is currently defined in Microsoft.VisualStudio.Services.Agent.Constants.Variables.System.TeamProjectId (Ting)
+            string guidStr = context.Variables.GetValueOrDefault("system.teamProjectId")?.Value;
+            Guid.TryParse(guidStr, out Guid projectId);
+            ArgUtil.NotEmpty(projectId, nameof(projectId));
+
             // Build ID
             int buildId = 0;
-            string buildIdStr = string.Empty;
+            string buildIdStr = context.GetInput(ArtifactEventProperties.BuildId, required: false);
             // Determine the build id
-            if (context.Inputs.TryGetValue(ArtifactEventProperties.BuildId, out buildIdStr) && 
-                Int32.TryParse(buildIdStr, out buildId) &&
-                buildId != 0)
+            if (Int32.TryParse(buildIdStr, out buildId) && buildId != 0)
             {
                 // A) Build Id provided by user input
-                context.Output($"Download from the specified build: #{ buildId }");
+                context.Output(StringUtil.Loc("DownloadingFromBuild", buildId));
             }
             else
             {
                 // B) Build Id provided by environment
                 buildIdStr = context.Variables.GetValueOrDefault(BuildVariables.BuildId)?.Value ?? string.Empty;
-                if (int.TryParse(buildIdStr, out buildId) &&
-                    buildId != 0)
+                if (int.TryParse(buildIdStr, out buildId) && buildId != 0)
                 {
-                    context.Output($"Download from the current build: #{ buildId }");
+                    context.Output(StringUtil.Loc("DownloadingFromBuild", buildId));
                 }
                 else
                 {
                     string hostType = context.Variables.GetValueOrDefault("system.hosttype")?.Value; 
-                    if (string.Equals(hostType, "Release", StringComparison.OrdinalIgnoreCase)) {
-                        throw new InvalidOperationException(
-                            $"Trying to download build drop in '{ hostType ?? string.Empty }' environment but build id is not present. " + 
-                            $"Can only download a build drop in '{ hostType ?? string.Empty }' environment if the artifact is a build."); 
+                    if (string.Equals(hostType, "Release", StringComparison.OrdinalIgnoreCase) || 
+                        string.Equals(hostType, "DeploymentGroup", StringComparison.OrdinalIgnoreCase)) {
+                        throw new InvalidOperationException(StringUtil.Loc("BuildIdIsNotAvailable", hostType ?? string.Empty)); 
                     } else if (!string.Equals(hostType, "Build", StringComparison.OrdinalIgnoreCase)) {
-                        throw new InvalidOperationException(
-                            $"Cannot download a build drop from '{ hostType ?? string.Empty }' environment."); 
+                        throw new InvalidOperationException(StringUtil.Loc("CannotDownloadFromCurrentEnvironment", hostType ?? string.Empty));
                     } else {
                         // This should not happen since the build id comes from build environment. But a user may override that so we must be careful.
-                        throw new ArgumentException($"Build Id is not valid: #{ buildIdStr }");
+                        throw new ArgumentException(StringUtil.Loc("BuildIdIsNotValid", buildIdStr));
                     }
                 }
             }
 
-            // Download from VSTS BlobStore.
-            context.Output($"Download artifact to: { targetPath }");
-
-            // Overwrite build id if specified by the user
+            // Download from VSTS BlobStore
+            context.Output(StringUtil.Loc("DownloadArtifactTo", targetPath));
             BuildDropServer server = new BuildDropServer();
             await server.DownloadDropArtifactAsync(context, projectId, buildId, artifactName, targetPath, token);
-            context.Output($"Download artifact finished.");
+            context.Output(StringUtil.Loc("DownloadArtifactFinished"));
         }
     }
 

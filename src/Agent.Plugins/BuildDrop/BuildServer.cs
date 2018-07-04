@@ -52,7 +52,7 @@ namespace Agent.Plugins.BuildDrop
             string name,
             CancellationToken cancellationToken = default(CancellationToken))
         {
-            return await _buildHttpClient.GetArtifactAsync(projectId, buildId, name, userState: null, cancellationToken: cancellationToken);
+            return await _buildHttpClient.GetArtifactAsync(projectId, buildId, name, cancellationToken: cancellationToken);
         }
     }
 }
