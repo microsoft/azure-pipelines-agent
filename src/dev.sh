@@ -31,7 +31,11 @@ fi
 
 RUNTIME_ID='win-x64'
 if [[ "$CURRENT_PLATFORM" == 'linux' ]]; then
-   RUNTIME_ID='linux-x64'
+   if [[ (`uname -m` == arm*) ]]; then
+       RUNTIME_ID='linux-arm'
+   else
+       RUNTIME_ID='linux-x64'
+   fi
 elif [[ "$CURRENT_PLATFORM" == 'darwin' ]]; then
    RUNTIME_ID='osx-x64'
 fi
