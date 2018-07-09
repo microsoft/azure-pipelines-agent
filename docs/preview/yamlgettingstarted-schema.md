@@ -5,22 +5,24 @@
 At a high level, the structure of the YAML document is:
 
 ```
-└───phases
-    ├───phase
-    │   ├───queue|server
-    │   ├───variables
-    │   └───steps
-    │       ├───step # e.g. script: echo hello world
-    │       └───[...]
-    │
-    └───[...]
+stages
+├───stage
+│   └───jobs
+│       ├───job
+│       │   └───steps
+│       │       ├───step # e.g. script: echo hello world
+│       │       └───[...]
+│       │
+│       └───[...]
+│
+└───[...]
 ```
 
 ## Level inference
 
 In the spirit of simplicity, the YAML file is not required to define the schema hierarchy.
 
-For example, a very simple pipeline may only define steps (one phase implied):
+For example, a very simple pipeline may only define steps. The stage and job are implied:
 
 ```yaml
 steps:
@@ -28,7 +30,7 @@ steps:
 - script: echo hello world from script 2
 ```
 
-In short, at the top of the file, properties for a single phase can be specified without defining an array of phases.
+In short, at the top of the file, properties for a single stage or job can be specified without defining an array of stages or jobs.
 
 ## Schema reference
 
@@ -42,19 +44,29 @@ resources:
   containers: [ container ]
   repositories: [ repository ]
 variables: { string: string } | variable
-phases: [ phase | templateReference ]
+stages: [ stage | templateReference ]
 ```
 
-### phase
+### stage
 
 ```yaml
-- phase: string # name
+- stage: string # name
+  displayName: string
+  dependsOn: string | [ string ]
+  condition: string
+  variables: { string: string } | [ variable ]
+  jobs: [ job | templateReference ]
+```
+
+### job
+
+```yaml
+- job: string # name
   displayName: string
   dependsOn: string | [ string ]
   condition: string
   continueOnError: true | false
-  queue: string | queue
-  server: true | server
+  pool: string | pool
   strategy:
     maxParallel: number
     matrix: { string: { string: string } }
@@ -141,24 +153,12 @@ OR
   env: { string: string }
 ```
 
-### queue
+### pool
 
 ```yaml
 name: string
+image: string # Supported by the Hosted pool
 demands: string | [ string ] # Supported by private pools
-timeoutInMinutes: number
-cancelTimeoutInMinutes: number
-parallel: number
-matrix: { string: { string: string } }
-```
-
-### server
-
-```yaml
-timeoutInMinutes: number
-cancelTimeoutInMinutes: number
-parallel: number
-matrix: { string: { string: string } }
 ```
 
 ### templateReference

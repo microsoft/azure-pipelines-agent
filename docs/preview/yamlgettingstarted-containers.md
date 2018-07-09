@@ -1,6 +1,6 @@
 # YAML getting started - Containers
 
-When using an agent pool, a phase can specify a `container` to use. The agent will start
+When using an agent pool, a job can specify a `container` to use. The agent will start
 an instance of the container, and will run the steps inside the container.
 
 For example:
@@ -10,15 +10,15 @@ resources:
   containers:
   - container: dev
     image: ubuntu:16.04
-queue:
-  container: dev
+pool: MyPool
+container: dev
 steps:
 - script: printenv
 ```
 
 ## With a matrix strategy
 
-A matrix can be used to run a phase multiple times, using different containers.
+A matrix can be used to run a job multiple times, using different containers.
 The variables defined by the matrix can be used to specify the container resource.
 
 For example:
@@ -45,7 +45,7 @@ resources:
       envVariable1: envValue1
       envVariable2: envValue2
 
-queue:
+strategy:
   matrix:
     ubuntu14:
       containerResource: u14
@@ -55,7 +55,8 @@ queue:
       containerResource: u16
     ubuntu16_local:
       containerResource: u16_local
-  container: $[ variables['containerResource'] ]
+
+container: $[ variables['containerResource'] ]
 
 steps:
   - script: printenv

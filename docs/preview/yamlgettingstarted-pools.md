@@ -1,32 +1,32 @@
 # YAML getting started - Pools
 
-When a phase is started, it is assigned to run on a specific pool.
+When a job is started, it is assigned to run on a specific pool.
 
-## Hosted pools
+## Hosted pool
 
-The VSTS hosted pool has multiple images to choose from:
-- Hosted VS2017
-- Hosted
-- Hosted macOS Preview
-- Hosted Linux Preview
-
-For example:
+The VSTS hosted pool has several images to choose from:
+- VS2017
+- VS2015
+- Xcode9
+- Ubuntu18
 
 ```yaml
-queue: Hosted VS2017
+pool:
+  name: Hosted
+  image: VS2017
 steps:
 - script: echo hello world
 ```
 
 ## Private pools
 
-Private pools support `demands`, which can be used to route the phase to an available agent
+Private pools support `demands`, which can be used to route the job to an available agent
 within the pool. The demands are matched against agent capabilities.
 
 For example:
 
 ```yaml
-queue:
+pool:
   name: MyPool
   demands: agent.os -equals Windows_NT
 steps:
@@ -36,7 +36,7 @@ steps:
 Another example:
 
 ```yaml
-queue:
+pool:
   name: MyPool
   demands:
   - agent.os -equals Darwin
@@ -53,7 +53,7 @@ Only a subset of tasks can run on the server pool.
 For example:
 
 ```yaml
-server: true
+pool: server
 steps:
 - task: InvokeRestApi@1
   inputs:

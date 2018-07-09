@@ -42,8 +42,6 @@ YAML builds require the latest agent. When a YAML build is queued, your agent wi
 
 [Secret variables](yamlgettingstarted-secretvariables.md)
 
-[Output variables](yamlgettingstarted-outputvariables.md)
-
 [OAuth token for scripts](yamlgettingstarted-token.md)
 
 ## Resources
@@ -56,7 +54,7 @@ YAML builds require the latest agent. When a YAML build is queued, your agent wi
 
 <!-- todo: [Variable groups](yamlgettingstarted-variablegroups.md) -->
 
-## Phases
+## Jobs
 
 [Options](yamlgettingstarted-job.md)
 
@@ -66,7 +64,7 @@ YAML builds require the latest agent. When a YAML build is queued, your agent wi
 
 [Strategies](yamlgettingstarted-strategies.md)
 
-[Multiple phases](yamlgettingstarted-jobs.md)
+[Multiple jobs](yamlgettingstarted-jobs.md)
 
 [Output variables](yamlgettingstarted-outputvariables.md)
 

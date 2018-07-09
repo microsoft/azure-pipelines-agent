@@ -1,48 +1,53 @@
 # YAML getting started - Output variables
 
-Output variables can be used to set a variable in one phase, and then use the variable in a downstream phase.
+Output variables enable setting a variable in one job, that can be used in a downstream job.
 
 ## Mapping an output variable
 
-Output variables must be explicitly be mapped into downstream phases.
+Output variables must be mapped into downstream jobs.
 
 They are prefixed with the name of the step that set the variable.
 
-Note, outputs can only be referenced from phases which listed as direct dependencies.
+Note, outputs can only be referenced from jobs which listed as direct dependencies.
 
 ```yaml
-phases:
+jobs:
 
-# Set an output variable from phase A
-- phase: A
-  queue: Hosted VS2017
-  steps: 
+# Set an output variable from job A
+- job: A
+  pool:
+    name: Hosted
+    image: VS2017
+  steps:
   - powershell: echo "##vso[task.setvariable variable=myOutputVar;isOutput=true]this is the value"
     name: setvar
   - script: echo $(setvar.myOutputVar)
     name: echovar
 
-# Map the variable into phase B
-- phase: B
+# Map the variable into job B
+- job: B
   dependsOn: A
-  queue: Hosted Linux Preview
+  pool:
+    name: Hosted
+    image: Ubuntu18
   variables:
-    myVarFromPhaseA: $[ dependencies.A.outputs['setvar.myOutputVar'] ]
+    myVarFromJobA: $[ dependencies.A.outputs['setvar.myOutputVar'] ]
   steps:
-  - script: echo $(myVarFromPhaseA)
+  - script: echo $(myVarFromJobA)
     name: echovar
 ```
 
 ## Mapping an output variable from a matrix
 
 ```yaml
-phases:
+jobs:
 
-# Set an output variable from a phase with a matrix
-- phase: A
-  queue:
-    name: Hosted Linux Preview
-    parallel: 2
+# Set an output variable from a job with a matrix
+- job: A
+  pool:
+    name: Hosted
+    image: Ubuntu18
+  strategy:
     matrix:
       debug:
         configuration: debug
@@ -57,39 +62,45 @@ phases:
     name: echovar
 
 # Map the variable from the debug job
-- phase: B
+- job: B
   dependsOn: A
-  queue: Hosted Linux Preview
+  pool:
+    name: Hosted
+    image: Ubuntu18
   variables:
-    myVarFromPhaseADebug: $[ dependencies.A.outputs['debug.setvar.myOutputVar'] ]
+    myVarFromJobADebug: $[ dependencies.A.outputs['debug.setvar.myOutputVar'] ]
   steps:
-  - script: echo $(myVarFromPhaseADebug)
+  - script: echo $(myVarFromJobADebug)
     name: echovar
 ```
 
 ## Mapping an output variable from a slice
 
 ```yaml
-phases:
+jobs:
 
-# Set an output variable from a phase with slicing
-- phase: A
-  queue:
-    name: Hosted Linux Preview
-    parallel: 2 # Two slices
+# Set an output variable from a job with slicing
+- job: A
+  pool:
+    name: Hosted
+    image: Ubuntu18
+  strategy:
+    slice: 2
   steps:
-  - script: echo "##vso[task.setvariable variable=myOutputVar;isOutput=true]this is the slice $(system.jobPositionInPhase) value"
+  - script: echo "##vso[task.setvariable variable=myOutputVar;isOutput=true]this is the slice $(system.sliceNumber) value"
     name: setvar
   - script: echo $(setvar.myOutputVar)
     name: echovar
 
 # Map the variable from the job for the first slice
-- phase: B
+- job: B
   dependsOn: A
-  queue: Hosted Linux Preview
+  pool:
+    name: Hosted
+    image: Ubuntu18
   variables:
-    myVarFromPhaseA1: $[ dependencies.A.outputs['job1.setvar.myOutputVar'] ]
+    myVarFromJobA1: $[ dependencies.A.outputs['job1.setvar.myOutputVar'] ]
   steps:
-  - script: "echo $(myVarFromPhaseA1)"
+  - script: "echo $(myVarFromJobA1)"
     name: echovar
 ```
