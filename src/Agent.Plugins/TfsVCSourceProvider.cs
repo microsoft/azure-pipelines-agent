@@ -17,8 +17,6 @@ namespace Agent.Plugins.Repository
 {
     public sealed class TfsVCSourceProvider : ISourceProvider
     {
-        private bool _undoShelvesetPendingChanges = false;
-
         public async Task GetSourceAsync(
             AgentTaskPluginExecutionContext executionContext,
             Pipelines.RepositoryResource repository,
@@ -49,7 +47,7 @@ namespace Agent.Plugins.Repository
             {
                 // the endpoint should either be the SystemVssConnection (id = guild.empty, name = SystemVssConnection)
                 // or a real service endpoint to external service which has a real id
-                var endpoint = executionContext.Endpoints.Single(x => (x.Id == Guid.Empty && x.Name == repository.Endpoint.Name) || (x.Id != Guid.Empty && x.Id == repository.Endpoint.Id));
+                var endpoint = executionContext.Endpoints.Single(x => (repository.Endpoint.Id != Guid.Empty && x.Id == repository.Endpoint.Id) || (repository.Endpoint.Id == Guid.Empty && string.Equals(x.Name, repository.Endpoint.Name, StringComparison.OrdinalIgnoreCase)));
                 ArgUtil.NotNull(endpoint, nameof(endpoint));
                 tf.Endpoint = endpoint;
             }
@@ -75,7 +73,7 @@ namespace Agent.Plugins.Repository
 
             // prepare client cert, if the repository's endpoint url match the TFS/VSTS url
             var systemConnection = executionContext.Endpoints.Single(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
-            if (!string.IsNullOrEmpty(agentCertManager.ClientCertificateFile) &&
+            if (!string.IsNullOrEmpty(agentCertManager?.ClientCertificateFile) &&
                 Uri.Compare(repository.Url, systemConnection.Url, UriComponents.SchemeAndServer, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase) == 0)
             {
                 executionContext.Debug($"Configure '{tf.FilePath}' to work with client cert '{agentCertManager.ClientCertificateFile}'.");
@@ -139,17 +137,17 @@ namespace Agent.Plugins.Repository
             executionContext.SetVariable("build.repository.tfvc.workspace", workspaceName);
 
             // Get the definition mappings.
-            DefinitionWorkspaceMapping[] definitionMappings =
-                JsonConvert.DeserializeObject<DefinitionWorkspaceMappings>(repository.Properties.Get<string>(EndpointData.TfvcWorkspaceMapping))?.Mappings;
+            var workspaceMappings = repository.Properties.Get<IList<Pipelines.WorkspaceMapping>>(Pipelines.RepositoryPropertyNames.Mappings);
+            DefinitionWorkspaceMapping[] definitionMappings = workspaceMappings.Select(x => new DefinitionWorkspaceMapping() { ServerPath = x.ServerPath, LocalPath = x.LocalPath, MappingType = x.Exclude ? DefinitionMappingType.Cloak : DefinitionMappingType.Map }).ToArray();
 
             // Determine the sources directory.
-            string sourcesDirectory = repository.Properties.Get<string>("sourcedirectory");
+            string sourcesDirectory = repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
             ArgUtil.NotNullOrEmpty(sourcesDirectory, nameof(sourcesDirectory));
 
             // Attempt to re-use an existing workspace if the command manager supports scorch
             // or if clean is not specified.
             ITfsVCWorkspace existingTFWorkspace = null;
-            bool clean = StringUtil.ConvertToBoolean(repository.Properties.Get<string>(EndpointData.Clean));
+            bool clean = StringUtil.ConvertToBoolean(executionContext.GetInput(Pipelines.PipelineConstants.CheckoutTaskInputs.Clean));
             if (tf.Features.HasFlag(TfsVCFeatures.Scorch) || !clean)
             {
                 existingTFWorkspace = WorkspaceUtil.MatchExactWorkspace(
@@ -305,12 +303,12 @@ namespace Agent.Plugins.Repository
             }
 
             // Steps for shelveset/gated.
-            string shelvesetName = repository.Properties.Get<string>("SourceTfvcShelveset");
+            string shelvesetName = repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Shelveset);
             if (!string.IsNullOrEmpty(shelvesetName))
             {
                 // Steps for gated.
                 ITfsVCShelveset tfShelveset = null;
-                string gatedShelvesetName = repository.Properties.Get<string>("GatedShelvesetName");
+                string gatedShelvesetName = executionContext.Variables.GetValueOrDefault("build.gated.shelvesetname")?.Value;
                 if (!string.IsNullOrEmpty(gatedShelvesetName))
                 {
                     // Clean the last-saved-checkin-metadata for existing workspaces.
@@ -377,13 +375,13 @@ namespace Agent.Plugins.Repository
                 await tf.UnshelveAsync(shelveset: shelvesetName);
 
                 // Ensure we undo pending changes for shelveset build at the end.
-                _undoShelvesetPendingChanges = true;
+                executionContext.SetTaskVariable("UndoShelvesetPendingChanges", bool.TrueString);
 
                 if (!string.IsNullOrEmpty(gatedShelvesetName))
                 {
                     // Create the comment file for reshelve.
                     StringBuilder comment = new StringBuilder(tfShelveset.Comment ?? string.Empty);
-                    string runCi = repository.Properties.Get<string>("GatedRunCI");
+                    string runCi = executionContext.Variables.GetValueOrDefault("build.gated.runci")?.Value;
                     bool gatedRunCi = StringUtil.ConvertToBoolean(runCi, true);
                     if (!gatedRunCi)
                     {
@@ -421,13 +419,17 @@ namespace Agent.Plugins.Repository
                 executionContext.Debug($"Remove proxy setting for '{tf.FilePath}' to work through proxy server '{agentProxy.ProxyAddress}'.");
                 tf.CleanupProxySetting();
             }
+
+            // Set intra-task variable for post job cleanup
+            executionContext.SetTaskVariable("repository", repository.Alias);
         }
 
         public async Task PostJobCleanupAsync(AgentTaskPluginExecutionContext executionContext, Pipelines.RepositoryResource repository)
         {
-            if (_undoShelvesetPendingChanges)
+            bool undoShelvesetPendingChanges = StringUtil.ConvertToBoolean(executionContext.TaskVariables.GetValueOrDefault("UndoShelvesetPendingChanges")?.Value);
+            if (undoShelvesetPendingChanges)
             {
-                string shelvesetName = repository.Properties.Get<string>("SourceTfvcShelveset");
+                string shelvesetName = repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Shelveset);
                 executionContext.Debug($"Undo pending changes left by shelveset '{shelvesetName}'.");
 
                 // Create the tf command manager.
@@ -443,17 +445,17 @@ namespace Agent.Plugins.Repository
                 {
                     // the endpoint should either be the SystemVssConnection (id = guild.empty, name = SystemVssConnection)
                     // or a real service endpoint to external service which has a real id
-                    var endpoint = executionContext.Endpoints.Single(x => (x.Id == Guid.Empty && x.Name == repository.Endpoint.Name) || (x.Id != Guid.Empty && x.Id == repository.Endpoint.Id));
+                    var endpoint = executionContext.Endpoints.Single(x => (repository.Endpoint.Id != Guid.Empty && x.Id == repository.Endpoint.Id) || (repository.Endpoint.Id == Guid.Empty && string.Equals(x.Name, repository.Endpoint.Name, StringComparison.OrdinalIgnoreCase)));
                     ArgUtil.NotNull(endpoint, nameof(endpoint));
                     tf.Endpoint = endpoint;
                 }
 
                 // Get the definition mappings.
-                DefinitionWorkspaceMapping[] definitionMappings =
-                    JsonConvert.DeserializeObject<DefinitionWorkspaceMappings>(repository.Properties.Get<string>(EndpointData.TfvcWorkspaceMapping))?.Mappings;
+                var workspaceMappings = repository.Properties.Get<IList<Pipelines.WorkspaceMapping>>(Pipelines.RepositoryPropertyNames.Mappings);
+                DefinitionWorkspaceMapping[] definitionMappings = workspaceMappings.Select(x => new DefinitionWorkspaceMapping() { ServerPath = x.ServerPath, LocalPath = x.LocalPath, MappingType = x.Exclude ? DefinitionMappingType.Cloak : DefinitionMappingType.Map }).ToArray();
 
                 // Determine the sources directory.
-                string sourcesDirectory = repository.Properties.Get<string>("sourcedirectory");
+                string sourcesDirectory = repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
                 ArgUtil.NotNullOrEmpty(sourcesDirectory, nameof(sourcesDirectory));
 
                 try
@@ -650,6 +652,7 @@ namespace Agent.Plugins.Repository
 
                     // Compare the mappings.
                     bool allMatch = true;
+                    List<string> matchTrace = new List<string>();
                     for (int i = 0; i < sortedTFMappings.Count; i++)
                     {
                         ITfsVCMapping tfMapping = sortedTFMappings[i];
@@ -659,7 +662,7 @@ namespace Agent.Plugins.Repository
                         bool expectedCloak = definitionMapping.MappingType == DefinitionMappingType.Cloak;
                         if (tfMapping.Cloak != expectedCloak)
                         {
-                            executionContext.Debug($"Expected mapping[{i}] cloak: '{expectedCloak}'. Actual: '{tfMapping.Cloak}'");
+                            matchTrace.Add(StringUtil.Loc("ExpectedMappingCloak", i, expectedCloak, tfMapping.Cloak));
                             allMatch = false;
                             break;
                         }
@@ -667,7 +670,7 @@ namespace Agent.Plugins.Repository
                         // Compare the recursive flag.
                         if (!expectedCloak && tfMapping.Recursive != definitionMapping.Recursive)
                         {
-                            executionContext.Debug($"Expected mapping[{i}] recursive: '{definitionMapping.Recursive}'. Actual: '{tfMapping.Recursive}'");
+                            matchTrace.Add(StringUtil.Loc("ExpectedMappingRecursive", i, definitionMapping.Recursive, tfMapping.Recursive));
                             allMatch = false;
                             break;
                         }
@@ -676,7 +679,7 @@ namespace Agent.Plugins.Repository
                         string expectedServerPath = definitionMapping.NormalizedServerPath;
                         if (!string.Equals(tfMapping.ServerPath, expectedServerPath, StringComparison.Ordinal))
                         {
-                            executionContext.Debug($"Expected mapping[{i}] server path: '{expectedServerPath}'. Actual: '{tfMapping.ServerPath}'");
+                            matchTrace.Add(StringUtil.Loc("ExpectedMappingServerPath", i, expectedServerPath, tfMapping.ServerPath));
                             allMatch = false;
                             break;
                         }
@@ -687,7 +690,7 @@ namespace Agent.Plugins.Repository
                             string expectedLocalPath = definitionMapping.GetRootedLocalPath(sourcesDirectory);
                             if (!string.Equals(tfMapping.LocalPath, expectedLocalPath, StringComparison.Ordinal))
                             {
-                                executionContext.Debug($"Expected mapping[{i}] local path: '{expectedLocalPath}'. Actual: '{tfMapping.LocalPath}'");
+                                matchTrace.Add(StringUtil.Loc("ExpectedMappingLocalPath", i, expectedLocalPath, tfMapping.LocalPath));
                                 allMatch = false;
                                 break;
                             }
@@ -699,16 +702,19 @@ namespace Agent.Plugins.Repository
                         executionContext.Debug("Matching workspace found.");
                         return tfWorkspace;
                     }
+                    else
+                    {
+                        executionContext.Output(StringUtil.Loc("WorkspaceMappingNotMatched", tfWorkspace.Name));
+                        foreach (var trace in matchTrace)
+                        {
+                            executionContext.Output(trace);
+                        }
+                    }
                 }
 
                 executionContext.Debug("Matching workspace not found.");
                 return null;
             }
-        }
-
-        public sealed class DefinitionWorkspaceMappings
-        {
-            public DefinitionWorkspaceMapping[] Mappings { get; set; }
         }
 
         public sealed class DefinitionWorkspaceMapping

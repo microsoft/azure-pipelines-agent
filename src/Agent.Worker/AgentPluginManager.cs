@@ -18,7 +18,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         AgentTaskPluginInfo GetPluginTask(Guid taskId, string taskVersion);
         AgentCommandPluginInfo GetPluginCommad(string commandArea, string commandEvent);
-        Task RunPluginTaskAsync(IExecutionContext context, string plugin, Dictionary<string, string> inputs, Dictionary<string, string> environment, EventHandler<ProcessDataReceivedEventArgs> outputHandler);
+        Task RunPluginTaskAsync(IExecutionContext context, string plugin, Dictionary<string, string> inputs, Dictionary<string, string> environment, Variables runtimeVariables, EventHandler<ProcessDataReceivedEventArgs> outputHandler);
         void ProcessCommand(IExecutionContext context, Command command);
     }
 
@@ -30,13 +30,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private readonly HashSet<string> _taskPlugins = new HashSet<string>()
         {
             "Agent.Plugins.Repository.CheckoutTask, Agent.Plugins",
-            "Agent.Plugins.Repository.CleanupTask, Agent.Plugins"
+            "Agent.Plugins.Repository.CleanupTask, Agent.Plugins",
+            "Agent.Plugins.BuildDrop.DownloadBuildDropTask, Agent.Plugins",
+            "Agent.Plugins.BuildDrop.PublishBuildDropTask, Agent.Plugins"
         };
 
-        private readonly HashSet<string> _commandPlugins = new HashSet<string>()
-        {
-            "Agent.Plugins.Drop.ArtifactUploadCommand, Agent.Plugins"
-        };
+        private readonly HashSet<string> _commandPlugins = new HashSet<string>();
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -142,7 +141,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public async Task RunPluginTaskAsync(IExecutionContext context, string plugin, Dictionary<string, string> inputs, Dictionary<string, string> environment, EventHandler<ProcessDataReceivedEventArgs> outputHandler)
+        public async Task RunPluginTaskAsync(IExecutionContext context, string plugin, Dictionary<string, string> inputs, Dictionary<string, string> environment, Variables runtimeVariables, EventHandler<ProcessDataReceivedEventArgs> outputHandler)
         {
             ArgUtil.NotNullOrEmpty(plugin, nameof(plugin));
 
@@ -171,11 +170,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Endpoints = context.Endpoints
             };
             // variables
-            foreach (var publicVar in context.Variables.Public)
+            foreach (var publicVar in runtimeVariables.Public)
             {
                 pluginContext.Variables[publicVar.Key] = publicVar.Value;
             }
-            foreach (var publicVar in context.Variables.Private)
+            foreach (var publicVar in runtimeVariables.Private)
             {
                 pluginContext.Variables[publicVar.Key] = new VariableValue(publicVar.Value, true);
             }

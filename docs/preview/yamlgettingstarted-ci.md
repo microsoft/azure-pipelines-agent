@@ -1,4 +1,4 @@
-# YAML getting started - YAML triggers
+# YAML getting started - Continuous integration
 
 Continuous integration builds are on by default for all branches.
 

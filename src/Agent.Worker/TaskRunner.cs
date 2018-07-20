@@ -54,8 +54,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var taskManager = HostContext.GetService<ITaskManager>();
             var handlerFactory = HostContext.GetService<IHandlerFactory>();
 
-            // Set the task display name variable.
+            // Set the task id and display name variable.
             ExecutionContext.Variables.Set(Constants.Variables.Task.DisplayName, DisplayName);
+            ExecutionContext.Variables.Set(WellKnownDistributedTaskVariables.TaskInstanceId, Task.Id.ToString("D"));
+            ExecutionContext.Variables.Set(WellKnownDistributedTaskVariables.TaskDisplayName, DisplayName);
+            ExecutionContext.Variables.Set(WellKnownDistributedTaskVariables.TaskInstanceName, Task.Name);
 
             // Load the task definition and choose the handler.
             // TODO: Add a try catch here to give a better error message.
@@ -95,7 +98,49 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 .FirstOrDefault();
             if (handlerData == null)
             {
-                throw new Exception(StringUtil.Loc("SupportedTaskHandlerNotFound"));
+#if OS_WINDOWS
+                throw new Exception(StringUtil.Loc("SupportedTaskHandlerNotFoundWindows", Constants.Agent.Platform));
+#else
+                throw new Exception(StringUtil.Loc("SupportedTaskHandlerNotFoundLinux"));
+#endif
+            }
+
+            Variables runtimeVariables = ExecutionContext.Variables;
+            IStepHost stepHost = HostContext.CreateService<IDefaultStepHost>();
+
+            // Setup container stephost and the right runtime variables for running job inside container.
+            if (ExecutionContext.Container != null)
+            {
+                if (handlerData is AgentPluginHandlerData)
+                {
+                    // plugin handler always runs on the Host, the rumtime variables needs to the variable works on the Host, ex: file path variable System.DefaultWorkingDirectory
+                    Dictionary<string, VariableValue> variableCopy = new Dictionary<string, VariableValue>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var publicVar in ExecutionContext.Variables.Public)
+                    {
+                        variableCopy[publicVar.Key] = new VariableValue(ExecutionContext.Container.TranslateToHostPath(publicVar.Value));
+                    }
+                    foreach (var secretVar in ExecutionContext.Variables.Private)
+                    {
+                        variableCopy[secretVar.Key] = new VariableValue(ExecutionContext.Container.TranslateToHostPath(secretVar.Value), true);
+                    }
+
+                    List<string> expansionWarnings;
+                    runtimeVariables = new Variables(HostContext, variableCopy, out expansionWarnings);
+                    expansionWarnings?.ForEach(x => ExecutionContext.Warning(x));
+                }
+                else if (handlerData is NodeHandlerData || handlerData is PowerShell3HandlerData)
+                {
+                    // Only node handler and powershell3 handler support running inside container. 
+                    // Make sure required container is already created.
+                    ArgUtil.NotNullOrEmpty(ExecutionContext.Container.ContainerId, nameof(ExecutionContext.Container.ContainerId));
+                    var containerStepHost = HostContext.CreateService<IContainerStepHost>();
+                    containerStepHost.Container = ExecutionContext.Container;
+                    stepHost = containerStepHost;
+                }
+                else
+                {
+                    throw new NotSupportedException(String.Format("Task '{0}' is using legacy execution handler '{1}' which is not supported in container execution flow.", definition.Data.FriendlyName, handlerData.GetType().ToString()));
+                }
             }
 
             // Load the default input values from the definition.
@@ -123,7 +168,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Expand the inputs.
             Trace.Verbose("Expanding inputs.");
-            ExecutionContext.Variables.ExpandValues(target: inputs);
+            runtimeVariables.ExpandValues(target: inputs);
             VarUtil.ExpandEnvironmentVariables(HostContext, target: inputs);
 
             // Translate the server file path inputs to local paths.
@@ -132,7 +177,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 if (string.Equals(input.InputType, TaskInputType.FilePath, StringComparison.OrdinalIgnoreCase))
                 {
                     Trace.Verbose($"Translating file path input '{input.Name}': '{inputs[input.Name]}'");
-                    inputs[input.Name] = TranslateFilePathInput(inputs[input.Name] ?? string.Empty);
+                    inputs[input.Name] = stepHost.ResolvePathForStepHost(TranslateFilePathInput(inputs[input.Name] ?? string.Empty));
                     Trace.Verbose($"Translated file path input '{input.Name}': '{inputs[input.Name]}'");
                 }
             }
@@ -151,13 +196,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Expand the inputs.
             Trace.Verbose("Expanding task environment.");
-            ExecutionContext.Variables.ExpandValues(target: environment);
+            runtimeVariables.ExpandValues(target: environment);
             VarUtil.ExpandEnvironmentVariables(HostContext, target: environment);
 
             // Expand the handler inputs.
             Trace.Verbose("Expanding handler inputs.");
             VarUtil.ExpandValues(HostContext, source: inputs, target: handlerData.Inputs);
-            ExecutionContext.Variables.ExpandValues(target: handlerData.Inputs);
+            runtimeVariables.ExpandValues(target: handlerData.Inputs);
 
             // Get each endpoint ID referenced by the task.
             var endpointIds = new List<Guid>();
@@ -181,6 +226,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
                 }
+            }
+
+            if (endpointIds.Count > 0 &&
+                (runtimeVariables.GetBoolean(WellKnownDistributedTaskVariables.RestrictSecrets) ?? false) &&
+                (runtimeVariables.GetBoolean(Microsoft.TeamFoundation.Build.WebApi.BuildVariables.IsFork) ?? false))
+            {
+                ExecutionContext.Result = TaskResult.Skipped;
+                ExecutionContext.ResultCode = $"References service endpoint. PRs from repository forks are not allowed to access secrets in the pipeline. For more information see https://go.microsoft.com/fwlink/?linkid=862029 ";
+                return;
             }
 
             // Get the endpoints referenced by the task.
@@ -225,6 +279,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
             }
 
+            if (secureFileIds.Count > 0 &&
+                (runtimeVariables.GetBoolean(WellKnownDistributedTaskVariables.RestrictSecrets) ?? false) &&
+                (runtimeVariables.GetBoolean(Microsoft.TeamFoundation.Build.WebApi.BuildVariables.IsFork) ?? false))
+            {
+                ExecutionContext.Result = TaskResult.Skipped;
+                ExecutionContext.ResultCode = $"References secure file. PRs from repository forks are not allowed to access secrets in the pipeline. For more information see https://go.microsoft.com/fwlink/?linkid=862029";
+                return;
+            }
+
             // Get the endpoints referenced by the task.
             var secureFiles = (ExecutionContext.SecureFiles ?? new List<SecureFile>(0))
                 .Join(inner: secureFileIds,
@@ -242,28 +305,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
             }
 
-            IStepHost stepHost;
-            // Get the container this task is going to use
-            if (ExecutionContext.Container != null)
-            {
-                // Make sure required container is already created.
-                ArgUtil.NotNullOrEmpty(ExecutionContext.Container.ContainerId, nameof(ExecutionContext.Container.ContainerId));
-                var containerStepHost = HostContext.CreateService<IContainerStepHost>();
-                containerStepHost.Container = ExecutionContext.Container;
-                stepHost = containerStepHost;
-
-                // Only node handler and powershell3 handler support running inside container.
-                if (!(handlerData is NodeHandlerData) &&
-                    !(handlerData is PowerShell3HandlerData))
-                {
-                    throw new NotSupportedException(String.Format("Task '{0}' is using legacy execution handler '{1}' which is not supported in container execution flow.", definition.Data.FriendlyName, handlerData.GetType().ToString()));
-                }
-            }
-            else
-            {
-                stepHost = HostContext.CreateService<IDefaultStepHost>();
-            }
-
             // Create the handler.
             IHandler handler = handlerFactory.Create(
                 ExecutionContext,
@@ -274,8 +315,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 handlerData,
                 inputs,
                 environment,
-                taskDirectory: definition.Directory,
-                filePathInputRootDirectory: TranslateFilePathInput(string.Empty));
+                runtimeVariables,
+                taskDirectory: definition.Directory);
 
             // Run the task.
             await handler.RunAsync();

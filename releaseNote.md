@@ -1,10 +1,13 @@
 ## Features
-  N/A
+  - Implement Artifact Upload/Download tasks using plugin model. #1654
+  - Start using repository resource. #1623
+  
 ## Bugs
-  - Avoid extra rest call to TaskDefinition endpoint. #1533
+  - Handle variables and file path for container. #1704
+  - Git clean -ffdx instead of -fdx. #1702
+
 ## Misc
-  - Consume latest vss-api package, update newtonsoft to 10.0.3. #1535
-  - Displaying a warning when the environment variable's size exceeds 32K characters (Windows). #1508
+  - Skip task if system restrict secrets. #1653
 
 ## Agent Downloads  
 

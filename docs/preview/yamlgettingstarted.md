@@ -8,7 +8,11 @@ YAML builds require the latest agent. When a YAML build is queued, your agent wi
 
 [Create a definition](yamlgettingstarted-definition.md)
 
-## Examples
+[Pipeline overview](yamlgettingstarted-pipeline.md)
+
+[Pipeline instance name](yamlgettingstarted-name.md)
+
+## Scripts and tasks
 
 [Run scripts](yamlgettingstarted-scripts.md)
 
@@ -16,30 +20,72 @@ YAML builds require the latest agent. When a YAML build is queued, your agent wi
 
 [Run bash scripts](yamlgettingstarted-bash.md)
 
+[Checkout repositories](yamlgettingstarted-checkout.md)
+
 [Run tasks](yamlgettingstarted-tasks.md)
 
-[Checkout options](yamlgettingstarted-checkout.md)
+## Triggers
 
-[Queues](yamlgettingstarted-queues.md)
+[Continuous integration](yamlgettingstarted-ci.md)
+
+## Variables
+
+[Predefined variables](https://docs.microsoft.com/en-us/vsts/pipelines/build/variables)
+
+[Macro syntax](yamlgettingstarted-macros.md)
+
+[Accessing variables from scripts](yamlgettingstarted-accessingvariables.md)
+
+[Custom variables](yamlgettingstarted-customvariables.md)
+
+[Setting variables from a script](yamlgettingstarted-setvariable.md)
+
+[Secret variables](yamlgettingstarted-secretvariables.md)
+
+[Output variables](yamlgettingstarted-outputvariables.md)
+
+[OAuth token for scripts](yamlgettingstarted-token.md)
+
+## Resources
+
+[Authorization](yamlgettingstarted-authz.md)
 
 [Endpoints](yamlgettingstarted-endpoints.md)
 
-[Phase options](yamlgettingstarted-phase.md)
+[Secure files](yamlgettingstarted-securefiles.md)
 
-[Multiple phases](yamlgettingstarted-phases.md)
+<!-- todo: [Variable groups](yamlgettingstarted-variablegroups.md) -->
 
-[Triggers](yamlgettingstarted-triggers.md)
+## Phases
 
-[Templates](yamlgettingstarted-templates.md)
+[Options](yamlgettingstarted-job.md)
+
+[Pools](yamlgettingstarted-pools.md)
+
+[Containers](yamlgettingstarted-containers.md)
+
+[Matrix execution](yamlgettingstarted-matrix.md)
+
+[Slice execution](yamlgettingstarted-slice.md)
+
+[Multiple phases](yamlgettingstarted-jobs.md)
+
+[Output variables](yamlgettingstarted-outputvariables.md)
+
+## Templates
+
+[Step reuse](yamlgettingstarted-reusestep.md)
+
+[Phase reuse](yamlgettingstarted-reusephase.md)
+
+[Reuse from other repositories](yamlgettingstarted-reusefromrepo.md)
+
+[Template expressions](yamlgettingstarted-templateexpressions.md)
 
 ## Misc
-
-[Resource authorization](yamlgettingstarted-authz.md)
-
-[Build number format](yamlgettingstarted-name.md)
-
-[Allow scripts to access OAuth token](yamlgettingstarted-token.md)
 
 [Schema reference](yamlgettingstarted-schema.md)
 
 [Feature gaps](yamlgettingstarted-features.md)
+
+<!-- todo: [Escaping](yamlgettingstarted-escaping.md) -->

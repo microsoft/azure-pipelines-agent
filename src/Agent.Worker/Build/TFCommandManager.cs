@@ -31,11 +31,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         protected override string Switch => "/";
 
-        public string FilePath => Path.Combine(ExecutionContext.Variables.Agent_ServerOMDirectory, "tf.exe");
+        public string FilePath => Path.Combine(HostContext.GetDirectory(WellKnownDirectory.ServerOM), "tf.exe");
 
-        private string AppConfigFile => Path.Combine(ExecutionContext.Variables.Agent_ServerOMDirectory, "tf.exe.config");
+        private string AppConfigFile => Path.Combine(HostContext.GetDirectory(WellKnownDirectory.ServerOM), "tf.exe.config");
 
-        private string AppConfigRestoreFile => Path.Combine(ExecutionContext.Variables.Agent_ServerOMDirectory, "tf.exe.config.restore");
+        private string AppConfigRestoreFile => Path.Combine(HostContext.GetDirectory(WellKnownDirectory.ServerOM), "tf.exe.config.restore");
 
         // TODO: Remove AddAsync after last-saved-checkin-metadata problem is fixed properly.
         public async Task AddAsync(string localPath)
@@ -289,7 +289,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             args.Add("/format:xml");
 
             // Run the command.
-            string xml = await RunPorcelainCommandAsync(args.ToArray()) ?? string.Empty;
+            // Ignore STDERR from TF.exe, tf.exe use STDERR to report warning.
+            string xml = await RunPorcelainCommandAsync(true, args.ToArray()) ?? string.Empty;
 
             // Deserialize the XML.
             var serializer = new XmlSerializer(typeof(TFWorkspaces));

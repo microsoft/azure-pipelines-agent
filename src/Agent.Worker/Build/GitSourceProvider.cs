@@ -14,7 +14,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
     public class ExternalGitSourceProvider : GitSourceProvider
     {
-        public override string RepositoryType => RepositoryTypes.Git;
+        public override string RepositoryType => TeamFoundation.DistributedTask.Pipelines.RepositoryTypes.ExternalGit;
 
         // external git repository won't use auth header cmdline arg, since we don't know the auth scheme.
         public override bool GitUseAuthHeaderCmdlineArg => false;
@@ -87,22 +87,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
     public sealed class GitHubSourceProvider : AuthenticatedGitSourceProvider
     {
-        public override string RepositoryType => RepositoryTypes.GitHub;
+        public override string RepositoryType => TeamFoundation.DistributedTask.Pipelines.RepositoryTypes.GitHub;
     }
 
     public sealed class GitHubEnterpriseSourceProvider : AuthenticatedGitSourceProvider
     {
-        public override string RepositoryType => RepositoryTypes.GitHubEnterprise;
+        public override string RepositoryType => TeamFoundation.DistributedTask.Pipelines.RepositoryTypes.GitHubEnterprise;
     }
 
     public sealed class BitbucketSourceProvider : AuthenticatedGitSourceProvider
     {
-        public override string RepositoryType => RepositoryTypes.Bitbucket;
+        public override string RepositoryType => TeamFoundation.DistributedTask.Pipelines.RepositoryTypes.Bitbucket;
     }
 
     public sealed class TfsGitSourceProvider : GitSourceProvider
     {
-        public override string RepositoryType => RepositoryTypes.TfsGit;
+        public override string RepositoryType => TeamFoundation.DistributedTask.Pipelines.RepositoryTypes.Git;
 
         public override bool GitUseAuthHeaderCmdlineArg
         {
@@ -353,6 +353,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                             password = string.Empty;
                         }
                         break;
+                    case EndpointAuthorizationSchemes.PersonalAccessToken:
+                        username = EndpointAuthorizationSchemes.PersonalAccessToken;
+                        if (!endpoint.Authorization.Parameters.TryGetValue(EndpointAuthorizationParameters.AccessToken, out password))
+                        {
+                            password = string.Empty;
+                        }
+                        break;
+                    case EndpointAuthorizationSchemes.Token:
+                        username = "x-access-token";
+                        if (!endpoint.Authorization.Parameters.TryGetValue(EndpointAuthorizationParameters.AccessToken, out password))
+                        {
+                            username = EndpointAuthorizationSchemes.Token;
+                            if (!endpoint.Authorization.Parameters.TryGetValue(EndpointAuthorizationParameters.ApiToken, out password))
+                            {
+                                password = string.Empty;
+                            }
+                        }
+                        break;
                     case EndpointAuthorizationSchemes.UsernamePassword:
                         if (!endpoint.Authorization.Parameters.TryGetValue(EndpointAuthorizationParameters.Username, out username))
                         {
@@ -408,7 +426,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     // prepare askpass for client cert password
                     if (!string.IsNullOrEmpty(agentCert.ClientCertificatePassword))
                     {
-                        _clientCertPrivateKeyAskPassFile = Path.Combine(executionContext.Variables.Agent_TempDirectory, $"{Guid.NewGuid()}.sh");
+                        _clientCertPrivateKeyAskPassFile = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Temp), $"{Guid.NewGuid()}.sh");
                         List<string> askPass = new List<string>();
                         askPass.Add("#!/bin/sh");
                         askPass.Add($"echo \"{agentCert.ClientCertificatePassword}\"");
@@ -435,7 +453,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                             }
                         };
 
-                        await processInvoker.ExecuteAsync(executionContext.Variables.System_DefaultWorkingDirectory, toolPath, argLine, null, true, CancellationToken.None);
+                        await processInvoker.ExecuteAsync(HostContext.GetDirectory(WellKnownDirectory.Work), toolPath, argLine, null, true, CancellationToken.None);
 #endif
                     }
                 }
@@ -497,18 +515,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     }
                 }
 
-                // When repo.clean is selected for a git repo, execute git clean -fdx and git reset --hard HEAD on the current repo.
+                // When repo.clean is selected for a git repo, execute git clean -ffdx and git reset --hard HEAD on the current repo.
                 // This will help us save the time to reclone the entire repo.
                 // If any git commands exit with non-zero return code or any exception happened during git.exe invoke, fall back to delete the repo folder.
                 if (clean)
                 {
                     Boolean softCleanSucceed = true;
 
-                    // git clean -fdx
+                    // git clean -ffdx
                     int exitCode_clean = await _gitCommandManager.GitClean(executionContext, targetPath);
                     if (exitCode_clean != 0)
                     {
-                        executionContext.Debug($"'git clean -fdx' failed with exit code {exitCode_clean}, this normally caused by:\n    1) Path too long\n    2) Permission issue\n    3) File in use\nFor futher investigation, manually run 'git clean -fdx' on repo root: {targetPath} after each build.");
+                        executionContext.Debug($"'git clean -ffdx' failed with exit code {exitCode_clean}, this normally caused by:\n    1) Path too long\n    2) Permission issue\n    3) File in use\nFor futher investigation, manually run 'git clean -ffdx' on repo root: {targetPath} after each build.");
                         softCleanSucceed = false;
                     }
 
@@ -523,7 +541,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         }
                     }
 
-                    // git clean -fdx and git reset --hard HEAD for each submodule
+                    // git clean -ffdx and git reset --hard HEAD for each submodule
                     if (checkoutSubmodules)
                     {
                         if (softCleanSucceed)
@@ -531,7 +549,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                             int exitCode_submoduleclean = await _gitCommandManager.GitSubmoduleClean(executionContext, targetPath);
                             if (exitCode_submoduleclean != 0)
                             {
-                                executionContext.Debug($"'git submodule foreach git clean -fdx' failed with exit code {exitCode_submoduleclean}\nFor futher investigation, manually run 'git submodule foreach git clean -fdx' on repo root: {targetPath} after each build.");
+                                executionContext.Debug($"'git submodule foreach git clean -ffdx' failed with exit code {exitCode_submoduleclean}\nFor futher investigation, manually run 'git submodule foreach git clean -ffdx' on repo root: {targetPath} after each build.");
                                 softCleanSucceed = false;
                             }
                         }
@@ -550,7 +568,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     if (!softCleanSucceed)
                     {
                         //fall back
-                        executionContext.Warning("Unable to run \"git clean -fdx\" and \"git reset --hard HEAD\" successfully, delete source folder instead.");
+                        executionContext.Warning("Unable to run \"git clean -ffdx\" and \"git reset --hard HEAD\" successfully, delete source folder instead.");
                         IOUtil.DeleteDirectory(targetPath, cancellationToken);
                     }
                 }
@@ -1112,7 +1130,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         public override void SetVariablesInEndpoint(IExecutionContext executionContext, ServiceEndpoint endpoint)
         {
             base.SetVariablesInEndpoint(executionContext, endpoint);
-            endpoint.Data.Add(Constants.EndpointData.SourceBranch, executionContext.Variables.Get(Constants.Variables.Build.SourceBranch));
+            endpoint.Data.Add(Constants.EndpointData.SourceBranch, executionContext.Variables.Build_SourceBranch);
         }
 
         private async Task<bool> IsRepositoryOriginUrlMatch(IExecutionContext context, string repositoryPath, Uri expectedRepositoryOriginUrl)

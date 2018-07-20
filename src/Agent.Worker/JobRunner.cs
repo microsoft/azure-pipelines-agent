@@ -15,6 +15,7 @@ using System.Text;
 using System.IO.Compression;
 using Microsoft.VisualStudio.Services.Agent.Worker.Build;
 using System.Diagnostics;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -118,17 +119,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     jobContext.AddIssue(new Issue() { Type = IssueType.Error, Message = errorMessage });
                 });
 
-                // Set agent version variable.
-                jobContext.Variables.Set(Constants.Variables.Agent.Version, Constants.Agent.Version);
-                jobContext.Output(StringUtil.Loc("AgentVersion", Constants.Agent.Version));
-
-                // Print proxy setting information for better diagnostic experience
-                var agentWebProxy = HostContext.GetService<IVstsAgentWebProxy>();
-                if (!string.IsNullOrEmpty(agentWebProxy.ProxyAddress))
-                {
-                    jobContext.Output(StringUtil.Loc("AgentRunningBehindProxy", agentWebProxy.ProxyAddress));
-                }
-
                 // Validate directory permissions.
                 string workDirectory = HostContext.GetDirectory(WellKnownDirectory.Work);
                 Trace.Info($"Validating directory permissions for: '{workDirectory}'");
@@ -147,32 +137,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Set agent variables.
                 AgentSettings settings = HostContext.GetService<IConfigurationStore>().GetSettings();
                 jobContext.Variables.Set(Constants.Variables.Agent.Id, settings.AgentId.ToString(CultureInfo.InvariantCulture));
-                jobContext.Variables.Set(Constants.Variables.Agent.HomeDirectory, HostContext.GetDirectory(WellKnownDirectory.Root));
+                jobContext.SetVariable(Constants.Variables.Agent.HomeDirectory, HostContext.GetDirectory(WellKnownDirectory.Root), isFilePath: true);
                 jobContext.Variables.Set(Constants.Variables.Agent.JobName, message.JobDisplayName);
                 jobContext.Variables.Set(Constants.Variables.Agent.MachineName, Environment.MachineName);
                 jobContext.Variables.Set(Constants.Variables.Agent.Name, settings.AgentName);
                 jobContext.Variables.Set(Constants.Variables.Agent.OS, VarUtil.OS);
-                jobContext.Variables.Set(Constants.Variables.Agent.RootDirectory, HostContext.GetDirectory(WellKnownDirectory.Work));
+                jobContext.SetVariable(Constants.Variables.Agent.RootDirectory, HostContext.GetDirectory(WellKnownDirectory.Work), isFilePath: true);
 #if OS_WINDOWS
-                jobContext.Variables.Set(Constants.Variables.Agent.ServerOMDirectory, Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), Constants.Path.ServerOMDirectory));
+                jobContext.SetVariable(Constants.Variables.Agent.ServerOMDirectory, HostContext.GetDirectory(WellKnownDirectory.ServerOM), isFilePath: true);
 #else
                 jobContext.Variables.Set(Constants.Variables.Agent.AcceptTeeEula, settings.AcceptTeeEula.ToString());
 #endif
-                jobContext.Variables.Set(Constants.Variables.Agent.WorkFolder, HostContext.GetDirectory(WellKnownDirectory.Work));
-                jobContext.Variables.Set(Constants.Variables.System.WorkFolder, HostContext.GetDirectory(WellKnownDirectory.Work));
+                jobContext.SetVariable(Constants.Variables.Agent.WorkFolder, HostContext.GetDirectory(WellKnownDirectory.Work), isFilePath: true);
+                jobContext.SetVariable(Constants.Variables.System.WorkFolder, HostContext.GetDirectory(WellKnownDirectory.Work), isFilePath: true);
 
-                string toolsDirectory = Environment.GetEnvironmentVariable("AGENT_TOOLSDIRECTORY") ?? Environment.GetEnvironmentVariable(Constants.Variables.Agent.ToolsDirectory);
-                if (string.IsNullOrEmpty(toolsDirectory))
-                {
-                    toolsDirectory = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), Constants.Path.ToolDirectory);
-                    Directory.CreateDirectory(toolsDirectory);
-                }
-                else
-                {
-                    Trace.Info($"Set tool cache directory base on environment: '{toolsDirectory}'");
-                    Directory.CreateDirectory(toolsDirectory);
-                }
-                jobContext.Variables.Set(Constants.Variables.Agent.ToolsDirectory, toolsDirectory);
+                string toolsDirectory = HostContext.GetDirectory(WellKnownDirectory.Tools);
+                Directory.CreateDirectory(toolsDirectory);
+                jobContext.SetVariable(Constants.Variables.Agent.ToolsDirectory, toolsDirectory, isFilePath: true);
 
                 // Setup TEMP directories
                 _tempDirectoryManager = HostContext.GetService<ITempDirectoryManager>();
@@ -216,6 +197,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     jobContext.Variables.ExpandValues(target: endpoint.Data);
                     VarUtil.ExpandEnvironmentVariables(HostContext, target: endpoint.Data);
+                }
+
+                // Expand the repository property values.
+                foreach (var repository in jobContext.Repositories)
+                {
+                    Dictionary<string, string> expandProperties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var property in repository.Properties.GetItems())
+                    {
+                        expandProperties[property.Key] = JsonUtility.ToString(property.Value);
+                    }
+
+                    jobContext.Variables.ExpandValues(target: expandProperties);
+                    VarUtil.ExpandEnvironmentVariables(HostContext, target: expandProperties);
+
+                    foreach (var expandedProperty in expandProperties)
+                    {
+                        repository.Properties.Set<JToken>(expandedProperty.Key, JsonUtility.FromString<JToken>(expandedProperty.Value));
+                    }
                 }
 
                 // Get the job extension.

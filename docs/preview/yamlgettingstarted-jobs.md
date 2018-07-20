@@ -2,21 +2,22 @@
 
 ## Phase dependencies
 
-Multiple phases can be defined in a pipeline. The order in which phases are started, can be controlled by defining dependencies. The start of one phase, can depend on another phase completing. And phases can have more than one dependency.
+Multiple phases can be defined within a pipeline. The order in which the phases are executed, can be controlled by defining dependencies. The start of one phase, can depend on another phase completing. And a phase can have more than one dependency.
 
 Phase dependencies enables four types of controls.
 
 ### Sequential phases
 
-Example phases that build sequentially.
+Example phases that execute sequentially.
 
 ```yaml
 phases:
 - phase: Debug
   steps:
   - script: echo hello from the Debug build
+
 - phase: Release
-  dependsOn: Debug
+  dependsOn: Debug # After Debug completes
   steps:
   - script: echo hello from the Release build
 ```
@@ -56,23 +57,22 @@ phases:
 
 ## Parallel phases
 
-Example phases that build in parallel (no dependencies).
+Example phases that execute in parallel (no dependencies).
 
 ```yaml
 phases:
 - phase: Windows
-  queue:
-    demands: agent.os -equals Windows_NT
+  queue: Hosted VS2017
   steps:
   - script: echo hello from Windows
+
 - phase: macOS
-  queue:
-    demands: agent.os -equals Darwin
+  queue: Hosted macOS Preview
   steps:
   - script: echo hello from macOS
+
 - phase: Linux
-  queue:
-    demands: agent.os -equals Linux
+  queue: Hosted Linux Preview
   steps:
   - script: echo hello from Linux
 ```
@@ -86,10 +86,12 @@ phases:
 - phase: InitialPhase
   steps:
   - script: echo hello from initial phase
+
 - phase: SubsequentA
   dependsOn: InitialPhase
   steps:
   - script: echo hello from subsequent A
+
 - phase: SubsequentB
   dependsOn: InitialPhase
   steps:
@@ -103,9 +105,11 @@ phases:
 - phase: InitialA
   steps:
   - script: echo hello from initial A
+
 - phase: InitialB
   steps:
   - script: echo hello from initial B
+
 - phase: Subsequent
   dependsOn:
   - InitialA
@@ -170,7 +174,7 @@ phases:
   - script: echo this only runs for master
 ```
 
-### Custom phase condition, with an output variable
+### Custom phase condition, using an output variable
 
 Output variables from previous phases can also be used within conditions.
 
@@ -193,85 +197,6 @@ phases:
 ```
 
 For details about output variables, refer [here](https://github.com/Microsoft/vsts-agent/blob/master/docs/preview/outputvariable.md#for-ad-hoc-script).
-
-## Output variables
-
-Output variables can be used to set a variable in one phase, and then use the variable in a downstream phase.
-
-Output variables are prefixed with the step name.
-
-Output variables can only be referenced from phases which listed as direct dependencies.
-
-Example - Mapping an output variable using an expression:
-
-```yaml
-phases:
-- phase: A
-  steps: 
-  - script: "echo ##vso[task.setvariable variable=myOutputVar;isOutput=true]this is the value"
-    name: setvar
-  - script: echo $(setvar.myOutputVar)
-    name: echovar
-
-- phase: B
-  dependsOn: A
-  variables:
-    myVarFromPhaseA: $[ dependencies.A.outputs['setvar.myOutputVar'] ]
-  steps:
-  - script: "echo $(myVarFromPhaseA)"
-    name: echovar
-```
-
-Example - Mapping an output variable from a phase with a matrix
-
-```yaml
-phases:
-- phase: A
-  queue:
-    parallel: 2
-    matrix:
-      debug:
-        configuration: debug
-        platform: x64
-      release:
-        configuration: release
-        platform: x64
-  steps:
-  - script: "echo ##vso[task.setvariable variable=myOutputVar;isOutput=true]this is the $(configuration) value"
-    name: setvar
-  - script: echo $(setvar.myOutputVar)
-    name: echovar
-
-- phase: B
-  dependsOn: A
-  variables:
-    myVarFromPhaseADebug: $[ dependencies.A.outputs['debug.setvar.myOutputVar'] ]
-  steps:
-  - script: "echo $(myVarFromPhaseADebug)"
-    name: echovar
-```
-
-Example - Mapping an output variable from a phase with slicing
-
-```yaml
-phases:
-- phase: A
-  queue:
-    parallel: 2
-  steps:
-  - script: "echo ##vso[task.setvariable variable=myOutputVar;isOutput=true]this is the slice $(system.jobPositionInPhase) value"
-    name: setvar
-  - script: echo $(setvar.myOutputVar)
-    name: echovar
-
-- phase: B
-  dependsOn: A
-  variables:
-    myVarFromPhaseA1: $[ dependencies.A.outputs['job1.setvar.myOutputVar'] ]
-  steps:
-  - script: "echo $(myVarFromPhaseA1)"
-    name: echovar
-```
 
 ## Expression context
 
