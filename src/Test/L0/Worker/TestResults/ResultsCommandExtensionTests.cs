@@ -215,6 +215,42 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "PublishTestResults")]
+        public void VerifyResultsArePublishedWhenCommaIsUsedInFilenames()
+        {
+            SetupMocks();
+            var resultCommand = new ResultsCommandExtension();
+            resultCommand.Initialize(_hc);
+            var command = new Command("results", "publish");
+            command.Properties.Add("resultFiles", "file1.trx|file2,file.trx");
+            command.Properties.Add("type", "NUnit");
+            command.Properties.Add("mergeResults", bool.TrueString);
+            var resultsFiles = new List<string> { "file1.trx", "file2,file.trx" };
+
+            var testRunData = new TestRunData();
+            testRunData.Results = new TestCaseResultData[] { new TestCaseResultData(), new TestCaseResultData() };
+            testRunData.Attachments = new string[] { "attachment1", "attachment2" };
+
+            _mockTestRunPublisher.Setup(q => q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()))
+                .Callback((TestRunData trd, CancellationToken cancellationToken) =>
+                {
+                    Assert.Equal(resultsFiles.Count * testRunData.Attachments.Length, trd.Attachments.Length);
+                });
+            _mockTestRunPublisher.Setup(q => q.AddResultsAsync(It.IsAny<TestRun>(), It.IsAny<TestCaseResultData[]>(), It.IsAny<CancellationToken>()))
+                .Callback((TestRun testRun, TestCaseResultData[] tcrd, CancellationToken cancellationToken) =>
+                {
+                    Assert.Equal(resultsFiles.Count * testRunData.Results.Length, tcrd.Length);
+                });
+            _mockTestRunPublisher.Setup(q => q.ReadResultsFromFile(It.IsAny<TestRunContext>(), It.IsAny<string>()))
+                .Returns(testRunData);
+            _mockTestRunPublisher.Setup(q => q.EndTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+            resultCommand.ProcessCommand(_ec.Object, command);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "PublishTestResults")]
         public void VerifyTestRunSystemPropertyIsSentWhenPublishingToSignleTestRun()
         {
             SetupMocks();

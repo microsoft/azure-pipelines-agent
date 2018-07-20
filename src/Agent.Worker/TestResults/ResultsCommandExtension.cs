@@ -314,18 +314,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
             else
             {
-                if (string.IsNullOrEmpty(resultFilesInput) || resultFilesInput.Split(',').Count() == 0)
+                if (string.IsNullOrEmpty(resultFilesInput))
                 {
                     throw new ArgumentException(StringUtil.Loc("ArgumentNeeded", "TestResults"));
                 }
 
-                if (context.Container != null)
+                if(resultFilesInput.Contains('|'))
                 {
-                    _testResultFiles = resultFilesInput.Split(',').Select(x => context.Container.TranslateToHostPath(x)).ToList();
+                    LoadTestuResultFiles(context, resultFilesInput, '|');
                 }
                 else
                 {
-                    _testResultFiles = resultFilesInput.Split(',').ToList();
+                    LoadTestuResultFiles(context, resultFilesInput, ',');
                 }
             }
 
@@ -374,6 +374,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             {
                 // if no proper input is provided by default we publish attachments.
                 _publishRunLevelAttachments = true;
+            }
+        }
+
+        private void LoadTestuResultFiles(IExecutionContext context, string resultFilesInput, char separator)
+        {
+            var resultFileSplits = resultFilesInput.Split(separator);
+            if (resultFileSplits.Count() == 0)
+            {
+                throw new ArgumentException(StringUtil.Loc("ArgumentNeeded", "TestResults"));
+            }
+
+            if (context.Container != null)
+            {
+                _testResultFiles = resultFileSplits.Select(x => context.Container.TranslateToHostPath(x)).ToList();
+            }
+            else
+            {
+                _testResultFiles = resultFileSplits.ToList();
             }
         }
 
