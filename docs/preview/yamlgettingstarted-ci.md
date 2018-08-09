@@ -30,7 +30,7 @@ trigger:
     exclude: [string]
 ```
 
-For example:
+### Simple example
 
 ```yaml
 trigger:
@@ -42,6 +42,16 @@ trigger:
     - releases/old*
 ```
 
+### Include everything except one branch
+
+```yaml
+trigger:
+  branches:
+    include:
+    - /*
+    exclude:
+    - master
+```
 
 Note, path filters are only supported for Git repositories in VSTS.
 
