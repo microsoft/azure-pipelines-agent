@@ -240,7 +240,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 {
                     foreach (var content in contentsToStandardIn)
                     {
-                        // Write the contents as UTF8 to prevent any encoding problem.
+                        // Write the contents as UTF8 to handle all characters.
                         var utf8Writer = new StreamWriter(_proc.StandardInput.BaseStream, new UTF8Encoding(false));
                         utf8Writer.WriteLine(content);
                         utf8Writer.Flush();
