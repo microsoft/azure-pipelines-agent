@@ -390,7 +390,7 @@ namespace Agent.Plugins.Repository
                             comment.AppendLine();
                         }
 
-                        comment.Append("***NO_CI***");
+                        comment.Append(Constants.Build.NoCICheckInComment);
                     }
 
                     string commentFile = null;
