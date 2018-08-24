@@ -741,7 +741,8 @@ namespace Agent.Plugins.Repository
             string lastCommitMessage = await gitCommandManager.GitGetLastCommitMessage(executionContext, targetPath, sourceBranch);
             if (lastCommitMessage.Contains(Constants.Build.NoCICheckInComment))
             {
-                // TODO: Cancel the build gracefully, make sure it doesn't show as a failure...
+                // Gracefully cancel the operation
+                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken).cancel();
             }
 
             // Checkout
