@@ -516,7 +516,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 outputStrings = outputStrings.Where(o => !string.IsNullOrEmpty(o)).ToList();
                 foreach (var str in outputStrings)
                 {
-                    if (str.Contains(Constants.Build.NoCICheckInComment))
+                    if (str.Contains(Constants.Build.NoCICheckInComment)|| str.Contains(Constants.Build.SkipCICheckInComment) || str.Contains(Constants.Build.CISkipCheckInComment))
                     {
                         return true;
                     }
