@@ -95,8 +95,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         // git version
         Task<Version> GitVersion(IExecutionContext context);
 
-        // git log {branch} -1 --pretty=%B
-        Task<string> GitGetLastCommitMessage(IExecutionContext context, string repositoryPath, string targetBranch);
+        // if (git log {branch} -1 --pretty=%B CONTAINS "***NO_CI***")
+        Task<bool> GitIsLatestCommitNoCI(IExecutionContext context, string repositoryPath, string targetBranch);
     }
 
     public class GitCommandManager : AgentService, IGitCommandManager
@@ -504,10 +504,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return version;
         }
 
-        public async Task<string> GitGetLastCommitMessage(IExecutionContext context, string repositoryPath, string targetBranch)
+        public async Task<bool> GitIsLatestCommitNoCI(IExecutionContext context, string repositoryPath, string targetBranch)
         {
             context.Debug($"Get last commit message for branch {targetBranch}.");
-            return await ExecuteGitCommandAsync(context, repositoryPath, "log", $"{targetBranch} -1 --pretty=%B");
+            List<string> outputStrings = new List<string>();
+            int exitCode = await ExecuteGitCommandAsync(context, repositoryPath, "log", $"{targetBranch} -1 --pretty=%B", outputStrings);
+            context.Output($"{string.Join(Environment.NewLine, outputStrings)}");
+            if (exitCode == 0)
+            {
+                // remove any empty line.
+                outputStrings = outputStrings.Where(o => !string.IsNullOrEmpty(o)).ToList();
+                foreach (var str in outputStrings)
+                {
+                    if (str.Contains(Constants.Build.NoCICheckInComment))
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         // git lfs version

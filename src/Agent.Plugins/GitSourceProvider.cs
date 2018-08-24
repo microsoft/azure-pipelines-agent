@@ -738,11 +738,10 @@ namespace Agent.Plugins.Repository
             }
 
             // Check the latest commit for '***NO_CI***', if present, cancel the build
-            string lastCommitMessage = await gitCommandManager.GitGetLastCommitMessage(executionContext, targetPath, sourceBranch);
-            if (lastCommitMessage.Contains(Constants.Build.NoCICheckInComment))
+            if(await gitCommandManager.GitIsLatestCommitNoCI(executionContext, targetPath, sourceBranch))
             {
                 // Gracefully cancel the operation
-                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken).cancel();
+                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken).Cancel();
             }
 
             // Checkout
