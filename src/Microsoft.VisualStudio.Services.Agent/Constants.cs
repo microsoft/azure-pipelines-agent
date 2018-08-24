@@ -173,8 +173,8 @@ namespace Microsoft.VisualStudio.Services.Agent
         public static class Build
         {
             public static readonly string NoCICheckInComment = "***NO_CI***";
-            public static readonly string SkipCICheckInComment = "skip ci";
-            public static readonly string CISkipCheckInComment = "ci skip";
+            public static readonly string SkipCICheckInComment = "[skip ci]";
+            public static readonly string CISkipCheckInComment = "[ci skip]";
 
 
 
