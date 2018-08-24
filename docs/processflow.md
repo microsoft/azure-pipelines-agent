@@ -35,7 +35,14 @@
   * `JobDispatcher.Run()`
     * Asyncronously runs the job by calling `RunAsync`, and stores the jobID and other IDs so the calling code can check the status of the job.  
   * `JobDispatcher.RunAsync()`
-    * _Starts a "renew" job request by calling `RenewJobRequestAsync()`  
+    * (not important) Starts a "renew" job request by calling `RenewJobRequestAsync()`  
       * Asks the `AgentServer` to renew the job for a given pool by calling `AgentServer.RenewAgentRequestAsync()`  
       * This process seems to only be needed to ensure there's still a valid http connection to the VSTS server, we should just ignore this.  
-    * Leaving off at JobDispatcher line #335 
+    * Creates `ProcessInvoker` and `ProcessChannel` services (used for starting and communicated with process' through named pipes.  
+    * Spawns the `Agent.Worker.exe` process with arguments `spawnclient {output_pipe} {input_pipe}.
+    * Sends the `NewJobRequest` through the named pipe to the worker.
+
+6. Agent.Worker.exe
+  * ... long story short, a whole bunch of tasks get populated, and we end up in the "CheckoutTask"...
+
+

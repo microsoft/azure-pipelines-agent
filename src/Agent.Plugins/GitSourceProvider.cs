@@ -737,6 +737,13 @@ namespace Agent.Plugins.Repository
                 throw new InvalidOperationException($"Git fetch failed with exit code: {exitCode_fetch}");
             }
 
+            // Check the latest commit for '***NO_CI***', if present, cancel the build
+            string lastCommitMessage = await gitCommandManager.GitGetLastCommitMessage(executionContext, targetPath, sourceBranch);
+            if (lastCommitMessage.Contains(Constants.Build.NoCICheckInComment))
+            {
+                // TODO: Cancel the build gracefully, make sure it doesn't show as a failure...
+            }
+
             // Checkout
             // sourceToBuild is used for checkout
             // if sourceBranch is a PR branch or sourceVersion is null, make sure branch name is a remote branch. we need checkout to detached head. 

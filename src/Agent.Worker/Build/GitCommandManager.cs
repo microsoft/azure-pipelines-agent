@@ -94,6 +94,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         // git version
         Task<Version> GitVersion(IExecutionContext context);
+
+        // git log {branch} -1 --pretty=%B
+        Task<string> GitGetLastCommitMessage(IExecutionContext context, string repositoryPath, string targetBranch);
     }
 
     public class GitCommandManager : AgentService, IGitCommandManager
@@ -499,6 +502,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
 
             return version;
+        }
+
+        public async Task<string> GitGetLastCommitMessage(IExecutionContext context, string repositoryPath, string targetBranch)
+        {
+            context.Debug($"Get last commit message for branch {targetBranch}.");
+            return await ExecuteGitCommandAsync(context, repositoryPath, "log", $"{targetBranch} -1 --pretty=%B");
         }
 
         // git lfs version
