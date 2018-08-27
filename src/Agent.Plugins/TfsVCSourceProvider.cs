@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Agent.Sdk;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.Win32;
+using Microsoft.VisualStudio.Services.Agent;
 using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Agent.Plugins.Repository
@@ -390,7 +391,7 @@ namespace Agent.Plugins.Repository
                             comment.AppendLine();
                         }
 
-                        comment.Append("***NO_CI***");
+                        comment.Append(Constants.Build.NoCICheckInComment);
                     }
 
                     string commentFile = null;

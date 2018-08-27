@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.IO;
 using Agent.Sdk;
+using Microsoft.VisualStudio.Services.Agent;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Common;
 
@@ -460,6 +461,29 @@ namespace Agent.Plugins.Repository
             }
 
             return version;
+        }
+
+        public async Task<bool> GitIsLatestCommitNoCI(AgentTaskPluginExecutionContext context, string repositoryPath, string targetBranch)
+        {
+            context.Debug($"Get last commit message for branch {targetBranch}.");
+            List<string> outputStrings = new List<string>();
+            int exitCode = await ExecuteGitCommandAsync(context, repositoryPath, "log", $"{targetBranch} -1 --pretty=%B", outputStrings);
+            context.Output($"{string.Join(Environment.NewLine, outputStrings)}");
+            if (exitCode == 0)
+            {
+                // remove any empty line.
+                outputStrings = outputStrings.Where(o => !string.IsNullOrEmpty(o)).ToList();
+                foreach (var str in outputStrings)
+                {
+                    if (str.Contains(Constants.Build.NoCICheckInComment) ||
+                        str.Contains(Constants.Build.SkipCICheckInComment) ||
+                        str.Contains(Constants.Build.CISkipCheckInComment))
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         // git lfs version
