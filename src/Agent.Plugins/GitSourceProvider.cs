@@ -737,7 +737,7 @@ namespace Agent.Plugins.Repository
                 throw new InvalidOperationException($"Git fetch failed with exit code: {exitCode_fetch}");
             }
 
-            // Check the latest commit for '***NO_CI***', if present, cancel the build
+            // Check the latest commit for '***NO_CI***', '[skip ci]', or '[ci skip]'. If present, cancel the build.
             if(await gitCommandManager.GitIsLatestCommitNoCI(executionContext, targetPath, sourceBranch))
             {
                 // Gracefully cancel the operation

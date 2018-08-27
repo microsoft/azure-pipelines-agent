@@ -762,7 +762,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 throw new InvalidOperationException($"Git fetch failed with exit code: {exitCode_fetch}");
             }
 
-            // Check the latest commit for '***NO_CI***', '[skip ci]', or '[ci skip]', if present, cancel the build
+            // Check the latest commit for '***NO_CI***', '[skip ci]', or '[ci skip]'. If present, cancel the build.
             if(await _gitCommandManager.GitIsLatestCommitNoCI(executionContext, targetPath, sourceBranch))
             {
                 // Gracefully cancel the operation
