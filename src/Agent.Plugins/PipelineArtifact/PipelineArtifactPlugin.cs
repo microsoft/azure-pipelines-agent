@@ -19,7 +19,7 @@ namespace Agent.Plugins.PipelineArtifact
     public abstract class PipelineArtifactTaskPluginBase : IAgentTaskPlugin
     {
         public abstract Guid Id { get; }
-        public string Version => "0.138.0"; // Publish and Download tasks will be always on the same version.
+        public string Version => "0.139.0"; // Publish and Download tasks will be always on the same version.
         public string Stage => "main";
 
         public async Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
