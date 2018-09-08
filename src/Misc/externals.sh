@@ -153,5 +153,5 @@ fi
 
 # Download the external tools common across Linux platforms (excluding OSX).
 if [[ "$PLATFORM" == "linux" ]]; then
-    acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz" node fix_nested_dir
+    acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-armv7l.tar.gz" node fix_nested_dir
 fi

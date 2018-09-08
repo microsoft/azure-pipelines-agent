@@ -14,7 +14,7 @@ LAYOUT_DIR="$SCRIPT_DIR/../_layout"
 DOWNLOAD_DIR="$SCRIPT_DIR/../_downloads/netcore2x"
 PACKAGE_DIR="$SCRIPT_DIR/../_package"
 DOTNETSDK_ROOT="$SCRIPT_DIR/../_dotnetsdk"
-DOTNETSDK_VERSION="2.1.200"
+DOTNETSDK_VERSION="2.1.401"
 DOTNETSDK_INSTALLDIR="$DOTNETSDK_ROOT/$DOTNETSDK_VERSION"
 
 pushd $SCRIPT_DIR
@@ -35,6 +35,11 @@ if [[ "$CURRENT_PLATFORM" == 'linux' ]]; then
 elif [[ "$CURRENT_PLATFORM" == 'darwin' ]]; then
    RUNTIME_ID='osx-x64'
 fi
+CURRENT_PLATFORM="linux"
+RUNTIME_ID='linux-arm'
+
+echo "Current PLATFORM $CURRENT_PLATFORM $RUNTIME_ID"
+
 
 WINDOWSAGENTSERVICE_PROJFILE="Agent.Service/Windows/AgentService.csproj"
 WINDOWSAGENTSERVICE_BIN="Agent.Service/Windows/bin/$BUILD_CONFIG"
