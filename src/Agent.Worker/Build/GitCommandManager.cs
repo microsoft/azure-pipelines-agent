@@ -111,8 +111,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public bool EnsureGitVersion(Version requiredVersion, bool throwOnNotMatch)
         {
-            ArgUtil.NotNull(_gitPath, nameof(_gitPath));
             ArgUtil.NotNull(_gitVersion, nameof(_gitVersion));
+
+            if (_gitPath == null)
+            {
+                throw new InvalidOperationException("Could not find Git installed on the system. Please make sure GIT is installed and available in the PATH.");
+            }
 
             if (_gitVersion < requiredVersion && throwOnNotMatch)
             {
@@ -124,8 +128,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public bool EnsureGitLFSVersion(Version requiredVersion, bool throwOnNotMatch)
         {
-            ArgUtil.NotNull(_gitLfsPath, nameof(_gitLfsPath));
             ArgUtil.NotNull(_gitLfsVersion, nameof(_gitLfsVersion));
+
+            if (_gitLfsPath == null)
+            {
+                throw new InvalidOperationException("Could not find Git LFS installed on the system. Please make sure GIT LFS is installed and available in the PATH.");
+            }
 
             if (_gitLfsVersion < requiredVersion && throwOnNotMatch)
             {
