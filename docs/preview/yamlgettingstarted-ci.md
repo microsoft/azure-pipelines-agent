@@ -45,7 +45,7 @@ trigger:
 ```
 
 
-Note, path filters are only supported for Git repositories in VSTS.
+**Note:** path filters are supported only for VSTS-hosted Git repositories.
 
 ## CI is opt-out
 
