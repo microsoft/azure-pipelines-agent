@@ -153,5 +153,12 @@ fi
 
 # Download the external tools common across Linux platforms (excluding OSX).
 if [[ "$PLATFORM" == "linux" ]]; then
-    acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz" node fix_nested_dir
+    ARCH=$(uname -m)
+
+    if [[ "$ARCH" == "x86_64" ]]; then
+        ARCH="x64"
+    fi
+
+    LAYOUT_DIR=$(get_abs_path `dirname $0`/../../_layout)
+    acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${ARCH}.tar.gz" node fix_nested_dir
 fi

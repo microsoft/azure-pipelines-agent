@@ -14,7 +14,7 @@ LAYOUT_DIR="$SCRIPT_DIR/../_layout"
 DOWNLOAD_DIR="$SCRIPT_DIR/../_downloads/netcore2x"
 PACKAGE_DIR="$SCRIPT_DIR/../_package"
 DOTNETSDK_ROOT="$SCRIPT_DIR/../_dotnetsdk"
-DOTNETSDK_VERSION="2.1.200"
+DOTNETSDK_VERSION="2.1.300"
 DOTNETSDK_INSTALLDIR="$DOTNETSDK_ROOT/$DOTNETSDK_VERSION"
 
 pushd $SCRIPT_DIR
@@ -31,7 +31,11 @@ fi
 
 RUNTIME_ID='win-x64'
 if [[ "$CURRENT_PLATFORM" == 'linux' ]]; then
-   RUNTIME_ID='linux-x64'
+   if [[ (`uname -m` == arm*) ]]; then
+       RUNTIME_ID='linux-arm'
+   else
+       RUNTIME_ID='linux-x64'
+   fi
 elif [[ "$CURRENT_PLATFORM" == 'darwin' ]]; then
    RUNTIME_ID='osx-x64'
 fi
@@ -79,6 +83,7 @@ function build ()
         dotnet msbuild /t:Build /p:PackageRuntime=${RUNTIME_ID} /p:BUILDCONFIG=${BUILD_CONFIG} || failed build
     fi    
 
+    mkdir -p ${LAYOUT_DIR}/bin/en-US
     grep --invert-match '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > ${LAYOUT_DIR}/bin/en-US/strings.json
 }
 
@@ -92,6 +97,7 @@ function layout ()
         dotnet msbuild /t:layout /p:PackageRuntime=${RUNTIME_ID} /p:BUILDCONFIG=${BUILD_CONFIG} || failed build
     fi
 
+    mkdir -p ${LAYOUT_DIR}/bin/en-US
     grep --invert-match '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > ${LAYOUT_DIR}/bin/en-US/strings.json
 
     #change execution flag to allow running with sudo
