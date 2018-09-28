@@ -1,6 +1,7 @@
 #!/bin/bash
 PLATFORM=$1
-PRECACHE=$2
+CPUARCH=$2
+PRECACHE=$3
 
 CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
 NODE_URL=https://nodejs.org/dist
@@ -153,5 +154,7 @@ fi
 
 # Download the external tools common across Linux platforms (excluding OSX).
 if [[ "$PLATFORM" == "linux" ]]; then
-    acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-armv7l.tar.gz" node fix_nested_dir
+    acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-$CPUARCH.tar.gz" node fix_nested_dir
 fi
+
+

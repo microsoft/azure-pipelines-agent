@@ -24,21 +24,24 @@ if [[ "$DEV_CONFIG" == "Release" ]]; then
     BUILD_CONFIG="Release"
 fi
 
+CURRENT_CPUARCH='x64'
+if [[ `uname -m` == 'armv7l' ]]; then 
+    CURRENT_CPUARCH=`echo \`uname -m\` | awk '{print tolower($0)}'`
+fi	
+
 CURRENT_PLATFORM="windows"
 if [[ (`uname` == "Linux") || (`uname` == "Darwin") ]]; then
     CURRENT_PLATFORM=`echo \`uname\` | awk '{print tolower($0)}'`
 fi
 
 RUNTIME_ID='win-x64'
-if [[ "$CURRENT_PLATFORM" == 'linux' ]]; then
+if [[ ("$CURRENT_PLATFORM" == 'linux') && ("$CURRENT_CPUARCH" == 'armv7l') ]]; then
+   RUNTIME_ID='linux-arm'
+elif [[ ("$CURRENT_PLATFORM" == 'linux') && ("$CURRENT_CPUARCH" == 'x64') ]]; then 
    RUNTIME_ID='linux-x64'
 elif [[ "$CURRENT_PLATFORM" == 'darwin' ]]; then
    RUNTIME_ID='osx-x64'
 fi
-CURRENT_PLATFORM="linux"
-RUNTIME_ID='linux-arm'
-
-echo "Current PLATFORM $CURRENT_PLATFORM $RUNTIME_ID"
 
 
 WINDOWSAGENTSERVICE_PROJFILE="Agent.Service/Windows/AgentService.csproj"
@@ -108,7 +111,7 @@ function layout ()
     fi
 
     heading "Setup externals folder for $CURRENT_PLATFORM agent's layout"
-    bash ./Misc/externals.sh $CURRENT_PLATFORM || checkRC externals.sh
+    bash ./Misc/externals.sh $CURRENT_PLATFORM $CURRENT_CPUARCH || checkRC externals.sh
 }
 
 function runtest ()
@@ -193,7 +196,7 @@ heading "Dotnet SDK Version"
 dotnet --version
 
 heading "Pre-cache external resources for $CURRENT_PLATFORM platform ..."
-bash ./Misc/externals.sh $CURRENT_PLATFORM "Pre-Cache" || checkRC "externals.sh Pre-Cache"
+bash ./Misc/externals.sh $CURRENT_PLATFORM $CURRENT_CPUARCH "Pre-Cache" || checkRC "externals.sh Pre-Cache"
 
 if [[ "$CURRENT_PLATFORM" == 'windows' ]]; then
     vswhere=`find $DOWNLOAD_DIR -name vswhere.exe | head -1`
