@@ -581,7 +581,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 this.Warning(StringUtil.Loc("ServerTarpit"));
 
-                if (this.Variables.System_TFCollectionUrl != null)
+                if (!String.IsNullOrEmpty(this.Variables.System_TFCollectionUrl))
                 {
                     // Construct a URL to the resource utilization page, to aid the user debug throttling issues
                     UriBuilder uriBuilder = new UriBuilder(Variables.System_TFCollectionUrl);

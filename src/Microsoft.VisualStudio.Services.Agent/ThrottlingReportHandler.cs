@@ -51,7 +51,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 !string.IsNullOrEmpty(vssRequestDelayed.FirstOrDefault()) &&
                 !string.IsNullOrEmpty(vssRequestQuotaReset.FirstOrDefault()))
             {
-                TimeSpan delay = TimeSpan.FromMilliseconds(double.Parse(vssRequestDelayed.First()));
+                TimeSpan delay = TimeSpan.FromSeconds(double.Parse(vssRequestDelayed.First()));
                 int expirationEpoch = int.Parse(vssRequestQuotaReset.First());
                 DateTime expiration = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds(expirationEpoch);
 
