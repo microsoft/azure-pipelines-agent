@@ -20,6 +20,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
     [ServiceLocator(Default = typeof(SystemDControlManager))]
 #elif OS_OSX
     [ServiceLocator(Default = typeof(OsxServiceControlManager))]
+#elif OS_FREEBSD
+    [ServiceLocator(Default = typeof(FreeBsdServiceControlManager))]
 #endif
     public interface ILinuxServiceControlManager : IAgentService
     {

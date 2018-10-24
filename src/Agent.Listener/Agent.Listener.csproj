@@ -60,4 +60,11 @@
   <PropertyGroup Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true' AND '$(Configuration)' == 'Debug' AND '$(PackageRuntime)' == 'linux-arm'">
     <DefineConstants>OS_LINUX;ARM;DEBUG;TRACE</DefineConstants>
   </PropertyGroup>
+
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('FREEBSD'))">
+    <DefineConstants>OS_FREEBSD;X64;TRACE</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('FREEBSD')) AND '$(Configuration)' == 'Debug'">
+    <DefineConstants>OS_FREEBSD;DEBUG;X64;TRACE</DefineConstants>
+  </PropertyGroup>
 </Project>

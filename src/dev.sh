@@ -25,7 +25,7 @@ if [[ "$DEV_CONFIG" == "Release" ]]; then
 fi
 
 CURRENT_PLATFORM="windows"
-if [[ (`uname` == "Linux") || (`uname` == "Darwin") ]]; then
+if [[ (`uname` == "Linux") || (`uname` == "Darwin") || (`uname` == "FreeBSD") ]]; then
     CURRENT_PLATFORM=`echo \`uname\` | awk '{print tolower($0)}'`
 fi
 
@@ -45,6 +45,8 @@ elif [[ "$CURRENT_PLATFORM" == 'linux' ]]; then
     fi
 elif [[ "$CURRENT_PLATFORM" == 'darwin' ]]; then
    RUNTIME_ID='osx-x64'
+elif [[ "$CURRENT_PLATFORM" == 'freebsd' ]]; then
+   RUNTIME_ID='freebsd-x64'
 fi
 
 # Make sure current platform support publish the dotnet runtime
@@ -63,6 +65,11 @@ elif [[ "$CURRENT_PLATFORM" == 'linux' ]]; then
    fi
 elif [[ "$CURRENT_PLATFORM" == 'darwin' ]]; then
    if [[ ("$RUNTIME_ID" != 'osx-x64') ]]; then
+      echo "Failed: Can't build $RUNTIME_ID package $CURRENT_PLATFORM" >&2
+      exit 1
+   fi
+elif [[ "$CURRENT_PLATFORM" == 'freebsd' ]]; then
+   if [[ ("$RUNTIME_ID" != 'freebsd-x64') ]]; then
       echo "Failed: Can't build $RUNTIME_ID package $CURRENT_PLATFORM" >&2
       exit 1
    fi
@@ -126,7 +133,7 @@ function layout ()
     grep --invert-match '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > ${LAYOUT_DIR}/bin/en-US/strings.json
 
     #change execution flag to allow running with sudo
-    if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "darwin") ]]; then
+    if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "darwin") || ("$CURRENT_PLATFORM" == "freebsd") ]]; then
         chmod +x ${LAYOUT_DIR}/bin/Agent.Listener
         chmod +x ${LAYOUT_DIR}/bin/Agent.Worker
         chmod +x ${LAYOUT_DIR}/bin/Agent.PluginHost
@@ -171,7 +178,7 @@ function package ()
     pushd $PACKAGE_DIR > /dev/null
     rm -Rf *
 
-    if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "darwin") ]]; then
+    if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "darwin") || ("$CURRENT_PLATFORM" == "freebsd") ]]; then
         tar_name="${agent_pkg_name}.tar.gz"
         echo "Creating $tar_name in ${LAYOUT_DIR}"
         tar -czf "${tar_name}" -C ${LAYOUT_DIR} .

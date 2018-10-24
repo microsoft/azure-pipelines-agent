@@ -144,6 +144,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 case Constants.OSPlatform.OSX:
                 case Constants.OSPlatform.Linux:
+                case Constants.OSPlatform.FreeBSD:
                     // Write the section header.
                     WriteSection(StringUtil.Loc("EulasSectionHeader"));
 
@@ -373,6 +374,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 {
                     case Constants.OSPlatform.OSX:
                     case Constants.OSPlatform.Linux:
+                    case Constants.OSPlatform.FreeBSD:
                         // Save the provided admin cred for compat with previous agent.
                         _store.SaveCredential(credProvider.CredentialData);
                         break;
@@ -463,7 +465,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 //if you are adding code after this, keep that in mind
             }
 
-#elif OS_LINUX || OS_OSX
+#elif OS_LINUX || OS_OSX || OS_FREEBSD
             // generate service config script for OSX and Linux, GenerateScripts() will no-opt on windows.
             var serviceControlManager = HostContext.GetService<ILinuxServiceControlManager>();
             serviceControlManager.GenerateScripts(agentSettings);
@@ -491,6 +493,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 #elif OS_OSX
                     // unconfig osx service first
                     throw new Exception(StringUtil.Loc("UnconfigureOSXService"));
+#elif OS_FREEBSD
+                    // unconfig freebsd service first
+                    throw new Exception(StringUtil.Loc("UnconfigureFreeBSDService"));
 #endif
                 }
                 else

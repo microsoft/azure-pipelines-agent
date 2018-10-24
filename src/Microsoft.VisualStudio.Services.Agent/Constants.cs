@@ -56,6 +56,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             OSX,
             Linux,
+            FreeBSD,
             Windows
         }
 
@@ -75,6 +76,8 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static readonly OSPlatform Platform = OSPlatform.Linux;
 #elif OS_OSX
             public static readonly OSPlatform Platform = OSPlatform.OSX;
+#elif OS_FREEBSD
+            public static readonly OSPlatform Platform = OSPlatform.FreeBSD;
 #elif OS_WINDOWS
             public static readonly OSPlatform Platform = OSPlatform.Windows;
 #endif

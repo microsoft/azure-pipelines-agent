@@ -18,6 +18,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 {
                     case Constants.OSPlatform.Linux:
                     case Constants.OSPlatform.OSX:
+                    case Constants.OSPlatform.FreeBSD:
                         return StringComparer.Ordinal;
                     case Constants.OSPlatform.Windows:
                         return StringComparer.OrdinalIgnoreCase;
@@ -37,6 +38,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                         return "Linux";
                     case Constants.OSPlatform.OSX:
                         return "Darwin";
+                    case Constants.OSPlatform.FreeBSD:
+                        return "FreeBSD";
                     case Constants.OSPlatform.Windows:
                         return Environment.GetEnvironmentVariable("OS");
                     default:

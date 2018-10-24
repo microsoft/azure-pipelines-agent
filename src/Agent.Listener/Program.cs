@@ -52,6 +52,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         return Constants.Agent.ReturnCode.TerminatedError;
                     }
                     break;
+                case Constants.OSPlatform.FreeBSD:
+                    if (!RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Create("FREEBSD")))
+                    {
+                        terminal.WriteLine(StringUtil.Loc("NotFreeBSD"));
+                        return Constants.Agent.ReturnCode.TerminatedError;
+                    }
+                    break;
                 case Constants.OSPlatform.Windows:
                     if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                     {
