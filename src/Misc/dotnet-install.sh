@@ -166,7 +166,7 @@ get_current_os_name() {
     if [ "$uname" = "Darwin" ]; then
         echo "osx"
         return 0
-    if [ "$uname" = "FreeBSD" ]; then
+    elif [ "$uname" = "FreeBSD" ]; then
         echo "freebsd"
         return 0
     elif [ "$uname" = "Linux" ]; then
