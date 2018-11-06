@@ -11,6 +11,7 @@ using System.Diagnostics;
 using Agent.Sdk;
 using System.Linq;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using EndpointAuthorizationSchemes = Microsoft.VisualStudio.Services.ServiceEndpoints.WebApi.EndpointAuthorizationSchemes;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 
@@ -352,6 +353,7 @@ namespace Agent.Plugins.Repository
                         }
                         break;
                     case EndpointAuthorizationSchemes.Token:
+                    case EndpointAuthorizationSchemes.OAuth2:
                         username = "x-access-token";
                         if (!endpoint.Authorization.Parameters.TryGetValue(EndpointAuthorizationParameters.AccessToken, out password))
                         {
