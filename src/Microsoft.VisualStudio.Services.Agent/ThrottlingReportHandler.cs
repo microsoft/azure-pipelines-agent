@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -39,6 +40,10 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         protected async override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
+#if OS_LINUX
+            request.Version = HttpVersion.Version11;
+#endif                
+
             // Call the inner handler.
             var response = await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
 
