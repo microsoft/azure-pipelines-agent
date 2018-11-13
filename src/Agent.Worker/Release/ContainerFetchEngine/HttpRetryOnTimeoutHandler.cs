@@ -27,7 +27,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEng
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
-#if OS_LINUX
+#if OS_LINUX || OS_OSX
             request.Version = HttpVersion.Version11;
 #endif            
             // Potential improvements:

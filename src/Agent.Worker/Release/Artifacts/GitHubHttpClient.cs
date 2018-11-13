@@ -42,7 +42,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             request.Headers.Add("Authorization", "Token " + accessToken);
             request.Headers.Add("User-Agent", "VSTS-Agent/" + Constants.Agent.Version);
 
-#if OS_LINUX
+#if OS_LINUX || OS_OSX
             request.Version = HttpVersion.Version11;
 #endif
 
