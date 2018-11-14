@@ -13,7 +13,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
     [ServiceLocator(Default = typeof(NodeHandler))]
     public interface INodeHandler : IHandler
     {
-        NodeHandlerData Data { get; set; }
+        // Data can be of these two types: NodeHandlerData, and Node10HandlerData
+        BaseNodeHandlerData Data { get; set; }
     }
 
     public sealed class NodeHandler : Handler, INodeHandler
@@ -38,7 +39,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             "};"
         };
 
-        public NodeHandlerData Data { get; set; }
+        public BaseNodeHandlerData Data { get; set; }
 
         public async Task RunAsync()
         {
@@ -107,8 +108,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
             else
             {
-                file = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "node", "bin", $"node{IOUtil.ExeExtension}");
+                string nodeFolder = Data is Node10HandlerData ? "node10" : "node";
+
+                file = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
             }
+            
             // Format the arguments passed to node.
             // 1) Wrap the script file path in double quotes.
             // 2) Escape double quotes within the script file path. Double-quote is a valid
