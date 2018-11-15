@@ -108,7 +108,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
             else
             {
-                string nodeFolder = Data is Node10HandlerData ? "node10" : "node";
+                bool useNode10 = ExecutionContext.Variables.GetBoolean("AGENT_USE_NODE10_FOR_NODE_TASKS") ??
+                    StringUtil.ConvertToBoolean(System.Environment.GetEnvironmentVariable("AGENT_USE_NODE10_FOR_NODE_TASKS"), false);
+
+                string nodeFolder = (Data is Node10HandlerData || useNode10) ? "node10" : "node";
+
+                Trace.Info($"Task.json has node10 handler data: {Data is Node10HandlerData}, use node10 for node tasks: {useNode10}");
 
                 file = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
             }
