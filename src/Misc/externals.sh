@@ -151,8 +151,8 @@ if [[ "$PACKAGERUNTIME" == "win-x86" ]]; then
     acquireExternalTool "$CONTAINER_URL/vswhere/1_0_62/vswhere.zip" vswhere
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/win-x86/node.exe" node/bin
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/win-x86/node.lib" node/bin
-    acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x64/node.exe" node10/bin
-    acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x64/node.lib" node10/bin
+    acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x86/node.exe" node10/bin
+    acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x86/node.lib" node10/bin
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v3.3.0/nuget.exe" nuget
 fi
 
