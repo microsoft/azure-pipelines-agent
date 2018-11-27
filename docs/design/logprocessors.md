@@ -44,7 +44,7 @@ public interface IAgentLogPlugin
   string FriendlyName { get;}
 
   // Invoke on every line of the log output
-  Task ProcessAsync(IAgentLogPluginContext context, TaskStepDefinitionReference step, string output, CancellationToken token);
+  Task ProcessAsync(IAgentLogPluginContext context, TaskStepDefinitionReference step, string output);
   
   // Invoke after all tasks finished on worker side and all output lines finished process on plugin.
   Task FinalizeAsync(IAgentLogPluginContext context);
