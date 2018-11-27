@@ -8,6 +8,7 @@ function Get-FromModulePath {
     param([string]$ModuleName)
 
      # Valid ModuleName values are Az.Profile, AzureRM and Azure
+     # We are looking for Az.Profile module because "Get-Module -Name Az" is not working due to a known PowerShell bug.
     if (($ModuleName -ne "Az.Profile") -and ($ModuleName -ne "AzureRM") -and ($ModuleName -ne "Azure")) {
         Write-Host "Attempting to find invalid module."
         return $false
