@@ -47,7 +47,7 @@ public interface IAgentLogPlugin
   string FriendlyName { get;}
 
   // Invoke on every line of the log output
-  Task ProcessAsync(IAgentLogPluginContext context, TaskStepDefinitionReference step, string output);
+  Task ProcessLineAsync(IAgentLogPluginContext context, TaskStepDefinitionReference step, string line);
   
   // Invoke after all tasks finished on worker side and all output lines finished process on plugin.
   Task FinalizeAsync(IAgentLogPluginContext context);
@@ -76,7 +76,7 @@ public interface IAgentLogPluginContext
   // goes to agent diag log
   void Trace(string message);
 
-  // goes to user's build log
+  // goes to user's build log in `Job Finalize` node
   void Output(string message);
 }
 ```
@@ -89,7 +89,7 @@ General flow looks like:
 
 To ensure log processing plugins do not block stdin, the host will take care of buffering output, processing that buffer or queue of log lines and processing that queue.  That buffering may start out as in memory similar to our other queues but we could consider backing it by files if required.
 
-As it's processed each plugin will be called with `ProcessAsync(AgentLogPluginContext context, TaskStepDefinitionReference step, string output, CancellationToken token)`.  That will be a blocking call per plugin which would ideally do light processing or alter internal tracking state and return.
+As it's processed each plugin will be called with `ProcessLineAsync(AgentLogPluginContext context, TaskStepDefinitionReference step, string line)`.  That will be a blocking call per plugin which would ideally do light processing or alter internal tracking state and return.
 
 If a plugin writes transient state data, it should do it in the agent temp folder so it gets cleaned up automatically by the agent.  To encourage this, the host plugin will provide context that contains all job variables worker setup at the beginning of the build, so plugin can get the temp folder base on `$(Agent.TempDirectory)`.
 
@@ -154,9 +154,9 @@ The agent and worker should continue reliably in the even of any issues with sid
 
 The plugin host will short-circuit the plugin if the plugin is not able to catch up processing outputs.
 
-Question: Can the log host monitor memory and CPU usage of itself and circuit break itself?  Ideally yes.  Investigate across platforms supported.
+For now, we will circuit break on memory usage, if the plugin has more than 10MB pending strings for more than 100 sec, we will stop let that plugin process anymore.
 
-## TODO:Telemetry
+## Telemetry (TODO)
 
 We need telemetry on:  
 
