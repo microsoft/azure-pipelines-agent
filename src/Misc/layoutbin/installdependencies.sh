@@ -36,7 +36,7 @@ then
         command -v apt
         if [ $? -eq 0 ]
         then
-            apt update && apt install -y liblttng-ust0 libcurl3 libkrb5-3 zlib1g
+            apt update && apt install -y liblttng-ust0 libcurl4 libkrb5-3 zlib1g
             if [ $? -ne 0 ]
             then
                 echo "'apt' failed with exit code '$?'"
