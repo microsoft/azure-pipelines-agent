@@ -32,7 +32,10 @@ We will introduce a log processing plugins very similar to other agent plugins.
 
 Currently the Worker process will generate an `IList<IStep> steps` base on the job message server send down. Each `IStep` contains an `IExecutionContext`, the execution context is the core component which sends final output message (after mask secrets) to the live console circular buffer and permanent log storage in pages. In addition, `IExecutionContext` will also send the output message to the `log plugin host` through STDIN. 
 
-In a companion out of proc log processing extensibility point, output can be processed in parallel with our log processing.  Since not keeping up with stdin can cause it to fail.  In order to avoid having every plugin to get that right (and to reduce risk), we will create one `log plugin host` which buffers
+In a companion out of proc log processing extensibility point, output can be processed in parallel with our log processing.  Since not keeping up with stdin can cause it to fail.  In order to avoid having every plugin to get that right (and to reduce risk), we will create one `log plugin host` which buffers STDIN.
+
+All log plugins are best effort, plugins can't change the result of customer's job.
+Plugin can produce outputs back to user, but it can't log error/warning issues back to job.
 
 Plugins will be written in net core and loaded in-proc of the `log plugin host`. It will not block our live console and log publishing.
 
@@ -77,6 +80,8 @@ public interface IAgentLogPluginContext
   void Output(string message);
 }
 ```
+
+General flow looks like:
 
 ![layers](res/AgentLogProcessors.png)
 
