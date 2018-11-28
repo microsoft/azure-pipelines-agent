@@ -51,10 +51,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public override void EnsureCredential(IHostContext context, CommandSettings command, string serverUrl)
         {
             ArgUtil.NotNull(context,nameof(context));
-            Tracing trace = context.GetTrace(nameof(PersonalAccessToken));
+            Tracing trace = context.GetTrace(nameof(OAuthAccessToken));
             trace.Info(nameof(EnsureCredential));
             ArgUtil.NotNull(command,nameof(command));
-            CredentialData.Data[Constants.Agent.CommandLine.Args.Token] = command.GetToken();
+            CredentialData.Data[Constants.Agent.CommandLine.Args.Token] = command.GetOatToken();
         }
     }
 

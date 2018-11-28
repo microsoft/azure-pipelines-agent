@@ -79,7 +79,7 @@
     "                                   http://onprem:8080/tfs",
     " --auth <type>                     Authentication type. Valid values are:",
     "                                    pat        (Personal access token)",
-	"                                    oat        (OAuth access token)",
+    "                                    oat        (OAuth access token)",
     "                                    negotiate  (Kerberos or NTLM)",
     "                                    alt        (Basic authentication)",
     "                                    integrated (Windows default credentials)",

@@ -281,6 +281,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 validator: Validators.NonEmptyValidator);
         }
 
+        public string GetOatToken()
+        {
+            return GetArgOrPrompt(
+                                  name: Constants.Agent.CommandLine.Args.Token,
+                                  description: StringUtil.Loc("OAuthAccessToken"),
+                                  defaultValue: string.Empty,
+                                  validator: Validators.NonEmptyValidator);
+        }
+
         public string GetUrl(bool suppressPromptIfEmpty = false)
         {
             // Note, GetArg does not consume the arg (like GetArgOrPrompt does).

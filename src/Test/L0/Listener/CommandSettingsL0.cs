@@ -558,6 +558,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         }
 
         [Fact]
+        [Trait("Level","L0")]
+        [Trait("Category",nameof(CommandSettings))]
+        public void PromptsForOatToken()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            {
+                // Arrange.
+                var command = new CommandSettings(hc,args: new string[0]);
+                _promptManager
+                    .Setup(x => x.ReadValue(
+                                            Constants.Agent.CommandLine.Args.Token, // argName
+                                            StringUtil.Loc("OAuthAccessToken"), // description
+                                            true, // secret
+                                            string.Empty, // defaultValue
+                                            Validators.NonEmptyValidator, // validator
+                                            false)) // unattended
+                    .Returns("some token");
+
+                // Act.
+                string actual = command.GetOatToken();
+
+                // Assert.
+                Assert.Equal("some token",actual);
+            }
+        }
+
+        [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", nameof(CommandSettings))]
         public void PromptsForUrl()
