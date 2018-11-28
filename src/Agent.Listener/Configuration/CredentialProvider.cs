@@ -1,6 +1,6 @@
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Microsoft.VisualStudio.Services.Client;
 using Microsoft.VisualStudio.Services.Common;
+using Microsoft.VisualStudio.Services.OAuth;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
@@ -23,6 +23,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public abstract VssCredentials GetVssCredentials(IHostContext context);
         public abstract void EnsureCredential(IHostContext context, CommandSettings command, string serverUrl);
+    }
+
+    public sealed class OAuthAccessToken : CredentialProvider
+    {
+        public OAuthAccessToken() : base(Constants.Configuration.OAT) { }
+
+        public override VssCredentials GetVssCredentials(IHostContext context)
+        {
+            ArgUtil.NotNull(context,nameof(context));
+            Tracing trace = context.GetTrace(nameof(OAuthAccessToken));
+            trace.Info(nameof(GetVssCredentials));
+            ArgUtil.NotNull(CredentialData,nameof(CredentialData));
+
+            CredentialData.Data.TryGetValue(Constants.Agent.CommandLine.Args.Token, out string token);
+            ArgUtil.NotNullOrEmpty(token,nameof(token));
+            trace.Info("token retrieved: {0} chars",token.Length);
+
+            // OAT uses a bearer (OAuth) credential
+            VssOAuthAccessTokenCredential accessTokenCredential = new VssOAuthAccessTokenCredential(token);
+            VssCredentials credentials = new VssCredentials(null,accessTokenCredential,CredentialPromptType.DoNotPrompt);
+            trace.Info("cred created");
+
+            return credentials;
+        }
+
+        public override void EnsureCredential(IHostContext context, CommandSettings command, string serverUrl)
+        {
+            ArgUtil.NotNull(context,nameof(context));
+            Tracing trace = context.GetTrace(nameof(PersonalAccessToken));
+            trace.Info(nameof(EnsureCredential));
+            ArgUtil.NotNull(command,nameof(command));
+            CredentialData.Data[Constants.Agent.CommandLine.Args.Token] = command.GetToken();
+        }
     }
 
     public sealed class PersonalAccessToken : CredentialProvider

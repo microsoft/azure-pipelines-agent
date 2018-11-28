@@ -212,6 +212,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         public static class Configuration
         {
             public static readonly string PAT = "PAT";
+            public static readonly string OAT = "OAT";
             public static readonly string Alternate = "ALT";
             public static readonly string Negotiate = "Negotiate";
             public static readonly string Integrated = "Integrated";

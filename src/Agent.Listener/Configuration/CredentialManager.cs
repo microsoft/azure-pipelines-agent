@@ -17,6 +17,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public static readonly Dictionary<string, Type> CredentialTypes = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase)
         {
             { Constants.Configuration.PAT, typeof(PersonalAccessToken)},
+            { Constants.Configuration.OAT, typeof(OAuthAccessToken) },
             { Constants.Configuration.Alternate, typeof(AlternateCredential)},
             { Constants.Configuration.Negotiate, typeof(NegotiateCredential)},
             { Constants.Configuration.Integrated, typeof(IntegratedCredential)},
