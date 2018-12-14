@@ -25,11 +25,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         private const string _nodeJsPathLabel = "com.azure.dev.pipelines.agent.handler.node.path";
         private IDockerCommandManager _dockerManger;
+        private string _containerNetwork;
 
         public override void Initialize(IHostContext hostContext)
         {
             base.Initialize(hostContext);
             _dockerManger = HostContext.GetService<IDockerCommandManager>();
+            _containerNetwork = $"vsts_network_{Guid.NewGuid().ToString("N")}";
         }
 
         public async Task StartContainersAsync(IExecutionContext executionContext, object data)
@@ -119,9 +121,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Create local docker network for this job to avoid port conflict when multiple agents run on same machine.
             // All containers within a job join the same network
-            var containerNetwork = $"vsts_network_{Guid.NewGuid().ToString("N")}";
-            await CreateContainerNetworkAsync(executionContext, containerNetwork);
-            containers.ForEach(container => container.ContainerNetwork = containerNetwork);
+            await CreateContainerNetworkAsync(executionContext, _containerNetwork);
+            containers.ForEach(container => container.ContainerNetwork = _containerNetwork);
 
             foreach (var container in containers)
             {
@@ -137,14 +138,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             List<ContainerInfo> containers = data as List<ContainerInfo>;
             ArgUtil.NotNull(containers, nameof(containers));
 
-            var uniqueNetworks = new HashSet<string>();
-            var containerNetwork = containers.FirstOrDefault().ContainerNetwork;
             foreach (var container in containers)
             {
                 await StopContainerAsync(executionContext, container);
             }
             // Remove the container network
-            await RemoveContainerNetworkAsync(executionContext, containerNetwork);
+            await RemoveContainerNetworkAsync(executionContext, _containerNetwork);
         }
 
         private async Task StartContainerAsync(IExecutionContext executionContext, ContainerInfo container)
@@ -159,6 +158,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Trace.Info($"Container registry: {container.ContainerRegistryEndpoint.ToString()}");
             Trace.Info($"Container options: {container.ContainerCreateOptions}");
             Trace.Info($"Skip container image pull: {container.SkipContainerImagePull}");
+            foreach(var port in container.UserPortMappings)
+            {
+                Trace.Info($"User provided port: {port.Value}");
+            }
+            foreach(var volume in container.UserMountVolumes)
+            {
+                Trace.Info($"User provided volume: {volume.Value}");
+            }
 
             // Login to private docker registry
             string registryServer = string.Empty;

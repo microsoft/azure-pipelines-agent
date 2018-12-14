@@ -32,7 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             this.ContainerRegistryEndpoint = container.Endpoint?.Id ?? Guid.Empty;
             this.ContainerCreateOptions = container.Properties.Get<string>("options");
             this.SkipContainerImagePull = container.Properties.Get<bool>("localimage");
-            this.ContainerEnvironmentVariables = container.Environment;
+            _environmentVariables = container.Environment;
             this.ContainerCommand = container.Properties.Get<string>("command", defaultValue: "");
             this.IsJobContainer = isJobContainer;
 
@@ -54,14 +54,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             {
                 foreach (var port in container.Ports)
                 {
-                    UserPortMappings.Add(port, port);
+                    UserPortMappings[port] = port;
                 }
             }
             if (container.Volumes?.Count > 0)
             {
                 foreach (var volume in container.Volumes)
                 {
-                    UserMountVolumes.Add(volume, volume);
+                    UserMountVolumes[volume] = volume;
                 }
             }
         }
@@ -93,10 +93,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                 }
 
                 return _environmentVariables;
-            }
-            private set
-            {
-                _environmentVariables = value;
             }
         }
 
