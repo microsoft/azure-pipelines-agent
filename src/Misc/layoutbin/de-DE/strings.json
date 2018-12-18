@@ -549,6 +549,7 @@
     "UnableToParseBuildTrackingConfig0":  "Die Legacy-Buildnachverfolgungskonfiguration kann nicht analysiert werden. Stattdessen wird in neues Buildverzeichnis erstellt. Das vorherige Verzeichnis kann in einem nicht zurückgenommenen Zustand verbleiben. Legacykonfigurationsinhalte: {0}",
     "UnconfigAutologon":  "Einstellungen für die automatische Anmeldung werden entfernt",
     "UnconfigureOSXService":  "Zuerst Konfiguration des Diensts gemäß https://www.visualstudio.com/en-us/docs/build/admin/agents/v2-osx aufheben",
+    "UnconfigureFreeBSDService":  "Zuerst Konfiguration des Diensts gemäß https://www.visualstudio.com/en-us/docs/build/admin/agents/v2-freebsd aufheben",
     "UnconfigureServiceDService":  "Zuerst Konfiguration des Diensts gemäß https://www.visualstudio.com/en-us/docs/build/admin/agents/v2-linux aufheben",
     "UninstallingService":  "Der Dienst wird entfernt.",
     "UnknownCodeCoverageTool":  "Das Code Coverage-Tool \"{0}\" wird nicht unterstützt.",

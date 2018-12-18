@@ -550,6 +550,7 @@
     "UnableToParseBuildTrackingConfig0":  "无法分析旧的生成跟踪配置。将另外新建生成目录。之前的目录可能处于未声明状态。旧的配置内容: {0}",
     "UnconfigAutologon":  "正在删除自动登录设置",
     "UnconfigureOSXService":  "首先根据 https://www.visualstudio.com/en-us/docs/build/admin/agents/v2-osx 取消配置服务",
+    "UnconfigureFreeBSDService":  "首先根据 https://www.visualstudio.com/en-us/docs/build/admin/agents/v2-freebsd 取消配置服务",
     "UnconfigureServiceDService":  "首先根据 https://www.visualstudio.com/en-us/docs/build/admin/agents/v2-linux 取消配置服务",
     "UninstallingService":  "正在删除服务",
     "UnknownCodeCoverageTool":  "不支持代码覆盖率工具“{0}”。",

@@ -565,6 +565,7 @@
   "UnableToParseBuildTrackingConfig0": "Unable to parse the legacy build tracking configuration. A new build directory will be created instead. The previous directory may be left in an unreclaimed state. Legacy configuration contents: {0}",
   "UnconfigAutologon": "Removing autologon settings",
   "UnconfigureOSXService": "Unconfigure service first according to https://www.visualstudio.com/en-us/docs/build/admin/agents/v2-osx",
+  "UnconfigureFreeBSDService": "Unconfigure service first according to https://www.visualstudio.com/en-us/docs/build/admin/agents/v2-freebsd",
   "UnconfigureServiceDService": "Unconfigure service first according to https://www.visualstudio.com/en-us/docs/build/admin/agents/v2-linux",
   "UninstallingService": "Removing service",
   "UnknownCodeCoverageTool": "Code coverage tool '{0}' is not supported.",

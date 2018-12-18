@@ -550,6 +550,7 @@
     "UnableToParseBuildTrackingConfig0":  "Не удается проанализировать устаревшую конфигурацию отслеживания сборок. Вместо этого будет создан новый каталог сборки. Предыдущий каталог можно оставить в том виде, в каком он сейчас есть. Содержимое устаревшей конфигурации: {0}",
     "UnconfigAutologon":  "Удаляются параметры автоматического входа",
     "UnconfigureOSXService":  "Сначала отмените настройку службы, как описано на странице https://www.visualstudio.com/en-us/docs/build/admin/agents/v2-osx",
+    "UnconfigureFreeBSDService":  "Сначала отмените настройку службы, как описано на странице https://www.visualstudio.com/en-us/docs/build/admin/agents/v2-freebsd",
     "UnconfigureServiceDService":  "Сначала отмените настройку службы, как описано на странице https://www.visualstudio.com/en-us/docs/build/admin/agents/v2-linux",
     "UninstallingService":  "Удаление службы",
     "UnknownCodeCoverageTool":  "Средство оценки объемов протестированного кода \"{0}\" не поддерживается.",

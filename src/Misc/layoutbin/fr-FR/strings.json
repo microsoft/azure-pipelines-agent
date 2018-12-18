@@ -550,6 +550,7 @@
     "UnableToParseBuildTrackingConfig0":  "Impossible d\u0027analyser la configuration du suivi de build héritée. Un répertoire de build va être créé à la place. Le répertoire antérieur peut rester dans un état de non-récupération. Contenu de la configuration héritée : {0}",
     "UnconfigAutologon":  "Suppression des paramètres d\u0027ouverture de session automatique",
     "UnconfigureOSXService":  "Annulez d\u0027abord la configuration du service en suivant les indications sur https://www.visualstudio.com/fr-fr/docs/build/admin/agents/v2-osx",
+    "UnconfigureFreeBSDService":  "Annulez d\u0027abord la configuration du service en suivant les indications sur https://www.visualstudio.com/fr-fr/docs/build/admin/agents/v2-freebsd",
     "UnconfigureServiceDService":  "Annulez d\u0027abord la configuration du service en suivant les indications sur https://www.visualstudio.com/fr-fr/docs/build/admin/agents/v2-linux",
     "UninstallingService":  "Suppression du service",
     "UnknownCodeCoverageTool":  "L\u0027outil de couverture du code \u0027{0}\u0027 n\u0027est pas pris en charge.",
