@@ -10,9 +10,7 @@ using Microsoft.TeamFoundation.DistributedTask.Logging;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Newtonsoft.Json.Linq;
 using Microsoft.VisualStudio.Services.WebApi;
-#if OS_WINDOWS
 using Microsoft.Win32;
-#endif
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
