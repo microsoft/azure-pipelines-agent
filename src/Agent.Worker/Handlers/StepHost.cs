@@ -4,7 +4,6 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -26,6 +25,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                bool requireExitCodeZero,
                                Encoding outputEncoding,
                                bool killProcessOnCancel,
+                               bool inheritConsoleHandler,
                                CancellationToken cancellationToken);
     }
 
@@ -33,6 +33,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
     public interface IContainerStepHost : IStepHost
     {
         ContainerInfo Container { get; set; }
+        string PrependPath { get; set; }
     }
 
     [ServiceLocator(Default = typeof(DefaultStepHost))]
@@ -57,6 +58,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                             bool requireExitCodeZero,
                                             Encoding outputEncoding,
                                             bool killProcessOnCancel,
+                                            bool inheritConsoleHandler,
                                             CancellationToken cancellationToken)
         {
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
@@ -71,6 +73,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                          requireExitCodeZero: requireExitCodeZero,
                                                          outputEncoding: outputEncoding,
                                                          killProcessOnCancel: killProcessOnCancel,
+                                                         contentsToStandardIn: null,
+                                                         inheritConsoleHandler: inheritConsoleHandler,
                                                          cancellationToken: cancellationToken);
             }
         }
@@ -79,6 +83,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
     public sealed class ContainerStepHost : AgentService, IContainerStepHost
     {
         public ContainerInfo Container { get; set; }
+        public string PrependPath { get; set; }
         public event EventHandler<ProcessDataReceivedEventArgs> OutputDataReceived;
         public event EventHandler<ProcessDataReceivedEventArgs> ErrorDataReceived;
 
@@ -122,6 +127,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                             bool requireExitCodeZero,
                                             Encoding outputEncoding,
                                             bool killProcessOnCancel,
+                                            bool inheritConsoleHandler,
                                             CancellationToken cancellationToken)
         {
             // make sure container exist.
@@ -137,6 +143,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 ExecutionHandlerWorkingDirectory = workingDirectory,
                 ExecutionHandlerArguments = arguments,
                 ExecutionHandlerEnvironment = environment,
+                ExecutionHandlerPrependPath = PrependPath
             };
 
             // copy the intermediate script (containerHandlerInvoker.js) into Agent_TempDirectory
@@ -150,7 +157,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             string tempDir = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), Constants.Path.TempDirectory);
             File.Copy(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), "containerHandlerInvoker.js.template"), Path.Combine(tempDir, "containerHandlerInvoker.js"), true);
 
-            string node = Container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "node", "bin", $"node{IOUtil.ExeExtension}"));
+            string node;
+            if (!string.IsNullOrEmpty(Container.ContainerBringNodePath))
+            {
+                node = Container.ContainerBringNodePath;
+            }
+            else
+            {
+                node = Container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "node", "bin", $"node{IOUtil.ExeExtension}"));
+            }
+
             string entryScript = Container.TranslateToContainerPath(Path.Combine(tempDir, "containerHandlerInvoker.js"));
 
 #if !OS_WINDOWS
@@ -180,6 +196,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                          outputEncoding: outputEncoding,
                                                          killProcessOnCancel: killProcessOnCancel,
                                                          contentsToStandardIn: new List<string>() { JsonUtility.ToString(payload) },
+                                                         inheritConsoleHandler: inheritConsoleHandler,
                                                          cancellationToken: cancellationToken);
             }
         }
@@ -197,6 +214,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             [JsonProperty("environment")]
             public IDictionary<string, string> ExecutionHandlerEnvironment { get; set; }
+
+            [JsonProperty("prependPath")]
+            public string ExecutionHandlerPrependPath { get; set; }
         }
     }
 }

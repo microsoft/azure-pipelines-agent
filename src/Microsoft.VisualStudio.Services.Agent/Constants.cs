@@ -70,7 +70,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public static class Agent
         {
-            public static readonly string Version = "2.142.1";
+            public static readonly string Version = "2.144.0";
 
 #if OS_LINUX
             public static readonly OSPlatform Platform = OSPlatform.Linux;
@@ -307,9 +307,11 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string ProxyUsername = "agent.proxyusername";
                 public static readonly string ProxyPassword = "agent.proxypassword";
                 public static readonly string ProxyBypassList = "agent.proxybypasslist";
+                public static readonly string RetainDefaultEncoding = "agent.retainDefaultEncoding";
                 public static readonly string RootDirectory = "agent.RootDirectory";
                 public static readonly string RunMode = "agent.runmode";
                 public static readonly string ServerOMDirectory = "agent.ServerOMDirectory";
+                public static readonly string ServicePortPrefix = "agent.services";
                 public static readonly string SslCAInfo = "agent.cainfo";
                 public static readonly string SslClientCert = "agent.clientcert";
                 public static readonly string SslClientCertKey = "agent.clientcertkey";
