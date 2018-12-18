@@ -456,20 +456,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private bool RetainDefaultEncoding()
         {
 #if OS_WINDOWS
-            object windowsInstallationType = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion", "InstallationType", defaultValue: null);
-            ArgUtil.NotNull(windowsInstallationType, nameof(windowsInstallationType));
             object windowsReleaseId = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion", "ReleaseId", defaultValue: null);
-            ArgUtil.NotNull(windowsReleaseId, nameof(windowsReleaseId));
             if (int.TryParse(windowsReleaseId.ToString(), out int releaseId))
             {
-                if (!windowsInstallationType.ToString().StartsWith("Server", StringComparison.OrdinalIgnoreCase) || releaseId >= 1709)
+                if (releaseId >= 1709)
                 {
                     return GetBoolean(Constants.Variables.Agent.RetainDefaultEncoding) ?? false;
                 }
-            }
-            else
-            {
-                throw new ArgumentOutOfRangeException(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ReleaseId");
             }
 #endif
             return true;
