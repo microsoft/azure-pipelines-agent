@@ -1,0 +1,177 @@
+#!/usr/local/bin/bash
+
+SVC_NAME="{{SvcNameVar}}"
+SVC_DESCRIPTION="{{SvcDescription}}"
+
+SVC_CMD=$1
+arg_2=${2}
+
+AGENT_ROOT=`pwd`
+
+INSTALL_PATH=/usr/local/etc/rc.d/vsts_agent.sh
+CONFIG_PATH=.agent
+PID_FILE="${AGENT_ROOT}/vsts_agent.pid"
+TEMP_PATH=vsts.agent.service.temp
+NODE_BIN=`which node`
+RUNSVC_BIN=runsvc.sh
+
+user_id=`id -u`
+
+# systemctl must run as sudo
+# this script is a convenience wrapper around systemctl
+if [ $user_id -ne 0 ]; then
+    echo "Must run as sudo"
+    exit 1
+fi
+
+function failed()
+{
+   local error=${1:-Undefined error}
+   echo "Failed: $error" >&2
+   exit 1
+}
+
+if [ ! -f "${CONFIG_PATH}" ]; then
+    failed "Agent is not configured. Run config.sh before installing service"
+fi
+
+if [ -z "${NODE_BIN}" ]; then
+    failed "Node.js not found. Run pkg install node or set PATH properly."
+fi
+
+#check if we run as root
+if [[ $(id -u) != "0" ]]; then
+    echo "Failed: This script requires to run with sudo." >&2
+    exit 1
+fi
+
+function install()
+{
+    echo "Creating launch agent in ${INSTALL_PATH}"
+    if [ -f "${INSTALL_PATH}" ]; then
+        failed "error: exists ${INSTALL_PATH}"
+    fi
+
+    if [ -f "${TEMP_PATH}" ]; then
+      rm "${TEMP_PATH}" || failed "failed to delete ${TEMP_PATH}"
+    fi
+
+    # can optionally use username supplied
+    run_as_user=${arg_2:-$SUDO_USER}
+    echo "Run as user: ${run_as_user}"
+
+    run_as_uid=$(id -u ${run_as_user}) || failed "User does not exist"
+    echo "Run as uid: ${run_as_uid}"
+
+    run_as_gid=$(id -g ${run_as_user}) || failed "Group not available"
+    echo "gid: ${run_as_gid}"
+
+    cat <<EOM > ${TEMP_PATH}
+#!/bin/sh
+
+. /etc/rc.subr
+
+name="vsts_agent"
+command="${AGENT_ROOT}/${RUNSVC_BIN}"
+procname="${NODE_BIN}"
+pidfile="${PID_FILE}"
+
+load_rc_config "\$name"
+: \${vsts_agent_enable:="YES"}
+: \${vsts_agent_user:= $run_as_user}
+
+run_rc_command "\$1"
+
+EOM
+    mv "${TEMP_PATH}" "${INSTALL_PATH}" || failed "failed to copy unit file"
+    # unit file should not be executable and world writable
+    chmod 555 ${INSTALL_PATH} || failed "failed to set permissions on ${INSTALL_PATH}"
+
+    cat <<EOM > ${RUNSVC_BIN}
+#!/usr/local/bin/bash
+
+cd ${AGENT_ROOT}
+
+trap 'kill -INT \$PID' TERM INT
+
+if [ -f ".path" ]; then
+    # configure
+    export PATH=\`cat .path\`
+fi
+
+rm -f error.log
+export HOME=${HOME}
+nohup ${NODE_BIN} ./bin/AgentService.js 2>error.log &
+PID=\$!
+echo \$PID > ${PID_FILE}
+chmod 644 ${PID_FILE}
+
+EOM
+    chmod 555 ${RUNSVC_BIN}
+
+    echo "Install done."
+}
+
+function start()
+{
+    if [ ! -f ${INSTALL_PATH} ]; then
+        echo "Service not installed"
+        exit 1
+    fi
+    rm -f ${PID_FILE} error.log nohup.out
+    ${INSTALL_PATH} start
+    status
+}
+
+function stop()
+{
+    if [ ! -f ${INSTALL_PATH} ]; then
+        echo "Service not installed"
+        exit 1
+    fi
+    ${INSTALL_PATH} stop
+    rm -f ${PID_FILE}
+}
+
+function uninstall()
+{
+    stop && echo Agent not running.
+    rm -f ${INSTALL_PATH}
+    rm -f ${RUNSVC_BIN}
+}
+
+function status()
+{
+    if [ ! -f "${INSTALL_PATH}" ]; then
+        echo
+        echo "not installed"
+        echo
+        return
+    fi
+    ${INSTALL_PATH} "status"
+}
+
+function usage()
+{
+    echo
+    echo Usage:
+    echo "./svc.sh [install, start, stop, status, uninstall]"
+    echo "Commands:"
+    echo "   install [user]: Install agent service as Root or specified user."
+    echo "   start: Manually start the agent service."
+    echo "   stop: Manually stop the agent service."
+    echo "   status: Display status of agent service."
+    echo "   uninstall: Uninstall agent service."
+    echo
+}
+
+case $SVC_CMD in
+   "install") install;;
+   "status") status;;
+   "uninstall") uninstall;;
+   "start") start;;
+   "stop") stop;;
+   *) usage;;
+esac
+
+exit 0
