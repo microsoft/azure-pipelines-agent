@@ -69,6 +69,9 @@ function install()
     cat <<EOM > ${TEMP_PATH}
 #!/bin/sh
 
+# PROVIDE: vsts_agent
+# REQUIRE: DAEMON
+
 . /etc/rc.subr
 
 name="vsts_agent"
@@ -100,7 +103,7 @@ if [ -f ".path" ]; then
 fi
 
 rm -f error.log
-export HOME=${HOME}
+export HOME=~$run_as_user
 nohup ${NODE_BIN} ./bin/AgentService.js 2>error.log &
 PID=\$!
 echo \$PID > ${PID_FILE}

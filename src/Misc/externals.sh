@@ -162,6 +162,15 @@ if [[ "$PACKAGERUNTIME" == "osx-x64" ]]; then
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-darwin-x64.tar.gz" node10 fix_nested_dir
 fi
 
+# For FreeBSD download Linux version as baseline
+if [[ "$PACKAGERUNTIME" == "freebsd-x64" ]]; then
+    acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz" node fix_nested_dir
+    acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-linux-x64.tar.gz" node10 fix_nested_dir
+    rm -f "$LAYOUT_DIR/externals/node/bin/node"  "$LAYOUT_DIR/externals/node10/bin/node"
+    ln -sf /usr/local/bin/node "$LAYOUT_DIR/externals/node/bin/node"
+    ln -sf /usr/local/bin/node "$LAYOUT_DIR/externals/node10/bin/node"
+fi
+
 # Download the external tools common across OSX and Linux PACKAGERUNTIMEs.
 if [[ "$PACKAGERUNTIME" == "linux-x64" || "$PACKAGERUNTIME" == "linux-arm" || "$PACKAGERUNTIME" == "osx-x64" || "$PACKAGERUNTIME" == "freebsd-x64" ]]; then
     acquireExternalTool "$CONTAINER_URL/tee/14_134_0/TEE-CLC-14.134.0.zip" tee fix_nested_dir
