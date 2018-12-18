@@ -368,6 +368,7 @@
     "NoRestart":  "¿Desea reiniciar la máquina más tarde? (S/N) (presione ENTRAR para N)",
     "NoRestartSuggestion":  "Se ha habilitado el inicio de sesión automático durante la configuración del agente. Se recomienda reiniciar la máquina para que surta efecto la configuración de inicio de sesión automático.",
     "NotLinux":  "Esta versión del agente está compilada para Linux. Instale una compilación correcta para el sistema opertivo.",
+    "NotFreeBSD":  "Esta versión del agente está compilada para FreeBSD. Instale una compilación correcta para el sistema opertivo.",
     "NotOSX":  "Esta versión del agente está compilada para OSX. Instale una compilación correcta para el sistema opertivo.",
     "NotWindows":  "Esta versión del agente está compilada para Windows. Instale una compilación correcta para el sistema opertivo.",
     "OperatingSystemShutdown":  "Se va a cerrar el sistema operativo del equipo \"{0}\"",

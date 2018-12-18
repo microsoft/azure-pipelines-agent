@@ -358,6 +358,7 @@
     "NoRestart":  "稍后重新启动计算机? (Y/N) (按 enter 为 N)",
     "NoRestartSuggestion":  "代理配置过程中启用了自动登录。建议重新启动计算机，以使自动登录设置生效。",
     "NotLinux":  "此代理版本适用于 Linux。请为你的操作系统安装正确的版本。",
+    "NotFreeBSD":  "此代理版本适用于 FreeBSD。请为你的操作系统安装正确的版本。",
     "NotOSX":  "此代理版本适用于 OSX。请为你的操作系统安装正确的版本。",
     "NotWindows":  "此代理版本适用于 Windows。请为你的操作系统安装正确的版本。",
     "OperatingSystemShutdown":  "计算机“{0}”的操作系统正在关闭",

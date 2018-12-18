@@ -358,6 +358,7 @@
     "NoRestart":  "要稍後重新啟動電腦嗎? ([是]/[否]) (按 enter 鍵表示否)",
     "NoRestartSuggestion":  "自動登入已在代理程式組態期間啟用。建議您重新啟動電腦，自動登入設定才會生效。",
     "NotLinux":  "此代理程式版本是針對 Linux 所建置。請為您的 OS 安裝正確的組建。",
+    "NotFreeBSD":  "此代理程式版本是針對 FreeBSD 所建置。請為您的 OS 安裝正確的組建。",
     "NotOSX":  "此代理程式版本是針對 OSX 所建置。請為您的 OS 安裝正確的組建。",
     "NotWindows":  "此代理程式版本是針對 Windows 所建置。請為您的 OS 安裝正確的組建。",
     "OperatingSystemShutdown":  "電腦 \u0027{0}\u0027 的作業系統正在關閉中",

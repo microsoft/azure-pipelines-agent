@@ -358,6 +358,7 @@
     "NoRestart":  "Redémarrer la machine plus tard ? (O/N) (appuyez sur Entrée pour N)",
     "NoRestartSuggestion":  "L\u0027ouverture de session automatique a été activée durant la configuration de l\u0027agent. Il est recommandé de redémarrer la machine pour que les paramètres d\u0027ouverture de session automatique soient pris en compte.",
     "NotLinux":  "La version de cet agent est générée pour Linux. Installez la build appropriée pour votre système d\u0027exploitation.",
+    "NotFreeBSD":  "La version de cet agent est générée pour FreeBSD. Installez la build appropriée pour votre système d\u0027exploitation.",
     "NotOSX":  "La version de cet agent est générée pour OSX. Installez la build appropriée pour votre système d\u0027exploitation.",
     "NotWindows":  "La version de cet agent est générée pour Windows. Installez la build appropriée pour votre système d\u0027exploitation.",
     "OperatingSystemShutdown":  "Le système d\u0027exploitation est en train de s\u0027arrêter pour l\u0027ordinateur \u0027{0}\u0027",

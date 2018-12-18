@@ -358,6 +358,7 @@
     "NoRestart":  "Riavviare il computer in un secondo momento? (S/N) (premere INVIO per N)",
     "NoRestartSuggestion":  "Durante la configurazione dell\u0027agente è stato abilitato l\u0027accesso automatico. È consigliabile riavviare il computer per rendere effettive le impostazioni di accesso automatico.",
     "NotLinux":  "Questa versione dell\u0027agente è compilata per Linux. Installare una build corretta per il sistema operativo usato.",
+    "NotFreeBSD":  "Questa versione dell\u0027agente è compilata per FreeBSD. Installare una build corretta per il sistema operativo usato.",
     "NotOSX":  "Questa versione dell\u0027agente è compilata per OS X. Installare una build corretta per il sistema operativo usato.",
     "NotWindows":  "Questa versione dell\u0027agente è compilata per Windows. Installare una build corretta per il sistema operativo usato.",
     "OperatingSystemShutdown":  "Arresto del sistema operativo per il computer \u0027{0}\u0027",

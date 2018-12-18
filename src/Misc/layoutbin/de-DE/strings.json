@@ -357,6 +357,7 @@
     "NoRestart":  "Computer zu einem späteren Zeitpunkt neu starten? (J/N) (Drücken Sie die EINGABETASTE für N)",
     "NoRestartSuggestion":  "Bei der Agent-Konfiguration wurde die automatische Anmeldung aktiviert. Starten Sie den Computer neu, damit die Einstellungen für die automatische Anmeldung wirksam werden.",
     "NotLinux":  "Diese Agent-Version wurde für Linux erstellt. Installieren Sie einen geeigneten Build für Ihr Betriebssystem.",
+    "NotFreeBSD":  "Diese Agent-Version wurde für FreeBSD erstellt. Installieren Sie einen geeigneten Build für Ihr Betriebssystem.",
     "NotOSX":  "Diese Agent-Version wurde für OSX erstellt. Installieren Sie einen geeigneten Build für Ihr Betriebssystem.",
     "NotWindows":  "Diese Agent-Version wurde für Windows erstellt. Installieren Sie einen geeigneten Build für Ihr Betriebssystem.",
     "OperatingSystemShutdown":  "Das Betriebssystem wird für den Computer \"{0}\" heruntergefahren.",
