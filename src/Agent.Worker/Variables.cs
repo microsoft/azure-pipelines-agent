@@ -457,12 +457,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
 #if OS_WINDOWS
             object windowsReleaseId = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion", "ReleaseId", defaultValue: null);
-            if (int.TryParse(windowsReleaseId.ToString(), out int releaseId))
+            if (windowsReleaseId != null && int.TryParse(windowsReleaseId.ToString(), out int releaseId) && releaseId >= 1709)
             {
-                if (releaseId >= 1709)
-                {
-                    return GetBoolean(Constants.Variables.Agent.RetainDefaultEncoding) ?? false;
-                }
+                return GetBoolean(Constants.Variables.Agent.RetainDefaultEncoding) ?? false;
             }
 #endif
             return true;
