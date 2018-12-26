@@ -23,11 +23,11 @@ function Get-FromModulePath {
     }
 
     if ($ModuleName -eq "AzureRM") {
-        # For AzureRM, validate the AzureRM.Accounts module can be found as well.
-        $accountsName = "AzureRM.Accounts"
-        Write-Host "Attempting to find the module $accountsName"
-        $accountsModule = Get-Module -Name $accountsName -ListAvailable | Select-Object -First 1
-        if (!$accountsModule) {
+        # For AzureRM, validate the AzureRM.profile module can be found as well.
+        $profileName = "AzureRM.profile"
+        Write-Host "Attempting to find the module $profileName"
+        $profileModule = Get-Module -Name $profileName -ListAvailable | Select-Object -First 1
+        if (!$profileModule) {
             Write-Host "Not found."
             return $false
         }
@@ -45,7 +45,7 @@ function Get-FromSdkPath {
     if ($Classic) {
         $partialPath = 'Microsoft SDKs\Azure\PowerShell\ServiceManagement\Azure\Azure.psd1'
     } else {
-        $partialPath = 'Microsoft SDKs\Azure\PowerShell\ResourceManager\AzureResourceManager\AzureRM.Accounts\AzureRM.Accounts.psd1'
+        $partialPath = 'Microsoft SDKs\Azure\PowerShell\ResourceManager\AzureResourceManager\AzureRM.Profile\AzureRM.Profile.psd1'
     }
 
     foreach ($programFiles in @(${env:ProgramFiles(x86)}, $env:ProgramFiles)) {
