@@ -7,9 +7,9 @@ function Get-FromModulePath {
     [CmdletBinding()]
     param([string]$ModuleName)
 
-     # Valid ModuleName values are Az.Profile, AzureRM and Azure
-     # We are looking for Az.Profile module because "Get-Module -Name Az" is not working due to a known PowerShell bug.
-    if (($ModuleName -ne "Az.Profile") -and ($ModuleName -ne "AzureRM") -and ($ModuleName -ne "Azure")) {
+     # Valid ModuleName values are Az.Accounts, AzureRM and Azure
+     # We are looking for Az.Accounts module because "Get-Module -Name Az" is not working due to a known PowerShell bug.
+    if (($ModuleName -ne "Az.Accounts") -and ($ModuleName -ne "AzureRM") -and ($ModuleName -ne "Azure")) {
         Write-Host "Attempting to find invalid module."
         return $false
     }
@@ -23,8 +23,8 @@ function Get-FromModulePath {
     }
 
     if ($ModuleName -eq "AzureRM") {
-        # For AzureRM, validate the AzureRM.profile module can be found as well.
-        $profileName = "AzureRM.profile"
+        # For AzureRM, validate the AzureRM.Accounts module can be found as well.
+        $profileName = "AzureRM.Accounts"
         Write-Host "Attempting to find the module $profileName"
         $profileModule = Get-Module -Name $profileName -ListAvailable | Select-Object -First 1
         if (!$profileModule) {
@@ -45,7 +45,7 @@ function Get-FromSdkPath {
     if ($Classic) {
         $partialPath = 'Microsoft SDKs\Azure\PowerShell\ServiceManagement\Azure\Azure.psd1'
     } else {
-        $partialPath = 'Microsoft SDKs\Azure\PowerShell\ResourceManager\AzureResourceManager\AzureRM.Profile\AzureRM.Profile.psd1'
+        $partialPath = 'Microsoft SDKs\Azure\PowerShell\ResourceManager\AzureResourceManager\AzureRM.Accounts\AzureRM.Accounts.psd1'
     }
 
     foreach ($programFiles in @(${env:ProgramFiles(x86)}, $env:ProgramFiles)) {
@@ -89,7 +89,7 @@ function Get-FromSdkPath {
 }
 
 Write-Host "Env:PSModulePath: '$env:PSModulePath'"
-$null = (Get-FromModulePath -ModuleName:"Az.Profile") -or
+$null = (Get-FromModulePath -ModuleName:"Az.Accounts") -or
     (Get-FromModulePath -ModuleName:"AzureRM") -or
     (Get-FromSdkPath -Classic:$false) -or
     (Get-FromModulePath -ModuleName:"Azure") -or
