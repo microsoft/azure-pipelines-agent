@@ -24,10 +24,10 @@ function Get-FromModulePath {
 
     if ($ModuleName -eq "AzureRM") {
         # For AzureRM, validate the AzureRM.Accounts module can be found as well.
-        $profileName = "AzureRM.Accounts"
-        Write-Host "Attempting to find the module $profileName"
-        $profileModule = Get-Module -Name $profileName -ListAvailable | Select-Object -First 1
-        if (!$profileModule) {
+        $accountsName = "AzureRM.Accounts"
+        Write-Host "Attempting to find the module $accountsName"
+        $accountsModule = Get-Module -Name $accountsName -ListAvailable | Select-Object -First 1
+        if (!$accountsModule) {
             Write-Host "Not found."
             return $false
         }
