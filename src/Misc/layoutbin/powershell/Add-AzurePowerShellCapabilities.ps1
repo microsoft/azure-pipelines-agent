@@ -93,5 +93,4 @@ $null = (Get-FromModulePath -ModuleName:"Az.Accounts") -or
     (Get-FromModulePath -ModuleName:"AzureRM") -or
     (Get-FromSdkPath -Classic:$false) -or
     (Get-FromModulePath -ModuleName:"Azure") -or
-    (Get-FromSdkPath -Classic:$true)
-    
+    (Get-FromSdkPath -Classic:$true)   
