@@ -29,6 +29,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string artifactsDirectoryNameOnly =
                 useNewArtifactsDirectoryName ? Constants.Build.Path.ArtifactsDirectory : Constants.Build.Path.LegacyArtifactsDirectory;
             ArtifactsDirectory = Path.Combine(BuildDirectory, artifactsDirectoryNameOnly);
+            ResourcesDirectory = Path.Combine(BuildDirectory, Constants.Build.Path.ResourcesDirectory);
             SourcesDirectory = Path.Combine(BuildDirectory, sourcesDirectoryNameOnly);
             TestResultsDirectory = Path.Combine(BuildDirectory, Constants.Build.Path.TestResultsDirectory);
 
@@ -51,6 +52,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // Set the directories.
             BuildDirectory = buildDirectory.ToString(CultureInfo.InvariantCulture);
             ArtifactsDirectory = Path.Combine(BuildDirectory, Constants.Build.Path.ArtifactsDirectory);
+            ResourcesDirectory = Path.Combine(BuildDirectory, Constants.Build.Path.ResourcesDirectory);
             SourcesDirectory = Path.Combine(BuildDirectory, Constants.Build.Path.SourcesDirectory);
             TestResultsDirectory = Path.Combine(BuildDirectory, Constants.Build.Path.TestResultsDirectory);
 
@@ -124,6 +126,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         }
 
         public string RepositoryType { get; set; }
+
+        [JsonProperty("pipeline_resourcesdirectory")]
+        public string ResourcesDirectory { get; set; }
 
         [JsonIgnore]
         public DateTimeOffset? LastMaintenanceAttemptedOn { get; set; }

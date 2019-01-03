@@ -201,6 +201,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string GarbageCollectionDirectory = "GC";
                 public static readonly string LegacyArtifactsDirectory = "artifacts";
                 public static readonly string LegacyStagingDirectory = "staging";
+
+                public static readonly string ResourcesDirectory = "r";
                 public static readonly string SourceRootMappingDirectory = "SourceRootMapping";
                 public static readonly string SourcesDirectory = "s";
                 public static readonly string TestResultsDirectory = "TestResults";
@@ -364,6 +366,11 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string GitLfsSupport = "agent.source.git.lfs";
                 public static readonly string GitShallowDepth = "agent.source.git.shallowFetchDepth";
                 public static readonly string SkipSyncSource = "agent.source.skip";
+            }
+
+            public static class Pipeline
+            {
+                public static readonly string ResourcesDirectory = "pipeline.resourcesDirectory";
             }
 
             public static class Release
