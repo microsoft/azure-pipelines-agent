@@ -33,7 +33,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             this.ContainerCreateOptions = container.Properties.Get<string>("options");
             this.SkipContainerImagePull = container.Properties.Get<bool>("localimage");
             _environmentVariables = container.Environment;
-            this.ContainerEnvironmentVariables.TryAdd(Constants.TFBuild, "True");
             this.ContainerCommand = container.Properties.Get<string>("command", defaultValue: "");
             this.IsJobContainer = isJobContainer;
 
