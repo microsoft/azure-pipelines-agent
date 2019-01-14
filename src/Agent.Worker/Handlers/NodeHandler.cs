@@ -108,16 +108,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
             else
             {
-                bool taskHasNode10Data, useNode10;
-
-                (file, taskHasNode10Data, useNode10) = GetNodeFolder(ExecutionContext);
-
-                Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals),
-                    file,
-                    "bin",
-                    $"node{IOUtil.ExeExtension}");
-
-                Trace.Info($"Task.json has node10 handler data: {taskHasNode10Data}, use node10 for node tasks: {useNode10}");
+                file = GetNodeLocation();
             }
             
             // Format the arguments passed to node.
@@ -160,14 +151,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
         }
 
-        public (string, bool, bool) GetNodeFolder(IExecutionContext executionContext)
+        public string GetNodeLocation()
         {
-            bool useNode10 = executionContext.Variables.GetBoolean("AGENT_USE_NODE10") ??
-                StringUtil.ConvertToBoolean(System.Environment.GetEnvironmentVariable("AGENT_USE_NODE10"), false);
+            bool useNode10 = ExecutionContext.Variables.GetBoolean("AGENT_USE_NODE10")
+                ?? StringUtil.ConvertToBoolean(System.Environment.GetEnvironmentVariable("AGENT_USE_NODE10"), false);
             bool taskHasNode10Data = Data is Node10HandlerData;
             string nodeFolder = (taskHasNode10Data || useNode10) ? "node10" : "node";
 
-            return (nodeFolder, taskHasNode10Data, useNode10);
+            Trace.Info($"Task.json has node10 handler data: {taskHasNode10Data}, use node10 for node tasks: {useNode10}");
+
+            return Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals),
+                nodeFolder,
+                "bin",
+                $"node{IOUtil.ExeExtension}");
         }
 
         private void OnDataReceived(object sender, ProcessDataReceivedEventArgs e)

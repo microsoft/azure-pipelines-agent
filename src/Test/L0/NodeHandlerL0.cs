@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent;
+using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Moq;
@@ -21,18 +22,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         {
             using (TestHostContext thc = CreateTestHostContext())
             {
-                Mock<IExecutionContext> tec = CreateTestExecutionContext(thc);
+                thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
+                thc.SetSingleton(new ExtensionManager() as IExtensionManager);
+
                 NodeHandler nodeHandler = new NodeHandler();
+
+                nodeHandler.Initialize(thc);
+                nodeHandler.ExecutionContext = CreateTestExecutionContext(thc);
                 nodeHandler.Data = new NodeHandlerData();
 
-                string nodeFolder;
-                bool taskHasNode10Data, useNode10;
-                
-                (nodeFolder, taskHasNode10Data, useNode10) = nodeHandler.GetNodeFolder(tec.Object);
-
-                Assert.Equal("node", nodeFolder);
-                Assert.False(taskHasNode10Data);
-                Assert.False(useNode10);
+                string actualLocation = nodeHandler.GetNodeLocation();
+                string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
+                    "node",
+                    "bin",
+                    $"node{IOUtil.ExeExtension}");
+                Assert.Equal(expectedLocation, actualLocation);
             }
         }
 
@@ -43,18 +47,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         {
             using (TestHostContext thc = CreateTestHostContext())
             {
-                Mock<IExecutionContext> tec = CreateTestExecutionContext(thc);
+                thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
+                thc.SetSingleton(new ExtensionManager() as IExtensionManager);
+
                 NodeHandler nodeHandler = new NodeHandler();
+
+                nodeHandler.Initialize(thc);
+                nodeHandler.ExecutionContext = CreateTestExecutionContext(thc);
                 nodeHandler.Data = new Node10HandlerData();
 
-                string nodeFolder;
-                bool taskHasNode10Data, useNode10;
-                
-                (nodeFolder, taskHasNode10Data, useNode10) = nodeHandler.GetNodeFolder(tec.Object);
-
-                Assert.Equal("node10", nodeFolder);
-                Assert.True(taskHasNode10Data);
-                Assert.False(useNode10);
+                string actualLocation = nodeHandler.GetNodeLocation();
+                string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
+                    "node10",
+                    "bin",
+                    $"node{IOUtil.ExeExtension}");
+                Assert.Equal(expectedLocation, actualLocation);
             }
         }
 
@@ -69,18 +76,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 using (TestHostContext thc = CreateTestHostContext())
                 {
-                    Mock<IExecutionContext> tec = CreateTestExecutionContext(thc);
+                    thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
+                    thc.SetSingleton(new ExtensionManager() as IExtensionManager);
+
                     NodeHandler nodeHandler = new NodeHandler();
-                    nodeHandler.Data = new NodeHandlerData();
 
-                    string nodeFolder;
-                    bool taskHasNode10Data, useNode10;
-                    
-                    (nodeFolder, taskHasNode10Data, useNode10) = nodeHandler.GetNodeFolder(tec.Object);
+                    nodeHandler.Initialize(thc);
+                    nodeHandler.ExecutionContext = CreateTestExecutionContext(thc);
+                    nodeHandler.Data = new Node10HandlerData();
 
-                    Assert.Equal("node10", nodeFolder);
-                    Assert.False(taskHasNode10Data);
-                    Assert.True(useNode10);
+                    string actualLocation = nodeHandler.GetNodeLocation();
+                    string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
+                        "node10",
+                        "bin",
+                        $"node{IOUtil.ExeExtension}");
+                    Assert.Equal(expectedLocation, actualLocation);
                 }
             }
             finally
@@ -96,22 +106,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         {
             using (TestHostContext thc = CreateTestHostContext())
             {
+                thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
+                thc.SetSingleton(new ExtensionManager() as IExtensionManager);
+
                 var variables = new Dictionary<string, VariableValue>();
 
                 variables.Add("AGENT_USE_NODE10", new VariableValue("true"));
 
-                Mock<IExecutionContext> tec = CreateTestExecutionContext(thc, variables);
                 NodeHandler nodeHandler = new NodeHandler();
+
+                nodeHandler.Initialize(thc);
+                nodeHandler.ExecutionContext = CreateTestExecutionContext(thc, variables);
                 nodeHandler.Data = new NodeHandlerData();
 
-                string nodeFolder;
-                bool taskHasNode10Data, useNode10;
-                
-                (nodeFolder, taskHasNode10Data, useNode10) = nodeHandler.GetNodeFolder(tec.Object);
-
-                Assert.Equal("node10", nodeFolder);
-                Assert.False(taskHasNode10Data);
-                Assert.True(useNode10);
+                string actualLocation = nodeHandler.GetNodeLocation();
+                string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
+                    "node10",
+                    "bin",
+                    $"node{IOUtil.ExeExtension}");
+                Assert.Equal(expectedLocation, actualLocation);
             }
         }
 
@@ -122,24 +135,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         {
             using (TestHostContext thc = CreateTestHostContext())
             {
+                thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
+                thc.SetSingleton(new ExtensionManager() as IExtensionManager);
+
                 var variables = new Dictionary<string, VariableValue>();
 
                 // Explicitly set 'AGENT_USE_NODE10' feature flag to false
                 variables.Add("AGENT_USE_NODE10", new VariableValue("false"));
 
-                Mock<IExecutionContext> tec = CreateTestExecutionContext(thc, variables);
                 NodeHandler nodeHandler = new NodeHandler();
+
+                nodeHandler.Initialize(thc);
+                nodeHandler.ExecutionContext = CreateTestExecutionContext(thc, variables);
                 nodeHandler.Data = new Node10HandlerData();
 
-                string nodeFolder;
-                bool taskHasNode10Data, useNode10;
-                
-                (nodeFolder, taskHasNode10Data, useNode10) = nodeHandler.GetNodeFolder(tec.Object);
-
                 // Node10 handler is unaffected by the 'AGENT_USE_NODE10' feature flag, so folder name should be 'node10'
-                Assert.Equal("node10", nodeFolder);
-                Assert.True(taskHasNode10Data);
-                Assert.False(useNode10);
+                string actualLocation = nodeHandler.GetNodeLocation();
+                string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
+                    "node10",
+                    "bin",
+                    $"node{IOUtil.ExeExtension}");
+                Assert.Equal(expectedLocation, actualLocation);
             }
         }
 
@@ -147,8 +163,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         {
             return new TestHostContext(this, testName);
         }
-
-        private Mock<IExecutionContext> CreateTestExecutionContext(TestHostContext tc,
+        
+        private IExecutionContext CreateTestExecutionContext(TestHostContext tc,
             Dictionary<string, VariableValue> variables = null)
         {
             var trace = tc.GetTrace();
@@ -156,12 +172,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             List<string> warnings;
             variables = variables ?? new Dictionary<string, VariableValue>();
 
-            executionContext
+             executionContext
                 .Setup(x => x.Variables)
                 .Returns(new Variables(tc, copy: variables, warnings: out warnings));
 
-            return executionContext;
+             return executionContext.Object;
         }
-
     }
 }
