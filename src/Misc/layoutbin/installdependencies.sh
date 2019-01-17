@@ -15,8 +15,15 @@ fi
 function print_errormessage() 
 {
     echo "Can't install dotnet core dependencies."
-    echo "You can manually install all required dependencies base on follwoing documentation"
+    echo "You can manually install all required dependencies based on following documentation"
     echo "https://docs.microsoft.com/en-us/dotnet/core/linux-prerequisites?tabs=netcore2x"
+}
+
+function print_rhel6message() 
+{
+    echo "Can't install dotnet core dependencies."
+    echo "You can manually install all required dependencies based on following documentation"
+    echo "https://docs.microsoft.com/en-us/dotnet/core/linux-prerequisites?tabs=rhel6"
 }
 
 if [ -e /etc/os-release ]
@@ -232,13 +239,27 @@ then
                 exit 1
             fi
         else
-            echo "Can't detect current OS type base on /etc/os-release."
+            echo "Can't detect current OS type based on /etc/os-release."
             print_errormessage
             exit 1
         fi
     fi
+elif [ -e /etc/redhat-release ]
+# RHEL6 doesn't have an os-release file defined, read redhat-release instead
+then
+    redhatRelease=$(</etc/redhat-release)
+    if [[ $redhatRelease == "CentOS release 6."* || $redhatRelease == "Red Hat Enterprise Linux Server release 6."* ]]
+    then
+        echo "The current OS is Red Hat Enterprise Linux 6 or Centos 6"
+        print_rhel6message
+        exit 1
+    else
+        echo "Unknown RHEL OS version"
+        print_errormessage
+        exit 1
+    fi
 else
-    echo "/etc/os-release doesn't exists."
+    echo "Unknown OS version"
     print_errormessage
     exit 1
 fi
