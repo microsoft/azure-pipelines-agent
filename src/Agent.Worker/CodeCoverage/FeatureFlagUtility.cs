@@ -13,9 +13,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
             try
             {
                 var featureFlag = featureAvailabilityHttpClient?.GetFeatureFlagByNameAsync(FFName).Result;
-                if (featureFlag != null && featureFlag.EffectiveState.Equals("On", StringComparison.OrdinalIgnoreCase))
+                if (featureFlag != null && featureFlag.EffectiveState.Equals("Off", StringComparison.OrdinalIgnoreCase))
                 {
-                    return true;
+                    return false;
                 }
             }
             catch
@@ -23,7 +23,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
                 context.Debug(StringUtil.Format("Failed to get FF {0} Value. By default, publishing data to TCM.", FFName));
                 return true;
             }
-            return false;
+            return true;
         }
     }
 }
