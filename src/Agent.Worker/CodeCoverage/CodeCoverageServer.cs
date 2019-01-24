@@ -1,5 +1,4 @@
 ﻿using Microsoft.TeamFoundation.TestManagement.WebApi;
-using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.FeatureAvailability.WebApi;
 using Microsoft.VisualStudio.Services.TestResults.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -33,7 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
             };
 
             FeatureAvailabilityHttpClient featureAvailabilityHttpClient = connection.GetClient<FeatureAvailabilityHttpClient>();
-            if (GetFeatureFlagState(featureAvailabilityHttpClient, CodeCoverageConstants.EnablePublishToTcmServiceDirectlyFromTaskFF, context))
+            if (FeatureFlagUtility.GetFeatureFlagState(featureAvailabilityHttpClient, CodeCoverageConstants.EnablePublishToTcmServiceDirectlyFromTaskFF, context))
             {
                 TestResultsHttpClient tcmClient = connection.GetClient<TestResultsHttpClient>();
                 await tcmClient.UpdateCodeCoverageSummaryAsync(data, project, buildId, cancellationToken: cancellationToken);
@@ -45,22 +44,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
             }
         }
 
-        private bool GetFeatureFlagState(FeatureAvailabilityHttpClient featureAvailabilityHttpClient, string FFName, IAsyncCommandContext context)
-        {
-            try
-            {
-                var featureFlag = featureAvailabilityHttpClient?.GetFeatureFlagByNameAsync(FFName).Result;
-                if (featureFlag != null && featureFlag.EffectiveState.Equals("On", StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-            }
-            catch
-            {
-                context.Debug(StringUtil.Format("Failed to get FF {0} Value. By default, publishing data to TCM.", FFName));
-                return true;
-            }
-            return false;
-        }
+
     }
 }
