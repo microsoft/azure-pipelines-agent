@@ -3,6 +3,7 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.Common;
 using Microsoft.VisualStudio.Services.Common;
@@ -183,6 +184,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public async Task<TaskAgent> AddAgentAsync(AgentSettings agentSettings, TaskAgent agent, CommandSettings command)
         {
             var deploymentMachine = new DeploymentMachine() { Agent = agent };
+            var azureSubscriptionId = GetAzureSubscriptionId();
+            if (!String.IsNullOrEmpty(azureSubscriptionId))
+            {
+                deploymentMachine.Properties.Add("AzureSubscriptionId", azureSubscriptionId);
+            }
             deploymentMachine = await _deploymentGroupServer.AddDeploymentTargetAsync(new Guid(agentSettings.ProjectId), agentSettings.DeploymentGroupId, deploymentMachine);
 
             await GetAndAddTags(deploymentMachine, agentSettings, command);
@@ -307,6 +313,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
 
             return machines;
+        }
+
+        private string GetAzureSubscriptionId()
+        {
+            string azureSubscriptionId = string.Empty;
+            const string imdsUri = "http://169.254.169.254/metadata/instance/compute/subscriptionId?api-version=2017-08-01&format=text";
+            using (var httpClient = new HttpClient())
+            {
+                httpClient.DefaultRequestHeaders.Add("Metadata", "True");
+                try
+                {
+                    azureSubscriptionId = httpClient.GetStringAsync(imdsUri).Result;
+                    if (!Guid.TryParse(azureSubscriptionId, out Guid result))
+                    {
+                        azureSubscriptionId = string.Empty;
+                    }
+                }
+                catch (AggregateException ex)
+                {
+
+                }
+            }
+
+            return azureSubscriptionId;
         }
     }
 
