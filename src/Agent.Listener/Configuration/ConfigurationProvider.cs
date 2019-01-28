@@ -330,9 +330,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                         azureSubscriptionId = string.Empty;
                     }
                 }
-                catch (AggregateException ex)
+                catch (Exception)
                 {
-
+                    azureSubscriptionId = string.Empty;
                 }
             }
 
