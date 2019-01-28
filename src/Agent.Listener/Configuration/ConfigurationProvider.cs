@@ -319,7 +319,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         {
             string azureSubscriptionId = string.Empty;
             const string imdsUri = "http://169.254.169.254/metadata/instance/compute/subscriptionId?api-version=2017-08-01&format=text";
-            using (var httpClient = new HttpClient())
+            using (var httpClient = new HttpClient(HostContext.CreateHttpClientHandler()))
             {
                 httpClient.DefaultRequestHeaders.Add("Metadata", "True");
                 try
