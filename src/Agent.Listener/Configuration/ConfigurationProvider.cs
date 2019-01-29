@@ -317,6 +317,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         private string GetAzureSubscriptionId()
         {
+            // We will use the Azure Instance Metadata Service in order to fetch metadata ( in this case Subscription Id used to provision the VM) if the VM is an Azure VM
+            // More on Instance Metadata Service can be found here: https://docs.microsoft.com/en-us/azure/virtual-machines/windows/instance-metadata-service
             string azureSubscriptionId = string.Empty;
             const string imdsUri = "http://169.254.169.254/metadata/instance/compute/subscriptionId?api-version=2017-08-01&format=text";
             using (var httpClient = new HttpClient(HostContext.CreateHttpClientHandler()))
@@ -330,9 +332,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                         azureSubscriptionId = string.Empty;
                     }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    // An exception will be thrown if the Agent Machine is a non-Azure VM.
                     azureSubscriptionId = string.Empty;
+                    Trace.Info($"GetAzureSubscriptionId ex: ${ex.Message}");
                 }
             }
 
