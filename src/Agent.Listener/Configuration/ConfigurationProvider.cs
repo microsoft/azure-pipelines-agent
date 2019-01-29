@@ -336,7 +336,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 {
                     // An exception will be thrown if the Agent Machine is a non-Azure VM.
                     azureSubscriptionId = string.Empty;
-                    Trace.Info($"GetAzureSubscriptionId ex: ${ex.Message}");
+                    Trace.Info($"GetAzureSubscriptionId ex: {ex.Message}");
                 }
             }
 
