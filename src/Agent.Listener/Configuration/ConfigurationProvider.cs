@@ -184,7 +184,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public async Task<TaskAgent> AddAgentAsync(AgentSettings agentSettings, TaskAgent agent, CommandSettings command)
         {
             var deploymentMachine = new DeploymentMachine() { Agent = agent };
-            var azureSubscriptionId = GetAzureSubscriptionId();
+            var azureSubscriptionId = await GetAzureSubscriptionIdAsync();
             if (!String.IsNullOrEmpty(azureSubscriptionId))
             {
                 deploymentMachine.Properties.Add("AzureSubscriptionId", azureSubscriptionId);
@@ -315,7 +315,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             return machines;
         }
 
-        private string GetAzureSubscriptionId()
+        private async Task<string> GetAzureSubscriptionIdAsync()
         {
             // We will use the Azure Instance Metadata Service in order to fetch metadata ( in this case Subscription Id used to provision the VM) if the VM is an Azure VM
             // More on Instance Metadata Service can be found here: https://docs.microsoft.com/en-us/azure/virtual-machines/windows/instance-metadata-service
@@ -326,7 +326,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 httpClient.DefaultRequestHeaders.Add("Metadata", "True");
                 try
                 {
-                    azureSubscriptionId = httpClient.GetStringAsync(imdsUri).Result;
+                    azureSubscriptionId = await httpClient.GetStringAsync(imdsUri);
                     if (!Guid.TryParse(azureSubscriptionId, out Guid result))
                     {
                         azureSubscriptionId = string.Empty;
