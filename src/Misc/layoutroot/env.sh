@@ -14,6 +14,10 @@ varCheckList=(
     'VSTS_HTTP_PROXY_PASSWORD'
     )
 
+varCheckListRegex=(
+    "JAVA_HOME_.*"
+    )
+
 envContents=""
 
 if [ -f ".env" ]; then
@@ -39,4 +43,13 @@ echo $PATH>.path
 for var_name in ${varCheckList[@]}
 do
     writeVar "${var_name}"
+done
+
+for var in $(compgen -e); do
+    for pattern in ${varCheckListRegex[@]}
+    do
+        if [[ ${var} =~ ${pattern} ]]; then
+            writeVar "${var}"
+        fi
+    done
 done
