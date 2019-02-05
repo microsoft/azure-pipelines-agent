@@ -55,9 +55,9 @@ namespace Agent.Plugins.Log
 
         private bool CheckForPluginDisable(IAgentLogPluginContext context)
         {
-            if (context.Variables.TryGetValue("test.disable.noconfig", out var disable) && !string.IsNullOrEmpty(disable.Value))
+            if (context.Variables.TryGetValue("test.enable.noconfig", out var enable) && !string.IsNullOrEmpty(enable.Value))
             {
-                return true;
+                return false;
             }
 
             // Enable only for build
@@ -77,20 +77,7 @@ namespace Agent.Plugins.Log
             // check for PTR task or some other tasks to enable/disable
             return context.Steps == null
                    || context.Steps.Any(x => x.Id.Equals(new Guid("0B0F01ED-7DDE-43FF-9CBB-E48954DAF9B1")))
-                   || _pipelineConfig.BuildId == 0
-                   || !IsValidGithubBuild(context);
-        }
-
-        private bool IsValidGithubBuild(IAgentLogPluginContext context)
-        {
-            // enable for github only
-            if (context.Variables.TryGetValue("build.repository.provider", out var repoProvider)
-                && "github".Equals(repoProvider.Value, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            return false;
+                   || _pipelineConfig.BuildId == 0;
         }
 
         private void PopulatePipelineConfig(IAgentLogPluginContext context)
