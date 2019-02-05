@@ -109,33 +109,6 @@ namespace Test.L0.Plugin.TestResultParser
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
-        public async Task TestResultLogPlugin_DisableForNonGitHub()
-        {
-            var agentContext = new Mock<IAgentLogPluginContext>();
-            var plugin = new TestResultLogPlugin();
-
-            agentContext.Setup(x => x.Variables).Returns(new Dictionary<string, VariableValue>()
-            {
-                {"system.hosttype", new VariableValue("build") },
-                {"system.servertype", new VariableValue("Hosted") },
-                {"build.repository.provider", new VariableValue("TfsGit") }
-            });
-            agentContext.Setup(x => x.Steps).Returns(new List<TaskStepDefinitionReference>()
-            {
-                new TaskStepDefinitionReference()
-                {
-                    Id = new Guid("0B0F01ED-7DDE-43FF-9CBB-E48954DAF9B1")
-                }
-            });
-
-            var result = await plugin.InitializeAsync(agentContext.Object);
-
-            Assert.True(result == false);
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Plugin")]
         public async Task TestResultLogPlugin_DisableIfExceptionThrown()
         {
             var agentContext = new Mock<IAgentLogPluginContext>();
@@ -163,36 +136,6 @@ namespace Test.L0.Plugin.TestResultParser
 
             Assert.True(result == false);
             agentContext.Verify(x => x.Output(It.Is<string>(msg => msg.Contains("Unable to initialize Test Result Log Parser"))), Times.Once);
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Plugin")]
-        public async Task TestResultLogPlugin_DisableIfEnvVariableSet()
-        {
-            var agentContext = new Mock<IAgentLogPluginContext>();
-            var logParser = new Mock<ILogParserGateway>();
-
-            agentContext.Setup(x => x.Steps).Returns(new List<TaskStepDefinitionReference>()
-            {
-                new TaskStepDefinitionReference()
-                {
-                    Id = new Guid("1B0F01ED-7DDE-43FF-9CBB-E48954DAF9B1")
-                }
-            });
-            agentContext.Setup(x => x.Variables).Returns(new Dictionary<string, VariableValue>()
-            {
-                {"system.hosttype", new VariableValue("build") },
-                {"system.servertype", new VariableValue("Hosted") },
-                {"build.buildId", new VariableValue("1") },
-                {"build.repository.provider", new VariableValue("Github") },
-                {"test.disable.noconfig", new VariableValue("someval") }
-            });
-
-            var plugin = new TestResultLogPlugin() { InputDataParser = logParser.Object };
-            var result = await plugin.InitializeAsync(agentContext.Object);
-
-            Assert.True(result == false);
         }
 
         [Fact]
