@@ -55,11 +55,6 @@ namespace Agent.Plugins.Log
 
         private bool CheckForPluginDisable(IAgentLogPluginContext context)
         {
-            if (context.Variables.TryGetValue("test.enable.noconfig", out var enable) && !string.IsNullOrEmpty(enable.Value))
-            {
-                return false;
-            }
-
             // Enable only for build
             if (context.Variables.TryGetValue("system.hosttype", out var hostType)
                 && !string.Equals("Build", hostType.Value, StringComparison.OrdinalIgnoreCase))
