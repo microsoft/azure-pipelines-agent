@@ -34,7 +34,7 @@ namespace Agent.Plugins.Log
             catch (Exception ex)
             {
                 _logger.Warning($"Unable to initialize {FriendlyName}");
-                context.Trace(ex.StackTrace);
+                context.Trace(ex.ToString());
                 return false;
             }
 
