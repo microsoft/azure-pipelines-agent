@@ -21,9 +21,10 @@ function print_errormessage()
 
 function print_rhel6message() 
 {
-    echo "Can't install dotnet core dependencies."
-    echo "You can manually install all required dependencies based on following documentation"
-    echo "https://docs.microsoft.com/en-us/dotnet/core/linux-prerequisites?tabs=rhel6"
+    echo "We did our best effort to install dotnet core dependencies"
+    echo "However, there are some dependencies which require manual installation" 
+    echo "You can install all remaining required dependencies based on the following documentation"
+    echo "https://github.com/dotnet/core/blob/master/Documentation/build-and-install-rhel6-prerequisites.md"
 }
 
 if [ -e /etc/os-release ]
@@ -251,6 +252,25 @@ then
     if [[ $redhatRelease == "CentOS release 6."* || $redhatRelease == "Red Hat Enterprise Linux Server release 6."* ]]
     then
         echo "The current OS is Red Hat Enterprise Linux 6 or Centos 6"
+
+        # Install known dependencies, as a best effort.
+        # The remaining dependencies are covered by the GitHub doc that will be shown by `print_rhel6message`
+        command -v yum
+        if [ $? -eq 0 ]
+        then
+            yum install -y openssl krb5-libs zlib
+            if [ $? -ne 0 ]
+            then                    
+                echo "'yum' failed with exit code '$?'"
+                print_rhel6message
+                exit 1
+            fi
+        else
+            echo "Can not find 'yum'"
+            print_rhel6message
+            exit 1
+        fi
+
         print_rhel6message
         exit 1
     else
