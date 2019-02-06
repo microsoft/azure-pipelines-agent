@@ -65,8 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             X86,
             X64,
             Arm,
-            Arm64,
-            Rhel6X64 // We package "Red Hat Enterprise Linux 6" in a different way than the "Generic" Linux agents
+            Arm64
         }
 
         public static class Agent
@@ -89,8 +88,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static readonly Architecture PlatformArchitecture = Architecture.Arm;
 #elif ARM64            
             public static readonly Architecture PlatformArchitecture = Architecture.Arm64;
-#elif RHEL6X64
-            public static readonly Architecture PlatformArchitecture = Architecture.Rhel6X64;
 #endif
 
             public static readonly TimeSpan ExitOnUnloadTimeout = TimeSpan.FromSeconds(30);
