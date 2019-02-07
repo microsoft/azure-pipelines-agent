@@ -27,6 +27,15 @@ function print_rhel6message()
     echo "https://github.com/dotnet/core/blob/master/Documentation/build-and-install-rhel6-prerequisites.md"
 }
 
+function print_rhel6errormessage() 
+{
+    echo "We couldn't install dotnet core dependencies"
+    echo "You can manually install all required dependencies based on following documentation"
+    echo "https://docs.microsoft.com/en-us/dotnet/core/linux-prerequisites?tabs=netcore2x"
+    echo "In addition, there are some dependencies which require manual installation. Please follow this documentation" 
+    echo "https://github.com/dotnet/core/blob/master/Documentation/build-and-install-rhel6-prerequisites.md"
+}
+
 if [ -e /etc/os-release ]
 then
     echo "--------OS Information--------"
@@ -262,12 +271,12 @@ then
             if [ $? -ne 0 ]
             then                    
                 echo "'yum' failed with exit code '$?'"
-                print_rhel6message
+                print_rhel6errormessage
                 exit 1
             fi
         else
             echo "Can not find 'yum'"
-            print_rhel6message
+            print_rhel6errormessage
             exit 1
         fi
 
