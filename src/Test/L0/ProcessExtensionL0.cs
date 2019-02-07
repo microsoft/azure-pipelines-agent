@@ -47,10 +47,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     {
                         trace.Info($"Read env from {timeout.Id}");
                         var value = timeout.GetEnvironmentVariable(hc, envName);
+
                         if (string.Equals(value, envValue, StringComparison.OrdinalIgnoreCase))
                         {
                             trace.Info($"Find the env.");
                             return;
+                        }
+
+                        if (value != null)
+                        {
+                            trace.Error($"Env was found, but with different value. Expected: { envValue }, actual { value }");
+                        }
+                        else
+                        {
+                            trace.Error($"Env was not found");
                         }
                     }
                     catch (Exception ex)
