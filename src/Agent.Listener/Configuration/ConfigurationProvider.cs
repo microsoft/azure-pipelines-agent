@@ -322,6 +322,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             using (var httpClient = new HttpClient(HostContext.CreateHttpClientHandler()))
             {
                 httpClient.DefaultRequestHeaders.Add("Metadata", "True");
+                httpClient.Timeout = new TimeSpan(0, 0, 5);
                 try
                 {
                     azureSubscriptionId = await httpClient.GetStringAsync(imdsUri);
