@@ -48,4 +48,4 @@ v ##[command]"C:\WINDOWS\system32\cmd.exe" /D /E:ON /V:OFF /S /C "CALL "C:\_temp
 
 
 ### Open questions
-* Can the tool runner we have automatically mark the end of output for a command in a reliable way? This way all of the tools that run will get collapsible regions for free.
+* Can our tool runner automatically mark the end of output for a command in a reliable way? This way all of the tools that run will get collapsible regions for free.
