@@ -1,13 +1,14 @@
 ﻿using Agent.Plugins.Log.TestResultParser.Contracts;
 using Agent.Sdk;
 
-namespace Agent.Plugins.TestResultParser.Plugin
+namespace Agent.Plugins.Log.TestResultParser.Plugin
 {
     public class TraceLogger : ITraceLogger
     {
-        public TraceLogger(IAgentLogPluginContext context)
+        public TraceLogger(IAgentLogPluginContext context, bool debugLoggingEnabled)
         {
             _context = context;
+            _debug = debugLoggingEnabled;
         }
 
         #region interface implementation
@@ -27,7 +28,10 @@ namespace Agent.Plugins.TestResultParser.Plugin
         /// <inheritdoc />
         void ITraceLogger.Verbose(string text)
         {
-            _context.Output($"Debug: {text}");
+            if (_debug)
+            {
+                _context.Output($"Debug: {text}");
+            }
         }
 
         /// <inheritdoc />
@@ -39,5 +43,6 @@ namespace Agent.Plugins.TestResultParser.Plugin
         #endregion
 
         private readonly IAgentLogPluginContext _context;
+        private readonly bool _debug;
     }
 }
