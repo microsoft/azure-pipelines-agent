@@ -6,20 +6,20 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
     {
         public TelemetryDataWrapper(ITelemetryDataCollector telemetry, string telemetryEventName, string telemetrySubArea = null)
         {
-            TelemetryDataCollector = telemetry;
-            TelemetryEventName = telemetryEventName;
-            TelemetrySubArea = telemetrySubArea;
+            telemetryDataCollector = telemetry;
+            this.telemetryEventName = telemetryEventName;
+            this.telemetrySubArea = telemetrySubArea;
         }
 
         public void AddAndAggregate(object value)
         {
-
+            telemetryDataCollector.AddAndAggregate(telemetryEventName, value, telemetrySubArea);
         }
 
-        public string TelemetrySubArea { get; }
+        private string telemetrySubArea;
 
-        public string TelemetryEventName { get; }
+        public string telemetryEventName;
 
-        public ITelemetryDataCollector TelemetryDataCollector { get; }
+        public ITelemetryDataCollector telemetryDataCollector;
     }
 }
