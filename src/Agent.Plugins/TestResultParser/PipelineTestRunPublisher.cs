@@ -25,17 +25,14 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
             using (var timer = new SimpleTimer("PublishTestRun", TelemetryConstants.PipelineTestRunPublisherEventArea, TelemetryConstants.PublishTestRun, 
                 _logger, _telemetry, TimeSpan.FromMilliseconds(Int32.MaxValue)))
             {
-                // Sample run uri: MochaTestResultParser/1
-                var parserName = testRun.ParserUri.Split("TestResultParser/")[0];
-
-                var runCreateModel = new RunCreateModel(name: $"{parserName} test run {testRun.TestRunId} - automatically inferred results", buildId: _pipelineConfig.BuildId,
+                var runCreateModel = new RunCreateModel(name: testRun.TestRunName, buildId: _pipelineConfig.BuildId,
                     state: TestRunState.InProgress.ToString(), isAutomated: true, type: RunType.NoConfigRun.ToString());
 
                 // Create the test run on the server
                 var run = await _httpClient.CreateTestRunAsync(runCreateModel, _pipelineConfig.Project);
                 _logger.Info($"PipelineTestRunPublisher : PublishAsync : Created test run with id {run.Id}.");
                 _telemetry.AddToCumulativeTelemetry(TelemetryConstants.PipelineTestRunPublisherEventArea, TelemetryConstants.TestRunIds, new List<int> { run.Id });
-                _telemetry.AddToCumulativeTelemetry(TelemetryConstants.PipelineTestRunPublisherEventArea, $"{parserName}RunsCount", 1, true);
+                _telemetry.AddToCumulativeTelemetry(TelemetryConstants.PipelineTestRunPublisherEventArea, $"{testRun.ParserUri.Split('/')[0]}RunsCount", 1, true);
 
                 // Populate test reulsts
                 var testResults = new List<TestCaseResult>();

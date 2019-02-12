@@ -12,6 +12,21 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
         /// <inheritdoc />
         public string FriendlyName => "TestResultLogParser";
 
+        public TestResultLogPlugin()
+        {
+
+        }
+
+        /// <summary>
+        /// For UTs only
+        /// </summary>
+        public TestResultLogPlugin(ILogParserGateway inputDataParser, ITraceLogger logger, ITelemetryDataCollector telemetry)
+        {
+            _logger = logger;
+            _telemetry = telemetry;
+            _inputDataParser = inputDataParser;
+        }
+
         /// <inheritdoc />
         public async Task<bool> InitializeAsync(IAgentLogPluginContext context)
         {
@@ -20,19 +35,27 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
                 context.Variables.TryGetValue("system.debug", out var systemDebug);
                 var debugLoggingEnabled = false;
 
-                if (string.Equals(systemDebug.Value, "true"))
+                if (string.Equals(systemDebug?.Value, "true"))
                 {
                     debugLoggingEnabled = true;
                 }
 
-                _logger = new TraceLogger(context, debugLoggingEnabled);
+                if (_logger == null)
+                {
+                    _logger = new TraceLogger(context, debugLoggingEnabled);
+                }
+
                 _clientFactory = new ClientFactory(context.VssConnection);
-                _telemetry = new TelemetryDataCollector(_clientFactory, _logger);
+
+                if (_telemetry == null)
+                {
+                    _telemetry = new TelemetryDataCollector(_clientFactory, _logger);
+                }
+
+                PopulatePipelineConfig(context);
 
                 _telemetry.AddToCumulativeTelemetry(null, TelemetryConstants.PluginInitialized, true);
                 _telemetry.AddToCumulativeTelemetry(null, TelemetryConstants.PluginDisabled, true);
-
-                PopulatePipelineConfig(context);
 
                 if (DisablePlugin(context))
                 {
@@ -41,12 +64,14 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
 
                 _telemetry.AddToCumulativeTelemetry(null, TelemetryConstants.PluginDisabled, false);
 
-                await InputDataParser.InitializeAsync(_clientFactory, _pipelineConfig, _logger, _telemetry);
+                await _inputDataParser.InitializeAsync(_clientFactory, _pipelineConfig, _logger, _telemetry);
             }
             catch (Exception ex)
             {
-                _logger.Warning($"Unable to initialize {FriendlyName}");
                 context.Trace(ex.ToString());
+                _logger?.Warning($"Unable to initialize {FriendlyName}.");
+                _telemetry?.AddToCumulativeTelemetry(null, TelemetryConstants.InitialzieFailed, ex);
+                await _telemetry?.PublishCumulativeTelemetryAsync();
                 return false;
             }
 
@@ -56,7 +81,7 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
         /// <inheritdoc />
         public async Task ProcessLineAsync(IAgentLogPluginContext context, Pipelines.TaskStepDefinitionReference step, string line)
         {
-            await InputDataParser.ProcessDataAsync(line);
+            await _inputDataParser.ProcessDataAsync(line);
         }
 
         /// <inheritdoc />
@@ -65,7 +90,7 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
             using (var timer = new SimpleTimer("Finalize", null, TelemetryConstants.FinalizeAsync, _logger,_telemetry,
                 TimeSpan.FromMilliseconds(Int32.MaxValue)))
             {
-                await InputDataParser.CompleteAsync();
+                await _inputDataParser.CompleteAsync();
             }
 
             await _telemetry.PublishCumulativeTelemetryAsync();
@@ -119,7 +144,7 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
             }
         }
 
-        public ILogParserGateway InputDataParser { get; set; } = new LogParserGateway(); // for testing purpose
+        private ILogParserGateway _inputDataParser = new LogParserGateway();
         private IClientFactory _clientFactory;
         private ITraceLogger _logger;
         private ITelemetryDataCollector _telemetry;

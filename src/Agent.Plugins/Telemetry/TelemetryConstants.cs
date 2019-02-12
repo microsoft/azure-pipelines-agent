@@ -39,5 +39,7 @@
         public const string PublishTestRun = "PublishTestRun";
 
         public const string FinalizeAsync = "FinalizeAsync";
+
+        public const string InitialzieFailed = "InitialzieFailed";
     }
 }
