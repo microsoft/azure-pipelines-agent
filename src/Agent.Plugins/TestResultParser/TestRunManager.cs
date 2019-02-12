@@ -31,12 +31,12 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
         /// </summary>
         public async Task PublishAsync(TestRun testRun)
         {
-            _telemetry.AddToCumulativeTelemetry(null, TelemetryConstants.TotalRunsDetected, 1, true);
+            _telemetry.AddAndAggregate(TelemetryConstants.TotalRunsDetected, 1);
 
             var validatedTestRun = ValidateAndPrepareForPublish(testRun);
             if (validatedTestRun != null)
             {
-                _telemetry.AddToCumulativeTelemetry(null, TelemetryConstants.ValidRunsDetected, 1, true);
+                _telemetry.AddAndAggregate(TelemetryConstants.ValidRunsDetected, 1);
                 var task = _publisher.PublishAsync(validatedTestRun);
                 _runningTasks.Add(task);
                 await task;
@@ -54,7 +54,8 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
             }
             catch (Exception ex)
             {
-                _telemetry.AddToCumulativeTelemetry(TelemetryConstants.TestRunManagerEventArea, TelemetryConstants.Exceptions, new List<Exception> { ex }, true);
+                _telemetry.AddAndAggregate(TelemetryConstants.Exceptions, new List<Exception> { ex },
+                    TelemetryConstants.TestRunManagerEventArea);
                 _logger.Error($"TestRunManager : FinalizeAsync : Failed to complete test run. Error: {ex}");
             }
         }
@@ -63,7 +64,7 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
         {
             if (testRun?.TestRunSummary == null)
             {
-                _telemetry.AddToCumulativeTelemetry(TelemetryConstants.TestRunManagerEventArea, TelemetryConstants.RunSummaryNull, 1, true);
+                _telemetry.AddAndAggregate(TelemetryConstants.RunSummaryNull, 1, TelemetryConstants.TestRunManagerEventArea);
                 _logger.Error("TestRunManger : ValidateAndPrepareForPublish : TestRun or TestRunSummary is null.");
                 return null;
             }
@@ -76,7 +77,7 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
 
             if (testRun.TestRunSummary.TotalTests == 0)
             {
-                _telemetry.AddToCumulativeTelemetry(TelemetryConstants.TestRunManagerEventArea, TelemetryConstants.TotalTestsZero, 1, true);
+                _telemetry.AddAndAggregate(TelemetryConstants.TotalTestsZero, 1, TelemetryConstants.TestRunManagerEventArea);
                 _logger.Error("TestRunManger : ValidateAndPrepareForPublish : No tests found.");
                 return null;
             }
@@ -84,7 +85,7 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
             // Match the passed test count and clear the passed tests collection if mismatch occurs
             if (testRun.TestRunSummary.TotalPassed != testRun.PassedTests?.Count)
             {
-                _telemetry.AddToCumulativeTelemetry(TelemetryConstants.TestRunManagerEventArea, TelemetryConstants.PassedCountMismatch, 1, true);
+                _telemetry.AddAndAggregate(TelemetryConstants.PassedCountMismatch, 1, TelemetryConstants.TestRunManagerEventArea);
                 _logger.Warning("TestRunManger : ValidateAndPrepareForPublish : Passed test count does not match the Test summary.");
 
                 testRun.PassedTests = new List<TestResult>();
@@ -93,7 +94,7 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
             // Match the failed test count and clear the failed tests collection if mismatch occurs
             if (testRun.TestRunSummary.TotalFailed != testRun.FailedTests?.Count)
             {
-                _telemetry.AddToCumulativeTelemetry(TelemetryConstants.TestRunManagerEventArea, TelemetryConstants.FailedCountMismatch, 1, true);
+                _telemetry.AddAndAggregate(TelemetryConstants.FailedCountMismatch, 1, TelemetryConstants.TestRunManagerEventArea);
                 _logger.Warning("TestRunManger : ValidateAndPrepareForPublish : Failed test count does not match the Test summary.");
                 testRun.FailedTests = new List<TestResult>();
             }
@@ -101,7 +102,7 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
             // Match the skipped test count and clear the failed tests collection if mismatch occurs
             if (testRun.TestRunSummary.TotalSkipped != testRun.SkippedTests?.Count)
             {
-                _telemetry.AddToCumulativeTelemetry(TelemetryConstants.TestRunManagerEventArea, TelemetryConstants.SkippedCountMismatch, 1, true);
+                _telemetry.AddAndAggregate(TelemetryConstants.SkippedCountMismatch, 1, TelemetryConstants.TestRunManagerEventArea);
                 _logger.Warning("TestRunManger : ValidateAndPrepareForPublish : Skipped test count does not match the Test summary.");
                 testRun.SkippedTests = new List<TestResult>();
             }

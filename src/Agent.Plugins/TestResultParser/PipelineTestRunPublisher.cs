@@ -22,8 +22,9 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
         /// <inheritdoc />
         public async Task PublishAsync(TestRun testRun)
         {
-            using (var timer = new SimpleTimer("PublishTestRun", TelemetryConstants.PipelineTestRunPublisherEventArea, TelemetryConstants.PublishTestRun, 
-                _logger, _telemetry, TimeSpan.FromMilliseconds(Int32.MaxValue)))
+            using (var timer = new SimpleTimer("PublishTestRun", _logger,
+                new TelemetryDataWrapper(_telemetry, TelemetryConstants.PipelineTestRunPublisherEventArea, TelemetryConstants.PublishTestRun),
+                TimeSpan.FromMilliseconds(int.MaxValue)))
             {
                 var runCreateModel = new RunCreateModel(name: testRun.TestRunName, buildId: _pipelineConfig.BuildId,
                     state: TestRunState.InProgress.ToString(), isAutomated: true, type: RunType.NoConfigRun.ToString());
@@ -31,8 +32,10 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
                 // Create the test run on the server
                 var run = await _httpClient.CreateTestRunAsync(runCreateModel, _pipelineConfig.Project);
                 _logger.Info($"PipelineTestRunPublisher : PublishAsync : Created test run with id {run.Id}.");
-                _telemetry.AddToCumulativeTelemetry(TelemetryConstants.PipelineTestRunPublisherEventArea, TelemetryConstants.TestRunIds, new List<int> { run.Id });
-                _telemetry.AddToCumulativeTelemetry(TelemetryConstants.PipelineTestRunPublisherEventArea, $"{testRun.ParserUri.Split('/')[0]}RunsCount", 1, true);
+                _telemetry.AddAndAggregate(TelemetryConstants.TestRunIds, new List<int> { run.Id },
+                    TelemetryConstants.PipelineTestRunPublisherEventArea);
+                _telemetry.AddAndAggregate($"{testRun.ParserUri.Split('/')[0]}RunsCount", 1,
+                    TelemetryConstants.PipelineTestRunPublisherEventArea);
 
                 // Populate test reulsts
                 var testResults = new List<TestCaseResult>();

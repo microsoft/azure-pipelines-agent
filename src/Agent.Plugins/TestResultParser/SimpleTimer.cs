@@ -18,17 +18,13 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
         /// Creates a timer with threshold. A perf message is logged only if
         /// the time elapsed is more than the threshold.
         /// </summary>
-        public SimpleTimer(string timerName, string telemetryArea, string telemetryEventName, ITraceLogger logger,
-            ITelemetryDataCollector telemetryDataCollector, TimeSpan threshold, bool publishTelemetry = true)
+        public SimpleTimer(string timerName, ITraceLogger logger, TelemetryDataWrapper telemetryWrapper, TimeSpan threshold)
         {
             _name = timerName;
-            _telemetryEventName = telemetryEventName;
-            _telemetryArea = telemetryArea;
             _logger = logger;
-            _telemetry = telemetryDataCollector;
             _threshold = threshold;
+            _telemetryWrapper = telemetryWrapper;
             _timer = Stopwatch.StartNew();
-            _publishTelemetry = publishTelemetry;
         }
 
         /// <summary>
@@ -47,21 +43,7 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
         {
             _timer.Stop();
 
-            if (_publishTelemetry)
-            {
-                _telemetry.AddToCumulativeTelemetry(_telemetryArea, _telemetryEventName, _timer.Elapsed.TotalMilliseconds, true);
-            }
-
-            if (_threshold.TotalMilliseconds == 0)
-            {
-                _logger.Info($"PERF : {_name} : took {_timer.Elapsed.TotalMilliseconds} ms.");
-                return;
-            }
-
-            if (_timer.Elapsed > _threshold)
-            {
-                _logger.Warning($"PERF : {_name} : took {_timer.Elapsed.TotalMilliseconds} ms.");
-            }
+            _telemetryWrapper.AddAndAggregate(_timer.Elapsed.TotalMilliseconds);
         }
 
         private void Dispose(bool disposing)
@@ -81,13 +63,10 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
 
         private bool _disposed;
         private ITraceLogger _logger;
-        private ITelemetryDataCollector _telemetry;
+        private TelemetryDataWrapper _telemetryWrapper;
         private readonly Stopwatch _timer;
         private readonly string _name;
-        private readonly string _telemetryEventName;
-        private readonly string _telemetryArea;
         private readonly TimeSpan _threshold;
-        private readonly bool _publishTelemetry;
 
         #endregion
     }

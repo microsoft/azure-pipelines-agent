@@ -5,10 +5,15 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
 {
     public class TraceLogger : ITraceLogger
     {
-        public TraceLogger(IAgentLogPluginContext context, bool debugLoggingEnabled)
+        public TraceLogger(IAgentLogPluginContext context)
         {
             _context = context;
-            _debug = debugLoggingEnabled;
+
+            _context.Variables.TryGetValue("system.debug", out var systemDebug);
+            if (string.Equals(systemDebug?.Value, "true", System.StringComparison.OrdinalIgnoreCase))
+            {
+                _debug = true;
+            }
         }
 
         #region interface implementation

@@ -10,7 +10,6 @@ using System.Threading.Tasks;
 using Agent.Plugins.Log.TestResultParser.Contracts;
 using Microsoft.VisualStudio.Services.CustomerIntelligence.WebApi;
 using Microsoft.VisualStudio.Services.WebPlatform;
-using Newtonsoft.Json;
 
 namespace Agent.Plugins.Log.TestResultParser.Plugin
 {
@@ -30,15 +29,29 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
             _httpClient = clientFactory.GetClient<CustomerIntelligenceHttpClient>();
         }
 
+        public void AddOrUpdate(string property, object value, string subArea = null)
+        {
+            var propertKey = !string.IsNullOrEmpty(subArea) ? $"{subArea}:{property}" : property;
+
+            try
+            {
+                _properties[propertKey] = value;
+            }
+            catch (Exception e)
+            {
+                _logger.Warning($"TelemetryDataCollector : AddOrUpdate : Failed to add {value} with key {propertKey} due to {e}");
+            }
+        }
+
         /// <inheritdoc />
-        public void AddToCumulativeTelemetry(string subArea, string property, object value, bool aggregate = false)
+        public void AddAndAggregate(string property, object value, string subArea = null)
         {
             var propertKey = !string.IsNullOrEmpty(subArea) ? $"{subArea}:{property}" : property;
 
             try
             {
                 // If key does not exist or aggregate option is false add value blindly
-                if (!aggregate || !_properties.ContainsKey(propertKey))
+                if (!_properties.ContainsKey(propertKey))
                 {
                     _properties[propertKey] = value;
                     return;
@@ -78,7 +91,7 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
             }
             catch (Exception e)
             {
-                _logger.Warning($"TelemetryDataCollector.AddToCumulativeTelemetry: Failed to add {value} with key {propertKey} due to {e}");
+                _logger.Warning($"TelemetryDataCollector : AddAndAggregate : Failed to add {value} with key {propertKey} due to {e}");
             }
         }
 
@@ -92,8 +105,6 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
                     Feature = CumulativeTelemetryFeatureName,
                     Properties = _properties.ToDictionary(entry => entry.Key, entry => entry.Value)
                 };
-
-                _logger.Info(JsonConvert.SerializeObject(_properties));
 
                 // This is to ensure that the single ci event is never fired more than once.
                 _properties.Clear();

@@ -20,7 +20,7 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
                 _testRunManager = new TestRunManager(publisher, _logger, _telemetry);
                 var parsers = ParserFactory.GetTestResultParsers(_testRunManager, traceLogger, _telemetry);
 
-                _telemetry.AddToCumulativeTelemetry(null, TelemetryConstants.ParserCount, parsers.Count());
+                _telemetry.AddOrUpdate(TelemetryConstants.ParserCount, parsers.Count());
 
                 foreach (var parser in parsers)
                 {
@@ -47,13 +47,14 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
         {
             try
             {
-                _telemetry.AddToCumulativeTelemetry(null, TelemetryConstants.TotalLines, _counter);
+                _telemetry.AddOrUpdate(TelemetryConstants.TotalLines, _counter);
 
                 _broadcast.Complete();
                 Task.WaitAll(_subscribers.Values.Select(x => x.Completion).ToArray());
 
-                using (var timer = new SimpleTimer("TestRunManagerFinalize", TelemetryConstants.TestRunManagerEventArea, TelemetryConstants.FinalizeAsync,
-                    _logger, _telemetry, TimeSpan.FromMilliseconds(Int32.MaxValue)))
+                using (var timer = new SimpleTimer("TestRunManagerFinalize", _logger, 
+                    new TelemetryDataWrapper(_telemetry, TelemetryConstants.TestRunManagerEventArea, TelemetryConstants.FinalizeAsync), 
+                    TimeSpan.FromMilliseconds(Int32.MaxValue)))
                 {
                     await _testRunManager.FinalizeAsync();
                 }

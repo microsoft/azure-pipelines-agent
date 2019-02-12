@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Agent.Plugins.Log.TestResultParser.Contracts;
@@ -32,37 +33,22 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
         {
             try
             {
-                context.Variables.TryGetValue("system.debug", out var systemDebug);
-                var debugLoggingEnabled = false;
-
-                if (string.Equals(systemDebug?.Value, "true"))
-                {
-                    debugLoggingEnabled = true;
-                }
-
-                if (_logger == null)
-                {
-                    _logger = new TraceLogger(context, debugLoggingEnabled);
-                }
-
+                _logger = _logger ?? new TraceLogger(context);
                 _clientFactory = new ClientFactory(context.VssConnection);
+                _telemetry = _telemetry?? new TelemetryDataCollector(_clientFactory, _logger);
 
-                if (_telemetry == null)
-                {
-                    _telemetry = new TelemetryDataCollector(_clientFactory, _logger);
-                }
+                await PopulatePipelineConfig(context);
 
-                PopulatePipelineConfig(context);
-
-                _telemetry.AddToCumulativeTelemetry(null, TelemetryConstants.PluginInitialized, true);
-                _telemetry.AddToCumulativeTelemetry(null, TelemetryConstants.PluginDisabled, true);
+                _telemetry.AddOrUpdate(TelemetryConstants.PluginInitialized, true);
+                _telemetry.AddOrUpdate(TelemetryConstants.PluginDisabled, true);
 
                 if (DisablePlugin(context))
                 {
+                    await _telemetry?.PublishCumulativeTelemetryAsync();
                     return false; // disable the plugin
                 }
 
-                _telemetry.AddToCumulativeTelemetry(null, TelemetryConstants.PluginDisabled, false);
+                _telemetry.AddOrUpdate(TelemetryConstants.PluginDisabled, false);
 
                 await _inputDataParser.InitializeAsync(_clientFactory, _pipelineConfig, _logger, _telemetry);
             }
@@ -70,7 +56,7 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
             {
                 context.Trace(ex.ToString());
                 _logger?.Warning($"Unable to initialize {FriendlyName}.");
-                _telemetry?.AddToCumulativeTelemetry(null, TelemetryConstants.InitialzieFailed, ex);
+                _telemetry?.AddOrUpdate(TelemetryConstants.InitialzieFailed, ex);
                 await _telemetry?.PublishCumulativeTelemetryAsync();
                 return false;
             }
@@ -87,7 +73,8 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
         /// <inheritdoc />
         public async Task FinalizeAsync(IAgentLogPluginContext context)
         {
-            using (var timer = new SimpleTimer("Finalize", null, TelemetryConstants.FinalizeAsync, _logger,_telemetry,
+            using (var timer = new SimpleTimer("Finalize", _logger,
+                new TelemetryDataWrapper(_telemetry, TelemetryConstants.FinalizeAsync),
                 TimeSpan.FromMilliseconds(Int32.MaxValue)))
             {
                 await _inputDataParser.CompleteAsync();
@@ -102,17 +89,17 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
         private bool DisablePlugin(IAgentLogPluginContext context)
         {
             // do we want to log that the plugin is disabled due to x reason here?
-            if (context.Variables.TryGetValue("ForceEnableTestResultParsers", out var forceEnableTestResultParsers))
+            if (context.Variables.TryGetValue("Agent.ForceEnable.TestResultLogPlugin", out var forceEnableTestResultParsers)
+                && string.Equals("true", forceEnableTestResultParsers.Value, StringComparison.OrdinalIgnoreCase))
             {
                 return false;
             }
-
-            // _telemetry.AddToCumulativeTelemetry(null, "PluginDisabledReason", "xyz");
 
             // Enable only for build
             if (context.Variables.TryGetValue("system.hosttype", out var hostType)
                 && !string.Equals("Build", hostType.Value, StringComparison.OrdinalIgnoreCase))
             {
+                _telemetry.AddOrUpdate("PluginDisabledReason", "NotABuild");
                 return true;
             }
 
@@ -120,31 +107,55 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
             if (context.Variables.TryGetValue("system.servertype", out var serverType)
                 && !string.Equals("Hosted", serverType.Value, StringComparison.OrdinalIgnoreCase))
             {
+                _telemetry.AddOrUpdate("PluginDisabledReason", "NotHosted");
                 return true;
             }
 
             // check for PTR task or some other tasks to enable/disable
-            return context.Steps == null
-                   || context.Steps.Any(x => x.Id.Equals(new Guid("0B0F01ED-7DDE-43FF-9CBB-E48954DAF9B1")))
-                   || _pipelineConfig.BuildId == 0;
+            if (context.Steps == null)
+            {
+                _telemetry.AddOrUpdate("PluginDisabledReason", "NoSteps");
+                return true;
+            }
+
+            if (context.Steps.Any(x => x.Id.Equals(new Guid("0B0F01ED-7DDE-43FF-9CBB-E48954DAF9B1"))))
+            {
+                _telemetry.AddOrUpdate("PluginDisabledReason", "ExplicitPublishTaskPresent");
+                return true;
+            }
+
+            if (_pipelineConfig.BuildId == 0)
+            {
+                _telemetry.AddOrUpdate("PluginDisabledReason", "BuildIdZero");
+                return true;
+            }
+
+            return false;
         }
 
-        private void PopulatePipelineConfig(IAgentLogPluginContext context)
+        private async Task PopulatePipelineConfig(IAgentLogPluginContext context)
         {
+            var props = new Dictionary<string, Object>();
+
             if (context.Variables.TryGetValue("system.teamProjectId", out var projectGuid))
             {
                 _pipelineConfig.Project = new Guid(projectGuid.Value);
-                _telemetry.AddToCumulativeTelemetry(null, "ProjectId", _pipelineConfig.Project);
+                _telemetry.AddOrUpdate("ProjectId", _pipelineConfig.Project);
+                props.Add("ProjectId", _pipelineConfig.Project);
             }
 
             if (context.Variables.TryGetValue("build.buildId", out var buildId))
             {
                 _pipelineConfig.BuildId = int.Parse(buildId.Value);
-                _telemetry.AddToCumulativeTelemetry(null, "BuildId", _pipelineConfig.BuildId);
+                _telemetry.AddOrUpdate("BuildId", _pipelineConfig.BuildId);
+                props.Add("BuildId", _pipelineConfig.BuildId);
             }
+
+            // Publish the initial telemetry event in case we are not able to fire the cumulative one for whatever reason
+            await _telemetry.PublishTelemetryAsync("TestResultParserInitialzie", props);
         }
 
-        private ILogParserGateway _inputDataParser = new LogParserGateway();
+        private readonly ILogParserGateway _inputDataParser = new LogParserGateway();
         private IClientFactory _clientFactory;
         private ITraceLogger _logger;
         private ITelemetryDataCollector _telemetry;
