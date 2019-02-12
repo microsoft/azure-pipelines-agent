@@ -97,33 +97,51 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
 
         public Task PublishCumulativeTelemetryAsync()
         {
-            lock (publishLockNode)
+            try
             {
-                var ciEvent = new CustomerIntelligenceEvent
+                lock (publishLockNode)
                 {
-                    Area = Area,
-                    Feature = CumulativeTelemetryFeatureName,
-                    Properties = _properties.ToDictionary(entry => entry.Key, entry => entry.Value)
-                };
+                    var ciEvent = new CustomerIntelligenceEvent
+                    {
+                        Area = Area,
+                        Feature = CumulativeTelemetryFeatureName,
+                        Properties = _properties.ToDictionary(entry => entry.Key, entry => entry.Value)
+                    };
 
-                // This is to ensure that the single ci event is never fired more than once.
-                _properties.Clear();
+                    // This is to ensure that the single ci event is never fired more than once.
+                    _properties.Clear();
 
-                return _httpClient.PublishEventsAsync(new[] { ciEvent });
+                    return _httpClient.PublishEventsAsync(new[] { ciEvent });
+                }
             }
+            catch (Exception e)
+            {
+                _logger.Verbose($"TelemetryDataCollector : PublishCumulativeTelemetryAsync : Failed to publish telemtry due to {e}");
+            }
+
+            return Task.CompletedTask;
         }
 
         /// <inheritdoc />
         public Task PublishTelemetryAsync(string feature, Dictionary<string, object> properties)
         {
-            var ciEvent = new CustomerIntelligenceEvent
+            try
             {
-                Area = Area,
-                Feature = feature,
-                Properties = properties
-            };
+                var ciEvent = new CustomerIntelligenceEvent
+                {
+                    Area = Area,
+                    Feature = feature,
+                    Properties = properties
+                };
 
-            return _httpClient.PublishEventsAsync(new[] { ciEvent });
+                return _httpClient.PublishEventsAsync(new[] { ciEvent });
+            }
+            catch (Exception e)
+            {
+                _logger.Verbose($"TelemetryDataCollector : PublishTelemetryAsync : Failed to publish telemtry due to {e}");
+            }
+
+            return Task.CompletedTask;
         }
     }
 }
