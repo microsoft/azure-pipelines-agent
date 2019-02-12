@@ -20,7 +20,7 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
         }
 
         /// <inheritdoc />
-        public async Task PublishAsync(TestRun testRun)
+        public async Task<TestRun> PublishAsync(TestRun testRun)
         {
             using (var timer = new SimpleTimer("PublishTestRun", _logger,
                 new TelemetryDataWrapper(_telemetry, TelemetryConstants.PipelineTestRunPublisherEventArea, TelemetryConstants.PublishTestRun),
@@ -81,8 +81,6 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
                     });
                 }
 
-                // Do we want to pump results count to telemetry from here? Or will a join with tcm suffice
-
                 // Update the run with test results
                 await _httpClient.AddTestResultsToTestRunAsync(testResults.ToArray(), _pipelineConfig.Project, run.Id);
 
@@ -97,6 +95,8 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
 
                 // Complete the run
                 await _httpClient.UpdateTestRunAsync(runUpdateModel, _pipelineConfig.Project, run.Id);
+
+                return new PipelineTestRun(testRun.ParserUri, testRun.RunNamePrefix, testRun.TestRunId, run.Id);
             }
         }
 

@@ -15,7 +15,7 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
 
         public TestResultLogPlugin()
         {
-
+            // Default constructor
         }
 
         /// <summary>
