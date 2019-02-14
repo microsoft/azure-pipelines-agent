@@ -23,7 +23,7 @@ This outlines different decoration options that are available.
 
 Task authors can mark any part of the log as a collapsible region using these decorations:
 
-Starting the collapsible region - `##[begingroup<optionalGroupName>]`
+Starting the collapsible region - `##[startgroup<optionalGroupName>]`
 
 Ending the collapsible region - `##[endgroup<optionalGroupName>]`
 
@@ -33,27 +33,27 @@ Note:
     
 *  The first line of region will be taken as group title by default.
 *  If there's only one line in the region (including the group title), it will not be considered as a collapsible
-*  If there's `##[begingroup]` with out corresponding `##[endgroup]` we will add implicit `##[endgroup]`
+*  If there's `##[startgroup]` with out corresponding `##[endgroup]` we will add implicit `##[endgroup]`
    *  This applies to only non-named groups, if group name is specified, no implcit  `##[endgroup]` is considered until the end of the content.
 
 Example 1 -
 
 
 ```
-##[begingroup]
+##[startgroup]
 ##[command]"C:\WINDOWS\system32\cmd.exe" /D /E:ON /V:OFF /S /C "CALL "C:\_temp\e51ecc3a-f080-4f7c-9bf5-d9e5386068c8.cmd""
 Write your commands here
 Use the environment variables input below to pass secret variables to this script
-##[begingroup:command1]
+##[startgroup:command1]
 ##[command]"C:\WINDOWS\system32\cmd.exe" /D /E:ON /V:OFF /S /C "CALL "C:\_temp\e51ecc3a-f080-4f7c-9bf5-f9e5386068c8.cmd""
 This is command 2
 ##[endgroup:command1]
-##[begingroup:command2]
+##[startgroup:command2]
 ##[command]"C:\WINDOWS\system32\cmd.exe" /D /E:ON /V:OFF /S /C "CALL "C:\_temp\e51ecc3a-f080-4f7c-9bf5-f9e5386068c9.cmd""
 ##[endgroup:command2]
-##[begingroup:noendgroup]
+##[startgroup:noendgroup]
 I started a group with out end
-##[begingroup]
+##[startgroup]
 I am a group
 I am a group
 ##[endgroup]
@@ -125,24 +125,24 @@ Single grouping -
 ```
 Syncing repository: SomeRepo (Git)
 Prepending Path environment variable with directory containing 'git.exe'.
-##[begingroup]
+##[startgroup]
 ##[command]git version
 git version 2.18.0.windows.1
-##[begingroup]
+##[startgroup]
 ##[command]git config --get remote.origin.url
-##[begingroup]
+##[startgroup]
 ##[command]git clean -ffdx
-##[begingroup]
+##[startgroup]
 ##[command]git reset --hard HEAD
-##[begingroup]
+##[startgroup]
 HEAD is now at cb1adf878a7b update swe
-##[begingroup]
+##[startgroup]
 ##[command]git config gc.auto 0
-##[begingroup]
+##[startgroup]
 ##[command]git config --get-all http.https://repohere
-##[begingroup]
+##[startgroup]
 ##[command]git config --get-all http.proxy
-##[begingroup]
+##[startgroup]
 ##[command]git -c http.extraheader="AUTHORIZATION: bearer ***" fetch --tags --prune --progress --no-recurse-submodules origin
 From https://repohere
 - [deleted] (none) -> origin/teams/some
@@ -155,7 +155,7 @@ Resolving deltas: 100% (708/708), completed with 594 local objects.
 7d80bdb9d646..5214d0492d27 features/DraggableDashboardGrid -> origin/features/DraggableDashboardGrid
 ...
 ...
-##[begingroup]
+##[startgroup]
 ##[command]git checkout --progress --force e48a3009f2a0163d102423eef6ffaf7f4c2a2176
 Warning: you are leaving 1 commit behind, not connected to
 any of your branches:
@@ -164,7 +164,7 @@ If you want to keep it by creating a new branch, this may be a good time
 to do so with:
 git branch <new-branch-name> cb1adf878a7b
 HEAD is now at e48a3009f2a0 update swe
-##[begingroup]
+##[startgroup]
 ##[command]git config http.https://repohere "AUTHORIZATION: bearer ***"
 ```
 
@@ -188,25 +188,25 @@ Nested grouping (no visual intendation) -
 ```
 Syncing repository: SomeRepo (Git)
 Prepending Path environment variable with directory containing 'git.exe'.
-##[begingroup:git]
-##[begingroup]
+##[startgroup:git]
+##[startgroup]
 ##[command]git version
 git version 2.18.0.windows.1
-##[begingroup]
+##[startgroup]
 ##[command]git config --get remote.origin.url
-##[begingroup]
+##[startgroup]
 ##[command]git clean -ffdx
-##[begingroup]
+##[startgroup]
 ##[command]git reset --hard HEAD
-##[begingroup]
+##[startgroup]
 HEAD is now at cb1adf878a7b update swe
-##[begingroup]
+##[startgroup]
 ##[command]git config gc.auto 0
-##[begingroup]
+##[startgroup]
 ##[command]git config --get-all http.https://repohere
-##[begingroup]
+##[startgroup]
 ##[command]git config --get-all http.proxy
-##[begingroup]
+##[startgroup]
 ##[command]git -c http.extraheader="AUTHORIZATION: bearer ***" fetch --tags --prune --progress --no-recurse-submodules origin
 From https://repohere
 - [deleted] (none) -> origin/teams/some
@@ -219,7 +219,7 @@ Resolving deltas: 100% (708/708), completed with 594 local objects.
 7d80bdb9d646..5214d0492d27 features/DraggableDashboardGrid -> origin/features/DraggableDashboardGrid
 ...
 ...
-##[begingroup]
+##[startgroup]
 ##[command]git checkout --progress --force e48a3009f2a0163d102423eef6ffaf7f4c2a2176
 Warning: you are leaving 1 commit behind, not connected to
 any of your branches:
@@ -228,7 +228,7 @@ If you want to keep it by creating a new branch, this may be a good time
 to do so with:
 git branch <new-branch-name> cb1adf878a7b
 HEAD is now at e48a3009f2a0 update swe
-##[begingroup]
+##[startgroup]
 ##[command]git config http.https://repohere "AUTHORIZATION: bearer ***"
 ##[endgroup:git]
 ```
