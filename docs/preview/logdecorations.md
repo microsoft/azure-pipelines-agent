@@ -30,7 +30,7 @@ Ending the collapsible region - `##[endgroup]`
 
 ### Notes    
 * Nested groups is out of current scope
-* Our tool runner can start inject `##[group]` in front of `##[command]`, that will support grouping, if we need much grainer control over grouping, it can also add `##[endgroup]` when the command outputs the whole text
+* Our tool runner can start injecting `##[group]` in front of `##[command]`, that will support grouping, if we need much grainer control over grouping, it can also add `##[endgroup]` when the command outputs the whole text
 *  The first line of region will be taken as group title by default.
 *  If there's only one line in the region (including the group title), it will not be considered as a collapsible
 *  If there's `##[group]` with out corresponding `##[endgroup]` we will add implicit `##[endgroup]`
