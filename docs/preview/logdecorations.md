@@ -7,7 +7,7 @@ This outlines different decoration options that are available.
 
 ## Collapse
 
->This is draft spec and is subject to change
+>This is a draft spec and is subject to change
 
 >Note that that if you log an error using ```##vso[task.logissue]error/warning message``` command (see [logging commands](https://github.com/Microsoft/azure-pipelines-tasks/blob/master/docs/authoring/commands.md) here) we will surface those errors in build view and when clicked , we will automatically jump to that particular line. If it's already part of a group, we will auto-expand the group.
 
