@@ -4,7 +4,8 @@
     {
         /// <summary>
         /// Strips away the prefixed ##[error] from lines written to the error stream
-        /// Additionally also returns null if the line was identified to be a debug log line
+        /// Additionally also returns null if the line was identified to be a debug, command
+        /// or section log line
         /// </summary>
         public string ProcessData(string data)
         {
