@@ -5,6 +5,16 @@
 Task authors should be able to control how the log output is displayed to the end user.
 This outlines different decoration options that are available.
 
+## Special lines
+* Errors
+  * `##[error] I am an error` 
+* Warnings
+  * `##[warning] I am a warning` 
+* Commands
+  * `##[warning] I am a command/a tool` 
+* Sections
+  * `##[section] I am a section, which is usually whole task step. I am not typically used.` 
+
 ## Collapse
 
 >This is a draft spec and is subject to change
