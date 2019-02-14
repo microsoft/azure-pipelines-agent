@@ -20,12 +20,12 @@
 
             if (data.StartsWith(commandLogPrefix))
             {
-                return data.Substring(commandLogPrefix.Length);
+                return null;
             }
 
             if (data.StartsWith(sectionLogPrefix))
             {
-                return data.Substring(sectionLogPrefix.Length);
+                return null;
             }
 
             return data;
