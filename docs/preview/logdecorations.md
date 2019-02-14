@@ -23,9 +23,9 @@ This outlines different decoration options that are available.
 
 Task authors can mark any part of the log as a collapsible region using these decorations:
 
-Starting the collapsible region - `##[startgroup<optionalGroupName>]`
+Starting the collapsible region - `##[startgroup<:optionalGroupName>]`
 
-Ending the collapsible region - `##[endgroup<optionalGroupName>]`
+Ending the collapsible region - `##[endgroup<:optionalGroupName>]`
 
 `<optionalGroupName>` is optional.
 
