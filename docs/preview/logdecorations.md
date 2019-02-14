@@ -162,7 +162,7 @@ Prepending Path environment variable with directory containing 'git.exe'.
   ##[command]git config http.https://repohere "AUTHORIZATION: bearer ***"
 ```
 
-Multiple grouping -
+Nested grouping (no visual intendation) -
 ```
 Syncing repository: SomeRepo (Git)
 Prepending Path environment variable with directory containing 'git.exe'.
