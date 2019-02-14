@@ -24,6 +24,7 @@ Note:
 *  The first line of region will be taken as group title by default.
 *  If there's only one line in the region (including the group title), it will not be considered as a collapsible
 *  If there's `##[group:start]` with out corresponding `##[group:end]` we will add implicit `##[group:end]`
+   *  This applies to only non-named groups, if group name is specified, no implcit  `##[group:end]` is considered until the end of the content.
 
 Example 1 -
 
@@ -40,6 +41,13 @@ This is command 2
 ##[group:command2:start]
 ##[command]"C:\WINDOWS\system32\cmd.exe" /D /E:ON /V:OFF /S /C "CALL "C:\_temp\e51ecc3a-f080-4f7c-9bf5-f9e5386068c9.cmd""
 ##[group:command2:end]
+##[group:noendgroup:end]
+I started a group with out end
+##[group:start]
+I am a group
+I am a group
+##[group:end]
+I am a part of parent group
 ```
 
 will be perceived as -
@@ -48,6 +56,7 @@ will be perceived as -
 > ##[command]"C:\WINDOWS\system32\cmd.exe" /D /E:ON /V:OFF /S /C "CALL "C:\_temp\e51ecc3a-f080-4f7c-9bf5-d9e5386068c8.cmd""
 > ##[command]"C:\WINDOWS\system32\cmd.exe" /D /E:ON /V:OFF /S /C "CALL "C:\_temp\e51ecc3a-f080-4f7c-9bf5-f9e5386068c8.cmd""
   ##[command]"C:\WINDOWS\system32\cmd.exe" /D /E:ON /V:OFF /S /C "CALL "C:\_temp\e51ecc3a-f080-4f7c-9bf5-f9e5386068c9.cmd""
+> I started a group with out end
 ```
 
 ```
@@ -57,6 +66,9 @@ v ##[command]"C:\WINDOWS\system32\cmd.exe" /D /E:ON /V:OFF /S /C "CALL "C:\_temp
 v ##[command]"C:\WINDOWS\system32\cmd.exe" /D /E:ON /V:OFF /S /C "CALL "C:\_temp\e51ecc3a-f080-4f7c-9bf5-f9e5386068c8.cmd""
     This is command 2
   ##[command]"C:\WINDOWS\system32\cmd.exe" /D /E:ON /V:OFF /S /C "CALL "C:\_temp\e51ecc3a-f080-4f7c-9bf5-f9e5386068c9.cmd""
+v I started a group with out end
+  > I am a group
+  I am a part of parent group
 ```
 
 Example 2 -
