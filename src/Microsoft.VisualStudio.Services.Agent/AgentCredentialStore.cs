@@ -748,6 +748,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             if (File.Exists("/etc/machine-id"))
             {
                 // try use machine-id as encryption key
+                // this helps avoid accidental information disclosure, but isn't intended for true security
                 machineId = File.ReadAllLines("/etc/machine-id").FirstOrDefault();
                 Trace.Info($"machine-id length {machineId?.Length ?? 0}.");
 
