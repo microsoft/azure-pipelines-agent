@@ -153,7 +153,7 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
 
             if (context.Variables.TryGetValue("System.DefinitionId", out var buildDefinitionId))
             {
-                props.Add("BuildDefinitionId", buildDefinitionId.Value);
+                _telemetry.AddOrUpdate("BuildDefinitionId", buildDefinitionId.Value);
             }
 
             // Publish the initial telemetry event in case we are not able to fire the cumulative one for whatever reason
