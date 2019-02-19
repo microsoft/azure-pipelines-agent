@@ -110,12 +110,7 @@ function heading()
 function build ()
 {
     heading "Building ..."
-
-    if [[ ("$CURRENT_PLATFORM" == "windows") ]]; then
-        dotnet msbuild //t:Build //p:PackageRuntime=${RUNTIME_ID} //p:BUILDCONFIG=${BUILD_CONFIG} //p:Version=${AGENT_VERSION} || failed build
-    else
-        dotnet msbuild /t:Build /p:PackageRuntime=${RUNTIME_ID} /p:BUILDCONFIG=${BUILD_CONFIG} /p:Version=${AGENT_VERSION} || failed build
-    fi    
+    dotnet msbuild -t:Build -p:PackageRuntime=${RUNTIME_ID} -p:BUILDCONFIG=${BUILD_CONFIG} -p:Version=${AGENT_VERSION} || failed build
 
     mkdir -p ${LAYOUT_DIR}/bin/en-US
     grep --invert-match '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > ${LAYOUT_DIR}/bin/en-US/strings.json
@@ -124,12 +119,7 @@ function build ()
 function layout ()
 {
     heading "Create layout ..."
-
-    if [[ ("$CURRENT_PLATFORM" == "windows") ]]; then
-        dotnet msbuild //t:layout //p:PackageRuntime=${RUNTIME_ID} //p:BUILDCONFIG=${BUILD_CONFIG} //p:Version=${AGENT_VERSION} || failed build
-    else
-        dotnet msbuild /t:layout /p:PackageRuntime=${RUNTIME_ID} /p:BUILDCONFIG=${BUILD_CONFIG} /p:Version=${AGENT_VERSION} || failed build
-    fi
+    dotnet msbuild -t:layout -p:PackageRuntime=${RUNTIME_ID} -p:BUILDCONFIG=${BUILD_CONFIG} -p:Version=${AGENT_VERSION} || failed build
 
     mkdir -p ${LAYOUT_DIR}/bin/en-US
     grep --invert-match '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > ${LAYOUT_DIR}/bin/en-US/strings.json
@@ -156,11 +146,7 @@ function runtest ()
 
     export VSTS_AGENT_SRC_DIR=${SCRIPT_DIR}
 
-    if [[ ("$CURRENT_PLATFORM" == "windows") ]]; then
-        dotnet msbuild //t:test //p:PackageRuntime=${RUNTIME_ID} //p:BUILDCONFIG=${BUILD_CONFIG} //p:Version=${AGENT_VERSION} || failed "failed tests" 
-    else
-        dotnet msbuild /t:test /p:PackageRuntime=${RUNTIME_ID} /p:BUILDCONFIG=${BUILD_CONFIG} /p:Version=${AGENT_VERSION} || failed "failed tests" 
-    fi
+    dotnet msbuild -t:test -p:PackageRuntime=${RUNTIME_ID} -p:BUILDCONFIG=${BUILD_CONFIG} -p:Version=${AGENT_VERSION} || failed "failed tests" 
 }
 
 function package ()
