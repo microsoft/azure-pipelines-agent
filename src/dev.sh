@@ -104,15 +104,15 @@ function heading()
 {
     echo
     echo
-    echo -----------------------------------------
-    echo   ${1}
-    echo -----------------------------------------
+    echo "-----------------------------------------"
+    echo "  ${1}"
+    echo "-----------------------------------------"
 }
 
 function build ()
 {
     heading "Building ..."
-    dotnet msbuild -t:Build -p:PackageRuntime=${RUNTIME_ID} -p:BUILDCONFIG=${BUILD_CONFIG} -p:Version=${AGENT_VERSION} || failed build
+    dotnet msbuild -t:Build -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:Version="${AGENT_VERSION}" || failed build
 
     mkdir -p "${LAYOUT_DIR}/bin/en-US"
     grep --invert-match '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > "${LAYOUT_DIR}/bin/en-US/strings.json"
@@ -121,7 +121,7 @@ function build ()
 function layout ()
 {
     heading "Create layout ..."
-    dotnet msbuild -t:layout -p:PackageRuntime=${RUNTIME_ID} -p:BUILDCONFIG=${BUILD_CONFIG} -p:Version=${AGENT_VERSION} || failed build
+    dotnet msbuild -t:layout -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:Version="${AGENT_VERSION}" || failed build
 
     mkdir -p "${LAYOUT_DIR}/bin/en-US"
     grep --invert-match '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > "${LAYOUT_DIR}/bin/en-US/strings.json"
@@ -148,7 +148,7 @@ function runtest ()
 
     export VSTS_AGENT_SRC_DIR=${SCRIPT_DIR}
 
-    dotnet msbuild -t:test -p:PackageRuntime=${RUNTIME_ID} -p:BUILDCONFIG=${BUILD_CONFIG} -p:Version=${AGENT_VERSION} || failed "failed tests" 
+    dotnet msbuild -t:test -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:Version="${AGENT_VERSION}" || failed "failed tests" 
 }
 
 function package ()
@@ -222,7 +222,7 @@ bash ./Misc/externals.sh $RUNTIME_ID "Pre-Cache" || checkRC "externals.sh Pre-Ca
 
 if [[ "$CURRENT_PLATFORM" == 'windows' ]]; then
     vswhere=$(find "$DOWNLOAD_DIR" -name vswhere.exe | head -1)
-    vs_location=$($vswhere -latest -property installationPath)
+    vs_location=$("$vswhere" -latest -property installationPath)
     msbuild_location="$vs_location""\MSBuild\15.0\Bin\msbuild.exe"
 
     if [[ ! -e "${msbuild_location}" ]]; then
