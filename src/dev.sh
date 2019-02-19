@@ -20,7 +20,7 @@ DOTNETSDK_VERSION="2.1.403"
 DOTNETSDK_INSTALLDIR="$DOTNETSDK_ROOT/$DOTNETSDK_VERSION"
 AGENT_VERSION=`cat agentversion`
 
-pushd $SCRIPT_DIR
+pushd "$SCRIPT_DIR"
 
 BUILD_CONFIG="Debug"
 if [[ "$DEV_CONFIG" == "Release" ]]; then
@@ -114,8 +114,8 @@ function build ()
     heading "Building ..."
     dotnet msbuild -t:Build -p:PackageRuntime=${RUNTIME_ID} -p:BUILDCONFIG=${BUILD_CONFIG} -p:Version=${AGENT_VERSION} || failed build
 
-    mkdir -p ${LAYOUT_DIR}/bin/en-US
-    grep --invert-match '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > ${LAYOUT_DIR}/bin/en-US/strings.json
+    mkdir -p "${LAYOUT_DIR}/bin/en-US"
+    grep --invert-match '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > "${LAYOUT_DIR}/bin/en-US/strings.json"
 }
 
 function layout ()
@@ -123,15 +123,15 @@ function layout ()
     heading "Create layout ..."
     dotnet msbuild -t:layout -p:PackageRuntime=${RUNTIME_ID} -p:BUILDCONFIG=${BUILD_CONFIG} -p:Version=${AGENT_VERSION} || failed build
 
-    mkdir -p ${LAYOUT_DIR}/bin/en-US
-    grep --invert-match '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > ${LAYOUT_DIR}/bin/en-US/strings.json
+    mkdir -p "${LAYOUT_DIR}/bin/en-US"
+    grep --invert-match '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > "${LAYOUT_DIR}/bin/en-US/strings.json"
 
     #change execution flag to allow running with sudo
     if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "darwin") ]]; then
-        chmod +x ${LAYOUT_DIR}/bin/Agent.Listener
-        chmod +x ${LAYOUT_DIR}/bin/Agent.Worker
-        chmod +x ${LAYOUT_DIR}/bin/Agent.PluginHost
-        chmod +x ${LAYOUT_DIR}/bin/installdependencies.sh
+        chmod +x "${LAYOUT_DIR}/bin/Agent.Listener"
+        chmod +x "${LAYOUT_DIR}/bin/Agent.Worker"
+        chmod +x "${LAYOUT_DIR}/bin/Agent.PluginHost"
+        chmod +x "${LAYOUT_DIR}/bin/installdependencies.sh"
     fi
 
     heading "Setup externals folder for $RUNTIME_ID agent's layout"
@@ -157,21 +157,21 @@ function package ()
         echo "You must build first.  Expecting to find ${LAYOUT_DIR}/bin"
     fi
 
-    agent_ver=`${LAYOUT_DIR}/bin/Agent.Listener --version` || failed "version"
+    agent_ver=$("${LAYOUT_DIR}/bin/Agent.Listener" --version) || failed "version"
     agent_pkg_name="vsts-agent-${RUNTIME_ID}-${agent_ver}"
 
     heading "Packaging ${agent_pkg_name}"
 
-    rm -Rf ${LAYOUT_DIR}/_diag
-    find ${LAYOUT_DIR}/bin -type f -name '*.pdb' -delete
-    mkdir -p $PACKAGE_DIR
-    pushd $PACKAGE_DIR > /dev/null
+    rm -Rf "${LAYOUT_DIR}/_diag"
+    find "${LAYOUT_DIR}/bin" -type f -name '*.pdb' -delete
+    mkdir -p "$PACKAGE_DIR"
+    pushd "$PACKAGE_DIR" > /dev/null
     rm -Rf *
 
     if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "darwin") ]]; then
         tar_name="${agent_pkg_name}.tar.gz"
         echo "Creating $tar_name in ${LAYOUT_DIR}"
-        tar -czf "${tar_name}" -C ${LAYOUT_DIR} .
+        tar -czf "${tar_name}" -C "${LAYOUT_DIR}" .
     elif [[ ("$CURRENT_PLATFORM" == "windows") ]]; then
         zip_name="${agent_pkg_name}.zip"
         echo "Convert ${LAYOUT_DIR} to Windows style path"
@@ -194,7 +194,7 @@ if [[ (! -d "${DOTNETSDK_INSTALLDIR}") || (! -e "${DOTNETSDK_INSTALLDIR}/.${DOTN
     #                            \dotnet
     #                            \.1.0.x
     echo "Download dotnetsdk into ${DOTNETSDK_INSTALLDIR}"
-    rm -Rf ${DOTNETSDK_DIR}
+    rm -Rf "${DOTNETSDK_DIR}"
 
     # run dotnet-install.ps1 on windows, dotnet-install.sh on linux
     if [[ ("$CURRENT_PLATFORM" == "windows") ]]; then
@@ -203,10 +203,10 @@ if [[ (! -d "${DOTNETSDK_INSTALLDIR}") || (! -e "${DOTNETSDK_INSTALLDIR}/.${DOTN
         sdkinstallwindow_path=${sdkinstallwindow_path:0:1}:${sdkinstallwindow_path:1}
         powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"./Misc/dotnet-install.ps1\" -Version ${DOTNETSDK_VERSION} -InstallDir \"${sdkinstallwindow_path}\" -NoPath; exit $LastExitCode;" || checkRC dotnet-install.ps1
     else
-        bash ./Misc/dotnet-install.sh --version ${DOTNETSDK_VERSION} --install-dir ${DOTNETSDK_INSTALLDIR} --no-path || checkRC dotnet-install.sh
+        bash ./Misc/dotnet-install.sh --version ${DOTNETSDK_VERSION} --install-dir "${DOTNETSDK_INSTALLDIR}" --no-path || checkRC dotnet-install.sh
     fi
 
-    echo "${DOTNETSDK_VERSION}" > ${DOTNETSDK_INSTALLDIR}/.${DOTNETSDK_VERSION}
+    echo "${DOTNETSDK_VERSION}" > "${DOTNETSDK_INSTALLDIR}/.${DOTNETSDK_VERSION}"
 fi
 
 echo "Prepend ${DOTNETSDK_INSTALLDIR} to %PATH%"
@@ -219,7 +219,7 @@ heading "Pre-cache external resources for $RUNTIME_ID package ..."
 bash ./Misc/externals.sh $RUNTIME_ID "Pre-Cache" || checkRC "externals.sh Pre-Cache"
 
 if [[ "$CURRENT_PLATFORM" == 'windows' ]]; then
-    vswhere=`find $DOWNLOAD_DIR -name vswhere.exe | head -1`
+    vswhere=`find "$DOWNLOAD_DIR" -name vswhere.exe | head -1`
     vs_location=`$vswhere -latest -property installationPath`
     msbuild_location="$vs_location""\MSBuild\15.0\Bin\msbuild.exe"
 
