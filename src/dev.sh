@@ -18,7 +18,7 @@ PACKAGE_DIR="$SCRIPT_DIR/../_package"
 DOTNETSDK_ROOT="$SCRIPT_DIR/../_dotnetsdk"
 DOTNETSDK_VERSION="2.1.403"
 DOTNETSDK_INSTALLDIR="$DOTNETSDK_ROOT/$DOTNETSDK_VERSION"
-AGENT_VERSION=`cat agentversion`
+AGENT_VERSION=$(cat agentversion)
 
 pushd "$SCRIPT_DIR"
 
@@ -28,8 +28,8 @@ if [[ "$DEV_CONFIG" == "Release" ]]; then
 fi
 
 CURRENT_PLATFORM="windows"
-if [[ (`uname` == "Linux") || (`uname` == "Darwin") ]]; then
-    CURRENT_PLATFORM=`echo \`uname\` | awk '{print tolower($0)}'`
+if [[ ($(uname) == "Linux") || ($(uname) == "Darwin") ]]; then
+    CURRENT_PLATFORM=$(uname | awk '{print tolower($0)}')
 fi
 
 if [[ "$CURRENT_PLATFORM" == 'windows' ]]; then
@@ -221,8 +221,8 @@ heading "Pre-cache external resources for $RUNTIME_ID package ..."
 bash ./Misc/externals.sh $RUNTIME_ID "Pre-Cache" || checkRC "externals.sh Pre-Cache"
 
 if [[ "$CURRENT_PLATFORM" == 'windows' ]]; then
-    vswhere=`find "$DOWNLOAD_DIR" -name vswhere.exe | head -1`
-    vs_location=`$vswhere -latest -property installationPath`
+    vswhere=$(find "$DOWNLOAD_DIR" -name vswhere.exe | head -1)
+    vs_location=$($vswhere -latest -property installationPath)
     msbuild_location="$vs_location""\MSBuild\15.0\Bin\msbuild.exe"
 
     if [[ ! -e "${msbuild_location}" ]]; then
