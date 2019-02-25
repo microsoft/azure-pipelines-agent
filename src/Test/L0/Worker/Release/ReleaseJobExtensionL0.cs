@@ -64,7 +64,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
         [Trait("Category", "Worker")]
         public void GetRootedPathShouldReturnRootedPathIfPathIsRelative()
         {
-            using (TestHostContext tc = Setup(name: "", createWorkDirectory: false, useReleaseDefinitionId: true, setupArtifactsDirectory: true))
+            using (TestHostContext tc = Setup(createWorkDirectory: false, useReleaseDefinitionId: true, setupArtifactsDirectory: true))
             {
                 var rootedPath = Path.Combine(this.stubWorkFolder, "temp");
                 var result = releaseJobExtension.GetRootedPath(_ec.Object, "temp");
