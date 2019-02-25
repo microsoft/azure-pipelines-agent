@@ -161,6 +161,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public string System_PhaseDisplayName => Get(Constants.Variables.System.PhaseDisplayName);
 
+        public string System_PullRequest_TargetBranch => Get(Constants.Variables.System.PullRequestTargetBranchName);
+
         public string System_TaskDefinitionsUri => Get(WellKnownDistributedTaskVariables.TaskDefinitionsUrl);
 
         public string System_TeamProject => Get(BuildWebApi.BuildVariables.TeamProject);
@@ -168,6 +170,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public Guid? System_TeamProjectId => GetGuid(BuildWebApi.BuildVariables.TeamProjectId);
 
         public string System_TFCollectionUrl => Get(WellKnownDistributedTaskVariables.TFCollectionUrl);
+
+
 
         public void ExpandValues(IDictionary<string, string> target)
         {
