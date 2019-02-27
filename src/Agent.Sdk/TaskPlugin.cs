@@ -27,9 +27,15 @@ namespace Agent.Sdk
     {
         private VssConnection _connection;
         private readonly object _stdoutLock = new object();
+        private readonly bool _quiet; // for unit tests
 
         public AgentTaskPluginExecutionContext()
+            : this(false)
+        { }
+
+        public AgentTaskPluginExecutionContext(bool quiet)
         {
+            _quiet = quiet;
             this.Endpoints = new List<ServiceEndpoint>();
             this.Inputs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             this.Repositories = new List<Pipelines.RepositoryResource>();
@@ -161,7 +167,10 @@ namespace Agent.Sdk
         {
             lock (_stdoutLock)
             {
-                Console.WriteLine(message);
+                if (!_quiet)
+                {
+                    Console.WriteLine(message);
+                }
             }
         }
 

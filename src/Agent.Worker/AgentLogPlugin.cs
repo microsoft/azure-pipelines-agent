@@ -35,7 +35,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private readonly Dictionary<string, PluginInfo> _logPlugins = new Dictionary<string, PluginInfo>()
         {
-            //{"SampleLogPlugin",  new PluginInfo("Agent.Plugins.Log.SampleLogPlugin, Agent.Plugins", "Re-save Log")},
+            {"TestResultLogPlugin",  new PluginInfo("Agent.Plugins.Log.TestResultParser.Plugin.TestResultLogPlugin, Agent.Plugins", "Test Result Parser plugin")},
         };
 
         private class PluginInfo
@@ -95,14 +95,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
                 {
-                    if (!string.IsNullOrEmpty(e.Data))
+                    if (e.Data != null)
                     {
                         _outputs.Enqueue(e.Data);
                     }
                 };
                 processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
                 {
-                    if (!string.IsNullOrEmpty(e.Data))
+                    if (e.Data != null)
                     {
                         _outputs.Enqueue(e.Data);
                     }
@@ -116,6 +116,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                                              outputEncoding: Encoding.UTF8,
                                                              killProcessOnCancel: true,
                                                              redirectStandardIn: _redirectedStdin,
+                                                             inheritConsoleHandler: false,
+                                                             keepStandardInOpen: true,
                                                              cancellationToken: token);
 
                 // construct plugin context
@@ -217,12 +219,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void Write(Guid stepId, string message)
         {
-            if (_pluginHostProcess != null && !string.IsNullOrEmpty(message))
+            if (_pluginHostProcess != null && message != null)
             {
-                var lines = message.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                var lines = message.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n', StringSplitOptions.None);
                 foreach (var line in lines)
                 {
-                    if (!String.IsNullOrEmpty(line))
+                    if (line != null)
                     {
                         _redirectedStdin.Enqueue($"{stepId}:{line}");
                     }

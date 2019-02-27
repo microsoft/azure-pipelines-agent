@@ -126,7 +126,7 @@ namespace Agent.Plugins.PipelineArtifact
 
                 await DownloadPipelineArtifacts(
                     buildDropManager, 
-                    new List<BuildArtifact>().Append(buildArtifact), 
+                    new List<BuildArtifact>().Append(buildArtifact),
                     downloadParameters.TargetDirectory, 
                     downloadParameters.MinimatchFilters, 
                     cancellationToken);
@@ -142,6 +142,7 @@ namespace Agent.Plugins.PipelineArtifact
             var buildDropManager = new BuildDropManager(client, tracer);
             return buildDropManager;
         }
+
 
         private Task DownloadPipelineArtifacts(
             BuildDropManager buildDropManager,

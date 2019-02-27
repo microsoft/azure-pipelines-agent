@@ -4,7 +4,7 @@ PRECACHE=$2
 
 CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
 NODE_URL=https://nodejs.org/dist
-NODE_VERSION="6.10.3"
+NODE_VERSION="6.16.0"
 NODE10_VERSION="10.13.0"
 
 get_abs_path() {
@@ -12,8 +12,8 @@ get_abs_path() {
   echo "$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 }
 
-LAYOUT_DIR=$(get_abs_path `dirname $0`/../../_layout)
-DOWNLOAD_DIR="$(get_abs_path `dirname $0`/../../_downloads)/netcore2x"
+LAYOUT_DIR=$(get_abs_path "$(dirname $0)/../../_layout")
+DOWNLOAD_DIR="$(get_abs_path "$(dirname $0)/../../_downloads")/netcore2x"
 
 function failed() {
    local error=${1:-Undefined error}
@@ -41,8 +41,8 @@ function acquireExternalTool() {
 
     # Check if the download already exists.
     local download_target="$DOWNLOAD_DIR/$relative_url"
-    local download_basename="$(basename $download_target)"
-    local download_dir="$(dirname $download_target)"
+    local download_basename="$(basename "$download_target")"
+    local download_dir="$(dirname "$download_target")"
 
     if [[ "$PRECACHE" != "" ]]; then
         if [ -f "$download_target" ]; then
@@ -57,7 +57,7 @@ function acquireExternalTool() {
 
             # Download from source to the partial file.
             echo "Downloading $download_source"
-            mkdir -p "$(dirname $download_target)" || checkRC 'mkdir'
+            mkdir -p "$(dirname "$download_target")" || checkRC 'mkdir'
             # curl -f Fail silently (no output at all) on HTTP errors (H)
             #      -k Allow connections to SSL sites without certs (H)
             #      -S Show error. With -s, make curl show errors when they occur
@@ -163,13 +163,13 @@ if [[ "$PACKAGERUNTIME" == "osx-x64" ]]; then
 fi
 
 # Download the external tools common across OSX and Linux PACKAGERUNTIMEs.
-if [[ "$PACKAGERUNTIME" == "linux-x64" || "$PACKAGERUNTIME" == "linux-arm" || "$PACKAGERUNTIME" == "osx-x64" ]]; then
+if [[ "$PACKAGERUNTIME" == "linux-x64" || "$PACKAGERUNTIME" == "linux-arm" || "$PACKAGERUNTIME" == "osx-x64" || "$PACKAGERUNTIME" == "rhel.6-x64" ]]; then
     acquireExternalTool "$CONTAINER_URL/tee/14_134_0/TEE-CLC-14.134.0.zip" tee fix_nested_dir
     acquireExternalTool "$CONTAINER_URL/vso-task-lib/0.5.5/vso-task-lib.tar.gz" vso-task-lib
 fi
 
 # Download the external tools common across Linux PACKAGERUNTIMEs (excluding OSX).
-if [[ "$PACKAGERUNTIME" == "linux-x64" ]]; then
+if [[ "$PACKAGERUNTIME" == "linux-x64" || "$PACKAGERUNTIME" == "rhel.6-x64" ]]; then
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz" node fix_nested_dir
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-linux-x64.tar.gz" node10 fix_nested_dir
 fi
