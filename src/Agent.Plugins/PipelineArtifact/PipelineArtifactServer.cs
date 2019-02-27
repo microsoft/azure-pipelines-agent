@@ -164,7 +164,7 @@ namespace Agent.Plugins.PipelineArtifact
             // 2) download to the target path
             DownloadPipelineArtifactOptions options = DownloadPipelineArtifactOptions.CreateWithMultiManifestIds(
                 artifactNameAndManifestId,
-				targetDirectory,
+                targetDirectory,
                 proxyUri: null,
                 minimatchPatterns: minimatchFilters);
             return buildDropManager.DownloadAsync(options, cancellationToken);
