@@ -811,6 +811,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         private void WriteProcessOomScoreAdj(Process proc)
         {
             try {
+                if (proc.StartInfo.FileName.Contains("Agent", StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
                 string procFilePath = $"/proc/{proc.Id}/oom_score_adj";
                 // NOP on platforms that dont mount procfs at /proc such as Hosted Linux
                 if (File.Exists(procFilePath))
