@@ -275,6 +275,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             _stopWatch = Stopwatch.StartNew();
             _proc.Start();
 
+            // Set process oom_score_adj if appropriate
+            WriteProcessOomScoreAdj(_proc);
+
             // Start the standard error notifications, if appropriate.
             if (_proc.StartInfo.RedirectStandardError)
             {
@@ -802,6 +805,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             {
                 Trace.Info("Ignore InvalidOperationException during Process.Kill().");
                 Trace.Info(ex.ToString());
+            }
+        }
+
+        private void WriteProcessOomScoreAdj(Process proc)
+        {
+            try {
+                string procFilePath = $"/proc/{proc.Id}/oom_score_adj";
+                // NOP on platforms that dont mount procfs at /proc such as Hosted Linux
+                if (File.Exists(procFilePath))
+                {
+                    if (proc.StartInfo.Environment.ContainsKey("VSTS_JOB_OOMSCOREADJ"))
+                    {
+                        string userOomScoreAdj = proc.StartInfo.Environment["VSTS_JOB_OOMSCOREADJ"];
+                        File.WriteAllText(procFilePath, userOomScoreAdj);
+
+                    }
+                    else
+                    {
+                        int oomScoreAdjExisting = int.Parse(File.ReadAllText(procFilePath));
+                        if (oomScoreAdjExisting < 100)
+                        {
+                            // Agent tends to score around 10, so other procs just need to be higher
+                            // than that. Exact value is arbitrary but we can only increase without sudo.
+                            // Values up to 1000 make the process more likely to be killed under OOM scenario,
+                            // protecting the agent by extension
+                            File.WriteAllText(procFilePath, "100");
+                        }
+                    }
+                }
+            } catch (Exception ex)
+            {
+                Trace.Verbose($"Failed to update oom_score_adj for {proc.StartInfo.FileName} (PID: {proc.Id}).");
+                Trace.Verbose(ex.ToString());
             }
         }
 
