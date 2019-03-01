@@ -827,18 +827,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                     {
                         string userOomScoreAdj = proc.StartInfo.Environment["VSTS_JOB_OOMSCOREADJ"];
                         File.WriteAllText(procFilePath, userOomScoreAdj);
-
                     }
                     else
                     {
                         int oomScoreAdjExisting = int.Parse(File.ReadAllText(procFilePath));
-                        if (oomScoreAdjExisting < 100)
+                        // Agent tends to score around 10, but other procs just need to be higher
+                        // than that. Exact value is arbitrary but we can only increase without sudo.
+                        // Values (up to 1000) make the process more likely to be killed under OOM scenario,
+                        // protecting the agent by extension
+                        if (oomScoreAdjExisting < 0)
                         {
-                            // Agent tends to score around 10, so other procs just need to be higher
-                            // than that. Exact value is arbitrary but we can only increase without sudo.
-                            // Values up to 1000 make the process more likely to be killed under OOM scenario,
-                            // protecting the agent by extension
-                            File.WriteAllText(procFilePath, "100");
+                            File.WriteAllText(procFilePath, "0");
+                        } else if (oomScoreAdjExisting > 900) {
+                            File.WriteAllText(procFilePath, "1000");
+                        } else {
+                            File.WriteAllText(procFilePath, $"{oomScoreAdjExisting + 100}");
                         }
                     }
                 }
