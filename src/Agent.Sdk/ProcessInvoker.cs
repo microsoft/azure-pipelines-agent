@@ -830,6 +830,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                     }
                     else
                     {
+                        // Existing score is inherited from parent proc
                         int oomScoreAdjExisting = int.Parse(File.ReadAllText(procFilePath));
                         // Agent tends to score around 10, but other procs just need to be higher
                         // than that. Exact value is arbitrary but we can only increase without sudo.
@@ -838,9 +839,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                         if (oomScoreAdjExisting < 0)
                         {
                             File.WriteAllText(procFilePath, "0");
-                        } else if (oomScoreAdjExisting > 900) {
+                        }
+                        else if (oomScoreAdjExisting > 900)
+                        {
                             File.WriteAllText(procFilePath, "1000");
-                        } else {
+                        }
+                        else
+                        {
                             File.WriteAllText(procFilePath, $"{oomScoreAdjExisting + 100}");
                         }
                     }
