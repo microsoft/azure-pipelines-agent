@@ -810,7 +810,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         private void WriteProcessOomScoreAdj(Process proc)
         {
-            try {
+            try
+            {
                 if (proc.StartInfo.FileName.Contains("Agent.Worker", StringComparison.OrdinalIgnoreCase) ||
                     proc.StartInfo.FileName.Contains("Agent.PluginHost", StringComparison.OrdinalIgnoreCase))
                 {
@@ -839,7 +840,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                         }
                     }
                 }
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                 Trace.Verbose($"Failed to update oom_score_adj for {proc.StartInfo.FileName} (PID: {proc.Id}).");
                 Trace.Verbose(ex.ToString());
