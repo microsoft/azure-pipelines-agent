@@ -811,12 +811,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         private void WriteProcessOomScoreAdj(Process proc)
         {
             try {
-                if (proc.StartInfo.FileName.Contains("Agent", StringComparison.OrdinalIgnoreCase))
+                if (proc.StartInfo.FileName.Contains("Agent.Worker", StringComparison.OrdinalIgnoreCase) ||
+                    proc.StartInfo.FileName.Contains("Agent.PluginHost", StringComparison.OrdinalIgnoreCase))
                 {
                     return;
                 }
                 string procFilePath = $"/proc/{proc.Id}/oom_score_adj";
-                // NOP on platforms that dont mount procfs at /proc such as Hosted Linux
+                // Hosted Ubuntu mounts procfs at /proc, NOP on other platforms
                 if (File.Exists(procFilePath))
                 {
                     if (proc.StartInfo.Environment.ContainsKey("VSTS_JOB_OOMSCOREADJ"))
