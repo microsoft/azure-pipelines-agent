@@ -275,8 +275,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             _stopWatch = Stopwatch.StartNew();
             _proc.Start();
 
+#if !OS_WINDOWS
             // Set process oom_score_adj if appropriate
             WriteProcessOomScoreAdj(_proc);
+#endif
 
             // Start the standard error notifications, if appropriate.
             if (_proc.StartInfo.RedirectStandardError)
