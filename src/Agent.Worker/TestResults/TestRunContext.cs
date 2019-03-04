@@ -12,7 +12,7 @@
             ReleaseUri = releaseUri;
             ReleaseEnvironmentUri = releaseEnvironmentUri;
             RunName = runName;
-            pullRequestTargetBranchName = pullRequestTargetBranchName;
+            PullRequestTargetBranchName = pullRequestTargetBranchName;
         }
 
         public string Owner { get; }

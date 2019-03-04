@@ -171,8 +171,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public string System_TFCollectionUrl => Get(WellKnownDistributedTaskVariables.TFCollectionUrl);
 
-
-
         public void ExpandValues(IDictionary<string, string> target)
         {
             _trace.Entering();
