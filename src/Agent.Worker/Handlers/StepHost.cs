@@ -77,8 +77,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                          killProcessOnCancel: killProcessOnCancel,
                                                          redirectStandardIn: null,
                                                          inheritConsoleHandler: inheritConsoleHandler,
-                                                         cancellationToken: cancellationToken,
-                                                         keepStandardInOpen: false);
+                                                         cancellationToken: cancellationToken);
             }
         }
     }
@@ -203,7 +202,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                          killProcessOnCancel: killProcessOnCancel,
                                                          redirectStandardIn: redirectStandardIn,
                                                          inheritConsoleHandler: inheritConsoleHandler,
-                                                         keepStandardInOpen: false,
                                                          cancellationToken: cancellationToken);
             }
         }
