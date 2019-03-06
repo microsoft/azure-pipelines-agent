@@ -189,7 +189,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 redirectStandardIn: redirectStandardIn,
                 inheritConsoleHandler: inheritConsoleHandler,
                 keepStandardInOpen: false,
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken,
+                decreaseProcessPriority: false);
         }
 
         public async Task<int> ExecuteAsync(
@@ -203,7 +204,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             InputQueue<string> redirectStandardIn,
             bool inheritConsoleHandler,
             bool keepStandardInOpen,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool decreaseProcessPriority)
         {
             ArgUtil.Null(_proc, nameof(_proc));
             ArgUtil.NotNullOrEmpty(fileName, nameof(fileName));
@@ -275,10 +277,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             _stopWatch = Stopwatch.StartNew();
             _proc.Start();
 
-#if !OS_WINDOWS
-            // Set process oom_score_adj if appropriate
-            WriteProcessOomScoreAdj(_proc);
-#endif
+            // Decrease invoked process priority, in platform specifc way, relative to parent
+            if (decreaseProcessPriority)
+            {
+                DecreaseProcessPriority(_proc);
+            }
 
             // Start the standard error notifications, if appropriate.
             if (_proc.StartInfo.RedirectStandardError)
@@ -529,6 +532,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             WindowsKillProcessTree();
 #else
             NixKillProcessTree();
+#endif
+        }
+
+        private void DecreaseProcessPriority(Process process)
+        {
+#if !OS_WINDOWS
+            int oomScoreAdj = 500;
+            string userOomScoreAdj;
+            if (process.StartInfo.Environment.TryGetValue("VSTS_JOB_OOMSCOREADJ", out userOomScoreAdj))
+            {
+                int userOomScoreAdjParsed;
+                if (int.TryParse(userOomScoreAdj, out userOomScoreAdjParsed))
+                {
+                    if (userOomScoreAdjParsed >= -1000 && userOomScoreAdjParsed <= 1000)
+                    {
+                        oomScoreAdj = userOomScoreAdjParsed;
+                    }
+                    else
+                    {
+                        Trace.Info($"Invalid VSTS_JOB_OOMSCOREADJ ({userOomScoreAdj}). Valid range is -1000:1000. Using default 500.");
+                    }
+                }
+                else
+                {
+                    Trace.Info($"Failed to parse int from VSTS_JOB_OOMSCOREADJ ({userOomScoreAdj}). Using default 500.");
+                }
+            }
+            // Values (up to 1000) make the process more likely to be killed under OOM scenario,
+            // protecting the agent by extension. Default of 500 is likely to get killed, but can
+            // be adjusted up or down as appropriate.
+            WriteProcessOomScoreAdj(process.Id, oomScoreAdj);
 #endif
         }
 
@@ -810,51 +844,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
-        private void WriteProcessOomScoreAdj(Process proc)
+        private void WriteProcessOomScoreAdj(int processId, int oomScoreAdj)
         {
             try
             {
-                if (proc.StartInfo.FileName.Contains("Agent.Worker", StringComparison.OrdinalIgnoreCase) ||
-                    proc.StartInfo.FileName.Contains("Agent.PluginHost", StringComparison.OrdinalIgnoreCase))
-                {
-                    return;
-                }
-                string procFilePath = $"/proc/{proc.Id}/oom_score_adj";
-                // Hosted Ubuntu mounts procfs at /proc, NOP on other platforms
+                string procFilePath = $"/proc/{processId}/oom_score_adj";
+                // Linux by default mounts procfs at /proc, NOP on other platforms such as macOS.
                 if (File.Exists(procFilePath))
                 {
-                    if (proc.StartInfo.Environment.ContainsKey("VSTS_JOB_OOMSCOREADJ"))
-                    {
-                        string userOomScoreAdj = proc.StartInfo.Environment["VSTS_JOB_OOMSCOREADJ"];
-                        File.WriteAllText(procFilePath, userOomScoreAdj);
-                    }
-                    else
-                    {
-                        // Existing score is inherited from parent proc
-                        int oomScoreAdjExisting = int.Parse(File.ReadAllText(procFilePath));
-                        // Agent tends to score around 10, but other procs just need to be higher
-                        // than that. Exact value is arbitrary but we can only increase without sudo.
-                        // Values (up to 1000) make the process more likely to be killed under OOM scenario,
-                        // protecting the agent by extension
-                        if (oomScoreAdjExisting < 0)
-                        {
-                            File.WriteAllText(procFilePath, "0");
-                        }
-                        else if (oomScoreAdjExisting > 900)
-                        {
-                            File.WriteAllText(procFilePath, "1000");
-                        }
-                        else
-                        {
-                            File.WriteAllText(procFilePath, $"{oomScoreAdjExisting + 100}");
-                        }
-                    }
+                    File.WriteAllText(procFilePath, oomScoreAdj.ToString());
+                    Trace.Verbose($"Updated invoked process oom_score_adj (PID: {processId}) to {oomScoreAdj}.");
                 }
             }
             catch (Exception ex)
             {
-                Trace.Verbose($"Failed to update oom_score_adj for {proc.StartInfo.FileName} (PID: {proc.Id}).");
-                Trace.Verbose(ex.ToString());
+                Trace.Info($"Failed to update oom_score_adj for PID: {processId}.");
+                Trace.Info(ex.ToString());
             }
         }
 

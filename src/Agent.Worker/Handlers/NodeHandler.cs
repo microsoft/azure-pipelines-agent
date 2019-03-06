@@ -136,7 +136,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                               outputEncoding: outputEncoding,
                                               killProcessOnCancel: false,
                                               inheritConsoleHandler: !ExecutionContext.Variables.Retain_Default_Encoding,
-                                              cancellationToken: ExecutionContext.CancellationToken);
+                                              cancellationToken: ExecutionContext.CancellationToken,
+                                              decreaseProcessPriority: true);
 
             // Wait for either the node exit or force finish through ##vso command
             await System.Threading.Tasks.Task.WhenAny(step, ExecutionContext.ForceCompleted);

@@ -67,7 +67,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                         outputEncoding: null,
                                         killProcessOnCancel: false,
                                         inheritConsoleHandler: !ExecutionContext.Variables.Retain_Default_Encoding,
-                                        cancellationToken: ExecutionContext.CancellationToken);
+                                        cancellationToken: ExecutionContext.CancellationToken,
+                                        decreaseProcessPriority: false);
         }
 
         private void OnDataReceived(object sender, ProcessDataReceivedEventArgs e)
