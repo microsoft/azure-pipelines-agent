@@ -28,8 +28,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                Encoding outputEncoding,
                                bool killProcessOnCancel,
                                bool inheritConsoleHandler,
-                               CancellationToken cancellationToken,
-                               bool decreaseProcessPriority);
+                               CancellationToken cancellationToken);
     }
 
     [ServiceLocator(Default = typeof(ContainerStepHost))]
@@ -62,8 +61,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                             Encoding outputEncoding,
                                             bool killProcessOnCancel,
                                             bool inheritConsoleHandler,
-                                            CancellationToken cancellationToken,
-                                            bool decreaseProcessPriority)
+                                            CancellationToken cancellationToken)
         {
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
             {
@@ -80,8 +78,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                          redirectStandardIn: null,
                                                          inheritConsoleHandler: inheritConsoleHandler,
                                                          cancellationToken: cancellationToken,
-                                                         keepStandardInOpen: false,
-                                                         decreaseProcessPriority: decreaseProcessPriority);
+                                                         keepStandardInOpen: false);
             }
         }
     }
@@ -134,8 +131,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                             Encoding outputEncoding,
                                             bool killProcessOnCancel,
                                             bool inheritConsoleHandler,
-                                            CancellationToken cancellationToken,
-                                            bool decreaseProcessPriority)
+                                            CancellationToken cancellationToken)
         {
             // make sure container exist.
             ArgUtil.NotNull(Container, nameof(Container));
@@ -208,8 +204,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                          redirectStandardIn: redirectStandardIn,
                                                          inheritConsoleHandler: inheritConsoleHandler,
                                                          keepStandardInOpen: false,
-                                                         cancellationToken: cancellationToken,
-                                                         decreaseProcessPriority: decreaseProcessPriority);
+                                                         cancellationToken: cancellationToken);
             }
         }
 

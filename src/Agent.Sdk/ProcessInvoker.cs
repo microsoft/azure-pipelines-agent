@@ -189,8 +189,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 redirectStandardIn: redirectStandardIn,
                 inheritConsoleHandler: inheritConsoleHandler,
                 keepStandardInOpen: false,
-                cancellationToken: cancellationToken,
-                decreaseProcessPriority: false);
+                highPriorityProcess: false,
+                cancellationToken: cancellationToken);
         }
 
         public async Task<int> ExecuteAsync(
@@ -204,8 +204,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             InputQueue<string> redirectStandardIn,
             bool inheritConsoleHandler,
             bool keepStandardInOpen,
-            CancellationToken cancellationToken,
-            bool decreaseProcessPriority)
+            bool highPriorityProcess,
+            CancellationToken cancellationToken)
         {
             ArgUtil.Null(_proc, nameof(_proc));
             ArgUtil.NotNullOrEmpty(fileName, nameof(fileName));
@@ -278,7 +278,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             _proc.Start();
 
             // Decrease invoked process priority, in platform specifc way, relative to parent
-            if (decreaseProcessPriority)
+            if (!highPriorityProcess)
             {
                 DecreaseProcessPriority(_proc);
             }
@@ -543,20 +543,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             if (process.StartInfo.Environment.TryGetValue("VSTS_JOB_OOMSCOREADJ", out userOomScoreAdj))
             {
                 int userOomScoreAdjParsed;
-                if (int.TryParse(userOomScoreAdj, out userOomScoreAdjParsed))
+                if (int.TryParse(userOomScoreAdj, out userOomScoreAdjParsed) && userOomScoreAdjParsed >= -1000 && userOomScoreAdjParsed <= 1000)
                 {
-                    if (userOomScoreAdjParsed >= -1000 && userOomScoreAdjParsed <= 1000)
-                    {
-                        oomScoreAdj = userOomScoreAdjParsed;
-                    }
-                    else
-                    {
-                        Trace.Info($"Invalid VSTS_JOB_OOMSCOREADJ ({userOomScoreAdj}). Valid range is -1000:1000. Using default 500.");
-                    }
+                    oomScoreAdj = userOomScoreAdjParsed;
                 }
                 else
                 {
-                    Trace.Info($"Failed to parse int from VSTS_JOB_OOMSCOREADJ ({userOomScoreAdj}). Using default 500.");
+                    Trace.Info($"Invalid VSTS_JOB_OOMSCOREADJ ({userOomScoreAdj}). Valid range is -1000:1000. Using default 500.");
                 }
             }
             // Values (up to 1000) make the process more likely to be killed under OOM scenario,
@@ -853,7 +846,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 if (File.Exists(procFilePath))
                 {
                     File.WriteAllText(procFilePath, oomScoreAdj.ToString());
-                    Trace.Verbose($"Updated invoked process oom_score_adj (PID: {processId}) to {oomScoreAdj}.");
+                    Trace.Info($"Updated oom_score_adj to {oomScoreAdj} for PID: {processId}.");
                 }
             }
             catch (Exception ex)

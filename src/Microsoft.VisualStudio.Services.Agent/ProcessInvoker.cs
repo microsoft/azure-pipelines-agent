@@ -95,8 +95,8 @@ namespace Microsoft.VisualStudio.Services.Agent
             InputQueue<string> redirectStandardIn,
             bool inheritConsoleHandler,
             bool keepStandardInOpen,
-            CancellationToken cancellationToken,
-            bool decreaseProcessPriority);
+            bool highPriorityProcess,
+            CancellationToken cancellationToken);
     }
 
     // The implementation of the process invoker does not hook up DataReceivedEvent and ErrorReceivedEvent of Process,
@@ -271,8 +271,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                 redirectStandardIn: redirectStandardIn,
                 inheritConsoleHandler: inheritConsoleHandler,
                 keepStandardInOpen: keepStandardInOpen,
-                cancellationToken: cancellationToken,
-                decreaseProcessPriority: false
+                highPriorityProcess: false,
+                cancellationToken: cancellationToken
             );
         }
 
@@ -287,8 +287,8 @@ namespace Microsoft.VisualStudio.Services.Agent
             InputQueue<string> redirectStandardIn,
             bool inheritConsoleHandler,
             bool keepStandardInOpen,
-            CancellationToken cancellationToken,
-            bool decreaseProcessPriority)
+            bool highPriorityProcess,
+            CancellationToken cancellationToken)
         {
             _invoker.ErrorDataReceived += this.ErrorDataReceived;
             _invoker.OutputDataReceived += this.OutputDataReceived;
@@ -303,8 +303,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                 redirectStandardIn,
                 inheritConsoleHandler,
                 keepStandardInOpen,
-                cancellationToken,
-                decreaseProcessPriority);
+                highPriorityProcess,
+                cancellationToken);
         }
 
         public void Dispose()
