@@ -80,7 +80,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                          redirectStandardIn: null,
                                                          inheritConsoleHandler: inheritConsoleHandler,
                                                          cancellationToken: cancellationToken,
-                                                         keepStandardInOpen: false);
+                                                         keepStandardInOpen: false,
+                                                         decreaseProcessPriority: decreaseProcessPriority);
             }
         }
     }
