@@ -3,17 +3,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Agent.Plugins.Log.TestResultParser.Contracts;
+using Agent.Plugins.TestFilePublisher;
 using Agent.Sdk;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
-namespace Agent.Plugins.Log.TestResultParser.Plugin
+namespace Agent.Plugins.Log.TestFilePublisher.Plugin
 {
-    public class TestResultLogPlugin : IAgentLogPlugin
+    public class TestFilePublisherLogPlugin : IAgentLogPlugin
     {
         /// <inheritdoc />
-        public string FriendlyName => "TestResultLogParser";
+        public string FriendlyName => "TestFilePublisher";
 
-        public TestResultLogPlugin()
+        public TestFilePublisherLogPlugin()
         {
             // Default constructor
         }
@@ -21,11 +22,11 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
         /// <summary>
         /// For UTs only
         /// </summary>
-        public TestResultLogPlugin(ILogParserGateway inputDataParser, ITraceLogger logger, ITelemetryDataCollector telemetry)
+        public TestFilePublisherLogPlugin(ITraceLogger logger, ITelemetryDataCollector telemetry, ITestFilePublisher testFilePublisher)
         {
             _logger = logger;
             _telemetry = telemetry;
-            _inputDataParser = inputDataParser;
+            _testFilePublisher = testFilePublisher;
         }
 
         /// <inheritdoc />
@@ -34,25 +35,26 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
             try
             {
                 _logger = _logger ?? new TraceLogger(context);
-                _clientFactory = new ClientFactory(context.VssConnection);
-                _telemetry = _telemetry ?? new TelemetryDataCollector(_clientFactory, _logger);
+                _telemetry = _telemetry ?? new TelemetryDataCollector(new ClientFactory(context.VssConnection), _logger);
 
                 await PopulatePipelineConfig(context);
 
+                _telemetry.AddOrUpdate(TelemetryConstants.PluginInitialized, true);
+                _telemetry.AddOrUpdate(TelemetryConstants.PluginDisabled, true);
+
                 if (DisablePlugin(context))
                 {
-                    _telemetry.AddOrUpdate(TelemetryConstants.PluginDisabled, true);
                     return false; // disable the plugin
                 }
-                
-                _telemetry.AddOrUpdate(TelemetryConstants.PluginInitialized, true);
-                await _inputDataParser.InitializeAsync(_clientFactory, _pipelineConfig, _logger, _telemetry);
+
+                _testFilePublisher = _testFilePublisher ??
+                                     new Plugins.TestFilePublisher.TestFilePublisher(context.VssConnection, _pipelineConfig, new TestFileTraceListener(context));
             }
             catch (Exception ex)
             {
                 context.Trace(ex.ToString());
                 _logger?.Warning($"Unable to initialize {FriendlyName}.");
-                _telemetry?.AddOrUpdate(TelemetryConstants.InitialzieFailed, ex);
+                _telemetry?.AddOrUpdate(TelemetryConstants.InitializeFailed, ex);
                 return false;
             }
             finally
@@ -69,17 +71,17 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
         /// <inheritdoc />
         public async Task ProcessLineAsync(IAgentLogPluginContext context, Pipelines.TaskStepDefinitionReference step, string line)
         {
-            await _inputDataParser.ProcessDataAsync(line);
+            await Task.CompletedTask;
         }
 
         /// <inheritdoc />
         public async Task FinalizeAsync(IAgentLogPluginContext context)
         {
-            using (var timer = new SimpleTimer("Finalize", _logger,
-                new TelemetryDataWrapper(_telemetry, TelemetryConstants.FinalizeAsync),
-                TimeSpan.FromMilliseconds(Int32.MaxValue)))
+            using (var timer = new SimpleTimer("Finalize", _logger, TimeSpan.FromMilliseconds(Int32.MaxValue),
+                new TelemetryDataWrapper(_telemetry, TelemetryConstants.FinalizeAsync)))
             {
-                await _inputDataParser.CompleteAsync();
+                await _testFilePublisher.InitializeAsync();
+                await _testFilePublisher.PublishAsync();
             }
 
             await _telemetry.PublishCumulativeTelemetryAsync();
@@ -91,8 +93,8 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
         private bool DisablePlugin(IAgentLogPluginContext context)
         {
             // do we want to log that the plugin is disabled due to x reason here?
-            if (context.Variables.TryGetValue("Agent.ForceEnable.TestResultLogPlugin", out var forceEnableTestResultParsers)
-                && string.Equals("true", forceEnableTestResultParsers.Value, StringComparison.OrdinalIgnoreCase))
+            if (context.Variables.TryGetValue("Agent.ForceEnable.TestFilePublisherLogPlugin", out var forceEnable)
+                && string.Equals("true", forceEnable.Value, StringComparison.OrdinalIgnoreCase))
             {
                 return false;
             }
@@ -132,6 +134,18 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
                 return true;
             }
 
+            if (_pipelineConfig.Pattern == null)
+            {
+                _telemetry.AddOrUpdate("PluginDisabledReason", "PatternIsEmpty");
+                return true;
+            }
+
+            if (_pipelineConfig.SearchFolders == null)
+            {
+                _telemetry.AddOrUpdate("PluginDisabledReason", "SearchFolderIsEmpty");
+                return true;
+            }
+
             return false;
         }
 
@@ -139,11 +153,11 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
         {
             var props = new Dictionary<string, Object>();
 
-            if (context.Variables.TryGetValue("system.teamProjectId", out var projectGuid))
+            if (context.Variables.TryGetValue("system.teamProject", out var projectName))
             {
-                _pipelineConfig.Project = new Guid(projectGuid.Value);
-                _telemetry.AddOrUpdate("ProjectId", _pipelineConfig.Project);
-                props.Add("ProjectId", _pipelineConfig.Project);
+                _pipelineConfig.ProjectName = projectName.Value;
+                _telemetry.AddOrUpdate("ProjectName", _pipelineConfig.ProjectName);
+                props.Add("ProjectName", _pipelineConfig.ProjectName);
             }
 
             if (context.Variables.TryGetValue("build.buildId", out var buildId))
@@ -158,14 +172,37 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
                 _telemetry.AddOrUpdate("BuildDefinitionId", buildDefinitionId.Value);
             }
 
+            if (context.Variables.TryGetValue("agent.testfilepublisher.pattern", out var pattern)
+                && !string.IsNullOrWhiteSpace(pattern.Value))
+            {
+                _pipelineConfig.Pattern = pattern.Value;
+            }
+
+            if (context.Variables.TryGetValue("agent.testfilepublisher.searchfolders", out var searchFolders)
+                && !string.IsNullOrWhiteSpace(searchFolders.Value))
+            {
+                PopulateSearchFolders(context, searchFolders.Value);
+            }
+
             // Publish the initial telemetry event in case we are not able to fire the cumulative one for whatever reason
-            await _telemetry.PublishTelemetryAsync("TestResultParserInitialize", props);
+            await _telemetry.PublishTelemetryAsync("TestFilePublisherInitialize", props);
         }
 
-        private readonly ILogParserGateway _inputDataParser = new LogParserGateway();
-        private IClientFactory _clientFactory;
+        private void PopulateSearchFolders(IAgentLogPluginContext context, string searchFolders)
+        {
+            var folderVariables = searchFolders.Split(",");
+            foreach (var folderVar in folderVariables)
+            {
+                if (context.Variables.TryGetValue(folderVar, out var folderValue))
+                {
+                    _pipelineConfig.SearchFolders.Add(folderValue.Value);
+                }
+            }
+        }
+
         private ITraceLogger _logger;
         private ITelemetryDataCollector _telemetry;
-        private readonly IPipelineConfig _pipelineConfig = new PipelineConfig();
+        private ITestFilePublisher _testFilePublisher;
+        private readonly PipelineConfig _pipelineConfig = new PipelineConfig();
     }
 }

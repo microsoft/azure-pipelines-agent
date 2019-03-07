@@ -1,0 +1,25 @@
+﻿using System.Diagnostics;
+using Agent.Sdk;
+
+namespace Agent.Plugins.TestFilePublisher
+{
+    public class TestFileTraceListener : TraceListener
+    {
+        private readonly IAgentLogPluginContext _context;
+
+        public TestFileTraceListener(IAgentLogPluginContext context)
+        {
+            _context = context;
+        }
+
+        public override void Write(string message)
+        {
+            _context.Output(message);
+        }
+
+        public override void WriteLine(string message)
+        {
+            _context.Output(message);
+        }
+    }
+}
