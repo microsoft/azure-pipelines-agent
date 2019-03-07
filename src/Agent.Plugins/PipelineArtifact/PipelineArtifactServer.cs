@@ -126,7 +126,7 @@ namespace Agent.Plugins.PipelineArtifact
 
                 await DownloadPipelineArtifacts(
                     buildDropManager, 
-                    new List<BuildArtifact>(){buildArtifact},
+                    new List<BuildArtifact>(){ buildArtifact },
                     downloadParameters.TargetDirectory, 
                     downloadParameters.MinimatchFilters, 
                     cancellationToken);
