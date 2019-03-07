@@ -795,26 +795,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         // Delegate type to be used as the Handler Routine for SetConsoleCtrlHandler
         private delegate Boolean ConsoleCtrlDelegate(ConsoleCtrlEvent CtrlType);
-
-#elif OS_LINUX
-        private void WriteProcessOomScoreAdj(int processId, int oomScoreAdj)
-        {
-            try
-            {
-                string procFilePath = $"/proc/{processId}/oom_score_adj";
-                if (File.Exists(procFilePath))
-                {
-                    File.WriteAllText(procFilePath, oomScoreAdj.ToString());
-                    Trace.Info($"Updated oom_score_adj to {oomScoreAdj} for PID: {processId}.");
-                }
-            }
-            catch (Exception ex)
-            {
-                Trace.Info($"Failed to update oom_score_adj for PID: {processId}.");
-                Trace.Info(ex.ToString());
-            }
-        }
-
 #else
         private async Task<bool> SendSignal(Signals signal, TimeSpan timeout)
         {
@@ -858,6 +838,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
+#if OS_LINUX
+        private void WriteProcessOomScoreAdj(int processId, int oomScoreAdj)
+        {
+            try
+            {
+                string procFilePath = $"/proc/{processId}/oom_score_adj";
+                if (File.Exists(procFilePath))
+                {
+                    File.WriteAllText(procFilePath, oomScoreAdj.ToString());
+                    Trace.Info($"Updated oom_score_adj to {oomScoreAdj} for PID: {processId}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Trace.Info($"Failed to update oom_score_adj for PID: {processId}.");
+                Trace.Info(ex.ToString());
+            }
+        }
+#endif
 
         private enum Signals : int
         {
