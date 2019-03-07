@@ -64,10 +64,10 @@ WorkingDirectory=/home/user/agent
 KillMode=process
 KillSignal=SIGTERM
 TimeoutStopSec=5min
-OOMScoreAdjust=-500
+OOMScoreAdjust=-999
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-In this configuration, the `Agent.Listener` and `Agent.Worker` processes will run with `oom_score_adj = 500`, and all other processes invoked by the agent will have 500, or the value given by `VSTS_JOB_OOMSCOREADJ`, ensuring the agent is kept alive even if the job causes out-of-memory conditions.
+In this configuration, the `Agent.Listener` and `Agent.Worker` processes will run with `oom_score_adj = -999`, and all other processes invoked by the agent will have 500 by default, or the value given by `VSTS_JOB_OOMSCOREADJ`, ensuring the agent is kept alive even if the job causes out-of-memory conditions.
