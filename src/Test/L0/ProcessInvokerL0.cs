@@ -232,7 +232,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
-#if !OS_WINDOWS
+#if OS_LINUX
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
