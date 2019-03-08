@@ -3,11 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Agent.Plugins.Log.TestResultParser.Contracts;
-using Agent.Plugins.TestFilePublisher;
 using Agent.Sdk;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
-namespace Agent.Plugins.Log.TestFilePublisher.Plugin
+namespace Agent.Plugins.Log.TestFilePublisher
 {
     public class TestFilePublisherLogPlugin : IAgentLogPlugin
     {
@@ -48,7 +47,8 @@ namespace Agent.Plugins.Log.TestFilePublisher.Plugin
                 }
 
                 _testFilePublisher = _testFilePublisher ??
-                                     new Plugins.TestFilePublisher.TestFilePublisher(context.VssConnection, _pipelineConfig, new TestFileTraceListener(context));
+                                     new TestFilePublisher(context.VssConnection, PipelineConfig, new TestFileTraceListener(context), _logger, _telemetry);
+                await _testFilePublisher.InitializeAsync();
             }
             catch (Exception ex)
             {
@@ -77,10 +77,9 @@ namespace Agent.Plugins.Log.TestFilePublisher.Plugin
         /// <inheritdoc />
         public async Task FinalizeAsync(IAgentLogPluginContext context)
         {
-            using (var timer = new SimpleTimer("Finalize", _logger, TimeSpan.FromMilliseconds(Int32.MaxValue),
+            using (var timer = new SimpleTimer("Finalize", _logger, TimeSpan.FromMinutes(2),
                 new TelemetryDataWrapper(_telemetry, TelemetryConstants.FinalizeAsync)))
             {
-                await _testFilePublisher.InitializeAsync();
                 await _testFilePublisher.PublishAsync();
             }
 
@@ -128,19 +127,19 @@ namespace Agent.Plugins.Log.TestFilePublisher.Plugin
                 return true;
             }
 
-            if (_pipelineConfig.BuildId == 0)
+            if (PipelineConfig.BuildId == 0)
             {
                 _telemetry.AddOrUpdate("PluginDisabledReason", "BuildIdZero");
                 return true;
             }
 
-            if (_pipelineConfig.Pattern == null)
+            if (PipelineConfig.Pattern == null)
             {
                 _telemetry.AddOrUpdate("PluginDisabledReason", "PatternIsEmpty");
                 return true;
             }
 
-            if (_pipelineConfig.SearchFolders == null)
+            if (!PipelineConfig.SearchFolders.Any())
             {
                 _telemetry.AddOrUpdate("PluginDisabledReason", "SearchFolderIsEmpty");
                 return true;
@@ -155,16 +154,16 @@ namespace Agent.Plugins.Log.TestFilePublisher.Plugin
 
             if (context.Variables.TryGetValue("system.teamProject", out var projectName))
             {
-                _pipelineConfig.ProjectName = projectName.Value;
-                _telemetry.AddOrUpdate("ProjectName", _pipelineConfig.ProjectName);
-                props.Add("ProjectName", _pipelineConfig.ProjectName);
+                PipelineConfig.ProjectName = projectName.Value;
+                _telemetry.AddOrUpdate("ProjectName", PipelineConfig.ProjectName);
+                props.Add("ProjectName", PipelineConfig.ProjectName);
             }
 
             if (context.Variables.TryGetValue("build.buildId", out var buildId))
             {
-                _pipelineConfig.BuildId = int.Parse(buildId.Value);
-                _telemetry.AddOrUpdate("BuildId", _pipelineConfig.BuildId);
-                props.Add("BuildId", _pipelineConfig.BuildId);
+                PipelineConfig.BuildId = int.Parse(buildId.Value);
+                _telemetry.AddOrUpdate("BuildId", PipelineConfig.BuildId);
+                props.Add("BuildId", PipelineConfig.BuildId);
             }
 
             if (context.Variables.TryGetValue("System.DefinitionId", out var buildDefinitionId))
@@ -175,7 +174,7 @@ namespace Agent.Plugins.Log.TestFilePublisher.Plugin
             if (context.Variables.TryGetValue("agent.testfilepublisher.pattern", out var pattern)
                 && !string.IsNullOrWhiteSpace(pattern.Value))
             {
-                _pipelineConfig.Pattern = pattern.Value;
+                PipelineConfig.Pattern = pattern.Value;
             }
 
             if (context.Variables.TryGetValue("agent.testfilepublisher.searchfolders", out var searchFolders)
@@ -195,7 +194,7 @@ namespace Agent.Plugins.Log.TestFilePublisher.Plugin
             {
                 if (context.Variables.TryGetValue(folderVar, out var folderValue))
                 {
-                    _pipelineConfig.SearchFolders.Add(folderValue.Value);
+                    PipelineConfig.SearchFolders.Add(folderValue.Value);
                 }
             }
         }
@@ -203,6 +202,6 @@ namespace Agent.Plugins.Log.TestFilePublisher.Plugin
         private ITraceLogger _logger;
         private ITelemetryDataCollector _telemetry;
         private ITestFilePublisher _testFilePublisher;
-        private readonly PipelineConfig _pipelineConfig = new PipelineConfig();
+        public readonly PipelineConfig PipelineConfig = new PipelineConfig();
     }
 }

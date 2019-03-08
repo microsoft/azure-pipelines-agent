@@ -1,11 +1,10 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace Agent.Plugins.TestFilePublisher
+namespace Agent.Plugins.Log.TestFilePublisher
 {
     public interface ITestFileFinder
     {
         Task<IEnumerable<string>> FindAsync(string pattern);
     }
-    
 }

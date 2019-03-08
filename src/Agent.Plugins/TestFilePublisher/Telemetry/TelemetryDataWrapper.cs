@@ -1,6 +1,6 @@
 ﻿using Agent.Plugins.Log.TestResultParser.Contracts;
 
-namespace Agent.Plugins.Log.TestFilePublisher.Plugin
+namespace Agent.Plugins.Log.TestFilePublisher
 {
     public class TelemetryDataWrapper
     {

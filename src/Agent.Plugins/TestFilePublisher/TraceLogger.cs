@@ -1,7 +1,7 @@
 ﻿using Agent.Plugins.Log.TestResultParser.Contracts;
 using Agent.Sdk;
 
-namespace Agent.Plugins.Log.TestFilePublisher.Plugin
+namespace Agent.Plugins.Log.TestFilePublisher
 {
     public class TraceLogger : ITraceLogger
     {

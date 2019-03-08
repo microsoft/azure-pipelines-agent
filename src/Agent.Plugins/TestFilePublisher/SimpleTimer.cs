@@ -2,7 +2,7 @@
 using System.Diagnostics;
 using Agent.Plugins.Log.TestResultParser.Contracts;
 
-namespace Agent.Plugins.Log.TestFilePublisher.Plugin
+namespace Agent.Plugins.Log.TestFilePublisher
 {
     /// <summary>
     /// This is a utitily class used for recording timing

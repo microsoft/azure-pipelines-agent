@@ -3,7 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace Agent.Plugins.TestFilePublisher
+namespace Agent.Plugins.Log.TestFilePublisher
 {
     public class TestFileFinder : ITestFileFinder
     {

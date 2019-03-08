@@ -11,7 +11,7 @@ using Agent.Plugins.Log.TestResultParser.Contracts;
 using Microsoft.VisualStudio.Services.CustomerIntelligence.WebApi;
 using Microsoft.VisualStudio.Services.WebPlatform;
 
-namespace Agent.Plugins.Log.TestFilePublisher.Plugin
+namespace Agent.Plugins.Log.TestFilePublisher
 {
     public class TelemetryDataCollector : ITelemetryDataCollector
     {

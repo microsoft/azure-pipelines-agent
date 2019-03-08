@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace Agent.Plugins.Log.TestFilePublisher.Plugin
+namespace Agent.Plugins.Log.TestFilePublisher
 {
     public class PipelineConfig
     {
@@ -13,7 +13,7 @@ namespace Agent.Plugins.Log.TestFilePublisher.Plugin
 
         public string BuildUri { get; set; }
 
-        public IList<string> SearchFolders { get; set; }
+        public IList<string> SearchFolders { get; } = new List<string>();
 
         public string Pattern { get; set; }
     }

@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using Agent.Sdk;
 
-namespace Agent.Plugins.TestFilePublisher
+namespace Agent.Plugins.Log.TestFilePublisher
 {
     public class TestFileTraceListener : TraceListener
     {

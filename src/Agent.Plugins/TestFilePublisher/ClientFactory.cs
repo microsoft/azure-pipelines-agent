@@ -1,6 +1,6 @@
 ﻿using Microsoft.VisualStudio.Services.WebApi;
 
-namespace Agent.Plugins.Log.TestFilePublisher.Plugin
+namespace Agent.Plugins.Log.TestFilePublisher
 {
     public interface IClientFactory
     {

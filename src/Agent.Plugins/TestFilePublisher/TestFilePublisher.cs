@@ -1,13 +1,16 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Agent.Plugins.Log.TestFilePublisher.Plugin;
+using Agent.Plugins.Log.TestResultParser.Contracts;
 using Microsoft.TeamFoundation.TestClient.PublishTestResults;
 using Microsoft.VisualStudio.Services.WebApi;
+using ITestResultParser = Microsoft.TeamFoundation.TestClient.PublishTestResults.ITestResultParser;
+using ITestRunPublisher = Microsoft.TeamFoundation.TestClient.PublishTestResults.ITestRunPublisher;
 
-namespace Agent.Plugins.TestFilePublisher
+namespace Agent.Plugins.Log.TestFilePublisher
 {
     public interface ITestFilePublisher
     {
@@ -20,20 +23,26 @@ namespace Agent.Plugins.TestFilePublisher
         private readonly VssConnection _vssConnection;
         private readonly PipelineConfig _pipelineConfig;
         private readonly TraceListener _traceListener;
+        private readonly ITraceLogger _logger;
+        private readonly ITelemetryDataCollector _telemetry;
         private ITestFileFinder _testFileFinder;
         private ITestResultParser _testResultParser;
         private ITestRunPublisher _testRunPublisher;
 
-        public TestFilePublisher(VssConnection vssConnection, PipelineConfig pipelineConfig, TraceListener traceListener)
+        public TestFilePublisher(VssConnection vssConnection, PipelineConfig pipelineConfig, TraceListener traceListener,
+            ITraceLogger logger, ITelemetryDataCollector telemetry)
         {
+            _traceListener = traceListener;
             _vssConnection = vssConnection;
             _pipelineConfig = pipelineConfig;
-            _traceListener = traceListener;
+            _logger = logger;
+            _telemetry = telemetry;
         }
 
         public TestFilePublisher(VssConnection vssConnection, PipelineConfig pipelineConfig, TraceListener traceListener,
-            ITestFileFinder testFileFinder, ITestResultParser testResultParser, ITestRunPublisher testRunPublisher)
-        : this(vssConnection, pipelineConfig, traceListener)
+            ITraceLogger logger, ITelemetryDataCollector telemetry, ITestFileFinder testFileFinder,
+            ITestResultParser testResultParser, ITestRunPublisher testRunPublisher)
+        : this(vssConnection, pipelineConfig, traceListener, logger, telemetry)
         {
             _testFileFinder = testFileFinder;
             _testResultParser = testResultParser;
@@ -42,21 +51,49 @@ namespace Agent.Plugins.TestFilePublisher
 
         public async Task InitializeAsync()
         {
-            await Task.Run(Initialize);
+            await Task.Run(() => Initialize());
         }
 
         public async Task PublishAsync()
         {
+            var testResultFiles = new List<string>();
+            IList<TestRunData> testData;
+
             var testRunContext = new TestRunContextBuilder("Auto Published Test Run")
                 .WithBuildId(_pipelineConfig.BuildId)
                 .WithBuildUri(_pipelineConfig.BuildUri)
                 .Build();
 
-            var testResultFiles = await FindTestFilesAsync();
+            using (new SimpleTimer(TelemetryConstants.FindTestFilesAsync, _logger, TimeSpan.FromSeconds(60),
+                new TelemetryDataWrapper(_telemetry, TelemetryConstants.FindTestFilesAsync)))
+            {
+                testResultFiles.AddRange(await FindTestFilesAsync());
+                _logger.Info($"Number of files found with matching pattern {testResultFiles.Count}");
+                _telemetry.AddAndAggregate("NumberOfTestFilesFound", testResultFiles.Count);
+            }
 
+            if (!testResultFiles.Any())
+            {
+                _logger.Info("No test files are found");
+                return;
+            }
 
-            var testData = _testResultParser.ParseTestResultFiles(testRunContext, testResultFiles.ToList()).GetTestRunData();
-            var testRuns = await _testRunPublisher.PublishTestRunDataAsync(testRunContext, _pipelineConfig.ProjectName, testData, new PublishOptions(), new CancellationToken());
+            using (new SimpleTimer(TelemetryConstants.ParseTestResultFiles, _logger, TimeSpan.FromSeconds(60),
+                new TelemetryDataWrapper(_telemetry, TelemetryConstants.ParseTestResultFiles)))
+            {
+                testData = _testResultParser.ParseTestResultFiles(testRunContext, testResultFiles).GetTestRunData();
+                _logger.Info($"Successfully parsed {testData.Count} files");
+                _telemetry.AddAndAggregate("NumberOfTestFilesRead", testData.Count);
+            }
+
+            using (new SimpleTimer(TelemetryConstants.PublishTestRunDataAsync, _logger, TimeSpan.FromSeconds(60),
+                new TelemetryDataWrapper(_telemetry, TelemetryConstants.PublishTestRunDataAsync)))
+            {
+                var publishedRuns = await _testRunPublisher.PublishTestRunDataAsync(testRunContext, _pipelineConfig.ProjectName, testData, new PublishOptions(),
+                    new CancellationToken());
+                _logger.Info($"Successfully published {publishedRuns.Count} runs");
+                _telemetry.AddAndAggregate("NumberOfTestRunsPublished", publishedRuns.Count);
+            }
         }
 
         protected async Task<IEnumerable<string>> FindTestFilesAsync()

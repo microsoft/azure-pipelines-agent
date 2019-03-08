@@ -1,6 +1,6 @@
 ﻿using Microsoft.TeamFoundation.TestClient.PublishTestResults;
 
-namespace Agent.Plugins.TestFilePublisher
+namespace Agent.Plugins.Log.TestFilePublisher
 {
     public interface ITestRunContextBuilder
     {

@@ -1,4 +1,4 @@
-﻿namespace Agent.Plugins.Log.TestFilePublisher.Plugin
+﻿namespace Agent.Plugins.Log.TestFilePublisher
 {
     public class TelemetryConstants
     {
@@ -10,6 +10,12 @@
 
         public const string FinalizeAsync = "FinalizeAsync";
 
+        public const string FindTestFilesAsync = "FindTestFilesAsync";
+
         public const string InitializeFailed = "InitializeFailed";
+
+        public const string PublishTestRunDataAsync = "PublishTestRunDataAsync";
+
+        public const string ParseTestResultFiles = "ParseTestResultFiles";
     }
 }
