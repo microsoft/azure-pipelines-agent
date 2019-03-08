@@ -68,8 +68,9 @@ namespace Agent.Plugins.Log.TestFilePublisher
                 new TelemetryDataWrapper(_telemetry, TelemetryConstants.FindTestFilesAsync)))
             {
                 testResultFiles.AddRange(await FindTestFilesAsync());
+
                 _logger.Info($"Number of files found with matching pattern {testResultFiles.Count}");
-                _telemetry.AddAndAggregate("NumberOfTestFilesFound", testResultFiles.Count);
+                _telemetry.AddOrUpdate("NumberOfTestFilesFound", testResultFiles.Count);
             }
 
             if (!testResultFiles.Any())
@@ -82,8 +83,15 @@ namespace Agent.Plugins.Log.TestFilePublisher
                 new TelemetryDataWrapper(_telemetry, TelemetryConstants.ParseTestResultFiles)))
             {
                 testData = _testResultParser.ParseTestResultFiles(testRunContext, testResultFiles).GetTestRunData();
-                _logger.Info($"Successfully parsed {testData.Count} files");
-                _telemetry.AddAndAggregate("NumberOfTestFilesRead", testData.Count);
+
+                _logger.Info($"Successfully parsed {testData?.Count} files");
+                _telemetry.AddOrUpdate("NumberOfTestFilesRead", testData?.Count);
+            }
+
+            if (testData == null || !testData.Any())
+            {
+                _logger.Info("No valid Junit test files are found which can be parsed");
+                return;
             }
 
             using (new SimpleTimer(TelemetryConstants.PublishTestRunDataAsync, _logger, TimeSpan.FromSeconds(60),
@@ -91,8 +99,17 @@ namespace Agent.Plugins.Log.TestFilePublisher
             {
                 var publishedRuns = await _testRunPublisher.PublishTestRunDataAsync(testRunContext, _pipelineConfig.ProjectName, testData, new PublishOptions(),
                     new CancellationToken());
-                _logger.Info($"Successfully published {publishedRuns.Count} runs");
-                _telemetry.AddAndAggregate("NumberOfTestRunsPublished", publishedRuns.Count);
+
+                if (publishedRuns != null)
+                {
+                    _logger.Info($"Successfully published {publishedRuns.Count} runs");
+                    _telemetry.AddOrUpdate("NumberOfTestRunsPublished", publishedRuns.Count);
+                    _telemetry.AddOrUpdate("TestRunIds", string.Join(",", publishedRuns.Select(x => x.Id)));
+                }
+                else
+                {
+                    _telemetry.AddOrUpdate("NumberOfTestRunsPublished", 0);
+                }
             }
         }
 

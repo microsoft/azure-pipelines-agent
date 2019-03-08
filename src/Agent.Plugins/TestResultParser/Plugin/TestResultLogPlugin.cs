@@ -42,25 +42,23 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
                 if (DisablePlugin(context))
                 {
                     _telemetry.AddOrUpdate(TelemetryConstants.PluginDisabled, true);
+                    await _telemetry.PublishCumulativeTelemetryAsync();
                     return false; // disable the plugin
                 }
                 
-                _telemetry.AddOrUpdate(TelemetryConstants.PluginInitialized, true);
                 await _inputDataParser.InitializeAsync(_clientFactory, _pipelineConfig, _logger, _telemetry);
+                _telemetry.AddOrUpdate(TelemetryConstants.PluginInitialized, true);
             }
             catch (Exception ex)
             {
                 context.Trace(ex.ToString());
                 _logger?.Warning($"Unable to initialize {FriendlyName}.");
-                _telemetry?.AddOrUpdate(TelemetryConstants.InitialzieFailed, ex);
-                return false;
-            }
-            finally
-            {
                 if (_telemetry != null)
                 {
+                    _telemetry?.AddOrUpdate(TelemetryConstants.InitialzieFailed, ex);
                     await _telemetry.PublishCumulativeTelemetryAsync();
                 }
+                return false;
             }
 
             return true;

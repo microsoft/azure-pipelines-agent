@@ -38,31 +38,28 @@ namespace Agent.Plugins.Log.TestFilePublisher
 
                 await PopulatePipelineConfig(context);
 
-                _telemetry.AddOrUpdate(TelemetryConstants.PluginInitialized, true);
-                _telemetry.AddOrUpdate(TelemetryConstants.PluginDisabled, true);
-
                 if (DisablePlugin(context))
                 {
+                    _telemetry.AddOrUpdate(TelemetryConstants.PluginDisabled, true);
+                    await _telemetry.PublishCumulativeTelemetryAsync();
                     return false; // disable the plugin
                 }
 
                 _testFilePublisher = _testFilePublisher ??
                                      new TestFilePublisher(context.VssConnection, PipelineConfig, new TestFileTraceListener(context), _logger, _telemetry);
                 await _testFilePublisher.InitializeAsync();
+                _telemetry.AddOrUpdate(TelemetryConstants.PluginInitialized, true);
             }
             catch (Exception ex)
             {
                 context.Trace(ex.ToString());
                 _logger?.Warning($"Unable to initialize {FriendlyName}.");
-                _telemetry?.AddOrUpdate(TelemetryConstants.InitializeFailed, ex);
-                return false;
-            }
-            finally
-            {
                 if (_telemetry != null)
                 {
+                    _telemetry.AddOrUpdate(TelemetryConstants.InitializeFailed, ex);
                     await _telemetry.PublishCumulativeTelemetryAsync();
                 }
+                return false;
             }
 
             return true;
@@ -80,7 +77,15 @@ namespace Agent.Plugins.Log.TestFilePublisher
             using (var timer = new SimpleTimer("Finalize", _logger, TimeSpan.FromMinutes(2),
                 new TelemetryDataWrapper(_telemetry, TelemetryConstants.FinalizeAsync)))
             {
-                await _testFilePublisher.PublishAsync();
+                try
+                {
+                    await _testFilePublisher.PublishAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger.Info($"Error: {ex}");
+                    _telemetry.AddOrUpdate("FailedToPublishTestRuns", ex);
+                }
             }
 
             await _telemetry.PublishCumulativeTelemetryAsync();
