@@ -134,6 +134,28 @@ namespace Test.L0.Plugin.TestFilePublisher
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
+        public async Task TestFilePublisher_DontPublishWhenFileExceptionsAreThrown()
+        {
+            var publisher = new Agent.Plugins.Log.TestFilePublisher.TestFilePublisher(_vssConnection.Object, _pipelineConfig, _traceListener.Object, _logger.Object,
+                _telemetry.Object, _testFileFinder.Object, _testResultParser.Object, _testRunPublisher.Object);
+
+            _testFileFinder.Setup(x => x.FindAsync(It.IsAny<IList<string>>())).Throws<Exception>();
+            _testResultParser.Setup(x => x.ParseTestResultFiles(It.IsAny<TestRunContext>(), It.IsAny<IList<string>>()))
+                .Throws<Exception>();
+            _testRunPublisher.Setup(x => x.PublishTestRunDataAsync(It.IsAny<TestRunContext>(), It.IsAny<string>(), It.IsAny<IList<TestRunData>>(),
+                It.IsAny<PublishOptions>(), It.IsAny<CancellationToken>())).Throws<Exception>();
+
+            await publisher.InitializeAsync();
+            await publisher.PublishAsync();
+
+            _testFileFinder.Verify(x => x.FindAsync(It.IsAny<IList<string>>()), Times.Once);
+
+            _logger.Verify(x => x.Info(It.Is<string>(msg => msg.Contains("No test result files are found"))), Times.Once);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
         public async Task TestFilePublisher_DontPublishWhenFilesAreNotValid()
         {
             var publisher = new Agent.Plugins.Log.TestFilePublisher.TestFilePublisher(_vssConnection.Object, _pipelineConfig, _traceListener.Object, _logger.Object,

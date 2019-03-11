@@ -67,12 +67,20 @@ namespace Agent.Plugins.Log.TestFilePublisher
             using (new SimpleTimer(TelemetryConstants.FindTestFilesAsync, _logger, TimeSpan.FromSeconds(60),
                 new TelemetryDataWrapper(_telemetry, TelemetryConstants.FindTestFilesAsync)))
             {
-                testResultFiles.AddRange(await FindTestFilesAsync());
+                try
+                {
+                    testResultFiles.AddRange(await FindTestFilesAsync());
 
-                _logger.Info($"Number of files found with matching pattern {testResultFiles.Count}");
-                _telemetry.AddOrUpdate("NumberOfTestFilesFound", testResultFiles.Count);
+                    _logger.Info($"Number of files found with matching pattern {testResultFiles.Count}");
+                }
+                catch (Exception ex)
+                {
+                    _logger.Info($"Error: {ex.Message}");
+                    _telemetry.AddOrUpdate("FindTestFilesError", ex);
+                }
             }
 
+            _telemetry.AddOrUpdate("NumberOfTestFilesFound", testResultFiles.Count);
             if (!testResultFiles.Any())
             {
                 _logger.Info("No test result files are found");

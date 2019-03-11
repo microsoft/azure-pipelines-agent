@@ -36,7 +36,7 @@ namespace Agent.Plugins.Log.TestFilePublisher
 
             var testResultFiles = Enumerable.Empty<string>();
 
-            testResultFiles = _searchFolders.Aggregate(testResultFiles, (current, folder) => current.Union(GetFiles(folder, patterns.ToArray())));
+            testResultFiles = _searchFolders.AsParallel().Aggregate(testResultFiles, (current, folder) => current.Union(GetFiles(folder, patterns.ToArray())));
 
             return testResultFiles;
         }
