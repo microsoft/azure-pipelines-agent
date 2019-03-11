@@ -15,6 +15,6 @@ namespace Agent.Plugins.Log.TestFilePublisher
 
         public IList<string> SearchFolders { get; } = new List<string>();
 
-        public string Pattern { get; set; }
+        public IList<string> Patterns { get; set; } = new List<string>();
     }
 }

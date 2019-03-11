@@ -75,7 +75,7 @@ namespace Agent.Plugins.Log.TestFilePublisher
 
             if (!testResultFiles.Any())
             {
-                _logger.Info("No test files are found");
+                _logger.Info("No test result files are found");
                 return;
             }
 
@@ -90,7 +90,7 @@ namespace Agent.Plugins.Log.TestFilePublisher
 
             if (testData == null || !testData.Any())
             {
-                _logger.Info("No valid Junit test files are found which can be parsed");
+                _logger.Info("No valid Junit test result files are found which can be parsed");
                 return;
             }
 
@@ -115,7 +115,7 @@ namespace Agent.Plugins.Log.TestFilePublisher
 
         protected async Task<IEnumerable<string>> FindTestFilesAsync()
         {
-            return await _testFileFinder.FindAsync(_pipelineConfig.Pattern);
+            return await _testFileFinder.FindAsync(_pipelineConfig.Patterns);
         }
 
         private void Initialize()

@@ -5,6 +5,6 @@ namespace Agent.Plugins.Log.TestFilePublisher
 {
     public interface ITestFileFinder
     {
-        Task<IEnumerable<string>> FindAsync(string pattern);
+        Task<IEnumerable<string>> FindAsync(IList<string> patterns);
     }
 }

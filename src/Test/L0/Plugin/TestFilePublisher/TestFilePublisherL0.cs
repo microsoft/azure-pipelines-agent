@@ -36,7 +36,7 @@ namespace Test.L0.Plugin.TestFilePublisher
                 new TestRun()
             };
 
-            _testFileFinder.Setup(x => x.FindAsync(It.IsAny<string>())).ReturnsAsync(testFiles.AsEnumerable());
+            _testFileFinder.Setup(x => x.FindAsync(It.IsAny<IList<string>>())).ReturnsAsync(testFiles.AsEnumerable());
             _testResultParser.Setup(x => x.ParseTestResultFiles(It.IsAny<TestRunContext>(), It.IsAny<IList<string>>()))
                 .Returns(new TestDataProvider(new List<TestData>
                 {
@@ -51,7 +51,7 @@ namespace Test.L0.Plugin.TestFilePublisher
             await publisher.InitializeAsync();
             await publisher.PublishAsync();
 
-            _testFileFinder.Verify(x => x.FindAsync(It.IsAny<string>()), Times.Once);
+            _testFileFinder.Verify(x => x.FindAsync(It.IsAny<IList<string>>()), Times.Once);
             _testResultParser.Verify(x => x.ParseTestResultFiles(It.IsAny<TestRunContext>(), It.IsAny<IList<string>>()), Times.Once);
             _testRunPublisher.Verify(x => x.PublishTestRunDataAsync(It.IsAny<TestRunContext>(), It.IsAny<string>(), It.IsAny<IList<TestRunData>>(),
                 It.IsAny<PublishOptions>(), It.IsAny<CancellationToken>()), Times.Once);
@@ -80,7 +80,7 @@ namespace Test.L0.Plugin.TestFilePublisher
                 new TestRun()
             };
 
-            _testFileFinder.Setup(x => x.FindAsync(It.IsAny<string>())).ReturnsAsync(testFiles.AsEnumerable());
+            _testFileFinder.Setup(x => x.FindAsync(It.IsAny<IList<string>>())).ReturnsAsync(testFiles.AsEnumerable());
             _testResultParser.Setup(x => x.ParseTestResultFiles(It.IsAny<TestRunContext>(), It.IsAny<IList<string>>()))
                 .Returns(new TestDataProvider(new List<TestData>
                 {
@@ -98,7 +98,7 @@ namespace Test.L0.Plugin.TestFilePublisher
             await publisher.InitializeAsync();
             await publisher.PublishAsync();
 
-            _testFileFinder.Verify(x => x.FindAsync(It.IsAny<string>()), Times.Once);
+            _testFileFinder.Verify(x => x.FindAsync(It.IsAny<IList<string>>()), Times.Once);
             _testResultParser.Verify(x => x.ParseTestResultFiles(It.IsAny<TestRunContext>(), It.IsAny<IList<string>>()), Times.Once);
             _testRunPublisher.Verify(x => x.PublishTestRunDataAsync(It.IsAny<TestRunContext>(), It.IsAny<string>(), It.IsAny<IList<TestRunData>>(),
                 It.IsAny<PublishOptions>(), It.IsAny<CancellationToken>()), Times.Once);
@@ -117,7 +117,7 @@ namespace Test.L0.Plugin.TestFilePublisher
             var publisher = new Agent.Plugins.Log.TestFilePublisher.TestFilePublisher(_vssConnection.Object, _pipelineConfig, _traceListener.Object, _logger.Object,
                 _telemetry.Object, _testFileFinder.Object, _testResultParser.Object, _testRunPublisher.Object);
 
-            _testFileFinder.Setup(x => x.FindAsync(It.IsAny<string>())).ReturnsAsync(Enumerable.Empty<string>());
+            _testFileFinder.Setup(x => x.FindAsync(It.IsAny<IList<string>>())).ReturnsAsync(Enumerable.Empty<string>());
             _testResultParser.Setup(x => x.ParseTestResultFiles(It.IsAny<TestRunContext>(), It.IsAny<IList<string>>()))
                 .Throws<Exception>();
             _testRunPublisher.Setup(x => x.PublishTestRunDataAsync(It.IsAny<TestRunContext>(), It.IsAny<string>(), It.IsAny<IList<TestRunData>>(),
@@ -126,9 +126,9 @@ namespace Test.L0.Plugin.TestFilePublisher
             await publisher.InitializeAsync();
             await publisher.PublishAsync();
 
-            _testFileFinder.Verify(x => x.FindAsync(It.IsAny<string>()), Times.Once);
+            _testFileFinder.Verify(x => x.FindAsync(It.IsAny<IList<string>>()), Times.Once);
 
-            _logger.Verify(x => x.Info(It.Is<string>(msg => msg.Contains("No test files are found"))), Times.Once);
+            _logger.Verify(x => x.Info(It.Is<string>(msg => msg.Contains("No test result files are found"))), Times.Once);
         }
 
         [Fact]
@@ -146,7 +146,7 @@ namespace Test.L0.Plugin.TestFilePublisher
                 "/tmp/test-3.xml",
             };
 
-            _testFileFinder.Setup(x => x.FindAsync(It.IsAny<string>())).ReturnsAsync(testFiles.AsEnumerable());
+            _testFileFinder.Setup(x => x.FindAsync(It.IsAny<IList<string>>())).ReturnsAsync(testFiles.AsEnumerable());
             _testResultParser.Setup(x => x.ParseTestResultFiles(It.IsAny<TestRunContext>(), It.IsAny<IList<string>>()))
                 .Returns(new TestDataProvider(null));
 
@@ -156,9 +156,9 @@ namespace Test.L0.Plugin.TestFilePublisher
             await publisher.InitializeAsync();
             await publisher.PublishAsync();
 
-            _testFileFinder.Verify(x => x.FindAsync(It.IsAny<string>()), Times.Once);
+            _testFileFinder.Verify(x => x.FindAsync(It.IsAny<IList<string>>()), Times.Once);
 
-            _logger.Verify(x => x.Info(It.Is<string>(msg => msg.Contains("No valid Junit test files are found which can be parsed"))), Times.Once);
+            _logger.Verify(x => x.Info(It.Is<string>(msg => msg.Contains("No valid Junit test result files are found which can be parsed"))), Times.Once);
         }
 
         [Fact]
@@ -175,7 +175,7 @@ namespace Test.L0.Plugin.TestFilePublisher
             };
             List<TestRun> testRuns = null;
 
-            _testFileFinder.Setup(x => x.FindAsync(It.IsAny<string>())).ReturnsAsync(testFiles.AsEnumerable());
+            _testFileFinder.Setup(x => x.FindAsync(It.IsAny<IList<string>>())).ReturnsAsync(testFiles.AsEnumerable());
             _testResultParser.Setup(x => x.ParseTestResultFiles(It.IsAny<TestRunContext>(), It.IsAny<IList<string>>()))
                 .Returns(new TestDataProvider(new List<TestData>
                 {
@@ -190,7 +190,7 @@ namespace Test.L0.Plugin.TestFilePublisher
             await publisher.InitializeAsync();
             await publisher.PublishAsync();
 
-            _testFileFinder.Verify(x => x.FindAsync(It.IsAny<string>()), Times.Once);
+            _testFileFinder.Verify(x => x.FindAsync(It.IsAny<IList<string>>()), Times.Once);
             _testResultParser.Verify(x => x.ParseTestResultFiles(It.IsAny<TestRunContext>(), It.IsAny<IList<string>>()), Times.Once);
             _testRunPublisher.Verify(x => x.PublishTestRunDataAsync(It.IsAny<TestRunContext>(), It.IsAny<string>(), It.IsAny<IList<TestRunData>>(),
                 It.IsAny<PublishOptions>(), It.IsAny<CancellationToken>()), Times.Once);

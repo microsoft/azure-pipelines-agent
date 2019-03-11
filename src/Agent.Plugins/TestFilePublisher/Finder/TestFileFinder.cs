@@ -14,9 +14,9 @@ namespace Agent.Plugins.Log.TestFilePublisher
             _searchFolders = searchFolders;
         }
 
-        public async Task<IEnumerable<string>> FindAsync(string pattern)
+        public async Task<IEnumerable<string>> FindAsync(IList<string> patterns)
         {
-            return await Task.Run(() => Find(pattern));
+            return await Task.Run(() => Find(patterns));
         }
 
         protected virtual IEnumerable<string> GetFiles(string path, string[] searchPatterns, SearchOption searchOption = SearchOption.AllDirectories)
@@ -26,18 +26,17 @@ namespace Agent.Plugins.Log.TestFilePublisher
                     Directory.EnumerateFiles(path, searchPattern, searchOption));
         }
 
-        protected IEnumerable<string> Find(string pattern)
+        protected IEnumerable<string> Find(IList<string> patterns)
         {
             var files = Enumerable.Empty<string>();
-            if (!_searchFolders.Any() || string.IsNullOrWhiteSpace(pattern))
+            if (!_searchFolders.Any() || !patterns.Any())
             {
                 return files;
             }
 
-            var patternValues = pattern.Split(",");
             var testResultFiles = Enumerable.Empty<string>();
 
-            testResultFiles = _searchFolders.Aggregate(testResultFiles, (current, folder) => current.Union(GetFiles(folder, patternValues)));
+            testResultFiles = _searchFolders.Aggregate(testResultFiles, (current, folder) => current.Union(GetFiles(folder, patterns.ToArray())));
 
             return testResultFiles;
         }

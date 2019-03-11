@@ -107,7 +107,7 @@ namespace Agent.Plugins.Log.TestFilePublisher
             if (!context.Variables.TryGetValue("system.hosttype", out var hostType)
                 || !string.Equals("Build", hostType.Value, StringComparison.OrdinalIgnoreCase))
             {
-                _telemetry.AddOrUpdate("PluginDisabledReason", "NotABuild");
+                _telemetry.AddOrUpdate("PluginDisabledReason", hostType);
                 return true;
             }
 
@@ -115,7 +115,7 @@ namespace Agent.Plugins.Log.TestFilePublisher
             if (!context.Variables.TryGetValue("system.servertype", out var serverType)
                 || !string.Equals("Hosted", serverType.Value, StringComparison.OrdinalIgnoreCase))
             {
-                _telemetry.AddOrUpdate("PluginDisabledReason", "NotHosted");
+                _telemetry.AddOrUpdate("PluginDisabledReason", serverType);
                 return true;
             }
 
@@ -138,7 +138,7 @@ namespace Agent.Plugins.Log.TestFilePublisher
                 return true;
             }
 
-            if (PipelineConfig.Pattern == null)
+            if (!PipelineConfig.Patterns.Any())
             {
                 _telemetry.AddOrUpdate("PluginDisabledReason", "PatternIsEmpty");
                 return true;
@@ -164,9 +164,9 @@ namespace Agent.Plugins.Log.TestFilePublisher
                 props.Add("ProjectName", PipelineConfig.ProjectName);
             }
 
-            if (context.Variables.TryGetValue("build.buildId", out var buildId))
+            if (context.Variables.TryGetValue("build.buildId", out var buildIdVar) && int.TryParse(buildIdVar.Value, out var buildId))
             {
-                PipelineConfig.BuildId = int.Parse(buildId.Value);
+                PipelineConfig.BuildId = buildId;
                 _telemetry.AddOrUpdate("BuildId", PipelineConfig.BuildId);
                 props.Add("BuildId", PipelineConfig.BuildId);
             }
@@ -179,7 +179,7 @@ namespace Agent.Plugins.Log.TestFilePublisher
             if (context.Variables.TryGetValue("agent.testfilepublisher.pattern", out var pattern)
                 && !string.IsNullOrWhiteSpace(pattern.Value))
             {
-                PipelineConfig.Pattern = pattern.Value;
+                PopulateSearchPatterns(context, pattern.Value);
             }
 
             if (context.Variables.TryGetValue("agent.testfilepublisher.searchfolders", out var searchFolders)
@@ -201,6 +201,15 @@ namespace Agent.Plugins.Log.TestFilePublisher
                 {
                     PipelineConfig.SearchFolders.Add(folderValue.Value);
                 }
+            }
+        }
+
+        private void PopulateSearchPatterns(IAgentLogPluginContext context, string searchPattern)
+        {
+            var patterns = searchPattern.Split(",");
+            foreach (var pattern in patterns)
+            {
+                PipelineConfig.Patterns.Add(pattern);
             }
         }
 

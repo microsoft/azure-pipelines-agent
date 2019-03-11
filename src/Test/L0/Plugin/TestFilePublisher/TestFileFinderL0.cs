@@ -19,7 +19,7 @@ namespace Test.L0.Plugin.TestFilePublisher
                 "/tmp"
             });
 
-            var files = await finder.FindAsync("test-*.xml");
+            var files = await finder.FindAsync(new List<string> { "test-*.xml" });
 
             Assert.True(files.Count() == 2);
         }
@@ -31,7 +31,7 @@ namespace Test.L0.Plugin.TestFilePublisher
         {
             var finder = new MockTestFileFinder(new List<string>());
 
-            var files = await finder.FindAsync("test-*.xml");
+            var files = await finder.FindAsync(new List<string> { "test-*.xml" });
 
             Assert.True(!files.Any());
         }
@@ -46,7 +46,7 @@ namespace Test.L0.Plugin.TestFilePublisher
                 "/tmp"
             });
 
-            var files = await finder.FindAsync(string.Empty);
+            var files = await finder.FindAsync(new List<string>());
 
             Assert.True(!files.Any());
         }
