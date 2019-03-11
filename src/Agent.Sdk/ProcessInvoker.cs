@@ -541,7 +541,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 #if OS_LINUX
             int oomScoreAdj = 500;
             string userOomScoreAdj;
-            if (process.StartInfo.Environment.TryGetValue("VSTS_JOB_OOMSCOREADJ", out userOomScoreAdj))
+            if (process.StartInfo.Environment.TryGetValue("PIPELINE_JOB_OOMSCOREADJ", out userOomScoreAdj))
             {
                 int userOomScoreAdjParsed;
                 if (int.TryParse(userOomScoreAdj, out userOomScoreAdjParsed) && userOomScoreAdjParsed >= -1000 && userOomScoreAdjParsed <= 1000)
@@ -550,7 +550,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 }
                 else
                 {
-                    Trace.Info($"Invalid VSTS_JOB_OOMSCOREADJ ({userOomScoreAdj}). Valid range is -1000:1000. Using default 500.");
+                    Trace.Info($"Invalid PIPELINE_JOB_OOMSCOREADJ ({userOomScoreAdj}). Valid range is -1000:1000. Using default 500.");
                 }
             }
             // Values (up to 1000) make the process more likely to be killed under OOM scenario,
