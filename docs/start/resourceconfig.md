@@ -34,6 +34,11 @@ It is important to use two groups, because otherwise the pipeline job processes 
 A second "job" cgroup allows the job processes to be managed independent of the agent, e.g. in an out-of-memory scenario (when the job exceeds the limits given by the `job` cgroup), the job
 will be killed instead of the agent. If a single cgroup is used, the agent may killed to reclaim memory from the cgroup.
 
+Additionally, using two groups can provide the agent "dedicated" memory to avoid instability caused by thrashing. In the above example `cgconfig.conf`, if the job group memory limit is 7g and the host machine
+has 8g of total memory, the agent will effectively have access 1g of memory at all times, assuming there are no other significant applications running on the host. In certain situtations, under high memory load
+where a significant portion of memory is backed by executable code loaded from files on disk, such as when build large dotnet applications, this memory may be evicted before the oom-killer is invoked. This thrashing
+can degrade the performance of the Linux system and the agent so severely that the agent's connection to the server can time out, causing the pipeline to fail.
+
 #### Understanding the Out of Memory Killer
 If a Linux system runs out of memory, it invokes the oom-killer to reclaim memory. The oom-killer chooses a process to sacrifice based on heuristics,
 and adjusted by `oom_score_adj`. Higher scores are more likely to get killed, and range from -1000 to 1000. It is important that the agent process has a lower
