@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Agent.Plugins.Log.TestResultParser.Contracts;
-using Agent.Plugins.TestResultParser;
 using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.TestResults.WebApi;
 using TestOutcome = Microsoft.TeamFoundation.TestManagement.WebApi.TestOutcome;

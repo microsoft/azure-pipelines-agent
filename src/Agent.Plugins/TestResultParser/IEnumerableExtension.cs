@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 
-namespace Agent.Plugins.TestResultParser
+namespace Agent.Plugins.Log.TestResultParser.Plugin
 {
     public static class EnumerableExtension
     {

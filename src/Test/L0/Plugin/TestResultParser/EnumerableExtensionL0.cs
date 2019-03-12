@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Linq;
-using Agent.Plugins.TestResultParser;
+using Agent.Plugins.Log.TestResultParser.Plugin;
 using Xunit;
 
 namespace Test.L0.Plugin.TestResultParser
