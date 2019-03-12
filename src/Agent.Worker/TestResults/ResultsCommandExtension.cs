@@ -446,6 +446,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 return;
             }
 
+
             if (runCreateModel.BuildReference == null)
             {
                 runCreateModel.BuildReference = new BuildConfiguration() { TargetBranchName = pullRequestTargetBranchName };
