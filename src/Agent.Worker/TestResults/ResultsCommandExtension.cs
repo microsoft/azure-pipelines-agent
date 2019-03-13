@@ -134,7 +134,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
                     if(_failTaskOnFailedTests)
                     {
-                        _isTestRunOutcomeFailed = GetTestRunOutcome(resultFileRunData);
+                        _isTestRunOutcomeFailed = _isTestRunOutcomeFailed || GetTestRunOutcome(resultFileRunData);
                     }
 
                     if (resultFileRunData != null && resultFileRunData.Results != null && resultFileRunData.Results.Length > 0)
@@ -269,7 +269,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
                         if(_failTaskOnFailedTests)
                         {
-                            _isTestRunOutcomeFailed = GetTestRunOutcome(testRunData);
+                            _isTestRunOutcomeFailed = _isTestRunOutcomeFailed || GetTestRunOutcome(testRunData);
                         }
 
                         cancellationToken.ThrowIfCancellationRequested();
