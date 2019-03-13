@@ -59,7 +59,7 @@ namespace Agent.Plugins.Log.TestFilePublisher
             var testResultFiles = new List<string>();
             IList<TestRunData> testData;
 
-            var testRunContext = new TestRunContextBuilder("Auto Published Test Run")
+            var testRunContext = new TestRunContextBuilder("JUnit test results")
                 .WithBuildId(_pipelineConfig.BuildId)
                 .WithBuildUri(_pipelineConfig.BuildUri)
                 .Build();

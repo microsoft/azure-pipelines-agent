@@ -424,5 +424,35 @@ namespace Test.L0.Plugin.TestFilePublisher
 
             logger.Verify(x => x.Info(It.Is<string>(msg => msg.Contains("Error"))), Times.Once);
         }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public async Task TestFilePublisherLogPlugin_DisableIfMavenPresent()
+        {
+            var agentContext = new Mock<IAgentLogPluginContext>();
+            var logger = new Mock<ITraceLogger>();
+            var telemetry = new Mock<ITelemetryDataCollector>();
+            var testFilePublisher = new Mock<ITestFilePublisher>();
+            var plugin = new TestFilePublisherLogPlugin(logger.Object, telemetry.Object, testFilePublisher.Object);
+
+            agentContext.Setup(x => x.Variables).Returns(new Dictionary<string, VariableValue>()
+            {
+                {"system.hosttype", new VariableValue("build") },
+                {"system.servertype", new VariableValue("Hosted") }
+            });
+
+            agentContext.Setup(x => x.Steps).Returns(new List<TaskStepDefinitionReference>()
+            {
+                new TaskStepDefinitionReference()
+                {
+                    Id = new Guid("ac4ee482-65da-4485-a532-7b085873e532")
+                }
+            });
+
+            var result = await plugin.InitializeAsync(agentContext.Object);
+
+            Assert.True(result == false);
+        }
     }
 }

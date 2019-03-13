@@ -21,7 +21,7 @@ namespace Agent.Plugins.Log.TestFilePublisher
 
         public TestRunContext Build()
         {
-            return new TestRunContext(owner: "NoConfigRun", platform: string.Empty, configuration: string.Empty, buildId: _buildId, buildUri: _buildUri, releaseUri: null,
+            return new TestRunContext(owner: string.Empty, platform: string.Empty, configuration: string.Empty, buildId: _buildId, buildUri: _buildUri, releaseUri: null,
                 releaseEnvironmentUri: null, runName: _testRunName, testRunSystem: "NoConfigRun", buildAttachmentProcessor: null, targetBranchName: null);
         }
 

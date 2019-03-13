@@ -126,7 +126,9 @@ namespace Agent.Plugins.Log.TestFilePublisher
                 return true;
             }
 
-            if (context.Steps.Any(x => x.Id.Equals(new Guid("0B0F01ED-7DDE-43FF-9CBB-E48954DAF9B1"))))
+            if (context.Steps.Any(x => x.Id.Equals(new Guid("0B0F01ED-7DDE-43FF-9CBB-E48954DAF9B1"))
+                                       || x.Id.Equals(new Guid("AC4EE482-65DA-4485-A532-7B085873E532"))
+                                       || x.Id.Equals(new Guid("8D8EEBD8-2B94-4C97-85AF-839254CC6DA4"))))
             {
                 _telemetry.AddOrUpdate("PluginDisabledReason", "ExplicitPublishTaskPresent");
                 return true;

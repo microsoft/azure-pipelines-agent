@@ -14,7 +14,7 @@ namespace Agent.Plugins.Log.TestFilePublisher
 
         public override void Write(string message)
         {
-            _context.Output(message);
+            //ignoring this as this contains trash info
         }
 
         public override void WriteLine(string message)
