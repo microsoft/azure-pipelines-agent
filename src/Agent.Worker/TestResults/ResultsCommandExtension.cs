@@ -82,7 +82,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
 
             IResultReader resultReader = GetTestResultReader(_testRunner);
-            TestRunContext runContext = new TestRunContext(owner, _platform, _configuration, buildId, buildUri, releaseUri, releaseEnvironmentUri, pullRequestTargetBranchName);
+            TestRunContext runContext = new TestRunContext(owner, _platform, _configuration, buildId, buildUri, releaseUri, releaseEnvironmentUri);
+            runContext.PullRequestTargetBranchName = pullRequestTargetBranchName;
+            
             VssConnection connection = WorkerUtilities.GetVssConnection(_executionContext);
 
             var publisher = HostContext.GetService<ITestRunPublisher>();
@@ -445,8 +447,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             {
                 return;
             }
-
-
+            
             if (runCreateModel.BuildReference == null)
             {
                 runCreateModel.BuildReference = new BuildConfiguration() { TargetBranchName = pullRequestTargetBranchName };
