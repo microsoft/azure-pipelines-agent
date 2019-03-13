@@ -56,6 +56,7 @@ namespace Agent.Plugins.Log.TestFilePublisher
                 _logger?.Warning($"Unable to initialize {FriendlyName}.");
                 if (_telemetry != null)
                 {
+                    _telemetry.AddOrUpdate(TelemetryConstants.PluginDisabled, true);
                     _telemetry.AddOrUpdate(TelemetryConstants.InitializeFailed, ex);
                     await _telemetry.PublishCumulativeTelemetryAsync();
                 }
@@ -173,7 +174,7 @@ namespace Agent.Plugins.Log.TestFilePublisher
                 props.Add("BuildId", PipelineConfig.BuildId);
             }
 
-            if (context.Variables.TryGetValue("System.DefinitionId", out var buildDefinitionId))
+            if (context.Variables.TryGetValue("system.definitionid", out var buildDefinitionId))
             {
                 _telemetry.AddOrUpdate("BuildDefinitionId", buildDefinitionId.Value);
             }

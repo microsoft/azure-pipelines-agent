@@ -151,7 +151,7 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
                 props.Add("BuildId", _pipelineConfig.BuildId);
             }
 
-            if (context.Variables.TryGetValue("System.DefinitionId", out var buildDefinitionId))
+            if (context.Variables.TryGetValue("system.definitionid", out var buildDefinitionId))
             {
                 _telemetry.AddOrUpdate("BuildDefinitionId", buildDefinitionId.Value);
             }
