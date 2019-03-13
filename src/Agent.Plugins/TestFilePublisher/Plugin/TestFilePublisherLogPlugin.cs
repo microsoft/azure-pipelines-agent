@@ -108,7 +108,7 @@ namespace Agent.Plugins.Log.TestFilePublisher
             if (!context.Variables.TryGetValue("system.hosttype", out var hostType)
                 || !string.Equals("Build", hostType.Value, StringComparison.OrdinalIgnoreCase))
             {
-                _telemetry.AddOrUpdate("PluginDisabledReason", hostType);
+                _telemetry.AddOrUpdate("PluginDisabledReason", hostType?.Value);
                 return true;
             }
 
@@ -116,7 +116,7 @@ namespace Agent.Plugins.Log.TestFilePublisher
             if (!context.Variables.TryGetValue("system.servertype", out var serverType)
                 || !string.Equals("Hosted", serverType.Value, StringComparison.OrdinalIgnoreCase))
             {
-                _telemetry.AddOrUpdate("PluginDisabledReason", serverType);
+                _telemetry.AddOrUpdate("PluginDisabledReason", serverType?.Value);
                 return true;
             }
 
@@ -177,18 +177,21 @@ namespace Agent.Plugins.Log.TestFilePublisher
             if (context.Variables.TryGetValue("system.definitionid", out var buildDefinitionId))
             {
                 _telemetry.AddOrUpdate("BuildDefinitionId", buildDefinitionId.Value);
+                props.Add("BuildDefinitionId", buildDefinitionId.Value);
             }
 
             if (context.Variables.TryGetValue("agent.testfilepublisher.pattern", out var pattern)
                 && !string.IsNullOrWhiteSpace(pattern.Value))
             {
                 PopulateSearchPatterns(context, pattern.Value);
+                props.Add("SearchPatterns", string.Join(",", PipelineConfig.Patterns));
             }
 
             if (context.Variables.TryGetValue("agent.testfilepublisher.searchfolders", out var searchFolders)
                 && !string.IsNullOrWhiteSpace(searchFolders.Value))
             {
                 PopulateSearchFolders(context, searchFolders.Value);
+                props.Add("SearchFolders", string.Join(",", PipelineConfig.SearchFolders));
             }
 
             // Publish the initial telemetry event in case we are not able to fire the cumulative one for whatever reason

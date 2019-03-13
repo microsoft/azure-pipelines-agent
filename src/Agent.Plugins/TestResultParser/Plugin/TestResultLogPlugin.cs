@@ -99,7 +99,7 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
             if (!context.Variables.TryGetValue("system.hosttype", out var hostType)
                 || !string.Equals("Build", hostType.Value, StringComparison.OrdinalIgnoreCase))
             {
-                _telemetry.AddOrUpdate("PluginDisabledReason", "NotABuild");
+                _telemetry.AddOrUpdate("PluginDisabledReason", hostType?.Value);
                 return true;
             }
 
@@ -107,7 +107,7 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
             if (!context.Variables.TryGetValue("system.servertype", out var serverType)
                 || !string.Equals("Hosted", serverType.Value, StringComparison.OrdinalIgnoreCase))
             {
-                _telemetry.AddOrUpdate("PluginDisabledReason", "NotHosted");
+                _telemetry.AddOrUpdate("PluginDisabledReason", serverType?.Value);
                 return true;
             }
 
@@ -144,11 +144,11 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
                 props.Add("ProjectId", _pipelineConfig.Project);
             }
 
-            if (context.Variables.TryGetValue("build.buildId", out var buildId))
+            if (context.Variables.TryGetValue("build.buildId", out var buildIdVar) && int.TryParse(buildIdVar.Value, out var buildId))
             {
-                _pipelineConfig.BuildId = int.Parse(buildId.Value);
-                _telemetry.AddOrUpdate("BuildId", _pipelineConfig.BuildId);
-                props.Add("BuildId", _pipelineConfig.BuildId);
+                _pipelineConfig.BuildId = buildId;
+                _telemetry.AddOrUpdate("BuildId", buildId);
+                props.Add("BuildId", buildId);
             }
 
             if (context.Variables.TryGetValue("system.definitionid", out var buildDefinitionId))
