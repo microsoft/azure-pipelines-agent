@@ -48,11 +48,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 
         public async Task<DockerVersion> DockerVersion(IExecutionContext context)
         {
-            string serverVersionStr = (await ExecuteDockerCommandAsync(context, "version", "--format '{{.Server.Version}}'")).FirstOrDefault();
+            string serverVersionStr = (await ExecuteDockerCommandAsync(context, "version", "--format '{{.Server.APIVersion}}'")).FirstOrDefault();
             ArgUtil.NotNullOrEmpty(serverVersionStr, "Docker.Server.Version");
             context.Output($"Docker daemon version: {serverVersionStr}");
 
-            string clientVersionStr = (await ExecuteDockerCommandAsync(context, "version", "--format '{{.Client.Version}}'")).FirstOrDefault();
+            string clientVersionStr = (await ExecuteDockerCommandAsync(context, "version", "--format '{{.Client.APIVersion}}'")).FirstOrDefault();
             ArgUtil.NotNullOrEmpty(serverVersionStr, "Docker.Client.Version");
             context.Output($"Docker client version: {clientVersionStr}");
 
