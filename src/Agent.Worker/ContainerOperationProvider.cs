@@ -94,11 +94,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Version requiredDockerEngineAPIVersion = new Version(1, 35); // Docker-CE version 17.12
 #endif
 
-            if (dockerVersion.ServerVersion < requiredDockerVersion)
+            if (dockerVersion.ServerVersion < requiredDockerEngineAPIVersion)
             {
                 throw new NotSupportedException(StringUtil.Loc("MinRequiredDockerServerVersion", requiredDockerEngineAPIVersion, _dockerManger.DockerPath, dockerVersion.ServerVersion));
             }
-            if (dockerVersion.ClientVersion < requiredDockerVersion)
+            if (dockerVersion.ClientVersion < requiredDockerEngineAPIVersion)
             {
                 throw new NotSupportedException(StringUtil.Loc("MinRequiredDockerClientVersion", requiredDockerEngineAPIVersion, _dockerManger.DockerPath, dockerVersion.ClientVersion));
             }
