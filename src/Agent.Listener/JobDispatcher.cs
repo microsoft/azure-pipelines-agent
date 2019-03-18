@@ -464,8 +464,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
                     // we get first jobrequest renew succeed and start the worker process with the job message.
                     // send notification to machine provisioner.
-                    var systemConnection = message.Resources.Endpoints.Single(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
-                    var accessToken = systemConnection.Authorization?.Parameters["AccessToken"];
+                    var systemConnection = message.Resources.Endpoints.SingleOrDefault(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
+                    var accessToken = systemConnection?.Authorization?.Parameters["AccessToken"];
                     await notification.JobStarted(message.JobId, accessToken, systemConnection.Url);
 
                     HostContext.WritePerfCounter($"SentJobToWorker_{requestId.ToString()}");

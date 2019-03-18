@@ -160,6 +160,12 @@ namespace Microsoft.VisualStudio.Services.Agent
         
         private void StartMonitor(Guid jobId, string accessToken, Uri serverUri)
         {
+            if(String.IsNullOrEmpty(accessToken)) 
+            {
+                Trace.Info("No access token could be retrieved to start the monitor.");
+                return;
+            }
+            
             try
             {
                 Trace.Info("Entering StartMonitor");
