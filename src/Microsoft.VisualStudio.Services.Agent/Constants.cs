@@ -369,6 +369,11 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string SkipSyncSource = "agent.source.skip";
             }
 
+            public static class Pipeline
+            {
+                public static readonly string Workspace = "pipeline.workspace";
+            }
+
             public static class Release
             {
                 //
