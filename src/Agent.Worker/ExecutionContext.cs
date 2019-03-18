@@ -617,10 +617,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     NameValueCollection query = HttpUtility.ParseQueryString(uriBuilder.Query);
                     DateTime endTime = DateTime.UtcNow;
                     string queryDate = endTime.AddHours(-1).ToString("s") + "," + endTime.ToString("s");
-
+                    
                     uriBuilder.Path += (Variables.System_TFCollectionUrl.EndsWith("/") ? "" : "/") + "_usersSettings/usage";
                     query["tab"] = "pipelines";
                     query["queryDate"] = queryDate;
+                    query["keywords"] = this.Variables.Build_Number;
+                    query["definition"] = this.Variables.Build_DefinitionName;
 
                     uriBuilder.Query = query.ToString();
 
