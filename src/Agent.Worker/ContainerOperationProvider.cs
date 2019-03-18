@@ -90,7 +90,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(dockerVersion.ClientVersion, nameof(dockerVersion.ClientVersion));
 
 #if OS_WINDOWS
-            Version requiredDockerEngineAPIVersion = new Version(1, 30);  // Docker-CE version 17.6
+            Version requiredDockerEngineAPIVersion = new Version(1, 30);  // Docker-EE version 17.6
 #else
             Version requiredDockerEngineAPIVersion = new Version(1, 35); // Docker-CE version 17.12
 #endif
