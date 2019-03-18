@@ -165,7 +165,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Trace.Info("No access token could be retrieved to start the monitor.");
                 return;
             }
-            
+
             try
             {
                 Trace.Info("Entering StartMonitor");
@@ -202,7 +202,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     _monitorSocket.Send(Encoding.UTF8.GetBytes(message));
                     Trace.Info("Finished EndMonitor writing to socket");
 
-                    await Task.Delay(TimeSpan.FromSeconds(5));                    
+                    await Task.Delay(TimeSpan.FromSeconds(2));                    
                 }
             }
             catch (SocketException e)
