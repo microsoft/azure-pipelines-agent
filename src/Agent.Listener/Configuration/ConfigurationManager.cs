@@ -410,6 +410,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             // notificationPipeName for Hosted agent provisioner.
             agentSettings.NotificationPipeName = command.GetNotificationPipeName();
 
+            agentSettings.MonitorPort = command.GetMonitorPort();
+
             agentSettings.NotificationSocketAddress = command.GetNotificationSocketAddress();
 
             _store.SaveSettings(agentSettings);
