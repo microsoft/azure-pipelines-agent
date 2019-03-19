@@ -14,8 +14,8 @@ namespace Microsoft.VisualStudio.Services.Agent
     {
         Task JobStarted(Guid jobId, string accessToken, Uri serverUrl);
         Task JobCompleted(Guid jobId);
-        void StartClient(string pipeName, string monitorPort, CancellationToken cancellationToken);
-        void StartClient(string socketAddress, string monitorPort);
+        void StartClient(string pipeName, string monitorSocketAddress, CancellationToken cancellationToken);
+        void StartClient(string socketAddress, string monitorSocketAddress);
     }
 
     public sealed class JobNotification : AgentService, IJobNotification
@@ -94,7 +94,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        public async void StartClient(string pipeName, string monitorPort, CancellationToken cancellationToken)
+        public async void StartClient(string pipeName, string monitorSocketAddress, CancellationToken cancellationToken)
         {
             if (pipeName != null && !_configured)
             {
@@ -106,10 +106,10 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Trace.Info("Connection successful to named pipe {0}", pipeName);
             }
 
-            ConnectMonitor(monitorPort);
+            ConnectMonitor(monitorSocketAddress);
         }
 
-        public void StartClient(string socketAddress, string monitorPort)
+        public void StartClient(string socketAddress, string monitorSocketAddress)
         {
             if (!_configured)
             {
@@ -155,7 +155,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 }
             }
 
-            ConnectMonitor(monitorPort);
+            ConnectMonitor(monitorSocketAddress);
         }
         
         private void StartMonitor(Guid jobId, string accessToken, Uri serverUri)
@@ -217,30 +217,52 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        private void ConnectMonitor(string port)
+        private void ConnectMonitor(string monitorSocketAddress)
         {
-            int monitorPort = 0;
-            if (!String.IsNullOrEmpty(port) && Int32.TryParse(port, out monitorPort))
-            {    
-                Trace.Verbose("Trying to connect to monitor at port {0}", monitorPort);
-
-                if(!_isMonitorConfigured && monitorPort > 0)
+            int port = -1;
+            if (!_isMonitorConfigured && !String.IsNullOrEmpty(monitorSocketAddress))
+            {
+                try
                 {
+                    string[] splitAddress = monitorSocketAddress.Split(':');
+                    if (splitAddress.Length != 2)
+                    {
+                        Trace.Error("Invalid socket address {0}. Unable to connect to monitor.", monitorSocketAddress);
+                        return;
+                    }
+
+                    IPAddress address;
                     try
                     {
-                        _monitorSocket = new Socket(SocketType.Stream, ProtocolType.Tcp);
-                        _monitorSocket.Connect(IPAddress.Parse("127.0.0.1"), monitorPort);
-                        Trace.Info("Connection successful to local port {0}", monitorPort);
-                        _isMonitorConfigured = true;
+                        address = IPAddress.Parse(splitAddress[0]);
                     }
-                    catch (Exception e)
+                    catch (FormatException e)
                     {
-                        Trace.Error("Connection to monitor port {0} failed!", monitorPort);
+                        Trace.Error("Invalid socket IP address {0}. Unable to connect to monitor.", splitAddress[0]);
                         Trace.Error(e);
+                        return;
                     }
+
+                    Int32.TryParse(splitAddress[1], out port);
+                    if (port < IPEndPoint.MinPort || port > IPEndPoint.MaxPort)
+                    {
+                        Trace.Error("Invalid TCP socket port {0}. Unable to connect to monitor.", splitAddress[1]);
+                        return;
+                    }
+
+
+                    Trace.Verbose("Trying to connect to monitor at port {0}", port);
+                    _monitorSocket = new Socket(SocketType.Stream, ProtocolType.Tcp);
+                    _monitorSocket.Connect(address, port);
+                    Trace.Info("Connection successful to local port {0}", port);
+                    _isMonitorConfigured = true;
+                }
+                catch (Exception e)
+                {
+                    Trace.Error("Connection to monitor port {0} failed!", port);
+                    Trace.Error(e);
                 }
             }
-            
         }
 
         public void Dispose()

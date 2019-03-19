@@ -282,14 +282,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 try
                 {
                     var notification = HostContext.GetService<IJobNotification>();
-
                     if (!String.IsNullOrEmpty(settings.NotificationSocketAddress))
                     {
-                        notification.StartClient(settings.NotificationSocketAddress, settings.MonitorPort);
+                        notification.StartClient(settings.NotificationSocketAddress, settings.MonitorSocketAddress);
                     }
                     else
                     {
-                        notification.StartClient(settings.NotificationPipeName, settings.MonitorPort, HostContext.AgentShutdownToken);
+                        notification.StartClient(settings.NotificationPipeName, settings.MonitorSocketAddress, HostContext.AgentShutdownToken);
                     }
                     // this is not a reliable way to disable auto update.
                     // we need server side work to really enable the feature
