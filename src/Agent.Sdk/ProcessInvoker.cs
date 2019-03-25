@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
+using Microsoft.TeamFoundation.Framework.Common;
 
 namespace Microsoft.VisualStudio.Services.Agent.Util
 {
@@ -116,8 +117,79 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 requireExitCodeZero: requireExitCodeZero,
                 outputEncoding: outputEncoding,
                 killProcessOnCancel: false,
-                contentsToStandardIn: null,
+                cancellationToken: cancellationToken);
+        }
+
+        public Task<int> ExecuteAsync(
+            string workingDirectory,
+            string fileName,
+            string arguments,
+            IDictionary<string, string> environment,
+            bool requireExitCodeZero,
+            Encoding outputEncoding,
+            bool killProcessOnCancel,
+            CancellationToken cancellationToken)
+        {
+            return ExecuteAsync(
+                workingDirectory: workingDirectory,
+                fileName: fileName,
+                arguments: arguments,
+                environment: environment,
+                requireExitCodeZero: requireExitCodeZero,
+                outputEncoding: outputEncoding,
+                killProcessOnCancel: killProcessOnCancel,
+                redirectStandardIn: null,
+                cancellationToken: cancellationToken);
+        }
+
+        public Task<int> ExecuteAsync(
+            string workingDirectory,
+            string fileName,
+            string arguments,
+            IDictionary<string, string> environment,
+            bool requireExitCodeZero,
+            Encoding outputEncoding,
+            bool killProcessOnCancel,
+            InputQueue<string> redirectStandardIn,
+            CancellationToken cancellationToken)
+        {
+            return ExecuteAsync(
+                workingDirectory: workingDirectory,
+                fileName: fileName,
+                arguments: arguments,
+                environment: environment,
+                requireExitCodeZero: requireExitCodeZero,
+                outputEncoding: outputEncoding,
+                killProcessOnCancel: killProcessOnCancel,
+                redirectStandardIn: redirectStandardIn,
                 inheritConsoleHandler: false,
+                cancellationToken: cancellationToken);
+        }
+
+        public Task<int> ExecuteAsync(
+            string workingDirectory,
+            string fileName,
+            string arguments,
+            IDictionary<string, string> environment,
+            bool requireExitCodeZero,
+            Encoding outputEncoding,
+            bool killProcessOnCancel,
+            InputQueue<string> redirectStandardIn,
+            bool inheritConsoleHandler,
+            CancellationToken cancellationToken)
+        {
+            return ExecuteAsync(
+                workingDirectory: workingDirectory,
+                fileName: fileName,
+                arguments: arguments,
+                environment: environment,
+                requireExitCodeZero: requireExitCodeZero,
+                outputEncoding: outputEncoding,
+                killProcessOnCancel: killProcessOnCancel,
+                redirectStandardIn: redirectStandardIn,
+                inheritConsoleHandler: inheritConsoleHandler,
+                keepStandardInOpen: false,
+                highPriorityProcess: false,
                 cancellationToken: cancellationToken);
         }
 
@@ -129,8 +201,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             bool requireExitCodeZero,
             Encoding outputEncoding,
             bool killProcessOnCancel,
-            IList<string> contentsToStandardIn,
+            InputQueue<string> redirectStandardIn,
             bool inheritConsoleHandler,
+            bool keepStandardInOpen,
+            bool highPriorityProcess,
             CancellationToken cancellationToken)
         {
             ArgUtil.Null(_proc, nameof(_proc));
@@ -143,8 +217,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             Trace.Info($"  Require exit code zero: '{requireExitCodeZero}'");
             Trace.Info($"  Encoding web name: {outputEncoding?.WebName} ; code page: '{outputEncoding?.CodePage}'");
             Trace.Info($"  Force kill process on cancellation: '{killProcessOnCancel}'");
-            Trace.Info($"  Lines to send through STDIN: '{contentsToStandardIn?.Count ?? 0}'");
+            Trace.Info($"  Redirected STDIN: '{redirectStandardIn != null}'");
             Trace.Info($"  Persist current code page: '{inheritConsoleHandler}'");
+            Trace.Info($"  Keep redirected STDIN open: '{keepStandardInOpen}'");
+            Trace.Info($"  High priority process: '{highPriorityProcess}'");
 
             _proc = new Process();
             _proc.StartInfo.FileName = fileName;
@@ -202,6 +278,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             _stopWatch = Stopwatch.StartNew();
             _proc.Start();
 
+            // Decrease invoked process priority, in platform specifc way, relative to parent
+            if (!highPriorityProcess)
+            {
+                DecreaseProcessPriority(_proc);
+            }
+
             // Start the standard error notifications, if appropriate.
             if (_proc.StartInfo.RedirectStandardError)
             {
@@ -216,20 +298,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
             if (_proc.StartInfo.RedirectStandardInput)
             {
-                // Write contents to STDIN
-                if (contentsToStandardIn?.Count > 0)
+                if (redirectStandardIn != null)
                 {
-                    foreach (var content in contentsToStandardIn)
-                    {
-                        // Write the contents as UTF8 to handle all characters.
-                        var utf8Writer = new StreamWriter(_proc.StandardInput.BaseStream, new UTF8Encoding(false));
-                        utf8Writer.WriteLine(content);
-                        utf8Writer.Flush();
-                    }
+                    StartWriteStream(redirectStandardIn, _proc.StandardInput, keepStandardInOpen);
                 }
-
-                // Close the input stream. This is done to prevent commands from blocking the build waiting for input from the user.
-                _proc.StandardInput.Close();
+                else
+                {
+                    // Close the input stream. This is done to prevent commands from blocking the build waiting for input from the user.
+                    _proc.StandardInput.Close();
+                }
             }
 
             using (var registration = cancellationToken.Register(async () => await CancelAndKillProcessTree(killProcessOnCancel)))
@@ -417,12 +494,69 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             });
         }
 
+        private void StartWriteStream(InputQueue<string> redirectStandardIn, StreamWriter standardIn, bool keepStandardInOpen)
+        {
+            Task.Run(async () =>
+            {
+                // Write the contents as UTF8 to handle all characters.
+                var utf8Writer = new StreamWriter(standardIn.BaseStream, new UTF8Encoding(false));
+
+                while (!_processExitedCompletionSource.Task.IsCompleted)
+                {
+                    Task<string> dequeueTask = redirectStandardIn.DequeueAsync();
+                    var completedTask = await Task.WhenAny(dequeueTask, _processExitedCompletionSource.Task);
+                    if (completedTask == dequeueTask)
+                    {
+                        string input = await dequeueTask;
+                        if (input != null)
+                        {
+                            utf8Writer.WriteLine(input);
+                            utf8Writer.Flush();
+
+                            if (!keepStandardInOpen)
+                            {
+                                Trace.Info("Close STDIN after the first redirect finished.");
+                                standardIn.Close();
+                                break;
+                            }
+                    }
+                    }
+                }
+
+                Trace.Info("STDIN stream write finished.");
+            });
+        }
+
         private void KillProcessTree()
         {
 #if OS_WINDOWS
             WindowsKillProcessTree();
 #else
             NixKillProcessTree();
+#endif
+        }
+
+        private void DecreaseProcessPriority(Process process)
+        {
+#if OS_LINUX
+            int oomScoreAdj = 500;
+            string userOomScoreAdj;
+            if (process.StartInfo.Environment.TryGetValue("PIPELINE_JOB_OOMSCOREADJ", out userOomScoreAdj))
+            {
+                int userOomScoreAdjParsed;
+                if (int.TryParse(userOomScoreAdj, out userOomScoreAdjParsed) && userOomScoreAdjParsed >= -1000 && userOomScoreAdjParsed <= 1000)
+                {
+                    oomScoreAdj = userOomScoreAdjParsed;
+                }
+                else
+                {
+                    Trace.Info($"Invalid PIPELINE_JOB_OOMSCOREADJ ({userOomScoreAdj}). Valid range is -1000:1000. Using default 500.");
+                }
+            }
+            // Values (up to 1000) make the process more likely to be killed under OOM scenario,
+            // protecting the agent by extension. Default of 500 is likely to get killed, but can
+            // be adjusted up or down as appropriate.
+            WriteProcessOomScoreAdj(process.Id, oomScoreAdj);
 #endif
         }
 
@@ -502,6 +636,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         private void WindowsKillProcessTree()
         {
+            var pid = _proc?.Id;
+            if (pid == null)
+            {
+                // process already exit, stop here.
+                return;
+            }
+
             Dictionary<int, int> processRelationship = new Dictionary<int, int>();
             Trace.Info($"Scan all processes to find relationship between all processes.");
             foreach (Process proc in Process.GetProcesses())
@@ -532,9 +673,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 }
             }
 
-            Trace.Verbose($"Start killing process tree of process '{_proc.Id}'.");
+            Trace.Verbose($"Start killing process tree of process '{pid.Value}'.");
             Stack<ProcessTerminationInfo> processesNeedtoKill = new Stack<ProcessTerminationInfo>();
-            processesNeedtoKill.Push(new ProcessTerminationInfo(_proc.Id, false));
+            processesNeedtoKill.Push(new ProcessTerminationInfo(pid.Value, false));
             while (processesNeedtoKill.Count() > 0)
             {
                 ProcessTerminationInfo procInfo = processesNeedtoKill.Pop();
@@ -685,9 +826,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         {
             try
             {
-                if (!_proc.HasExited)
+                if (_proc?.HasExited == false)
                 {
-                    _proc.Kill();
+                    _proc?.Kill();
                 }
             }
             catch (InvalidOperationException ex)
@@ -696,6 +837,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 Trace.Info(ex.ToString());
             }
         }
+
+#if OS_LINUX
+        private void WriteProcessOomScoreAdj(int processId, int oomScoreAdj)
+        {
+            try
+            {
+                string procFilePath = $"/proc/{processId}/oom_score_adj";
+                if (File.Exists(procFilePath))
+                {
+                    File.WriteAllText(procFilePath, oomScoreAdj.ToString());
+                    Trace.Info($"Updated oom_score_adj to {oomScoreAdj} for PID: {processId}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Trace.Info($"Failed to update oom_score_adj for PID: {processId}.");
+                Trace.Info(ex.ToString());
+            }
+        }
+#endif
 
         private enum Signals : int
         {

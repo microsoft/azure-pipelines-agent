@@ -4,13 +4,14 @@ using System.IO;
 using System.ServiceProcess;
 using System.Threading.Tasks;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
-using Microsoft.VisualStudio.Services.Agent.Util;
-using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
-using Microsoft.VisualStudio.Services.Agent.Worker.Container;
-using System.Threading;
 using System.Linq;
-using Microsoft.Win32;
+using System.Threading;
+using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Agent.Worker.Container;
+using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Microsoft.VisualStudio.Services.Common;
+using Microsoft.Win32;
+
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -51,6 +52,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 throw new NotSupportedException(StringUtil.Loc("AgentAlreadyInsideContainer"));
             }
+#elif OS_RHEL6
+            // Red Hat and CentOS 6 do not support the container feature
+            throw new NotSupportedException(StringUtil.Loc("AgentDoesNotSupportContainerFeatureRhel6"));
 #else
             var initProcessCgroup = File.ReadLines("/proc/1/cgroup");
             if (initProcessCgroup.Any(x => x.IndexOf(":/docker/", StringComparison.OrdinalIgnoreCase) >= 0))
@@ -86,18 +90,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(dockerVersion.ClientVersion, nameof(dockerVersion.ClientVersion));
 
 #if OS_WINDOWS
-            Version requiredDockerVersion = new Version(17, 6);
+            Version requiredDockerEngineAPIVersion = new Version(1, 30);  // Docker-EE version 17.6
 #else
-            Version requiredDockerVersion = new Version(17, 12);
+            Version requiredDockerEngineAPIVersion = new Version(1, 35); // Docker-CE version 17.12
 #endif
 
-            if (dockerVersion.ServerVersion < requiredDockerVersion)
+            if (dockerVersion.ServerVersion < requiredDockerEngineAPIVersion)
             {
-                throw new NotSupportedException(StringUtil.Loc("MinRequiredDockerServerVersion", requiredDockerVersion, _dockerManger.DockerPath, dockerVersion.ServerVersion));
+                throw new NotSupportedException(StringUtil.Loc("MinRequiredDockerServerVersion", requiredDockerEngineAPIVersion, _dockerManger.DockerPath, dockerVersion.ServerVersion));
             }
-            if (dockerVersion.ClientVersion < requiredDockerVersion)
+            if (dockerVersion.ClientVersion < requiredDockerEngineAPIVersion)
             {
-                throw new NotSupportedException(StringUtil.Loc("MinRequiredDockerClientVersion", requiredDockerVersion, _dockerManger.DockerPath, dockerVersion.ClientVersion));
+                throw new NotSupportedException(StringUtil.Loc("MinRequiredDockerClientVersion", requiredDockerEngineAPIVersion, _dockerManger.DockerPath, dockerVersion.ClientVersion));
             }
 
             // Clean up containers left by previous runs
@@ -127,6 +131,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             foreach (var container in containers)
             {
                 await StartContainerAsync(executionContext, container);
+            }
+
+            foreach (var container in containers.Where(c => !c.IsJobContainer))
+            {
+                await ContainerHealthcheck(executionContext, container);
             }
         }
 
@@ -425,6 +434,69 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     throw new InvalidOperationException($"Docker exec fail with exit code {execEchoExitCode}");
                 }
+
+                bool setupDockerGroup = executionContext.Variables.GetBoolean("VSTS_SETUP_DOCKERGROUP") ?? StringUtil.ConvertToBoolean(Environment.GetEnvironmentVariable("VSTS_SETUP_DOCKERGROUP"), true);
+                if (setupDockerGroup)
+                {
+                    executionContext.Output(StringUtil.Loc("AllowContainerUserRunDocker", containerUserName));
+                    // Get docker.sock group id on Host
+                    string dockerSockGroupId = (await ExecuteCommandAsync(executionContext, "stat", $"-c %g /var/run/docker.sock")).FirstOrDefault();
+
+                    // We need to find out whether there is a group with same GID inside the container
+                    string existingGroupName = null;
+                    List<string> groupsOutput = new List<string>();
+                    int execGroupGrepExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"bash -c \"cat /etc/group\"", groupsOutput);
+                    if (execGroupGrepExitCode != 0)
+                    {
+                        throw new InvalidOperationException($"Docker exec fail with exit code {execGroupGrepExitCode}");
+                    }
+
+                    if (groupsOutput.Count > 0)
+                    {
+                        // check all potential groups that might match the GID.
+                        foreach (string groupOutput in groupsOutput)
+                        {
+                            if(!string.IsNullOrEmpty(groupOutput))
+                            {
+                                var groupSegments = groupOutput.Split(':');
+                                if( groupSegments.Length != 4 )
+                                {
+                                    Trace.Warning($"Unexpected output from /etc/group: '{groupOutput}'");
+                                }
+                                else
+                                {
+                                    // the output of /etc/group should looks like `group:x:gid:`
+                                    var groupName = groupSegments[0];
+                                    var groupId = groupSegments[2];
+
+                                    if(string.Equals(dockerSockGroupId, groupId))
+                                    {
+                                        existingGroupName = groupName;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if(string.IsNullOrEmpty(existingGroupName))
+                    {
+                        // create a new group with same gid
+                        existingGroupName = "azure_pipelines_docker";
+                        int execDockerGroupaddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"groupadd -g {dockerSockGroupId} azure_pipelines_docker");
+                        if (execDockerGroupaddExitCode != 0)
+                        {
+                            throw new InvalidOperationException($"Docker exec fail with exit code {execDockerGroupaddExitCode}");
+                        }
+                    }
+                    
+                    // Add the new created user to the docker socket group.
+                    int execGroupUsermodExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"usermod -a -G {existingGroupName} {containerUserName}");
+                    if (execGroupUsermodExitCode != 0)
+                    {
+                        throw new InvalidOperationException($"Docker exec fail with exit code {execGroupUsermodExitCode}");
+                    }
+                }
             }
 #endif
         }
@@ -523,6 +595,34 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
             // Remove docker network from env
             executionContext.Variables.Set(Constants.Variables.Agent.ContainerNetwork, null);
+        }
+
+        private async Task ContainerHealthcheck(IExecutionContext executionContext, ContainerInfo container)
+        {
+            string healthCheck = "--format=\"{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}\"";
+            string serviceHealth = await _dockerManger.DockerInspect(context: executionContext, dockerObject: container.ContainerId, options: healthCheck);
+            if (string.IsNullOrEmpty(serviceHealth))
+            {
+                // Container has no HEALTHCHECK
+                return;
+            }
+            var retryCount = 0;
+            while (string.Equals(serviceHealth, "starting", StringComparison.OrdinalIgnoreCase))
+            {
+                TimeSpan backoff = BackoffTimerHelper.GetExponentialBackoff(retryCount, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(32), TimeSpan.FromSeconds(2));
+                executionContext.Output($"{container.ContainerNetworkAlias} service is starting, waiting {backoff.Seconds} seconds before checking again.");
+                await Task.Delay(backoff, executionContext.CancellationToken);
+                serviceHealth = await _dockerManger.DockerInspect(context: executionContext, dockerObject: container.ContainerId, options: healthCheck);
+                retryCount++;
+            }
+            if (string.Equals(serviceHealth, "healthy", StringComparison.OrdinalIgnoreCase))
+            {
+                executionContext.Output($"{container.ContainerNetworkAlias} service is healthy.");
+            }
+            else
+            {
+                throw new InvalidOperationException($"Failed to initialize, {container.ContainerNetworkAlias} service is {serviceHealth}.");
+            }
         }
     }
 }

@@ -1,3 +1,10 @@
+resources:
+  containers:
+  - container: dotnetcore_arm
+    image: huangtingluo/azure-pipelines-agent-eng:arm
+  
+  - container: dotnetcore_centos6
+    image: huangtingluo/azure-pipelines-agent-eng:centos6
 jobs:
 
 ################################################################################
@@ -157,12 +164,17 @@ jobs:
       FolderPath: '_layout'
       Pattern: |
         bin\Ben.Demystifier.dll
-        bin\Newtonsoft.Json.dll
-        bin\YamlDotNet.dll
         bin\DotNet.Glob.dll
+        bin\Minimatch.dll
+        bin\Newtonsoft.Json.dll
+        bin\Newtonsoft.Json.Bson.dll
+        bin\RuntimeContracts.dll
+        bin\System.Interactive.Async.dll
+        bin\YamlDotNet.dll
         externals\git\**\*.dll
         externals\git\**\*.exe
         externals\node\bin\node.exe
+        externals\node10\bin\node.exe
         externals\vstshost\Minimatch.dll
         externals\vstsom\Newtonsoft.Json.dll
       UseMinimatch: true
@@ -227,6 +239,20 @@ jobs:
       pathToPublish: _package
       artifactName: agent
       artifactType: container
+
+  # Verify all binaries are signed (generate report)
+  - task: securedevelopmentteam.vss-secure-development-tools.build-task-codesignvalidation.CodesignValidation@0
+    displayName: 'Generate Codesign Report'
+    inputs:
+      path: '_layout'
+  
+  # Verify all binaries are signed (check report)
+  - task: securedevelopmentteam.vss-secure-development-tools.build-task-postanalysis.PostAnalysis@1
+    displayName: 'Verify Codesign Report'
+    inputs:
+      CodesignValidation: true
+      CodesignValidationBreakOn: WarningAbove
+      ToolLogsNotFoundAction: Error
 
 ################################################################################
 - job: build_windows_agent_x86
@@ -382,12 +408,17 @@ jobs:
       FolderPath: '_layout'
       Pattern: |
         bin\Ben.Demystifier.dll
-        bin\Newtonsoft.Json.dll
-        bin\YamlDotNet.dll
         bin\DotNet.Glob.dll
+        bin\Minimatch.dll
+        bin\Newtonsoft.Json.dll
+        bin\Newtonsoft.Json.Bson.dll
+        bin\RuntimeContracts.dll
+        bin\System.Interactive.Async.dll
+        bin\YamlDotNet.dll
         externals\git\**\*.dll
         externals\git\**\*.exe
         externals\node\bin\node.exe
+        externals\node10\bin\node.exe
         externals\vstshost\Minimatch.dll
         externals\vstsom\Newtonsoft.Json.dll
       UseMinimatch: true
@@ -484,6 +515,7 @@ jobs:
   pool:
     name: buildDevs
     demands: 'Agent.OSArchitecture -equals ARM'
+  container: dotnetcore_arm
   steps:
 
   # Steps template for non-windows platform
@@ -502,6 +534,30 @@ jobs:
       artifactName: agent
       artifactType: container
 
+################################################################################
+- job: build_rhel6_agent_x64
+################################################################################
+  displayName: RHEL6 Agent (x64)
+  pool:
+    vmImage: ubuntu-16.04
+  container: dotnetcore_centos6
+  steps:
+
+  # Steps template for non-windows platform
+  - template: .vsts.template.nonwindows.yml
+
+  # Create agent package zip
+  - script: ./dev.sh package Release
+    workingDirectory: src
+    displayName: Package Release
+
+  # Upload agent package zip as build artifact
+  - task: PublishBuildArtifacts@1
+    displayName: Publish Artifact (RHEL6 x64)
+    inputs:
+      pathToPublish: _package
+      artifactName: agent
+      artifactType: container
 
 ################################################################################
 - job: build_osx_agent
@@ -511,7 +567,7 @@ jobs:
     vmImage: macOS-10.13
   steps:
 
-  # Steps template for windows platform
+  # Steps template for non-windows platform
   - template: .vsts.template.nonwindows.yml
   
   # Create agent package zip
@@ -555,6 +611,7 @@ jobs:
   - powershell: |
       Write-Host "Preloading Azure modules." # This is for better performance, to avoid module-autoloading.
       Import-Module AzureRM, AzureRM.profile, AzureRM.Storage, Azure.Storage, AzureRM.Cdn -ErrorAction Ignore -PassThru
+      Enable-AzureRmAlias -Scope CurrentUser
       $uploadFiles = New-Object System.Collections.ArrayList
       $certificateThumbprint = (Get-ItemProperty -Path "$(ServicePrincipalReg)").ServicePrincipalCertThumbprint
       $clientId = (Get-ItemProperty -Path "$(ServicePrincipalReg)").ServicePrincipalClientId

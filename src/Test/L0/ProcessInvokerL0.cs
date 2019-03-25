@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.TeamFoundation.Framework.Common;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
@@ -79,7 +81,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         }
 
 #if !OS_WINDOWS
-        //Run a process that normally takes 20sec to finish and cancel it.        
+        //Run a process that normally takes 20sec to finish and cancel it.
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
@@ -126,6 +128,220 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 #endif
 
                 Assert.True(elapsedSeconds <= expectedSeconds, $"cancellation failed, because task took too long to run. {elapsedSeconds}");
+            }
+        }
+#endif
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public async Task RedirectSTDINCloseStream()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+                CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+                Int32 exitCode = -1;
+                InputQueue<string> redirectSTDIN = new InputQueue<string>();
+                List<string> stdout = new List<string>();
+                redirectSTDIN.Enqueue("Single line of STDIN");
+
+                var processInvoker = new ProcessInvokerWrapper();
+                processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
+                 {
+                     stdout.Add(e.Data);
+                 };
+
+                processInvoker.Initialize(hc);
+#if OS_WINDOWS
+                var proc = processInvoker.ExecuteAsync("", "cmd.exe", "/c more", null, false, null, false, redirectSTDIN, false, false, cancellationTokenSource.Token);
+#else
+                var proc = processInvoker.ExecuteAsync("", "bash", "-c \"read input; echo $input; read input; echo $input; read input; echo $input;\"", null, false, null, false, redirectSTDIN, false, false, cancellationTokenSource.Token);
+#endif
+                redirectSTDIN.Enqueue("More line of STDIN");
+                redirectSTDIN.Enqueue("More line of STDIN");
+                await Task.Delay(100);
+                redirectSTDIN.Enqueue("More line of STDIN");
+                redirectSTDIN.Enqueue("More line of STDIN");
+                await Task.Delay(100);
+                redirectSTDIN.Enqueue("More line of STDIN");
+                cancellationTokenSource.CancelAfter(100);
+
+                try
+                {
+                    exitCode = await proc;
+                    trace.Info("Exit Code: {0}", exitCode);
+                }
+                catch (Exception ex)
+                {
+                    trace.Error(ex);
+                }
+
+                trace.Info("STDOUT: {0}", string.Join(Environment.NewLine, stdout));
+                Assert.False(stdout.Contains("More line of STDIN"), "STDIN should be closed after first input line.");
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public async Task RedirectSTDINKeepStreamOpen()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+                CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+                Int32 exitCode = -1;
+                InputQueue<string> redirectSTDIN = new InputQueue<string>();
+                List<string> stdout = new List<string>();
+                redirectSTDIN.Enqueue("Single line of STDIN");
+
+                var processInvoker = new ProcessInvokerWrapper();
+                processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
+                 {
+                     stdout.Add(e.Data);
+                 };
+
+                processInvoker.Initialize(hc);
+#if OS_WINDOWS
+                var proc = processInvoker.ExecuteAsync("", "cmd.exe", "/c more", null, false, null, false, redirectSTDIN, false, true, cancellationTokenSource.Token);
+#else
+                var proc = processInvoker.ExecuteAsync("", "bash", "-c \"read input; echo $input; read input; echo $input; read input; echo $input;\"", null, false, null, false, redirectSTDIN, false, true, cancellationTokenSource.Token);
+#endif
+                redirectSTDIN.Enqueue("More line of STDIN");
+                redirectSTDIN.Enqueue("More line of STDIN");
+                await Task.Delay(100);
+                redirectSTDIN.Enqueue("More line of STDIN");
+                redirectSTDIN.Enqueue("More line of STDIN");
+                await Task.Delay(100);
+                redirectSTDIN.Enqueue("More line of STDIN");
+                cancellationTokenSource.CancelAfter(100);
+
+                try
+                {
+                    exitCode = await proc;
+                    trace.Info("Exit Code: {0}", exitCode);
+                }
+                catch (Exception ex)
+                {
+                    trace.Error(ex);
+                }
+
+                trace.Info("STDOUT: {0}", string.Join(Environment.NewLine, stdout));
+                Assert.True(stdout.Contains("More line of STDIN"), "STDIN should keep open and accept more inputs after first input line.");
+            }
+        }
+
+#if OS_LINUX
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public async Task OomScoreAdjIsWriten_Default()
+        {
+            // We are on a system that supports oom_score_adj in procfs as assumed by ProcessInvoker
+            string testProcPath = $"/proc/{Process.GetCurrentProcess().Id}/oom_score_adj";
+            if (File.Exists(testProcPath))
+            {
+                using (TestHostContext hc = new TestHostContext(this))
+                using (var tokenSource = new CancellationTokenSource())
+                {
+                    Tracing trace = hc.GetTrace();
+                    var processInvoker = new ProcessInvokerWrapper();
+                    processInvoker.Initialize(hc);
+                    int oomScoreAdj = -9999;
+                    processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
+                    {
+                        oomScoreAdj = int.Parse(e.Data);
+                        tokenSource.Cancel();
+                    };
+                    try
+                    {
+                        var proc = await processInvoker.ExecuteAsync("", "bash", "-c \"cat /proc/$$/oom_score_adj\"", null, false, null, false, null, false, false,
+                                                            highPriorityProcess: false,
+                                                            cancellationToken: tokenSource.Token);
+                        Assert.Equal(oomScoreAdj, 500);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        trace.Info("Caught expected OperationCanceledException");
+                    }
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public async Task OomScoreAdjIsWriten_FromEnv()
+        {
+            // We are on a system that supports oom_score_adj in procfs as assumed by ProcessInvoker
+            string testProcPath = $"/proc/{Process.GetCurrentProcess().Id}/oom_score_adj";
+            if (File.Exists(testProcPath))
+            {
+                using (TestHostContext hc = new TestHostContext(this))
+                using (var tokenSource = new CancellationTokenSource())
+                {
+                    Tracing trace = hc.GetTrace();
+                    var processInvoker = new ProcessInvokerWrapper();
+                    processInvoker.Initialize(hc);
+                    int oomScoreAdj = -9999;
+                    processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
+                    {
+                        oomScoreAdj = int.Parse(e.Data);
+                        tokenSource.Cancel();
+                    };
+                    try
+                    {
+                        var proc = await processInvoker.ExecuteAsync("", "bash", "-c \"cat /proc/$$/oom_score_adj\"", 
+                                                                new Dictionary<string, string> { {"PIPELINE_JOB_OOMSCOREADJ", "1234"} },
+                                                                false, null, false, null, false, false,
+                                                                highPriorityProcess: false,
+                                                                cancellationToken: tokenSource.Token);
+                        Assert.Equal(oomScoreAdj, 1234);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        trace.Info("Caught expected OperationCanceledException");
+                    }
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public async Task OomScoreAdjIsInherited()
+        {
+            // We are on a system that supports oom_score_adj in procfs as assumed by ProcessInvoker
+            string testProcPath = $"/proc/{Process.GetCurrentProcess().Id}/oom_score_adj";
+            if (File.Exists(testProcPath))
+            {
+                int testProcOomScoreAdj = 123;
+                File.WriteAllText(testProcPath, testProcOomScoreAdj.ToString());
+                using (TestHostContext hc = new TestHostContext(this))
+                using (var tokenSource = new CancellationTokenSource())
+                {
+                    Tracing trace = hc.GetTrace();
+                    var processInvoker = new ProcessInvokerWrapper();
+                    processInvoker.Initialize(hc);
+                    int oomScoreAdj = -9999;
+                    processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
+                    {
+                        oomScoreAdj = int.Parse(e.Data);
+                        tokenSource.Cancel();
+                    };
+                    try
+                    {
+                        var proc = await processInvoker.ExecuteAsync("", "bash", "-c \"cat /proc/$$/oom_score_adj\"", null, false, null, false, null, false, false,
+                                                            highPriorityProcess: true,
+                                                            cancellationToken: tokenSource.Token);
+                        Assert.Equal(oomScoreAdj, 123);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        trace.Info("Caught expected OperationCanceledException");
+                    }
+                }
             }
         }
 #endif

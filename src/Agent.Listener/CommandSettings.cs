@@ -42,6 +42,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Constants.Agent.CommandLine.Flags.Replace,
             Constants.Agent.CommandLine.Flags.RunAsAutoLogon,
             Constants.Agent.CommandLine.Flags.RunAsService,
+            Constants.Agent.CommandLine.Flags.Once,
             Constants.Agent.CommandLine.Flags.SslSkipCertValidation,
             Constants.Agent.CommandLine.Flags.Unattended,
             Constants.Agent.CommandLine.Flags.Version,
@@ -59,6 +60,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Constants.Agent.CommandLine.Args.MachineGroupName,
             Constants.Agent.CommandLine.Args.MachineGroupTags,
             Constants.Agent.CommandLine.Args.Matrix,
+            Constants.Agent.CommandLine.Args.MonitorSocketAddress,
             Constants.Agent.CommandLine.Args.NotificationPipeName,
             Constants.Agent.CommandLine.Args.Password,
             Constants.Agent.CommandLine.Args.Phase,
@@ -100,6 +102,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 #if OS_WINDOWS
         public bool GitUseSChannel => TestFlag(Constants.Agent.CommandLine.Flags.GitUseSChannel);
 #endif
+        public bool RunOnce => TestFlag(Constants.Agent.CommandLine.Flags.Once);
+
         // Constructor.
         public CommandSettings(IHostContext context, string[] args)
         {
@@ -223,6 +227,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                            defaultValue: false);
         }
 
+        public bool GetAutoLaunchBrowser()
+        {
+            return TestFlagOrPrompt(
+                name: Constants.Agent.CommandLine.Flags.LaunchBrowser,
+                description: StringUtil.Loc("LaunchBrowser"),
+                defaultValue: true);
+        }
         //
         // Args.
         //
@@ -386,6 +397,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 description: StringUtil.Loc("WorkFolderDescription"),
                 defaultValue: Constants.Path.WorkDirectory,
                 validator: Validators.NonEmptyValidator);
+        }
+
+        public string GetMonitorSocketAddress()
+        {
+            return GetArg(Constants.Agent.CommandLine.Args.MonitorSocketAddress);
         }
 
         public string GetNotificationPipeName()

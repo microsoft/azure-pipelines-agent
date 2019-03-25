@@ -4,6 +4,8 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.TeamFoundation.Framework.Common;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -73,7 +75,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                          requireExitCodeZero: requireExitCodeZero,
                                                          outputEncoding: outputEncoding,
                                                          killProcessOnCancel: killProcessOnCancel,
-                                                         contentsToStandardIn: null,
+                                                         redirectStandardIn: null,
                                                          inheritConsoleHandler: inheritConsoleHandler,
                                                          cancellationToken: cancellationToken);
             }
@@ -97,7 +99,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             path = path.Trim('\"');
 
             // try to resolve path inside container if the request path is part of the mount volume
-            // otherwise just return the file name and rely on the file is part of the %PATH% inside the container.
 #if OS_WINDOWS
             if (Container.MountVolumes.Exists(x => path.StartsWith(x.SourceVolumePath, StringComparison.OrdinalIgnoreCase)))
 #else
@@ -106,17 +107,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             {
                 return Container.TranslateToContainerPath(path);
             }
-#if OS_WINDOWS
-            else if (Container.MountVolumes.Exists(x => path.StartsWith(x.TargetVolumePath, StringComparison.OrdinalIgnoreCase)))
-#else
-            else if (Container.MountVolumes.Exists(x => path.StartsWith(x.TargetVolumePath)))
-#endif
-            {
-                return path;
-            }
             else
             {
-                return Path.GetFileName(path);
+                return path;
             }
         }
 
@@ -188,6 +181,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 outputEncoding = null;
 #endif
 
+                var redirectStandardIn = new InputQueue<string>();
+                redirectStandardIn.Enqueue(JsonUtility.ToString(payload));
+
                 return await processInvoker.ExecuteAsync(workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
                                                          fileName: containerEnginePath,
                                                          arguments: containerExecutionArgs,
@@ -195,7 +191,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                          requireExitCodeZero: requireExitCodeZero,
                                                          outputEncoding: outputEncoding,
                                                          killProcessOnCancel: killProcessOnCancel,
-                                                         contentsToStandardIn: new List<string>() { JsonUtility.ToString(payload) },
+                                                         redirectStandardIn: redirectStandardIn,
                                                          inheritConsoleHandler: inheritConsoleHandler,
                                                          cancellationToken: cancellationToken);
             }

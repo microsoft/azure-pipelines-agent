@@ -313,10 +313,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                 releaseDefinition);
 
             ReleaseWorkingFolder = releaseTrackingConfig.ReleaseDirectory;
-            ArtifactsWorkingFolder = Path.Combine(
-                HostContext.GetDirectory(WellKnownDirectory.Work),
-                releaseTrackingConfig.ReleaseDirectory,
-                Constants.Release.Path.ArtifactsDirectory);
+            ArtifactsWorkingFolder = string.IsNullOrEmpty(executionContext.Variables.Release_ArtifactsDirectory)
+                ? Path.Combine(
+                        HostContext.GetDirectory(WellKnownDirectory.Work),
+                        releaseTrackingConfig.ReleaseDirectory,
+                        Constants.Release.Path.ArtifactsDirectory)
+                : executionContext.Variables.Release_ArtifactsDirectory;
             executionContext.Output($"Release folder: {ArtifactsWorkingFolder}");
 
             // Ensure directory exist
@@ -444,7 +446,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                 Message = StringUtil.Loc("DownloadArtifactsFailed", ex)
             };
 
-            issue.Data.Add("AgentVersion", Constants.Agent.Version);
+            issue.Data.Add("AgentVersion", BuildConstants.AgentPackage.Version);
             issue.Data.Add("code", code);
             issue.Data.Add("TaskId", DownloadArtifactsTaskId.ToString());
 

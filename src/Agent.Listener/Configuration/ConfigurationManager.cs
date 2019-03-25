@@ -391,11 +391,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _term.WriteLine(StringUtil.Loc("TestAgentConnection"));
             var credMgr = HostContext.GetService<ICredentialManager>();
             VssCredentials credential = credMgr.LoadCredentials();
-            VssConnection conn = VssUtil.CreateConnection(new Uri(agentSettings.ServerUrl), credential);
             var agentSvr = HostContext.GetService<IAgentServer>();
             try
             {
-                await agentSvr.ConnectAsync(conn);
+                await agentSvr.ConnectAsync(new Uri(agentSettings.ServerUrl), credential);
             }
             catch (VssOAuthTokenRequestException ex) when (ex.Message.Contains("Current server time is"))
             {
@@ -412,6 +411,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             // notificationPipeName for Hosted agent provisioner.
             agentSettings.NotificationPipeName = command.GetNotificationPipeName();
+
+            agentSettings.MonitorSocketAddress = command.GetMonitorSocketAddress();
 
             agentSettings.NotificationSocketAddress = command.GetNotificationSocketAddress();
 
@@ -632,6 +633,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             // Create the credential.
             Trace.Info("Creating credential for auth: {0}", authType);
             var provider = credentialManager.GetCredentialProvider(authType);
+            if (provider.RequireInteractive && command.Unattended)
+            {
+                throw new NotSupportedException($"Authentication type '{authType}' is not supported for unattended configuration.");
+            }
+
             provider.EnsureCredential(HostContext, command, serverUrl);
             return provider;
         }
@@ -645,7 +651,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             };
 
             // update - update instead of delete so we don't lose user capabilities etc...
-            agent.Version = Constants.Agent.Version;
+            agent.Version = BuildConstants.AgentPackage.Version;
             agent.OSDescription = RuntimeInformation.OSDescription;
 
             foreach (KeyValuePair<string, string> capability in systemCapabilities)
@@ -665,7 +671,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     PublicKey = new TaskAgentPublicKey(publicKey.Exponent, publicKey.Modulus),
                 },
                 MaxParallelism = 1,
-                Version = Constants.Agent.Version,
+                Version = BuildConstants.AgentPackage.Version,
                 OSDescription = RuntimeInformation.OSDescription,
             };
 

@@ -27,9 +27,15 @@ namespace Agent.Sdk
     {
         private VssConnection _connection;
         private readonly object _stdoutLock = new object();
+        private readonly ITraceWriter _trace; // for unit tests
 
         public AgentTaskPluginExecutionContext()
+            : this(null)
+        { }
+
+        public AgentTaskPluginExecutionContext(ITraceWriter trace)
         {
+            _trace = trace;
             this.Endpoints = new List<ServiceEndpoint>();
             this.Inputs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             this.Repositories = new List<Pipelines.RepositoryResource>();
@@ -161,7 +167,14 @@ namespace Agent.Sdk
         {
             lock (_stdoutLock)
             {
-                Console.WriteLine(message);
+                if (_trace == null)
+                {
+                    Console.WriteLine(message);
+                }
+                else
+                {
+                    _trace.Info(message);
+                }
             }
         }
 
@@ -201,6 +214,11 @@ namespace Agent.Sdk
         public void Command(string command)
         {
             Output($"##[command]{Escape(command)}");
+        }
+
+        public void UpdateRepositoryPath(string alias, string path)
+        {
+            Output($"##vso[plugininternal.updaterepositorypath alias={Escape(alias)};]{path}");
         }
 
         public AgentCertificateSettings GetCertConfiguration()
