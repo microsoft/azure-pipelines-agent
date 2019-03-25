@@ -292,7 +292,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             var trace = hostContext.GetTrace(nameof(LinuxProcessExtensions));
             Dictionary<string, string> env = new Dictionary<string, string>();
 
-            if (Directory.Exists("/proc"))
+            if (Directory.Exists("/proc") && File.Exists($"/proc/{process.Id}/environ"))
             {
                 string envFile = $"/proc/{process.Id}/environ";
                 trace.Info($"Read env from {envFile}");
@@ -352,6 +352,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                                                   arguments: $"e -p {process.Id} -o command",
                                                   environment: null,
                                                   cancellationToken: CancellationToken.None).GetAwaiter().GetResult();
+
                     if (exitCode == 0)
                     {
                         trace.Info($"Successfully dump environment variables for {process.Id}");
