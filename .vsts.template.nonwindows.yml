@@ -3,8 +3,11 @@ steps:
 # Component detection
 - task: ms.vss-governance-buildtask.governance-build-task-component-detection.ComponentGovernanceComponentDetection@0
   displayName: 'Component Detection'
-  condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
-
+  condition: and(succeeded(),
+                 eq(variables['Build.Reason'], 'PullRequest'),
+                 in(variables['Agent.OS'], 'Windows_NT', 'Linux', 'Darwin'),
+                 eq(variables['Agent.OSArchitecture'], 'X64')
+                )
 # Clean
 - checkout: self
   clean: true
