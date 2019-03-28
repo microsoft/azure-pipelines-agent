@@ -14,6 +14,9 @@ using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Newtonsoft.Json;
 using Agent.Sdk;
+using Microsoft.VisualStudio.Services.FileContainer;
+using Microsoft.VisualStudio.Services.FileContainer.Client;
+using Microsoft.TeamFoundation.Core.WebApi;
 
 namespace Agent.Plugins.PipelineArtifact
 {    
@@ -23,6 +26,7 @@ namespace Agent.Plugins.PipelineArtifact
         public static readonly string RootId = "RootId";
         public static readonly string ProofNodes = "ProofNodes";
         public const string PipelineArtifactTypeName = "PipelineArtifact";
+        public const string FileContainerArtifactTypeName = "Container";
 
         // Upload from target path to VSTS BlobStore service through BuildDropManager, then associate it with the build
         internal async Task UploadAsync(
@@ -104,7 +108,7 @@ namespace Agent.Plugins.PipelineArtifact
                     throw new InvalidOperationException("Unreachable code!");
                 }
 
-                IEnumerable<BuildArtifact> pipelineArtifacts = artifacts.Where(a => a.Resource.Type == PipelineArtifactTypeName);
+                IEnumerable<BuildArtifact> pipelineArtifacts = artifacts.Where(a => (a.Resource.Type == PipelineArtifactTypeName) || (a.Resource.Type == FileContainerArtifactTypeName));
                 if (pipelineArtifacts.Count() == 0)
                 {
                     throw new ArgumentException("Could not find any pipeline artifacts in the build.");
@@ -112,7 +116,9 @@ namespace Agent.Plugins.PipelineArtifact
                 else
                 {
                     context.Output(StringUtil.Loc("DownloadingMultiplePipelineArtifacts", pipelineArtifacts.Count()));
-                    await DownloadPipelineArtifacts(
+                    await DownloadArtifactsAsync(
+                        connection,
+                        downloadParameters.ProjectId,
                         buildDropManager,
                         pipelineArtifacts,
                         downloadParameters.TargetDirectory,
@@ -144,7 +150,9 @@ namespace Agent.Plugins.PipelineArtifact
                     throw new InvalidOperationException("Unreachable code!");
                 }
 
-                await DownloadPipelineArtifacts(
+                await DownloadArtifactsAsync(
+                    connection,
+                    downloadParameters.ProjectId,
                     buildDropManager, 
                     new List<BuildArtifact>(){ buildArtifact },
                     downloadParameters.TargetDirectory, 
@@ -163,8 +171,131 @@ namespace Agent.Plugins.PipelineArtifact
             return buildDropManager;
         }
 
+        private async Task DownloadArtifactsAsync(
+            VssConnection connection,
+            Guid projectId,
+            BuildDropManager buildDropManager,
+            IEnumerable<BuildArtifact> buildArtifacts,
+            string targetDirectory,
+            string[] minimatchFilters,
+            CancellationToken cancellationToken)
+        {
+            var artifactsByType = (from a in buildArtifacts
+                                   group a by a.Resource.Type into g
+                                   select g).ToDictionary(g => g.Key);
 
-        private Task DownloadPipelineArtifacts(
+            if (artifactsByType.ContainsKey(PipelineArtifactTypeName))
+            {
+                var pipelineArtifactsToDownload = artifactsByType[PipelineArtifactTypeName].AsEnumerable();
+                await DownloadPipelineArtifactsAsync(buildDropManager, pipelineArtifactsToDownload, targetDirectory, minimatchFilters, cancellationToken);
+            }
+
+            if (artifactsByType.ContainsKey(FileContainerArtifactTypeName))
+            {
+                var fileContainersToDownload = artifactsByType[FileContainerArtifactTypeName].AsEnumerable();
+                await DownloadFileContainersAsync(connection, projectId, fileContainersToDownload, targetDirectory, minimatchFilters, cancellationToken);
+            }
+        }
+
+        private async Task DownloadFileContainersAsync(VssConnection connection, Guid projectId, IEnumerable<BuildArtifact> buildArtifacts, string targetDirectory, string[] minimatchFilters, CancellationToken cancellationToken)
+        {
+            if (buildArtifacts.Count() == 0)
+            {
+                return;
+            }
+            else if (buildArtifacts.Count() > 1)
+            {
+                foreach (var buildArtifact in buildArtifacts)
+                {
+                    var specificPath = Path.Combine(targetDirectory, buildArtifact.Name);
+                    await DownloadFileContainerAsync(connection, projectId, buildArtifact, specificPath, cancellationToken);
+                }
+            }
+            else
+            {
+                await DownloadFileContainerAsync(connection, projectId, buildArtifacts.Single(), targetDirectory, cancellationToken);
+            }
+        }
+
+        private Tuple<long, string> ParseContainerId(string resourceData)
+        {
+            // Example of resourceData: "#/7029766/artifacttool-alpine-x64-Debug"
+            var segments = resourceData.Split('/');
+
+            long containerId;
+            if (segments.Length == 3 && segments[0] == "#" && long.TryParse(segments[1], out containerId))
+            {
+                return new Tuple<long, string>(
+                    containerId,
+                    segments[2]
+                    );
+            }
+            else
+            {
+                var message = $"Resource data value '{resourceData}' was not expected.";
+                throw new ArgumentException(message, "resourceData");
+            }
+        }
+
+        private async Task DownloadFileContainerAsync(VssConnection connection, Guid projectId, BuildArtifact artifact, string rootPath, CancellationToken cancellationToken)
+        {
+            var containerIdAndRoot = ParseContainerId(artifact.Resource.Data);
+
+            var containerClient = connection.GetClient<FileContainerHttpClient>();
+
+            var items = await containerClient.QueryContainerItemsAsync(
+                containerIdAndRoot.Item1,
+                projectId,
+                containerIdAndRoot.Item2
+                );
+
+            // Group items by type because we want to create the folder structure first.
+            var groupedItems = from i in items
+                               group i by i.ItemType into g
+                               select g;
+
+            // Now create the folders.
+            var folderItems = groupedItems.Single(i => i.Key == ContainerItemType.Folder);
+            Parallel.ForEach(folderItems, (folder) =>
+            {
+                var targetPath = ResolveTargetPath(rootPath, folder);
+                Directory.CreateDirectory(targetPath);
+            });
+
+            // Then download the files.
+            var fileItems = groupedItems.Single(i => i.Key == ContainerItemType.File);
+            Parallel.ForEach(fileItems, (file) =>
+            {
+                var targetPath = ResolveTargetPath(rootPath, file);
+                DownloadFileFromContainerAsync(containerIdAndRoot, projectId, containerClient, file, targetPath, cancellationToken).Wait();
+            });
+        }
+
+        private async Task DownloadFileFromContainerAsync(Tuple<long, string> containerIdAndRoot, Guid scopeIdentifier, FileContainerHttpClient containerClient, FileContainerItem item, string targetPath, CancellationToken cancellationToken)
+        {
+            var stream = await containerClient.DownloadFileAsync(
+                containerIdAndRoot.Item1,
+                item.Path,
+                cancellationToken,
+                scopeIdentifier
+                );
+
+            using (var fileStream = new FileStream(targetPath, FileMode.Create))
+            {
+                stream.CopyTo(fileStream);
+            }
+        }
+
+        private string ResolveTargetPath(string rootPath, FileContainerItem item)
+        {
+            var indexOfFirstPathSeperator = item.Path.IndexOf('/');
+            var itemPathWithoutDirectoryPrefix = indexOfFirstPathSeperator != -1 ? item.Path.Substring(indexOfFirstPathSeperator + 1) : string.Empty;
+            var targetPath = System.IO.Path.Combine(rootPath, itemPathWithoutDirectoryPrefix);
+            return targetPath;
+        }
+
+
+        private Task DownloadPipelineArtifactsAsync(
             BuildDropManager buildDropManager,
             IEnumerable<BuildArtifact> buildArtifacts,
             string targetDirectory,
