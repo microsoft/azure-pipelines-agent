@@ -2,6 +2,7 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -58,9 +59,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Initialize the secret masker and set the thread culture.
                 InitializeSecretMasker(jobMessage);
                 SetCulture(jobMessage);
-
+                
                 // Start the job.
-                Trace.Info($"Job message:{Environment.NewLine} {StringUtil.ConvertToJson(jobMessage)}");
+                Trace.Info($"Job message:{Environment.NewLine} {ScrubPiiData(jobMessage)}");
                 Task<TaskResult> jobRunnerTask = jobRunner.RunAsync(jobMessage, jobRequestCancellationToken.Token);
 
                 // Start listening for a cancel message from the channel.
@@ -100,6 +101,61 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Await the job.
                 return TaskResultUtil.TranslateToReturnCode(await jobRunnerTask);
             }
+        }
+
+        private string ScrubPiiData(Pipelines.AgentJobRequestMessage message)
+        {
+            ArgUtil.NotNull(message, nameof(message));
+
+            var scrubbedVariables = new Dictionary<string, VariableValue>();
+
+            // Scrub the known PII variables
+            foreach (var variable in message.Variables)
+            {
+                if (Variables.PiiVariables.Contains(variable.Key))
+                {
+                    scrubbedVariables[variable.Key] = "***";
+                }
+                else
+                {
+                    scrubbedVariables[variable.Key] = variable.Value;
+                }
+            }
+
+            var scrubbedRepositories = new List<Pipelines.RepositoryResource>();
+
+            // Scrub the repository resources
+            foreach (var repository in message.Resources.Repositories)
+            {
+                Pipelines.RepositoryResource scrubbedRepository = repository.Clone();
+
+                scrubbedRepository.Properties.Set("VersionInfo", "***");
+                scrubbedRepositories.Add(scrubbedRepository);
+            }
+
+            var scrubbedJobResources = new Pipelines.JobResources();
+
+            scrubbedJobResources.Containers.AddRange(message.Resources.Containers);
+            scrubbedJobResources.Endpoints.AddRange(message.Resources.Endpoints);
+            scrubbedJobResources.Repositories.AddRange(scrubbedRepositories);
+            scrubbedJobResources.SecureFiles.AddRange(message.Resources.SecureFiles);
+
+            // Reconstitute a new agent job request message from the scrubbed parts
+            var scrubbedJobMessage = new Pipelines.AgentJobRequestMessage(
+                plan: message.Plan,
+                timeline: message.Timeline,
+                jobId: message.JobId,
+                jobDisplayName: message.JobDisplayName,
+                jobName: message.JobName,
+                jobContainer: message.JobContainer,
+                jobSidecarContainers: message.JobSidecarContainers,
+                variables: scrubbedVariables,
+                maskHints: message.MaskHints,
+                jobResources: scrubbedJobResources,
+                workspaceOptions: message.Workspace,
+                steps: message.Steps);
+
+            return StringUtil.ConvertToJson(scrubbedJobMessage);
         }
 
         private void InitializeSecretMasker(Pipelines.AgentJobRequestMessage message)

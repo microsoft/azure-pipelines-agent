@@ -169,6 +169,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public string System_TFCollectionUrl => Get(WellKnownDistributedTaskVariables.TFCollectionUrl);
 
+        public static readonly HashSet<string> PiiVariables = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Build.AuthorizeAs",
+            "Build.QueuedBy",
+            "Build.RequestedFor",
+            "Build.RequestedForEmail",
+            "Build.SourceBranch",
+            "Build.SourceBranchName",
+            "Build.SourceTfvcShelveset",
+            "Build.SourceVersion",
+            "Build.SourceVersionAuthor",
+            "Job.AuthorizeAs"
+        };
+
         public void ExpandValues(IDictionary<string, string> target)
         {
             _trace.Entering();
