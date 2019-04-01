@@ -187,6 +187,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             "Release.RequestedForEmail",
         };
 
+        public static readonly string PiiArtifactVariablePrefix = "Release.Artifacts";
+
+        public static readonly List<string> PiiArtifactVariableSuffixes = new List<string>()
+        {
+            "SourceBranch",
+            "SourceBranchName",
+            "SourceVersion",
+            "RequestedFor"
+        };
+
         public void ExpandValues(IDictionary<string, string> target)
         {
             _trace.Entering();
