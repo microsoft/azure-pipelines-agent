@@ -180,7 +180,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             "Build.SourceTfvcShelveset",
             "Build.SourceVersion",
             "Build.SourceVersionAuthor",
-            "Job.AuthorizeAs"
+            "Job.AuthorizeAs",
+            "Release.Deployment.RequestedFor",
+            "Release.Deployment.RequestedForEmail",
+            "Release.RequestedFor",
+            "Release.RequestedForEmail",
         };
 
         public void ExpandValues(IDictionary<string, string> target)
