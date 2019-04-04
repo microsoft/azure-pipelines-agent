@@ -53,7 +53,7 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
             {
                 context.Trace(ex.ToString());
                 _logger?.Warning($"Unable to initialize {FriendlyName}.");
-                if (_telemetry != null)
+                if (!DisableTelemetryPublish(context) && _telemetry != null)
                 {
                     _telemetry?.AddOrUpdate(TelemetryConstants.InitialzieFailed, ex);
                     await _telemetry.PublishCumulativeTelemetryAsync();
@@ -80,7 +80,10 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
                 await _inputDataParser.CompleteAsync();
             }
 
-            await _telemetry.PublishCumulativeTelemetryAsync();
+            if (!DisableTelemetryPublish(context))
+            {
+                await _telemetry.PublishCumulativeTelemetryAsync();
+            }
         }
 
         /// <summary>
@@ -166,9 +169,37 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
                 _telemetry.AddOrUpdate("AgentVersion", agentVersion.Value);
             }
 
-            // Publish the initial telemetry event in case we are not able to fire the cumulative one for whatever reason
-            await _telemetry.PublishTelemetryAsync("TestResultParserInitialize", props);
+            if (!DisableTelemetryPublish(context))
+            {
+                // Publish the initial telemetry event in case we are not able to fire the cumulative one for whatever reason
+                await _telemetry.PublishTelemetryAsync("TestResultParserInitialize", props);
+            }
         }
+
+        /// <summary>
+        /// Helper function to check whether telemetry publish needs to be disabled for cases
+        /// like OnPrem where it was causing timeouts
+        /// </summary>
+        private bool DisableTelemetryPublish(IAgentLogPluginContext context)
+        {
+            if (_skipTelemetryPublish.HasValue)
+            {
+                return _skipTelemetryPublish.Value;
+            }
+
+            // Disable for on-prem
+            if (!context.Variables.TryGetValue("system.servertype", out var serverType)
+                || !string.Equals("Hosted", serverType.Value, StringComparison.OrdinalIgnoreCase))
+            {
+                _skipTelemetryPublish = true;
+                return true;
+            }
+
+            _skipTelemetryPublish = false;
+            return false;
+        }
+
+        private bool? _skipTelemetryPublish;
 
         private readonly ILogParserGateway _inputDataParser = new LogParserGateway();
         private IClientFactory _clientFactory;

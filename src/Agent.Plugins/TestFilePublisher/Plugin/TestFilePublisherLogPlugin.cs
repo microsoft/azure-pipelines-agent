@@ -54,7 +54,7 @@ namespace Agent.Plugins.Log.TestFilePublisher
             {
                 context.Trace(ex.ToString());
                 _logger?.Warning($"Unable to initialize {FriendlyName}.");
-                if (_telemetry != null)
+                if (!DisableTelemetryPublish(context) && _telemetry != null)
                 {
                     _telemetry.AddOrUpdate(TelemetryConstants.PluginDisabled, true);
                     _telemetry.AddOrUpdate(TelemetryConstants.InitializeFailed, ex);
@@ -89,7 +89,10 @@ namespace Agent.Plugins.Log.TestFilePublisher
                 }
             }
 
-            await _telemetry.PublishCumulativeTelemetryAsync();
+            if (!DisableTelemetryPublish(context))
+            {
+                await _telemetry.PublishCumulativeTelemetryAsync();
+            }
         }
 
         /// <summary>
@@ -204,8 +207,11 @@ namespace Agent.Plugins.Log.TestFilePublisher
                 props.Add("SearchFolders", string.Join(",", PipelineConfig.SearchFolders));
             }
 
-            // Publish the initial telemetry event in case we are not able to fire the cumulative one for whatever reason
-            await _telemetry.PublishTelemetryAsync("TestFilePublisherInitialize", props);
+            if (!DisableTelemetryPublish(context))
+            {
+                // Publish the initial telemetry event in case we are not able to fire the cumulative one for whatever reason
+                await _telemetry.PublishTelemetryAsync("TestFilePublisherInitialize", props);
+            }
         }
 
         private void PopulateSearchFolders(IAgentLogPluginContext context, string searchFolders)
@@ -228,6 +234,31 @@ namespace Agent.Plugins.Log.TestFilePublisher
                 PipelineConfig.Patterns.Add(pattern);
             }
         }
+
+        /// <summary>
+        /// Helper function to check whether telemetry publish needs to be disabled for cases
+        /// like OnPrem where it was causing timeouts
+        /// </summary>
+        private bool DisableTelemetryPublish(IAgentLogPluginContext context)
+        {
+            if (_skipTelemetryPublish.HasValue)
+            {
+                return _skipTelemetryPublish.Value;
+            }
+
+            // Disable for on-prem
+            if (!context.Variables.TryGetValue("system.servertype", out var serverType)
+                || !string.Equals("Hosted", serverType.Value, StringComparison.OrdinalIgnoreCase))
+            {
+                _skipTelemetryPublish = true;
+                return true;
+            }
+
+            _skipTelemetryPublish = false;
+            return false;
+        }
+
+        private bool? _skipTelemetryPublish;
 
         private ITraceLogger _logger;
         private ITelemetryDataCollector _telemetry;
