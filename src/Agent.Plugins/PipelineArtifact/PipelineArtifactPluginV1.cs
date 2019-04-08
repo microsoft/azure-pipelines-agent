@@ -44,7 +44,7 @@ namespace Agent.Plugins.PipelineArtifact
             public static readonly string Tags = "tags";
             public static readonly string ArtifactName = "artifactName";
             public static readonly string ItemPattern = "itemPattern";
-            public static readonly string DownloadPath = "downloadPath";
+            public static readonly string TargetPath = "targetPath";
         }
     }
 
@@ -70,7 +70,7 @@ namespace Agent.Plugins.PipelineArtifact
             string buildType = context.GetInput(ArtifactEventProperties.BuildType, required: true);
             string buildTriggering = context.GetInput(ArtifactEventProperties.BuildTriggering, required: false);
             string buildVersionToDownload = context.GetInput(ArtifactEventProperties.BuildVersionToDownload, required: false);
-            string downloadPath = context.GetInput(ArtifactEventProperties.DownloadPath, required: true);
+            string targetPath = context.GetInput(ArtifactEventProperties.TargetPath, required: true);
             string environmentBuildId = context.Variables.GetValueOrDefault(BuildVariables.BuildId)?.Value ?? string.Empty; // BuildID provided by environment.
             string itemPattern = context.GetInput(ArtifactEventProperties.ItemPattern, required: false);
             string projectName = context.GetInput(ArtifactEventProperties.Project, required: false);
@@ -129,7 +129,7 @@ namespace Agent.Plugins.PipelineArtifact
                     ProjectId = projectId,
                     BuildId = buildId,
                     ArtifactName = artifactName,
-                    TargetDirectory = downloadPath,
+                    TargetDirectory = targetPath,
                     MinimatchFilters = minimatchPatterns
                 };
             }
@@ -158,7 +158,7 @@ namespace Agent.Plugins.PipelineArtifact
                     ProjectName = projectName,
                     BuildId = buildId,
                     ArtifactName = artifactName,
-                    TargetDirectory = downloadPath,
+                    TargetDirectory = targetPath,
                     MinimatchFilters = minimatchPatterns
                 };
             }
@@ -167,7 +167,7 @@ namespace Agent.Plugins.PipelineArtifact
                 throw new InvalidOperationException($"Build type '{buildType}' is not recognized.");
             }
 
-            string fullPath = this.CreateDirectoryIfDoesntExist(downloadPath);
+            string fullPath = this.CreateDirectoryIfDoesntExist(targetPath);
 
             DownloadOptions downloadOptions;
             if (string.IsNullOrEmpty(downloadParameters.ArtifactName))
@@ -179,7 +179,7 @@ namespace Agent.Plugins.PipelineArtifact
                 downloadOptions = DownloadOptions.SingleDownload;
             }
 
-            context.Output(StringUtil.Loc("DownloadArtifactTo", downloadPath));
+            context.Output(StringUtil.Loc("DownloadArtifactTo", targetPath));
             await server.DownloadAsync(context, downloadParameters, downloadOptions, token);
             context.Output(StringUtil.Loc("DownloadArtifactFinished"));
         }
@@ -189,9 +189,9 @@ namespace Agent.Plugins.PipelineArtifact
             return context.GetInput(ArtifactEventProperties.ArtifactName, required: true);
         }
 
-        private string CreateDirectoryIfDoesntExist(string downloadPath)
+        private string CreateDirectoryIfDoesntExist(string targetPath)
         {
-            string fullPath = Path.GetFullPath(downloadPath);
+            string fullPath = Path.GetFullPath(targetPath);
             bool dirExists = Directory.Exists(fullPath);
             if (!dirExists)
             {
