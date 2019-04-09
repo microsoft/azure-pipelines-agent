@@ -233,8 +233,8 @@ namespace Agent.Plugins.PipelineArtifact
     public class DownloadPipelineArtifactTaskV1_1_0 : DownloadPipelineArtifactTaskV1
     {
         public override string Version => "1.1.0";
-        public override string TargetPath => "downloadPath";
-        public override string PipelineId => "buildId";
+        protected override string TargetPath => "downloadPath";
+        protected override string PipelineId => "buildId";
 
         protected override string GetArtifactName(AgentTaskPluginExecutionContext context)
         {
