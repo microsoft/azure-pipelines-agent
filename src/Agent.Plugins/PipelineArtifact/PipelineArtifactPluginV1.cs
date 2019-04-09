@@ -42,11 +42,9 @@ namespace Agent.Plugins.PipelineArtifact
             public static readonly string BuildTriggering = "specificBuildWithTriggering";
             public static readonly string BuildVersionToDownload = "buildVersionToDownload";
             public static readonly string BranchName = "branchName";
-            //public static readonly string BuildId = "buildId";
             public static readonly string Tags = "tags";
             public static readonly string ArtifactName = "artifactName";
             public static readonly string ItemPattern = "itemPattern";
-            //public static readonly string TargetPath = "targetPath";
         }
     }
 
