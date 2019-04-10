@@ -55,14 +55,10 @@ namespace Agent.Plugins.PipelineArtifact
             return await _buildHttpClient.GetArtifactAsync(projectId, pipelineId, name, cancellationToken: cancellationToken);
         }
 
-<<<<<<< HEAD
-        public Task<List<BuildArtifact>> GetArtifactsAsync(Guid project, int buildId, CancellationToken cancellationToken)
-=======
         public Task<List<BuildArtifact>> GetArtifactsAsync(
             Guid project,
             int pipelineId,
             CancellationToken cancellationToken)
->>>>>>> 60f50c24... Change variable downloadPath to targetPath - to match Task's json change (#2205)
         {
             return _buildHttpClient.GetArtifactsAsync(project, pipelineId, userState: null, cancellationToken: cancellationToken);
         }
@@ -76,8 +72,6 @@ namespace Agent.Plugins.PipelineArtifact
         {
             return await _buildHttpClient.GetArtifactAsync(project, pipelineId, name, cancellationToken: cancellationToken);
         }
-<<<<<<< HEAD
-=======
 
         public Task<List<BuildArtifact>> GetArtifactsWithProjectNameAsync(
             string project,
@@ -86,6 +80,5 @@ namespace Agent.Plugins.PipelineArtifact
         {
             return _buildHttpClient.GetArtifactsAsync(project, pipelineId, userState: null, cancellationToken: cancellationToken);
         }
->>>>>>> 60f50c24... Change variable downloadPath to targetPath - to match Task's json change (#2205)
     }
 }
