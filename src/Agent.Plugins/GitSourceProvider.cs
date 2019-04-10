@@ -18,6 +18,14 @@ namespace Agent.Plugins.Repository
 {
     public class ExternalGitSourceProvider : GitSourceProvider
     {
+        public override bool GitSupportsFetchingCommitBySha1Hash
+        {
+            get
+            {
+                return false;
+            }
+        }
+
         // external git repository won't use auth header cmdline arg, since we don't know the auth scheme.
         public override bool GitSupportUseAuthHeader(AgentTaskPluginExecutionContext executionContext, GitCliManager gitCommandManager)
         {
@@ -50,6 +58,14 @@ namespace Agent.Plugins.Repository
 
     public sealed class AuthenticatedGitSourceProvider : GitSourceProvider
     {
+        public override bool GitSupportsFetchingCommitBySha1Hash
+        {
+            get
+            {
+                return false;
+            }
+        }
+
         public override bool GitSupportUseAuthHeader(AgentTaskPluginExecutionContext executionContext, GitCliManager gitCommandManager)
         {
             // v2.9 git exist use auth header.
@@ -88,6 +104,14 @@ namespace Agent.Plugins.Repository
 
     public sealed class TfsGitSourceProvider : GitSourceProvider
     {
+        public override bool GitSupportsFetchingCommitBySha1Hash
+        {
+            get
+            {
+                return true;
+            }
+        }
+
         public override bool GitSupportUseAuthHeader(AgentTaskPluginExecutionContext executionContext, GitCliManager gitCommandManager)
         {
             // v2.9 git exist use auth header for tfsgit repository.
@@ -176,6 +200,8 @@ namespace Agent.Plugins.Repository
         public abstract bool GitLfsSupportUseAuthHeader(AgentTaskPluginExecutionContext executionContext, GitCliManager gitCommandManager);
         public abstract void RequirementCheck(AgentTaskPluginExecutionContext executionContext, Pipelines.RepositoryResource repository, GitCliManager gitCommandManager);
         public abstract string GenerateAuthHeader(AgentTaskPluginExecutionContext executionContext, string username, string password);
+
+        public abstract bool GitSupportsFetchingCommitBySha1Hash { get; }
 
         public async Task GetSourceAsync(
             AgentTaskPluginExecutionContext executionContext,
@@ -269,6 +295,13 @@ namespace Agent.Plugins.Repository
             }
 
             bool exposeCred = StringUtil.ConvertToBoolean(executionContext.GetInput(Pipelines.PipelineConstants.CheckoutTaskInputs.PersistCredentials));
+            
+            // Read 'specific ref' value from execution context variables, otherwise fall back to reading the matching environment variable
+            string specificRefVariable = executionContext.Variables.GetValueOrDefault("agent.source.git.specificRef")?.Value;
+            bool specificRef = specificRefVariable != null ? StringUtil.ConvertToBoolean(specificRefVariable) :
+                StringUtil.ConvertToBoolean(System.Environment.GetEnvironmentVariable("AGENT_GIT_SPECIFICREF"), false);
+
+            bool fetchByCommit = specificRef && GitSupportsFetchingCommitBySha1Hash;
 
             executionContext.Debug($"repository url={repositoryUrl}");
             executionContext.Debug($"targetPath={targetPath}");
@@ -281,6 +314,8 @@ namespace Agent.Plugins.Repository
             executionContext.Debug($"fetchDepth={fetchDepth}");
             executionContext.Debug($"gitLfsSupport={gitLfsSupport}");
             executionContext.Debug($"acceptUntrustedCerts={acceptUntrustedCerts}");
+            executionContext.Debug($"specificRef={specificRef}");
+            executionContext.Debug($"fetchByCommit={fetchByCommit}");
 
             bool preferGitFromPath;
 #if OS_WINDOWS
@@ -752,10 +787,33 @@ namespace Agent.Plugins.Repository
             // If this is a build for a pull request, then include
             // the pull request reference as an additional ref.
             List<string> additionalFetchSpecs = new List<string>();
+
             if (IsPullRequest(sourceBranch))
             {
-                additionalFetchSpecs.Add("+refs/heads/*:refs/remotes/origin/*");
-                additionalFetchSpecs.Add(StringUtil.Format("+{0}:{1}", sourceBranch, GetRemoteRefName(sourceBranch)));
+                if (!specificRef)
+                {
+                    additionalFetchSpecs.Add("+refs/heads/*:refs/remotes/origin/*");
+                }
+               
+                additionalFetchSpecs.Add($"+{sourceBranch}:{GetRemoteRefName(sourceBranch)}");
+            }
+            else
+            {
+                // Build refspecs if and only if we're checking out a specific ref
+                // Otherwise, use the default fetch behavior (i.e. with no refspecs)
+                if (specificRef)
+                {
+                    // If the git server supports fetching commits by SHA1 hash, use that feature
+                    // Otherwise, fetch the tip of the branch
+                    if (string.IsNullOrEmpty(sourceVersion) || !fetchByCommit)
+                    {
+                        additionalFetchSpecs.Add($"+{GetLocalRefName(sourceBranch)}:{GetRemoteRefName(sourceBranch)}");
+                    }
+                    else
+                    {
+                        additionalFetchSpecs.Add($"+{sourceVersion}:{_remoteRefsPrefix}{sourceVersion}");
+                    }
+                }
             }
 
             int exitCode_fetch = await gitCommandManager.GitFetch(executionContext, targetPath, "origin", fetchDepth, additionalFetchSpecs, string.Join(" ", additionalFetchArgs), cancellationToken);
@@ -1248,6 +1306,32 @@ namespace Agent.Plugins.Repository
             {
                 // If the refName is refs/pull change it to the remote version of the name
                 refName = refName.Replace(_pullRefsPrefix, _remotePullRefsPrefix);
+            }
+
+            return refName;
+        }
+
+        private string GetLocalRefName(string refName)
+        {
+            if (string.IsNullOrEmpty(refName))
+            {
+                // If the refName is empty return the local name for master
+                refName = _refsPrefix + "master";
+            }
+            else if (refName.Equals("master", StringComparison.OrdinalIgnoreCase))
+            {
+                // If the refName is master return the local name for master
+                refName = _refsPrefix + refName;
+            }
+            else if (refName.StartsWith(_remoteRefsPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                // If the refName is refs/remotes/origin change it to the local version of the name
+                refName = _refsPrefix + refName.Substring(_remoteRefsPrefix.Length);
+            }
+            else if (refName.StartsWith(_remotePullRefsPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                // If the refName is refs/remotes/pull change it to the local version of the name
+                refName = refName.Replace(_remotePullRefsPrefix, _pullRefsPrefix);
             }
 
             return refName;
