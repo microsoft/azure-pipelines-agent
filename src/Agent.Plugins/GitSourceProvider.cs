@@ -56,16 +56,8 @@ namespace Agent.Plugins.Repository
         }
     }
 
-    public sealed class AuthenticatedGitSourceProvider : GitSourceProvider
+    public abstract class AuthenticatedGitSourceProvider : GitSourceProvider
     {
-        public override bool GitSupportsFetchingCommitBySha1Hash
-        {
-            get
-            {
-                return false;
-            }
-        }
-
         public override bool GitSupportUseAuthHeader(AgentTaskPluginExecutionContext executionContext, GitCliManager gitCommandManager)
         {
             // v2.9 git exist use auth header.
@@ -99,6 +91,28 @@ namespace Agent.Plugins.Repository
             // add base64 encoding auth header into secretMasker.
             executionContext.SetSecret(base64encodedAuthHeader);
             return $"basic {base64encodedAuthHeader}";
+        }
+    }
+
+    public sealed class BitbucketGitSourceProvider : AuthenticatedGitSourceProvider
+    {
+        public override bool GitSupportsFetchingCommitBySha1Hash
+        {
+            get
+            {
+                return true;
+            }
+        }
+    }
+
+    public sealed class GitHubSourceProvider : AuthenticatedGitSourceProvider
+    {
+        public override bool GitSupportsFetchingCommitBySha1Hash
+        {
+            get
+            {
+                return false;
+            }
         }
     }
 
