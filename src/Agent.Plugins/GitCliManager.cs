@@ -178,16 +178,15 @@ namespace Agent.Plugins.Repository
                 watch.Stop();
 
                 // Publish some fetch statistics
-                string statsToPublish = "##vso[telemetry.publish area=AzurePipelinesAgent;feature=GitFetch] {"
-                    + $"\"ElapsedTimeMilliseconds\": \"{watch.ElapsedMilliseconds}\", "
-                    + $"\"RefSpec\": \"{string.Join(" ", refSpec)}\", "
-                    + $"\"RemoteName\": \"{remoteName}\", "
-                    + $"\"FetchDepth\": \"{fetchDepth}\", "
-                    + $"\"ExitCode\": \"{fetchExitCode}\", "
-                    + $"\"Options\": \"{options}\""
-                    + "}";
-
-                context.Output(statsToPublish);
+                context.PublishTelemetry(area: "AzurePipelinesAgent", feature: "GitFetch", properties: new Dictionary<string, string>
+                {
+                    { "ElapsedTimeMilliseconds", $"{watch.ElapsedMilliseconds}" },
+                    { "RefSpec", string.Join(" ", refSpec) },
+                    { "RemoteName", remoteName },
+                    { "FetchDepth", $"{fetchDepth}" },
+                    { "ExitCode", $"{fetchExitCode}" },
+                    { "Options", options }
+                });
 
                 if (fetchExitCode == 0)
                 {
