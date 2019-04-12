@@ -23,6 +23,7 @@ namespace Agent.Plugins.PipelineArtifact
         public static readonly string RootId = "RootId";
         public static readonly string ProofNodes = "ProofNodes";
         public const string PipelineArtifactTypeName = "PipelineArtifact";
+        public const string BuildArtifactTypeName = "Container";
 
         // Upload from target path to VSTS BlobStore service through BuildDropManager, then associate it with the build
         internal async Task UploadAsync(
@@ -105,7 +106,32 @@ namespace Agent.Plugins.PipelineArtifact
                     throw new InvalidOperationException("Unreachable code!");
                 }
 
+                IEnumerable<BuildArtifact> buildArtifacts = artifacts.Where(a => a.Resource.Type == BuildArtifactTypeName);
                 IEnumerable<BuildArtifact> pipelineArtifacts = artifacts.Where(a => a.Resource.Type == PipelineArtifactTypeName);
+                if (buildArtifacts.Any())
+                {
+                    FileContainerProvider provider = new FileContainerProvider(connection);
+                    await provider.DownloadMultipleArtifactsAsync(downloadParameters, buildArtifacts, cancellationToken);
+                }
+                
+                if (pipelineArtifacts.Any())
+                {
+                    PipelineArtifactProvider provider = new PipelineArtifactProvider(context, connection);
+                    await provider.DownloadMultipleArtifactsAsync(downloadParameters, pipelineArtifacts, cancellationToken);
+                }
+
+                //IEnumerable<BuildArtifact> containerArtifacts = artifacts.Where(a => a.Resource.Type == BuildArtifactTypeName);
+                /*foreach (var buildArtifact in buildArtifacts)
+                {
+                    // grab downloader
+                    IArtifactProvider downloader = factory.GetProvider(buildArtifact);
+                    await downloader.DownloadAsync(downloadParameters, buildArtifact, cancellationToken);
+                }*/
+
+                /*if(buildArtifacts.Count() != 0)
+                {
+                    FileContainerServer fcs = new FileContainerServer();
+                }
                 if (pipelineArtifacts.Count() == 0)
                 {
                     throw new ArgumentException("Could not find any pipeline artifacts in the build.");
@@ -124,7 +150,7 @@ namespace Agent.Plugins.PipelineArtifact
                         proxyUri: null,
                         minimatchPatterns: downloadParameters.MinimatchFilters);
                     await buildDropManager.DownloadAsync(options, cancellationToken);                        
-                }
+                }*/
             }
             else if (downloadOptions == DownloadOptions.SingleDownload)
             {
@@ -149,15 +175,17 @@ namespace Agent.Plugins.PipelineArtifact
                 {
                     throw new InvalidOperationException("Unreachable code!");
                 }
-
-                var manifestId = DedupIdentifier.Create(buildArtifact.Resource.Data);
+                ArtifactProviderFactory factory = new ArtifactProviderFactory(context, connection);
+                IArtifactProvider provider = factory.GetProvider(buildArtifact);
+                await provider.DownloadSingleArtifactAsync(downloadParameters, buildArtifact, cancellationToken);
+                /*var manifestId = DedupIdentifier.Create(buildArtifact.Resource.Data);
                 var options = DownloadPipelineArtifactOptions.CreateWithManifestId(
                     manifestId,
                     downloadParameters.TargetDirectory,
                     proxyUri: null,
                     minimatchPatterns: downloadParameters.MinimatchFilters);
 
-                await buildDropManager.DownloadAsync(options, cancellationToken);
+                await buildDropManager.DownloadAsync(options, cancellationToken);*/
             }
             else
             {
@@ -176,7 +204,7 @@ namespace Agent.Plugins.PipelineArtifact
         }
     }
 
-    internal class PipelineArtifactDownloadParameters
+    public class PipelineArtifactDownloadParameters
     {
         /// <remarks>
         /// Options on how to retrieve the build using the following parameters.
@@ -196,13 +224,13 @@ namespace Agent.Plugins.PipelineArtifact
         public string[] MinimatchFilters { get; set; }
     }
 
-    internal enum BuildArtifactRetrievalOptions
+    public enum BuildArtifactRetrievalOptions
     {
         RetrieveByProjectId,
         RetrieveByProjectName
     }
 
-    internal enum DownloadOptions
+    public enum DownloadOptions
     {
         SingleDownload,        
         MultiDownload

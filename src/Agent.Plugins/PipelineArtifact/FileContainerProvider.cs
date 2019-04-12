@@ -12,26 +12,35 @@ using System.Threading.Tasks;
 
 namespace Agent.Plugins.PipelineArtifact
 {
-    class FileContainerServer
+    class FileContainerProvider : IArtifactProvider
     {
-        private async Task DownloadFileContainersAsync(VssConnection connection, Guid projectId, IEnumerable<BuildArtifact> buildArtifacts, string targetDirectory, string[] minimatchFilters, CancellationToken cancellationToken)
+        private FileContainerHttpClient containerClient;
+        
+        public FileContainerProvider(VssConnection connection)
+        {
+            containerClient = connection.GetClient<FileContainerHttpClient>();
+        }
+        public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken)
+        {
+            await this.DownloadFileContainerAsync(downloadParameters.ProjectId,buildArtifact,downloadParameters.TargetDirectory,cancellationToken);
+        }
+
+        public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken)
+        {
+            await this.DownloadFileContainersAsync(downloadParameters.ProjectId, buildArtifacts, downloadParameters.TargetDirectory, downloadParameters.MinimatchFilters, cancellationToken);
+        }
+
+        public async Task DownloadFileContainersAsync(Guid projectId, IEnumerable<BuildArtifact> buildArtifacts, string targetDirectory, string[] minimatchFilters, CancellationToken cancellationToken)
         {
             if (buildArtifacts.Count() == 0)
             {
                 return;
             }
-            else if (buildArtifacts.Count() > 1)
-            {
                 foreach (var buildArtifact in buildArtifacts)
                 {
                     var specificPath = Path.Combine(targetDirectory, buildArtifact.Name);
-                    await DownloadFileContainerAsync(connection, projectId, buildArtifact, specificPath, cancellationToken);
+                    await DownloadFileContainerAsync(projectId, buildArtifact, specificPath, cancellationToken);
                 }
-            }
-            else
-            {
-                await DownloadFileContainerAsync(connection, projectId, buildArtifacts.Single(), targetDirectory, cancellationToken);
-            }
         }
 
         private Tuple<long, string> ParseContainerId(string resourceData)
@@ -54,11 +63,9 @@ namespace Agent.Plugins.PipelineArtifact
             }
         }
 
-        private async Task DownloadFileContainerAsync(VssConnection connection, Guid projectId, BuildArtifact artifact, string rootPath, CancellationToken cancellationToken)
+        private async Task DownloadFileContainerAsync(Guid projectId, BuildArtifact artifact, string rootPath, CancellationToken cancellationToken)
         {
             var containerIdAndRoot = ParseContainerId(artifact.Resource.Data);
-
-            var containerClient = connection.GetClient<FileContainerHttpClient>();
 
             var items = await containerClient.QueryContainerItemsAsync(
                 containerIdAndRoot.Item1,

@@ -123,6 +123,7 @@ namespace Agent.Plugins.PipelineArtifact
                         throw new ArgumentException(StringUtil.Loc("BuildIdIsNotValid", environmentBuildId));
                     }
                 }
+
                 downloadParameters = new PipelineArtifactDownloadParameters
                 {
                     ProjectRetrievalOptions = BuildArtifactRetrievalOptions.RetrieveByProjectId,
