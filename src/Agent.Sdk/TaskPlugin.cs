@@ -164,8 +164,8 @@ namespace Agent.Sdk
         }
 
         public void PublishTelemetry(string area, string feature, Dictionary<string, string> properties)
-        {
-            string propertiesAsJson = JsonConvert.SerializeObject(properties, Formatting.None);
+        {      
+            string propertiesAsJson = StringUtil.ConvertToJson(properties, Formatting.None);
 
             Output($"##vso[telemetry.publish area={area};feature={feature}]{Escape(propertiesAsJson)}");
         }           
