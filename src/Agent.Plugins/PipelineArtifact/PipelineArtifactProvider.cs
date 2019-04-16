@@ -20,7 +20,7 @@ namespace Agent.Plugins.PipelineArtifact
         {
                 var dedupStoreHttpClient = connection.GetClient<DedupStoreHttpClient>();
                 var tracer = new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information);
-                //dedupStoreHttpClient.SetTracer(tracer); -> Thread Safety. What to do??
+                dedupStoreHttpClient.SetTracer(tracer); //-> Thread Safety. What to do??
                 var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, 16 * Environment.ProcessorCount);
                 buildDropManager = new BuildDropManager(client, tracer);
         }

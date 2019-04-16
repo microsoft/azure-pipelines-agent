@@ -79,7 +79,7 @@ namespace Agent.Plugins.PipelineArtifact
             CancellationToken cancellationToken)
         {
             VssConnection connection = context.VssConnection;
-            var buildDropManager = this.CreateBulidDropManager(context, connection);
+            //var buildDropManager = this.CreateBulidDropManager(context, connection);
             BuildServer buildHelper = new BuildServer(connection);
             
             // download all pipeline artifacts if artifact name is missing

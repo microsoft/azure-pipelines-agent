@@ -136,6 +136,12 @@ namespace Agent.Plugins.PipelineArtifact
             }
             else if (buildType == buildTypeSpecific)
             {
+                string projectIdStr = context.Variables.GetValueOrDefault("system.teamProjectId")?.Value;
+                if (String.IsNullOrEmpty(projectIdStr))
+                {
+                    throw new ArgumentNullException("Project ID cannot be null.");
+                }
+                Guid projectId = Guid.Parse(projectIdStr);
                 int pipelineId;
                 if (buildVersionToDownload == buildVersionToDownloadLatest)
                 {
@@ -157,6 +163,7 @@ namespace Agent.Plugins.PipelineArtifact
                 {
                     ProjectRetrievalOptions = BuildArtifactRetrievalOptions.RetrieveByProjectName,
                     ProjectName = projectName,
+                    ProjectId = projectId,
                     PipelineId = pipelineId,
                     ArtifactName = artifactName,
                     TargetDirectory = targetPath,
