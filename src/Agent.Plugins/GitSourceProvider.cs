@@ -310,11 +310,10 @@ namespace Agent.Plugins.Repository
 
             bool exposeCred = StringUtil.ConvertToBoolean(executionContext.GetInput(Pipelines.PipelineConstants.CheckoutTaskInputs.PersistCredentials));
             
-            // Read 'fetch by commit' value from the execution variable first, then from the environment variable if the first one is not set
-            string fetchByCommitExecution = executionContext.Variables.GetValueOrDefault("agent.source.git.fetchbycommit")?.Value;
-            bool fetchByCommit = fetchByCommitExecution != null ?
-                StringUtil.ConvertToBoolean(fetchByCommitExecution) :
-                StringUtil.ConvertToBoolean(System.Environment.GetEnvironmentVariable("AGENT_SOURCE_GIT_FETCHBYCOMMIT"), false);
+            // Read 'disable fetch by commit' value from the execution variable first, then from the environment variable if the first one is not set
+            bool fetchByCommit = !StringUtil.ConvertToBoolean(
+                executionContext.Variables.GetValueOrDefault("VSTS.DisableFetchByCommit")?.Value ??
+                System.Environment.GetEnvironmentVariable("VSTS_DISABLEFETCHBYCOMMIT"), false);
 
             executionContext.Debug($"repository url={repositoryUrl}");
             executionContext.Debug($"targetPath={targetPath}");
