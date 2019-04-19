@@ -79,7 +79,6 @@ namespace Agent.Plugins.PipelineArtifact
             CancellationToken cancellationToken)
         {
             VssConnection connection = context.VssConnection;
-            //var buildDropManager = this.CreateBulidDropManager(context, connection);
             BuildServer buildHelper = new BuildServer(connection);
             
             // download all pipeline artifacts if artifact name is missing
@@ -110,47 +109,15 @@ namespace Agent.Plugins.PipelineArtifact
                 IEnumerable<BuildArtifact> pipelineArtifacts = artifacts.Where(a => a.Resource.Type == PipelineArtifactTypeName);
                 if (buildArtifacts.Any())
                 {
-                    FileContainerProvider provider = new FileContainerProvider(connection);
+                    FileContainerProvider provider = new FileContainerProvider(connection, this.CreateTracer(context));
                     await provider.DownloadMultipleArtifactsAsync(downloadParameters, buildArtifacts, cancellationToken);
                 }
                 
                 if (pipelineArtifacts.Any())
                 {
-                    PipelineArtifactProvider provider = new PipelineArtifactProvider(context, connection);
+                    PipelineArtifactProvider provider = new PipelineArtifactProvider(context, connection, this.CreateTracer(context));
                     await provider.DownloadMultipleArtifactsAsync(downloadParameters, pipelineArtifacts, cancellationToken);
                 }
-
-                //IEnumerable<BuildArtifact> containerArtifacts = artifacts.Where(a => a.Resource.Type == BuildArtifactTypeName);
-                /*foreach (var buildArtifact in buildArtifacts)
-                {
-                    // grab downloader
-                    IArtifactProvider downloader = factory.GetProvider(buildArtifact);
-                    await downloader.DownloadAsync(downloadParameters, buildArtifact, cancellationToken);
-                }*/
-
-                /*if(buildArtifacts.Count() != 0)
-                {
-                    FileContainerServer fcs = new FileContainerServer();
-                }
-                if (pipelineArtifacts.Count() == 0)
-                {
-                    throw new ArgumentException("Could not find any pipeline artifacts in the build.");
-                }
-                else
-                {
-                    context.Output(StringUtil.Loc("DownloadingMultiplePipelineArtifacts", pipelineArtifacts.Count()));
-
-                    var artifactNameAndManifestIds = pipelineArtifacts.ToDictionary(
-                        keySelector: (a) => a.Name, // keys should be unique, if not something is really wrong
-                        elementSelector: (a) => DedupIdentifier.Create(a.Resource.Data));
-                    // 2) download to the target path
-                    var options = DownloadPipelineArtifactOptions.CreateWithMultiManifestIds(
-                        artifactNameAndManifestIds,
-                        downloadParameters.TargetDirectory,
-                        proxyUri: null,
-                        minimatchPatterns: downloadParameters.MinimatchFilters);
-                    await buildDropManager.DownloadAsync(options, cancellationToken);                        
-                }*/
             }
             else if (downloadOptions == DownloadOptions.SingleDownload)
             {
@@ -175,17 +142,9 @@ namespace Agent.Plugins.PipelineArtifact
                 {
                     throw new InvalidOperationException("Unreachable code!");
                 }
-                ArtifactProviderFactory factory = new ArtifactProviderFactory(context, connection);
+                ArtifactProviderFactory factory = new ArtifactProviderFactory(context, connection, this.CreateTracer(context));
                 IArtifactProvider provider = factory.GetProvider(buildArtifact);
                 await provider.DownloadSingleArtifactAsync(downloadParameters, buildArtifact, cancellationToken);
-                /*var manifestId = DedupIdentifier.Create(buildArtifact.Resource.Data);
-                var options = DownloadPipelineArtifactOptions.CreateWithManifestId(
-                    manifestId,
-                    downloadParameters.TargetDirectory,
-                    proxyUri: null,
-                    minimatchPatterns: downloadParameters.MinimatchFilters);
-
-                await buildDropManager.DownloadAsync(options, cancellationToken);*/
             }
             else
             {
@@ -196,11 +155,17 @@ namespace Agent.Plugins.PipelineArtifact
         private BuildDropManager CreateBulidDropManager(AgentTaskPluginExecutionContext context, VssConnection connection)
         {
             var dedupStoreHttpClient = connection.GetClient<DedupStoreHttpClient>();
-            var tracer = new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information);
+            var tracer = this.CreateTracer(context);
             dedupStoreHttpClient.SetTracer(tracer);
             var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, 16 * Environment.ProcessorCount);
             var buildDropManager = new BuildDropManager(client, tracer);
             return buildDropManager;
+        }
+
+        private CallbackAppTraceSource CreateTracer(AgentTaskPluginExecutionContext context)
+        {
+            var tracer = new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information);
+            return tracer;
         }
     }
 

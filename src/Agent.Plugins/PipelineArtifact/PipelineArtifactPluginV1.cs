@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.TeamFoundation.Core.WebApi;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
@@ -136,12 +137,11 @@ namespace Agent.Plugins.PipelineArtifact
             }
             else if (buildType == buildTypeSpecific)
             {
-                string projectIdStr = context.Variables.GetValueOrDefault("system.teamProjectId")?.Value;
-                if (String.IsNullOrEmpty(projectIdStr))
+                if (String.IsNullOrEmpty(projectName))
                 {
-                    throw new ArgumentNullException("Project ID cannot be null.");
+                    throw new ArgumentNullException("Project Name cannot be null.");
                 }
-                Guid projectId = Guid.Parse(projectIdStr);
+                Guid projectId = Guid.Parse(projectName);
                 int pipelineId;
                 if (buildVersionToDownload == buildVersionToDownloadLatest)
                 {

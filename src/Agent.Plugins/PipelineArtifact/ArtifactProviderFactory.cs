@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Text;
 using Agent.Sdk;
 using System.Threading;
+using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 
 namespace Agent.Plugins.PipelineArtifact
 {
@@ -13,10 +14,10 @@ namespace Agent.Plugins.PipelineArtifact
         private readonly FileContainerProvider fileContainerProvider;
         private readonly PipelineArtifactProvider pipelineArtifactProvider;
 
-        public ArtifactProviderFactory(AgentTaskPluginExecutionContext context, VssConnection connection)
+        public ArtifactProviderFactory(AgentTaskPluginExecutionContext context, VssConnection connection, CallbackAppTraceSource tracer )
         {
-            pipelineArtifactProvider = new PipelineArtifactProvider(context, connection);
-            fileContainerProvider = new FileContainerProvider(connection);
+            pipelineArtifactProvider = new PipelineArtifactProvider(context, connection, tracer);
+            fileContainerProvider = new FileContainerProvider(connection, tracer);
         }
 
         public IArtifactProvider GetProvider(BuildArtifact buildArtifact)
@@ -32,8 +33,7 @@ namespace Agent.Plugins.PipelineArtifact
             }
             else
             {
-                provider = null;
-                Console.WriteLine("BAD EXCEPTION!!!!");
+                throw new InvalidOperationException($"{buildArtifact} is neither of type PipelineArtifact nor BuildArtifact");
             }
             return provider;
         }

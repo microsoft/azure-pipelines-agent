@@ -1,4 +1,6 @@
 ﻿using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.VisualStudio.Services.Content.Common;
+using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.FileContainer;
 using Microsoft.VisualStudio.Services.FileContainer.Client;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -7,16 +9,19 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Threading.Tasks.Dataflow;
 
 namespace Agent.Plugins.PipelineArtifact
 {
     class FileContainerProvider : IArtifactProvider
     {
         private FileContainerHttpClient containerClient;
+        private CallbackAppTraceSource tracer;
         // https://github.com/Microsoft/azure-pipelines-task-lib/blob/master/node/docs/findingfiles.md#matchoptions
         private static readonly Options minimatchOptions = new Options
         {
@@ -25,9 +30,10 @@ namespace Agent.Plugins.PipelineArtifact
             NoCase = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? true : false
         };
 
-        public FileContainerProvider(VssConnection connection)
+        public FileContainerProvider(VssConnection connection, CallbackAppTraceSource tracer)
         {
             containerClient = connection.GetClient<FileContainerHttpClient>();
+            this.tracer = tracer;
         }
         public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken)
         {
@@ -45,11 +51,12 @@ namespace Agent.Plugins.PipelineArtifact
             {
                 return;
             }
-                foreach (var buildArtifact in buildArtifacts)
-                {
-                    var specificPath = Path.Combine(targetDirectory, buildArtifact.Name);
-                    await DownloadFileContainerAsync(projectId, buildArtifact, specificPath, minimatchFilters, cancellationToken);
-                }
+            foreach (var buildArtifact in buildArtifacts)
+            {
+                var specificPath = Path.Combine(targetDirectory, buildArtifact.Name);
+                Directory.CreateDirectory(specificPath);
+                await DownloadFileContainerAsync(projectId, buildArtifact, specificPath, minimatchFilters, cancellationToken);
+            }
         }
 
         private Tuple<long, string> ParseContainerId(string resourceData)
@@ -58,11 +65,16 @@ namespace Agent.Plugins.PipelineArtifact
             var segments = resourceData.Split('/');
 
             long containerId;
-            if (segments.Length == 3 && segments[0] == "#" && long.TryParse(segments[1], out containerId))
+            if(segments.Length < 3)
             {
+                throw new ArgumentException($"Resource data value '{resourceData}' invalid");
+            }
+            if (segments.Length >= 3 && segments[0] == "#" && long.TryParse(segments[1], out containerId))
+            {
+                int index = resourceData.IndexOf('/', resourceData.IndexOf('/') + 1);
                 return new Tuple<long, string>(
                     containerId,
-                    segments[2]
+                    resourceData.Substring(index+1)
                     );
             }
             else
@@ -99,42 +111,85 @@ namespace Agent.Plugins.PipelineArtifact
             {
                 Parallel.ForEach(folderItems, (folder) =>
                 {
-                    var targetPath = ResolveTargetPath(rootPath, folder);
+                    var targetPath = ResolveTargetPath(rootPath, folder, artifact.Name);
                     Directory.CreateDirectory(targetPath);
                 });
             }
 
-            // Then download the files.
             var fileItems = groupedItems.SingleOrDefault(i => i.Key == ContainerItemType.File);
-            if (fileItems != null)
-            {
-                Parallel.ForEach(fileItems, (file) =>
+
+            var batchItemsBlock = new BatchBlock<FileContainerItem>(
+                batchSize: 1000,
+                new GroupingDataflowBlockOptions()
                 {
-                    var targetPath = ResolveTargetPath(rootPath, file);
-                    DownloadFileFromContainerAsync(containerIdAndRoot, projectId, containerClient, file, targetPath, cancellationToken).Wait();
+                    CancellationToken = cancellationToken,
                 });
-            }
+
+            var fetchStream = NonSwallowingTransformManyBlock.Create<IEnumerable<FileContainerItem>, (Stream, string)>(
+                async itemsStream =>
+                {
+                    List<(Stream, string)> collection= new List<(Stream, string)>();
+                    foreach (var item in itemsStream)
+                    {
+                        var targetPath = ResolveTargetPath(rootPath, item, artifact.Name);
+                        Stream stream = await this.DownloadFileFromContainerAsync(containerIdAndRoot, projectId, containerClient, item, targetPath, cancellationToken);
+                        collection.Add((stream, targetPath));
+                    }
+                    return collection;
+                },
+                new ExecutionDataflowBlockOptions()
+                {
+                    BoundedCapacity = 1000,
+                    MaxDegreeOfParallelism = 250,
+                    CancellationToken = cancellationToken,
+                });
+
+            var downloadBlock = NonSwallowingActionBlock.Create<(Stream stream, string targetPath)>(
+                item =>
+                {
+                    using (item.stream)
+                    {
+                        using (var fileStream = new FileStream(item.targetPath, FileMode.Create))
+                        {
+                            item.stream.CopyTo(fileStream);
+                        }
+                    }
+                    
+                },
+                new ExecutionDataflowBlockOptions()
+                {
+                    BoundedCapacity = 1000,
+                    MaxDegreeOfParallelism = 250,
+                    CancellationToken = cancellationToken,
+                });
+
+            batchItemsBlock.LinkTo(fetchStream, new DataflowLinkOptions() { PropagateCompletion = true });
+            fetchStream.LinkTo(downloadBlock, new DataflowLinkOptions() { PropagateCompletion = true });
+
+            await batchItemsBlock.SendAllAndCompleteAsync(fileItems, downloadBlock, cancellationToken).ConfigureAwait(false);
         }
 
-        private async Task DownloadFileFromContainerAsync(Tuple<long, string> containerIdAndRoot, Guid scopeIdentifier, FileContainerHttpClient containerClient, FileContainerItem item, string targetPath, CancellationToken cancellationToken)
+        private async Task<Stream> DownloadFileFromContainerAsync(Tuple<long, string> containerIdAndRoot, Guid scopeIdentifier, FileContainerHttpClient containerClient, FileContainerItem item, string targetPath, CancellationToken cancellationToken)
         {
-            var stream = await containerClient.DownloadFileAsync(
-                containerIdAndRoot.Item1,
-                item.Path,
-                cancellationToken,
-                scopeIdentifier
+            Stream responseStream = await AsyncHttpRetryHelper.InvokeAsync(
+                async () =>
+                {
+                    Stream internalResponseStream = await containerClient.DownloadFileAsync(containerIdAndRoot.Item1, item.Path, cancellationToken, scopeIdentifier).ConfigureAwait(false);
+                    return internalResponseStream;
+                },
+                maxRetries: 5,
+                cancellationToken: cancellationToken,
+                tracer: this.tracer,
+                continueOnCapturedContext: false
                 );
 
-            using (var fileStream = new FileStream(targetPath, FileMode.Create))
-            {
-                stream.CopyTo(fileStream);
-            }
+            return responseStream;
         }
 
-        private string ResolveTargetPath(string rootPath, FileContainerItem item)
+        private string ResolveTargetPath(string rootPath, FileContainerItem item, string artifactName)
         {
-            var indexOfFirstPathSeperator = item.Path.IndexOf('/');
-            var itemPathWithoutDirectoryPrefix = indexOfFirstPathSeperator != -1 ? item.Path.Substring(indexOfFirstPathSeperator + 1) : string.Empty;
+            var index = artifactName.Length;
+            var itemPathWithoutDirectoryPrefix = (index != -1 && index < item.Path.Length) ? item.Path.Substring(index + 1) : string.Empty;
             var targetPath = Path.Combine(rootPath, itemPathWithoutDirectoryPrefix);
             return targetPath;
         }
@@ -169,6 +224,7 @@ namespace Agent.Plugins.PipelineArtifact
                     filteredItems.Add(item);
                 }
             }
+
             return filteredItems;
         }
     }

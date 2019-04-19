@@ -16,13 +16,14 @@ namespace Agent.Plugins.PipelineArtifact
     public class PipelineArtifactProvider : IArtifactProvider
     {
         private BuildDropManager buildDropManager;
-        public PipelineArtifactProvider(AgentTaskPluginExecutionContext context, VssConnection connection)
+        private CallbackAppTraceSource tracer;
+        public PipelineArtifactProvider(AgentTaskPluginExecutionContext context, VssConnection connection, CallbackAppTraceSource tracer)
         {
                 var dedupStoreHttpClient = connection.GetClient<DedupStoreHttpClient>();
-                var tracer = new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information);
-                dedupStoreHttpClient.SetTracer(tracer); //-> Thread Safety. What to do??
+                this.tracer = tracer;
+                dedupStoreHttpClient.SetTracer(tracer);
                 var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, 16 * Environment.ProcessorCount);
-                buildDropManager = new BuildDropManager(client, tracer);
+                buildDropManager = new BuildDropManager(client, this.tracer);
         }
         public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken)
         {
