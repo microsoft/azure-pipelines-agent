@@ -13,6 +13,7 @@ using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Agent.Sdk;
+using System.Text.RegularExpressions;
 
 namespace Agent.Plugins.PipelineArtifact
 {
@@ -24,16 +25,31 @@ namespace Agent.Plugins.PipelineArtifact
 
         public async Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
+            Thread.Sleep(30000);
             ArgUtil.NotNull(context, nameof(context));
 
             // Artifact Name
             string artifactName = context.GetInput(ArtifactEventProperties.ArtifactName, required: true);
+
+            if (String.IsNullOrWhiteSpace(artifactName)) {
+                string jobIdentifier = context.Variables.GetValueOrDefault("system.jobIdentifier").Value;
+                var normalizedJobIdentifier = NormalizedJobIdentifier(jobIdentifier);
+                artifactName = normalizedJobIdentifier;
+            }
 
             // Path
             // TODO: Translate targetPath from container to host (Ting)
             string targetPath = context.GetInput(ArtifactEventProperties.TargetPath, required: true);
 
             await ProcessCommandInternalAsync(context, targetPath, artifactName, token);
+        }
+
+        private string NormalizedJobIdentifier(string jobIdentifier)
+        {
+            Regex rgx = new Regex("[^a-zA-Z0-9 - .]");
+            jobIdentifier = rgx.Replace(jobIdentifier, "");
+            jobIdentifier = jobIdentifier.Replace(".default","");
+            return jobIdentifier;
         }
 
         // Process the command with preprocessed arguments.
