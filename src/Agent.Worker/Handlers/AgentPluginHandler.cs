@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using System.Threading;
 using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
@@ -35,6 +36,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             // Update the env dictionary.
             AddPrependPathToEnvironment();
+            Thread.Sleep(10000);
 
             // Make sure only particular task get run as agent plugin.
             var agentPlugin = HostContext.GetService<IAgentPluginManager>();

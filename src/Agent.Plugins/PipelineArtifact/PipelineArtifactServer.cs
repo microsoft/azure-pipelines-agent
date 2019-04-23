@@ -33,7 +33,6 @@ namespace Agent.Plugins.PipelineArtifact
             string source,
             CancellationToken cancellationToken)
         {
-            Thread.Sleep(30000);
             VssConnection connection = context.VssConnection;
             var buildDropManager = this.CreateBulidDropManager(context, connection);
 

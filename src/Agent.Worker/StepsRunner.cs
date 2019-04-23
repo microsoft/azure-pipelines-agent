@@ -238,6 +238,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             try
             {
+                Thread.Sleep(30000);
                 await step.RunAsync();
             }
             catch (OperationCanceledException ex)
