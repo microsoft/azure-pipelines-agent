@@ -47,7 +47,7 @@ namespace Agent.Plugins.PipelineArtifact
         {
             Regex rgx = new Regex("[^a-zA-Z0-9 - .]");
             jobIdentifier = rgx.Replace(jobIdentifier, string.Empty);
-            jobIdentifier = jobIdentifier.Replace(".default","");
+            jobIdentifier = jobIdentifier.Replace(".default", string.Empty);
             return jobIdentifier;
         }
 
