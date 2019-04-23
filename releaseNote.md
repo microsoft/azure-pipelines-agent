@@ -1,17 +1,13 @@
 ## Features
-  - Enable AAD device auth flow for configure agent. #1924
-  - Integrate Test result log parser #2066
-  - Upload agent diag log as part of system.diagnostic=true. #2089
-  - Adding CTest XML Support in PublishTestResults #2092
-  - RHEL6 Agent support #2063
+  - Pipeline caching plugins #2184
 
 ## Bugs
-  - Don't fail if chcp not found #2087
-  - best effort on reset vssconnection. #2105
+  - Fix Result publisher warning for empty results file. #2222
+  - Implement shallow fetch by commit #2211
+  - Use LogCallback instead of IAdalLogCallback. #2219
 
 ## Misc
-  - Add subscription id to deployment group telemetry #2070
-  - Bump up bundled node 6 version to 6.16.0 #2111
+  - Changing vss-api-netcore version to 0.5.103-private #2215
 
 ## Agent Downloads  
 

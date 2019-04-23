@@ -4,7 +4,7 @@ PRECACHE=$2
 
 CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
 NODE_URL=https://nodejs.org/dist
-NODE_VERSION="6.16.0"
+NODE_VERSION="6.10.3"
 NODE10_VERSION="10.13.0"
 
 get_abs_path() {
@@ -131,7 +131,7 @@ function acquireExternalTool() {
 if [[ "$PACKAGERUNTIME" == "win-x64" ]]; then
     acquireExternalTool "$CONTAINER_URL/azcopy/1/azcopy.zip" azcopy
     acquireExternalTool "$CONTAINER_URL/pdbstr/1/pdbstr.zip" pdbstr
-    acquireExternalTool "$CONTAINER_URL/mingit/2.18.0/MinGit-2.18.0-64-bit.zip" git
+    acquireExternalTool "$CONTAINER_URL/mingit/2.21.0/MinGit-2.21.0-64-bit.zip" git
     acquireExternalTool "$CONTAINER_URL/symstore/1/symstore.zip" symstore
     acquireExternalTool "$CONTAINER_URL/vstshost/m122_887c6659/vstshost.zip" vstshost
     acquireExternalTool "$CONTAINER_URL/vstsom/m122_887c6659/vstsom.zip" vstsom
@@ -145,7 +145,7 @@ fi
 
 if [[ "$PACKAGERUNTIME" == "win-x86" ]]; then
     acquireExternalTool "$CONTAINER_URL/pdbstr/1/pdbstr.zip" pdbstr
-    acquireExternalTool "$CONTAINER_URL/mingit/2.18.0/MinGit-2.18.0-32-bit.zip" git
+    acquireExternalTool "$CONTAINER_URL/mingit/2.21.0/MinGit-2.21.0-32-bit.zip" git
     acquireExternalTool "$CONTAINER_URL/symstore/1/symstore.zip" symstore
     acquireExternalTool "$CONTAINER_URL/vstsom/m122_887c6659/vstsom.zip" vstsom
     acquireExternalTool "$CONTAINER_URL/vswhere/1_0_62/vswhere.zip" vswhere

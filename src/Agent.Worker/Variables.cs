@@ -161,6 +161,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public string System_PhaseDisplayName => Get(Constants.Variables.System.PhaseDisplayName);
 
+        public string System_PullRequest_TargetBranch => Get(Constants.Variables.System.PullRequestTargetBranchName);
+
         public string System_TaskDefinitionsUri => Get(WellKnownDistributedTaskVariables.TaskDefinitionsUrl);
 
         public string System_TeamProject => Get(BuildWebApi.BuildVariables.TeamProject);
@@ -168,6 +170,34 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public Guid? System_TeamProjectId => GetGuid(BuildWebApi.BuildVariables.TeamProjectId);
 
         public string System_TFCollectionUrl => Get(WellKnownDistributedTaskVariables.TFCollectionUrl);
+
+        public static readonly HashSet<string> PiiVariables = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Build.AuthorizeAs",
+            "Build.QueuedBy",
+            "Build.RequestedFor",
+            "Build.RequestedForEmail",
+            "Build.SourceBranch",
+            "Build.SourceBranchName",
+            "Build.SourceTfvcShelveset",
+            "Build.SourceVersion",
+            "Build.SourceVersionAuthor",
+            "Job.AuthorizeAs",
+            "Release.Deployment.RequestedFor",
+            "Release.Deployment.RequestedForEmail",
+            "Release.RequestedFor",
+            "Release.RequestedForEmail",
+        };
+
+        public static readonly string PiiArtifactVariablePrefix = "Release.Artifacts";
+
+        public static readonly List<string> PiiArtifactVariableSuffixes = new List<string>()
+        {
+            "SourceBranch",
+            "SourceBranchName",
+            "SourceVersion",
+            "RequestedFor"
+        };
 
         public void ExpandValues(IDictionary<string, string> target)
         {
