@@ -36,7 +36,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             // Update the env dictionary.
             AddPrependPathToEnvironment();
-            Thread.Sleep(10000);
 
             // Make sure only particular task get run as agent plugin.
             var agentPlugin = HostContext.GetService<IAgentPluginManager>();

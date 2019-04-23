@@ -20,12 +20,11 @@ namespace Agent.Plugins.PipelineArtifact
     public abstract class PipelineArtifactTaskPluginBase : IAgentTaskPlugin
     {
         public abstract Guid Id { get; }
-        public string Version => "0.151.0"; // Publish and Download tasks will be always on the same version.
+        public string Version => "0.139.0"; // Publish and Download tasks will be always on the same version.
         public string Stage => "main";
 
         public async Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
-            Thread.Sleep(30000);
             ArgUtil.NotNull(context, nameof(context));
 
             // Artifact Name
@@ -47,7 +46,7 @@ namespace Agent.Plugins.PipelineArtifact
         private string NormalizedJobIdentifier(string jobIdentifier)
         {
             Regex rgx = new Regex("[^a-zA-Z0-9 - .]");
-            jobIdentifier = rgx.Replace(jobIdentifier, "");
+            jobIdentifier = rgx.Replace(jobIdentifier, string.Empty);
             jobIdentifier = jobIdentifier.Replace(".default","");
             return jobIdentifier;
         }
