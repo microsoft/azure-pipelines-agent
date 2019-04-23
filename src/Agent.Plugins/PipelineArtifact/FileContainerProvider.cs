@@ -1,4 +1,5 @@
 ﻿using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.VisualStudio.Services.BlobStore.Common;
 using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.FileContainer;
@@ -22,13 +23,6 @@ namespace Agent.Plugins.PipelineArtifact
     {
         private FileContainerHttpClient containerClient;
         private CallbackAppTraceSource tracer;
-        // https://github.com/Microsoft/azure-pipelines-task-lib/blob/master/node/docs/findingfiles.md#matchoptions
-        private static readonly Options minimatchOptions = new Options
-        {
-            Dot = true,
-            NoBrace = true,
-            NoCase = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? true : false
-        };
 
         public FileContainerProvider(VssConnection connection, CallbackAppTraceSource tracer)
         {
@@ -65,13 +59,13 @@ namespace Agent.Plugins.PipelineArtifact
             var segments = resourceData.Split('/');
 
             long containerId;
-            if(segments.Length < 3)
+            if (segments.Length < 3)
             {
                 throw new ArgumentException($"Resource data value '{resourceData}' invalid");
             }
             if (segments.Length >= 3 && segments[0] == "#" && long.TryParse(segments[1], out containerId))
             {
-                int index = resourceData.IndexOf('/', resourceData.IndexOf('/') + 1);
+                int index = resourceData.IndexOf('/', resourceData.IndexOf('/') + 1); //Artifact name can also have '/' - hence get everything after second '/'
                 return new Tuple<long, string>(
                     containerId,
                     resourceData.Substring(index+1)
@@ -94,19 +88,13 @@ namespace Agent.Plugins.PipelineArtifact
                 containerIdAndRoot.Item2
                 );
 
-            IEnumerable<Func<string, bool>> minimatcherFuncs = this.GetMinimatchFuncs(minimatchPatterns);
-            if(minimatcherFuncs !=null && minimatcherFuncs.Count() !=0)
+            IEnumerable<Func<string, bool>> minimatcherFuncs = MinimatchHelper.GetMinimatchFuncs(minimatchPatterns, tracer);
+            if (minimatcherFuncs !=null && minimatcherFuncs.Count() !=0)
             {
                 items = this.GetFilteredItems(items, minimatcherFuncs);
             }
 
-            // Group items by type because we want to create the folder structure first.
-            var groupedItems = from i in items
-                               group i by i.ItemType into g
-                               select g;
-
-            // Now create the folders.
-            var folderItems = groupedItems.SingleOrDefault(i => i.Key == ContainerItemType.Folder);
+            var folderItems = items.Where(i => i.ItemType == ContainerItemType.Folder);
             if (folderItems != null)
             {
                 Parallel.ForEach(folderItems, (folder) =>
@@ -116,7 +104,7 @@ namespace Agent.Plugins.PipelineArtifact
                 });
             }
 
-            var fileItems = groupedItems.SingleOrDefault(i => i.Key == ContainerItemType.File);
+            var fileItems = items.Where(i => i.ItemType == ContainerItemType.File);
 
             var batchItemsBlock = new BatchBlock<FileContainerItem>(
                 batchSize: 1000,
@@ -140,7 +128,7 @@ namespace Agent.Plugins.PipelineArtifact
                 new ExecutionDataflowBlockOptions()
                 {
                     BoundedCapacity = 1000,
-                    MaxDegreeOfParallelism = 250,
+                    MaxDegreeOfParallelism = Environment.ProcessorCount * 8,
                     CancellationToken = cancellationToken,
                 });
 
@@ -149,17 +137,25 @@ namespace Agent.Plugins.PipelineArtifact
                 {
                     using (item.stream)
                     {
-                        using (var fileStream = new FileStream(item.targetPath, FileMode.Create))
+                        int retryCount = 0;
+                        try
                         {
-                            item.stream.CopyTo(fileStream);
+                            using (var fileStream = new FileStream(item.targetPath, FileMode.Create))
+                            {
+                                item.stream.CopyTo(fileStream);
+                            }
                         }
-                    }
-                    
+                        catch (IOException exception) when (retryCount < 3)
+                        {
+                            Console.WriteLine($"Exception caught: {exception.Message}, on retry count {retryCount}, Retrying\n");
+                            retryCount++;
+                        }
+                    }               
                 },
                 new ExecutionDataflowBlockOptions()
                 {
                     BoundedCapacity = 1000,
-                    MaxDegreeOfParallelism = 250,
+                    MaxDegreeOfParallelism = Environment.ProcessorCount,
                     CancellationToken = cancellationToken,
                 });
 
@@ -190,26 +186,9 @@ namespace Agent.Plugins.PipelineArtifact
         {
             var index = artifactName.Length;
             var itemPathWithoutDirectoryPrefix = (index != -1 && index < item.Path.Length) ? item.Path.Substring(index + 1) : string.Empty;
-            var targetPath = Path.Combine(rootPath, itemPathWithoutDirectoryPrefix);
-            return targetPath;
-        }
-
-        private IEnumerable<Func<string, bool>> GetMinimatchFuncs(IEnumerable<string> minimatchPatterns)
-        {
-            IEnumerable<Func<string, bool>> minimatcherFuncs;
-            if (minimatchPatterns != null && minimatchPatterns.Count() != 0)
-            {
-                string minimatchPatternMsg = $"Minimatch patterns: [{ string.Join(",", minimatchPatterns) }]";
-                minimatcherFuncs = minimatchPatterns
-                    .Where(pattern => !string.IsNullOrEmpty(pattern)) // get rid of empty strings to avoid filtering out whole item list.
-                    .Select(pattern => Minimatcher.CreateFilter(pattern, minimatchOptions));
-            }
-            else
-            {
-                minimatcherFuncs = null;
-            }
-
-            return minimatcherFuncs;
+            var dirName = Path.GetDirectoryName(item.Path);
+            var absolutePath = Path.Combine(rootPath, itemPathWithoutDirectoryPrefix);
+            return absolutePath;
         }
 
         private List<FileContainerItem> GetFilteredItems(List<FileContainerItem> items, IEnumerable<Func<string, bool>> minimatchFuncs)
