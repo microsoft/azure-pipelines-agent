@@ -10,7 +10,6 @@ using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
-using System.Threading;
 using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
