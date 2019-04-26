@@ -21,8 +21,8 @@ namespace Agent.Plugins.PipelineArtifact
 {
     class FileContainerProvider : IArtifactProvider
     {
-        private FileContainerHttpClient containerClient;
-        private CallbackAppTraceSource tracer;
+        private readonly FileContainerHttpClient containerClient;
+        private readonly CallbackAppTraceSource tracer;
 
         public FileContainerProvider(VssConnection connection, CallbackAppTraceSource tracer)
         {
@@ -39,25 +39,20 @@ namespace Agent.Plugins.PipelineArtifact
             await this.DownloadFileContainersAsync(downloadParameters.ProjectId, buildArtifacts, downloadParameters.TargetDirectory, downloadParameters.MinimatchFilters, cancellationToken);
         }
 
-        public async Task DownloadFileContainersAsync(Guid projectId, IEnumerable<BuildArtifact> buildArtifacts, string targetDirectory, string[] minimatchFilters, CancellationToken cancellationToken)
+        public async Task DownloadFileContainersAsync(Guid projectId, IEnumerable<BuildArtifact> buildArtifacts, string targetDirectory, IEnumerable<string> minimatchFilters, CancellationToken cancellationToken)
         {
-            if (buildArtifacts.Count() == 0)
-            {
-                return;
-            }
             foreach (var buildArtifact in buildArtifacts)
             {
-                var specificPath = Path.Combine(targetDirectory, buildArtifact.Name);
-                Directory.CreateDirectory(specificPath);
-                await DownloadFileContainerAsync(projectId, buildArtifact, specificPath, minimatchFilters, cancellationToken);
+                var dirPath = Path.Combine(targetDirectory, buildArtifact.Name);
+                Directory.CreateDirectory(dirPath);
+                await DownloadFileContainerAsync(projectId, buildArtifact, dirPath, minimatchFilters, cancellationToken);
             }
         }
 
-        private Tuple<long, string> ParseContainerId(string resourceData)
+        private (long, string) ParseContainerId(string resourceData)
         {
             // Example of resourceData: "#/7029766/artifacttool-alpine-x64-Debug"
             var segments = resourceData.Split('/');
-
             long containerId;
             if (segments.Length < 3)
             {
@@ -65,10 +60,10 @@ namespace Agent.Plugins.PipelineArtifact
             }
             if (segments.Length >= 3 && segments[0] == "#" && long.TryParse(segments[1], out containerId))
             {
-                int index = resourceData.IndexOf('/', resourceData.IndexOf('/') + 1); //Artifact name can also have '/' - hence get everything after second '/'
-                return new Tuple<long, string>(
-                    containerId,
-                    resourceData.Substring(index+1)
+                var artifactName = String.Join('/', segments[2]);
+                return(
+                        containerId,
+                        artifactName
                     );
             }
             else
@@ -88,26 +83,24 @@ namespace Agent.Plugins.PipelineArtifact
                 containerIdAndRoot.Item2
                 );
 
+            tracer.Info($"Start downloading FCS artifact- {artifact.Name}");
             IEnumerable<Func<string, bool>> minimatcherFuncs = MinimatchHelper.GetMinimatchFuncs(minimatchPatterns, tracer);
             if (minimatcherFuncs !=null && minimatcherFuncs.Count() !=0)
             {
-                items = this.GetFilteredItems(items, minimatcherFuncs);
+                items = this.GetFilteredItems(items, minimatcherFuncs, artifact.Name);
             }
 
             var folderItems = items.Where(i => i.ItemType == ContainerItemType.Folder);
-            if (folderItems != null)
+            Parallel.ForEach(folderItems, (folder) =>
             {
-                Parallel.ForEach(folderItems, (folder) =>
-                {
-                    var targetPath = ResolveTargetPath(rootPath, folder, artifact.Name);
-                    Directory.CreateDirectory(targetPath);
-                });
-            }
+                var targetPath = ResolveTargetPath(rootPath, folder, artifact.Name);
+                Directory.CreateDirectory(targetPath);
+            });
 
             var fileItems = items.Where(i => i.ItemType == ContainerItemType.File);
 
             var batchItemsBlock = new BatchBlock<FileContainerItem>(
-                batchSize: 1000,
+                batchSize: 8,
                 new GroupingDataflowBlockOptions()
                 {
                     CancellationToken = cancellationToken,
@@ -120,14 +113,14 @@ namespace Agent.Plugins.PipelineArtifact
                     foreach (var item in itemsStream)
                     {
                         var targetPath = ResolveTargetPath(rootPath, item, artifact.Name);
-                        Stream stream = await this.DownloadFileFromContainerAsync(containerIdAndRoot, projectId, containerClient, item, targetPath, cancellationToken);
+                        Stream stream = await this.DownloadFileFromContainerAsync(containerIdAndRoot, projectId, containerClient, item, cancellationToken);
                         collection.Add((stream, targetPath));
                     }
                     return collection;
                 },
                 new ExecutionDataflowBlockOptions()
                 {
-                    BoundedCapacity = 1000,
+                    BoundedCapacity = 8,
                     MaxDegreeOfParallelism = Environment.ProcessorCount * 8,
                     CancellationToken = cancellationToken,
                 });
@@ -140,6 +133,7 @@ namespace Agent.Plugins.PipelineArtifact
                         int retryCount = 0;
                         try
                         {
+                            tracer.Info($"Downloading: {item.targetPath}");
                             using (var fileStream = new FileStream(item.targetPath, FileMode.Create))
                             {
                                 item.stream.CopyTo(fileStream);
@@ -147,15 +141,15 @@ namespace Agent.Plugins.PipelineArtifact
                         }
                         catch (IOException exception) when (retryCount < 3)
                         {
-                            Console.WriteLine($"Exception caught: {exception.Message}, on retry count {retryCount}, Retrying\n");
+                            tracer.Warn($"Exception caught: {exception.Message}, on retry count {retryCount}, Retrying");
                             retryCount++;
                         }
                     }               
                 },
                 new ExecutionDataflowBlockOptions()
                 {
-                    BoundedCapacity = 1000,
-                    MaxDegreeOfParallelism = Environment.ProcessorCount,
+                    BoundedCapacity = 8,
+                    MaxDegreeOfParallelism = Environment.ProcessorCount * 8,
                     CancellationToken = cancellationToken,
                 });
 
@@ -165,7 +159,12 @@ namespace Agent.Plugins.PipelineArtifact
             await batchItemsBlock.SendAllAndCompleteAsync(fileItems, downloadBlock, cancellationToken).ConfigureAwait(false);
         }
 
-        private async Task<Stream> DownloadFileFromContainerAsync(Tuple<long, string> containerIdAndRoot, Guid scopeIdentifier, FileContainerHttpClient containerClient, FileContainerItem item, string targetPath, CancellationToken cancellationToken)
+        private async Task<Stream> DownloadFileFromContainerAsync(
+            (long, string) containerIdAndRoot,
+            Guid scopeIdentifier,
+            FileContainerHttpClient containerClient,
+            FileContainerItem item,
+            CancellationToken cancellationToken)
         {
             Stream responseStream = await AsyncHttpRetryHelper.InvokeAsync(
                 async () =>
@@ -184,26 +183,32 @@ namespace Agent.Plugins.PipelineArtifact
 
         private string ResolveTargetPath(string rootPath, FileContainerItem item, string artifactName)
         {
-            var index = artifactName.Length;
-            var itemPathWithoutDirectoryPrefix = (index != -1 && index < item.Path.Length) ? item.Path.Substring(index + 1) : string.Empty;
-            var dirName = Path.GetDirectoryName(item.Path);
+            if(item.Path.Length > artifactName.Length)
+            {
+                artifactName += "/";
+            }
+            var itemPathWithoutDirectoryPrefix = item.Path.Replace(artifactName, "");
             var absolutePath = Path.Combine(rootPath, itemPathWithoutDirectoryPrefix);
             return absolutePath;
         }
 
-        private List<FileContainerItem> GetFilteredItems(List<FileContainerItem> items, IEnumerable<Func<string, bool>> minimatchFuncs)
+        private List<FileContainerItem> GetFilteredItems(List<FileContainerItem> items, IEnumerable<Func<string, bool>> minimatchFuncs, string artifactName)
         {
             List<FileContainerItem> filteredItems = new List<FileContainerItem>();
-            foreach(FileContainerItem item in items)
+            int index = artifactName.Length;
+            foreach (FileContainerItem item in items)
             {
-                int index = item.Path.IndexOf('/');
-                // trim the leading slash from the item paths
-                if (minimatchFuncs.Any(match => match(item.Path.Substring(index+1))))
+                var itemPathWithoutDirectoryPrefix = (index != -1 && index < item.Path.Length) ? item.Path.Substring(index + 1) : string.Empty;
+                if (minimatchFuncs.Any(match => match(itemPathWithoutDirectoryPrefix)))
                 {
                     filteredItems.Add(item);
                 }
             }
-
+            var excludedItems = items.Except(filteredItems).ToList();
+            foreach(FileContainerItem item in excludedItems)
+            {
+                tracer.Info($"Item excluded: {item.Path}");
+            }
             return filteredItems;
         }
     }

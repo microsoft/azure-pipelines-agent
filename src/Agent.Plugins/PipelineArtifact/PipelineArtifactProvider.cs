@@ -15,8 +15,8 @@ namespace Agent.Plugins.PipelineArtifact
 {
     public class PipelineArtifactProvider : IArtifactProvider
     {
-        private BuildDropManager buildDropManager;
-        private CallbackAppTraceSource tracer;
+        private readonly BuildDropManager buildDropManager;
+        private readonly CallbackAppTraceSource tracer;
         public PipelineArtifactProvider(AgentTaskPluginExecutionContext context, VssConnection connection, CallbackAppTraceSource tracer)
         {
                 var dedupStoreHttpClient = connection.GetClient<DedupStoreHttpClient>();
