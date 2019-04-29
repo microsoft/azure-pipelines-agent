@@ -1,19 +1,11 @@
 ## Features
-  - Auto Publish Test Files Plugin #2141
-  - Add Pipeline.Workspace variable, the physical path is equivalent to BuildDirectory #2169
+  - N/A
 
 ## Bugs
-  - Allow `submodules: false` in checkout task. #2153
-  - Target branch for single agent flow in Vstest Task #2126
-  - Retry agent update download on failure #2183
-  - Fixing issue where project name is known for DownloadArtifact but project Id is used and error occurs #2188
-  - Maintenance job recover from case where git repo is corrupt #2201
-  - Prepend workaround to dotnet issue to ps setup script #2197
-  - Change variable downloadPath to targetPath - to match task.json change #2205
+  - Creating code for download pipeline artifact task 1_1_2 - to revert 1_1_1 #2232
 
 ## Misc
-  - Consume MinGit 2.21 #2166
-  - Scrub PII data from the job request message in the diag log #2196
+  - N/A
 
 ## Agent Downloads  
 
