@@ -3,7 +3,7 @@
   - Add Pipeline.Workspace variable, the physical path is equivalent to BuildDirectory #2169
 
 ## Bugs
-  - Allow submodules: false in checkout task. #2153
+  - Allow `submodules: false` in checkout task. #2153
   - Target branch for single agent flow in Vstest Task #2126
   - Retry agent update download on failure #2183
   - Fixing issue where project name is known for DownloadArtifact but project Id is used and error occurs #2188
