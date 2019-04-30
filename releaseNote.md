@@ -2,7 +2,7 @@
   - N/A
 
 ## Bugs
-  - Creating code for download pipeline artifact task 1_1_2 - to revert 1_1_1 #2232
+  - Creating code for download pipeline artifact task 1_1_2 to revert 1_1_1 #2232
 
 ## Misc
   - N/A
