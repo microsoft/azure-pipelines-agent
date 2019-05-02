@@ -56,7 +56,7 @@ namespace Agent.Plugins.PipelineArtifact
             long containerId;
             if (segments.Length < 3)
             {
-                throw new ArgumentException($"Resource data value '{resourceData}' invalid");
+                throw new ArgumentException($"Resource data value '{resourceData}' is invalid.");
             }
             if (segments.Length >= 3 && segments[0] == "#" && long.TryParse(segments[1], out containerId))
             {
@@ -68,7 +68,7 @@ namespace Agent.Plugins.PipelineArtifact
             }
             else
             {
-                var message = $"Resource data value '{resourceData}' was not expected.";
+                var message = $"Resource data value '{resourceData}' is invalid.";
                 throw new ArgumentException(message, "resourceData");
             }
         }
