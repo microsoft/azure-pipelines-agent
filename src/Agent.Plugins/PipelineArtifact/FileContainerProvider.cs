@@ -76,7 +76,7 @@ namespace Agent.Plugins.PipelineArtifact
         private async Task DownloadFileContainerAsync(Guid projectId, BuildArtifact artifact, string rootPath, IEnumerable<string> minimatchPatterns, CancellationToken cancellationToken)
         {
             var containerIdAndRoot = ParseContainerId(artifact.Resource.Data);
-
+            
             var items = await containerClient.QueryContainerItemsAsync(
                 containerIdAndRoot.Item1,
                 projectId,
@@ -87,13 +87,13 @@ namespace Agent.Plugins.PipelineArtifact
             IEnumerable<Func<string, bool>> minimatcherFuncs = MinimatchHelper.GetMinimatchFuncs(minimatchPatterns, tracer);
             if (minimatcherFuncs !=null && minimatcherFuncs.Count() !=0)
             {
-                items = this.GetFilteredItems(items, minimatcherFuncs, artifact.Name);
+                items = this.GetFilteredItems(items, minimatcherFuncs, containerIdAndRoot.Item2);
             }
 
             var folderItems = items.Where(i => i.ItemType == ContainerItemType.Folder);
             Parallel.ForEach(folderItems, (folder) =>
             {
-                var targetPath = ResolveTargetPath(rootPath, folder, artifact.Name);
+                var targetPath = ResolveTargetPath(rootPath, folder, containerIdAndRoot.Item2);
                 Directory.CreateDirectory(targetPath);
             });
 
@@ -106,14 +106,14 @@ namespace Agent.Plugins.PipelineArtifact
                     CancellationToken = cancellationToken,
                 });
 
-            var fetchStream = NonSwallowingTransformManyBlock.Create<IEnumerable<FileContainerItem>, (Stream, string)>(
-                async itemsStream =>
+            var fetchStream = NonSwallowingTransformManyBlock.Create<IEnumerable<FileContainerItem>, (Func<Task<Stream>>, string)>(
+                itemsStream =>
                 {
-                    List<(Stream, string)> collection= new List<(Stream, string)>();
+                    List<(Func<Task<Stream>>, string)> collection= new List<(Func<Task<Stream>>, string)>();
                     foreach (var item in itemsStream)
                     {
-                        var targetPath = ResolveTargetPath(rootPath, item, artifact.Name);
-                        Stream stream = await this.DownloadFileFromContainerAsync(containerIdAndRoot, projectId, containerClient, item, cancellationToken);
+                        var targetPath = ResolveTargetPath(rootPath, item, containerIdAndRoot.Item2);
+                        Func<Task<Stream>> stream = async () =>  await this.DownloadFileFromContainerAsync(containerIdAndRoot, projectId, containerClient, item, cancellationToken);
                         collection.Add((stream, targetPath));
                     }
                     return collection;
@@ -125,26 +125,26 @@ namespace Agent.Plugins.PipelineArtifact
                     CancellationToken = cancellationToken,
                 });
 
-            var downloadBlock = NonSwallowingActionBlock.Create<(Stream stream, string targetPath)>(
-                item =>
+            var downloadBlock = NonSwallowingActionBlock.Create<(Func<Task<Stream>> stream, string targetPath)>(
+                async item =>
                 {
-                    using (item.stream)
+                    int retryCount = 0;
+                    try
                     {
-                        int retryCount = 0;
-                        try
+                        using (var sourceStream = await item.stream.Invoke())
                         {
                             tracer.Info($"Downloading: {item.targetPath}");
-                            using (var fileStream = new FileStream(item.targetPath, FileMode.Create))
+                            using (var targetStream = new FileStream(item.targetPath, FileMode.Create))
                             {
-                                item.stream.CopyTo(fileStream);
+                                sourceStream.CopyTo(targetStream);
                             }
                         }
-                        catch (IOException exception) when (retryCount < 3)
-                        {
-                            tracer.Warn($"Exception caught: {exception.Message}, on retry count {retryCount}, Retrying");
-                            retryCount++;
-                        }
-                    }               
+                    }
+                    catch (IOException exception) when (retryCount < 3)
+                    {
+                        tracer.Warn($"Exception caught: {exception.Message}, on retry count {retryCount}, Retrying");
+                        retryCount++;
+                    }
                 },
                 new ExecutionDataflowBlockOptions()
                 {
@@ -183,11 +183,9 @@ namespace Agent.Plugins.PipelineArtifact
 
         private string ResolveTargetPath(string rootPath, FileContainerItem item, string artifactName)
         {
-            if(item.Path.Length > artifactName.Length)
-            {
-                artifactName += "/";
-            }
-            var itemPathWithoutDirectoryPrefix = item.Path.Replace(artifactName, "");
+            //Example of item.Path&artifactName: item.Path = "drop3", "drop3/HelloWorld.exe"; artifactName = "drop3"
+            var tempArtifactName = (item.Path.Length > artifactName.Length) ? artifactName + "/" : artifactName;
+            var itemPathWithoutDirectoryPrefix = item.Path.Replace(tempArtifactName, "");
             var absolutePath = Path.Combine(rootPath, itemPathWithoutDirectoryPrefix);
             return absolutePath;
         }
@@ -195,10 +193,10 @@ namespace Agent.Plugins.PipelineArtifact
         private List<FileContainerItem> GetFilteredItems(List<FileContainerItem> items, IEnumerable<Func<string, bool>> minimatchFuncs, string artifactName)
         {
             List<FileContainerItem> filteredItems = new List<FileContainerItem>();
-            int index = artifactName.Length;
             foreach (FileContainerItem item in items)
             {
-                var itemPathWithoutDirectoryPrefix = (index != -1 && index < item.Path.Length) ? item.Path.Substring(index + 1) : string.Empty;
+                var tempArtifactName = (item.Path.Length > artifactName.Length) ? artifactName + "/" : artifactName;
+                var itemPathWithoutDirectoryPrefix = item.Path.Replace(tempArtifactName, "");
                 if (minimatchFuncs.Any(match => match(itemPathWithoutDirectoryPrefix)))
                 {
                     filteredItems.Add(item);

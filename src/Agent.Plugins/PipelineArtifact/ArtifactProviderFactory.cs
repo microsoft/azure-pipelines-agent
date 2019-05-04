@@ -23,17 +23,18 @@ namespace Agent.Plugins.PipelineArtifact
         public IArtifactProvider GetProvider(BuildArtifact buildArtifact)
         {
             IArtifactProvider provider;
-            if (buildArtifact.Resource.Type == PipelineArtifactServer.PipelineArtifactTypeName)
+            string artifactType = buildArtifact.Resource.Type;
+            switch (artifactType)
             {
-                provider = pipelineArtifactProvider;
-            }
-            else if (buildArtifact.Resource.Type == PipelineArtifactServer.BuildArtifactTypeName)
-            {
-                provider = fileContainerProvider;
-            }
-            else
-            {
-                throw new InvalidOperationException($"{buildArtifact} is neither of type PipelineArtifact nor BuildArtifact");
+                case PipelineArtifactServer.PipelineArtifactTypeName:
+                    provider = pipelineArtifactProvider;
+                    break;
+                case PipelineArtifactServer.BuildArtifactTypeName:
+                    provider = fileContainerProvider;
+                    break;
+                default:
+                    throw new InvalidOperationException($"{buildArtifact} is neither of type PipelineArtifact nor BuildArtifact");
+
             }
             return provider;
         }
