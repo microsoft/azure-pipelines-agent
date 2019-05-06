@@ -26,13 +26,12 @@ namespace Agent.Plugins.PipelineArtifact
         public async Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
             ArgUtil.NotNull(context, nameof(context));
-
             // Artifact Name
             string artifactName = context.GetInput(ArtifactEventProperties.ArtifactName, required: false);
 
             if (String.IsNullOrWhiteSpace(artifactName)) {
                 string jobIdentifier = context.Variables.GetValueOrDefault("system.jobIdentifier").Value;
-                var normalizedJobIdentifier = NormalizedJobIdentifier(jobIdentifier);
+                var normalizedJobIdentifier = NormalizeJobIdentifier(jobIdentifier);
                 artifactName = normalizedJobIdentifier;
             }
 
@@ -43,11 +42,10 @@ namespace Agent.Plugins.PipelineArtifact
             await ProcessCommandInternalAsync(context, targetPath, artifactName, token);
         }
 
-        private string NormalizedJobIdentifier(string jobIdentifier)
+        private string NormalizeJobIdentifier(string jobIdentifier)
         {
             Regex rgx = new Regex("[^a-zA-Z0-9 - .]");
-            jobIdentifier = rgx.Replace(jobIdentifier, string.Empty);
-            jobIdentifier = jobIdentifier.Replace(".default",string.Empty);
+            jobIdentifier = rgx.Replace(jobIdentifier, string.Empty).Replace(".default", string.Empty);
             return jobIdentifier;
         }
 
