@@ -34,7 +34,6 @@ namespace Agent.Plugins.PipelineArtifact
                     break;
                 default:
                     throw new InvalidOperationException($"{buildArtifact} is neither of type PipelineArtifact nor BuildArtifact");
-
             }
             return provider;
         }

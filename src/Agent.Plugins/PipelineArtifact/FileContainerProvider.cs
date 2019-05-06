@@ -128,23 +128,25 @@ namespace Agent.Plugins.PipelineArtifact
             var downloadBlock = NonSwallowingActionBlock.Create<(Func<Task<Stream>> stream, string targetPath)>(
                 async item =>
                 {
-                    int retryCount = 0;
-                    try
-                    {
-                        using (var sourceStream = await item.stream.Invoke())
-                        {
-                            tracer.Info($"Downloading: {item.targetPath}");
-                            using (var targetStream = new FileStream(item.targetPath, FileMode.Create))
-                            {
-                                sourceStream.CopyTo(targetStream);
-                            }
-                        }
-                    }
-                    catch (IOException exception) when (retryCount < 3)
-                    {
-                        tracer.Warn($"Exception caught: {exception.Message}, on retry count {retryCount}, Retrying");
-                        retryCount++;
-                    }
+                    await AsyncHttpRetryHelper.InvokeVoidAsync(
+                       async () =>
+                       {
+                           using (var sourceStream = await item.stream.Invoke())
+                           {
+                               tracer.Info($"Downloading: {item.targetPath}");
+                               using (var targetStream = new FileStream(item.targetPath, FileMode.Create))
+                               {
+                                   sourceStream.CopyTo(targetStream);
+                               }
+                           }
+                       },
+                        maxRetries: 3,
+                        cancellationToken: cancellationToken,
+                        tracer: this.tracer,
+                        continueOnCapturedContext: false,
+                        canRetryDelegate: exception => exception is IOException,
+                        context: null
+                        );
                 },
                 new ExecutionDataflowBlockOptions()
                 {
