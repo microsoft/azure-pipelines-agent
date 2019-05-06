@@ -20,7 +20,7 @@ namespace Agent.Plugins.PipelineArtifact
     public abstract class PipelineArtifactTaskPluginBase : IAgentTaskPlugin
     {
         public abstract Guid Id { get; }
-        public abstract string Version => "0.139.0"; 
+        public abstract string Version { get; }
         public string Stage => "main";
 
         public async Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
@@ -60,6 +60,7 @@ namespace Agent.Plugins.PipelineArtifact
     {
         // Same as: https://github.com/Microsoft/vsts-tasks/blob/master/Tasks/PublishPipelineArtifactV0/task.json
         public override Guid Id => PipelineArtifactPluginConstants.PublishPipelineArtifactTaskId;
+        public override string Version => "0.139.0";
 
         protected override async Task ProcessCommandInternalAsync(
             AgentTaskPluginExecutionContext context, 
@@ -125,6 +126,7 @@ namespace Agent.Plugins.PipelineArtifact
     {
         // Same as https://github.com/Microsoft/vsts-tasks/blob/master/Tasks/DownloadPipelineArtifactV0/task.json
         public override Guid Id => PipelineArtifactPluginConstants.DownloadPipelineArtifactTaskId;
+        public override string Version => "0.139.0";
 
         protected override async Task ProcessCommandInternalAsync(
             AgentTaskPluginExecutionContext context, 
