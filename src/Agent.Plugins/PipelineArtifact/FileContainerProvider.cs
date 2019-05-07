@@ -130,11 +130,7 @@ namespace Agent.Plugins.PipelineArtifact
                     CancellationToken = cancellationToken,
                 });
 
-            foreach(var item in fileItems)
-            {
-                await downloadBlock.SendAsync(item);
-            }
-
+                await downloadBlock.SendAllAndCompleteSingleBlockNetworkAsync(fileItems, cancellationToken);
         }
 
         private async Task<Stream> DownloadFileFromContainerAsync(
