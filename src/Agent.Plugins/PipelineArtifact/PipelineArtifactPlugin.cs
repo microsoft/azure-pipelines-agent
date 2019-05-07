@@ -113,7 +113,7 @@ namespace Agent.Plugins.PipelineArtifact
         private string NormalizeJobIdentifier(string jobIdentifier)
         {
             // create a normalized identifier-compatible string (A-Z, a-z, 0-9, -, and .) and remove .default since it's redundant
-            Regex rgx = new Regex("[^a-zA-Z0-9 - .]");
+            Regex rgx = new Regex("[^a-zA-Z0-9 - .]", RegexOptions.Compiled);
             jobIdentifier = rgx.Replace(jobIdentifier, string.Empty).Replace(".default", string.Empty);
             return jobIdentifier;
         }
