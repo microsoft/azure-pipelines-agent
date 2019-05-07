@@ -99,50 +99,25 @@ namespace Agent.Plugins.PipelineArtifact
 
             var fileItems = items.Where(i => i.ItemType == ContainerItemType.File);
 
-            var batchItemsBlock = new BatchBlock<FileContainerItem>(
-                batchSize: 8,
-                new GroupingDataflowBlockOptions()
-                {
-                    CancellationToken = cancellationToken,
-                });
-
-            var fetchStream = NonSwallowingTransformManyBlock.Create<IEnumerable<FileContainerItem>, (Func<Task<Stream>>, string)>(
-                itemsStream =>
-                {
-                    List<(Func<Task<Stream>>, string)> collection= new List<(Func<Task<Stream>>, string)>();
-                    foreach (var item in itemsStream)
-                    {
-                        var targetPath = ResolveTargetPath(rootPath, item, containerIdAndRoot.Item2);
-                        Func<Task<Stream>> stream = async () =>  await this.DownloadFileFromContainerAsync(containerIdAndRoot, projectId, containerClient, item, cancellationToken);
-                        collection.Add((stream, targetPath));
-                    }
-                    return collection;
-                },
-                new ExecutionDataflowBlockOptions()
-                {
-                    BoundedCapacity = 8,
-                    MaxDegreeOfParallelism = Environment.ProcessorCount * 8,
-                    CancellationToken = cancellationToken,
-                });
-
-            var downloadBlock = NonSwallowingActionBlock.Create<(Func<Task<Stream>> stream, string targetPath)>(
+            var downloadBlock = NonSwallowingActionBlock.Create<FileContainerItem>(
                 async item =>
                 {
+                    var targetPath = ResolveTargetPath(rootPath, item, containerIdAndRoot.Item2);
                     await AsyncHttpRetryHelper.InvokeVoidAsync(
                        async () =>
                        {
-                           using (var sourceStream = await item.stream.Invoke())
+                           using (var sourceStream = await this.DownloadFileFromContainerAsync(containerIdAndRoot, projectId, containerClient, item, cancellationToken))
                            {
-                               tracer.Info($"Downloading: {item.targetPath}");
-                               using (var targetStream = new FileStream(item.targetPath, FileMode.Create))
+                               tracer.Info($"Downloading: {targetPath}");
+                               using (var targetStream = new FileStream(targetPath, FileMode.Create))
                                {
                                    sourceStream.CopyTo(targetStream);
                                }
                            }
                        },
-                        maxRetries: 3,
+                        maxRetries: 5,
                         cancellationToken: cancellationToken,
-                        tracer: this.tracer,
+                        tracer: tracer,
                         continueOnCapturedContext: false,
                         canRetryDelegate: exception => exception is IOException,
                         context: null
@@ -150,15 +125,16 @@ namespace Agent.Plugins.PipelineArtifact
                 },
                 new ExecutionDataflowBlockOptions()
                 {
-                    BoundedCapacity = 8,
-                    MaxDegreeOfParallelism = Environment.ProcessorCount * 8,
+                    BoundedCapacity = Environment.ProcessorCount * 8,
+                    MaxDegreeOfParallelism = 8,
                     CancellationToken = cancellationToken,
                 });
 
-            batchItemsBlock.LinkTo(fetchStream, new DataflowLinkOptions() { PropagateCompletion = true });
-            fetchStream.LinkTo(downloadBlock, new DataflowLinkOptions() { PropagateCompletion = true });
+            foreach(var item in fileItems)
+            {
+                await downloadBlock.SendAsync(item);
+            }
 
-            await batchItemsBlock.SendAllAndCompleteAsync(fileItems, downloadBlock, cancellationToken).ConfigureAwait(false);
         }
 
         private async Task<Stream> DownloadFileFromContainerAsync(
