@@ -44,8 +44,7 @@ namespace Agent.Plugins.PipelineArtifact
             foreach (var buildArtifact in buildArtifacts)
             {
                 var dirPath = Path.Combine(targetDirectory, buildArtifact.Name);
-                Directory.CreateDirectory(dirPath);
-                await DownloadFileContainerAsync(projectId, buildArtifact, dirPath, minimatchFilters, cancellationToken);
+                await DownloadFileContainerAsync(projectId, buildArtifact, dirPath, minimatchFilters, cancellationToken, isSingleArtifactDownload: false);
             }
         }
 
@@ -73,7 +72,7 @@ namespace Agent.Plugins.PipelineArtifact
             }
         }
 
-        private async Task DownloadFileContainerAsync(Guid projectId, BuildArtifact artifact, string rootPath, IEnumerable<string> minimatchPatterns, CancellationToken cancellationToken)
+        private async Task DownloadFileContainerAsync(Guid projectId, BuildArtifact artifact, string rootPath, IEnumerable<string> minimatchPatterns, CancellationToken cancellationToken, bool isSingleArtifactDownload=true)
         {
             var containerIdAndRoot = ParseContainerId(artifact.Resource.Data);
             
@@ -90,6 +89,11 @@ namespace Agent.Plugins.PipelineArtifact
                 items = this.GetFilteredItems(items, minimatcherFuncs, containerIdAndRoot.Item2);
             }
 
+            if(!isSingleArtifactDownload && items.Any())
+            {
+                Directory.CreateDirectory(rootPath);
+            }
+
             var folderItems = items.Where(i => i.ItemType == ContainerItemType.Folder);
             Parallel.ForEach(folderItems, (folder) =>
             {
@@ -103,6 +107,8 @@ namespace Agent.Plugins.PipelineArtifact
                 async item =>
                 {
                     var targetPath = ResolveTargetPath(rootPath, item, containerIdAndRoot.Item2);
+                    var directory = Path.GetDirectoryName(targetPath);
+                    Directory.CreateDirectory(directory);
                     await AsyncHttpRetryHelper.InvokeVoidAsync(
                        async () =>
                        {
@@ -125,7 +131,7 @@ namespace Agent.Plugins.PipelineArtifact
                 },
                 new ExecutionDataflowBlockOptions()
                 {
-                    BoundedCapacity = Environment.ProcessorCount * 8,
+                    BoundedCapacity = 5000,
                     MaxDegreeOfParallelism = 8,
                     CancellationToken = cancellationToken,
                 });
@@ -169,9 +175,7 @@ namespace Agent.Plugins.PipelineArtifact
             List<FileContainerItem> filteredItems = new List<FileContainerItem>();
             foreach (FileContainerItem item in items)
             {
-                var tempArtifactName = (item.Path.Length > artifactName.Length) ? artifactName + "/" : artifactName;
-                var itemPathWithoutDirectoryPrefix = item.Path.Replace(tempArtifactName, "");
-                if (minimatchFuncs.Any(match => match(itemPathWithoutDirectoryPrefix)))
+                if (minimatchFuncs.Any(match => match(item.Path)))
                 {
                     filteredItems.Add(item);
                 }
