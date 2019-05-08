@@ -61,6 +61,8 @@ namespace Agent.Plugins.PipelineArtifact
         // Same as: https://github.com/Microsoft/vsts-tasks/blob/master/Tasks/PublishPipelineArtifactV0/task.json
         public override Guid Id => PipelineArtifactPluginConstants.PublishPipelineArtifactTaskId;
         public override string Version => "0.139.0";
+        // create a normalized identifier-compatible string (A-Z, a-z, 0-9, -, and .) and remove .default since it's redundant
+        public static readonly Regex jobIdentifierRgx = new Regex("[^a-zA-Z0-9 - .]", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
         protected override async Task ProcessCommandInternalAsync(
             AgentTaskPluginExecutionContext context, 
@@ -112,9 +114,7 @@ namespace Agent.Plugins.PipelineArtifact
 
         private string NormalizeJobIdentifier(string jobIdentifier)
         {
-            // create a normalized identifier-compatible string (A-Z, a-z, 0-9, -, and .) and remove .default since it's redundant
-            Regex rgx = new Regex("[^a-zA-Z0-9 - .]", RegexOptions.Compiled);
-            jobIdentifier = rgx.Replace(jobIdentifier, string.Empty).Replace(".default", string.Empty);
+            jobIdentifier = jobIdentifierRgx.Replace(jobIdentifier, string.Empty).Replace(".default", string.Empty);
             return jobIdentifier;
         }
     }
