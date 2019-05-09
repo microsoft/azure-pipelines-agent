@@ -165,7 +165,7 @@ namespace Agent.Plugins.PipelineArtifact
         {
             //Example of item.Path&artifactName: item.Path = "drop3", "drop3/HelloWorld.exe"; artifactName = "drop3"
             var tempArtifactName = (item.Path.Length > artifactName.Length) ? artifactName + "/" : artifactName;
-            var itemPathWithoutDirectoryPrefix = item.Path.Replace(tempArtifactName, "");
+            var itemPathWithoutDirectoryPrefix = item.Path.Replace(tempArtifactName, String.Empty);
             var absolutePath = Path.Combine(rootPath, itemPathWithoutDirectoryPrefix);
             return absolutePath;
         }
