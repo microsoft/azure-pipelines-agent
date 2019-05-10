@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -17,12 +17,12 @@ using Agent.Sdk;
 
 namespace Agent.Plugins.PipelineArtifact
 {
-    public abstract class PipelineArtifactTaskPluginBaseV1 : IAgentTaskPlugin
+    public abstract class PipelineArtifactTaskPluginBaseV2 : IAgentTaskPlugin
     {
         public abstract Guid Id { get; }
-        public virtual string Version => "1.0.0"; // Publish and Download tasks will be always on the same version.
-        protected virtual string TargetPath => "targetPath";
-        protected virtual string PipelineId => "pipelineId";
+        public virtual string Version => "2.0.0";
+        protected virtual string DownloadPath => "downloadPath";
+        protected virtual string BuildId => "buildId";
         public string Stage => "main";
 
         public Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
@@ -31,7 +31,7 @@ namespace Agent.Plugins.PipelineArtifact
         }
 
         protected abstract Task ProcessCommandInternalAsync(
-            AgentTaskPluginExecutionContext context, 
+            AgentTaskPluginExecutionContext context,
             CancellationToken token);
 
         // Properties set by tasks
@@ -50,7 +50,7 @@ namespace Agent.Plugins.PipelineArtifact
     }
 
     // Can be invoked from a build run or a release run should a build be set as the artifact. 
-    public class DownloadPipelineArtifactTaskV1 : PipelineArtifactTaskPluginBaseV1
+    public class DownloadPipelineArtifactTaskV2_0_0 : PipelineArtifactTaskPluginBaseV2
     {
         // Same as https://github.com/Microsoft/vsts-tasks/blob/master/Tasks/DownloadPipelineArtifactV1/task.json
         public override Guid Id => PipelineArtifactPluginConstants.DownloadPipelineArtifactTaskId;
@@ -61,22 +61,22 @@ namespace Agent.Plugins.PipelineArtifact
         static readonly string buildVersionToDownloadLatestFromBranch = "latestFromBranch";
 
         protected override async Task ProcessCommandInternalAsync(
-            AgentTaskPluginExecutionContext context, 
+            AgentTaskPluginExecutionContext context,
             CancellationToken token)
         {
             ArgUtil.NotNull(context, nameof(context));
-            string artifactName = this.GetArtifactName(context);
+            string artifactName = context.GetInput(ArtifactEventProperties.ArtifactName, required: false);
             string branchName = context.GetInput(ArtifactEventProperties.BranchName, required: false);
             string buildPipelineDefinition = context.GetInput(ArtifactEventProperties.BuildPipelineDefinition, required: false);
             string buildType = context.GetInput(ArtifactEventProperties.BuildType, required: true);
             string buildTriggering = context.GetInput(ArtifactEventProperties.BuildTriggering, required: false);
             string buildVersionToDownload = context.GetInput(ArtifactEventProperties.BuildVersionToDownload, required: false);
-            string targetPath = context.GetInput(TargetPath, required: true);
+            string targetPath = context.GetInput(DownloadPath, required: true);
             string environmentBuildId = context.Variables.GetValueOrDefault(BuildVariables.BuildId)?.Value ?? string.Empty; // BuildID provided by environment.
             string itemPattern = context.GetInput(ArtifactEventProperties.ItemPattern, required: false);
             string projectName = context.GetInput(ArtifactEventProperties.Project, required: false);
             string tags = context.GetInput(ArtifactEventProperties.Tags, required: false);
-            string userSpecifiedpipelineId = context.GetInput(PipelineId, required: false);
+            string userSpecifiedpipelineId = context.GetInput(BuildId, required: false);
 
             string[] minimatchPatterns = itemPattern.Split(
                 new[] { "\n" },
@@ -94,7 +94,7 @@ namespace Agent.Plugins.PipelineArtifact
             {
                 // TODO: use a constant for project id, which is currently defined in Microsoft.VisualStudio.Services.Agent.Constants.Variables.System.TeamProjectId (Ting)
                 string projectIdStr = context.Variables.GetValueOrDefault("system.teamProjectId")?.Value;
-                if(String.IsNullOrEmpty(projectIdStr))
+                if (String.IsNullOrEmpty(projectIdStr))
                 {
                     throw new ArgumentNullException("Project ID cannot be null.");
                 }
@@ -137,6 +137,11 @@ namespace Agent.Plugins.PipelineArtifact
             }
             else if (buildType == buildTypeSpecific)
             {
+                if (String.IsNullOrEmpty(projectName))
+                {
+                    throw new ArgumentNullException("Project Name cannot be null.");
+                }
+                Guid projectId = Guid.Parse(projectName);
                 int pipelineId;
                 if (buildVersionToDownload == buildVersionToDownloadLatest)
                 {
@@ -158,6 +163,7 @@ namespace Agent.Plugins.PipelineArtifact
                 {
                     ProjectRetrievalOptions = BuildArtifactRetrievalOptions.RetrieveByProjectName,
                     ProjectName = projectName,
+                    ProjectId = projectId,
                     PipelineId = pipelineId,
                     ArtifactName = artifactName,
                     TargetDirectory = targetPath,
@@ -182,7 +188,7 @@ namespace Agent.Plugins.PipelineArtifact
             }
 
             context.Output(StringUtil.Loc("DownloadArtifactTo", targetPath));
-            await server.DownloadAsync(context, downloadParameters, downloadOptions, token);
+            await server.DownloadAsyncV2(context, downloadParameters, downloadOptions, token);
             context.Output(StringUtil.Loc("DownloadArtifactFinished"));
         }
 
@@ -202,7 +208,7 @@ namespace Agent.Plugins.PipelineArtifact
             return fullPath;
         }
 
-        private async Task<int> GetpipelineIdAsync(AgentTaskPluginExecutionContext context, string buildPipelineDefinition, string buildVersionToDownload, string project, string[] tagFilters, string branchName=null)
+        private async Task<int> GetpipelineIdAsync(AgentTaskPluginExecutionContext context, string buildPipelineDefinition, string buildVersionToDownload, string project, string[] tagFilters, string branchName = null)
         {
             var definitions = new List<int>() { Int32.Parse(buildPipelineDefinition) };
             VssConnection connection = context.VssConnection;
@@ -230,39 +236,5 @@ namespace Agent.Plugins.PipelineArtifact
                 throw new ArgumentException("No builds currently exist in the build definition supplied.");
             }
         }
-    }
-
-    public class DownloadPipelineArtifactTaskV1_1_0 : DownloadPipelineArtifactTaskV1
-    {
-        public override string Version => "1.1.0";
-        protected override string TargetPath => "downloadPath";
-        protected override string PipelineId => "buildId";
-
-        protected override string GetArtifactName(AgentTaskPluginExecutionContext context)
-        {
-            return context.GetInput(ArtifactEventProperties.ArtifactName, required: false);
-        }
-    }
-
-    public class DownloadPipelineArtifactTaskV1_1_1 : DownloadPipelineArtifactTaskV1
-    {
-        public override string Version => "1.1.1";
-
-        protected override string GetArtifactName(AgentTaskPluginExecutionContext context)
-        {
-            return context.GetInput(ArtifactEventProperties.ArtifactName, required: false);
-        }
-    }
-
-    // 1.1.2 is the same as 1.1.0 because we reverted 1.1.1 change.
-    public class DownloadPipelineArtifactTaskV1_1_2 : DownloadPipelineArtifactTaskV1_1_0
-    {
-        public override string Version => "1.1.2";
-    }
-
-    // 1.1.3 is the same as 1.1.0 because we reverted 1.1.1 change and the minimum agent version.
-    public class DownloadPipelineArtifactTaskV1_1_3 : DownloadPipelineArtifactTaskV1_1_0
-    {
-        public override string Version => "1.1.3";
     }
 }

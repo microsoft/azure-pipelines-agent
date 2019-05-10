@@ -79,8 +79,103 @@ namespace Agent.Plugins.PipelineArtifact
             CancellationToken cancellationToken)
         {
             VssConnection connection = context.VssConnection;
+            var buildDropManager = this.CreateBulidDropManager(context, connection);
             BuildServer buildHelper = new BuildServer(connection);
-            
+
+            // download all pipeline artifacts if artifact name is missing
+            if (downloadOptions == DownloadOptions.MultiDownload)
+            {
+                List<BuildArtifact> artifacts;
+                if (downloadParameters.ProjectRetrievalOptions == BuildArtifactRetrievalOptions.RetrieveByProjectId)
+                {
+                    artifacts = await buildHelper.GetArtifactsAsync(downloadParameters.ProjectId, downloadParameters.PipelineId, cancellationToken);
+                }
+                else if (downloadParameters.ProjectRetrievalOptions == BuildArtifactRetrievalOptions.RetrieveByProjectName)
+                {
+                    if (string.IsNullOrEmpty(downloadParameters.ProjectName))
+                    {
+                        throw new InvalidOperationException("Project name can't be empty when trying to fetch build artifacts!");
+                    }
+                    else
+                    {
+                        artifacts = await buildHelper.GetArtifactsWithProjectNameAsync(downloadParameters.ProjectName, downloadParameters.PipelineId, cancellationToken);
+                    }
+                }
+                else
+                {
+                    throw new InvalidOperationException("Unreachable code!");
+                }
+
+                IEnumerable<BuildArtifact> pipelineArtifacts = artifacts.Where(a => a.Resource.Type == PipelineArtifactTypeName);
+                if (pipelineArtifacts.Count() == 0)
+                {
+                    throw new ArgumentException("Could not find any pipeline artifacts in the build.");
+                }
+                else
+                {
+                    context.Output(StringUtil.Loc("DownloadingMultiplePipelineArtifacts", pipelineArtifacts.Count()));
+
+                    var artifactNameAndManifestIds = pipelineArtifacts.ToDictionary(
+                        keySelector: (a) => a.Name, // keys should be unique, if not something is really wrong
+                        elementSelector: (a) => DedupIdentifier.Create(a.Resource.Data));
+                    // 2) download to the target path
+                    var options = DownloadPipelineArtifactOptions.CreateWithMultiManifestIds(
+                        artifactNameAndManifestIds,
+                        downloadParameters.TargetDirectory,
+                        proxyUri: null,
+                        minimatchPatterns: downloadParameters.MinimatchFilters);
+                    await buildDropManager.DownloadAsync(options, cancellationToken);
+                }
+            }
+            else if (downloadOptions == DownloadOptions.SingleDownload)
+            {
+                // 1) get manifest id from artifact data
+                BuildArtifact buildArtifact;
+                if (downloadParameters.ProjectRetrievalOptions == BuildArtifactRetrievalOptions.RetrieveByProjectId)
+                {
+                    buildArtifact = await buildHelper.GetArtifact(downloadParameters.ProjectId, downloadParameters.PipelineId, downloadParameters.ArtifactName, cancellationToken);
+                }
+                else if (downloadParameters.ProjectRetrievalOptions == BuildArtifactRetrievalOptions.RetrieveByProjectName)
+                {
+                    if (string.IsNullOrEmpty(downloadParameters.ProjectName))
+                    {
+                        throw new InvalidOperationException("Project name can't be empty when trying to fetch build artifacts!");
+                    }
+                    else
+                    {
+                        buildArtifact = await buildHelper.GetArtifactWithProjectNameAsync(downloadParameters.ProjectName, downloadParameters.PipelineId, downloadParameters.ArtifactName, cancellationToken);
+                    }
+                }
+                else
+                {
+                    throw new InvalidOperationException("Unreachable code!");
+                }
+
+                var manifestId = DedupIdentifier.Create(buildArtifact.Resource.Data);
+                var options = DownloadPipelineArtifactOptions.CreateWithManifestId(
+                    manifestId,
+                    downloadParameters.TargetDirectory,
+                    proxyUri: null,
+                    minimatchPatterns: downloadParameters.MinimatchFilters);
+
+                await buildDropManager.DownloadAsync(options, cancellationToken);
+            }
+            else
+            {
+                throw new InvalidOperationException("Unreachable code!");
+            }
+        }
+
+        // Download for version 2. This decision was made because version 1 is sealed and we didn't want to break any existing customers.
+        internal async Task DownloadAsyncV2(
+            AgentTaskPluginExecutionContext context,
+            PipelineArtifactDownloadParameters downloadParameters,
+            DownloadOptions downloadOptions,
+            CancellationToken cancellationToken)
+        {
+            VssConnection connection = context.VssConnection;
+            BuildServer buildHelper = new BuildServer(connection);
+
             // download all pipeline artifacts if artifact name is missing
             if (downloadOptions == DownloadOptions.MultiDownload)
             {
@@ -112,7 +207,7 @@ namespace Agent.Plugins.PipelineArtifact
                     FileContainerProvider provider = new FileContainerProvider(connection, this.CreateTracer(context));
                     await provider.DownloadMultipleArtifactsAsync(downloadParameters, buildArtifacts, cancellationToken);
                 }
-                
+
                 if (pipelineArtifacts.Any())
                 {
                     PipelineArtifactProvider provider = new PipelineArtifactProvider(context, connection, this.CreateTracer(context));
@@ -151,7 +246,6 @@ namespace Agent.Plugins.PipelineArtifact
                 throw new InvalidOperationException("Unreachable code!");
             }
         }
-
         private BuildDropManager CreateBulidDropManager(AgentTaskPluginExecutionContext context, VssConnection connection)
         {
             var dedupStoreHttpClient = connection.GetClient<DedupStoreHttpClient>();
