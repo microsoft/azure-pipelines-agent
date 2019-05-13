@@ -71,7 +71,7 @@ namespace Agent.Plugins.PipelineArtifact
             return this.DownloadAsync(context, downloadParameters, DownloadOptions.SingleDownload, cancellationToken);
         }
 
-        // Download with minimatch patterns.
+        // Download with minimatch patterns, V1.
         internal async Task DownloadAsync(
             AgentTaskPluginExecutionContext context,
             PipelineArtifactDownloadParameters downloadParameters,
