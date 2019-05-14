@@ -34,7 +34,6 @@ Ending the collapsible region - `##[endgroup]`
 *  The first line of region will be taken as group title by default.
 *  If there's only one line in the region (including the group title), it will not be considered as a collapsible.
 *  If there's `##[group]` with out corresponding `##[endgroup]` we will add implicit `##[endgroup]`.
-*  `##command` will have an implict `##[group]` and implict `##[endgroup]`, so `##[command]` statements are always grouped together.
 * Decisions on how to we surfaces error/warnings that are part of a group is not covered in this doc.
 
 ### Examples
