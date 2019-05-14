@@ -146,7 +146,7 @@ namespace Agent.Plugins.PipelineArtifact
                 int pipelineId;
                 if (buildVersionToDownload == buildVersionToDownloadLatest)
                 {
-                    pipelineId = await this.GetpipelineIdAsync(context, buildPipelineDefinition, buildVersionToDownload, projectName, tagsInput);
+                    pipelineId = await this.GetPipelineIdAsync(context, buildPipelineDefinition, buildVersionToDownload, projectName, tagsInput);
                 }
                 else if (buildVersionToDownload == buildVersionToDownloadSpecific)
                 {
@@ -154,7 +154,7 @@ namespace Agent.Plugins.PipelineArtifact
                 }
                 else if (buildVersionToDownload == buildVersionToDownloadLatestFromBranch)
                 {
-                    pipelineId = await this.GetpipelineIdAsync(context, buildPipelineDefinition, buildVersionToDownload, projectName, tagsInput, branchName);
+                    pipelineId = await this.GetPipelineIdAsync(context, buildPipelineDefinition, buildVersionToDownload, projectName, tagsInput, branchName);
                 }
                 else
                 {
@@ -209,7 +209,7 @@ namespace Agent.Plugins.PipelineArtifact
             return fullPath;
         }
 
-        private async Task<int> GetpipelineIdAsync(AgentTaskPluginExecutionContext context, string buildPipelineDefinition, string buildVersionToDownload, string project, string[] tagFilters, string branchName = null)
+        private async Task<int> GetPipelineIdAsync(AgentTaskPluginExecutionContext context, string buildPipelineDefinition, string buildVersionToDownload, string project, string[] tagFilters, string branchName = null)
         {
             var definitions = new List<int>() { Int32.Parse(buildPipelineDefinition) };
             VssConnection connection = context.VssConnection;

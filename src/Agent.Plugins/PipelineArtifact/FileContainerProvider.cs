@@ -51,7 +51,7 @@ namespace Agent.Plugins.PipelineArtifact
         private (long, string) ParseContainerId(string resourceData)
         {
             // Example of resourceData: "#/7029766/artifacttool-alpine-x64-Debug"
-            var segments = resourceData.Split('/');
+            string[] segments = resourceData.Split('/');
             long containerId;
             if (segments.Length < 3)
             {
@@ -59,7 +59,7 @@ namespace Agent.Plugins.PipelineArtifact
             }
             if (segments.Length >= 3 && segments[0] == "#" && long.TryParse(segments[1], out containerId))
             {
-                var artifactName = String.Join('/', segments[2]);
+                var artifactName = String.Join('/', segments, 2, segments.Length - 2);
                 return(
                         containerId,
                         artifactName
@@ -86,7 +86,7 @@ namespace Agent.Plugins.PipelineArtifact
             IEnumerable<Func<string, bool>> minimatcherFuncs = MinimatchHelper.GetMinimatchFuncs(minimatchPatterns, tracer);
             if (minimatcherFuncs !=null && minimatcherFuncs.Count() !=0)
             {
-                items = this.GetFilteredItems(items, minimatcherFuncs, containerIdAndRoot.Item2);
+                items = this.GetFilteredItems(items, minimatcherFuncs);
             }
 
             if(!isSingleArtifactDownload && items.Any())
@@ -112,12 +112,12 @@ namespace Agent.Plugins.PipelineArtifact
                     await AsyncHttpRetryHelper.InvokeVoidAsync(
                        async () =>
                        {
-                           using (var sourceStream = await this.DownloadFileFromContainerAsync(containerIdAndRoot, projectId, containerClient, item, cancellationToken))
+                           using (var sourceStream = await this.DownloadFileAsync(containerIdAndRoot, projectId, containerClient, item, cancellationToken))
                            {
                                tracer.Info($"Downloading: {targetPath}");
                                using (var targetStream = new FileStream(targetPath, FileMode.Create))
                                {
-                                   sourceStream.CopyTo(targetStream);
+                                   await sourceStream.CopyToAsync(targetStream);
                                }
                            }
                        },
@@ -139,7 +139,7 @@ namespace Agent.Plugins.PipelineArtifact
                 await downloadBlock.SendAllAndCompleteSingleBlockNetworkAsync(fileItems, cancellationToken);
         }
 
-        private async Task<Stream> DownloadFileFromContainerAsync(
+        private async Task<Stream> DownloadFileAsync(
             (long, string) containerIdAndRoot,
             Guid scopeIdentifier,
             FileContainerHttpClient containerClient,
@@ -164,13 +164,25 @@ namespace Agent.Plugins.PipelineArtifact
         private string ResolveTargetPath(string rootPath, FileContainerItem item, string artifactName)
         {
             //Example of item.Path&artifactName: item.Path = "drop3", "drop3/HelloWorld.exe"; artifactName = "drop3"
-            var tempArtifactName = (item.Path.Length > artifactName.Length) ? artifactName + "/" : artifactName;
+            string tempArtifactName;
+            if(item.Path.Length == artifactName.Length)
+            {
+                tempArtifactName = artifactName;
+            }
+            else if(item.Path.Length > artifactName.Length)
+            {
+                tempArtifactName = artifactName + "/";
+            }
+            else
+            {
+                throw new ArgumentException($"Item path {item.Path} cannot be smaller than artifact {artifactName}");
+            }
             var itemPathWithoutDirectoryPrefix = item.Path.Replace(tempArtifactName, String.Empty);
             var absolutePath = Path.Combine(rootPath, itemPathWithoutDirectoryPrefix);
             return absolutePath;
         }
 
-        private List<FileContainerItem> GetFilteredItems(List<FileContainerItem> items, IEnumerable<Func<string, bool>> minimatchFuncs, string artifactName)
+        private List<FileContainerItem> GetFilteredItems(List<FileContainerItem> items, IEnumerable<Func<string, bool>> minimatchFuncs)
         {
             List<FileContainerItem> filteredItems = new List<FileContainerItem>();
             foreach (FileContainerItem item in items)
@@ -180,7 +192,7 @@ namespace Agent.Plugins.PipelineArtifact
                     filteredItems.Add(item);
                 }
             }
-            var excludedItems = items.Except(filteredItems).ToList();
+            var excludedItems = items.Except(filteredItems);
             foreach(FileContainerItem item in excludedItems)
             {
                 tracer.Info($"Item excluded: {item.Path}");
