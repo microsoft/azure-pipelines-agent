@@ -237,6 +237,7 @@ namespace Agent.Plugins.PipelineArtifact
                 {
                     throw new InvalidOperationException("Unreachable code!");
                 }
+
                 ArtifactProviderFactory factory = new ArtifactProviderFactory(context, connection, this.CreateTracer(context));
                 IArtifactProvider provider = factory.GetProvider(buildArtifact);
                 await provider.DownloadSingleArtifactAsync(downloadParameters, buildArtifact, cancellationToken);
@@ -246,6 +247,7 @@ namespace Agent.Plugins.PipelineArtifact
                 throw new InvalidOperationException("Unreachable code!");
             }
         }
+
         private BuildDropManager CreateBulidDropManager(AgentTaskPluginExecutionContext context, VssConnection connection)
         {
             var dedupStoreHttpClient = connection.GetClient<DedupStoreHttpClient>();
@@ -263,7 +265,7 @@ namespace Agent.Plugins.PipelineArtifact
         }
     }
 
-    public class PipelineArtifactDownloadParameters
+    internal class PipelineArtifactDownloadParameters
     {
         /// <remarks>
         /// Options on how to retrieve the build using the following parameters.
@@ -283,13 +285,13 @@ namespace Agent.Plugins.PipelineArtifact
         public string[] MinimatchFilters { get; set; }
     }
 
-    public enum BuildArtifactRetrievalOptions
+    internal enum BuildArtifactRetrievalOptions
     {
         RetrieveByProjectId,
         RetrieveByProjectName
     }
 
-    public enum DownloadOptions
+    internal enum DownloadOptions
     {
         SingleDownload,        
         MultiDownload

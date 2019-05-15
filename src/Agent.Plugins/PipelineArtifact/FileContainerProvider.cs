@@ -19,7 +19,7 @@ using System.Threading.Tasks.Dataflow;
 
 namespace Agent.Plugins.PipelineArtifact
 {
-    class FileContainerProvider : IArtifactProvider
+    internal class FileContainerProvider : IArtifactProvider
     {
         private readonly FileContainerHttpClient containerClient;
         private readonly CallbackAppTraceSource tracer;
@@ -29,6 +29,7 @@ namespace Agent.Plugins.PipelineArtifact
             containerClient = connection.GetClient<FileContainerHttpClient>();
             this.tracer = tracer;
         }
+
         public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken)
         {
             await this.DownloadFileContainerAsync(downloadParameters.ProjectId, buildArtifact, downloadParameters.TargetDirectory, downloadParameters.MinimatchFilters, cancellationToken);
@@ -53,17 +54,19 @@ namespace Agent.Plugins.PipelineArtifact
             // Example of resourceData: "#/7029766/artifacttool-alpine-x64-Debug"
             string[] segments = resourceData.Split('/');
             long containerId;
+
             if (segments.Length < 3)
             {
                 throw new ArgumentException($"Resource data value '{resourceData}' is invalid.");
             }
+
             if (segments.Length >= 3 && segments[0] == "#" && long.TryParse(segments[1], out containerId))
             {
                 var artifactName = String.Join('/', segments, 2, segments.Length - 2);
-                return(
+                return (
                         containerId,
                         artifactName
-                    );
+                        );
             }
             else
             {
@@ -72,24 +75,21 @@ namespace Agent.Plugins.PipelineArtifact
             }
         }
 
-        private async Task DownloadFileContainerAsync(Guid projectId, BuildArtifact artifact, string rootPath, IEnumerable<string> minimatchPatterns, CancellationToken cancellationToken, bool isSingleArtifactDownload=true)
+        private async Task DownloadFileContainerAsync(Guid projectId, BuildArtifact artifact, string rootPath, IEnumerable<string> minimatchPatterns, CancellationToken cancellationToken, bool isSingleArtifactDownload = true)
         {
             var containerIdAndRoot = ParseContainerId(artifact.Resource.Data);
-            
-            var items = await containerClient.QueryContainerItemsAsync(
-                containerIdAndRoot.Item1,
-                projectId,
-                containerIdAndRoot.Item2
-                );
+
+            var items = await containerClient.QueryContainerItemsAsync(containerIdAndRoot.Item1, projectId, containerIdAndRoot.Item2);
 
             tracer.Info($"Start downloading FCS artifact- {artifact.Name}");
             IEnumerable<Func<string, bool>> minimatcherFuncs = MinimatchHelper.GetMinimatchFuncs(minimatchPatterns, tracer);
-            if (minimatcherFuncs !=null && minimatcherFuncs.Count() !=0)
+
+            if (minimatcherFuncs != null && minimatcherFuncs.Count() != 0)
             {
                 items = this.GetFilteredItems(items, minimatcherFuncs);
             }
 
-            if(!isSingleArtifactDownload && items.Any())
+            if (!isSingleArtifactDownload && items.Any())
             {
                 Directory.CreateDirectory(rootPath);
             }
@@ -136,7 +136,7 @@ namespace Agent.Plugins.PipelineArtifact
                     CancellationToken = cancellationToken,
                 });
 
-                await downloadBlock.SendAllAndCompleteSingleBlockNetworkAsync(fileItems, cancellationToken);
+            await downloadBlock.SendAllAndCompleteSingleBlockNetworkAsync(fileItems, cancellationToken);
         }
 
         private async Task<Stream> DownloadFileAsync(
@@ -149,7 +149,7 @@ namespace Agent.Plugins.PipelineArtifact
             Stream responseStream = await AsyncHttpRetryHelper.InvokeAsync(
                 async () =>
                 {
-                    Stream internalResponseStream = await containerClient.DownloadFileAsync(containerIdAndRoot.Item1, item.Path, cancellationToken, scopeIdentifier).ConfigureAwait(false);
+                    Stream internalResponseStream = await containerClient.DownloadFileAsync(containerIdAndRoot.Item1, item.Path, cancellationToken, scopeIdentifier);
                     return internalResponseStream;
                 },
                 maxRetries: 5,
@@ -165,11 +165,11 @@ namespace Agent.Plugins.PipelineArtifact
         {
             //Example of item.Path&artifactName: item.Path = "drop3", "drop3/HelloWorld.exe"; artifactName = "drop3"
             string tempArtifactName;
-            if(item.Path.Length == artifactName.Length)
+            if (item.Path.Length == artifactName.Length)
             {
                 tempArtifactName = artifactName;
             }
-            else if(item.Path.Length > artifactName.Length)
+            else if (item.Path.Length > artifactName.Length)
             {
                 tempArtifactName = artifactName + "/";
             }
@@ -177,6 +177,7 @@ namespace Agent.Plugins.PipelineArtifact
             {
                 throw new ArgumentException($"Item path {item.Path} cannot be smaller than artifact {artifactName}");
             }
+
             var itemPathWithoutDirectoryPrefix = item.Path.Replace(tempArtifactName, String.Empty);
             var absolutePath = Path.Combine(rootPath, itemPathWithoutDirectoryPrefix);
             return absolutePath;
@@ -193,7 +194,7 @@ namespace Agent.Plugins.PipelineArtifact
                 }
             }
             var excludedItems = items.Except(filteredItems);
-            foreach(FileContainerItem item in excludedItems)
+            foreach (FileContainerItem item in excludedItems)
             {
                 tracer.Info($"Item excluded: {item.Path}");
             }

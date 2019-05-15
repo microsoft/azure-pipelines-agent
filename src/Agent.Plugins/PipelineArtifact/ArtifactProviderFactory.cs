@@ -9,12 +9,12 @@ using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 
 namespace Agent.Plugins.PipelineArtifact
 {
-    public class ArtifactProviderFactory
+    internal class ArtifactProviderFactory
     {
         private readonly FileContainerProvider fileContainerProvider;
         private readonly PipelineArtifactProvider pipelineArtifactProvider;
 
-        public ArtifactProviderFactory(AgentTaskPluginExecutionContext context, VssConnection connection, CallbackAppTraceSource tracer )
+        public ArtifactProviderFactory(AgentTaskPluginExecutionContext context, VssConnection connection, CallbackAppTraceSource tracer)
         {
             pipelineArtifactProvider = new PipelineArtifactProvider(context, connection, tracer);
             fileContainerProvider = new FileContainerProvider(connection, tracer);
@@ -37,6 +37,5 @@ namespace Agent.Plugins.PipelineArtifact
             }
             return provider;
         }
-
     }
 }

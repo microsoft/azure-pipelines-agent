@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Agent.Plugins.PipelineArtifact
 {
-    public interface IArtifactProvider
+    internal interface IArtifactProvider
     {
         Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken);
         Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken);
