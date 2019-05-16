@@ -190,9 +190,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 registryEndpoint.Data?.TryGetValue("registrytype", out registryType);
                 if (string.Equals(registryType, "ACR", StringComparison.OrdinalIgnoreCase))
                 {
-                    registryEndpoint.Authorization?.Parameters?.TryGetValue("loginServer", out registryServer);
+                    string loginServer = string.Empty;
+                    registryEndpoint.Authorization?.Parameters?.TryGetValue("loginServer", out loginServer);
                     registryEndpoint.Authorization?.Parameters?.TryGetValue("serviceprincipalid", out username);
                     registryEndpoint.Authorization?.Parameters?.TryGetValue("serviceprincipalkey", out password);
+
+                    registryServer = $"https://{loginServer}";
                 }
                 else
                 {
