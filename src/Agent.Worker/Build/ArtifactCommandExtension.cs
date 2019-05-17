@@ -226,7 +226,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             CancellationToken cancellationToken)
         {
             FileContainerServer fileContainerHelper = new FileContainerServer(connection, projectId, containerId, containerPath);
-            await fileContainerHelper.CopyToContainerAsync(context, source, cancellationToken);
+            long size = await fileContainerHelper.CopyToContainerAsync(context, source, cancellationToken);
+            propertiesDictionary.Add(ArtifactUploadEventProperties.ArtifactSize, size.ToString());
+
             string fileContainerFullPath = StringUtil.Format($"#/{containerId}/{containerPath}");
             context.Output(StringUtil.Loc("UploadToFileContainer", source, fileContainerFullPath));
 
@@ -333,6 +335,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
     {
         public static readonly string ContainerFolder = "containerfolder";
         public static readonly string ArtifactName = "artifactname";
+        public static readonly string ArtifactSize = "artifactsize";
         public static readonly string ArtifactType = "artifacttype";
         public static readonly string Browsable = "Browsable";
     }
