@@ -103,7 +103,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
                     // Retry upload all failed files.
                     context.Output(StringUtil.Loc("FileUploadRetry", uploadResult.FailedFiles.Count));
-                    var retryUploadResult = await ParallelUploadAsync(context, uploadResult.FailedFiles, maxConcurrentUploads, _uploadCancellationTokenSource.Token);
+                    UploadResult retryUploadResult = await ParallelUploadAsync(context, uploadResult.FailedFiles, maxConcurrentUploads, _uploadCancellationTokenSource.Token);
 
                     if (retryUploadResult.FailedFiles.Count == 0)
                     {
@@ -126,7 +126,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         private async Task<UploadResult> ParallelUploadAsync(IAsyncCommandContext context, IReadOnlyList<string> files, int concurrentUploads, CancellationToken token)
         {
-            // return files that fail to upload
+            // return files that fail to upload and total artifact size
             var uploadResult = new UploadResult
             {
                 FailedFiles = new List<string>(),
