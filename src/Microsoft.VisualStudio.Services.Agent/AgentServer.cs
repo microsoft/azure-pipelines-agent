@@ -70,9 +70,16 @@ namespace Microsoft.VisualStudio.Services.Agent
                 return;
             }
 
-            _genericConnection = await EstablishVssConnection(serverUrl, credentials, TimeSpan.FromSeconds(100));
-            _messageConnection = await EstablishVssConnection(serverUrl, credentials, TimeSpan.FromSeconds(60));
-            _requestConnection = await EstablishVssConnection(serverUrl, credentials, TimeSpan.FromSeconds(60));
+            // Perf: Kick off these 3 outbound calls in parallel and wait for all of them to finish.
+            Task<VssConnection> task1 = EstablishVssConnection(serverUrl, credentials, TimeSpan.FromSeconds(60));
+            Task<VssConnection> task2 = EstablishVssConnection(serverUrl, credentials, TimeSpan.FromSeconds(60));
+            Task<VssConnection> task3 = EstablishVssConnection(serverUrl, credentials, TimeSpan.FromSeconds(60));
+
+            await Task.WhenAll(task1, task2, task3);
+
+            _genericConnection = task1.Result;
+            _messageConnection = task2.Result;
+            _requestConnection = task3.Result;
 
             _genericTaskAgentClient = _genericConnection.GetClient<TaskAgentHttpClient>();
             _messageTaskAgentClient = _messageConnection.GetClient<TaskAgentHttpClient>();

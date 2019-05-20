@@ -262,7 +262,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                         stepRecordIds.Add(lineInfo.StepRecordId);
                     }
 
-                    if (!string.IsNullOrEmpty(lineInfo.Line) && lineInfo.Line.Length > 1024)
+                    if (lineInfo.Line?.Length > 1024)
                     {
                         Trace.Verbose("Web console line is more than 1024 chars, truncate to first 1024 chars");
                         lineInfo.Line = $"{lineInfo.Line.Substring(0, 1024)}...";
@@ -272,7 +272,9 @@ namespace Microsoft.VisualStudio.Services.Agent
                     linesCounter++;
 
                     // process at most about 500 lines of web console line during regular timer dequeue task.
-                    if (!runOnce && linesCounter > 500)
+                    // Send the first line of output to the customer right away
+                    // It might take a while to reach 500 line outputs, which would cause delays before customers see the first line
+                    if ((!runOnce && linesCounter > 500) || _firstConsoleOutputs)
                     {
                         break;
                     }
@@ -323,8 +325,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                                 await _jobServer.AppendTimelineRecordFeedAsync(_scopeIdentifier, _hubName, _planId, _jobTimelineId, _jobTimelineRecordId, stepRecordId, batch, default(CancellationToken));
                                 if (_firstConsoleOutputs)
                                 {
-                                    HostContext.WritePerfCounter($"WorkerJobServerQueueAppendFirstConsoleOutput_{_planId.ToString()}");
                                     _firstConsoleOutputs = false;
+                                    HostContext.WritePerfCounter("WorkerJobServerQueueAppendFirstConsoleOutput");
                                 }
                             }
                             catch (Exception ex)
