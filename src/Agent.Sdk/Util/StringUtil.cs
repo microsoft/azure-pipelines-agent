@@ -31,6 +31,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 #endif
         }
 
+        public static string SubstringPrefix(string value, int count)
+        {
+            return value?.Substring(0, Math.Min(value.Length, count));
+        }
+
         public static T ConvertFromJson<T>(string value)
         {
             return JsonConvert.DeserializeObject<T>(value, s_serializerSettings.Value);
