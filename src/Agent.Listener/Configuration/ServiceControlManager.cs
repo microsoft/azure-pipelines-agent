@@ -58,9 +58,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 Trace.Verbose($"Calculated service name is too long (> 80 chars). Trying again by calculating a shorter name.");
 
-                string accountNameSubstring = StringUtil.SubstringPrefix(accountName, 30);
-                string poolNameSubstring = StringUtil.SubstringPrefix(settings.PoolName, 30);
-                string agentNameSubstring = StringUtil.SubstringPrefix(settings.AgentName, 20);
+                int exceededCharLength = serviceName.Length - 80;
+                string accountNameSubstring = StringUtil.SubstringPrefix(accountName, 25);
+
+                exceededCharLength -= accountName.Length - accountNameSubstring.Length;
+
+                string poolNameSubstring = StringUtil.SubstringPrefix(settings.PoolName, 25);
+
+                exceededCharLength -= settings.PoolName.Length - poolNameSubstring.Length;
+
+                string agentNameSubstring = settings.AgentName;
+
+                // Only trim agent name if it's really necessary
+                if (exceededCharLength > 0)
+                {
+                    agentNameSubstring = StringUtil.SubstringPrefix(settings.AgentName, settings.AgentName.Length - exceededCharLength);
+                }
 
                 serviceName = StringUtil.Format(serviceNamePattern, accountNameSubstring, poolNameSubstring, agentNameSubstring);
             }
