@@ -30,7 +30,13 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
                 var runCreateModel = new RunCreateModel(name: testRun.TestRunName, buildId: _pipelineConfig.BuildId,
                     state: TestRunState.InProgress.ToString(), isAutomated: true, type: RunType.NoConfigRun.ToString());
 
-                // add pipeline reference info into runCreateModel to be passed further
+                runCreateModel.PipelineReference = new PipelineReference()
+                {
+                    PipelineId = _pipelineConfig.BuildId,
+                    StageReference = new StageReference() { StageName = _pipelineConfig.StageName, Attempt = _pipelineConfig.StageAttempt},
+                    PhaseReference = new PhaseReference() { PhaseName = _pipelineConfig.PhaseName, Attempt = _pipelineConfig.PhaseAttempt},
+                    JobReference = new JobReference() { JobName = _pipelineConfig.JobName, Attempt = _pipelineConfig.JobAttempt}
+                };
 
                 // Create the test run on the server
                 var run = await _httpClient.CreateTestRunAsync(runCreateModel, _pipelineConfig.Project);

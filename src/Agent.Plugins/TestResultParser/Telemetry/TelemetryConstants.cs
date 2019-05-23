@@ -14,6 +14,18 @@
 
         public const string BuildId = "BuildId";
 
+        public const string StageName = "StageName";
+
+        public const string StageAttempt = "StageAttempt";
+
+        public const string PhaseName = "PhaseName";
+
+        public const string PhaseAttempt = "PhaseAttempt";
+
+        public const string JobName = "JobName";
+
+        public const string JobAttempt = "JobAttempt";
+
         public const string TotalRunsDetected = "TotalRunsDetected";
 
         public const string ValidRunsDetected = "ValidRunsDetected";

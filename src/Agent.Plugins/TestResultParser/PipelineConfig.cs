@@ -9,7 +9,16 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
 
         public int BuildId { get; set; }
 
-        // add pipeline info (name and attempt for stage, phase and job respectively) in here like:
-        // public int StageName { get; set; }
+        public String StageName { get; set; }
+
+        public int StageAttempt { get; set; }
+
+        public String PhaseName { get; set; }
+
+        public int PhaseAttempt { get; set; }
+
+        public String JobName { get; set; }
+
+        public int JobAttempt { get; set; }
     }
 }
