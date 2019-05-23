@@ -30,6 +30,8 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
                 var runCreateModel = new RunCreateModel(name: testRun.TestRunName, buildId: _pipelineConfig.BuildId,
                     state: TestRunState.InProgress.ToString(), isAutomated: true, type: RunType.NoConfigRun.ToString());
 
+                // add pipeline reference info into runCreateModel to be passed further
+
                 // Create the test run on the server
                 var run = await _httpClient.CreateTestRunAsync(runCreateModel, _pipelineConfig.Project);
                 _logger.Info($"PipelineTestRunPublisher : PublishAsync : Created test run with id {run.Id}.");

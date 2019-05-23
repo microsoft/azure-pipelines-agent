@@ -150,6 +150,9 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
                 _telemetry.AddOrUpdate("BuildId", buildId);
                 props.Add("BuildId", buildId);
             }
+            
+            // add pipeline info (name and attempt for stage, phase and job respectively) in _pipelineConfig here
+            // log telemetry and add it to props too
 
             if (context.Variables.TryGetValue("system.definitionid", out var buildDefinitionId))
             {
