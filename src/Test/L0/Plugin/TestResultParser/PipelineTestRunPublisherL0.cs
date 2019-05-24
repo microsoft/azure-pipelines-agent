@@ -28,7 +28,13 @@ namespace Test.L0.Plugin.TestResultParser
             var pipelineConfig = new PipelineConfig()
             {
                 BuildId = 1,
-                Project = new Guid()
+                Project = new Guid(),
+                StageName = "Stage1",
+                StageAttempt = 1,
+                PhaseName = "Phase1",
+                PhaseAttempt = 1,
+                JobName = "Job1",
+                JobAttempt = 1
             };
 
             clientFactory.Setup(x => x.GetClient<TestResultsHttpClient>()).Returns(testClient.Object);
@@ -76,7 +82,13 @@ namespace Test.L0.Plugin.TestResultParser
             var pipelineConfig = new PipelineConfig()
             {
                 BuildId = 1,
-                Project = new Guid()
+                Project = new Guid(),
+                StageName = "Stage1",
+                StageAttempt = 1,
+                PhaseName = "Phase1",
+                PhaseAttempt = 1,
+                JobName = "Job1",
+                JobAttempt = 1
             };
 
             clientFactory.Setup(x => x.GetClient<TestResultsHttpClient>()).Returns(testClient.Object);
@@ -143,7 +155,13 @@ namespace Test.L0.Plugin.TestResultParser
             var pipelineConfig = new PipelineConfig()
             {
                 BuildId = 1,
-                Project = new Guid()
+                Project = new Guid(),
+                StageName = "Stage1",
+                StageAttempt = 1,
+                PhaseName = "Phase1",
+                PhaseAttempt = 1,
+                JobName = "Job1",
+                JobAttempt = 1
             };
 
             clientFactory.Setup(x => x.GetClient<TestResultsHttpClient>()).Returns(testClient.Object);
@@ -218,7 +236,13 @@ namespace Test.L0.Plugin.TestResultParser
             var pipelineConfig = new PipelineConfig()
             {
                 BuildId = 1,
-                Project = new Guid()
+                Project = new Guid(),
+                StageName = "Stage1",
+                StageAttempt = 1,
+                PhaseName = "Phase1",
+                PhaseAttempt = 1,
+                JobName = "Job1",
+                JobAttempt = 1
             };
 
             clientFactory.Setup(x => x.GetClient<TestResultsHttpClient>()).Returns(testClient.Object);

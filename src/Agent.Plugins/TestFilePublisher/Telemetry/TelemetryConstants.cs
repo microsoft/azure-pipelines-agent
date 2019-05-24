@@ -17,5 +17,17 @@
         public const string PublishTestRunDataAsync = "PublishTestRunDataAsync";
 
         public const string ParseTestResultFiles = "ParseTestResultFiles";
+
+        public const string StageName = "StageName";
+
+        public const string StageAttempt = "StageAttempt";
+
+        public const string PhaseName = "PhaseName";
+
+        public const string PhaseAttempt = "PhaseAttempt";
+
+        public const string JobName = "JobName";
+
+        public const string JobAttempt = "JobAttempt";
     }
 }

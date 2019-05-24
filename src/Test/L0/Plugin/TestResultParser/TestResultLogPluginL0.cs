@@ -213,8 +213,10 @@ namespace Test.L0.Plugin.TestResultParser
             var logParser = new Mock<ILogParserGateway>();
             var logger = new Mock<ITraceLogger>();
             var telemetry = new Mock<ITelemetryDataCollector>();
+            var telemetryProps = new Dictionary<string, Object>();
 
             telemetry.Setup(x => x.PublishCumulativeTelemetryAsync()).Returns(Task.FromResult(TaskResult.Succeeded));
+            telemetry.Setup(x => x.PublishTelemetryAsync(It.IsAny<string>(), It.IsAny<Dictionary<string, Object>>())).Callback<string, Dictionary<string, Object>>((feature, props) => telemetryProps = props).Returns(Task.FromResult(TaskResult.Succeeded));
 
             agentContext.Setup(x => x.Steps).Returns(new List<TaskStepDefinitionReference>()
             {
@@ -230,7 +232,13 @@ namespace Test.L0.Plugin.TestResultParser
                 {"system.hosttype", new VariableValue("build") },
                 {"system.servertype", new VariableValue("Hosted") },
                 {"build.buildId", new VariableValue("1") },
-                {"build.repository.provider", new VariableValue("Github") }
+                {"build.repository.provider", new VariableValue("Github") },
+                {"system.stageName", new VariableValue("Stage1") },
+                {"system.stageAttempt", new VariableValue("1") },
+                {"system.phaseName", new VariableValue("Phase1") },
+                {"system.phaseAttempt", new VariableValue("1") },
+                {"system.jobName", new VariableValue("Job1") },
+                {"system.jobAttempt", new VariableValue("1") }
             });
             logParser.Setup(x => x.InitializeAsync(It.IsAny<IClientFactory>(), It.IsAny<IPipelineConfig>(), It.IsAny<ITraceLogger>(), It.IsAny<ITelemetryDataCollector>()))
                 .Returns(Task.CompletedTask);
@@ -238,6 +246,12 @@ namespace Test.L0.Plugin.TestResultParser
             var plugin = new TestResultLogPlugin(logParser.Object, logger.Object, telemetry.Object);
             var result = await plugin.InitializeAsync(agentContext.Object);
 
+            Assert.True((string)(telemetryProps["StageName"]) == "Stage1");
+            Assert.True((string)(telemetryProps["PhaseName"]) == "Phase1");
+            Assert.True((string)(telemetryProps["JobName"]) == "Job1");
+            Assert.True((int)(telemetryProps["StageAttempt"]) == 1);
+            Assert.True((int)(telemetryProps["PhaseAttempt"]) == 1);
+            Assert.True((int)(telemetryProps["JobAttempt"]) == 1);
             Assert.True(result == true);
         }
     }

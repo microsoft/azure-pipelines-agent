@@ -174,6 +174,48 @@ namespace Agent.Plugins.Log.TestFilePublisher
                 props.Add("BuildId", PipelineConfig.BuildId);
             }
 
+            if (context.Variables.TryGetValue("system.stageName", out var stageName))
+            {
+                PipelineConfig.StageName = stageName.Value;
+                _telemetry.AddOrUpdate("StageName", stageName.Value);
+                props.Add("StageName", stageName.Value);
+            }
+
+            if (context.Variables.TryGetValue("system.stageAttempt", out var stageAttemptVar) && int.TryParse(stageAttemptVar.Value, out var stageAttempt))
+            {
+                PipelineConfig.StageAttempt = stageAttempt;
+                _telemetry.AddOrUpdate("StageAttempt", stageAttempt);
+                props.Add("StageAttempt", stageAttempt);
+            }
+
+            if (context.Variables.TryGetValue("system.phaseName", out var phaseName))
+            {
+                PipelineConfig.PhaseName = phaseName.Value;
+                _telemetry.AddOrUpdate("PhaseName", phaseName.Value);
+                props.Add("PhaseName", phaseName.Value);
+            }
+
+            if (context.Variables.TryGetValue("system.phaseAttempt", out var phaseAttemptVar) && int.TryParse(phaseAttemptVar.Value, out var phaseAttempt))
+            {
+                PipelineConfig.PhaseAttempt = phaseAttempt;
+                _telemetry.AddOrUpdate("PhaseAttempt", phaseAttempt);
+                props.Add("PhaseAttempt", phaseAttempt);
+            }
+
+            if (context.Variables.TryGetValue("system.jobName", out var jobName))
+            {
+                PipelineConfig.JobName = jobName.Value;
+                _telemetry.AddOrUpdate("JobName", jobName.Value);
+                props.Add("JobName", jobName.Value);
+            }
+
+            if (context.Variables.TryGetValue("system.jobAttempt", out var jobAttemptVar) && int.TryParse(jobAttemptVar.Value, out var jobAttempt))
+            {
+                PipelineConfig.JobAttempt = jobAttempt;
+                _telemetry.AddOrUpdate("JobAttempt", jobAttempt);
+                props.Add("JobAttempt", jobAttempt);
+            }
+
             if (context.Variables.TryGetValue("system.definitionid", out var buildDefinitionId))
             {
                 _telemetry.AddOrUpdate("BuildDefinitionId", buildDefinitionId.Value);
@@ -204,6 +246,7 @@ namespace Agent.Plugins.Log.TestFilePublisher
                 props.Add("SearchFolders", string.Join(",", PipelineConfig.SearchFolders));
             }
 
+            System.Diagnostics.Debugger.Launch();
             // Publish the initial telemetry event in case we are not able to fire the cumulative one for whatever reason
             await _telemetry.PublishTelemetryAsync("TestFilePublisherInitialize", props);
         }

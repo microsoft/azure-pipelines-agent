@@ -62,7 +62,7 @@ namespace Agent.Plugins.Log.TestFilePublisher
             var testRunContext = new TestRunContextBuilder("JUnit test results")
                 .WithBuildId(_pipelineConfig.BuildId)
                 .WithBuildUri(_pipelineConfig.BuildUri)
-                .Build();
+                .Build(_pipelineConfig);
 
             using (new SimpleTimer(TelemetryConstants.FindTestFilesAsync, _logger, TimeSpan.FromSeconds(60),
                 new TelemetryDataWrapper(_telemetry, TelemetryConstants.FindTestFilesAsync)))
