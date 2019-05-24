@@ -1,13 +1,18 @@
 ## Features
   - Pipeline caching plugins #2184
+  - Download Build Artifacts - FCS via Pipeline Artifacts #2210
+  - Adding support for ACR based dockerRegistry endpoint #2247
 
 ## Bugs
   - Fix Result publisher warning for empty results file. #2222
   - Implement shallow fetch by commit #2211
   - Use LogCallback instead of IAdalLogCallback. #2219
+  - React to Git 2.20 fetch tag update behavior change #2250
+  - Add PoolName to agent service name #2229
 
 ## Misc
-  - Changing vss-api-netcore version to 0.5.103-private #2215
+  - Consume 0.5.114 vss-api-core #2252
+  - Prefer logging HelpUrl property over HelpMarkDown #2226
 
 ## Agent Downloads  
 

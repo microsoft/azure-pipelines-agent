@@ -185,9 +185,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 string username = string.Empty;
                 string password = string.Empty;
-                registryEndpoint.Authorization?.Parameters?.TryGetValue("registry", out registryServer);
-                registryEndpoint.Authorization?.Parameters?.TryGetValue("username", out username);
-                registryEndpoint.Authorization?.Parameters?.TryGetValue("password", out password);
+                string registryType = string.Empty;
+
+                registryEndpoint.Data?.TryGetValue("registrytype", out registryType);
+                if (string.Equals(registryType, "ACR", StringComparison.OrdinalIgnoreCase))
+                {
+                    string loginServer = string.Empty;
+                    registryEndpoint.Authorization?.Parameters?.TryGetValue("loginServer", out loginServer);
+                    registryEndpoint.Authorization?.Parameters?.TryGetValue("serviceprincipalid", out username);
+                    registryEndpoint.Authorization?.Parameters?.TryGetValue("serviceprincipalkey", out password);
+
+                    registryServer = $"https://{loginServer}";
+                }
+                else
+                {
+                    registryEndpoint.Authorization?.Parameters?.TryGetValue("registry", out registryServer);
+                    registryEndpoint.Authorization?.Parameters?.TryGetValue("username", out username);
+                    registryEndpoint.Authorization?.Parameters?.TryGetValue("password", out password);
+                }
 
                 ArgUtil.NotNullOrEmpty(registryServer, nameof(registryServer));
                 ArgUtil.NotNullOrEmpty(username, nameof(username));

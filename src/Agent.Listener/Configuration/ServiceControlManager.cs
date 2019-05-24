@@ -53,6 +53,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
 
             serviceName = StringUtil.Format(serviceNamePattern, accountName, settings.PoolName, settings.AgentName);
+
+            if (serviceName.Length > 80)
+            {
+                Trace.Verbose($"Calculated service name is too long (> 80 chars). Trying again by calculating a shorter name.");
+
+                int exceededCharLength = serviceName.Length - 80;
+                string accountNameSubstring = StringUtil.SubstringPrefix(accountName, 25);
+
+                exceededCharLength -= accountName.Length - accountNameSubstring.Length;
+
+                string poolNameSubstring = StringUtil.SubstringPrefix(settings.PoolName, 25);
+
+                exceededCharLength -= settings.PoolName.Length - poolNameSubstring.Length;
+
+                string agentNameSubstring = settings.AgentName;
+
+                // Only trim agent name if it's really necessary
+                if (exceededCharLength > 0)
+                {
+                    agentNameSubstring = StringUtil.SubstringPrefix(settings.AgentName, settings.AgentName.Length - exceededCharLength);
+                }
+
+                serviceName = StringUtil.Format(serviceNamePattern, accountNameSubstring, poolNameSubstring, agentNameSubstring);
+            }
+
             serviceDisplayName = StringUtil.Format(serviceDisplayNamePattern, accountName, settings.PoolName, settings.AgentName);
 
             Trace.Info($"Service name '{serviceName}' display name '{serviceDisplayName}' will be used for service configuration.");

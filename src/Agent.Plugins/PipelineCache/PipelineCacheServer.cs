@@ -37,14 +37,12 @@ namespace Agent.Plugins.PipelineCache
             DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(context, connection);
 
             var result = await dedupManifestClient.PublishAsync(path, cancellationToken);
-            var scope = "myscope";
 
             CreatePipelineCacheArtifactOptions options = new CreatePipelineCacheArtifactOptions
             {
                 Key = key,
                 RootId = result.RootId,
                 ManifestId = result.ManifestId,
-                Scope = scope,
                 ProofNodes = result.ProofNodes.ToArray(),
                 Salt = salt
             };
@@ -69,7 +67,6 @@ namespace Agent.Plugins.PipelineCache
             GetPipelineCacheArtifactOptions options = new GetPipelineCacheArtifactOptions
             {
                 Key = key,
-                Scope = "myscope",
                 Salt = salt,
             };
 
@@ -83,7 +80,10 @@ namespace Agent.Plugins.PipelineCache
                 Console.WriteLine("Manifest ID is: {0}", result.ManifestId.ValueString);
                 DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(context, connection);
                 await this.DownloadPipelineCacheAsync(dedupManifestClient, result.ManifestId, path, cancellationToken);
-                context.SetVariable($"{PipelineCacheVarPrefix}.{variableToSetOnHit}", "True");
+                if (!string.IsNullOrEmpty(variableToSetOnHit))
+                {
+                    context.SetVariable($"{PipelineCacheVarPrefix}.{variableToSetOnHit}", "True");
+                }
                 Console.WriteLine("Cache restored.");
             }
         }
