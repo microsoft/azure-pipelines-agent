@@ -19,7 +19,7 @@ namespace Agent.Plugins.PipelineCache
     public abstract class PipelineCacheTaskPluginBase : IAgentTaskPlugin
     {
         public abstract Guid Id { get; }
-        public string Version => "0.1.0"; // Publish and Download tasks will be always on the same version.
+
         public string Stage => "main";
 
         public async Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
@@ -36,22 +36,22 @@ namespace Agent.Plugins.PipelineCache
             string salt = saltVariable == null ? "randomSalt" : saltVariable.Value;
 
             await ProcessCommandInternalAsync(
-                context, 
-                path, 
-                key, 
+                context,
+                path,
+                key,
                 salt,
                 token);
         }
 
         // Process the command with preprocessed arguments.
         protected abstract Task ProcessCommandInternalAsync(
-            AgentTaskPluginExecutionContext context, 
-            string path, 
+            AgentTaskPluginExecutionContext context,
+            string path,
             string key,
             string salt,
             CancellationToken token);
 
-            
+
         // Properties set by tasks
         protected static class PipelineCacheTaskPluginConstants
         {
@@ -60,7 +60,7 @@ namespace Agent.Plugins.PipelineCache
             public static readonly string PipelineId = "pipelineId";
             public static readonly string VariableToSetOnCacheHit = "cacheHitVar";
             public static readonly string Salt = "salt";
-            
+
         }
     }
 }

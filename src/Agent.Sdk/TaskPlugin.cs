@@ -18,7 +18,6 @@ namespace Agent.Sdk
     public interface IAgentTaskPlugin
     {
         Guid Id { get; }
-        string Version { get; }
         string Stage { get; }
         Task RunAsync(AgentTaskPluginExecutionContext executionContext, CancellationToken token);
     }

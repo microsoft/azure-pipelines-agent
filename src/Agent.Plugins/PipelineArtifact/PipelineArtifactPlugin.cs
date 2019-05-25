@@ -20,7 +20,6 @@ namespace Agent.Plugins.PipelineArtifact
     public abstract class PipelineArtifactTaskPluginBase : IAgentTaskPlugin
     {
         public abstract Guid Id { get; }
-        public abstract string Version { get; }
         public string Stage => "main";
 
         public async Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
@@ -39,7 +38,7 @@ namespace Agent.Plugins.PipelineArtifact
             string targetPath, 
             CancellationToken token);
 
-            
+
         // Properties set by tasks
         protected static class ArtifactEventProperties
         {
@@ -60,7 +59,7 @@ namespace Agent.Plugins.PipelineArtifact
     {
         // Same as: https://github.com/Microsoft/vsts-tasks/blob/master/Tasks/PublishPipelineArtifactV0/task.json
         public override Guid Id => PipelineArtifactPluginConstants.PublishPipelineArtifactTaskId;
-        public override string Version => "0.139.0";
+
         // create a normalized identifier-compatible string (A-Z, a-z, 0-9, -, and .) and remove .default since it's redundant
         public static readonly Regex jobIdentifierRgx = new Regex("[^a-zA-Z0-9 - .]", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
@@ -81,7 +80,7 @@ namespace Agent.Plugins.PipelineArtifact
             string hostType = context.Variables.GetValueOrDefault("system.hosttype")?.Value; 
             if (!string.Equals(hostType, "Build", StringComparison.OrdinalIgnoreCase)) {
                 throw new InvalidOperationException(
-                    StringUtil.Loc("CannotUploadFromCurrentEnvironment", hostType ?? string.Empty)); 
+                    StringUtil.Loc("CannotUploadFromCurrentEnvironment", hostType ?? string.Empty));
             }
 
             // Project ID
@@ -126,7 +125,6 @@ namespace Agent.Plugins.PipelineArtifact
     {
         // Same as https://github.com/Microsoft/vsts-tasks/blob/master/Tasks/DownloadPipelineArtifactV0/task.json
         public override Guid Id => PipelineArtifactPluginConstants.DownloadPipelineArtifactTaskId;
-        public override string Version => "0.139.0";
 
         protected override async Task ProcessCommandInternalAsync(
             AgentTaskPluginExecutionContext context, 
@@ -168,13 +166,18 @@ namespace Agent.Plugins.PipelineArtifact
                 }
                 else
                 {
-                    string hostType = context.Variables.GetValueOrDefault("system.hosttype")?.Value; 
-                    if (string.Equals(hostType, "Release", StringComparison.OrdinalIgnoreCase) || 
-                        string.Equals(hostType, "DeploymentGroup", StringComparison.OrdinalIgnoreCase)) {
-                        throw new InvalidOperationException(StringUtil.Loc("BuildIdIsNotAvailable", hostType ?? string.Empty)); 
-                    } else if (!string.Equals(hostType, "Build", StringComparison.OrdinalIgnoreCase)) {
+                    string hostType = context.Variables.GetValueOrDefault("system.hosttype")?.Value;
+                    if (string.Equals(hostType, "Release", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(hostType, "DeploymentGroup", StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new InvalidOperationException(StringUtil.Loc("BuildIdIsNotAvailable", hostType ?? string.Empty));
+                    }
+                    else if (!string.Equals(hostType, "Build", StringComparison.OrdinalIgnoreCase))
+                    {
                         throw new InvalidOperationException(StringUtil.Loc("CannotDownloadFromCurrentEnvironment", hostType ?? string.Empty));
-                    } else {
+                    }
+                    else
+                    {
                         // This should not happen since the build id comes from build environment. But a user may override that so we must be careful.
                         throw new ArgumentException(StringUtil.Loc("BuildIdIsNotValid", buildIdStr));
                     }
@@ -190,9 +193,7 @@ namespace Agent.Plugins.PipelineArtifact
     }
 
     public class PublishPipelineArtifactTaskV0_140_0 : PublishPipelineArtifactTask
-    {
-        public override string Version => "0.140.0";
-        
+    {        
         protected override string GetArtifactName(AgentTaskPluginExecutionContext context)
         {
             return context.GetInput(ArtifactEventProperties.ArtifactName, required: false);

@@ -19,7 +19,6 @@ namespace Agent.Plugins.PipelineArtifact
     public abstract class PipelineArtifactTaskPluginBaseV1 : IAgentTaskPlugin
     {
         public abstract Guid Id { get; }
-        public virtual string Version => "1.0.0"; // Publish and Download tasks will be always on the same version.
         protected virtual string TargetPath => "targetPath";
         protected virtual string PipelineId => "pipelineId";
         public string Stage => "main";
@@ -232,7 +231,6 @@ namespace Agent.Plugins.PipelineArtifact
 
     public class DownloadPipelineArtifactTaskV1_1_0 : DownloadPipelineArtifactTaskV1
     {
-        public override string Version => "1.1.0";
         protected override string TargetPath => "downloadPath";
         protected override string PipelineId => "buildId";
 
@@ -244,8 +242,6 @@ namespace Agent.Plugins.PipelineArtifact
 
     public class DownloadPipelineArtifactTaskV1_1_1 : DownloadPipelineArtifactTaskV1
     {
-        public override string Version => "1.1.1";
-
         protected override string GetArtifactName(AgentTaskPluginExecutionContext context)
         {
             return context.GetInput(ArtifactEventProperties.ArtifactName, required: false);
@@ -255,12 +251,10 @@ namespace Agent.Plugins.PipelineArtifact
     // 1.1.2 is the same as 1.1.0 because we reverted 1.1.1 change.
     public class DownloadPipelineArtifactTaskV1_1_2 : DownloadPipelineArtifactTaskV1_1_0
     {
-        public override string Version => "1.1.2";
     }
 
     // 1.1.3 is the same as 1.1.0 because we reverted 1.1.1 change and the minimum agent version.
     public class DownloadPipelineArtifactTaskV1_1_3 : DownloadPipelineArtifactTaskV1_1_0
     {
-        public override string Version => "1.1.3";
     }
 }
