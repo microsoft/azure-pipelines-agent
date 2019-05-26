@@ -246,7 +246,6 @@ namespace Agent.Plugins.Log.TestFilePublisher
                 props.Add("SearchFolders", string.Join(",", PipelineConfig.SearchFolders));
             }
 
-            System.Diagnostics.Debugger.Launch();
             // Publish the initial telemetry event in case we are not able to fire the cumulative one for whatever reason
             await _telemetry.PublishTelemetryAsync("TestFilePublisherInitialize", props);
         }
