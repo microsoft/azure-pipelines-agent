@@ -33,6 +33,8 @@ namespace Agent.Plugins.PipelineArtifact
             AgentTaskPluginExecutionContext context, 
             CancellationToken token);
 
+        
+
         // Properties set by tasks
         protected static class ArtifactEventProperties
         {
@@ -45,6 +47,54 @@ namespace Agent.Plugins.PipelineArtifact
             public static readonly string Tags = "tags";
             public static readonly string ArtifactName = "artifactName";
             public static readonly string ItemPattern = "itemPattern";
+        }
+    }
+
+        // Caller: PublishPipelineArtifact task
+    // Can be invoked from a build run or a release run should a build be set as the artifact. 
+    public class PublishPipelineArtifactTaskV1 : PipelineArtifactTaskPluginBaseV1
+    {
+        // Same as: https://github.com/Microsoft/vsts-tasks/blob/master/Tasks/PublishPipelineArtifactV0/task.json
+        public override Guid Id => PipelineArtifactPluginConstants.PublishPipelineArtifactTaskId;
+
+        protected override async Task ProcessCommandInternalAsync(
+            AgentTaskPluginExecutionContext context, 
+            CancellationToken token)
+        {
+            string artifactName = context.GetInput(ArtifactEventProperties.ArtifactName, required: true);
+            string targetPath = context.GetInput(TargetPath, required: true);
+            string hostType = context.Variables.GetValueOrDefault("system.hosttype")?.Value; 
+            if (!string.Equals(hostType, "Build", StringComparison.OrdinalIgnoreCase)) {
+                throw new InvalidOperationException(
+                    StringUtil.Loc("CannotUploadFromCurrentEnvironment", hostType ?? string.Empty)); 
+            }
+
+            // Project ID
+            Guid projectId = new Guid(context.Variables.GetValueOrDefault(BuildVariables.TeamProjectId)?.Value ?? Guid.Empty.ToString());
+            ArgUtil.NotEmpty(projectId, nameof(projectId));
+
+            // Build ID
+            string buildIdStr = context.Variables.GetValueOrDefault(BuildVariables.BuildId)?.Value ?? string.Empty;
+            if (!int.TryParse(buildIdStr, out int buildId))
+            {
+                // This should not happen since the build id comes from build environment. But a user may override that so we must be careful.
+                throw new ArgumentException(StringUtil.Loc("BuildIdIsNotValid", buildIdStr));
+            }
+
+            string fullPath = Path.GetFullPath(targetPath);
+            bool isFile = File.Exists(fullPath);
+            bool isDir = Directory.Exists(fullPath);
+            if (!isFile && !isDir)
+            {
+                // if local path is neither file nor folder
+                throw new FileNotFoundException(StringUtil.Loc("PathNotExist", targetPath));
+            }
+
+            // Upload to VSTS BlobStore, and associate the artifact with the build.
+            context.Output(StringUtil.Loc("UploadingPipelineArtifact", fullPath, buildId));
+            PipelineArtifactServer server = new PipelineArtifactServer();
+            await server.UploadAsync(context, projectId, buildId, artifactName, fullPath, token);
+            context.Output(StringUtil.Loc("UploadArtifactFinished"));
         }
     }
 
