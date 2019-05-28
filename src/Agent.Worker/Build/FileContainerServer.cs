@@ -127,11 +127,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         private async Task<UploadResult> ParallelUploadAsync(IAsyncCommandContext context, IReadOnlyList<string> files, int concurrentUploads, CancellationToken token)
         {
             // return files that fail to upload and total artifact size
-            var uploadResult = new UploadResult
-            {
-                FailedFiles = new List<string>(),
-                TotalFileSizeUploaded = 0
-            };
+            var uploadResult = new UploadResult();
 
             // nothing needs to upload
             if (files.Count == 0)
@@ -275,11 +271,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 }
             }
 
-            return new UploadResult
-            {
-                FailedFiles = failedFiles,
-                TotalFileSizeUploaded = uploadedSize,
-            };
+            return new UploadResult(failedFiles, uploadedSize);
         }
 
         private async Task ReportingAsync(IAsyncCommandContext context, int totalFiles, CancellationToken token)

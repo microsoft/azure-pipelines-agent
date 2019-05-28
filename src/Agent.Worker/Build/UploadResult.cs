@@ -5,6 +5,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
     public class UploadResult
     {
+        public UploadResult()
+        {
+            FailedFiles = new List<string>();
+            TotalFileSizeUploaded = 0;
+        }
+
+        public UploadResult(List<string> failedFiles, long totalFileSizeUploaded)
+        {
+            FailedFiles = failedFiles;
+            TotalFileSizeUploaded = totalFileSizeUploaded;
+        }
         public List<string> FailedFiles { get; set; }
 
         public long TotalFileSizeUploaded { get; set; }
