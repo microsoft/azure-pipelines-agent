@@ -78,7 +78,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             scrubbedJobResources.SecureFiles.AddRange(message.Resources.SecureFiles);
 
             // Reconstitute a new agent job request message from the scrubbed parts
-            return new Pipelines.AgentJobRequestMessage(
+            var requestMessage = new Pipelines.AgentJobRequestMessage(
                 plan: message.Plan,
                 timeline: message.Timeline,
                 jobId: message.JobId,
@@ -92,6 +92,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 contextData: message.ContextData,
                 workspaceOptions: message.Workspace,
                 steps: message.Steps);
+                
+            if (message.ExpressionValues != null) {
+                requestMessage.ExpressionValues.AddRange(message.ExpressionValues);
+            }
+            
+            return requestMessage;
         }
     }
 }

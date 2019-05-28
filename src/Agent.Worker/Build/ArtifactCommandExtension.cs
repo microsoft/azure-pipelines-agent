@@ -183,6 +183,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 return;
             }
 
+            string jobId = context.Variables.System_JobId;
+
             // queue async command task to associate artifact.
             context.Debug($"Upload artifact: {fullPath} to server for build: {buildId.Value} at backend.");
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
@@ -194,6 +196,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                                                       containerFolder,
                                                       buildId.Value,
                                                       artifactName,
+                                                      jobId,
                                                       propertyDictionary,
                                                       fullPath,
                                                       context.CancellationToken);
@@ -206,14 +209,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             Guid projectId,
             int buildId,
             string name,
-            string source,
+            string jobId,
             string type,
             string data,
             Dictionary<string, string> propertiesDictionary,
             CancellationToken cancellationToken)
         {
             BuildServer buildHelper = new BuildServer(connection, projectId);
-            var artifact = await buildHelper.AssociateArtifact(buildId, name, source, type, data, propertiesDictionary, cancellationToken);
+            var artifact = await buildHelper.AssociateArtifact(buildId, name, jobId, type, data, propertiesDictionary, cancellationToken);
             context.Output(StringUtil.Loc("AssociateArtifactWithBuild", artifact.Id, buildId));
         }
 
@@ -225,6 +228,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string containerPath,
             int buildId,
             string name,
+            string jobId,
             Dictionary<string, string> propertiesDictionary,
             string source,
             CancellationToken cancellationToken)
@@ -235,7 +239,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             context.Output(StringUtil.Loc("UploadToFileContainer", source, fileContainerFullPath));
 
             BuildServer buildHelper = new BuildServer(connection, projectId);
-            var artifact = await buildHelper.AssociateArtifact(buildId, name, ArtifactResourceTypes.Container, fileContainerFullPath, propertiesDictionary, cancellationToken);
+            var artifact = await buildHelper.AssociateArtifact(buildId, name, jobId, ArtifactResourceTypes.Container, fileContainerFullPath, propertiesDictionary, cancellationToken);
             context.Output(StringUtil.Loc("AssociateArtifactWithBuild", artifact.Id, buildId));
         }
 
