@@ -104,8 +104,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 artifactData = data ?? string.Empty;
             }
 
-            string jobId = context.Variables.System_JobId;
-
             // queue async command task to associate artifact.
             context.Debug($"Associate artifact: {artifactName} with build: {buildId.Value} at backend.");
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
@@ -115,7 +113,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                                                          projectId,
                                                          buildId.Value,
                                                          artifactName,
-                                                         jobId,
+                                                         context.Variables.System_JobId,
                                                          artifactType,
                                                          artifactData,
                                                          propertyDictionary,
@@ -183,8 +181,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 return;
             }
 
-            string jobId = context.Variables.System_JobId;
-
             // queue async command task to associate artifact.
             context.Debug($"Upload artifact: {fullPath} to server for build: {buildId.Value} at backend.");
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
@@ -196,7 +192,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                                                       containerFolder,
                                                       buildId.Value,
                                                       artifactName,
-                                                      jobId,
+                                                      context.Variables.System_JobId,
                                                       propertyDictionary,
                                                       fullPath,
                                                       context.CancellationToken);

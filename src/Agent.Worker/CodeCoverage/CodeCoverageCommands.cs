@@ -154,8 +154,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
 
                 ChangeHtmExtensionToHtmlIfRequired(newReportDirectory, executionContext);
 
-                string jobId = executionContext.Variables.System_JobId;
-                await codeCoveragePublisher.PublishCodeCoverageFilesAsync(commandContext, projectId, jobId, containerId, filesToPublish, File.Exists(Path.Combine(newReportDirectory, CodeCoverageConstants.DefaultIndexFile)), cancellationToken);
+                await codeCoveragePublisher.PublishCodeCoverageFilesAsync(commandContext, projectId, executionContext.Variables.System_JobId, containerId, filesToPublish, File.Exists(Path.Combine(newReportDirectory, CodeCoverageConstants.DefaultIndexFile)), cancellationToken);
             }
             catch (Exception ex)
             {
