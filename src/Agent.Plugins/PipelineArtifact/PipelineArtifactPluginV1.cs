@@ -53,7 +53,6 @@ namespace Agent.Plugins.PipelineArtifact
     // Can be invoked from a build run or a release run should a build be set as the artifact. 
     public class PublishPipelineArtifactTaskV1 : PipelineArtifactTaskPluginBaseV1
     {
-        // Same as: https://github.com/Microsoft/vsts-tasks/blob/master/Tasks/PublishPipelineArtifactV0/task.json
         public override Guid Id => PipelineArtifactPluginConstants.PublishPipelineArtifactTaskId;
 
         protected override async Task ProcessCommandInternalAsync(
