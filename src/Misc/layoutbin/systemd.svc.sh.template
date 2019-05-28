@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SVC_NAME="{{SvcNameVar}}"
+SVC_NAME=`systemd-escape --path "{{SvcNameVar}}"`
 SVC_DESCRIPTION="{{SvcDescription}}"
 
 SVC_CMD=$1
@@ -64,10 +64,10 @@ function install()
     mv "${TEMP_PATH}" "${UNIT_PATH}" || failed "failed to copy unit file"
     
     # unit file should not be executable and world writable
-    chmod 664 ${UNIT_PATH} || failed "failed to set permissions on ${UNIT_PATH}"
+    chmod 664 "${UNIT_PATH}" || failed "failed to set permissions on ${UNIT_PATH}"
     systemctl daemon-reload || failed "failed to reload daemons"
     
-	# Since we started with sudo, runsvc.sh will be owned by root. Change this to current login user.    
+    # Since we started with sudo, runsvc.sh will be owned by root. Change this to current login user.    
     cp ./bin/runsvc.sh ./runsvc.sh || failed "failed to copy runsvc.sh"
     chown ${run_as_uid}:${run_as_gid} ./runsvc.sh || failed "failed to set owner for runsvc.sh"
     chmod 755 ./runsvc.sh || failed "failed to set permission for runsvc.sh"

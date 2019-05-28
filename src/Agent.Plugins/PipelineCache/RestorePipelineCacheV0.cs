@@ -33,7 +33,7 @@ namespace Agent.Plugins.PipelineCache
                 new[] { '\n' },
                 StringSplitOptions.RemoveEmptyEntries
             );
-            string variableToSetOnHit = context.GetInput(PipelineCacheTaskPluginConstants.VariableToSetOnCacheHit, required: true);
+            string variableToSetOnHit = context.GetInput(PipelineCacheTaskPluginConstants.VariableToSetOnCacheHit, required: false);
 
             PipelineCacheServer server = new PipelineCacheServer();
             await server.DownloadAsync(

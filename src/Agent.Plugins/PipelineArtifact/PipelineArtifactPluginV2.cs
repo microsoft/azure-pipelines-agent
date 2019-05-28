@@ -20,7 +20,6 @@ namespace Agent.Plugins.PipelineArtifact
     public abstract class PipelineArtifactTaskPluginBaseV2 : IAgentTaskPlugin
     {
         public abstract Guid Id { get; }
-        public virtual string Version => "2.0.0";
         protected virtual string DownloadPath => "downloadPath";
         protected virtual string BuildId => "buildId";
         public string Stage => "main";
