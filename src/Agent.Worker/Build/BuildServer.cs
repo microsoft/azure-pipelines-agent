@@ -26,6 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         public async Task<Build2.BuildArtifact> AssociateArtifact(
             int buildId,
             string name,
+            string source,
             string type,
             string data,
             Dictionary<string, string> propertiesDictionary,

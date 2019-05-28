@@ -104,6 +104,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 artifactData = data ?? string.Empty;
             }
 
+            string jobId = context.Variables.System_JobId;
+
             // queue async command task to associate artifact.
             context.Debug($"Associate artifact: {artifactName} with build: {buildId.Value} at backend.");
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
@@ -113,6 +115,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                                                          projectId,
                                                          buildId.Value,
                                                          artifactName,
+                                                         jobId,
                                                          artifactType,
                                                          artifactData,
                                                          propertyDictionary,
@@ -203,13 +206,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             Guid projectId,
             int buildId,
             string name,
+            string source,
             string type,
             string data,
             Dictionary<string, string> propertiesDictionary,
             CancellationToken cancellationToken)
         {
             BuildServer buildHelper = new BuildServer(connection, projectId);
-            var artifact = await buildHelper.AssociateArtifact(buildId, name, type, data, propertiesDictionary, cancellationToken);
+            var artifact = await buildHelper.AssociateArtifact(buildId, name, source, type, data, propertiesDictionary, cancellationToken);
             context.Output(StringUtil.Loc("AssociateArtifactWithBuild", artifact.Id, buildId));
         }
 
