@@ -30,9 +30,7 @@ namespace Agent.Plugins.PipelineArtifact
 
         protected abstract Task ProcessCommandInternalAsync(
             AgentTaskPluginExecutionContext context, 
-            CancellationToken token);
-
-        
+            CancellationToken token);  
 
         // Properties set by tasks
         protected static class ArtifactEventProperties
