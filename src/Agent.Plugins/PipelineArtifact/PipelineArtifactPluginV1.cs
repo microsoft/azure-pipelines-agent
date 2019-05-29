@@ -13,6 +13,7 @@ using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Agent.Sdk;
+using System.Text.RegularExpressions;
 
 namespace Agent.Plugins.PipelineArtifact
 {
@@ -53,16 +54,25 @@ namespace Agent.Plugins.PipelineArtifact
     {
         public override Guid Id => PipelineArtifactPluginConstants.PublishPipelineArtifactTaskId;
 
+        public static readonly Regex jobIdentifierRgx = new Regex("[^a-zA-Z0-9 - .]", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
         protected override async Task ProcessCommandInternalAsync(
             AgentTaskPluginExecutionContext context, 
             CancellationToken token)
-        {
-            string artifactName = context.GetInput(ArtifactEventProperties.ArtifactName, required: true);
+        {           
+            string artifactName = context.GetInput(ArtifactEventProperties.ArtifactName, required: false);
             string targetPath = context.GetInput(TargetPath, required: true);
             string hostType = context.Variables.GetValueOrDefault("system.hosttype")?.Value; 
             if (!string.Equals(hostType, "Build", StringComparison.OrdinalIgnoreCase)) {
                 throw new InvalidOperationException(
                     StringUtil.Loc("CannotUploadFromCurrentEnvironment", hostType ?? string.Empty)); 
+            }
+
+            if (String.IsNullOrWhiteSpace(artifactName))
+            {
+                string jobIdentifier = context.Variables.GetValueOrDefault("system.jobIdentifier").Value;
+                var normalizedJobIdentifier = NormalizeJobIdentifier(jobIdentifier);
+                artifactName = normalizedJobIdentifier;
             }
 
             // Project ID
@@ -91,6 +101,12 @@ namespace Agent.Plugins.PipelineArtifact
             PipelineArtifactServer server = new PipelineArtifactServer();
             await server.UploadAsync(context, projectId, buildId, artifactName, fullPath, token);
             context.Output(StringUtil.Loc("UploadArtifactFinished"));
+        }
+     
+        private string NormalizeJobIdentifier(string jobIdentifier)
+        {
+            jobIdentifier = jobIdentifierRgx.Replace(jobIdentifier, string.Empty).Replace(".default", string.Empty);
+            return jobIdentifier;
         }
     }
 
