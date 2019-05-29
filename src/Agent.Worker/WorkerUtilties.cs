@@ -92,19 +92,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 contextData: message.ContextData,
                 workspaceOptions: message.Workspace,
                 steps: message.Steps);
-                
-<<<<<<< HEAD
-            if (message.ExpressionValues != null) {
-                requestMessage.ExpressionValues.AddRange(message.ExpressionValues);
-            }
-            
-=======
+
             if (message.ExpressionValues != null)
             {
                 requestMessage.ExpressionValues.AddRange(message.ExpressionValues);
             }
 
->>>>>>> null check
             return requestMessage;
         }
     }
