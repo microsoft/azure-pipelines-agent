@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ProjectFiles Include="Microsoft.VisualStudio.Services.Agent/Microsoft.VisualStudio.Services.Agent.csproj" />
+    <ProjectFiles Include="Agent.Listener/Agent.Listener.csproj" />
+    <ProjectFiles Include="Agent.Worker/Agent.Worker.csproj" />
+    <ProjectFiles Include="Agent.PluginHost/Agent.PluginHost.csproj" />
+    <ProjectFiles Include="Agent.Sdk/Agent.Sdk.csproj" />
+    <ProjectFiles Include="Agent.Plugins/Agent.Plugins.csproj" />
+  </ItemGroup>
+
   <Target Name="GenerateConstant">
     <Exec Command="git rev-parse HEAD" ConsoleToMSBuild="true">
       <Output TaskParameter="ConsoleOutput" PropertyName="GitInfoCommitHash" />
@@ -18,7 +27,7 @@
         <BuildConstants Include="%20%20%20%20%20%20%20%20public static class AgentPackage"/>
         <BuildConstants Include="%20%20%20%20%20%20%20%20{"/>
         <BuildConstants Include="%20%20%20%20%20%20%20%20%20%20%20%20public static readonly string PackageName = %22$(PackageRuntime)%22%3B"/>
-        <BuildConstants Include="%20%20%20%20%20%20%20%20%20%20%20%20public static readonly string Version = %22$(Version)%22%3B"/>
+        <BuildConstants Include="%20%20%20%20%20%20%20%20%20%20%20%20public static readonly string Version = %22$(AgentVersion)%22%3B"/>
         <BuildConstants Include="%20%20%20%20%20%20%20%20}"/>
         <BuildConstants Include="%20%20%20%20}"/>
         <BuildConstants Include="}"/>
@@ -32,12 +41,18 @@
   </Target>
 
   <Target Name="Build" DependsOnTargets="GenerateConstant">
-    <Exec Command="dotnet publish Microsoft.VisualStudio.Services.Agent/Microsoft.VisualStudio.Services.Agent.csproj --output %22$(MSBuildProjectDirectory)/../_layout/bin%22 --runtime $(PackageRuntime) -c $(BUILDCONFIG) /p:PackageRuntime=$(PackageRuntime) /p:Version=$(Version)" ConsoleToMSBuild="true" />
-    <Exec Command="dotnet publish Agent.Listener/Agent.Listener.csproj --output %22$(MSBuildProjectDirectory)/../_layout/bin%22 --runtime $(PackageRuntime) -c $(BUILDCONFIG) /p:PackageRuntime=$(PackageRuntime) /p:Version=$(Version)" ConsoleToMSBuild="true" />
-    <Exec Command="dotnet publish Agent.Worker/Agent.Worker.csproj --output %22$(MSBuildProjectDirectory)/../_layout/bin%22 --runtime $(PackageRuntime) -c $(BUILDCONFIG) /p:PackageRuntime=$(PackageRuntime) /p:Version=$(Version)" ConsoleToMSBuild="true" />
-    <Exec Command="dotnet publish Agent.PluginHost/Agent.PluginHost.csproj --output %22$(MSBuildProjectDirectory)/../_layout/bin%22 --runtime $(PackageRuntime) -c $(BUILDCONFIG) /p:PackageRuntime=$(PackageRuntime) /p:Version=$(Version)" ConsoleToMSBuild="true" />
-    <Exec Command="dotnet publish Agent.Sdk/Agent.Sdk.csproj --output %22$(MSBuildProjectDirectory)/../_layout/bin%22 --runtime $(PackageRuntime) -c $(BUILDCONFIG) /p:PackageRuntime=$(PackageRuntime) /p:Version=$(Version)" ConsoleToMSBuild="true" />
-    <Exec Command="dotnet publish Agent.Plugins/Agent.Plugins.csproj --output %22$(MSBuildProjectDirectory)/../_layout/bin%22 --runtime $(PackageRuntime) -c $(BUILDCONFIG) /p:PackageRuntime=$(PackageRuntime) /p:Version=$(Version)" ConsoleToMSBuild="true" />
+    <MSBuild Targets="Restore"
+             BuildInParallel="false"
+             Projects="@(ProjectFiles)"
+             SkipNonExistentProjects="false"
+             StopOnFirstFailure="true" />
+
+    <MSBuild Targets="Publish"
+             BuildInParallel="false"
+             Projects="@(ProjectFiles)"
+             SkipNonExistentProjects="false"
+             StopOnFirstFailure="true"
+             Properties="Configuration=$(BUILDCONFIG);PackageRuntime=$(PackageRuntime);Version=$(AgentVersion);RuntimeIdentifier=$(PackageRuntime);PublishDir=$(MSBuildProjectDirectory)/../_layout/bin" />
     <Exec Command="%22$(DesktopMSBuild)%22 Agent.Service/Windows/AgentService.csproj /p:Configuration=$(BUILDCONFIG) /p:OutputPath=%22$(MSBuildProjectDirectory)/../_layout/bin%22" ConsoleToMSBuild="true" Condition="'$(PackageRuntime)' == 'win-x64' Or '$(PackageRuntime)' == 'win-x86'" />
   </Target>
    
