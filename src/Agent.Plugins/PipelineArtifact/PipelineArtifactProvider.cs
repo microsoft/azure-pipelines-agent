@@ -10,11 +10,23 @@ using System.Threading.Tasks;
 using Agent.Sdk;
 using System.Threading;
 using System.Linq;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 
 namespace Agent.Plugins.PipelineArtifact
 {
     internal class PipelineArtifactProvider : IArtifactProvider
     {
+        private const int DefaultDedupStoreClientMaxParallelism = 192;
+
+        internal static int GetDedupStoreClientMaxParallelism(AgentTaskPluginExecutionContext context) {
+            int parallelism = DefaultDedupStoreClientMaxParallelism;
+            if(context.Variables.TryGetValue("AZURE_PIPELINES_DEDUP_PARALLELISM", out VariableValue v)) {
+                parallelism = int.Parse(v.Value);
+            }
+            context.Info(string.Format("Dedup parallelism: {0}", parallelism));
+            return parallelism;
+        } 
+
         private readonly BuildDropManager buildDropManager;
         private readonly CallbackAppTraceSource tracer;
 
@@ -23,7 +35,9 @@ namespace Agent.Plugins.PipelineArtifact
             var dedupStoreHttpClient = connection.GetClient<DedupStoreHttpClient>();
             this.tracer = tracer;
             dedupStoreHttpClient.SetTracer(tracer);
-            var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, 16 * Environment.ProcessorCount);
+            int parallelism = GetDedupStoreClientMaxParallelism(context);
+            tracer.Info("PipelineArtifactProvider using parallelism {0}.", parallelism);
+            var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, parallelism);
             buildDropManager = new BuildDropManager(client, this.tracer);
         }
 

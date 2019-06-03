@@ -289,7 +289,7 @@ namespace Agent.Plugins.PipelineArtifact
             var dedupStoreHttpClient = connection.GetClient<DedupStoreHttpClient>();
             var tracer = this.CreateTracer(context);
             dedupStoreHttpClient.SetTracer(tracer);
-            var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, 16 * Environment.ProcessorCount);
+            var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, PipelineArtifactProvider.GetDedupStoreClientMaxParallelism(context));
             var buildDropManager = new BuildDropManager(client, tracer);
             return buildDropManager;
         }
