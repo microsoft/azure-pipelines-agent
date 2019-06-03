@@ -62,6 +62,15 @@ namespace Agent.Plugins.PipelineArtifact
         {           
             string artifactName = context.GetInput(ArtifactEventProperties.ArtifactName, required: false);
             string targetPath = context.GetInput(TargetPath, required: true);
+            string defaultWorkingDirectory = context.Variables.GetValueOrDefault("system.defaultworkingdirectory").Value;
+
+            targetPath = Path.IsPathFullyQualified(targetPath) ? targetPath : Path.GetFullPath(Path.Combine(defaultWorkingDirectory, targetPath));
+
+            if (!Directory.Exists(targetPath) && !File.Exists(targetPath))
+            {
+                // if local path is neither file nor folder
+                throw new FileNotFoundException(StringUtil.Loc("PathNotExist", targetPath));
+            }  
             string hostType = context.Variables.GetValueOrDefault("system.hosttype")?.Value; 
             if (!string.Equals(hostType, "Build", StringComparison.OrdinalIgnoreCase)) {
                 throw new InvalidOperationException(
