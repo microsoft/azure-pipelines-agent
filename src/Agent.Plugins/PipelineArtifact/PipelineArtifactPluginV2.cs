@@ -13,6 +13,7 @@ using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Agent;
 using Agent.Sdk;
 
 namespace Agent.Plugins.PipelineArtifact
@@ -76,6 +77,15 @@ namespace Agent.Plugins.PipelineArtifact
             string projectName = context.GetInput(ArtifactEventProperties.Project, required: false);
             string tags = context.GetInput(ArtifactEventProperties.Tags, required: false);
             string userSpecifiedpipelineId = context.GetInput(BuildId, required: false);
+            string defaultWorkingDirectory = context.Variables.GetValueOrDefault("system.defaultworkingdirectory").Value;
+
+            targetPath = Path.IsPathFullyQualified(targetPath) ? targetPath : Path.Combine(Path.GetFullPath(defaultWorkingDirectory), targetPath);
+
+            if (!Directory.Exists(targetPath) && !File.Exists(targetPath))
+            {
+                // if local path is neither file nor folder
+                throw new FileNotFoundException(StringUtil.Loc("PathNotExist", targetPath));
+            }   
 
             string[] minimatchPatterns = itemPattern.Split(
                 new[] { "\n" },
