@@ -76,6 +76,12 @@ namespace Agent.Plugins.PipelineArtifact
             string tags = context.GetInput(ArtifactEventProperties.Tags, required: false);
             string userSpecifiedpipelineId = context.GetInput(PipelineId, required: false);
 
+            if (!Directory.Exists(targetPath) && !File.Exists(targetPath))
+            {
+                // if local path is neither file nor folder
+                throw new FileNotFoundException(StringUtil.Loc("PathNotExist", targetPath));
+            }   
+
             string[] minimatchPatterns = itemPattern.Split(
                 new[] { "\n" },
                 StringSplitOptions.RemoveEmptyEntries
