@@ -20,8 +20,8 @@ namespace Agent.Plugins.PipelineArtifact
     public abstract class PipelineArtifactTaskPluginBaseV2 : IAgentTaskPlugin
     {
         public abstract Guid Id { get; }
-        protected virtual string DownloadPath => "downloadPath";
-        protected virtual string BuildId => "buildId";
+        protected virtual string DownloadPath => "path";
+        protected virtual string BuildId => "runId";
 
         public string Stage => "main";
 
@@ -39,7 +39,7 @@ namespace Agent.Plugins.PipelineArtifact
         {
             public static readonly string BuildType = "buildType";
             public static readonly string Project = "project";
-            public static readonly string BuildPipelineDefinition = "definition";
+            public static readonly string BuildPipelineDefinition = "pipeline";
             public static readonly string BuildTriggering = "specificBuildWithTriggering";
             public static readonly string BuildVersionToDownload = "buildVersionToDownload";
             public static readonly string BranchName = "branchName";
