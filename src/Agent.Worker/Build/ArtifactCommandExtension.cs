@@ -113,6 +113,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                                                          projectId,
                                                          buildId.Value,
                                                          artifactName,
+                                                         context.Variables.System_JobId,
                                                          artifactType,
                                                          artifactData,
                                                          propertyDictionary,
@@ -191,6 +192,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                                                       containerFolder,
                                                       buildId.Value,
                                                       artifactName,
+                                                      context.Variables.System_JobId,
                                                       propertyDictionary,
                                                       fullPath,
                                                       context.CancellationToken);
@@ -203,13 +205,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             Guid projectId,
             int buildId,
             string name,
+            string jobId,
             string type,
             string data,
             Dictionary<string, string> propertiesDictionary,
             CancellationToken cancellationToken)
         {
             BuildServer buildHelper = new BuildServer(connection, projectId);
-            var artifact = await buildHelper.AssociateArtifact(buildId, name, type, data, propertiesDictionary, cancellationToken);
+            var artifact = await buildHelper.AssociateArtifact(buildId, name, jobId, type, data, propertiesDictionary, cancellationToken);
             context.Output(StringUtil.Loc("AssociateArtifactWithBuild", artifact.Id, buildId));
         }
 
@@ -221,17 +224,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string containerPath,
             int buildId,
             string name,
+            string jobId,
             Dictionary<string, string> propertiesDictionary,
             string source,
             CancellationToken cancellationToken)
         {
             FileContainerServer fileContainerHelper = new FileContainerServer(connection, projectId, containerId, containerPath);
-            await fileContainerHelper.CopyToContainerAsync(context, source, cancellationToken);
+            long size = await fileContainerHelper.CopyToContainerAsync(context, source, cancellationToken);
+            propertiesDictionary.Add(ArtifactUploadEventProperties.ArtifactSize, size.ToString());
+
             string fileContainerFullPath = StringUtil.Format($"#/{containerId}/{containerPath}");
             context.Output(StringUtil.Loc("UploadToFileContainer", source, fileContainerFullPath));
 
             BuildServer buildHelper = new BuildServer(connection, projectId);
-            var artifact = await buildHelper.AssociateArtifact(buildId, name, ArtifactResourceTypes.Container, fileContainerFullPath, propertiesDictionary, cancellationToken);
+            var artifact = await buildHelper.AssociateArtifact(buildId, name, jobId, ArtifactResourceTypes.Container, fileContainerFullPath, propertiesDictionary, cancellationToken);
             context.Output(StringUtil.Loc("AssociateArtifactWithBuild", artifact.Id, buildId));
         }
 
@@ -333,6 +339,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
     {
         public static readonly string ContainerFolder = "containerfolder";
         public static readonly string ArtifactName = "artifactname";
+        public static readonly string ArtifactSize = "artifactsize";
         public static readonly string ArtifactType = "artifacttype";
         public static readonly string Browsable = "Browsable";
     }

@@ -416,6 +416,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string DefinitionId = "system.definitionid";
                 public static readonly string EnableAccessToken = "system.enableAccessToken";
                 public static readonly string HostType = "system.hosttype";
+                public static readonly string JobId = "system.jobId";
                 public static readonly string PhaseDisplayName = "system.phaseDisplayName";
                 public static readonly string PreferGitFromPath = "system.prefergitfrompath";
                 public static readonly string PullRequestTargetBranchName = "system.pullrequest.targetbranch";
