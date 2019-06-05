@@ -106,7 +106,7 @@ namespace Agent.Plugins.PipelineCache
             string targetDirectory,
             CancellationToken cancellationToken)
         {
-            DownloadPipelineArtifactOptions options = DownloadPipelineArtifactOptions.CreateWithManifestId(
+            DownloadDedupManifestArtifactOptions options = DownloadDedupManifestArtifactOptions.CreateWithManifestId(
                 manifestId,
                 targetDirectory,
                 proxyUri: null,

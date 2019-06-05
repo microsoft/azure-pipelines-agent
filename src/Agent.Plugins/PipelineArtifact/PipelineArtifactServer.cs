@@ -119,11 +119,12 @@ namespace Agent.Plugins.PipelineArtifact
                         keySelector: (a) => a.Name, // keys should be unique, if not something is really wrong
                         elementSelector: (a) => DedupIdentifier.Create(a.Resource.Data));
                     // 2) download to the target path
-                    var options = DownloadPipelineArtifactOptions.CreateWithMultiManifestIds(
+                    var options = DownloadDedupManifestArtifactOptions.CreateWithMultiManifestIds(
                         artifactNameAndManifestIds,
                         downloadParameters.TargetDirectory,
                         proxyUri: null,
-                        minimatchPatterns: downloadParameters.MinimatchFilters);
+                        minimatchPatterns: downloadParameters.MinimatchFilters,
+                        minimatchFilterWithArtifactName: false);
                     await buildDropManager.DownloadAsync(options, cancellationToken);
                 }
             }
@@ -152,7 +153,7 @@ namespace Agent.Plugins.PipelineArtifact
                 }
 
                 var manifestId = DedupIdentifier.Create(buildArtifact.Resource.Data);
-                var options = DownloadPipelineArtifactOptions.CreateWithManifestId(
+                var options = DownloadDedupManifestArtifactOptions.CreateWithManifestId(
                     manifestId,
                     downloadParameters.TargetDirectory,
                     proxyUri: null,
@@ -283,6 +284,7 @@ namespace Agent.Plugins.PipelineArtifact
         public string ArtifactName { get; set; }
         public string TargetDirectory { get; set; }
         public string[] MinimatchFilters { get; set; }
+        public bool  MinimatchFilterWithArtifactNam {get; set;}
     }
 
     internal enum BuildArtifactRetrievalOptions

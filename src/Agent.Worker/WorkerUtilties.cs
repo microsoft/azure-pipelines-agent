@@ -91,7 +91,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 jobResources: scrubbedJobResources,
                 contextData: message.ContextData,
                 workspaceOptions: message.Workspace,
-                steps: message.Steps);
+                steps: message.Steps,
+                scopes: message.Scopes);
         }
     }
 }
