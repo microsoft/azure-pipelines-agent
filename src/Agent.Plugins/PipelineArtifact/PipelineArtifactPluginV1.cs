@@ -48,11 +48,12 @@ namespace Agent.Plugins.PipelineArtifact
         }
     }
 
-        // Caller: PublishPipelineArtifact task
+    // Caller: PublishPipelineArtifact task
     // Can be invoked from a build run or a release run should a build be set as the artifact. 
     public class PublishPipelineArtifactTaskV1 : PipelineArtifactTaskPluginBaseV1
     {
         public override Guid Id => PipelineArtifactPluginConstants.PublishPipelineArtifactTaskId;
+        protected override string TargetPath => "path";
 
         public static readonly Regex jobIdentifierRgx = new Regex("[^a-zA-Z0-9 - .]", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
