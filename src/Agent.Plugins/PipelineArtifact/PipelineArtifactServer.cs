@@ -56,6 +56,7 @@ namespace Agent.Plugins.PipelineArtifact
                 Dictionary<string, string> propertiesDictionary = new Dictionary<string, string>();
                 propertiesDictionary.Add(PipelineArtifactConstants.RootId, result.RootId.ValueString);
                 propertiesDictionary.Add(PipelineArtifactConstants.ProofNodes, StringUtil.ConvertToJson(result.ProofNodes.ToArray()));
+                propertiesDictionary.Add(PipelineArtifactConstants.ArtifactSize, GetArtifactSize(source).ToString());
                 var artifact = await buildHelper.AssociateArtifact(projectId, pipelineId, name, ArtifactResourceTypes.PipelineArtifact, result.ManifestId.ValueString, propertiesDictionary, cancellationToken);
                 context.Output(StringUtil.Loc("AssociateArtifactWithBuild", artifact.Id, pipelineId));
             }
@@ -298,6 +299,12 @@ namespace Agent.Plugins.PipelineArtifact
         {
             var tracer = new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information);
             return tracer;
+        }
+
+        private static long GetArtifactSize(string path)
+        {
+            DirectoryInfo directory = new DirectoryInfo(path);
+            return directory.EnumerateFiles("*", SearchOption.AllDirectories).Select(x => x.Length).Sum();
         }
     }
 
