@@ -50,7 +50,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             _fileContainerHttpClient = fileContainerClientConnection.GetClient<FileContainerHttpClient>();
         }
 
-        public async Task CopyToContainerAsync(
+        public async Task<long> CopyToContainerAsync(
             IAsyncCommandContext context,
             String source,
             CancellationToken cancellationToken)
@@ -81,17 +81,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 try
                 {
                     // try upload all files for the first time.
-                    List<string> failedFiles = await ParallelUploadAsync(context, files, maxConcurrentUploads, _uploadCancellationTokenSource.Token);
+                    UploadResult uploadResult = await ParallelUploadAsync(context, files, maxConcurrentUploads, _uploadCancellationTokenSource.Token);
 
-                    if (failedFiles.Count == 0)
+                    if (uploadResult.FailedFiles.Count == 0)
                     {
                         // all files have been upload succeed.
                         context.Output(StringUtil.Loc("FileUploadSucceed"));
-                        return;
+                        return uploadResult.TotalFileSizeUploaded;
                     }
                     else
                     {
-                        context.Output(StringUtil.Loc("FileUploadFailedRetryLater", failedFiles.Count));
+                        context.Output(StringUtil.Loc("FileUploadFailedRetryLater", uploadResult.FailedFiles.Count));
                     }
 
                     // Delay 1 min then retry failed files.
@@ -102,14 +102,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     }
 
                     // Retry upload all failed files.
-                    context.Output(StringUtil.Loc("FileUploadRetry", failedFiles.Count));
-                    failedFiles = await ParallelUploadAsync(context, failedFiles, maxConcurrentUploads, _uploadCancellationTokenSource.Token);
+                    context.Output(StringUtil.Loc("FileUploadRetry", uploadResult.FailedFiles.Count));
+                    UploadResult retryUploadResult = await ParallelUploadAsync(context, uploadResult.FailedFiles, maxConcurrentUploads, _uploadCancellationTokenSource.Token);
 
-                    if (failedFiles.Count == 0)
+                    if (retryUploadResult.FailedFiles.Count == 0)
                     {
                         // all files have been upload succeed after retry.
                         context.Output(StringUtil.Loc("FileUploadRetrySucceed"));
-                        return;
+                        return uploadResult.TotalFileSizeUploaded + retryUploadResult.TotalFileSizeUploaded;
                     }
                     else
                     {
@@ -124,15 +124,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
         }
 
-        private async Task<List<string>> ParallelUploadAsync(IAsyncCommandContext context, List<string> files, int concurrentUploads, CancellationToken token)
+        private async Task<UploadResult> ParallelUploadAsync(IAsyncCommandContext context, IReadOnlyList<string> files, int concurrentUploads, CancellationToken token)
         {
-            // return files that fail to upload
-            List<string> failedFiles = new List<string>();
+            // return files that fail to upload and total artifact size
+            var uploadResult = new UploadResult();
 
             // nothing needs to upload
             if (files.Count == 0)
             {
-                return failedFiles;
+                return uploadResult;
             }
 
             // ensure the file upload queue is empty.
@@ -155,7 +155,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             Task uploadMonitor = ReportingAsync(context, files.Count(), _uploadCancellationTokenSource.Token);
 
             // Start parallel upload tasks.
-            List<Task<List<string>>> parallelUploadingTasks = new List<Task<List<string>>>();
+            List<Task<UploadResult>> parallelUploadingTasks = new List<Task<UploadResult>>();
             for (int uploader = 0; uploader < concurrentUploads; uploader++)
             {
                 parallelUploadingTasks.Add(UploadAsync(context, uploader, _uploadCancellationTokenSource.Token));
@@ -166,25 +166,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             foreach (var uploadTask in parallelUploadingTasks)
             {
                 // record all failed files.
-                failedFiles.AddRange(await uploadTask);
+                uploadResult.AddUploadResult(await uploadTask);
             }
 
             // Stop monitor task;
             _uploadFinished.TrySetResult(0);
             await uploadMonitor;
 
-            return failedFiles;
+            return uploadResult;
         }
 
-        private async Task<List<string>> UploadAsync(IAsyncCommandContext context, int uploaderId, CancellationToken token)
+        private async Task<UploadResult> UploadAsync(IAsyncCommandContext context, int uploaderId, CancellationToken token)
         {
             List<string> failedFiles = new List<string>();
+            long uploadedSize = 0;
             string fileToUpload;
             Stopwatch uploadTimer = new Stopwatch();
             while (_fileUploadQueue.TryDequeue(out fileToUpload))
             {
                 token.ThrowIfCancellationRequested();
-                try 
+                try
                 {
                     using (FileStream fs = File.Open(fileToUpload, FileMode.Open, FileAccess.Read, FileShare.Read))
                     {
@@ -240,7 +241,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         else
                         {
                             context.Debug(StringUtil.Loc("FileUploadFinish", fileToUpload, uploadTimer.ElapsedMilliseconds));
-
+                            uploadedSize += fs.Length;
                             // debug detail upload trace for the file.
                             ConcurrentQueue<string> logQueue;
                             if (_fileUploadTraceLog.TryGetValue(itemPath, out logQueue))
@@ -262,15 +263,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     }
 
                     Interlocked.Increment(ref _filesProcessed);
-                } 
+                }
                 catch (Exception ex)
                 {
                     context.Output(StringUtil.Loc("FileUploadFileOpenFailed", ex.Message, fileToUpload));
                     throw ex;
-                } 
+                }
             }
 
-            return failedFiles;
+            return new UploadResult(failedFiles, uploadedSize);
         }
 
         private async Task ReportingAsync(IAsyncCommandContext context, int totalFiles, CancellationToken token)
