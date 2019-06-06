@@ -6,7 +6,7 @@ namespace Agent.Plugins.PipelineArtifact
     public static class PipelineArtifactPathHelper
     {
         // This collection of invalid characters is based on the characters that are illegal in Windows/NTFS filenames.
-        // Also prevent files (pipeline artifact names) from containing "/" or "\" due to the added complexity this introduces for file pattern matching on download
+        // Also prevent files (pipeline artifact names) from containing "/" or "\" due to the added complexity this introduces for file pattern matching on download.
         private static readonly char[] ForbiddenPathChars =
                     new char[] {
                         (char) 0, (char) 1, (char) 2, (char) 3, (char) 4, (char) 5, (char) 6,
