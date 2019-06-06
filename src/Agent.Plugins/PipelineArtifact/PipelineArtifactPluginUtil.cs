@@ -26,4 +26,5 @@ namespace Agent.Plugins.PipelineArtifact
             }
             return true;
         }
+    }
 }
