@@ -80,6 +80,10 @@ namespace Agent.Plugins.PipelineArtifact
                 artifactName = normalizedJobIdentifier;
             }
 
+            if(!PipelineArtifactPathHelper.isValidPath(artifactName)) {
+                throw new ArgumentException(StringUtil.Loc("ArtifactNameIsNotValid"));
+            }
+
             // Project ID
             Guid projectId = new Guid(context.Variables.GetValueOrDefault(BuildVariables.TeamProjectId)?.Value ?? Guid.Empty.ToString());
             ArgUtil.NotEmpty(projectId, nameof(projectId));
