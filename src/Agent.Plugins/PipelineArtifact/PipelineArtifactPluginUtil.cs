@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Agent.Plugins.PipelineArtifact
 {
-        public static class PipelineArtifactPathHelper
+    public static class PipelineArtifactPathHelper
     {
         // This collection of invalid characters is based on the characters that are illegal in Windows/NTFS filenames.
         // Included are the 5 wildcard characters. Excluded are path separators (forward slash and backslash).
