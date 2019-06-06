@@ -80,7 +80,7 @@ namespace Agent.Plugins.PipelineArtifact
                 artifactName = normalizedJobIdentifier;
             }
 
-            if(!PipelineArtifactPathHelper.isValidPath(artifactName)) {
+            if(!PipelineArtifactPathHelper.IsValidPath(artifactName)) {
                 throw new ArgumentException(StringUtil.Loc("ArtifactNameIsNotValid"));
             }
 

@@ -17,7 +17,7 @@ namespace Agent.Plugins.PipelineArtifact
                         '"', ':', '<', '>', '|', '*', '?', '/', '\\' };
         private static readonly HashSet<Char> ForbiddenPAthCharsSet = new HashSet<Char>(ForbiddenPathChars);
 
-        public static bool isValidPath(string path){
+        public static bool IsValidPath(string path){
             foreach(char c in path)
             {
                 if(ForbiddenPAthCharsSet.Contains(c)) {
