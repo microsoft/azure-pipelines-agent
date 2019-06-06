@@ -103,7 +103,7 @@ namespace Agent.Plugins.PipelineArtifact
             if (!isFile && !isDir)
             {
                 // if local path is neither file nor folder
-                throw new FileNotFoundException(StringUtil.Loc("PathNotExist", targetPath));
+                throw new FileNotFoundException(StringUtil.Loc("PathDoesNotExist", targetPath));
             }
 
             // Upload to VSTS BlobStore, and associate the artifact with the build.
