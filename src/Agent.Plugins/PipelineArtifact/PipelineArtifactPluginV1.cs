@@ -67,7 +67,7 @@ namespace Agent.Plugins.PipelineArtifact
 
             targetPath = Path.IsPathFullyQualified(targetPath) ? targetPath : Path.GetFullPath(Path.Combine(defaultWorkingDirectory, targetPath));
 
-            string hostType = context.Variables.GetValueOrDefault("system.hosttype")?.Value; 
+            string hostType = context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.HostType)?.Value; 
             if (!string.Equals(hostType, "Build", StringComparison.OrdinalIgnoreCase)) {
                 throw new InvalidOperationException(
                     StringUtil.Loc("CannotUploadFromCurrentEnvironment", hostType ?? string.Empty)); 
@@ -75,12 +75,12 @@ namespace Agent.Plugins.PipelineArtifact
 
             if (String.IsNullOrWhiteSpace(artifactName))
             {
-                string jobIdentifier = context.Variables.GetValueOrDefault("system.jobIdentifier").Value;
+                string jobIdentifier = context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.JobIdentifier).Value;
                 var normalizedJobIdentifier = NormalizeJobIdentifier(jobIdentifier);
                 artifactName = normalizedJobIdentifier;
             }
 
-            if(!PipelineArtifactPathHelper.IsValidPath(artifactName)) {
+            if(!PipelineArtifactPathHelper.IsValidArtifactName(artifactName)) {
                 throw new ArgumentException(StringUtil.Loc("ArtifactNameIsNotValid"));
             }
 
