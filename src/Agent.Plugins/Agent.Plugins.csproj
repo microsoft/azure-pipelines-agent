@@ -17,6 +17,7 @@
   <ItemGroup>
     <PackageReference Include="vss-api-netcore" Version="0.5.122-private" />
     <PackageReference Include="azuredevops-testresultparser" Version="1.0.1" />
+    <PackageReference Include="vss-api-netcore" Version="0.5.121-private" />
   </ItemGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
