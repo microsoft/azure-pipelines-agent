@@ -81,7 +81,7 @@ namespace Agent.Plugins.PipelineArtifact
             }
 
             if(!PipelineArtifactPathHelper.IsValidArtifactName(artifactName)) {
-                throw new ArgumentException(StringUtil.Loc("ArtifactNameIsNotValid"));
+                throw new ArgumentException(StringUtil.Loc("ArtifactNameIsNotValid", artifactName));
             }
 
             // Project ID
