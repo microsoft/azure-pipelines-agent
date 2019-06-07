@@ -24,6 +24,7 @@
   "ArtifactDownloadFailed": "Failed to download the artifact from {0}.",
   "ArtifactLocationRequired": "Artifact location is required.",
   "ArtifactNameRequired": "Artifact Name is required.",
+  "ArtifactNameIsNotValid": "Artifact name cannot contain '\\', /', \"', ':', '<', '>', '|', '*', and '?'",
   "ArtifactTypeRequired": "Artifact Type is required.",
   "AssociateArtifact": "Associate Artifact",
   "AssociateArtifactCommandNotSupported": "Associating server artifact is not supported in {0}.",
