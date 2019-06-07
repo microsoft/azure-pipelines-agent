@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Agent.Plugins.PipelineArtifact
 {
@@ -18,13 +19,7 @@ namespace Agent.Plugins.PipelineArtifact
         private static readonly HashSet<Char> ForbiddenArtifactNameCharsSet = new HashSet<Char>(ForbiddenArtifactNameChars);
 
         public static bool IsValidArtifactName(string artifactName){
-            foreach(char c in artifactName)
-            {
-                if(ForbiddenArtifactNameCharsSet.Contains(c)) {
-                    return false;
-                }
-            }
-            return true;
+            return !artifactName.Any(c => ForbiddenArtifactNameCharsSet.Contains(c));
         }
     }
 }
