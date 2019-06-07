@@ -225,11 +225,13 @@ namespace Agent.Plugins.Log.TestFilePublisher
             if (context.Variables.TryGetValue("build.Repository.name", out var repositoryName))
             {
                 _telemetry.AddOrUpdate("RepositoryName", repositoryName.Value);
+                props.Add("RepositoryName", repositoryName.Value);
             }
 
             if (context.Variables.TryGetValue("agent.version", out var agentVersion))
             {
                 _telemetry.AddOrUpdate("AgentVersion", agentVersion.Value);
+                props.Add("AgentVersion", agentVersion.Value);
             }
 
             if (context.Variables.TryGetValue("agent.testfilepublisher.pattern", out var pattern)

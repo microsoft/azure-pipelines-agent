@@ -10,6 +10,7 @@ using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
 using Moq;
 using Xunit;
+using Test.L0.Util;
 
 namespace Test.L0.Plugin.TestFilePublisher
 {
@@ -311,10 +312,9 @@ namespace Test.L0.Plugin.TestFilePublisher
             var testFilePublisher = new Mock<ITestFilePublisher>();
             var logger = new Mock<ITraceLogger>();
             var telemetry = new Mock<ITelemetryDataCollector>();
-            var telemetryProps = new Dictionary<string, Object>();
 
             telemetry.Setup(x => x.PublishCumulativeTelemetryAsync()).Returns(Task.FromResult(TaskResult.Succeeded));
-            telemetry.Setup(x => x.PublishTelemetryAsync(It.IsAny<string>(), It.IsAny<Dictionary<string, Object>>())).Callback<string, Dictionary<string, Object>>((feature, props) => telemetryProps = props).Returns(Task.FromResult(TaskResult.Succeeded));
+            telemetry.Setup(x => x.PublishTelemetryAsync(It.IsAny<string>(), It.IsAny<Dictionary<string, Object>>())).Callback<string, Dictionary<string, Object>>((feature, props) => TelemetryPropsUtil.AssertPipelineData(props)).Returns(Task.FromResult(TaskResult.Succeeded));
 
             agentContext.Setup(x => x.Steps).Returns(new List<TaskStepDefinitionReference>()
             {
@@ -324,8 +324,7 @@ namespace Test.L0.Plugin.TestFilePublisher
                 }
             });
 
-            agentContext.Setup(x => x.VssConnection).Returns(vssConnection.Object);
-            agentContext.Setup(x => x.Variables).Returns(new Dictionary<string, VariableValue>()
+            Dictionary<string, VariableValue> agentContextVariables = new Dictionary<string, VariableValue>()
             {
                 { "system.hosttype", new VariableValue("build") },
                 { "system.servertype", new VariableValue("Hosted") },
@@ -333,25 +332,16 @@ namespace Test.L0.Plugin.TestFilePublisher
                 { "build.buildId", new VariableValue("1") },
                 { "agent.tempdirectory", new VariableValue("/tmp")},
                 { "agent.testfilepublisher.pattern", new VariableValue("test-*.xml")},
-                { "agent.testfilepublisher.searchfolders", new VariableValue("agent.tempdirectory")},
-                { "system.stageName", new VariableValue("Stage1") },
-                { "system.stageAttempt", new VariableValue("1") },
-                { "system.phaseName", new VariableValue("Phase1") },
-                { "system.phaseAttempt", new VariableValue("1") },
-                { "system.jobName", new VariableValue("Job1") },
-                { "system.jobAttempt", new VariableValue("1") }
-            });
+                { "agent.testfilepublisher.searchfolders", new VariableValue("agent.tempdirectory")}
+            };
+            TelemetryPropsUtil.AddPipelineDataIntoAgentContext(agentContextVariables);
+            agentContext.Setup(x => x.VssConnection).Returns(vssConnection.Object);
+            agentContext.Setup(x => x.Variables).Returns(agentContextVariables);
             testFilePublisher.Setup(x => x.InitializeAsync()).Returns(Task.CompletedTask);
 
             var plugin = new TestFilePublisherLogPlugin(logger.Object, telemetry.Object, testFilePublisher.Object);
             var result = await plugin.InitializeAsync(agentContext.Object);
 
-            Assert.True((string)(telemetryProps["StageName"]) == "Stage1");
-            Assert.True((string)(telemetryProps["PhaseName"]) == "Phase1");
-            Assert.True((string)(telemetryProps["JobName"]) == "Job1");
-            Assert.True((int)(telemetryProps["StageAttempt"]) == 1);
-            Assert.True((int)(telemetryProps["PhaseAttempt"]) == 1);
-            Assert.True((int)(telemetryProps["JobAttempt"]) == 1);
             Assert.True(result == true);
         }
 
