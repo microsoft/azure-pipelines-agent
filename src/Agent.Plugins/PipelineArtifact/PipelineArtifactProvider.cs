@@ -48,7 +48,8 @@ namespace Agent.Plugins.PipelineArtifact
                 artifactNameAndManifestIds,
                 downloadParameters.TargetDirectory,
                 proxyUri: null,
-                minimatchPatterns: downloadParameters.MinimatchFilters);
+                minimatchPatterns: downloadParameters.MinimatchFilters,
+                minimatchFilterWithArtifactName: downloadParameters.MinimatchFilterWithArtifactName);
             await buildDropManager.DownloadAsync(options, cancellationToken);
         }
     }
