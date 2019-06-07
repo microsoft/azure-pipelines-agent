@@ -55,7 +55,7 @@ namespace Agent.Plugins.PipelineArtifact
         public override Guid Id => PipelineArtifactPluginConstants.PublishPipelineArtifactTaskId;
         protected override string TargetPath => "path";
 
-        public static readonly Regex jobIdentifierRgx = new Regex("[^a-zA-Z0-9 - .]", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+        private static readonly Regex jobIdentifierRgx = new Regex("[^a-zA-Z0-9 - .]", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
         protected override async Task ProcessCommandInternalAsync(
             AgentTaskPluginExecutionContext context, 
