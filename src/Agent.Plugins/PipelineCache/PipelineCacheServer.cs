@@ -5,11 +5,14 @@ using System.Threading.Tasks;
 using System.Threading;
 using System;
 using Agent.Plugins.PipelineArtifact;
+using Agent.Plugins.PipelineArtifact.Telemetry;
+using Agent.Plugins.PipelineCache.Telemetry;
 using Agent.Sdk;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
+using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.Common;
@@ -19,13 +22,9 @@ using Microsoft.VisualStudio.Services.WebApi;
 using Newtonsoft.Json;
 
 namespace Agent.Plugins.PipelineCache
-{    
+{
     public class PipelineCacheServer
     {
-        public const string RootId = "RootId";
-        public const string ProofNodes = "ProofNodes";
-        private const string PipelineCacheVarPrefix = "PipelineCache";
-
         internal async Task UploadAsync(
             AgentTaskPluginExecutionContext context,
             IEnumerable<string> key,
@@ -34,23 +33,41 @@ namespace Agent.Plugins.PipelineCache
             CancellationToken cancellationToken)
         {
             VssConnection connection = context.VssConnection;
-            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(context, connection);
+            BlobStoreClientTelemetry clientTelemetry;
+            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(context, connection, out clientTelemetry);
+            PipelineCacheClient pipelineCacheClient = this.CreateClient(clientTelemetry, context, connection);
 
-            var result = await dedupManifestClient.PublishAsync(path, cancellationToken);
-
-            CreatePipelineCacheArtifactOptions options = new CreatePipelineCacheArtifactOptions
+            using (clientTelemetry)
             {
-                Key = key,
-                RootId = result.RootId,
-                ManifestId = result.ManifestId,
-                ProofNodes = result.ProofNodes.ToArray(),
-                Salt = salt
-            };
+                //Upload the pipeline artifact.
+                PipelineCacheActionRecord uploadRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
+                    new PipelineCacheActionRecord(level, uri, type, nameof(dedupManifestClient.PublishAsync), context));
+                PublishResult result = await clientTelemetry.MeasureActionAsync(
+                    record: uploadRecord,
+                    actionAsync: async () =>
+                    {
+                        return await dedupManifestClient.PublishAsync(path, cancellationToken);
+                    });
 
-            var pipelineCacheClient = this.CreateClient(context, connection);
-            await pipelineCacheClient.CreatePipelineCacheArtifactAsync(options, cancellationToken);
+                CreatePipelineCacheArtifactOptions options = new CreatePipelineCacheArtifactOptions
+                {
+                    Key = key,
+                    RootId = result.RootId,
+                    ManifestId = result.ManifestId,
+                    ProofNodes = result.ProofNodes.ToArray(),
+                    Salt = salt
+                };
 
-            Console.WriteLine("Saved item.");
+                // Cache the artifact
+                PipelineCacheActionRecord cacheRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
+                    new PipelineCacheActionRecord(level, uri, type, PipelineArtifactConstants.SaveCache, context));
+                CreateStatus status = await pipelineCacheClient.CreatePipelineCacheArtifactAsync(options, cancellationToken, cacheRecord);
+
+                // Send results to CustomerIntelligence
+                context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineCache, record: uploadRecord);
+                context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineCache, record: cacheRecord);
+                context.Output("Saved item.");
+            }
         }
 
         internal async Task DownloadAsync(
@@ -62,40 +79,61 @@ namespace Agent.Plugins.PipelineCache
             CancellationToken cancellationToken)
         {
             VssConnection connection = context.VssConnection;
-            var pipelineCacheClient = this.CreateClient(context, connection);
-
+            BlobStoreClientTelemetry clientTelemetry;
+            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(context, connection, out clientTelemetry);
+            PipelineCacheClient pipelineCacheClient = this.CreateClient(clientTelemetry, context, connection);
             GetPipelineCacheArtifactOptions options = new GetPipelineCacheArtifactOptions
             {
                 Key = key,
                 Salt = salt,
             };
+            
+            using (clientTelemetry)
+            {
+                PipelineCacheActionRecord cacheRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
+                        new PipelineCacheActionRecord(level, uri, type, PipelineArtifactConstants.RestoreCache, context));
+                PipelineCacheArtifact result = await pipelineCacheClient.GetPipelineCacheArtifactAsync(options, cancellationToken, cacheRecord);
 
-            var result = await pipelineCacheClient.GetPipelineCacheArtifactAsync(options, cancellationToken);
-            if (result == null)
-            {
-                return;
-            }
-            else
-            {
-                Console.WriteLine("Manifest ID is: {0}", result.ManifestId.ValueString);
-                DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(context, connection);
-                await this.DownloadPipelineCacheAsync(dedupManifestClient, result.ManifestId, path, cancellationToken);
-                if (!string.IsNullOrEmpty(variableToSetOnHit))
+                // Send results to CustomerIntelligence
+                context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineCache, record: cacheRecord);
+
+                if (result == null)
                 {
-                    context.SetVariable($"{PipelineCacheVarPrefix}.{variableToSetOnHit}", "True");
+                    return;
                 }
-                Console.WriteLine("Cache restored.");
+                else
+                {
+                    context.Output($"Manifest ID is: {result.ManifestId.ValueString}");
+                    PipelineCacheActionRecord downloadRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
+                        new PipelineCacheActionRecord(level, uri, type, nameof(DownloadAsync), context));
+                    await clientTelemetry.MeasureActionAsync(
+                        record: downloadRecord,
+                        actionAsync: async () =>
+                        {
+                            await this.DownloadPipelineCacheAsync(dedupManifestClient, result.ManifestId, path, cancellationToken);
+                        });
+
+                    // Send results to CustomerIntelligence
+                    context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineCache, record: downloadRecord);
+                    
+                    if (!string.IsNullOrEmpty(variableToSetOnHit))
+                    {
+                        context.SetVariable($"{PipelineArtifactConstants.PipelineCache}.{variableToSetOnHit}", "True");
+                    }
+                    Console.WriteLine("Cache restored.");
+                }
             }
         }
 
         private PipelineCacheClient CreateClient(
+            BlobStoreClientTelemetry blobStoreClientTelemetry,
             AgentTaskPluginExecutionContext context,
             VssConnection connection)
         {
             var tracer = new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information);
-            IClock clock = UtcClock.Instance;           
+            IClock clock = UtcClock.Instance;
             var pipelineCacheHttpClient = connection.GetClient<PipelineCacheHttpClient>();
-            var pipelineCacheClient = new PipelineCacheClient(pipelineCacheHttpClient, clock, tracer);
+            var pipelineCacheClient = new PipelineCacheClient(blobStoreClientTelemetry, pipelineCacheHttpClient, clock, tracer);
 
             return pipelineCacheClient;
         }

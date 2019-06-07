@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Common;
+using Microsoft.VisualStudio.Services.Content.Common.Telemetry;
 using Microsoft.VisualStudio.Services.WebApi;
 using Newtonsoft.Json;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
@@ -18,7 +19,6 @@ namespace Agent.Sdk
     public interface IAgentTaskPlugin
     {
         Guid Id { get; }
-        string Version { get; }
         string Stage { get; }
         Task RunAsync(AgentTaskPluginExecutionContext executionContext, CancellationToken token);
     }
@@ -164,11 +164,13 @@ namespace Agent.Sdk
         }
 
         public void PublishTelemetry(string area, string feature, Dictionary<string, string> properties)
-        {      
+        {
             string propertiesAsJson = StringUtil.ConvertToJson(properties, Formatting.None);
-
             Output($"##vso[telemetry.publish area={area};feature={feature}]{Escape(propertiesAsJson)}");
-        }           
+        }
+
+        public void PublishTelemetry(string area, string feature, TelemetryRecord record) 
+            => PublishTelemetry(area, feature, record.GetAssignedProperties());
 
         public void Output(string message)
         {

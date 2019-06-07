@@ -44,7 +44,6 @@ namespace Agent.Plugins.Repository
         }
 
         public Guid Id => Pipelines.PipelineConstants.CheckoutTask.Id;
-        public string Version => Pipelines.PipelineConstants.CheckoutTask.Version;
 
         public ISourceProviderFactory SourceProviderFactory { get; }
 

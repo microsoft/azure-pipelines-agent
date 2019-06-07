@@ -38,11 +38,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             // Make sure only particular task get run as agent plugin.
             var agentPlugin = HostContext.GetService<IAgentPluginManager>();
-            var pluginTask = agentPlugin.GetPluginTask(Task.Id, Task.Version);
-            ArgUtil.NotNull(pluginTask, $"{Task.Name} ({Task.Id}/{Task.Version})");
-            if (!string.Equals(pluginTask.TaskPluginPreJobTypeName, Data.Target, StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(pluginTask.TaskPluginTypeName, Data.Target, StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(pluginTask.TaskPluginPostJobTypeName, Data.Target, StringComparison.OrdinalIgnoreCase))
+            var taskPlugins = agentPlugin.GetTaskPlugins(Task.Id);
+            ArgUtil.NotNull(taskPlugins, $"{Task.Name} ({Task.Id}/{Task.Version})");
+            if (!taskPlugins.Contains(Data.Target))
             {
                 throw new NotSupportedException(Data.Target);
             }

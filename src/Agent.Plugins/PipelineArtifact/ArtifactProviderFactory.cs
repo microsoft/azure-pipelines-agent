@@ -26,10 +26,10 @@ namespace Agent.Plugins.PipelineArtifact
             string artifactType = buildArtifact.Resource.Type;
             switch (artifactType)
             {
-                case PipelineArtifactServer.PipelineArtifactTypeName:
+                case PipelineArtifactConstants.PipelineArtifact:
                     provider = pipelineArtifactProvider;
                     break;
-                case PipelineArtifactServer.BuildArtifactTypeName:
+                case PipelineArtifactConstants.Container:
                     provider = fileContainerProvider;
                     break;
                 default:

@@ -19,8 +19,9 @@ ARM32 (see note 2)
   - Debian 9 or later versions
   - Ubuntu 18.04 or later versions
 
-> Note 1: Red Hat Enterprise Linux 6 and CentOS 6 require installing the specialized "rhel.6-x64" agent package
-> Note 2: ARM instruction set [ARMv7](https://en.wikipedia.org/wiki/List_of_ARM_microarchitectures) or above is required, you can get your device's information by executing `uname -a`
+> Notes:
+> 1. Red Hat Enterprise Linux 6 and CentOS 6 require installing the specialized "rhel.6-x64" agent package
+> 2. ARM instruction set [ARMv7](https://en.wikipedia.org/wiki/List_of_ARM_microarchitectures) or above is required, you can get your device's information by executing `uname -a`
 
 ## Install .Net Core 2.x Linux Dependencies
 
