@@ -24,7 +24,10 @@ namespace Agent.Plugins.PipelineArtifact
         internal static int GetDedupStoreClientMaxParallelism(AgentTaskPluginExecutionContext context) {
             int parallelism = DefaultDedupStoreClientMaxParallelism;
             if(context.Variables.TryGetValue("AZURE_PIPELINES_DEDUP_PARALLELISM", out VariableValue v)) {
-                parallelism = int.Parse(v.Value);
+                if (!int.TryParse(v.Value, out parallelism)) {
+                    context.Info($"Could not parse the value of AZURE_PIPELINES_DEDUP_PARALLELISM, '{v.Value}', as an integer. Defaulting to {DefaultDedupStoreClientMaxParallelism}");
+                    parallelism = DefaultDedupStoreClientMaxParallelism;
+                }
             }
             context.Info(string.Format("Dedup parallelism: {0}", parallelism));
             return parallelism;
@@ -39,7 +42,6 @@ namespace Agent.Plugins.PipelineArtifact
             this.tracer = tracer;
             dedupStoreHttpClient.SetTracer(tracer);
             int parallelism = GetDedupStoreClientMaxParallelism(context);
-            tracer.Info("PipelineArtifactProvider using parallelism {0}.", parallelism);
             var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, parallelism);
             buildDropManager = new BuildDropManager(client, this.tracer);
         }
