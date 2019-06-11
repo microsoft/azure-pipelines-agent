@@ -446,6 +446,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
 
 #if OS_WINDOWS
+            // don't allow other users to modify the .env file
+            string envFile = Path.Combine(context.GetDirectory(WellKnownDirectory.Root), ".env");
+            if (!File.Exists(envFile))
+            {
+                try
+                {
+                    File.Create(envFile);
+                }
+                catch { }
+            }
+            if (File.Exists(envFile))
+            {
+                Trace.Info("Lock-down permissions for .env file so it can't be edited by other users.");
+                FileSecurity fSecurity = File.GetAccessControl(envFile);
+                fSecurity.AddAccessRule(new FileSystemAccessRule(@"Authenticated Users", FileSystemRights.Modify, AccessControlType.Deny));
+                File.SetAccessControl(envFile, fSecurity);
+            }
+
             // config windows service
             bool runAsService = command.GetRunAsService();
             if (runAsService)
