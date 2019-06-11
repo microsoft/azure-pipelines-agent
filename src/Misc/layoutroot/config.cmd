@@ -35,4 +35,9 @@ if /i "%~1" equ "remove" (
     rem Configure the agent.
     rem ********************************************************************************
     "%~dp0bin\Agent.Listener.exe" configure %*
+
+    rem ********************************************************************************
+    rem Restrict access to root folder and don't allow regular users to create files
+    rem ********************************************************************************
+    powershell.exe -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "$acl = Get-Acl '%~dp0'; $rule = New-Object System.Security.Acc$
 )
