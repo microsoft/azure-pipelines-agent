@@ -14,6 +14,7 @@ using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
+using System.Security.AccessControl;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
