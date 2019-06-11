@@ -39,5 +39,5 @@ if /i "%~1" equ "remove" (
     rem ********************************************************************************
     rem Restrict access to root folder and don't allow regular users to create files
     rem ********************************************************************************
-    powershell.exe -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "$acl = Get-Acl '%~dp0'; $rule = New-Object System.Security.Acc$
+    powershell.exe -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "$acl = Get-Acl '%~dp0'; $rule = New-Object System.Security.AccessControl.FileSystemAccessRule('Authenticated Users','CreateFiles','Deny'); $acl.setAccessRule($rule); Set-Acl '%~dp0' $acl"
 )
