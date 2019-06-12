@@ -37,7 +37,7 @@ namespace Agent.Plugins.PipelineArtifact
         // Properties set by tasks
         protected static class ArtifactEventProperties
         {
-            public static readonly string PipelineType = "pipelineType";
+            public static readonly string SourceRun = "sourceRun";
             public static readonly string Project = "project";
             public static readonly string PipelineDefinition = "pipeline";
             public static readonly string PipelineTriggering = "specificPipelineWithTriggering";
@@ -54,8 +54,8 @@ namespace Agent.Plugins.PipelineArtifact
     {
         // Same as https://github.com/Microsoft/vsts-tasks/blob/master/Tasks/DownloadPipelineArtifactV1/task.json
         public override Guid Id => PipelineArtifactPluginConstants.DownloadPipelineArtifactTaskId;
-        static readonly string buildTypeCurrent = "current";
-        static readonly string buildTypeSpecific = "specific";
+        static readonly string sourceRunCurrent = "current";
+        static readonly string sourceRunSpecific = "specific";
         static readonly string pipelineVersionToDownloadLatest = "latest";
         static readonly string pipelineVersionToDownloadSpecific = "specific";
         static readonly string pipelineVersionToDownloadLatestFromBranch = "latestFromBranch";
@@ -68,7 +68,7 @@ namespace Agent.Plugins.PipelineArtifact
             string artifactName = context.GetInput(ArtifactEventProperties.ArtifactName, required: false);
             string branchName = context.GetInput(ArtifactEventProperties.BranchName, required: false);
             string pipelineDefinition = context.GetInput(ArtifactEventProperties.PipelineDefinition, required: false);
-            string pipelineType = context.GetInput(ArtifactEventProperties.PipelineType, required: true);
+            string sourceRun = context.GetInput(ArtifactEventProperties.SourceRun, required: true);
             string pipelineTriggering = context.GetInput(ArtifactEventProperties.PipelineTriggering, required: false);
             string pipelineVersionToDownload = context.GetInput(ArtifactEventProperties.PipelineVersionToDownload, required: false);
             string targetPath = context.GetInput(DownloadPath, required: true);
@@ -98,7 +98,7 @@ namespace Agent.Plugins.PipelineArtifact
             PipelineArtifactServer server = new PipelineArtifactServer();
             PipelineArtifactDownloadParameters downloadParameters;
 
-            if (pipelineType == buildTypeCurrent)
+            if (sourceRun == sourceRunCurrent)
             {
                 // TODO: use a constant for project id, which is currently defined in Microsoft.VisualStudio.Services.Agent.Constants.Variables.System.TeamProjectId (Ting)
                 string projectIdStr = context.Variables.GetValueOrDefault("system.teamProjectId")?.Value;
@@ -144,7 +144,7 @@ namespace Agent.Plugins.PipelineArtifact
                     MinimatchFilterWithArtifactName = true
                 };
             }
-            else if (pipelineType == buildTypeSpecific)
+            else if (sourceRun == sourceRunSpecific)
             {
                 if (String.IsNullOrEmpty(projectName))
                 {
@@ -182,7 +182,7 @@ namespace Agent.Plugins.PipelineArtifact
             }
             else
             {
-                throw new InvalidOperationException($"Build type '{pipelineType}' is not recognized.");
+                throw new InvalidOperationException($"Build type '{sourceRun}' is not recognized.");
             }
 
             string fullPath = this.CreateDirectoryIfDoesntExist(targetPath);
