@@ -37,15 +37,15 @@ namespace Agent.Plugins.PipelineArtifact
         // Properties set by tasks
         protected static class ArtifactEventProperties
         {
-            public static readonly string SourceRun = "sourceRun";
+            public static readonly string SourceRun = "source";
             public static readonly string Project = "project";
             public static readonly string PipelineDefinition = "pipeline";
-            public static readonly string PipelineTriggering = "specificPipelineWithTriggering";
-            public static readonly string PipelineVersionToDownload = "pipelineVersionToDownload";
-            public static readonly string BranchName = "branchName";
+            public static readonly string PipelineTriggering = "preferTriggeringPipeline";
+            public static readonly string PipelineVersionToDownload = "runVersion";
+            public static readonly string BranchName = "runBranch";
             public static readonly string Tags = "tags";
-            public static readonly string ArtifactName = "artifactName";
-            public static readonly string ItemPattern = "itemPattern";
+            public static readonly string ArtifactName = "artifact";
+            public static readonly string ItemPattern = "patterns";
         }
     }
 
