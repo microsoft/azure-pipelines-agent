@@ -1,24 +1,15 @@
 ## Features
-  - Pipeline caching plugins #2184
-  - Download Build Artifacts - FCS via Pipeline Artifacts #2210
-  - Adding support for ACR based dockerRegistry endpoint #2247
-  - Update pipeline cache agent code which reflects on scoping logic #2259
-  - Relax constrain plugin task id/version has to match. #2275
-
+  - Calculate artifact size for build (file container) artifacts #2258
+  - Add jobId as source for artifacts #2278
+  - Capture telemetry from PA/PC tasks #2274
+  - Create publish pipeline artifact v1 task in agent #2279
+  - Update download path so that it's relative to workingDirectory for DPA V2 task #2282
+  
 ## Bugs
-  - Fix Result publisher warning for empty results file. #2222
-  - Implement shallow fetch by commit #2211
-  - Use LogCallback instead of IAdalLogCallback. #2219
-  - React to Git 2.20 fetch tag update behavior change #2250
-  - Add PoolName to agent service name #2229
-  - Create registry sub key if not exists #2265
-  - Limit agent service name to 80 characters #2266
-  - Fix running as systemd service when agent name contains spaces #2263
-  - Fix env var logging by using global replace #2273
-  - Update default artifact names #2225
-
+  - N/A
+  
 ## Misc
-  - Prefer logging HelpUrl property over HelpMarkDown #2226
+  - N/A
 
 ## Agent Downloads  
 

@@ -23,6 +23,7 @@
   "ArtifactCommandNotFound": "##vso[artifact.{0}] is not a recognized command for Artifact command extension. Please reference documentation (http://go.microsoft.com/fwlink/?LinkId=817296)",
   "ArtifactDownloadFailed": "Failed to download the artifact from {0}.",
   "ArtifactLocationRequired": "Artifact location is required.",
+  "ArtifactNameIsNotValid": "Artifact name is not valid: {0}. It cannot contain '\\', /', \"', ':', '<', '>', '|', '*', and '?'",
   "ArtifactNameRequired": "Artifact Name is required.",
   "ArtifactTypeRequired": "Artifact Type is required.",
   "AssociateArtifact": "Associate Artifact",

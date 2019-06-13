@@ -134,11 +134,12 @@ namespace Agent.Plugins.PipelineArtifact
                             keySelector: (a) => a.Name, // keys should be unique, if not something is really wrong
                             elementSelector: (a) => DedupIdentifier.Create(a.Resource.Data));
                         // 2) download to the target path
-                        var options = DownloadPipelineArtifactOptions.CreateWithMultiManifestIds(
+                        var options = DownloadDedupManifestArtifactOptions.CreateWithMultiManifestIds(
                             artifactNameAndManifestIds,
                             downloadParameters.TargetDirectory,
                             proxyUri: null,
-                            minimatchPatterns: downloadParameters.MinimatchFilters);
+                            minimatchPatterns: downloadParameters.MinimatchFilters,
+                            minimatchFilterWithArtifactName: downloadParameters.MinimatchFilterWithArtifactName);
 
                         PipelineArtifactActionRecord downloadRecord = clientTelemetry.CreateRecord<PipelineArtifactActionRecord>((level, uri, type) =>
                             new PipelineArtifactActionRecord(level, uri, type, nameof(DownloadAsync), context));
@@ -177,7 +178,7 @@ namespace Agent.Plugins.PipelineArtifact
                     }
 
                     var manifestId = DedupIdentifier.Create(buildArtifact.Resource.Data);
-                    var options = DownloadPipelineArtifactOptions.CreateWithManifestId(
+                    var options = DownloadDedupManifestArtifactOptions.CreateWithManifestId(
                         manifestId,
                         downloadParameters.TargetDirectory,
                         proxyUri: null,
@@ -288,7 +289,7 @@ namespace Agent.Plugins.PipelineArtifact
             var dedupStoreHttpClient = connection.GetClient<DedupStoreHttpClient>();
             var tracer = this.CreateTracer(context);
             dedupStoreHttpClient.SetTracer(tracer);
-            var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, 16 * Environment.ProcessorCount);
+            var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, PipelineArtifactProvider.GetDedupStoreClientMaxParallelism(context));
             var buildDropManager = new BuildDropManager(client, tracer);
             return buildDropManager;
         }
@@ -318,6 +319,7 @@ namespace Agent.Plugins.PipelineArtifact
         public string ArtifactName { get; set; }
         public string TargetDirectory { get; set; }
         public string[] MinimatchFilters { get; set; }
+        public bool  MinimatchFilterWithArtifactName {get; set;}
     }
 
     internal enum BuildArtifactRetrievalOptions
