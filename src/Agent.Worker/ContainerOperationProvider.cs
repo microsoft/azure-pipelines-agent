@@ -192,6 +192,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     string loginServer = string.Empty;
                     registryEndpoint.Authorization?.Parameters?.TryGetValue("loginServer", out loginServer);
+                    if (loginServer != null) {
+                        loginServer = loginServer.ToLower();
+                    }
+                    
                     registryEndpoint.Authorization?.Parameters?.TryGetValue("serviceprincipalid", out username);
                     registryEndpoint.Authorization?.Parameters?.TryGetValue("serviceprincipalkey", out password);
 
