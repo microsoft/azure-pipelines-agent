@@ -549,7 +549,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                             int exitCode_submoduleclean = await _gitCommandManager.GitSubmoduleClean(executionContext, targetPath);
                             if (exitCode_submoduleclean != 0)
                             {
-                                executionContext.Debug($"'git submodule foreach git clean -ffdx' failed with exit code {exitCode_submoduleclean}\nFor futher investigation, manually run 'git submodule foreach git clean -ffdx' on repo root: {targetPath} after each build.");
+                                executionContext.Debug($"'git submodule foreach --recursve \"git clean -ffdx\"' failed with exit code {exitCode_submoduleclean}\nFor futher investigation, manually run 'git submodule foreach --recursive \"git clean -ffdx\"' on repo root: {targetPath} after each build.");
                                 softCleanSucceed = false;
                             }
                         }
@@ -559,7 +559,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                             int exitCode_submodulereset = await _gitCommandManager.GitSubmoduleReset(executionContext, targetPath);
                             if (exitCode_submodulereset != 0)
                             {
-                                executionContext.Debug($"'git submodule foreach git reset --hard HEAD' failed with exit code {exitCode_submodulereset}\nFor futher investigation, manually run 'git submodule foreach git reset --hard HEAD' on repo root: {targetPath} after each build.");
+                                executionContext.Debug($"'git submodule foreach --recursive \"git reset --hard HEAD\"' failed with exit code {exitCode_submodulereset}\nFor futher investigation, manually run 'git submodule foreach --recursive \"git reset --hard HEAD\"' on repo root: {targetPath} after each build.");
                                 softCleanSucceed = false;
                             }
                         }

@@ -47,10 +47,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         // get remote set-url --push <origin> <url>
         Task<int> GitRemoteSetPushUrl(IExecutionContext context, string repositoryPath, string remoteName, string remoteUrl);
 
-        // git submodule foreach git clean -ffdx
+        // git submodule foreach --recursive "git clean -ffdx"
         Task<int> GitSubmoduleClean(IExecutionContext context, string repositoryPath);
 
-        // git submodule foreach git reset --hard HEAD
+        // git submodule foreach --recursive "git reset --hard HEAD"
         Task<int> GitSubmoduleReset(IExecutionContext context, string repositoryPath);
 
         // git submodule update --init --force [--depth=15] [--recursive]
@@ -306,7 +306,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return await ExecuteGitCommandAsync(context, repositoryPath, "remote", StringUtil.Format($"set-url --push {remoteName} {remoteUrl}"));
         }
 
-        // git submodule foreach git clean -ffdx
+        // git submodule foreach --recursive "git clean -ffdx"
         public async Task<int> GitSubmoduleClean(IExecutionContext context, string repositoryPath)
         {
             context.Debug($"Delete untracked files/folders for submodules at {repositoryPath}.");
@@ -322,14 +322,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 options = "-fdx";
             }
 
-            return await ExecuteGitCommandAsync(context, repositoryPath, "submodule", $"foreach git clean {options}");
+            return await ExecuteGitCommandAsync(context, repositoryPath, "submodule", $"foreach --recursive \"git clean {options}\"");
         }
 
-        // git submodule foreach git reset --hard HEAD
+        // git submodule foreach --recursive "git reset --hard HEAD"
         public async Task<int> GitSubmoduleReset(IExecutionContext context, string repositoryPath)
         {
             context.Debug($"Undo any changes to tracked files in the working tree for submodules at {repositoryPath}.");
-            return await ExecuteGitCommandAsync(context, repositoryPath, "submodule", "foreach git reset --hard HEAD");
+            return await ExecuteGitCommandAsync(context, repositoryPath, "submodule", "foreach --recursive \"git reset --hard HEAD\"");
         }
 
         // git submodule update --init --force [--depth=15] [--recursive]
