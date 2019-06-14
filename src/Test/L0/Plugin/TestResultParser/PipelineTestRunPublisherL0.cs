@@ -16,7 +16,7 @@ namespace Test.L0.Plugin.TestResultParser
 {
     public class PipelineTestRunPublisherL0
     {
-        private PipelineConfg _pipelineConfig;
+        private PipelineConfig _pipelineConfig;
         public PipelineTestRunPublisherL0 ()
         {
             this._pipelineConfig = new PipelineConfig()
@@ -271,8 +271,11 @@ namespace Test.L0.Plugin.TestResultParser
 
         private bool ValidatePipelineReference(RunCreateModel run)
         {
-            
-            return false;
+            bool pipelineId = run.PipelineReference.PipelineId.Equals(1);
+            bool stageReference = run.PipelineReference.StageReference.Attempt.Equals(1) && run.PipelineReference.StageReference.StageName.Equals("Stage1");
+            bool phaseReference = run.PipelineReference.PhaseReference.Attempt.Equals(1) && run.PipelineReference.PhaseReference.PhaseName.Equals("Phase1");
+            bool jobReference = run.PipelineReference.JobReference.Attempt.Equals(1) && run.PipelineReference.JobReference.JobName.Equals("Job1");
+            return pipelineId && stageReference && phaseReference && jobReference;
         }
     }
 }
