@@ -19,13 +19,13 @@ namespace Agent.Plugins.Log.TestFilePublisher
 
         public string StageName { get; set; }
 
-        public int StageAttempt { get; set; }
-
         public string PhaseName { get; set; }
 
-        public int PhaseAttempt { get; set; }
-
         public string JobName { get; set; }
+
+        public int StageAttempt { get; set; }
+
+        public int PhaseAttempt { get; set; }
 
         public int JobAttempt { get; set; }
     }
