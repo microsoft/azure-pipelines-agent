@@ -1,22 +1,17 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
 using Agent.Plugins.PipelineArtifact.Telemetry;
 using Microsoft.TeamFoundation.Build.WebApi;
-using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
 using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
-using Microsoft.VisualStudio.Services.Content.Common.Telemetry;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
-using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Newtonsoft.Json;
 
 namespace Agent.Plugins.PipelineArtifact
 {
@@ -56,7 +51,7 @@ namespace Agent.Plugins.PipelineArtifact
                 Dictionary<string, string> propertiesDictionary = new Dictionary<string, string>();
                 propertiesDictionary.Add(PipelineArtifactConstants.RootId, result.RootId.ValueString);
                 propertiesDictionary.Add(PipelineArtifactConstants.ProofNodes, StringUtil.ConvertToJson(result.ProofNodes.ToArray()));
-                propertiesDictionary.Add(PipelineArtifactConstants.ArtifactSize, GetArtifactSize(source).ToString());
+                propertiesDictionary.Add(PipelineArtifactConstants.ArtifactSize, result.ContentSize.ToString());
                 var artifact = await buildHelper.AssociateArtifact(projectId, pipelineId, name, ArtifactResourceTypes.PipelineArtifact, result.ManifestId.ValueString, propertiesDictionary, cancellationToken);
                 context.Output(StringUtil.Loc("AssociateArtifactWithBuild", artifact.Id, pipelineId));
             }
@@ -299,12 +294,6 @@ namespace Agent.Plugins.PipelineArtifact
         {
             var tracer = new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information);
             return tracer;
-        }
-
-        private static long GetArtifactSize(string path)
-        {
-            DirectoryInfo directory = new DirectoryInfo(path);
-            return directory.EnumerateFiles("*", SearchOption.AllDirectories).Select(x => x.Length).Sum();
         }
     }
 
