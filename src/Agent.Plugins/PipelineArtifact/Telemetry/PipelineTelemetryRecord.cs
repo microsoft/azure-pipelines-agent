@@ -3,6 +3,7 @@ using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common.Telemetry;
 using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
+using Microsoft.VisualStudio.Services.Common;
 
 namespace Agent.Plugins.PipelineArtifact.Telemetry
 {
@@ -18,9 +19,9 @@ namespace Agent.Plugins.PipelineArtifact.Telemetry
         public PipelineTelemetryRecord(TelemetryInformationLevel level, Uri baseAddress, string eventNamePrefix, string eventNameSuffix, AgentTaskPluginExecutionContext context, uint attemptNumber = 1)
             : base(level, baseAddress, eventNamePrefix, eventNameSuffix, attemptNumber)
         {
-            PlanId = Guid.Parse(context.Variables[WellKnownDistributedTaskVariables.PlanId].Value);
-            JobId = Guid.Parse(context.Variables[WellKnownDistributedTaskVariables.JobId].Value);
-            TaskInstanceId = Guid.Parse(context.Variables[WellKnownDistributedTaskVariables.TaskInstanceId].Value);
+            PlanId = new Guid(context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.PlanId)?.Value ?? Guid.Empty.ToString());
+            JobId = new Guid(context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.JobId)?.Value ?? Guid.Empty.ToString());
+            TaskInstanceId = new Guid(context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.TaskInstanceId)?.Value ?? Guid.Empty.ToString());
         }
     }
 }
