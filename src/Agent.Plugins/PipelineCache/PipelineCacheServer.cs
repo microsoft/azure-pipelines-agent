@@ -39,6 +39,24 @@ namespace Agent.Plugins.PipelineCache
 
             using (clientTelemetry)
             {
+                // Check if the key exists.
+                GetPipelineCacheArtifactOptions getOptions = new GetPipelineCacheArtifactOptions
+                {
+                    Key = key,
+                    Salt = salt,
+                };
+                PipelineCacheActionRecord cacheRecordGet = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
+                        new PipelineCacheActionRecord(level, uri, type, PipelineArtifactConstants.RestoreCache, context));
+                PipelineCacheArtifact getResult = await pipelineCacheClient.GetPipelineCacheArtifactAsync(getOptions, cancellationToken, cacheRecordGet);
+                // Send results to CustomerIntelligence
+                context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineCache, record: cacheRecordGet);
+                //If cache exists, return.
+                if (getResult != null)
+                {
+                    context.Output($"Cache with fingerprint {getResult.Fingerprint} already exists.");
+                    return;
+                }
+
                 //Upload the pipeline artifact.
                 PipelineCacheActionRecord uploadRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
                     new PipelineCacheActionRecord(level, uri, type, nameof(dedupManifestClient.PublishAsync), context));
