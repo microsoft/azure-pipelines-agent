@@ -560,7 +560,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 _logPlugin.Write(_record.Id, msg);
             }
 
-            _jobServerQueue.QueueWebConsoleLine(_record.Id, msg);
+            _jobServerQueue.QueueWebConsoleLine(_record.Id, msg, totalLines);
             return totalLines;
         }
 

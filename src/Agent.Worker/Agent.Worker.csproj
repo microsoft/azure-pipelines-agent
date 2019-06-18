@@ -18,7 +18,7 @@
   <ItemGroup>
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="4.4.0" />
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="4.4.0" />
-    <PackageReference Include="vss-api-netcore" Version="0.5.124-private" />
+    <PackageReference Include="vss-api-netcore" Version="0.5.125-private" />
   </ItemGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
