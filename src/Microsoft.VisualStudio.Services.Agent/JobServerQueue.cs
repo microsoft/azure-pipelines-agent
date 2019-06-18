@@ -311,7 +311,6 @@ namespace Microsoft.VisualStudio.Services.Agent
                         {
                             Trace.Info($"Skip {batchedLines.Count - 2} batches web console lines for last run");
                             batchedLines = batchedLines.TakeLast(2).ToList();
-                            //batchedLines[0].Insert(0, "...");
                         }
 
                         int errorCount = 0;
