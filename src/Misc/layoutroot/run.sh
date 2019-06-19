@@ -1,5 +1,21 @@
 #!/bin/bash
 
+function delay {
+    time=${1:-1}
+    if [ -x "$(command -v sleep)" ]; then
+        sleep $time >/dev/null
+    elif [ -x "$(command -v ping)" ]; then
+        ping -n $time 127.0.0.1 >nul
+    else
+        count=0
+
+        while [[ $count != $[$time*25000] ]]; do
+            echo "sleep" >/dev/null
+            count=$[$count+1]
+        done
+    fi
+}
+
 # Validate not sudo
 user_id=`id -u`
 if [ $user_id -eq 0 -a -z "$AGENT_ALLOW_RUNASROOT" ]; then
@@ -26,22 +42,23 @@ if [[ "$1" == "localRun" ]]; then
 else
     "$DIR"/bin/Agent.Listener run $*
 
-# Return code 4 means the run once agent received an update message.
-# Sleep 5 seconds to wait for the update process finish and run the agent again.
+    # Return code 4 means the run once agent received an update message.
+    # Sleep at least 5 seconds (to allow the update process to start) and
+    # at most 20 seconds (to allow it to finish) then run the new agent
+    # again.
     returnCode=$?
     if [[ $returnCode == 4 ]]; then
-        if [ ! -x "$(command -v sleep)" ]; then
-            if [ ! -x "$(command -v ping)" ]; then
-                COUNT="0"
-                while [[ $COUNT != 5000 ]]; do
-                    echo "SLEEP" >/dev/null
-                    COUNT=$[$COUNT+1]
-                done
-            else
-                ping -n 5 127.0.0.1 >/dev/null
-            fi
-        else
-            sleep 5 >/dev/null
+        delay 5
+
+        retry=0
+        while [[ $retry != 15 ]] && [ ! -x "$DIR"/bin/Agent.Listener ]; do
+            delay 1
+            retry=$[retry+1]
+        done
+
+        if [ ! -x "$DIR"/bin/Agent.Listener ]; then
+            echo "Failed to update within 20 seconds." >&2
+            exit 1
         fi
         
         "$DIR"/bin/Agent.Listener run $*
