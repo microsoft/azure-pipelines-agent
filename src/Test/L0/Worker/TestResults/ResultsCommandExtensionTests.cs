@@ -617,6 +617,43 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "PublishTestResults")]
+        public void VerifyTestRunPipelineReferenceIsSentWhenPublishing()
+        {
+            SetupMocks();
+            var resultCommand = new ResultsCommandExtension();
+            resultCommand.Initialize(_hc);
+            var command = new Command("results", "publish");
+            command.Properties.Add("resultFiles", "file1.trx");
+            command.Properties.Add("type", "NUnit");
+            // Explicitly not merging it to check if the test run title is not modified when there's only one test file.
+            command.Properties.Add("mergeResults", bool.FalseString);
+            command.Properties.Add("runTitle", "TestRunTitle");
+            var resultsFiles = new List<string> { "file1.trx" };
+
+            var testRunData = new TestRunData();
+            testRunData.Results = new TestCaseResultData[] { new TestCaseResultData() };
+            _mockTestRunPublisher.Setup(q => q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()))
+                .Callback((TestRunData trd, CancellationToken cancellationToken) =>
+                {
+                    Assert.Equal("stage1", trd.PipelineReference.StageReference.StageName);
+                    Assert.Equal("phase1", trd.PipelineReference.PhaseReference.PhaseName);
+                    Assert.Equal("job1", trd.PipelineReference.JobReference.JobName);
+                    Assert.Equal(1, trd.PipelineReference.JobReference.Attempt);
+                    Assert.Equal(1, trd.PipelineReference.PhaseReference.Attempt);
+                    Assert.Equal(1, trd.PipelineReference.StageReference.Attempt);
+                });
+            _mockTestRunPublisher.Setup(q => q.ReadResultsFromFile(It.IsAny<TestRunContext>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(testRunData);
+
+            resultCommand.ProcessCommand(_ec.Object, command);
+
+            // Making sure that the callback is called.
+            _mockTestRunPublisher.Verify(q => q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "PublishTestResults")]
         public void VerifyStartEndTestRunTimeWhenPublishingToSingleTestRun()
         {
             SetupMocks();
@@ -654,7 +691,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             resultCommand.ProcessCommand(_ec.Object, command);
         }
 
-        private void SetupMocks([CallerMemberName] string name = "")
+        private void SetupMocks([CallerMemberName] string name = "", Boolean includePipelineVariables = false)
         {
             _hc = new TestHostContext(this, name);
             _hc.SetSingleton(_mockResultReader.Object);
@@ -675,6 +712,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             List<string> warnings;
             _variables = new Variables(_hc, new Dictionary<string, VariableValue>(), out warnings);
             _variables.Set("build.buildId", "1");
+            if(includePipelineVariables)
+            {
+                _variables.Set("system.jobName", "job1");
+                _variables.Set("system.phaseName", "phase1");
+                _variables.Set("system.stageName", "stage1");
+                _variables.Set("system.jobAttempt", "1");
+                _variables.Set("system.phaseAttempt", "1");
+                _variables.Set("system.stageAttempt", "1");
+            }
             endpointAuthorization.Parameters[EndpointAuthorizationParameters.AccessToken] = "accesstoken";
 
             _ec = new Mock<IExecutionContext>();
