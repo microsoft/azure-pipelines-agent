@@ -103,6 +103,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public int? Build_BuildId => GetInt(BuildWebApi.BuildVariables.BuildId);
 
+        public string Build_BuildUri => Get(BuildWebApi.BuildVariables.BuildUri);
+
         public BuildCleanOption? Build_Clean => GetEnum<BuildCleanOption>(Constants.Variables.Features.BuildDirectoryClean) ?? GetEnum<BuildCleanOption>(Constants.Variables.Build.Clean);
 
         public long? Build_ContainerId => GetLong(BuildWebApi.BuildVariables.ContainerId);
@@ -182,7 +184,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public int? System_JobAttempt => GetInt(Constants.Variables.System.JobAttempt);
 
-        public string Build_BuildUri => Get(BuildWebApi.BuildVariables.BuildUri);
 
         public static readonly HashSet<string> PiiVariables = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
