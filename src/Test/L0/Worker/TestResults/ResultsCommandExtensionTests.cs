@@ -619,7 +619,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         [Trait("Category", "PublishTestResults")]
         public void VerifyTestRunPipelineReferenceIsSentWhenPublishing()
         {
-            SetupMocks();
+            SetupMocks("VerifyTestRunPipelineReferenceIsSentWhenPublishing", true);
             var resultCommand = new ResultsCommandExtension();
             resultCommand.Initialize(_hc);
             var command = new Command("results", "publish");
@@ -629,7 +629,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             command.Properties.Add("mergeResults", bool.FalseString);
             command.Properties.Add("runTitle", "TestRunTitle");
             var resultsFiles = new List<string> { "file1.trx" };
-
+           
             var testRunData = new TestRunData();
             testRunData.Results = new TestCaseResultData[] { new TestCaseResultData() };
             _mockTestRunPublisher.Setup(q => q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()))
@@ -691,7 +691,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             resultCommand.ProcessCommand(_ec.Object, command);
         }
 
-        private void SetupMocks([CallerMemberName] string name = "", Boolean includePipelineVariables = false)
+        private void SetupMocks([CallerMemberName] string name = "", bool includePipelineVariables = false)
         {
             _hc = new TestHostContext(this, name);
             _hc.SetSingleton(_mockResultReader.Object);
