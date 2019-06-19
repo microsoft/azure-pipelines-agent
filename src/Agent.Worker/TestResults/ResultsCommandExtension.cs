@@ -63,6 +63,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             string buildUri = context.Variables.Build_BuildUri;
             int buildId = context.Variables.Build_BuildId ?? 0;
             string pullRequestTargetBranchName = context.Variables.System_PullRequest_TargetBranch;
+            string stageName = context.Variables.System_StageName;
+            string phaseName = context.Variables.System_PhaseName;
+            string jobName = context.Variables.System_JobName;
+            int stageAttempt = context.Variables.System_StageAttempt ?? 0;
+            int phaseAttempt = context.Variables.System_PhaseAttempt ?? 0;
+            int jobAttempt = context.Variables.System_JobAttempt ?? 0;
+
 
             //Temporary fix to support publish in RM scenarios where there might not be a valid Build ID associated.
             //TODO: Make a cleaner fix after TCM User Story 401703 is completed.
@@ -83,6 +90,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
             IResultReader resultReader = GetTestResultReader(_testRunner);
             TestRunContext runContext = new TestRunContext(owner, _platform, _configuration, buildId, buildUri, releaseUri, releaseEnvironmentUri);
+            runContext.StageName = stageName;
+            runContext.StageAttempt = stageAttempt;
+            runContext.PhaseName = phaseName;
+            runContext.PhaseAttempt = phaseAttempt;
+            runContext.JobName = jobName;
+            runContext.JobAttempt = jobAttempt;
+
             runContext.PullRequestTargetBranchName = pullRequestTargetBranchName;
             
             VssConnection connection = WorkerUtilities.GetVssConnection(_executionContext);
@@ -92,7 +106,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
-
             if (_mergeResults)
             {
                 commandContext.Task = PublishAllTestResultsToSingleTestRunAsync(_testResultFiles, publisher, buildId, runContext, resultReader.Name, context.CancellationToken);
@@ -224,7 +237,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                         releaseUri: runContext != null ? runContext.ReleaseUri : null,
                         releaseEnvironmentUri: runContext != null ? runContext.ReleaseEnvironmentUri : null
                     );
-
+                    testRunData.PipelineReference = GetTestPipelineReference(runContext);
                     testRunData.Attachments = runAttachments.ToArray();
                     testRunData.AddCustomField(_testRunSystemCustomFieldName, _testRunSystem);
                     AddTargetBranchInfoToRunCreateModel(testRunData, runContext.PullRequestTargetBranchName);
@@ -275,7 +288,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
                         _executionContext.Debug(StringUtil.Format("Reading test results from file '{0}'", resultFile));
                         TestRunData testRunData = publisher.ReadResultsFromFile(runContext, resultFile, runName);
-
+                        testRunData.PipelineReference = GetTestPipelineReference(runContext);
                         if(_failTaskOnFailedTests)
                         {
                             _isTestRunOutcomeFailed = _isTestRunOutcomeFailed || GetTestRunOutcome(testRunData);
@@ -311,6 +324,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 //Do not fail the task.
                 LogPublishTestResultsFailureWarning(ex);
             }
+        }
+
+        private PipelineReference GetTestPipelineReference(TestRunContext runContext)
+        {
+            PipelineReference pipelineReference = null;
+            if(runContext != null)
+            {
+                pipelineReference = new PipelineReference()
+                {
+                    PipelineId = runContext.BuildId,
+                    StageReference = new StageReference() { StageName = runContext.StageName, Attempt = runContext.StageAttempt },
+                    PhaseReference = new PhaseReference() { PhaseName = runContext.PhaseName, Attempt = runContext.PhaseAttempt },
+                    JobReference = new JobReference() { JobName = runContext.JobName, Attempt = runContext.JobAttempt }
+                };
+            }
+            return pipelineReference;
         }
 
         private string GetRunTitle()

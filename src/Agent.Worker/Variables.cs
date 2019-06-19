@@ -103,8 +103,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public int? Build_BuildId => GetInt(BuildWebApi.BuildVariables.BuildId);
 
-        public string Build_BuildUri => Get(BuildWebApi.BuildVariables.BuildUri);
-
         public BuildCleanOption? Build_Clean => GetEnum<BuildCleanOption>(Constants.Variables.Features.BuildDirectoryClean) ?? GetEnum<BuildCleanOption>(Constants.Variables.Build.Clean);
 
         public long? Build_ContainerId => GetLong(BuildWebApi.BuildVariables.ContainerId);
@@ -171,6 +169,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public Guid? System_TeamProjectId => GetGuid(BuildWebApi.BuildVariables.TeamProjectId);
 
         public string System_TFCollectionUrl => Get(WellKnownDistributedTaskVariables.TFCollectionUrl);
+
+        public string System_StageName => Get(Constants.Variables.System.StageName);
+
+        public int? System_StageAttempt => GetInt(Constants.Variables.System.StageAttempt);
+
+        public string System_PhaseName => Get(Constants.Variables.System.PhaseName);
+
+        public int? System_PhaseAttempt => GetInt(Constants.Variables.System.PhaseAttempt);
+
+        public string System_JobName => Get(Constants.Variables.System.JobName);
+
+        public int? System_JobAttempt => GetInt(Constants.Variables.System.JobAttempt);
+
+        public string Build_BuildUri => Get(BuildWebApi.BuildVariables.BuildUri);
 
         public static readonly HashSet<string> PiiVariables = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {

@@ -24,5 +24,12 @@
         public string ReleaseEnvironmentUri { get; }
         public string RunName { get; set; }
         public string PullRequestTargetBranchName { get; set; }
+
+        public string StageName { get; set; }
+        public int StageAttempt { get; set; }
+        public string PhaseName { get; set; }
+        public int PhaseAttempt { get; set; }
+        public string JobName { get; set; }
+        public int JobAttempt { get; set; }
     }
 }
