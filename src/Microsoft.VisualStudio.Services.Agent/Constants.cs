@@ -19,6 +19,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         Tasks,
         Tee,
         Temp,
+        Tf,
         Tools,
         Update,
         Work,
@@ -253,6 +254,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static readonly string ServerOMDirectory = "vstsom";
             public static readonly string TempDirectory = "_temp";
             public static readonly string TeeDirectory = "tee";
+            public static readonly string TfDirectory = "tf";
             public static readonly string ToolDirectory = "_tool";
             public static readonly string TaskJsonFile = "task.json";
             public static readonly string TasksDirectory = "_tasks";
