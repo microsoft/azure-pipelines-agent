@@ -81,8 +81,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 )
             {
                 Attachments = AddResultsFileToRunLevelAttachments ? new string[] { filePath } : new string[0]
-            };
-            
+            };            
             // Read results
             XmlNodeList resultsNodes = doc.SelectNodes("/Site/Testing/Test");
             results.AddRange(ReadActualResults(resultsNodes));
