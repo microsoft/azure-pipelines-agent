@@ -90,7 +90,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                     {
                         Trace.Verbose($"{trackingFile} is a new format tracking file.");
                         ArgUtil.NotNull(tracking.LastRunOn, nameof(tracking.LastRunOn));
-                        executionContext.Output(StringUtil.Loc("ReleaseDirLastUseTIme", Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), tracking.ReleaseDirectory), tracking.LastRunOnString));
+                        executionContext.Output(StringUtil.Loc("ReleaseDirLastUseTIme", Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), tracking.ReleaseDirectory), tracking.LastRunOn?.ToString("u")));
                         if (DateTime.UtcNow - expiration > tracking.LastRunOn)
                         {
                             executionContext.Output(StringUtil.Loc("GCUnusedTrackingFile", trackingFile, expiration.TotalDays));

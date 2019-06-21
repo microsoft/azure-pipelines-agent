@@ -252,7 +252,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     {
                         Trace.Verbose($"{trackingFile} is a new format tracking file.");
                         ArgUtil.NotNull(newTracking.LastRunOn, nameof(newTracking.LastRunOn));
-                        executionContext.Output(StringUtil.Loc("BuildDirLastUseTIme", Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), newTracking.BuildDirectory), newTracking.LastRunOnString));
+                        executionContext.Output(StringUtil.Loc("BuildDirLastUseTIme", Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), newTracking.BuildDirectory), newTracking.LastRunOn?.ToString("u")));
                         if (DateTime.UtcNow - expiration > newTracking.LastRunOn)
                         {
                             executionContext.Output(StringUtil.Loc("GCUnusedTrackingFile", trackingFile, expiration.TotalDays));
