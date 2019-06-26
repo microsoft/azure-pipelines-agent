@@ -388,6 +388,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private TestAttachmentRequestModel GetAttachmentRequestModel(string attachment)
         {
             Trace.Entering();
+            // // Convert attachment to localpath.  Ref: https://docs.microsoft.com/en-us/dotnet/api/system.uri.localpath?view=netframework-4.8#remarks
+            attachment = new Uri(attachment).LocalPath;
             if (!File.Exists(attachment))
             {
                 _executionContext.Warning(StringUtil.Loc("TestAttachmentNotExists", attachment));
