@@ -72,8 +72,9 @@ then
             fi
 
             # debian 9 use libssl1.0.2
+            # debian 10 use libssl1.1
             # other debian linux use libssl1.0.0
-            apt install -y libssl1.0.0 || apt install -y libssl1.0.2
+            apt-get install -y libssl1.0.0 || apt install -y libssl1.0.2 || apt install -y libssl1.1
             if [ $? -ne 0 ]
             then
                 echo "'apt' failed with exit code '$?'"
@@ -81,8 +82,8 @@ then
                 exit 1
             fi
 
-            # libicu version prefer: libicu52 -> libicu55 -> libicu57 -> libicu60
-            apt install -y libicu52 || apt install -y libicu55 || apt install -y libicu57 || apt install -y libicu60
+            # libicu version prefer: libicu52 -> libicu55 -> libicu57 -> libicu60 -> libicu63
+            apt install -y libicu52 || apt install -y libicu55 || apt install -y libicu57 || apt install -y libicu60 || apt install -y libicu63
             if [ $? -ne 0 ]
             then
                 echo "'apt' failed with exit code '$?'"
@@ -112,8 +113,9 @@ then
                 fi
 
                 # debian 9 use libssl1.0.2
+                # debian 10 use libssl1.1
                 # other debian linux use libssl1.0.0
-                apt-get install -y libssl1.0.0 || apt install -y libssl1.0.2
+                apt-get install -y libssl1.0.0 || apt install -y libssl1.0.2 || apt install -y libssl1.1
                 if [ $? -ne 0 ]
                 then
                     echo "'apt-get' failed with exit code '$?'"
@@ -121,8 +123,8 @@ then
                     exit 1
                 fi
 
-                # libicu version prefer: libicu52 -> libicu55 -> libicu57 -> libicu60
-                apt-get install -y libicu52 || apt install -y libicu55 || apt install -y libicu57 || apt install -y libicu60
+                # libicu version prefer: libicu52 -> libicu55 -> libicu57 -> libicu60 -> libicu63
+                apt-get install -y libicu52 || apt install -y libicu55 || apt install -y libicu57 || apt install -y libicu60 || apt install -y libicu63
                 if [ $? -ne 0 ]
                 then
                     echo "'apt-get' failed with exit code '$?'"
