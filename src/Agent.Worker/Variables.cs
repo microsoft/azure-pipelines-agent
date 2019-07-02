@@ -225,6 +225,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             VarUtil.ExpandValues(_hostContext, source, target);
         }
 
+        public string ExpandValue(string name, string value)
+        {
+            _trace.Entering();
+            var source = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (Variable variable in _expanded.Values)
+            {
+                source[variable.Name] = variable.Value;
+            }
+            var target = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [name] = value
+            };
+            VarUtil.ExpandValues(_hostContext, source, target);
+            return target[name];
+        }
+
         public JToken ExpandValues(JToken target)
         {
             _trace.Entering();
