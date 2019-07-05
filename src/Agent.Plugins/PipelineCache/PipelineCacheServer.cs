@@ -1,25 +1,16 @@
-using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Threading;
-using System;
 using Agent.Plugins.PipelineArtifact;
-using Agent.Plugins.PipelineArtifact.Telemetry;
 using Agent.Plugins.PipelineCache.Telemetry;
 using Agent.Sdk;
-using Microsoft.TeamFoundation.Build.WebApi;
-using Microsoft.TeamFoundation.DistributedTask.WebApi;
-using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
 using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common;
-using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.PipelineCache.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
-using Newtonsoft.Json;
 
 namespace Agent.Plugins.PipelineCache
 {
@@ -27,9 +18,8 @@ namespace Agent.Plugins.PipelineCache
     {
         internal async Task UploadAsync(
             AgentTaskPluginExecutionContext context,
-            IEnumerable<string> key,
+            Fingerprint fingerprint,
             string path,
-            string salt,
             CancellationToken cancellationToken)
         {
             VssConnection connection = context.VssConnection;
@@ -40,20 +30,15 @@ namespace Agent.Plugins.PipelineCache
             using (clientTelemetry)
             {
                 // Check if the key exists.
-                GetPipelineCacheArtifactOptions getOptions = new GetPipelineCacheArtifactOptions
-                {
-                    Key = key,
-                    Salt = salt,
-                };
                 PipelineCacheActionRecord cacheRecordGet = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
                         new PipelineCacheActionRecord(level, uri, type, PipelineArtifactConstants.RestoreCache, context));
-                PipelineCacheArtifact getResult = await pipelineCacheClient.GetPipelineCacheArtifactAsync(getOptions, cancellationToken, cacheRecordGet);
+                PipelineCacheArtifact getResult = await pipelineCacheClient.GetPipelineCacheArtifactAsync(new [] {fingerprint}, cancellationToken, cacheRecordGet);
                 // Send results to CustomerIntelligence
                 context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineCache, record: cacheRecordGet);
                 //If cache exists, return.
                 if (getResult != null)
                 {
-                    context.Output($"Cache with fingerprint {getResult.Fingerprint} already exists.");
+                    context.Output($"Cache with fingerprint `{getResult.Fingerprint}` already exists.");
                     return;
                 }
 
@@ -69,11 +54,10 @@ namespace Agent.Plugins.PipelineCache
 
                 CreatePipelineCacheArtifactOptions options = new CreatePipelineCacheArtifactOptions
                 {
-                    Key = key,
+                    Fingerprint = fingerprint,
                     RootId = result.RootId,
                     ManifestId = result.ManifestId,
                     ProofNodes = result.ProofNodes.ToArray(),
-                    Salt = salt
                 };
 
                 // Cache the artifact
@@ -90,9 +74,8 @@ namespace Agent.Plugins.PipelineCache
 
         internal async Task DownloadAsync(
             AgentTaskPluginExecutionContext context,
-            IEnumerable<string> key,
+            Fingerprint[] fingerprints,
             string path,
-            string salt,
             string cacheHitVariable,
             CancellationToken cancellationToken)
         {
@@ -100,24 +83,20 @@ namespace Agent.Plugins.PipelineCache
             BlobStoreClientTelemetry clientTelemetry;
             DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(context, connection, cancellationToken, out clientTelemetry);
             PipelineCacheClient pipelineCacheClient = this.CreateClient(clientTelemetry, context, connection);
-            GetPipelineCacheArtifactOptions options = new GetPipelineCacheArtifactOptions
-            {
-                Key = key,
-                Salt = salt,
-            };
-            
+
             using (clientTelemetry)
             {
                 PipelineCacheActionRecord cacheRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
                         new PipelineCacheActionRecord(level, uri, type, PipelineArtifactConstants.RestoreCache, context));
-                PipelineCacheArtifact result = await pipelineCacheClient.GetPipelineCacheArtifactAsync(options, cancellationToken, cacheRecord);
+                PipelineCacheArtifact result = await pipelineCacheClient.GetPipelineCacheArtifactAsync(fingerprints, cancellationToken, cacheRecord);
 
                 // Send results to CustomerIntelligence
                 context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineCache, record: cacheRecord);
 
                 if (result != null)
                 {
-                    context.Output($"Manifest ID is: {result.ManifestId.ValueString}");
+                    context.Output($"Entry found at fingerprint: `{result.Fingerprint.ToString()}`");
+                    context.Verbose($"Manifest ID is: {result.ManifestId.ValueString}");
                     PipelineCacheActionRecord downloadRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
                         new PipelineCacheActionRecord(level, uri, type, nameof(DownloadAsync), context));
                     await clientTelemetry.MeasureActionAsync(
@@ -135,7 +114,25 @@ namespace Agent.Plugins.PipelineCache
 
                 if (!string.IsNullOrEmpty(cacheHitVariable))
                 {
-                    context.SetVariable(cacheHitVariable, result != null ? "true" : "false");
+                    if (result == null) {
+                        context.SetVariable(cacheHitVariable, "false");
+                    }  else  {
+                        context.Verbose($"Exact fingerprint: `{result.Fingerprint.ToString()}`");
+
+                        bool foundExact = false;
+                        foreach(var fingerprint in fingerprints)
+                        {
+                            context.Verbose($"This fingerprint: `{fingerprint.ToString()}`");
+
+                            if(fingerprint == result.Fingerprint)
+                            {
+                                foundExact = true;
+                                break;
+                            }
+                        }
+
+                        context.SetVariable(cacheHitVariable, foundExact ? "true" : "inexact");
+                    }
                 }
             }
         }
