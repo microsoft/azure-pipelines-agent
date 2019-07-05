@@ -64,7 +64,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             // Execute the process. Exit code 0 should always be returned.
             // A non-zero exit code indicates infrastructural failure.
             // Task failure should be communicated over STDOUT using ## commands.
-            await StepHost.ExecuteAsync(workingDirectory: StepHost.ResolvePathForStepHost(scriptDirectory),
+            var step = StepHost.ExecuteAsync(workingDirectory: StepHost.ResolvePathForStepHost(scriptDirectory),
                                         fileName: powerShellExe,
                                         arguments: powerShellExeArgs,
                                         environment: Environment,
@@ -73,6 +73,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                         killProcessOnCancel: false,
                                         inheritConsoleHandler: !ExecutionContext.Variables.Retain_Default_Encoding,
                                         cancellationToken: ExecutionContext.CancellationToken);
+
+            await System.Threading.Tasks.Task.WhenAny(step, ExecutionContext.ForceCompleted);
+
+            if (ExecutionContext.ForceCompleted.IsCompleted)
+            {
+                ExecutionContext.Debug("The task was marked as \"done\", but the process has not closed after 5 seconds. Treating the task as complete.");
+            }
+            else
+            {
+                await step;
+            }
         }
 
         private void OnDataReceived(object sender, ProcessDataReceivedEventArgs e)
