@@ -1,7 +1,7 @@
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
+using Microsoft.VisualStudio.Services.PipelineCache.WebApi;
 
 namespace Agent.Plugins.PipelineCache
 {    
@@ -10,23 +10,16 @@ namespace Agent.Plugins.PipelineCache
         public override string Stage => "main";
 
         protected override async Task ProcessCommandInternalAsync(
-            AgentTaskPluginExecutionContext context, 
-            string path, 
-            string keyStr,
-            string salt,
+            AgentTaskPluginExecutionContext context,
+            Fingerprint[] fingerprints,
+            string path,
             CancellationToken token)
         {
-            string[] key = keyStr.Split(
-                new[] { '\n' },
-                StringSplitOptions.RemoveEmptyEntries
-            );
-
-            PipelineCacheServer server = new PipelineCacheServer();
+            var server = new PipelineCacheServer();
             await server.DownloadAsync(
                 context, 
-                key, 
+                fingerprints,
                 path,
-                salt,
                 context.GetInput(PipelineCacheTaskPluginConstants.CacheHitVariable, required: false),
                 token);
         }

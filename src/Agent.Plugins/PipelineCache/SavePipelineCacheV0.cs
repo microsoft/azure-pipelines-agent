@@ -1,8 +1,10 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.VisualStudio.Services.PipelineCache.WebApi;
 
 namespace Agent.Plugins.PipelineCache
 {    
@@ -11,10 +13,9 @@ namespace Agent.Plugins.PipelineCache
         public override string Stage => "post";
 
         protected override async Task ProcessCommandInternalAsync(
-            AgentTaskPluginExecutionContext context, 
-            string path, 
-            string keyStr,
-            string salt,
+            AgentTaskPluginExecutionContext context,
+            Fingerprint[] fingerprints,
+            string path,
             CancellationToken token)
         {
             TaskResult? jobStatus = null;
@@ -32,16 +33,11 @@ namespace Agent.Plugins.PipelineCache
                 return;
             }
 
-            string[] key = keyStr.Split(
-                new[] { '\n' },
-                StringSplitOptions.RemoveEmptyEntries
-            );
             PipelineCacheServer server = new PipelineCacheServer();
             await server.UploadAsync(
                 context,
-                key, 
+                fingerprints.First(), 
                 path,
-                salt,
                 token);
         }
     }
