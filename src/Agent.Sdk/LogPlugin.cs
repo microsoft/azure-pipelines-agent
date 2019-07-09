@@ -463,7 +463,7 @@ namespace Agent.Sdk
                                           }
                                       }))
             {
-                while (!_shortCircuited[typeName].Task.IsCompleted && !token.IsCancellationRequested)
+                while (!(_shortCircuited[typeName].Task.IsCompleted || token.IsCancellationRequested))
                 {
                     await ProcessOutputQueue(context, plugin, errors);
 
