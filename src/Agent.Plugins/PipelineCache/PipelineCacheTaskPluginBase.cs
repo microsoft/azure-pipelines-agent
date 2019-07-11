@@ -51,7 +51,7 @@ namespace Agent.Plugins.PipelineCache
             }
 
             IEnumerable<string> rawFingerprints = (new [] { key }).Concat(restoreKeysPerKey);
-            Fingerprint[] resovledFingerprints = rawFingerprints.Select(f => {
+            Fingerprint[] resolvedFingerprints = rawFingerprints.Select(f => {
                 context.Output($"Resolving key `{f}...");
                 Fingerprint fp = FingerprintCreator.CreateFingerprint(context, splitIntoSegments(f));
                 context.Output($"Resolved to `{fp}.");
@@ -63,7 +63,7 @@ namespace Agent.Plugins.PipelineCache
 
             await ProcessCommandInternalAsync(
                 context,
-                resovledFingerprints,
+                resolvedFingerprints,
                 path,
                 token);
         }
