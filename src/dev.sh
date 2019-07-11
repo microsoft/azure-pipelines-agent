@@ -146,8 +146,6 @@ function runtest ()
         ulimit -n 1024
     fi
 
-    export VSTS_AGENT_SRC_DIR=${SCRIPT_DIR}
-
     dotnet msbuild -t:test -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" || failed "failed tests" 
 }
 
