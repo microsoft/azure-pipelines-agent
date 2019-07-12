@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -18,8 +17,6 @@ namespace Agent.Plugins.PipelineCache
 {
     public static class FingerprintCreator
     {
-        public const string Wildcard = "**";
-
         private static readonly bool isWindows = Helpers.IsWindowsPlatform(Environment.OSVersion);
 
         // https://github.com/Microsoft/azure-pipelines-task-lib/blob/master/node/docs/findingfiles.md#matchoptions
@@ -155,7 +152,7 @@ namespace Agent.Plugins.PipelineCache
                 {
                     throw new ArgumentException("`*` is a reserved key segment. For path glob, use `./*`.");
                 }
-                else if (keySegment.Equals(Wildcard, StringComparison.Ordinal))
+                else if (keySegment.Equals(Fingerprint.Wildcard, StringComparison.Ordinal))
                 {
                     throw new ArgumentException("`**` is a reserved key segment. For path glob, use `./**`.");
                 }
@@ -231,7 +228,7 @@ namespace Agent.Plugins.PipelineCache
 
             if (addWildcard)
             {
-                resolvedSegments.Add(Wildcard);
+                resolvedSegments.Add(Fingerprint.Wildcard);
             }
 
             return new Fingerprint() { Segments = resolvedSegments.ToArray() };

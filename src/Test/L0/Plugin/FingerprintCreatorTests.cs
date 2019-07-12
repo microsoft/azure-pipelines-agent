@@ -126,7 +126,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 
                 Assert.Equal(2, f.Segments.Length);
                 Assert.Equal($"hello", f.Segments[0]);
-                Assert.Equal(FingerprintCreator.Wildcard, f.Segments[1]);
+                Assert.Equal(Fingerprint.Wildcard, f.Segments[1]);
             }
         }
     }
