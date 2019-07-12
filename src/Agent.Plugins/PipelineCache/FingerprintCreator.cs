@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -46,7 +47,6 @@ namespace Agent.Plugins.PipelineCache
             if (keySegment.First() == '\'' && keySegment.Last() == '\'') return false;
             if (keySegment.First() == '"' && keySegment.Last() == '"') return false;
             if (keySegment.Any(c => !IsPathyChar(c))) return false;
-            //if (Uri.TryCreate(keySegment, UriKind.Absolute, out Uri dummy)) return false;
             if (!keySegment.Contains(".")) return false;
             if (keySegment.Last() == '.') return false;
             return true;
@@ -74,6 +74,9 @@ namespace Agent.Plugins.PipelineCache
             {
                 path = $"{workingDirectory}{Path.DirectorySeparatorChar}{path}";
             }
+
+            // Normalize to some extent, let minimatch worry about casing
+            path = Path.GetFullPath(path);
 
             return path;
         }

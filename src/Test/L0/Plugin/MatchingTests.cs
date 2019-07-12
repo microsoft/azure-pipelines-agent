@@ -9,7 +9,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
 {
     public class MatchingTests
     {
-        private const string WorkingDirectory = "/working";
+        private const string WorkingDirectory = "C:\\working";
 
         private void RunTests(
             string includePattern,
@@ -55,9 +55,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 includePattern: "*.tmp",
                 excludePatterns: new [] {"bad.tmp"},
                 testCases:new []{
-                    ("/working/good.tmp",true),
-                    ("/working/bad.tmp",false),
-                    ("/working/something.else",false),
+                    ("C:\\working\\good.tmp",true),
+                    ("C:\\working\\bad.tmp",false),
+                    ("C:\\working\\something.else",false),
+                }
+            );
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public void ExcludeSingleFileWithDot()
+        {
+            RunTests(
+                includePattern: "./*.tmp",
+                excludePatterns: new [] {"./bad.tmp"},
+                testCases:new []{
+                    ("C:\\working\\good.tmp",true),
+                    ("C:\\working\\bad.tmp",false),
+                    ("C:\\working\\something.else",false),
                 }
             );
         }
