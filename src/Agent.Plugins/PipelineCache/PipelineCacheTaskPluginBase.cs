@@ -35,35 +35,31 @@ namespace Agent.Plugins.PipelineCache
             };
 
             string key = context.GetInput(PipelineCacheTaskPluginConstants.Key, required: true);
+            context.Output($"Resolving key `{key}`...");
+            Fingerprint keyFp = FingerprintCreator.ParseFromYAML(context, splitIntoSegments(key), addWildcard: false);
+            context.Output($"Resolved to `{keyFp}`.");
 
             string restoreKeysBlock = context.GetInput(PipelineCacheTaskPluginConstants.RestoreKeys, required: false);
 
-            IEnumerable<string> restoreKeysPerKey;
-            if(string.IsNullOrWhiteSpace(restoreKeysBlock))
-            {
-                restoreKeysPerKey = Enumerable.Empty<string>();
-            }
-            else
+            IEnumerable<Fingerprint> fingerprints = new [] { keyFp };
+            if(!string.IsNullOrWhiteSpace(restoreKeysBlock))
             {
                 restoreKeysBlock = restoreKeysBlock.Replace("\r\n", "\n"); //normalize newlines
-                restoreKeysPerKey = restoreKeysBlock.Split(new [] {'\n'}, StringSplitOptions.RemoveEmptyEntries); // split by marker
-                restoreKeysPerKey = restoreKeysPerKey.Select(k => $"{k} | {FingerprintCreator.Wildcard}"); // all restore-only keys are assumed to be wildcards
+                string[] restoreKeys = restoreKeysBlock.Split(new [] {'\n'}, StringSplitOptions.RemoveEmptyEntries); // split by newline
+                fingerprints = fingerprints.Concat(restoreKeys.Select(restoreKey => {
+                    context.Output($"Resolving restore key `{restoreKey}`...");
+                    Fingerprint f = FingerprintCreator.ParseFromYAML(context, splitIntoSegments(restoreKey), addWildcard: true);
+                    context.Output($"Resolved to `{f}`.");
+                    return f;
+                }));
             }
-
-            IEnumerable<string> rawFingerprints = (new [] { key }).Concat(restoreKeysPerKey);
-            Fingerprint[] resolvedFingerprints = rawFingerprints.Select(f => {
-                context.Output($"Resolving key `{f}...");
-                Fingerprint fp = FingerprintCreator.CreateFingerprint(context, splitIntoSegments(f));
-                context.Output($"Resolved to `{fp}.");
-                return fp;
-            }).ToArray();
 
             // TODO: Translate path from container to host (Ting)
             string path = context.GetInput(PipelineCacheTaskPluginConstants.Path, required: true);
 
             await ProcessCommandInternalAsync(
                 context,
-                resolvedFingerprints,
+                fingerprints.ToArray(),
                 path,
                 token);
         }

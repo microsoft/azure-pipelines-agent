@@ -84,9 +84,9 @@ namespace Agent.Plugins.PipelineCache
             string includeRule,
             IEnumerable<string> excludeRules)
         {
-            Func<string,bool> includeFilter = CreateMinimatchFilter(context, includeRule, false);
+            Func<string,bool> includeFilter = CreateMinimatchFilter(context, includeRule, invert: false);
             Func<string,bool>[] excludeFilters = excludeRules.Select(excludeRule => 
-                CreateMinimatchFilter(context, excludeRule, true)).ToArray();
+                CreateMinimatchFilter(context, excludeRule, invert: true)).ToArray();
             Func<string,bool> filter = (path) => includeFilter(path) && excludeFilters.All(f => f(path));
             return filter;
         }
@@ -133,9 +133,10 @@ namespace Agent.Plugins.PipelineCache
             }
         }
 
-        public static Fingerprint CreateFingerprint(
+        public static Fingerprint ParseFromYAML(
             AgentTaskPluginExecutionContext context,
-            IEnumerable<string> keySegments)
+            IEnumerable<string> keySegments,
+            bool addWildcard)
         {
             var sha256 = new SHA256Managed();
 
@@ -147,11 +148,13 @@ namespace Agent.Plugins.PipelineCache
 
             foreach (string keySegment in keySegments)
             {
-                bool isWildCard = keySegment.Equals(Wildcard, StringComparison.Ordinal);
-
-                if (isWildCard)
+                if (keySegment.Length == 1 && keySegment[0] == '*')
                 {
-                    resolvedSegments.Add(Wildcard);
+                    throw new ArgumentException("`*` is a reserved key segment. For path glob, use `./*`.");
+                }
+                else if (keySegment.Equals(Wildcard, StringComparison.Ordinal))
+                {
+                    throw new ArgumentException("`**` is a reserved key segment. For path glob, use `./**`.");
                 }
                 else if (IsPathy(keySegment))
                 {
@@ -180,7 +183,7 @@ namespace Agent.Plugins.PipelineCache
 
                     string absoluteRootRule = MakePathAbsolute(workingDirectory, rootRule);
                     context.Verbose($"Expanded include rule is `{absoluteRootRule}`.");
-                    IEnumerable<string> absoluteExcludeRules = pathRules.Skip(1).Select(r => MakePathAbsolute(workingDirectory, r));
+                    IEnumerable<string> absoluteExcludeRules = pathRules.Skip(1).Select(r => MakePathAbsolute(workingDirectory, r.Substring(1)));
                     Func<string,bool> filter = CreateFilter(context, workingDirectory, absoluteRootRule, absoluteExcludeRules);
 
                     DetermineEnumeration(
@@ -221,6 +224,11 @@ namespace Agent.Plugins.PipelineCache
                     context.Verbose($"Interpretting `{keySegment}` as a string.");
                     resolvedSegments.Add($"{keySegment}");
                 }
+            }
+
+            if (addWildcard)
+            {
+                resolvedSegments.Add(Wildcard);
             }
 
             return new Fingerprint() { Segments = resolvedSegments.ToArray() };

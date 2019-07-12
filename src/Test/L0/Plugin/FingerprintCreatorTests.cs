@@ -50,7 +50,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                     $"{path1}",
                     $"{path2}",
                 };
-                Fingerprint f = FingerprintCreator.CreateFingerprint(context, segments);
+                Fingerprint f = FingerprintCreator.ParseFromYAML(context, segments, addWildcard: false);
                 
                 Assert.Equal(2, f.Segments.Length);
                 Assert.Equal(FingerprintCreator.SummarizeString($"\nSHA256({path1})=[{content1.Length}]{hash1.ToHex()}"), f.Segments[0]);
@@ -81,7 +81,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                     $"{relPath2}",
                 };
 
-                Fingerprint f = FingerprintCreator.CreateFingerprint(context, segments);
+                Fingerprint f = FingerprintCreator.ParseFromYAML(context, segments, addWildcard: false);
                 
                 Assert.Equal(2, f.Segments.Length);
                 Assert.Equal(FingerprintCreator.SummarizeString($"\nSHA256({relPath1})=[{content1.Length}]{hash1.ToHex()}"), f.Segments[0]);
@@ -102,10 +102,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                     $"hello",
                 };
 
-                Fingerprint f = FingerprintCreator.CreateFingerprint(context, segments);
+                Fingerprint f = FingerprintCreator.ParseFromYAML(context, segments, addWildcard: false);
                 
                 Assert.Equal(1, f.Segments.Length);
                 Assert.Equal($"hello", f.Segments[0]);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public void Fingerprint_Wildcard()
+        {
+            using(var hostContext = new TestHostContext(this))
+            {
+                var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
+                var segments = new[]
+                {
+                    $"hello",
+                };
+
+                Fingerprint f = FingerprintCreator.ParseFromYAML(context, segments, addWildcard: true);
+                
+                Assert.Equal(2, f.Segments.Length);
+                Assert.Equal($"hello", f.Segments[0]);
+                Assert.Equal(FingerprintCreator.Wildcard, f.Segments[1]);
             }
         }
     }
