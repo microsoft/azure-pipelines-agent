@@ -26,7 +26,7 @@ namespace Agent.Plugins.PipelineCache
             VariableValue salt = context.Variables.GetValueOrDefault(saltVariableName);
 
             Func<string,string[]> splitIntoSegments = (s) => {
-                var segments = s.Trim().Split(new [] {'|'},StringSplitOptions.RemoveEmptyEntries).Select(segment => segment.Trim());
+                var segments = s.Split(new [] {'|'},StringSplitOptions.RemoveEmptyEntries).Select(segment => segment.Trim());
                 if(salt != null)
                 {
                     segments = (new [] { $"{saltVariableName}={salt.Value}"}).Concat(segments);
@@ -47,7 +47,7 @@ namespace Agent.Plugins.PipelineCache
             {
                 restoreKeysBlock = restoreKeysBlock.Replace("\r\n", "\n"); //normalize newlines
                 restoreKeysPerKey = restoreKeysBlock.Split(new [] {'\n'}, StringSplitOptions.RemoveEmptyEntries); // split by marker
-                restoreKeysPerKey = restoreKeysPerKey.Select(k => $"{k} | **"); // all restore-only keys are assumed to be wildcards
+                restoreKeysPerKey = restoreKeysPerKey.Select(k => $"{k} | {FingerprintCreator.Wildcard}"); // all restore-only keys are assumed to be wildcards
             }
 
             IEnumerable<string> rawFingerprints = (new [] { key }).Concat(restoreKeysPerKey);

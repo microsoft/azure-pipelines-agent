@@ -17,6 +17,8 @@ namespace Agent.Plugins.PipelineCache
 {
     public static class FingerprintCreator
     {
+        public const string Wildcard = "**";
+
         private static readonly bool isWindows = Helpers.IsWindowsPlatform(Environment.OSVersion);
 
         // https://github.com/Microsoft/azure-pipelines-task-lib/blob/master/node/docs/findingfiles.md#matchoptions
@@ -145,62 +147,62 @@ namespace Agent.Plugins.PipelineCache
 
             foreach (string keySegment in keySegments)
             {
-                bool isPathy = IsPathy(keySegment);
-                bool isWildCard = keySegment.Equals("**", StringComparison.Ordinal);
+                bool isWildCard = keySegment.Equals(Wildcard, StringComparison.Ordinal);
 
                 if (isWildCard)
                 {
-                    resolvedSegments.Add("**");
+                    resolvedSegments.Add(Wildcard);
                 }
-                else if (isPathy)
+                else if (IsPathy(keySegment))
                 {
                     context.Verbose($"Interpretting `{keySegment}` as a path.");
 
                     var segment = new StringBuilder();
                     bool foundFile = false;
 
-                    string[] pathSections = keySegment.Split(new []{';'}, StringSplitOptions.RemoveEmptyEntries);
-                    foreach(string pathSection in pathSections)
+                    if (keySegment.Contains(';', StringComparison.Ordinal))
                     {
-                        string[] pathRules = pathSection.Split(new []{','}, StringSplitOptions.RemoveEmptyEntries);
-                        string rootRule = pathRules.First();
-                        if(rootRule.Length == 0 || rootRule[1] == '!')
+                        throw new ArgumentException("Cache key cannot contain the ';' character.");
+                    }
+
+                    string[] pathRules = keySegment.Split(new []{','}, StringSplitOptions.RemoveEmptyEntries);
+                    string rootRule = pathRules.First();
+                    if(rootRule.Length == 0 || rootRule[1] == '!')
+                    {
+                        throw new ArgumentException();
+                    }
+
+                    string workingDirectory = null;
+                    if (!IsAbsolutePath(rootRule))
+                    {
+                        workingDirectory = workingDirectoryValue;
+                    }
+
+                    string absoluteRootRule = MakePathAbsolute(workingDirectory, rootRule);
+                    context.Verbose($"Expanded include rule is `{absoluteRootRule}`.");
+                    IEnumerable<string> absoluteExcludeRules = pathRules.Skip(1).Select(r => MakePathAbsolute(workingDirectory, r));
+                    Func<string,bool> filter = CreateFilter(context, workingDirectory, absoluteRootRule, absoluteExcludeRules);
+
+                    DetermineEnumeration(
+                        workingDirectory,
+                        absoluteRootRule,
+                        out string enumerateRootPath,
+                        out string enumeratePattern,
+                        out SearchOption enumerateDepth);
+
+                    context.Verbose($"Enumerating starting at root `{enumerateRootPath}` with pattern `{enumeratePattern}`.");
+                    IEnumerable<string> files = Directory.EnumerateFiles(enumerateRootPath, enumeratePattern, enumerateDepth);
+                    files = files.Where(f => filter(f)).Distinct();
+
+                    foreach(string path in files)
+                    {
+                        foundFile = true;
+
+                        using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
                         {
-                            throw new ArgumentException();
-                        }
-
-                        string workingDirectory = null;
-                        if (!IsAbsolutePath(rootRule))
-                        {
-                            workingDirectory = workingDirectoryValue;
-                        }
-
-                        string absoluteRootRule = MakePathAbsolute(workingDirectory, rootRule);
-                        context.Verbose($"Expanded include rule is `{absoluteRootRule}`.");
-                        IEnumerable<string> absoluteExcludeRules = pathRules.Skip(1).Select(r => MakePathAbsolute(workingDirectory, r));
-                        Func<string,bool> filter = CreateFilter(context, workingDirectory, absoluteRootRule, absoluteExcludeRules);
-
-                        DetermineEnumeration(
-                            workingDirectory,
-                            absoluteRootRule,
-                            out string enumerateRootPath,
-                            out string enumeratePattern,
-                            out SearchOption enumerateDepth);
-
-                        context.Verbose($"Enumerating starting at root `{enumerateRootPath}` with pattern `{enumeratePattern}`.");
-                        IEnumerable<string> files = Directory.EnumerateFiles(enumerateRootPath, enumeratePattern, enumerateDepth);
-                        files = files.Where(f => filter(f)).Distinct();
-
-                        foreach(string path in files)
-                        {
-                            foundFile = true;
-
-                            using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
-                            {
-                                byte[] hash = sha256.ComputeHash(fs);
-                                string displayPath = workingDirectory == null ? path : path.Substring(enumerateRootPath.Length + 1);
-                                segment.Append($"\nSHA256({displayPath})=[{fs.Length}]{hash.ToHex()}");
-                            }
+                            byte[] hash = sha256.ComputeHash(fs);
+                            string displayPath = workingDirectory == null ? path : path.Substring(enumerateRootPath.Length + 1);
+                            segment.Append($"\nSHA256({displayPath})=[{fs.Length}]{hash.ToHex()}");
                         }
                     }
                     
