@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Agent.Plugins.PipelineCache;
 using Agent.Sdk;
 using Xunit;
@@ -9,7 +10,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
 {
     public class MatchingTests
     {
-        private const string WorkingDirectory = "C:\\working";
+        private static readonly bool IsWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+        private static readonly string WorkingDirectory = 
+            IsWindows
+                ? "C:\\working"
+                : "/working";
+
+        private static string MakeOSPath(string path)
+        {
+            if (IsWindows)
+            {
+                return path;
+            }
+
+            path = path.Replace('\\','/');
+            
+            if (path.Length >= 2 && path[1] == ':')
+            {
+                return path.Substring(2);
+            }
+            
+            return path;
+        }
 
         private void RunTests(
             string includePattern,
@@ -41,7 +63,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
 
                 foreach((string path, bool match) in testCases)
                 {
-                    assertPath(path, match);
+                    assertPath(MakeOSPath(path), match);
                 }
             }
         }
