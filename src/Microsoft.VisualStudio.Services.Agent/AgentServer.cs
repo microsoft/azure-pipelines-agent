@@ -247,7 +247,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         public Task<List<TaskAgent>> GetAgentsAsync(int agentPoolId, string agentName = null)
         {
             CheckConnection(AgentConnectionType.Generic);
-            return _genericTaskAgentClient.GetAgentsAsync(agentPoolId, agentName, false);
+            return _genericTaskAgentClient.GetAgentsAsync(agentPoolId, agentName, includeCapabilities: true);
         }
 
         public Task<TaskAgent> UpdateAgentAsync(int agentPoolId, TaskAgent agent)

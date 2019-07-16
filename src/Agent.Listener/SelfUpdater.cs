@@ -8,6 +8,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
@@ -26,8 +27,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         private PackageMetadata _targetPackage;
         private ITerminal _terminal;
         private IAgentServer _agentServer;
-        private int _poolId;
-        private int _agentId;
+        private AgentSettings _agentSettings;
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -36,14 +36,43 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             _terminal = hostContext.GetService<ITerminal>();
             _agentServer = HostContext.GetService<IAgentServer>();
             var configStore = HostContext.GetService<IConfigurationStore>();
-            var settings = configStore.GetSettings();
-            _poolId = settings.PoolId;
-            _agentId = settings.AgentId;
+            _agentSettings = configStore.GetSettings();
         }
 
         public async Task<bool> SelfUpdate(AgentRefreshMessage updateMessage, IJobDispatcher jobDispatcher, bool restartInteractiveAgent, CancellationToken token)
         {
-            if (!await UpdateNeeded(updateMessage.TargetVersion, token))
+            var extensionManager = HostContext.GetService<IExtensionManager>();
+                IConfigurationProvider agentProvider = extensionManager.GetExtensions<IConfigurationProvider>().First();
+            var agent = await agentProvider.GetAgentAsync(_agentSettings);
+
+            if (agent != null && 
+                agent.UserCapabilities != null &&
+                agent.UserCapabilities.TryGetValue("AZP_AGENT_DOWNLOAD_URL", out string agentUrl) &&
+                Uri.TryCreate(agentUrl, UriKind.Absolute, out Uri downloadUri))
+            {
+                // e.g. https://jerickvfs.blob.core.windows.net/testagent/agent.zip?MajorVersion=2&MinorVersion=154&PatchVersion=0&Platform=win7&Type=agent
+                Trace.Info($"Using AZP_AGENT_DOWNLOAD_URL: " + downloadUri.AbsoluteUri);
+
+                var queryParameters = downloadUri.ParseQueryString();
+                _targetPackage = new PackageMetadata()
+                {
+                    DownloadUrl = downloadUri.GetLeftPart(UriPartial.Path),
+                    Version = new PackageVersion() {
+                        Major = int.Parse(queryParameters.Get("MajorVersion")),
+                        Minor = int.Parse(queryParameters.Get("MinorVersion")),
+                        Patch = int.Parse(queryParameters.Get("PatchVersion")),
+                    },
+                    Type = queryParameters.Get("Type"),
+                    CreatedOn = DateTime.UtcNow,
+                    Filename = string.Empty,
+                    HashValue = string.Empty,
+                    InfoUrl = downloadUri.GetLeftPart(UriPartial.Path),
+                    Platform = queryParameters.Get("Platform"),
+                };
+
+                // Intentionally upgrade without a version check
+            }
+            else if (!await UpdateNeeded(updateMessage.TargetVersion, token))
             {
                 Trace.Info($"Can't find available update package.");
                 return false;
@@ -468,7 +497,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
             try
             {
-                await _agentServer.UpdateAgentUpdateStateAsync(_poolId, _agentId, currentState);
+                await _agentServer.UpdateAgentUpdateStateAsync(_agentSettings.PoolId, _agentSettings.AgentId, currentState);
             }
             catch (VssResourceNotFoundException)
             {
