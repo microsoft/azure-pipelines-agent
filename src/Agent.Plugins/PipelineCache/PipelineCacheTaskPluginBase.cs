@@ -14,52 +14,96 @@ namespace Agent.Plugins.PipelineCache
 {
     public abstract class PipelineCacheTaskPluginBase : IAgentTaskPlugin
     {
+        private const string SaltVariableName = "AZDEVOPS_PIPELINECACHE_SALT";
+        private const string OldKeyFormatMessage = "'key' format is changing to a single line: https://aka.ms/pipeline-caching-docs";
+
         public Guid Id => PipelineCachePluginConstants.CacheTaskId;
 
         public abstract String Stage { get; }
+
+        internal static (bool isOldFormat, string[] keySegments,IEnumerable<string[]> restoreKeys) ParseIntoSegments(string salt, string key, string restoreKeysBlock)
+        {
+            Func<string,string[]> splitIntoSegments = (s) => {
+                var segments = s.Split(new [] {'|'},StringSplitOptions.RemoveEmptyEntries).Select(segment => segment.Trim());
+                if(!string.IsNullOrWhiteSpace(salt))
+                {
+                    segments = (new [] { $"{SaltVariableName}={salt}"}).Concat(segments);
+                }
+                return segments.ToArray();
+            };
+
+            Func<string,string[]> splitAcrossNewlines = (s) => 
+                s.Replace("\r\n", "\n") //normalize newlines
+                 .Split(new [] {'\n'}, StringSplitOptions.RemoveEmptyEntries)
+                 .Select(line => line.Trim())
+                 .ToArray();
+            
+            string[] keySegments;
+            bool isOldFormat = key.Contains('\n');
+            
+            IEnumerable<string[]> restoreKeys;
+            bool hasRestoreKeys = !string.IsNullOrWhiteSpace(restoreKeysBlock);
+
+            if (isOldFormat && hasRestoreKeys)
+            {
+                throw new ArgumentException(OldKeyFormatMessage);
+            }
+            
+            if (isOldFormat)
+            {
+                keySegments = splitAcrossNewlines(key);
+            }
+            else
+            {
+                keySegments = splitIntoSegments(key);
+            }
+            
+
+            if (hasRestoreKeys)
+            {
+                restoreKeys = splitAcrossNewlines(restoreKeysBlock).Select(restoreKey => splitIntoSegments(restoreKey));
+            }
+            else
+            {
+                restoreKeys = Enumerable.Empty<string[]>();
+            }
+
+            return (isOldFormat, keySegments, restoreKeys);
+        }
 
         public async Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
             ArgUtil.NotNull(context, nameof(context));
 
-            string saltVariableName = "AZDEVOPS_PIPELINECACHE_SALT";
-            VariableValue salt = context.Variables.GetValueOrDefault(saltVariableName);
-
-            Func<string,string[]> splitIntoSegments = (s) => {
-                var segments = s.Split(new [] {'|'},StringSplitOptions.RemoveEmptyEntries).Select(segment => segment.Trim());
-                if(salt != null)
-                {
-                    segments = (new [] { $"{saltVariableName}={salt.Value}"}).Concat(segments);
-                }
-                return segments.ToArray();
-            };
+            VariableValue salt = context.Variables.GetValueOrDefault(SaltVariableName);
 
             string key = context.GetInput(PipelineCacheTaskPluginConstants.Key, required: true);
-            context.Output($"Resolving key `{key}`...");
-            Fingerprint keyFp = FingerprintCreator.ParseFromYAML(context, splitIntoSegments(key), addWildcard: false);
-            context.Output($"Resolved to `{keyFp}`.");
-
             string restoreKeysBlock = context.GetInput(PipelineCacheTaskPluginConstants.RestoreKeys, required: false);
 
-            IEnumerable<Fingerprint> fingerprints = new [] { keyFp };
-            if(!string.IsNullOrWhiteSpace(restoreKeysBlock))
+            (bool isOldFormat, string[] keySegments, IEnumerable<string[]> restoreKeys) = ParseIntoSegments(salt.Value, key, restoreKeysBlock);
+
+            if (isOldFormat)
             {
-                restoreKeysBlock = restoreKeysBlock.Replace("\r\n", "\n"); //normalize newlines
-                string[] restoreKeys = restoreKeysBlock.Split(new [] {'\n'}, StringSplitOptions.RemoveEmptyEntries); // split by newline
-                fingerprints = fingerprints.Concat(restoreKeys.Select(restoreKey => {
-                    context.Output($"Resolving restore key `{restoreKey}`...");
-                    Fingerprint f = FingerprintCreator.ParseFromYAML(context, splitIntoSegments(restoreKey), addWildcard: true);
-                    context.Output($"Resolved to `{f}`.");
-                    return f;
-                }));
+                context.Warning(OldKeyFormatMessage);
             }
+
+            context.Output($"Resolving key `{string.Join(" | ", keySegments)}`...");
+            Fingerprint keyFp = FingerprintCreator.ParseFromYAML(context, keySegments, addWildcard: false);
+            context.Output($"Resolved to `{keyFp}`.");
+
+            IEnumerable<Fingerprint> restoreFps = restoreKeys.Select(restoreKey => {
+                context.Output($"Resolving restore key `{string.Join(" | ", restoreKey)}`...");
+                Fingerprint f = FingerprintCreator.ParseFromYAML(context, restoreKey, addWildcard: true);
+                context.Output($"Resolved to `{f}`.");
+                return f;
+            });
 
             // TODO: Translate path from container to host (Ting)
             string path = context.GetInput(PipelineCacheTaskPluginConstants.Path, required: true);
 
             await ProcessCommandInternalAsync(
                 context,
-                fingerprints.ToArray(),
+                (new [] { keyFp }).Concat(restoreFps).ToArray(),
                 path,
                 token);
         }

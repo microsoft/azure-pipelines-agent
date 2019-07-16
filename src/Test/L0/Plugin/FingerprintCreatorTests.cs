@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using Agent.Plugins.PipelineCache;
 using Agent.Sdk;
@@ -128,6 +130,48 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 Assert.Equal($"hello", f.Segments[0]);
                 Assert.Equal(Fingerprint.Wildcard, f.Segments[1]);
             }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public void ParseMultilineKeyAsOld()
+        {
+            (bool isOldFormat, string[] keySegments, IEnumerable<string[]> restoreKeys) = PipelineCacheTaskPluginBase.ParseIntoSegments(
+                string.Empty,
+                "gems\n$(Agent.OS)\n$(Build.SourcesDirectory)/my.gemspec",
+                string.Empty);
+            Assert.True(isOldFormat);
+            Assert.Equal(new [] {"gems", "$(Agent.OS)", "$(Build.SourcesDirectory)/my.gemspec"}, keySegments);
+            Assert.Equal(0, restoreKeys.Count());
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public void ParseSingleLineAsNew()
+        {
+            (bool isOldFormat, string[] keySegments, IEnumerable<string[]> restoreKeys) = PipelineCacheTaskPluginBase.ParseIntoSegments(
+                string.Empty,
+                "$(Agent.OS)",
+                string.Empty);
+            Assert.False(isOldFormat);
+            Assert.Equal(new [] {"$(Agent.OS)"}, keySegments);
+            Assert.Equal(0, restoreKeys.Count());
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public void ParseMultilineWithRestoreKeys()
+        {
+            (bool isOldFormat, string[] keySegments, IEnumerable<string[]> restoreKeys) = PipelineCacheTaskPluginBase.ParseIntoSegments(
+                string.Empty,
+                "$(Agent.OS) | Gemfile.lock | **/*.gemspec,!./junk/**",
+                "$(Agent.OS) | Gemfile.lock\n$(Agent.OS)");
+            Assert.False(isOldFormat);
+            Assert.Equal(new [] {"$(Agent.OS)","Gemfile.lock","**/*.gemspec,!./junk/**"}, keySegments);
+            Assert.Equal(new [] {new []{ "$(Agent.OS)","Gemfile.lock"}, new[] {"$(Agent.OS)"}}, restoreKeys);
         }
     }
 }
