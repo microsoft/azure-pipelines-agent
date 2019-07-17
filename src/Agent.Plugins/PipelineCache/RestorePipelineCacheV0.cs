@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
@@ -11,14 +13,16 @@ namespace Agent.Plugins.PipelineCache
 
         protected override async Task ProcessCommandInternalAsync(
             AgentTaskPluginExecutionContext context,
-            Fingerprint[] fingerprints,
+            Fingerprint fingerprint,
+            Func<Fingerprint[]> restoreKeysGenerator,
             string path,
             CancellationToken token)
         {
             var server = new PipelineCacheServer();
+            Fingerprint[] restoreFingerprints = restoreKeysGenerator();
             await server.DownloadAsync(
                 context, 
-                fingerprints,
+                (new [] { fingerprint}).Concat(restoreFingerprints).ToArray(),
                 path,
                 context.GetInput(PipelineCacheTaskPluginConstants.CacheHitVariable, required: false),
                 token);

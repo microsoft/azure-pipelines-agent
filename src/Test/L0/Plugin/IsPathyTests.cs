@@ -24,6 +24,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
             assertPath(@"D:\src\vsts-agent\_layout\_work\2\s/**/README.md", true);
             assertPath(@"/**/README.md,!./junk/**;./azure-pipelines.yml", true);
             assertPath(@"./**,!./.git/**", true);
+            assertPath(@"/src/foo", true);
+            assertPath(@"src/foo", true);
         }
     }
 }

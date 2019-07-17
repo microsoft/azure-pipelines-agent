@@ -70,7 +70,7 @@ namespace Agent.Plugins.PipelineCache
 
             return (isOldFormat, keySegments, restoreKeys);
         }
-
+        
         public async Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
             ArgUtil.NotNull(context, nameof(context));
@@ -95,20 +95,22 @@ namespace Agent.Plugins.PipelineCache
             Fingerprint keyFp = FingerprintCreator.EvaluateKeyToFingerprint(context, worksapceRoot, keySegments);
             context.Output($"Resolved to `{keyFp}`.");
 
-            IEnumerable<Fingerprint> restoreFps = restoreKeys.Select(restoreKey => {
-                context.Output($"Resolving restore key `{string.Join(" | ", restoreKey)}`...");
-                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, worksapceRoot, restoreKey);
-                f.Segments = f.Segments.Concat(new [] { Fingerprint.Wildcard} ).ToArray();
-                context.Output($"Resolved to `{f}`.");
-                return f;
-            });
+            Func<Fingerprint[]> restoreKeysGenerator = () => 
+                restoreKeys.Select(restoreKey => {
+                    context.Output($"Resolving restore key `{string.Join(" | ", restoreKey)}`...");
+                    Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, worksapceRoot, restoreKey);
+                    f.Segments = f.Segments.Concat(new [] { Fingerprint.Wildcard} ).ToArray();
+                    context.Output($"Resolved to `{f}`.");
+                    return f;
+                }).ToArray();
 
             // TODO: Translate path from container to host (Ting)
             string path = context.GetInput(PipelineCacheTaskPluginConstants.Path, required: true);
 
             await ProcessCommandInternalAsync(
                 context,
-                (new [] { keyFp }).Concat(restoreFps).ToArray(),
+                keyFp,
+                restoreKeysGenerator,
                 path,
                 token);
         }
@@ -116,7 +118,8 @@ namespace Agent.Plugins.PipelineCache
         // Process the command with preprocessed arguments.
         protected abstract Task ProcessCommandInternalAsync(
             AgentTaskPluginExecutionContext context,
-            Fingerprint[] fingerprints,
+            Fingerprint fingerprint,
+            Func<Fingerprint[]> restoreKeysGenerator,
             string path,
             CancellationToken token);
 

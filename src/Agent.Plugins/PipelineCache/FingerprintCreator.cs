@@ -46,7 +46,9 @@ namespace Agent.Plugins.PipelineCache
         {
             if (keySegment.First() == ForceStringLiteral && keySegment.Last() == ForceStringLiteral) return false;
             if (keySegment.Any(c => !IsPathyChar(c))) return false;
-            if (!keySegment.Contains(".")) return false;
+            if (!keySegment.Contains(".") && 
+                !keySegment.Contains(Path.DirectorySeparatorChar) &&
+                !keySegment.Contains(Path.AltDirectorySeparatorChar)) return false;
             if (keySegment.Last() == '.') return false;
             return true;
         }
@@ -125,6 +127,26 @@ namespace Agent.Plugins.PipelineCache
             }
         }
 
+        internal static void CheckKeySegment(string keySegment)
+        {
+            if (keySegment.Equals("*", StringComparison.Ordinal))
+            {
+                throw new ArgumentException("`*` is a reserved key segment. For path glob, use `./*`.");
+            }
+            else if (keySegment.Equals(Fingerprint.Wildcard, StringComparison.Ordinal))
+            {
+                throw new ArgumentException("`**` is a reserved key segment. For path glob, use `./**`.");
+            }
+            else if (keySegment.First() == '\'')
+            {
+                throw new ArgumentException("A key segment cannot start with a single-quote character`.");
+            }
+            else if (keySegment.First() == '`')
+            {
+                throw new ArgumentException("A key segment cannot start with a backtick character`.");
+            }
+        }
+
         public static Fingerprint EvaluateKeyToFingerprint(
             AgentTaskPluginExecutionContext context,
             string filePathRoot,
@@ -140,32 +162,18 @@ namespace Agent.Plugins.PipelineCache
 
             foreach (string keySegment in keySegments)
             {
-                if (keySegment.Equals("*", StringComparison.Ordinal))
-                {
-                    throw new ArgumentException("`*` is a reserved key segment. For path glob, use `./*`.");
-                }
-                else if (keySegment.Equals(Fingerprint.Wildcard, StringComparison.Ordinal))
-                {
-                    throw new ArgumentException("`**` is a reserved key segment. For path glob, use `./**`.");
-                }
-                else if (keySegment.First() == '\'')
-                {
-                    throw new ArgumentException("A key segment cannot start with a single-quote character`.");
-                }
-                else if (keySegment.First() == '`')
-                {
-                    throw new ArgumentException("A key segment cannot start with a backtick character`.");
-                }
-                else if (IsPathy(keySegment))
+                CheckKeySegment(keySegment);
+            }
+
+            foreach (string keySegment in keySegments)
+            {
+                if (IsPathy(keySegment))
                 {
                     context.Verbose($"Interpretting `{keySegment}` as a path.");
 
-                    var segment = new StringBuilder();
-                    bool foundFile = false;
-
-                    string[] pathRules = keySegment.Split(new []{','}, StringSplitOptions.RemoveEmptyEntries);
+                    string[] pathRules = keySegment.Split(new []{','}, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToArray();
                     string rootRule = pathRules.First();
-                    if(rootRule[0] == '!')
+                    if(rootRule.First() == '!')
                     {
                         throw new ArgumentException("Path glob must start with an include glob.");
                     }
@@ -179,9 +187,9 @@ namespace Agent.Plugins.PipelineCache
                     string absoluteRootRule = MakePathAbsolute(workingDirectory, rootRule);
                     context.Verbose($"Expanded include rule is `{absoluteRootRule}`.");
                     IEnumerable<string> absoluteExcludeRules = pathRules.Skip(1).Select(r => {
-                        if (r[0] != '!')
+                        if (r.First() != '!')
                         {
-                            throw new ArgumentException("Path glob must start with an exclude glob.");
+                            throw new ArgumentException("Path globs after the first must be exclude globs.");
                         }
                         return MakePathAbsolute(workingDirectory, r.Substring(1));
                     });
@@ -195,30 +203,37 @@ namespace Agent.Plugins.PipelineCache
 
                     context.Verbose($"Enumerating starting at root `{enumerateRootPath}` with pattern `{enumeratePattern}`.");
                     IEnumerable<string> files = Directory.EnumerateFiles(enumerateRootPath, enumeratePattern, enumerateDepth);
+                    
                     files = files.Where(f => filter(f)).Distinct();
+
+                    var fileHashes = new SortedDictionary<string,string>(StringComparer.Ordinal);
 
                     foreach(string path in files)
                     {
-                        foundFile = true;
-
                         using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
                         {
                             byte[] hash = sha256.ComputeHash(fs);
                             // Path.GetRelativePath returns 'The relative path, or path if the paths don't share the same root.'
                             string displayPath = filePathRoot == null ? path : Path.GetRelativePath(filePathRoot, path);
-                            segment.Append($"\nSHA256({displayPath})=[{fs.Length}]{hash.ToHex()}");
+                            fileHashes.Add(path, $"\nSHA256({displayPath})=[{fs.Length}]{hash.ToHex()}");
                         }
                     }
                     
-                    if (!foundFile)
+                    if (!fileHashes.Any())
                     {
                         throw new FileNotFoundException("No files found.");
                     }
 
-                    string fileHashString = segment.ToString();
-                    string fileHashStringHash = SummarizeString(fileHashString);
-                    context.Output($"File hashes summarized as `{fileHashStringHash}` from BASE64(SHA256(`{fileHashString}`))");
-                    resolvedSegments.Add(fileHashStringHash);
+                    var fileHashesBuilder = new StringBuilder();
+                    foreach(string fileHashString in fileHashes.Values)
+                    {
+                        fileHashesBuilder.Append(fileHashString);
+                    }
+
+                    string wholeFileHashString = fileHashesBuilder.ToString();
+                    string summary = SummarizeString(wholeFileHashString);
+                    context.Output($"File hashes summarized as `{summary}` from BASE64(SHA256(`{wholeFileHashString}`))");
+                    resolvedSegments.Add(summary);
                 } 
                 else
                 {

@@ -14,7 +14,8 @@ namespace Agent.Plugins.PipelineCache
 
         protected override async Task ProcessCommandInternalAsync(
             AgentTaskPluginExecutionContext context,
-            Fingerprint[] fingerprints,
+            Fingerprint fingerprint,
+            Func<Fingerprint[]> restoreKeysGenerator,
             string path,
             CancellationToken token)
         {
@@ -36,7 +37,7 @@ namespace Agent.Plugins.PipelineCache
             PipelineCacheServer server = new PipelineCacheServer();
             await server.UploadAsync(
                 context,
-                fingerprints.First(), 
+                fingerprint, 
                 path,
                 token);
         }
