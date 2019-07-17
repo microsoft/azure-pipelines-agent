@@ -1,6 +1,5 @@
 ﻿using Agent.Sdk;
 using BuildXL.Cache.ContentStore.Interfaces.Utils;
-using Microsoft.VisualStudio.Services.BlobStore.Common;
 using Microsoft.VisualStudio.Services.PipelineCache.WebApi;
 using Minimatch;
 using System;
@@ -8,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -17,14 +17,15 @@ namespace Agent.Plugins.PipelineCache
 {
     public static class FingerprintCreator
     {
-        private static readonly bool isWindows = Helpers.IsWindowsPlatform(Environment.OSVersion);
+        private static readonly bool isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+        private static readonly bool isCaseSensitive = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
 
         // https://github.com/Microsoft/azure-pipelines-task-lib/blob/master/node/docs/findingfiles.md#matchoptions
         private static readonly Options minimatchOptions = new Options
         {
             Dot = true,
             NoBrace = true,
-            NoCase = isWindows,
+            NoCase = !isCaseSensitive,
             AllowWindowsPaths = isWindows,
         };
 
@@ -49,10 +50,6 @@ namespace Agent.Plugins.PipelineCache
             return true;
         }
 
-        internal static bool IsAbsolutePath(string path) =>
-               path.StartsWith("/", StringComparison.Ordinal)
-            || (isWindows && path.Length >= 3 && char.IsLetter(path[0]) && path[1] == ':' && path[2] == '\\');
-
         internal static Func<string,bool> CreateMinimatchFilter(AgentTaskPluginExecutionContext context, string rule, bool invert)
         {
             Func<string,bool> filter = Minimatcher.CreateFilter(rule, minimatchOptions);
@@ -67,15 +64,15 @@ namespace Agent.Plugins.PipelineCache
 
         internal static string MakePathAbsolute(string workingDirectory, string path)
         {
-            if (workingDirectory != null)
-            {
-                path = $"{workingDirectory}{Path.DirectorySeparatorChar}{path}";
-            }
-
             // Normalize to some extent, let minimatch worry about casing
-            path = Path.GetFullPath(path);
-
-            return path;
+            if (workingDirectory == null)
+            {
+                return Path.GetFullPath(path);
+            }
+            else
+            {
+                return Path.GetFullPath(path, workingDirectory);
+            }
         }
 
         internal static Func<string,bool> CreateFilter(
@@ -92,48 +89,42 @@ namespace Agent.Plugins.PipelineCache
         }
 
 
-        internal static void DetermineEnumeration(
-            string workingDirectory,
-            string rootRule,
+        // Given a globby path, figure out where to start enumerating.
+        // Room for optimization here e.g. 
+        // includeGlobPath = /dir/*foo* 
+        // should map to 
+        // enumerateRootPath = /dir/
+        // enumeratePattern = *foo*
+        // enumerateDepth = SearchOption.TopDirectoryOnly
+        //
+        // It's ok to come up with a file-enumeration that includes too much as the glob filter
+        // will filter out the extra, but it's not ok to include too little in the enumeration.
+        internal static void DetermineFileEnumerationFromGlob(
+            string includeGlobPathAbsolute,
             out string enumerateRootPath,
             out string enumeratePattern,
             out SearchOption enumerateDepth)
         {
-            int firstGlob = rootRule.IndexOfAny(GlobChars);
+            int firstGlob = includeGlobPathAbsolute.IndexOfAny(GlobChars);
+            bool hasRecursive = includeGlobPathAbsolute.Contains("**", StringComparison.Ordinal);
 
             // no globbing
             if (firstGlob < 0)
             {
-                if (workingDirectory == null)
-                {
-                    enumerateRootPath = Path.GetDirectoryName(rootRule);
-                }
-                else
-                {
-                    enumerateRootPath = workingDirectory;
-                }
-
-                enumeratePattern = Path.GetFileName(rootRule);
+                enumerateRootPath = Path.GetDirectoryName(includeGlobPathAbsolute);
+                enumeratePattern = Path.GetFileName(includeGlobPathAbsolute);
                 enumerateDepth = SearchOption.TopDirectoryOnly;
-            }
-            // starts with glob
-            else if(firstGlob == 0)
-            {
-                if(workingDirectory == null) throw new InvalidOperationException();
-                enumerateRootPath = workingDirectory;
-                enumeratePattern = "*";
-                enumerateDepth = SearchOption.AllDirectories;
             }
             else
             {
-                int rootDirLength = rootRule.Substring(0,firstGlob).LastIndexOfAny( new [] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar});
-                enumerateRootPath = rootRule.Substring(0,rootDirLength);
+                int rootDirLength = includeGlobPathAbsolute.Substring(0,firstGlob).LastIndexOfAny( new [] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar});
+                enumerateRootPath = includeGlobPathAbsolute.Substring(0,rootDirLength);
                 enumeratePattern = "*";
-                enumerateDepth = SearchOption.AllDirectories;
+                enumerateDepth = hasRecursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
             }
         }
 
-        public static Fingerprint ParseFromYAML(
+        public static Fingerprint EvaluateKeyToFingerprint(
             AgentTaskPluginExecutionContext context,
             IEnumerable<string> keySegments,
             bool addWildcard)
@@ -148,7 +139,7 @@ namespace Agent.Plugins.PipelineCache
 
             foreach (string keySegment in keySegments)
             {
-                if (keySegment.Length == 1 && keySegment[0] == '*')
+                if (keySegment.Equals("*", StringComparison.Ordinal))
                 {
                     throw new ArgumentException("`*` is a reserved key segment. For path glob, use `./*`.");
                 }
@@ -163,20 +154,15 @@ namespace Agent.Plugins.PipelineCache
                     var segment = new StringBuilder();
                     bool foundFile = false;
 
-                    if (keySegment.Contains(';', StringComparison.Ordinal))
-                    {
-                        throw new ArgumentException("Cache key cannot contain the ';' character.");
-                    }
-
                     string[] pathRules = keySegment.Split(new []{','}, StringSplitOptions.RemoveEmptyEntries);
                     string rootRule = pathRules.First();
-                    if(rootRule.Length == 0 || rootRule[1] == '!')
+                    if(rootRule[1] == '!')
                     {
-                        throw new ArgumentException();
+                        throw new ArgumentException("Path glob must start with an include glob.");
                     }
 
                     string workingDirectory = null;
-                    if (!IsAbsolutePath(rootRule))
+                    if (!Path.IsPathFullyQualified(rootRule))
                     {
                         workingDirectory = workingDirectoryValue;
                     }
@@ -186,8 +172,7 @@ namespace Agent.Plugins.PipelineCache
                     IEnumerable<string> absoluteExcludeRules = pathRules.Skip(1).Select(r => MakePathAbsolute(workingDirectory, r.Substring(1)));
                     Func<string,bool> filter = CreateFilter(context, workingDirectory, absoluteRootRule, absoluteExcludeRules);
 
-                    DetermineEnumeration(
-                        workingDirectory,
+                    DetermineFileEnumerationFromGlob(
                         absoluteRootRule,
                         out string enumerateRootPath,
                         out string enumeratePattern,
@@ -204,7 +189,7 @@ namespace Agent.Plugins.PipelineCache
                         using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
                         {
                             byte[] hash = sha256.ComputeHash(fs);
-                            string displayPath = workingDirectory == null ? path : path.Substring(enumerateRootPath.Length + 1);
+                            string displayPath = workingDirectory == null ? path : Path.GetRelativePath(enumerateRootPath, path);
                             segment.Append($"\nSHA256({displayPath})=[{fs.Length}]{hash.ToHex()}");
                         }
                     }

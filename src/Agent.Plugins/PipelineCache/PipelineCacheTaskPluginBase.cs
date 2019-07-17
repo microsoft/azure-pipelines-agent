@@ -75,12 +75,13 @@ namespace Agent.Plugins.PipelineCache
         {
             ArgUtil.NotNull(context, nameof(context));
 
-            VariableValue salt = context.Variables.GetValueOrDefault(SaltVariableName);
+            VariableValue saltValue = context.Variables.GetValueOrDefault(SaltVariableName);
+            string salt = saltValue?.Value ?? string.Empty;
 
             string key = context.GetInput(PipelineCacheTaskPluginConstants.Key, required: true);
             string restoreKeysBlock = context.GetInput(PipelineCacheTaskPluginConstants.RestoreKeys, required: false);
 
-            (bool isOldFormat, string[] keySegments, IEnumerable<string[]> restoreKeys) = ParseIntoSegments(salt.Value, key, restoreKeysBlock);
+            (bool isOldFormat, string[] keySegments, IEnumerable<string[]> restoreKeys) = ParseIntoSegments(salt, key, restoreKeysBlock);
 
             if (isOldFormat)
             {
@@ -88,12 +89,12 @@ namespace Agent.Plugins.PipelineCache
             }
 
             context.Output($"Resolving key `{string.Join(" | ", keySegments)}`...");
-            Fingerprint keyFp = FingerprintCreator.ParseFromYAML(context, keySegments, addWildcard: false);
+            Fingerprint keyFp = FingerprintCreator.EvaluateKeyToFingerprint(context, keySegments, addWildcard: false);
             context.Output($"Resolved to `{keyFp}`.");
 
             IEnumerable<Fingerprint> restoreFps = restoreKeys.Select(restoreKey => {
                 context.Output($"Resolving restore key `{string.Join(" | ", restoreKey)}`...");
-                Fingerprint f = FingerprintCreator.ParseFromYAML(context, restoreKey, addWildcard: true);
+                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, restoreKey, addWildcard: true);
                 context.Output($"Resolved to `{f}`.");
                 return f;
             });

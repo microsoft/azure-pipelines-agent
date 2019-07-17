@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -44,7 +45,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
 
                 string workingDir = null;
-                if(!FingerprintCreator.IsAbsolutePath(includePattern))
+                if(!Path.IsPathFullyQualified(includePattern))
                 {
                     workingDir = WorkingDirectory;
                 }
@@ -98,6 +99,58 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                     ("C:\\working\\something.else",false),
                 }
             );
+        }
+
+        private void AssertFileEnumeration(
+            string includeGlobPath,
+            string expectedEnumerateRootPath,
+            string expectedEnumeratePattern,
+            SearchOption expectedEnumerateDepth)
+        {
+            FingerprintCreator.DetermineFileEnumerationFromGlob(
+                MakeOSPath(includeGlobPath),
+                out string enumerateRootPath,
+                out string enumeratePattern,
+                out SearchOption enumerateDepth);
+            Assert.Equal(expectedEnumerateRootPath, MakeOSPath(enumerateRootPath));
+            Assert.Equal(expectedEnumeratePattern, MakeOSPath(enumeratePattern));
+            Assert.Equal(expectedEnumerateDepth, enumerateDepth);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public void DetermineFileEnumerationExact()
+        {
+            AssertFileEnumeration(
+                includeGlobPath: @"C:\dir\file.txt",
+                expectedEnumerateRootPath: @"C:\dir",
+                expectedEnumeratePattern: @"file.txt",
+                expectedEnumerateDepth: SearchOption.TopDirectoryOnly);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public void DetermineFileEnumerationTopLevel()
+        {
+            AssertFileEnumeration(
+                includeGlobPath: @"C:\dir\*.txt",
+                expectedEnumerateRootPath: @"C:\dir",
+                expectedEnumeratePattern: @"*",
+                expectedEnumerateDepth: SearchOption.TopDirectoryOnly);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public void DetermineFileEnumerationRecursive()
+        {
+            AssertFileEnumeration(
+                includeGlobPath: @"C:\dir\**\*.txt",
+                expectedEnumerateRootPath: @"C:\dir",
+                expectedEnumeratePattern: @"*",
+                expectedEnumerateDepth: SearchOption.AllDirectories);
         }
     }
 }

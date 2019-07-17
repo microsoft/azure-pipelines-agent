@@ -52,7 +52,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                     $"{path1}",
                     $"{path2}",
                 };
-                Fingerprint f = FingerprintCreator.ParseFromYAML(context, segments, addWildcard: false);
+                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, segments, addWildcard: false);
                 
                 Assert.Equal(2, f.Segments.Length);
                 Assert.Equal(FingerprintCreator.SummarizeString($"\nSHA256({path1})=[{content1.Length}]{hash1.ToHex()}"), f.Segments[0]);
@@ -83,7 +83,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                     $"{relPath2}",
                 };
 
-                Fingerprint f = FingerprintCreator.ParseFromYAML(context, segments, addWildcard: false);
+                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, segments, addWildcard: false);
                 
                 Assert.Equal(2, f.Segments.Length);
                 Assert.Equal(FingerprintCreator.SummarizeString($"\nSHA256({relPath1})=[{content1.Length}]{hash1.ToHex()}"), f.Segments[0]);
@@ -104,7 +104,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                     $"hello",
                 };
 
-                Fingerprint f = FingerprintCreator.ParseFromYAML(context, segments, addWildcard: false);
+                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, segments, addWildcard: false);
                 
                 Assert.Equal(1, f.Segments.Length);
                 Assert.Equal($"hello", f.Segments[0]);
@@ -124,7 +124,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                     $"hello",
                 };
 
-                Fingerprint f = FingerprintCreator.ParseFromYAML(context, segments, addWildcard: true);
+                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, segments, addWildcard: true);
                 
                 Assert.Equal(2, f.Segments.Length);
                 Assert.Equal($"hello", f.Segments[0]);
