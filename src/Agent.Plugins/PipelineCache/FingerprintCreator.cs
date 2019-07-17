@@ -54,8 +54,9 @@ namespace Agent.Plugins.PipelineCache
         {
             Func<string,bool> filter = Minimatcher.CreateFilter(rule, minimatchOptions);
             Func<string,bool> tracedFilter = (path) => {
-                bool result = invert ^ filter(path);
-                context.Verbose($"Path `{path}` is {(result ? "included" : "excluded")} because of pattern `{(invert ? "!" : "")}{rule}`.");
+                bool filterResult = filter(path);
+                context.Verbose($"Path `{path}` is {(filterResult ? "included" : "excluded")} because of pattern `{(invert ? "!" : "")}{rule}`.");
+                bool result = invert ^ filterResult;
                 return result;
             };
 
@@ -126,6 +127,7 @@ namespace Agent.Plugins.PipelineCache
 
         public static Fingerprint EvaluateKeyToFingerprint(
             AgentTaskPluginExecutionContext context,
+            string filePathRoot,
             IEnumerable<string> keySegments,
             bool addWildcard)
         {
@@ -156,7 +158,7 @@ namespace Agent.Plugins.PipelineCache
 
                     string[] pathRules = keySegment.Split(new []{','}, StringSplitOptions.RemoveEmptyEntries);
                     string rootRule = pathRules.First();
-                    if(rootRule[1] == '!')
+                    if(rootRule[0] == '!')
                     {
                         throw new ArgumentException("Path glob must start with an include glob.");
                     }
@@ -169,7 +171,13 @@ namespace Agent.Plugins.PipelineCache
 
                     string absoluteRootRule = MakePathAbsolute(workingDirectory, rootRule);
                     context.Verbose($"Expanded include rule is `{absoluteRootRule}`.");
-                    IEnumerable<string> absoluteExcludeRules = pathRules.Skip(1).Select(r => MakePathAbsolute(workingDirectory, r.Substring(1)));
+                    IEnumerable<string> absoluteExcludeRules = pathRules.Skip(1).Select(r => {
+                        if (r[0] != '!')
+                        {
+                            throw new ArgumentException("Path glob must start with an exclude glob.");
+                        }
+                        return MakePathAbsolute(workingDirectory, r.Substring(1));
+                    });
                     Func<string,bool> filter = CreateFilter(context, workingDirectory, absoluteRootRule, absoluteExcludeRules);
 
                     DetermineFileEnumerationFromGlob(
@@ -189,7 +197,8 @@ namespace Agent.Plugins.PipelineCache
                         using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
                         {
                             byte[] hash = sha256.ComputeHash(fs);
-                            string displayPath = workingDirectory == null ? path : Path.GetRelativePath(enumerateRootPath, path);
+                            // Path.GetRelativePath returns 'The relative path, or path if the paths don't share the same root.'
+                            string displayPath = filePathRoot == null ? path : Path.GetRelativePath(filePathRoot, path);
                             segment.Append($"\nSHA256({displayPath})=[{fs.Length}]{hash.ToHex()}");
                         }
                     }

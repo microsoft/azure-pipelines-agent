@@ -78,6 +78,9 @@ namespace Agent.Plugins.PipelineCache
             VariableValue saltValue = context.Variables.GetValueOrDefault(SaltVariableName);
             string salt = saltValue?.Value ?? string.Empty;
 
+            VariableValue workspaceRootValue = context.Variables.GetValueOrDefault("pipeline.workspace");
+            string worksapceRoot = workspaceRootValue?.Value;
+
             string key = context.GetInput(PipelineCacheTaskPluginConstants.Key, required: true);
             string restoreKeysBlock = context.GetInput(PipelineCacheTaskPluginConstants.RestoreKeys, required: false);
 
@@ -89,12 +92,12 @@ namespace Agent.Plugins.PipelineCache
             }
 
             context.Output($"Resolving key `{string.Join(" | ", keySegments)}`...");
-            Fingerprint keyFp = FingerprintCreator.EvaluateKeyToFingerprint(context, keySegments, addWildcard: false);
+            Fingerprint keyFp = FingerprintCreator.EvaluateKeyToFingerprint(context, worksapceRoot, keySegments, addWildcard: false);
             context.Output($"Resolved to `{keyFp}`.");
 
             IEnumerable<Fingerprint> restoreFps = restoreKeys.Select(restoreKey => {
                 context.Output($"Resolving restore key `{string.Join(" | ", restoreKey)}`...");
-                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, restoreKey, addWildcard: true);
+                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, worksapceRoot, restoreKey, addWildcard: true);
                 context.Output($"Resolved to `{f}`.");
                 return f;
             });
