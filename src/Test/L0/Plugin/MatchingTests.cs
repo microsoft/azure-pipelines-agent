@@ -112,8 +112,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 out string enumerateRootPath,
                 out string enumeratePattern,
                 out SearchOption enumerateDepth);
-            Assert.Equal(expectedEnumerateRootPath, MakeOSPath(enumerateRootPath));
-            Assert.Equal(expectedEnumeratePattern, MakeOSPath(enumeratePattern));
+            Assert.Equal(MakeOSPath(expectedEnumerateRootPath), enumerateRootPath);
+            Assert.Equal(MakeOSPath(expectedEnumeratePattern), enumeratePattern);
             Assert.Equal(expectedEnumerateDepth, enumerateDepth);
         }
 
