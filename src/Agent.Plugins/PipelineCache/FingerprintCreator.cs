@@ -31,6 +31,8 @@ namespace Agent.Plugins.PipelineCache
 
         private static readonly char[] GlobChars = new [] { '*', '?', '[', ']' };
 
+        private const char ForceStringLiteral = '"';
+
         private static bool IsPathyChar(char c)
         {
             if (GlobChars.Contains(c)) return true;
@@ -42,8 +44,7 @@ namespace Agent.Plugins.PipelineCache
 
         internal static bool IsPathy(string keySegment)
         {
-            if (keySegment.First() == '\'' && keySegment.Last() == '\'') return false;
-            if (keySegment.First() == '"' && keySegment.Last() == '"') return false;
+            if (keySegment.First() == ForceStringLiteral && keySegment.Last() == ForceStringLiteral) return false;
             if (keySegment.Any(c => !IsPathyChar(c))) return false;
             if (!keySegment.Contains(".")) return false;
             if (keySegment.Last() == '.') return false;
@@ -55,9 +56,8 @@ namespace Agent.Plugins.PipelineCache
             Func<string,bool> filter = Minimatcher.CreateFilter(rule, minimatchOptions);
             Func<string,bool> tracedFilter = (path) => {
                 bool filterResult = filter(path);
-                context.Verbose($"Path `{path}` is {(filterResult ? "included" : "excluded")} because of pattern `{(invert ? "!" : "")}{rule}`.");
-                bool result = invert ^ filterResult;
-                return result;
+                context.Verbose($"Path `{path}` is {(filterResult ? "" : "not")} {(invert ? "excluded" : "included")} because of pattern `{(invert ? "!" : "")}{rule}`.");
+                return invert ^ filterResult;
             };
 
             return tracedFilter;
@@ -128,8 +128,7 @@ namespace Agent.Plugins.PipelineCache
         public static Fingerprint EvaluateKeyToFingerprint(
             AgentTaskPluginExecutionContext context,
             string filePathRoot,
-            IEnumerable<string> keySegments,
-            bool addWildcard)
+            IEnumerable<string> keySegments)
         {
             var sha256 = new SHA256Managed();
 
@@ -148,6 +147,14 @@ namespace Agent.Plugins.PipelineCache
                 else if (keySegment.Equals(Fingerprint.Wildcard, StringComparison.Ordinal))
                 {
                     throw new ArgumentException("`**` is a reserved key segment. For path glob, use `./**`.");
+                }
+                else if (keySegment.First() == '\'')
+                {
+                    throw new ArgumentException("A key segment cannot start with a single-quote character`.");
+                }
+                else if (keySegment.First() == '`')
+                {
+                    throw new ArgumentException("A key segment cannot start with a backtick character`.");
                 }
                 else if (IsPathy(keySegment))
                 {
@@ -218,11 +225,6 @@ namespace Agent.Plugins.PipelineCache
                     context.Verbose($"Interpretting `{keySegment}` as a string.");
                     resolvedSegments.Add($"{keySegment}");
                 }
-            }
-
-            if (addWildcard)
-            {
-                resolvedSegments.Add(Fingerprint.Wildcard);
             }
 
             return new Fingerprint() { Segments = resolvedSegments.ToArray() };

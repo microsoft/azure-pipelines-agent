@@ -57,7 +57,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 };
 
                 Assert.Throws<ArgumentException>(
-                    () => FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments, addWildcard: false)
+                    () => FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments)
                 );
             }
         }
@@ -76,7 +76,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 };
                 
                 Assert.Throws<ArgumentException>(
-                    () => FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments, addWildcard: false)
+                    () => FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments)
                 );
             }
         }
@@ -90,10 +90,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 Assert.Throws<ArgumentException>(
-                    () => FingerprintCreator.EvaluateKeyToFingerprint(context, directory, new [] {"*"}, addWildcard: false)
+                    () => FingerprintCreator.EvaluateKeyToFingerprint(context, directory, new [] {"*"})
                 );
                 Assert.Throws<ArgumentException>(
-                    () => FingerprintCreator.EvaluateKeyToFingerprint(context, directory, new [] {"**"}, addWildcard: false)
+                    () => FingerprintCreator.EvaluateKeyToFingerprint(context, directory, new [] {"**"})
                 );
             }
         }
@@ -111,7 +111,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                     $"{Path.GetDirectoryName(path1)},!{path1}",
                 };
                 Assert.Throws<FileNotFoundException>(
-                    () => FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments, addWildcard: false)
+                    () => FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments)
                 );
             }
         }
@@ -128,7 +128,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 {
                     $"{path1},!{path2}",
                 };
-                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments, addWildcard: false);
+                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments);
                 
                 Assert.Equal(1, f.Segments.Length);
                 Assert.Equal(FingerprintCreator.SummarizeString($"\nSHA256({Path.GetFileName(path1)})=[{content1.Length}]{hash1.ToHex()}"), f.Segments[0]);
@@ -148,7 +148,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                     $"{path1}",
                     $"{path2}",
                 };
-                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments, addWildcard: false);
+                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments);
                 
                 Assert.Equal(2, f.Segments.Length);
                 Assert.Equal(FingerprintCreator.SummarizeString($"\nSHA256({Path.GetFileName(path1)})=[{content1.Length}]{hash1.ToHex()}"), f.Segments[0]);
@@ -179,7 +179,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                     $"{relPath2}",
                 };
 
-                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments, addWildcard: false);
+                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments);
                 
                 Assert.Equal(2, f.Segments.Length);
                 Assert.Equal(FingerprintCreator.SummarizeString($"\nSHA256({relPath1})=[{content1.Length}]{hash1.ToHex()}"), f.Segments[0]);
@@ -200,31 +200,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                     $"hello",
                 };
 
-                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments, addWildcard: false);
+                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments);
                 
                 Assert.Equal(1, f.Segments.Length);
                 Assert.Equal($"hello", f.Segments[0]);
-            }
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Plugin")]
-        public void Fingerprint_Wildcard()
-        {
-            using(var hostContext = new TestHostContext(this))
-            {
-                var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
-                var segments = new[]
-                {
-                    $"hello",
-                };
-
-                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments, addWildcard: true);
-                
-                Assert.Equal(2, f.Segments.Length);
-                Assert.Equal($"hello", f.Segments[0]);
-                Assert.Equal(Fingerprint.Wildcard, f.Segments[1]);
             }
         }
 

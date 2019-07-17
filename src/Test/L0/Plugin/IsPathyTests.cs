@@ -19,7 +19,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
             assertPath(@"This is a sentence.", false);
             assertPath(@"http://xkcd.com.", false);
             assertPath(@"""D:\README.md""", false);
-            assertPath(@"'D:\README.md'", false);
             assertPath(@"D:\README.md", true);
             assertPath(@"D:\src\vsts-agent\_layout\_work\2\s/README.md", true);
             assertPath(@"D:\src\vsts-agent\_layout\_work\2\s/**/README.md", true);
