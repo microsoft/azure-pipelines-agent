@@ -223,7 +223,7 @@ namespace Agent.Plugins.PipelineCache
                     {
                         Enumeration enumerate = kvp.Key;
                         List<string> absoluteIncludeGlobs = kvp.Value;
-                        context.Verbose($"Enumerating starting at root `{enumerate.RootPath}` with pattern `{enumerate.Pattern}`.");
+                        context.Verbose($"Enumerating starting at root `{enumerate.RootPath}` with pattern `{enumerate.Pattern}` and depth `{enumerate.Depth}`.");
                         IEnumerable<string> files = Directory.EnumerateFiles(enumerate.RootPath, enumerate.Pattern, enumerate.Depth);
                         Func<string,bool> filter = CreateFilter(context, absoluteIncludeGlobs, absoluteExcludeRules);
                         files = files.Where(f => filter(f)).Distinct();
