@@ -12,7 +12,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
     public class MatchingTests
     {
         private static readonly bool IsWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-        private static readonly string WorkingDirectory = 
+        private static readonly string DefaultWorkingDirectory = 
             IsWindows
                 ? "C:\\working"
                 : "/working";
@@ -35,7 +35,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         }
 
         private void RunTests(
-            string includePattern,
+            string[] includePatterns,
             string[] excludePatterns,
             (string path, bool match)[] testCases,
             [CallerMemberName] string testName = null)
@@ -44,18 +44,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
 
-                string workingDir = null;
-                if(!Path.IsPathFullyQualified(includePattern))
-                {
-                    workingDir = WorkingDirectory;
-                }
-
-                includePattern = FingerprintCreator.MakePathAbsolute(workingDir,includePattern);
-                excludePatterns = excludePatterns.Select(p => FingerprintCreator.MakePathAbsolute(workingDir,p)).ToArray();
+                includePatterns = includePatterns.Select(p =>
+                    FingerprintCreator.MakePathAbsolute(Path.IsPathFullyQualified(p) ? null : DefaultWorkingDirectory,p)).ToArray();
+                excludePatterns = excludePatterns.Select(p =>
+                    FingerprintCreator.MakePathAbsolute(Path.IsPathFullyQualified(p) ? null : DefaultWorkingDirectory,p)).ToArray();
                 Func<string,bool> filter = FingerprintCreator.CreateFilter(
                     context,
-                    workingDir,
-                    includePattern,
+                    includePatterns,
                     excludePatterns
                 );
 
@@ -72,10 +67,43 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
+        public void MultipleIncludes()
+        {
+            RunTests(
+                includePatterns: new [] {"good1.tmp","good2.tmp"},
+                excludePatterns: new string[] {},
+                testCases:new []{
+                    ("C:\\working\\good1.tmp",true),
+                    ("C:\\working\\good2.tmp",true),
+                    ("C:\\working\\something.else",false),
+                }
+            );
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public void AbsoluteAndRelative()
+        {
+            RunTests(
+                includePatterns: new [] {"C:\\working\\good1.tmp","good2.tmp"},
+                excludePatterns: new string[] {},
+                testCases:new []{
+                    ("C:\\working\\good1.tmp",true),
+                    ("C:\\working\\good2.tmp",true),
+                    ("C:\\working\\something.else",false),
+                    ("D:\\junk",false),
+                }
+            );
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
         public void ExcludeSingleFile()
         {
             RunTests(
-                includePattern: "*.tmp",
+                includePatterns: new [] {"*.tmp"},
                 excludePatterns: new [] {"bad.tmp"},
                 testCases:new []{
                     ("C:\\working\\good.tmp",true),
@@ -91,7 +119,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         public void ExcludeSingleFileWithDot()
         {
             RunTests(
-                includePattern: "./*.tmp",
+                includePatterns: new [] {"./*.tmp"},
                 excludePatterns: new [] {"./bad.tmp"},
                 testCases:new []{
                     ("C:\\working\\good.tmp",true),
@@ -107,14 +135,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
             string expectedEnumeratePattern,
             SearchOption expectedEnumerateDepth)
         {
-            FingerprintCreator.DetermineFileEnumerationFromGlob(
-                MakeOSPath(includeGlobPath),
-                out string enumerateRootPath,
-                out string enumeratePattern,
-                out SearchOption enumerateDepth);
-            Assert.Equal(MakeOSPath(expectedEnumerateRootPath), enumerateRootPath);
-            Assert.Equal(MakeOSPath(expectedEnumeratePattern), enumeratePattern);
-            Assert.Equal(expectedEnumerateDepth, enumerateDepth);
+            FingerprintCreator.Enumeration e = FingerprintCreator.DetermineFileEnumerationFromGlob(MakeOSPath(includeGlobPath));
+            Assert.Equal(MakeOSPath(expectedEnumerateRootPath), e.RootPath);
+            Assert.Equal(MakeOSPath(expectedEnumeratePattern), e.Pattern);
+            Assert.Equal(expectedEnumerateDepth, e.Depth);
         }
 
         [Fact]

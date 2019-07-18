@@ -80,15 +80,22 @@ namespace Agent.Plugins.PipelineCache
 
         internal static Func<string,bool> CreateFilter(
             AgentTaskPluginExecutionContext context,
-            string workingDirectory,
-            string includeRule,
+            IEnumerable<string> includeRules,
             IEnumerable<string> excludeRules)
         {
-            Func<string,bool> includeFilter = CreateMinimatchFilter(context, includeRule, invert: false);
+            Func<string,bool>[] includeFilters = includeRules.Select(includeRule =>
+                CreateMinimatchFilter(context, includeRule, invert: false)).ToArray();
             Func<string,bool>[] excludeFilters = excludeRules.Select(excludeRule => 
                 CreateMinimatchFilter(context, excludeRule, invert: true)).ToArray();
-            Func<string,bool> filter = (path) => includeFilter(path) && excludeFilters.All(f => f(path));
+            Func<string,bool> filter = (path) => includeFilters.Any(f => f(path)) && excludeFilters.All(f => f(path));
             return filter;
+        }
+
+        internal struct Enumeration
+        {
+            public string RootPath;
+            public string Pattern;
+            public SearchOption Depth;
         }
 
 
@@ -102,11 +109,7 @@ namespace Agent.Plugins.PipelineCache
         //
         // It's ok to come up with a file-enumeration that includes too much as the glob filter
         // will filter out the extra, but it's not ok to include too little in the enumeration.
-        internal static void DetermineFileEnumerationFromGlob(
-            string includeGlobPathAbsolute,
-            out string enumerateRootPath,
-            out string enumeratePattern,
-            out SearchOption enumerateDepth)
+        internal static Enumeration DetermineFileEnumerationFromGlob(string includeGlobPathAbsolute)
         {
             int firstGlob = includeGlobPathAbsolute.IndexOfAny(GlobChars);
             bool hasRecursive = includeGlobPathAbsolute.Contains("**", StringComparison.Ordinal);
@@ -114,16 +117,20 @@ namespace Agent.Plugins.PipelineCache
             // no globbing
             if (firstGlob < 0)
             {
-                enumerateRootPath = Path.GetDirectoryName(includeGlobPathAbsolute);
-                enumeratePattern = Path.GetFileName(includeGlobPathAbsolute);
-                enumerateDepth = SearchOption.TopDirectoryOnly;
+                return new Enumeration() {
+                    RootPath = Path.GetDirectoryName(includeGlobPathAbsolute),
+                    Pattern = Path.GetFileName(includeGlobPathAbsolute),
+                    Depth = SearchOption.TopDirectoryOnly
+                };
             }
             else
             {
                 int rootDirLength = includeGlobPathAbsolute.Substring(0,firstGlob).LastIndexOfAny( new [] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar});
-                enumerateRootPath = includeGlobPathAbsolute.Substring(0,rootDirLength);
-                enumeratePattern = "*";
-                enumerateDepth = hasRecursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+                return new Enumeration() {
+                    RootPath = includeGlobPathAbsolute.Substring(0,rootDirLength),
+                    Pattern = "*",
+                    Depth = hasRecursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly
+                };
             }
         }
 
@@ -154,7 +161,7 @@ namespace Agent.Plugins.PipelineCache
         {
             var sha256 = new SHA256Managed();
 
-            string workingDirectoryValue = context.Variables.GetValueOrDefault(
+            string defaultWorkingDirectory = context.Variables.GetValueOrDefault(
                 "system.defaultworkingdirectory" // Constants.Variables.System.DefaultWorkingDirectory
                 )?.Value;
 
@@ -172,53 +179,67 @@ namespace Agent.Plugins.PipelineCache
                     context.Verbose($"Interpretting `{keySegment}` as a path.");
 
                     string[] pathRules = keySegment.Split(new []{','}, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToArray();
-                    string rootRule = pathRules.First();
-                    if(rootRule.First() == '!')
+                    string[] includeRules = pathRules.Where(p => !p.StartsWith('!')).ToArray();
+
+                    if (!includeRules.Any())
                     {
-                        throw new ArgumentException("Path glob must start with an include glob.");
+                        throw new ArgumentException("No include rules specified.");
                     }
 
-                    string workingDirectory = null;
-                    if (!Path.IsPathFullyQualified(rootRule))
+                    var enumerations = new Dictionary<Enumeration,List<string>>();
+                    foreach(string includeRule in includeRules)
                     {
-                        workingDirectory = workingDirectoryValue;
-                    }
-
-                    string absoluteRootRule = MakePathAbsolute(workingDirectory, rootRule);
-                    context.Verbose($"Expanded include rule is `{absoluteRootRule}`.");
-                    IEnumerable<string> absoluteExcludeRules = pathRules.Skip(1).Select(r => {
-                        if (r.First() != '!')
+                        string workingDirectory = null;
+                        if (!Path.IsPathFullyQualified(includeRule))
                         {
-                            throw new ArgumentException("Path globs after the first must be exclude globs.");
+                            workingDirectory = defaultWorkingDirectory;
                         }
-                        return MakePathAbsolute(workingDirectory, r.Substring(1));
-                    });
-                    Func<string,bool> filter = CreateFilter(context, workingDirectory, absoluteRootRule, absoluteExcludeRules);
 
-                    DetermineFileEnumerationFromGlob(
-                        absoluteRootRule,
-                        out string enumerateRootPath,
-                        out string enumeratePattern,
-                        out SearchOption enumerateDepth);
+                        string absoluteRootRule = MakePathAbsolute(workingDirectory, includeRule);
+                        context.Verbose($"Expanded include rule is `{absoluteRootRule}`.");
+                        Enumeration enumeration = DetermineFileEnumerationFromGlob(absoluteRootRule);
+                        List<string> globs;
+                        if(!enumerations.TryGetValue(enumeration, out globs))
+                        {
+                            enumerations[enumeration] = globs = new List<string>(); 
+                        }
+                        globs.Add(absoluteRootRule);
+                    }
 
-                    context.Verbose($"Enumerating starting at root `{enumerateRootPath}` with pattern `{enumeratePattern}`.");
-                    IEnumerable<string> files = Directory.EnumerateFiles(enumerateRootPath, enumeratePattern, enumerateDepth);
-                    
-                    files = files.Where(f => filter(f)).Distinct();
+                    string[] excludeRules = pathRules.Where(p => p.StartsWith('!')).ToArray();
+                    string[] absoluteExcludeRules = excludeRules.Select(excludeRule => {
+                        excludeRule = excludeRule.Substring(1);
+                        string workingDirectory = null;
+                        if (!Path.IsPathFullyQualified(excludeRule))
+                        {
+                            workingDirectory = defaultWorkingDirectory;
+                        }
+                        return MakePathAbsolute(workingDirectory, excludeRule);
+                    }).ToArray();
 
                     var fileHashes = new SortedDictionary<string,string>(StringComparer.Ordinal);
 
-                    foreach(string path in files)
+                    foreach(var kvp in enumerations)
                     {
-                        using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+                        Enumeration enumerate = kvp.Key;
+                        List<string> absoluteIncludeGlobs = kvp.Value;
+                        context.Verbose($"Enumerating starting at root `{enumerate.RootPath}` with pattern `{enumerate.Pattern}`.");
+                        IEnumerable<string> files = Directory.EnumerateFiles(enumerate.RootPath, enumerate.Pattern, enumerate.Depth);
+                        Func<string,bool> filter = CreateFilter(context, absoluteIncludeGlobs, absoluteExcludeRules);
+                        files = files.Where(f => filter(f)).Distinct();
+
+                        foreach(string path in files)
                         {
-                            byte[] hash = sha256.ComputeHash(fs);
-                            // Path.GetRelativePath returns 'The relative path, or path if the paths don't share the same root.'
-                            string displayPath = filePathRoot == null ? path : Path.GetRelativePath(filePathRoot, path);
-                            fileHashes.Add(path, $"\nSHA256({displayPath})=[{fs.Length}]{hash.ToHex()}");
+                            using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+                            {
+                                byte[] hash = sha256.ComputeHash(fs);
+                                // Path.GetRelativePath returns 'The relative path, or path if the paths don't share the same root.'
+                                string displayPath = filePathRoot == null ? path : Path.GetRelativePath(filePathRoot, path);
+                                fileHashes.Add(path, $"\nSHA256({displayPath})=[{fs.Length}]{hash.ToHex()}");
+                            }
                         }
                     }
-                    
+
                     if (!fileHashes.Any())
                     {
                         throw new FileNotFoundException("No files found.");

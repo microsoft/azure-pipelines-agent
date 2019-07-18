@@ -46,44 +46,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
-        public void Fingerprint_StartsWithExcludeFails()
-        {
-            using(var hostContext = new TestHostContext(this))
-            {
-                var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
-                var segments = new[]
-                {
-                    $"!{path1},{path2}"
-                };
-
-                Assert.Throws<ArgumentException>(
-                    () => FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments)
-                );
-            }
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Plugin")]
-        public void Fingerprint_MultipleIncludeFails()
-        {
-            using(var hostContext = new TestHostContext(this))
-            {
-                var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
-                var segments = new[]
-                {
-                    $"{path1},{path2}"
-                };
-                
-                Assert.Throws<ArgumentException>(
-                    () => FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments)
-                );
-            }
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Plugin")]
         public void Fingerprint_ReservedFails()
         {
             using(var hostContext = new TestHostContext(this))
