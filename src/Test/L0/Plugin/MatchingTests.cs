@@ -44,10 +44,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
 
-                includePatterns = includePatterns.Select(p =>
-                    FingerprintCreator.MakePathAbsolute(Path.IsPathFullyQualified(p) ? null : DefaultWorkingDirectory,p)).ToArray();
-                excludePatterns = excludePatterns.Select(p =>
-                    FingerprintCreator.MakePathAbsolute(Path.IsPathFullyQualified(p) ? null : DefaultWorkingDirectory,p)).ToArray();
+                includePatterns = includePatterns
+                    .Select(p => MakeOSPath(p))
+                    .Select(p => FingerprintCreator.MakePathAbsolute(
+                                    Path.IsPathFullyQualified(p) ? null : DefaultWorkingDirectory,
+                                    p))
+                    .ToArray();
+                excludePatterns = excludePatterns
+                    .Select(p => MakeOSPath(p))
+                    .Select(p => FingerprintCreator.MakePathAbsolute(
+                                    Path.IsPathFullyQualified(p) ? null : DefaultWorkingDirectory,
+                                    p))
+                    .ToArray();
                 Func<string,bool> filter = FingerprintCreator.CreateFilter(
                     context,
                     includePatterns,

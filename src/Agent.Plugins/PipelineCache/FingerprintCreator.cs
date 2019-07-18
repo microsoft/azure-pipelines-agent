@@ -58,7 +58,7 @@ namespace Agent.Plugins.PipelineCache
             Func<string,bool> filter = Minimatcher.CreateFilter(rule, minimatchOptions);
             Func<string,bool> tracedFilter = (path) => {
                 bool filterResult = filter(path);
-                context.Verbose($"Path `{path}` is {(filterResult ? "" : "not")} {(invert ? "excluded" : "included")} because of pattern `{(invert ? "!" : "")}{rule}`.");
+                context.Verbose($"Path `{path}` is {(filterResult ? "" : "not ")}{(invert ? "excluded" : "included")} because of pattern `{(invert ? "!" : "")}{rule}`.");
                 return invert ^ filterResult;
             };
 
