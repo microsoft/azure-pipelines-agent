@@ -177,6 +177,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             ArgUtil.NotNull(Inputs, nameof(Inputs));
             ArgUtil.Directory(TaskDirectory, nameof(TaskDirectory));
 
+            // Warn about legacy handler.
+            ExecutionContext.Warning($"Task '{this.Task.Name}' ({this.Task.Version}) is using deprecated task execution handler. The task should use the supported task-lib: https://aka.ms/tasklib");
+
             // Resolve the target script.
             string target = GetTarget();
             ArgUtil.NotNullOrEmpty(target, nameof(target));

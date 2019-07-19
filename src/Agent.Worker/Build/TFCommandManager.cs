@@ -31,11 +31,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         protected override string Switch => "/";
 
-        public override string FilePath => Path.Combine(HostContext.GetDirectory(WellKnownDirectory.ServerOM), "tf.exe");
+        public override string FilePath => Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Tf), "tf.exe");
 
-        private string AppConfigFile => Path.Combine(HostContext.GetDirectory(WellKnownDirectory.ServerOM), "tf.exe.config");
+        private string AppConfigFile => Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Tf), "tf.exe.config");
 
-        private string AppConfigRestoreFile => Path.Combine(HostContext.GetDirectory(WellKnownDirectory.ServerOM), "tf.exe.config.restore");
+        private string AppConfigRestoreFile => Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Tf), "tf.exe.config.restore");
 
         // TODO: Remove AddAsync after last-saved-checkin-metadata problem is fixed properly.
         public async Task AddAsync(string localPath)
