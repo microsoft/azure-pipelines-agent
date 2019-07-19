@@ -18,6 +18,8 @@ namespace Agent.Plugins.PipelineCache
             string path,
             CancellationToken token)
         {
+            context.SetTaskVariable(RestoreStepRanVariableName, RestoreStepRanVariableValue);
+
             var server = new PipelineCacheServer();
             Fingerprint[] restoreFingerprints = restoreKeysGenerator();
             await server.DownloadAsync(

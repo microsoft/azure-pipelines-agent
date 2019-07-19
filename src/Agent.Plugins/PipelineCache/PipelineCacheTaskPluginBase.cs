@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,6 +13,9 @@ namespace Agent.Plugins.PipelineCache
 {
     public abstract class PipelineCacheTaskPluginBase : IAgentTaskPlugin
     {
+        protected const string RestoreStepRanVariableName = "RESTORE_STEP_RAN";
+        protected const string RestoreStepRanVariableValue = "true";
+
         private const string SaltVariableName = "AZDEVOPS_PIPELINECACHE_SALT";
         private const string OldKeyFormatMessage = "'key' format is changing to a single line: https://aka.ms/pipeline-caching-docs";
 

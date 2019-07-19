@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
@@ -19,20 +18,39 @@ namespace Agent.Plugins.PipelineCache
             string path,
             CancellationToken token)
         {
-            TaskResult? jobStatus = null;
+            bool successSoFar = false;
             if (context.Variables.TryGetValue("agent.jobstatus", out VariableValue jobStatusVar))
             {
-                if (Enum.TryParse<TaskResult>(jobStatusVar?.Value ?? string.Empty, true, out TaskResult result))
+                if (Enum.TryParse<TaskResult>(jobStatusVar?.Value ?? string.Empty, true, out TaskResult jobStatus))
                 {
-                    jobStatus = result;
+                    if (jobStatus == TaskResult.Succeeded)
+                    {
+                        successSoFar = true;
+                    }
                 }
             }
 
-            if (!TaskResult.Succeeded.Equals(jobStatus))
+            if (!successSoFar)
             {
                 context.Warning($"Skipping because the job status was not 'Succeeded'.");
                 return;
             }
+
+            bool restoreStepRan = false;
+            if (context.TaskVariables.TryGetValue(RestoreStepRanVariableName, out VariableValue ran))
+            {
+                if (ran != null && ran.Value != null && ran.Value.Equals(RestoreStepRanVariableValue, StringComparison.Ordinal))
+                {
+                    restoreStepRan = true;
+                }
+            }
+
+            if (!restoreStepRan)
+            {
+                context.Warning($"Skipping because restore step did not run.");
+                return;
+            }
+
 
             PipelineCacheServer server = new PipelineCacheServer();
             await server.UploadAsync(
