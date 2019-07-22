@@ -33,11 +33,11 @@ namespace Agent.Plugins.Repository
 
         protected override string Switch => "/";
 
-        public string FilePath => Path.Combine(ExecutionContext.Variables.GetValueOrDefault("Agent.ServerOMDirectory")?.Value, "tf.exe");
+        public string FilePath => Path.Combine(ExecutionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value, "externals", "tf", "tf.exe");
 
-        private string AppConfigFile => Path.Combine(ExecutionContext.Variables.GetValueOrDefault("Agent.ServerOMDirectory")?.Value, "tf.exe.config");
+        private string AppConfigFile => Path.Combine(ExecutionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value, "externals", "tf", "tf.exe.config");
 
-        private string AppConfigRestoreFile => Path.Combine(ExecutionContext.Variables.GetValueOrDefault("Agent.ServerOMDirectory")?.Value, "tf.exe.config.restore");
+        private string AppConfigRestoreFile => Path.Combine(ExecutionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value, "externals", "tf", "tf.exe.config.restore");
 
         // TODO: Remove AddAsync after last-saved-checkin-metadata problem is fixed properly.
         public async Task AddAsync(string localPath)
