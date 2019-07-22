@@ -34,7 +34,7 @@ namespace Agent.Plugins.PipelineCache
         {
             VssConnection connection = context.VssConnection;
             BlobStoreClientTelemetry clientTelemetry;
-            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(context, connection, out clientTelemetry);
+            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(context, connection, cancellationToken, out clientTelemetry);
             PipelineCacheClient pipelineCacheClient = this.CreateClient(clientTelemetry, context, connection);
 
             using (clientTelemetry)
@@ -98,7 +98,7 @@ namespace Agent.Plugins.PipelineCache
         {
             VssConnection connection = context.VssConnection;
             BlobStoreClientTelemetry clientTelemetry;
-            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(context, connection, out clientTelemetry);
+            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(context, connection, cancellationToken, out clientTelemetry);
             PipelineCacheClient pipelineCacheClient = this.CreateClient(clientTelemetry, context, connection);
             GetPipelineCacheArtifactOptions options = new GetPipelineCacheArtifactOptions
             {

@@ -29,20 +29,34 @@ namespace Agent.Plugins.PipelineArtifact
         {
             VssConnection connection = context.VssConnection;
             BlobStoreClientTelemetry clientTelemetry;
-            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(context, connection, out clientTelemetry);
+            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(context, connection, cancellationToken, out clientTelemetry);
 
             using (clientTelemetry)
             {
                 //Upload the pipeline artifact.
                 PipelineArtifactActionRecord uploadRecord = clientTelemetry.CreateRecord<PipelineArtifactActionRecord>((level, uri, type) =>
                     new PipelineArtifactActionRecord(level, uri, type, nameof(UploadAsync), context));
-                PublishResult result = await clientTelemetry.MeasureActionAsync(
-                    record: uploadRecord,
-                    actionAsync: async () =>
-                    {
-                        return await dedupManifestClient.PublishAsync(source, cancellationToken);
-                    }
-                );
+                PublishResult result = null;
+                var attempted = 0;
+                while (true)
+                {
+                    try {
+                        result = await clientTelemetry.MeasureActionAsync(
+                        record: uploadRecord,
+                        actionAsync: async () =>
+                        {
+                            return await dedupManifestClient.PublishAsync(source, cancellationToken);
+                        }
+                    );
+                        } catch (Exception e) {
+                            if(e is TaskCanceledException || e is TimeoutException && attempted < 3) {
+                                attempted++;
+                            }else {
+                                if (e.Source != null) context.Output(e.Source);
+                                throw;
+                            }
+                        }
+                }
                 // Send results to CustomerIntelligence
                 context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: uploadRecord);
 
@@ -88,7 +102,7 @@ namespace Agent.Plugins.PipelineArtifact
         {
             VssConnection connection = context.VssConnection;
             BlobStoreClientTelemetry clientTelemetry;
-            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(context, connection, out clientTelemetry);
+            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(context, connection, cancellationToken, out clientTelemetry);
             BuildServer buildHelper = new BuildServer(connection);
 
             using (clientTelemetry)

@@ -60,7 +60,7 @@ namespace Agent.Plugins.PipelineArtifact
         protected override async Task ProcessCommandInternalAsync(
             AgentTaskPluginExecutionContext context, 
             CancellationToken token)
-        {           
+        {
             string artifactName = context.GetInput(ArtifactEventProperties.ArtifactName, required: false);
             string targetPath = context.GetInput(TargetPath, required: true);
             string defaultWorkingDirectory = context.Variables.GetValueOrDefault("system.defaultworkingdirectory").Value;
