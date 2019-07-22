@@ -19,7 +19,7 @@ namespace Agent.Plugins.PipelineArtifact
 
             ArtifactHttpClientFactory factory = new ArtifactHttpClientFactory(
                 connection.Credentials,
-                TimeSpan.FromSeconds(3),
+                TimeSpan.FromSeconds(50),
                 tracer,
                 cancellationToken);
 
