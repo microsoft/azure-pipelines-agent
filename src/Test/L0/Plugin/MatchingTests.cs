@@ -46,14 +46,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
 
                 includePatterns = includePatterns
                     .Select(p => MakeOSPath(p))
-                    .Select(p => FingerprintCreator.MakePathAbsolute(
-                                    Path.IsPathFullyQualified(p) ? null : DefaultWorkingDirectory,
+                    .Select(p => FingerprintCreator.MakePathCanonical(
+                                    DefaultWorkingDirectory,
                                     p))
                     .ToArray();
                 excludePatterns = excludePatterns
                     .Select(p => MakeOSPath(p))
-                    .Select(p => FingerprintCreator.MakePathAbsolute(
-                                    Path.IsPathFullyQualified(p) ? null : DefaultWorkingDirectory,
+                    .Select(p => FingerprintCreator.MakePathCanonical(
+                                    DefaultWorkingDirectory,
                                     p))
                     .ToArray();
                 Func<string,bool> filter = FingerprintCreator.CreateFilter(
@@ -137,6 +137,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
             );
         }
 
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public void DoubleAsteriskAsPartOfPathSegment()
+        {
+            RunTests(
+                includePatterns: new [] {"./**blah/.tmp"},
+                excludePatterns: new [] {"./bad.tmp"},
+                testCases:new []{
+                    ("C:\\working\\good.tmp",false),
+                    ("C:\\working\\bad.tmp",false),
+                    ("C:\\working\\something.else",false),
+                }
+            );
+        }
+
         private void AssertFileEnumeration(
             string includeGlobPath,
             string expectedEnumerateRootPath,
@@ -181,6 +197,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
             AssertFileEnumeration(
                 includeGlobPath: @"C:\dir\**\*.txt",
                 expectedEnumerateRootPath: @"C:\dir",
+                expectedEnumeratePattern: @"*",
+                expectedEnumerateDepth: SearchOption.AllDirectories);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public void DetermineFileEnumerationExactFileNameRecursive()
+        {
+            AssertFileEnumeration(
+                includeGlobPath: @"C:\dir\node_modules\**\package-lock.json",
+                expectedEnumerateRootPath: @"C:\dir\node_modules",
                 expectedEnumeratePattern: @"*",
                 expectedEnumerateDepth: SearchOption.AllDirectories);
         }

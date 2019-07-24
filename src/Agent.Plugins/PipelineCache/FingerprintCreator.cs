@@ -42,7 +42,7 @@ namespace Agent.Plugins.PipelineCache
             return !Path.GetInvalidFileNameChars().Contains(c);
         }
 
-        internal static bool IsPathy(string keySegment)
+        internal static bool IsPathyKeySegment(string keySegment)
         {
             if (keySegment.First() == ForceStringLiteral && keySegment.Last() == ForceStringLiteral) return false;
             if (keySegment.Any(c => !IsPathyChar(c))) return false;
@@ -65,16 +65,16 @@ namespace Agent.Plugins.PipelineCache
             return tracedFilter;
         }
 
-        internal static string MakePathAbsolute(string workingDirectory, string path)
+        internal static string MakePathCanonical(string defaultWorkingDirectory, string path)
         {
             // Normalize to some extent, let minimatch worry about casing
-            if (workingDirectory == null)
+            if (Path.IsPathFullyQualified(path))
             {
                 return Path.GetFullPath(path);
             }
             else
             {
-                return Path.GetFullPath(path, workingDirectory);
+                return Path.GetFullPath(path, defaultWorkingDirectory);
             }
         }
 
@@ -174,7 +174,7 @@ namespace Agent.Plugins.PipelineCache
 
             foreach (string keySegment in keySegments)
             {
-                if (IsPathy(keySegment))
+                if (IsPathyKeySegment(keySegment))
                 {
                     context.Verbose($"Interpretting `{keySegment}` as a path.");
 
@@ -189,13 +189,7 @@ namespace Agent.Plugins.PipelineCache
                     var enumerations = new Dictionary<Enumeration,List<string>>();
                     foreach(string includeRule in includeRules)
                     {
-                        string workingDirectory = null;
-                        if (!Path.IsPathFullyQualified(includeRule))
-                        {
-                            workingDirectory = defaultWorkingDirectory;
-                        }
-
-                        string absoluteRootRule = MakePathAbsolute(workingDirectory, includeRule);
+                        string absoluteRootRule = MakePathCanonical(defaultWorkingDirectory, includeRule);
                         context.Verbose($"Expanded include rule is `{absoluteRootRule}`.");
                         Enumeration enumeration = DetermineFileEnumerationFromGlob(absoluteRootRule);
                         List<string> globs;
@@ -209,12 +203,7 @@ namespace Agent.Plugins.PipelineCache
                     string[] excludeRules = pathRules.Where(p => p.StartsWith('!')).ToArray();
                     string[] absoluteExcludeRules = excludeRules.Select(excludeRule => {
                         excludeRule = excludeRule.Substring(1);
-                        string workingDirectory = null;
-                        if (!Path.IsPathFullyQualified(excludeRule))
-                        {
-                            workingDirectory = defaultWorkingDirectory;
-                        }
-                        return MakePathAbsolute(workingDirectory, excludeRule);
+                        return MakePathCanonical(defaultWorkingDirectory, excludeRule);
                     }).ToArray();
 
                     var fileHashes = new SortedDictionary<string,string>(StringComparer.Ordinal);

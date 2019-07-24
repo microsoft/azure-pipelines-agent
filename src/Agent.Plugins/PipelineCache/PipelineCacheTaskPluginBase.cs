@@ -25,7 +25,7 @@ namespace Agent.Plugins.PipelineCache
 
         internal static (bool isOldFormat, string[] keySegments,IEnumerable<string[]> restoreKeys) ParseIntoSegments(string salt, string key, string restoreKeysBlock)
         {
-            Func<string,string[]> splitIntoSegments = (s) => {
+            Func<string,string[]> splitAcrossPipes = (s) => {
                 var segments = s.Split(new [] {'|'},StringSplitOptions.RemoveEmptyEntries).Select(segment => segment.Trim());
                 if(!string.IsNullOrWhiteSpace(salt))
                 {
@@ -57,13 +57,13 @@ namespace Agent.Plugins.PipelineCache
             }
             else
             {
-                keySegments = splitIntoSegments(key);
+                keySegments = splitAcrossPipes(key);
             }
             
 
             if (hasRestoreKeys)
             {
-                restoreKeys = splitAcrossNewlines(restoreKeysBlock).Select(restoreKey => splitIntoSegments(restoreKey));
+                restoreKeys = splitAcrossNewlines(restoreKeysBlock).Select(restoreKey => splitAcrossPipes(restoreKey));
             }
             else
             {
