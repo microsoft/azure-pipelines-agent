@@ -156,6 +156,7 @@ namespace Agent.Plugins.PipelineCache
 
         public static Fingerprint EvaluateKeyToFingerprint(
             AgentTaskPluginExecutionContext context,
+            bool isOldFormat,
             string filePathRoot,
             IEnumerable<string> keySegments)
         {
@@ -174,7 +175,7 @@ namespace Agent.Plugins.PipelineCache
 
             foreach (string keySegment in keySegments)
             {
-                if (IsPathyKeySegment(keySegment))
+                if ((isOldFormat && File.Exists(keySegment)) || (!isOldFormat && IsPathyKeySegment(keySegment)))
                 {
                     context.Verbose($"Interpretting `{keySegment}` as a path.");
 

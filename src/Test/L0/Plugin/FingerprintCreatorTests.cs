@@ -52,10 +52,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 Assert.Throws<ArgumentException>(
-                    () => FingerprintCreator.EvaluateKeyToFingerprint(context, directory, new [] {"*"})
+                    () => FingerprintCreator.EvaluateKeyToFingerprint(context, isOldFormat: false, directory, new [] {"*"})
                 );
                 Assert.Throws<ArgumentException>(
-                    () => FingerprintCreator.EvaluateKeyToFingerprint(context, directory, new [] {"**"})
+                    () => FingerprintCreator.EvaluateKeyToFingerprint(context, isOldFormat: false, directory, new [] {"**"})
                 );
             }
         }
@@ -73,7 +73,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                     $"{Path.GetDirectoryName(path1)},!{path1}",
                 };
                 Assert.Throws<FileNotFoundException>(
-                    () => FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments)
+                    () => FingerprintCreator.EvaluateKeyToFingerprint(context, isOldFormat: false, directory, segments)
                 );
             }
         }
@@ -90,12 +90,41 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 {
                     $"{path1},!{path2}",
                 };
-                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments);
+                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, isOldFormat: false, directory, segments);
                 
                 Assert.Equal(1, f.Segments.Length);
                 Assert.Equal(FingerprintCreator.SummarizeString($"\nSHA256({Path.GetFileName(path1)})=[{content1.Length}]{hash1.ToHex()}"), f.Segments[0]);
             }
         }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public void Fingerprint_OldFormat()
+        {
+            using(var hostContext = new TestHostContext(this))
+            {
+                string workingDir = Path.GetDirectoryName(path1);
+                var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
+                context.SetVariable(
+                    "system.defaultworkingdirectory", // Constants.Variables.System.DefaultWorkingDirectory
+                    workingDir,
+                    isSecret: false);
+
+                var segments = new[]
+                {
+                    @"KEY_SALT=5-macos-10.13-stable-x86_64-apple-darwin",
+                    $"ruby:2.6.2",
+                };
+                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, isOldFormat: true, directory, segments);
+                
+                Assert.Equal(2, f.Segments.Length);
+                Assert.Equal(segments[0], f.Segments[0]);
+                Assert.Equal(segments[1], f.Segments[1]);
+            }
+        }
+
+        
 
         [Fact]
         [Trait("Level", "L0")]
@@ -110,11 +139,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                     $"{path1}",
                     $"{path2}",
                 };
-                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments);
-                
+
+                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, isOldFormat: false, directory, segments);
                 Assert.Equal(2, f.Segments.Length);
                 Assert.Equal(FingerprintCreator.SummarizeString($"\nSHA256({Path.GetFileName(path1)})=[{content1.Length}]{hash1.ToHex()}"), f.Segments[0]);
                 Assert.Equal(FingerprintCreator.SummarizeString($"\nSHA256({Path.GetFileName(path2)})=[{content2.Length}]{hash2.ToHex()}"), f.Segments[1]);
+                
+                Assert.Equal(f, FingerprintCreator.EvaluateKeyToFingerprint(context, isOldFormat: true, directory, segments));
             }
         }
 
@@ -141,11 +172,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                     $"{relPath2}",
                 };
 
-                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments);
+                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, isOldFormat: false, directory, segments);
                 
                 Assert.Equal(2, f.Segments.Length);
                 Assert.Equal(FingerprintCreator.SummarizeString($"\nSHA256({relPath1})=[{content1.Length}]{hash1.ToHex()}"), f.Segments[0]);
                 Assert.Equal(FingerprintCreator.SummarizeString($"\nSHA256({relPath2})=[{content2.Length}]{hash2.ToHex()}"), f.Segments[1]);
+
+                Assert.NotEqual(f, FingerprintCreator.EvaluateKeyToFingerprint(context, isOldFormat: true, directory, segments));
             }
         }
 
@@ -162,7 +195,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                     $"hello",
                 };
 
-                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments);
+                Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, isOldFormat: false, directory, segments);
                 
                 Assert.Equal(1, f.Segments.Length);
                 Assert.Equal($"hello", f.Segments[0]);
