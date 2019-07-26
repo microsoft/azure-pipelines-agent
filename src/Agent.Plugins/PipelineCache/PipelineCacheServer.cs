@@ -124,7 +124,8 @@ namespace Agent.Plugins.PipelineCache
                         {
                             context.Verbose($"This fingerprint: `{fingerprint.ToString()}`");
 
-                            if(fingerprint == result.Fingerprint)
+                            if (fingerprint == result.Fingerprint 
+                                || result.Fingerprint.Segments.Length == 1 && result.Fingerprint.Segments.Single() == fingerprint.SummarizeForV1())
                             {
                                 foundExact = true;
                                 break;
