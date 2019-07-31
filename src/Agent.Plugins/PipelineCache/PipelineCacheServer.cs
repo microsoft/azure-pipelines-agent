@@ -1,6 +1,9 @@
+using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Threading;
+using System.IO;
 using Agent.Plugins.PipelineArtifact;
 using Agent.Plugins.PipelineCache.Telemetry;
 using Agent.Sdk;
@@ -156,12 +159,21 @@ namespace Agent.Plugins.PipelineCache
             string targetDirectory,
             CancellationToken cancellationToken)
         {
+
             DownloadDedupManifestArtifactOptions options = DownloadDedupManifestArtifactOptions.CreateWithManifestId(
                 manifestId,
                 targetDirectory,
                 proxyUri: null,
                 minimatchPatterns: null);
-            return dedupManifestClient.DownloadAsync(options, cancellationToken);
+            using( Process tarring = new Process())
+            {
+                tarring.StartInfo.FileName = "tar";
+                tarring.StartInfo.Arguments = $"-xf - -C {targetDirectory}";
+                tarring.StartInfo.UseShellExecute = false;
+                tarring.StartInfo.RedirectStandardInput = true;
+                tarring.Start();
+                return dedupManifestClient.DownloadPipelineCacheAsync(options, cancellationToken, tarring.StandardInput.BaseStream);
+            }
         }
     }
 }
