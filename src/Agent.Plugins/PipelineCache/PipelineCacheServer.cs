@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
@@ -14,6 +15,7 @@ using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.PipelineCache.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
+using System.Runtime.ExceptionServices;
 
 namespace Agent.Plugins.PipelineCache
 {
@@ -106,7 +108,7 @@ namespace Agent.Plugins.PipelineCache
                         record: downloadRecord,
                         actionAsync: async () =>
                         {
-                            await this.DownloadPipelineCacheAsync(dedupManifestClient, result.ManifestId, path, cancellationToken);
+                            await this.DownloadPipelineCacheAsync(context, dedupManifestClient, result.ManifestId, path, cancellationToken);
                         });
 
                     // Send results to CustomerIntelligence
@@ -153,26 +155,106 @@ namespace Agent.Plugins.PipelineCache
             return pipelineCacheClient;
         }
 
-        private Task DownloadPipelineCacheAsync(
+        private async Task DownloadPipelineCacheAsync(
+            AgentTaskPluginExecutionContext context,
             DedupManifestArtifactClient dedupManifestClient,
             DedupIdentifier manifestId,
             string targetDirectory,
             CancellationToken cancellationToken)
         {
 
+            
             DownloadDedupManifestArtifactOptions options = DownloadDedupManifestArtifactOptions.CreateWithManifestId(
                 manifestId,
                 targetDirectory,
                 proxyUri: null,
                 minimatchPatterns: null);
-            using( Process tarring = new Process())
+            
+            var processTcs = new TaskCompletionSource<int>();
+
+            using(var cancelSource = new CancellationTokenSource())
+            using(var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, cancelSource.Token))
+            using(var process = new Process())
             {
-                tarring.StartInfo.FileName = "tar";
-                tarring.StartInfo.Arguments = $"-xf - -C {targetDirectory}";
-                tarring.StartInfo.UseShellExecute = false;
-                tarring.StartInfo.RedirectStandardInput = true;
-                tarring.Start();
-                return dedupManifestClient.DownloadPipelineCacheAsync(options, cancellationToken, tarring.StandardInput.BaseStream);
+                process.StartInfo.FileName = @"C:\Program Files\7-Zip\7z.exe"; // tar // @"C:\Program Files\7-Zip\7z.exe"
+                process.StartInfo.Arguments = $"x -si -aoa -o{targetDirectory} -ttar"; // -xf - -C {targetDirectory} // tarring.StartInfo.Arguments = $"x -si -aoa -o{targetDirectory} -ttar";
+                process.StartInfo.UseShellExecute = false;
+                process.StartInfo.RedirectStandardInput = true;
+                process.StartInfo.RedirectStandardOutput = true;
+                process.StartInfo.RedirectStandardError = true;
+                process.EnableRaisingEvents = true;
+                process.Exited += (sender, args) =>
+                {
+                    cancelSource.Cancel();
+                    processTcs.SetResult(process.ExitCode);
+                };
+
+                context.Info($"Starting '{process.StartInfo.FileName}' with arguments '{process.StartInfo.Arguments}'...");
+                process.Start();
+
+                var output = new List<string>();
+
+                Func<string, StreamReader, Task> readLines = (prefix, reader) => Task.Run(async() => {
+                    string line;
+                    while(null != (line = await reader.ReadLineAsync()))
+                    {
+                        lock(output)
+                        {
+                            output.Add($"{prefix}{line}");
+                        }
+                    }
+                });
+
+                Task readStdOut = readLines("stdout: ", process.StandardOutput);
+                Task readStdError = readLines("stderr: ", process.StandardError);
+                Task downloadTask = Task.Run(async () => {
+                    try
+                    {
+                        await dedupManifestClient.DownloadPipelineCacheAsync(options, linkedSource.Token, process.StandardInput.BaseStream);
+                        process.StandardInput.BaseStream.Close();
+                    }
+                    catch (Exception e)
+                    {
+                        process.Kill();
+                        ExceptionDispatchInfo.Capture(e).Throw();
+                    }
+                });
+
+                // Our goal is to always have the process ended or killed by the time we exit the function.
+
+                try
+                {
+                    using (cancellationToken.Register(() => process.Kill()))
+                    {
+                        // readStdOut and readStdError should only fail if the process dies
+                        // processTcs.Task cannot fail as we only call SetResult on processTcs
+                        // downloadTask *can* fail, but when it does, it will also kill the process
+                        await Task.WhenAll(readStdOut, readStdError, processTcs.Task, downloadTask);
+                    }
+
+                    int exitCode = await processTcs.Task;
+
+                    if (exitCode == 0)
+                    {
+                        context.Verbose($"Process exit code: {exitCode}");
+                        foreach(string line in output)
+                        {
+                            context.Verbose(line);
+                        }
+                    }
+                    else
+                    {
+                        throw new Exception($"Process returned non-zero exit code: {exitCode}");
+                    }
+                }
+                catch (Exception e)
+                {
+                    foreach(string line in output)
+                    {
+                        context.Info(line);
+                    }
+                    ExceptionDispatchInfo.Capture(e).Throw();
+                }
             }
         }
     }
