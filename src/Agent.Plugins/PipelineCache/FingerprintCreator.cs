@@ -231,7 +231,8 @@ namespace Agent.Plugins.PipelineCache
 
                     if (!fileHashes.Any())
                     {
-                        throw new FileNotFoundException("No files found.");
+                        //  No file(s) found for key part 'ruby:2.1.10'. Enclose in double-quotes to force interpretation as a string literal.
+                        throw new FileNotFoundException($"No file(s) found for key part '{keySegment}'. Enclose in double-quotes to force interpretation as a string literal.");
                     }
 
                     var fileHashesBuilder = new StringBuilder();
