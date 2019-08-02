@@ -1,5 +1,6 @@
 ﻿using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.TestResults.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using System.Collections.Generic;
 using System.Threading;
@@ -23,14 +24,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
     {
         private VssConnection _connection;
 
-        private TestManagementHttpClient TestHttpClient { get; set; }
+        private TestResultsHttpClient TestHttpClient { get; set; }
 
         public void InitializeServer(VssConnection connection)
         {
             ArgUtil.NotNull(connection, nameof(connection));
             _connection = connection;
 
-            TestHttpClient = connection.GetClient<TestManagementHttpClient>();
+            TestHttpClient = connection.GetClient<TestResultsHttpClient>();
         }
 
         public async Task<List<TestCaseResult>> AddTestResultsToTestRunAsync(
