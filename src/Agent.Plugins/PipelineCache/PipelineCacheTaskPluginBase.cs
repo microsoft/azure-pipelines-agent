@@ -73,7 +73,7 @@ namespace Agent.Plugins.PipelineCache
             return (isOldFormat, keySegments, restoreKeys);
         }
         
-        public async Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
+        public async virtual Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
             ArgUtil.NotNull(context, nameof(context));
 
