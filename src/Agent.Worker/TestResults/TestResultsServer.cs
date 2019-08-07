@@ -1,7 +1,9 @@
 ﻿using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.FeatureAvailability.WebApi;
 using Microsoft.VisualStudio.Services.TestResults.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -24,14 +26,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
     {
         private VssConnection _connection;
 
-        private TestResultsHttpClient TestHttpClient { get; set; }
+        private ITestResultsHttpClient TestHttpClient { get; set; }
 
         public void InitializeServer(VssConnection connection)
         {
             ArgUtil.NotNull(connection, nameof(connection));
             _connection = connection;
-
-            TestHttpClient = connection.GetClient<TestResultsHttpClient>();
+            FeatureAvailabilityHttpClient featureAvailabilityHttpClient = connection.GetClient<FeatureAvailabilityHttpClient>();
+            if (GetFeatureFlagState(featureAvailabilityHttpClient, EnablePublishToTcmServiceDirectlyFromTaskFF))
+            {
+                TestHttpClient = connection.GetClient<TestResultsHttpClient>();
+            }
+            else
+            {
+                TestHttpClient = connection.GetClient<TestManagementHttpClient>();
+            }
         }
 
         public async Task<List<TestCaseResult>> AddTestResultsToTestRunAsync(
@@ -88,6 +97,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             CancellationToken cancellationToken = default(CancellationToken))
         {
             return await TestHttpClient.CreateTestSubResultAttachmentAsync(reqModel, projectName, testRunId, testCaseResultId, testSubResultId, cancellationToken);
+        }
+
+        private const string EnablePublishToTcmServiceDirectlyFromTaskFF = "TestManagement.Server.EnablePublishToTcmServiceDirectlyFromTask";
+
+        private static bool GetFeatureFlagState(FeatureAvailabilityHttpClient featureAvailabilityHttpClient, string FFName)
+        {
+            try
+            {
+                var featureFlag = featureAvailabilityHttpClient?.GetFeatureFlagByNameAsync(FFName).Result;
+                if (featureFlag != null && featureFlag.EffectiveState.Equals("Off", StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+            return true;
         }
     }
 }
