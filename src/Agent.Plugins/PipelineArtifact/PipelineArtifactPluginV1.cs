@@ -5,15 +5,13 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.Build.WebApi;
-using Microsoft.VisualStudio.Services.BlobStore.Common;
-using Microsoft.VisualStudio.Services.Content.Common.Tracing;
-using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Agent.Sdk;
 using System.Text.RegularExpressions;
+using System.Runtime.InteropServices;
 
 namespace Agent.Plugins.PipelineArtifact
 {
@@ -45,6 +43,8 @@ namespace Agent.Plugins.PipelineArtifact
             public static readonly string Tags = "tags";
             public static readonly string ArtifactName = "artifactName";
             public static readonly string ItemPattern = "itemPattern";
+            public static readonly string ArtifactType = "artifactType";
+            public static readonly string FileSharePath = "fileSharePath";
         }
     }
 
@@ -56,34 +56,23 @@ namespace Agent.Plugins.PipelineArtifact
         protected override string TargetPath => "path";
 
         private static readonly Regex jobIdentifierRgx = new Regex("[^a-zA-Z0-9 - .]", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+        private static readonly string pipelineArtifactType = "pipelineartifact";
+        private static readonly string fileShareType = "filepath";
 
         protected override async Task ProcessCommandInternalAsync(
             AgentTaskPluginExecutionContext context, 
             CancellationToken token)
         {
+            Thread.Sleep(20000);
             string artifactName = context.GetInput(ArtifactEventProperties.ArtifactName, required: false);
             string targetPath = context.GetInput(TargetPath, required: true);
+            string artifactType = context.GetInput(ArtifactEventProperties.ArtifactType, required: true);
+            artifactType = artifactType.ToLower();
+
             string defaultWorkingDirectory = context.Variables.GetValueOrDefault("system.defaultworkingdirectory").Value;
 
             targetPath = Path.IsPathFullyQualified(targetPath) ? targetPath : Path.GetFullPath(Path.Combine(defaultWorkingDirectory, targetPath));
-
-            string hostType = context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.HostType)?.Value; 
-            if (!string.Equals(hostType, "Build", StringComparison.OrdinalIgnoreCase)) {
-                throw new InvalidOperationException(
-                    StringUtil.Loc("CannotUploadFromCurrentEnvironment", hostType ?? string.Empty)); 
-            }
-
-            if (String.IsNullOrWhiteSpace(artifactName))
-            {
-                string jobIdentifier = context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.JobIdentifier).Value;
-                var normalizedJobIdentifier = NormalizeJobIdentifier(jobIdentifier);
-                artifactName = normalizedJobIdentifier;
-            }
-
-            if(!PipelineArtifactPathHelper.IsValidArtifactName(artifactName)) {
-                throw new ArgumentException(StringUtil.Loc("ArtifactNameIsNotValid", artifactName));
-            }
-
+   
             // Project ID
             Guid projectId = new Guid(context.Variables.GetValueOrDefault(BuildVariables.TeamProjectId)?.Value ?? Guid.Empty.ToString());
             ArgUtil.NotEmpty(projectId, nameof(projectId));
@@ -95,21 +84,64 @@ namespace Agent.Plugins.PipelineArtifact
                 // This should not happen since the build id comes from build environment. But a user may override that so we must be careful.
                 throw new ArgumentException(StringUtil.Loc("BuildIdIsNotValid", buildIdStr));
             }
+            
+            if(artifactType == pipelineArtifactType) {
+                string hostType = context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.HostType)?.Value; 
+                if (!string.Equals(hostType, "Build", StringComparison.OrdinalIgnoreCase)) {
+                    throw new InvalidOperationException(
+                        StringUtil.Loc("CannotUploadFromCurrentEnvironment", hostType ?? string.Empty)); 
+                }
 
-            string fullPath = Path.GetFullPath(targetPath);
-            bool isFile = File.Exists(fullPath);
-            bool isDir = Directory.Exists(fullPath);
-            if (!isFile && !isDir)
-            {
-                // if local path is neither file nor folder
-                throw new FileNotFoundException(StringUtil.Loc("PathDoesNotExist", targetPath));
+                if (String.IsNullOrWhiteSpace(artifactName))
+                {
+                    string jobIdentifier = context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.JobIdentifier).Value;
+                    var normalizedJobIdentifier = NormalizeJobIdentifier(jobIdentifier);
+                    artifactName = normalizedJobIdentifier;
+                }
+
+                if(!PipelineArtifactPathHelper.IsValidArtifactName(artifactName)) {
+                    throw new ArgumentException(StringUtil.Loc("ArtifactNameIsNotValid", artifactName));
+                }
+
+                string fullPath = Path.GetFullPath(targetPath);
+                bool isFile = File.Exists(fullPath);
+                bool isDir = Directory.Exists(fullPath);
+                if (!isFile && !isDir)
+                {
+                    // if local path is neither file nor folder
+                    throw new FileNotFoundException(StringUtil.Loc("PathDoesNotExist", targetPath));
+                }
+
+                // Upload to VSTS BlobStore, and associate the artifact with the build.
+                context.Output(StringUtil.Loc("UploadingPipelineArtifact", fullPath, buildId));
+                PipelineArtifactServer server = new PipelineArtifactServer();
+                await server.UploadAsync(context, projectId, buildId, artifactName, fullPath, token);
+                context.Output(StringUtil.Loc("UploadArtifactFinished"));
+
+            }else if (artifactType == fileShareType){
+                string fileSharePath = context.GetInput(ArtifactEventProperties.FileSharePath, required: true);
+                string artifactPath = Path.Join(fileSharePath, artifactName);
+
+                if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows)){
+                    DirectoryInfo artifactDirectoryInfo = Directory.CreateDirectory(targetPath);
+                    // create the artifact. at this point, mkdirP already succeeded so the path is good.
+                    // the artifact should get cleaned up during retention even if the copy fails in the
+                    // middle
+                    // 2) associate the pipeline artifact with an build artifact
+                VssConnection connection = context.VssConnection;
+                BuildServer buildHelper = new BuildServer(connection);
+                Dictionary<string, string> propertiesDictionary = new Dictionary<string, string>();
+                propertiesDictionary.Add(FileShareArtifactUploadEventProperties.ArtifactName, artifactName);
+                propertiesDictionary.Add(FileShareArtifactUploadEventProperties.ArtifactType, fileShareType);
+                propertiesDictionary.Add(FileShareArtifactUploadEventProperties.ArtifactLocation, fileSharePath);
+
+                var artifact = await buildHelper.AssociateArtifact(projectId, buildId, artifactName, ArtifactResourceTypes.FilePath, fileSharePath, propertiesDictionary, token);
+
+                }else {
+                    // file share artifacts are not currently supported on OSX/Linux.
+                    throw new InvalidOperationException(StringUtil.Loc("FileShareOperatingSystemNotSupported"));
+                }
             }
-
-            // Upload to VSTS BlobStore, and associate the artifact with the build.
-            context.Output(StringUtil.Loc("UploadingPipelineArtifact", fullPath, buildId));
-            PipelineArtifactServer server = new PipelineArtifactServer();
-            await server.UploadAsync(context, projectId, buildId, artifactName, fullPath, token);
-            context.Output(StringUtil.Loc("UploadArtifactFinished"));
         }
      
         private string NormalizeJobIdentifier(string jobIdentifier)
@@ -117,6 +149,14 @@ namespace Agent.Plugins.PipelineArtifact
             jobIdentifier = jobIdentifierRgx.Replace(jobIdentifier, string.Empty).Replace(".default", string.Empty);
             return jobIdentifier;
         }
+    }
+
+    internal static class FileShareArtifactUploadEventProperties
+    {
+        public static readonly string ArtifactName = "artifactname";
+        public static readonly string ArtifactLocation = "artifactlocation";
+        public static readonly string ArtifactType = "artifacttype";
+        public static readonly string Browsable = "Browsable";
     }
 
     // Can be invoked from a build run or a release run should a build be set as the artifact. 
