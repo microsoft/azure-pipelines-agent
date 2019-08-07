@@ -16,6 +16,7 @@ namespace Agent.Plugins.PipelineCache
             Fingerprint fingerprint,
             Func<Fingerprint[]> restoreKeysGenerator,
             string path,
+            bool isTar,
             CancellationToken token)
         {
             bool successSoFar = false;
@@ -57,6 +58,7 @@ namespace Agent.Plugins.PipelineCache
                 context,
                 fingerprint, 
                 path,
+                isTar,
                 token);
         }
     }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
@@ -16,14 +17,17 @@ namespace Agent.Plugins.PipelineCache
         protected const string RestoreStepRanVariableName = "RESTORE_STEP_RAN";
         protected const string RestoreStepRanVariableValue = "true";
 
+        private static readonly bool isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         private const string SaltVariableName = "AZDEVOPS_PIPELINECACHE_SALT";
         private const string OldKeyFormatMessage = "'key' format is changing to a single line: https://aka.ms/pipeline-caching-docs";
+
+        private const string PackingVariableName = "AZDEVOPS_PIPELINECACHE_PACK";
 
         public Guid Id => PipelineCachePluginConstants.CacheTaskId;
 
         public abstract String Stage { get; }
 
-        internal static (bool isOldFormat, string[] keySegments,IEnumerable<string[]> restoreKeys) ParseIntoSegments(string salt, string key, string restoreKeysBlock)
+        internal static (bool isOldFormat, IEnumerable<string> keySegments,IEnumerable<string[]> restoreKeys) ParseIntoSegments(string salt, string key, string restoreKeysBlock)
         {
             Func<string,string[]> splitAcrossPipes = (s) => {
                 var segments = s.Split(new [] {'|'},StringSplitOptions.RemoveEmptyEntries).Select(segment => segment.Trim());
@@ -40,7 +44,7 @@ namespace Agent.Plugins.PipelineCache
                  .Select(line => line.Trim())
                  .ToArray();
             
-            string[] keySegments;
+            IEnumerable<string> keySegments;
             bool isOldFormat = key.Contains('\n');
             
             IEnumerable<string[]> restoreKeys;
@@ -81,26 +85,35 @@ namespace Agent.Plugins.PipelineCache
             string salt = saltValue?.Value ?? string.Empty;
 
             VariableValue workspaceRootValue = context.Variables.GetValueOrDefault("pipeline.workspace");
-            string worksapceRoot = workspaceRootValue?.Value;
+            string workspaceRoot = workspaceRootValue?.Value;
 
             string key = context.GetInput(PipelineCacheTaskPluginConstants.Key, required: true);
             string restoreKeysBlock = context.GetInput(PipelineCacheTaskPluginConstants.RestoreKeys, required: false);
 
-            (bool isOldFormat, string[] keySegments, IEnumerable<string[]> restoreKeys) = ParseIntoSegments(salt, key, restoreKeysBlock);
+            (bool isOldFormat, IEnumerable<string> keySegments, IEnumerable<string[]> restoreKeys) = ParseIntoSegments(salt, key, restoreKeysBlock);
 
             if (isOldFormat)
             {
                 context.Warning(OldKeyFormatMessage);
             }
 
+            VariableValue packValue = context.Variables.GetValueOrDefault(PackingVariableName);
+            string pack = packValue?.Value ?? string.Empty;
+
+            if(String.IsNullOrWhiteSpace(pack))
+            {
+                string segment = isWindows ? "\"microsoft.azure.pipelines.caching.pack=7z\"" : "\"microsoft.azure.pipelines.caching.pack=tar\"" ;
+                keySegments = keySegments.Concat(new [] {segment});
+            }
+            
             context.Output($"Resolving key `{string.Join(" | ", keySegments)}`...");
-            Fingerprint keyFp = FingerprintCreator.EvaluateKeyToFingerprint(context, worksapceRoot, keySegments);
+            Fingerprint keyFp = FingerprintCreator.EvaluateKeyToFingerprint(context, workspaceRoot, keySegments);
             context.Output($"Resolved to `{keyFp}`.");
 
             Func<Fingerprint[]> restoreKeysGenerator = () => 
                 restoreKeys.Select(restoreKey => {
                     context.Output($"Resolving restore key `{string.Join(" | ", restoreKey)}`...");
-                    Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, worksapceRoot, restoreKey);
+                    Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, workspaceRoot, restoreKey);
                     f.Segments = f.Segments.Concat(new [] { Fingerprint.Wildcard} ).ToArray();
                     context.Output($"Resolved to `{f}`.");
                     return f;
@@ -114,6 +127,7 @@ namespace Agent.Plugins.PipelineCache
                 keyFp,
                 restoreKeysGenerator,
                 path,
+                String.IsNullOrWhiteSpace(pack),
                 token);
         }
 
@@ -123,6 +137,7 @@ namespace Agent.Plugins.PipelineCache
             Fingerprint fingerprint,
             Func<Fingerprint[]> restoreKeysGenerator,
             string path,
+            bool isTar,
             CancellationToken token);
 
         // Properties set by tasks
