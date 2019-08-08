@@ -100,7 +100,7 @@ namespace Agent.Plugins.PipelineCache
             VariableValue packValue = context.Variables.GetValueOrDefault(PackingVariableName);
             string pack = packValue?.Value ?? string.Empty;
 
-            if(String.IsNullOrWhiteSpace(pack))
+            if(!String.IsNullOrWhiteSpace(pack))
             {
                 string segment = isWindows ? "\"microsoft.azure.pipelines.caching.pack=7z\"" : "\"microsoft.azure.pipelines.caching.pack=tar\"" ;
                 keySegments = keySegments.Concat(new [] {segment});
@@ -127,7 +127,7 @@ namespace Agent.Plugins.PipelineCache
                 keyFp,
                 restoreKeysGenerator,
                 path,
-                String.IsNullOrWhiteSpace(pack),
+                !String.IsNullOrWhiteSpace(pack),
                 token);
         }
 

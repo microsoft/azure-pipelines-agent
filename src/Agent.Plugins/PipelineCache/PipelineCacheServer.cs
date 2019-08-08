@@ -52,38 +52,7 @@ namespace Agent.Plugins.PipelineCache
                     return;
                 }
 
-                // Tar the contents of the directory and create a tar, and then upload the tar.
-                /* string tempPath = Path.GetTempPath();
-                IEnumerable<string> absoluteFilesPaths = Directory.GetFiles(path, "*.*", SearchOption.AllDirectories);
-                IEnumerable<string> absolutedirectoriesPaths = Directory.GetDirectories(path, "*.*", SearchOption.AllDirectories);
-
-                Func<IEnumerable<string>, IEnumerable<string>> getRelativePaths = (inputPaths) => {
-                    List<string> outputPaths = new List<string>();
-                    foreach(var x in inputPaths)
-                    {
-                        outputPaths.Add(Path.GetRelativePath(path, x));
-                    }
-                    return outputPaths;
-                };
-
-                IEnumerable<string> relativeFilesPath = getRelativePaths(absoluteFilesPaths);
-                IEnumerable<string> relativeDirectoryPath = getRelativePaths(absolutedirectoriesPaths);
-                var outputFile = Path.Combine(path, Guid.NewGuid().ToString()+"files.txt");
-                var outputFileStream = File.Create(outputFile);
-                var archieveFile = Path.Combine(path, Guid.NewGuid().ToString() + "archieve.tar");
-                using(StreamWriter stream = new StreamWriter(outputFileStream))
-                {
-                    foreach(var file in relativeFilesPath)
-                    {
-                        stream.WriteLine(file);
-                    }
-                    foreach(var directory in relativeDirectoryPath)
-                    {
-                        stream.WriteLine(directory);
-                    }
-                }*/
-
-                if (!isTar)
+                if (!isTar) // Uploading as files.
                 {
                     //Upload the pipeline artifact.
                     PipelineCacheActionRecord uploadRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
@@ -114,14 +83,14 @@ namespace Agent.Plugins.PipelineCache
                 }
                 else
                 {
-                    var archieveFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + "archieve.tar");
+                    var archiveFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + "archive.tar");
                     var processTcs = new TaskCompletionSource<int>();
                     using (var cancelSource = new CancellationTokenSource())
                     using (var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, cancelSource.Token))
                     using (var process = new Process())
                     {
-                        process.StartInfo.FileName = "tar"; // tar // @"C:\Program Files\7-Zip\7z.exe"
-                        process.StartInfo.Arguments = $"-cf {archieveFile} {path}"; // tar -cf archieve.tar -T "C:/tEMP_pATHSfiles.txt"
+                        process.StartInfo.FileName = "tar";
+                        process.StartInfo.Arguments = $"-cf {archiveFile} -C {path} .";
                         process.StartInfo.UseShellExecute = false;
                         process.StartInfo.RedirectStandardInput = true;
                         process.StartInfo.RedirectStandardOutput = true;
@@ -135,13 +104,12 @@ namespace Agent.Plugins.PipelineCache
 
                         try
                         {
-                            context.Info($"Starting '{process.StartInfo.FileName}' with arguments '{process.StartInfo.Arguments}'...");
+                            context.Debug($"Starting '{process.StartInfo.FileName}' with arguments '{process.StartInfo.Arguments}'...");
                             process.Start();
                         }
                         catch (Exception e)
                         {
                             process.Kill();
-                            // delete files.
                             ExceptionDispatchInfo.Capture(e).Throw();
                         }
 
@@ -174,11 +142,10 @@ namespace Agent.Plugins.PipelineCache
 
                             if (exitCode == 0)
                             {
-                                context.Verbose($"Process exit code: {exitCode}");
-                                // delete archieve file.
+                                context.Output($"Process exit code: {exitCode}");
                                 foreach (string line in output)
                                 {
-                                    context.Verbose(line);
+                                    context.Output(line);
                                 }
                             }
                             else
@@ -188,10 +155,14 @@ namespace Agent.Plugins.PipelineCache
                         }
                         catch (Exception e)
                         {
-                            // Delete archieve file.
+                            // Delete archive file.
+                            if(File.Exists(archiveFile))
+                            {
+                                File.Delete(archiveFile);
+                            }
                             foreach (string line in output)
                             {
-                                context.Info(line);
+                                context.Error(line);
                             }
                             ExceptionDispatchInfo.Capture(e).Throw();
                         }
@@ -204,7 +175,7 @@ namespace Agent.Plugins.PipelineCache
                         record: uploadRecord,
                         actionAsync: async () =>
                         {
-                            return await dedupManifestClient.PublishAsync(archieveFile, cancellationToken);
+                            return await dedupManifestClient.PublishAsync(archiveFile, cancellationToken);
                         });
 
                     CreatePipelineCacheArtifactOptions options = new CreatePipelineCacheArtifactOptions
@@ -215,7 +186,11 @@ namespace Agent.Plugins.PipelineCache
                         ProofNodes = result.ProofNodes.ToArray(),
                         ContentFormat = ContentFormatConstants.SingleTar
                     };
-
+                    // delete archive file.
+                    if(File.Exists(archiveFile))
+                    {
+                        File.Delete(archiveFile);
+                    }
                     // Cache the artifact
                     PipelineCacheActionRecord cacheRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
                         new PipelineCacheActionRecord(level, uri, type, PipelineArtifactConstants.SaveCache, context));
@@ -268,9 +243,12 @@ namespace Agent.Plugins.PipelineCache
 
                 if (!string.IsNullOrEmpty(cacheHitVariable))
                 {
-                    if (result == null) {
+                    if (result == null)
+                    {
                         context.SetVariable(cacheHitVariable, "false");
-                    }  else  {
+                    }
+                    else
+                    {
                         context.Verbose($"Exact fingerprint: `{result.Fingerprint.ToString()}`");
 
                         bool foundExact = false;
@@ -341,8 +319,8 @@ namespace Agent.Plugins.PipelineCache
                 using (var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, cancelSource.Token))
                 using (var process = new Process())
                 {
-                    process.StartInfo.FileName = !isWindows ? @"C:\Program Files\7-Zip\7z.exe" : "tar"; // tar // @"C:\Program Files\7-Zip\7z.exe"
-                    process.StartInfo.Arguments = !isWindows ? $"x -si -aoa -o{targetDirectory} -ttar" : $"-xf - -C {targetDirectory}"; // -xf - -P -C {targetDirectory} // tarring.StartInfo.Arguments = $"x -si -aoa -o{targetDirectory} -ttar";
+                    process.StartInfo.FileName = isWindows ? "7z" : "tar";
+                    process.StartInfo.Arguments = isWindows ? $"x -si -aoa -o{targetDirectory} -ttar" : $"-xf - -C {targetDirectory}";
                     process.StartInfo.UseShellExecute = false;
                     process.StartInfo.RedirectStandardInput = true;
                     process.StartInfo.RedirectStandardOutput = true;
@@ -390,7 +368,6 @@ namespace Agent.Plugins.PipelineCache
                     });
 
                     // Our goal is to always have the process ended or killed by the time we exit the function.
-
                     try
                     {
                         using (cancellationToken.Register(() => process.Kill()))
