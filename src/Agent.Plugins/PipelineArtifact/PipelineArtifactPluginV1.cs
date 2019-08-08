@@ -45,6 +45,8 @@ namespace Agent.Plugins.PipelineArtifact
             public static readonly string ItemPattern = "itemPattern";
             public static readonly string ArtifactType = "artifactType";
             public static readonly string FileSharePath = "fileSharePath";
+            public static readonly string Parallel = "parallel";
+            public static readonly string ParallelCount = "parallelCount";
         }
     }
 
@@ -123,31 +125,147 @@ namespace Agent.Plugins.PipelineArtifact
                 string artifactPath = Path.Join(fileSharePath, artifactName);
 
                 if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows)){
-                    DirectoryInfo artifactDirectoryInfo = Directory.CreateDirectory(targetPath);
+                    DirectoryInfo artifactDirectoryInfo = Directory.CreateDirectory(artifactPath);
                     // create the artifact. at this point, mkdirP already succeeded so the path is good.
                     // the artifact should get cleaned up during retention even if the copy fails in the
                     // middle
                     // 2) associate the pipeline artifact with an build artifact
-                VssConnection connection = context.VssConnection;
-                BuildServer buildHelper = new BuildServer(connection);
-                Dictionary<string, string> propertiesDictionary = new Dictionary<string, string>();
-                propertiesDictionary.Add(FileShareArtifactUploadEventProperties.ArtifactName, artifactName);
-                propertiesDictionary.Add(FileShareArtifactUploadEventProperties.ArtifactType, fileShareType);
-                propertiesDictionary.Add(FileShareArtifactUploadEventProperties.ArtifactLocation, fileSharePath);
+                    VssConnection connection = context.VssConnection;
+                    BuildServer buildHelper = new BuildServer(connection);
+                    Dictionary<string, string> propertiesDictionary = new Dictionary<string, string>();
+                    propertiesDictionary.Add(FileShareArtifactUploadEventProperties.ArtifactName, artifactName);
+                    propertiesDictionary.Add(FileShareArtifactUploadEventProperties.ArtifactType, fileShareType);
+                    propertiesDictionary.Add(FileShareArtifactUploadEventProperties.ArtifactLocation, fileSharePath);
 
-                var artifact = await buildHelper.AssociateArtifact(projectId, buildId, artifactName, ArtifactResourceTypes.FilePath, fileSharePath, propertiesDictionary, token);
+                    var artifact = await buildHelper.AssociateArtifact(projectId, buildId, artifactName, ArtifactResourceTypes.FilePath, fileSharePath, propertiesDictionary, token);
+                    var parallel = context.GetInput(ArtifactEventProperties.Parallel, required: false);
 
+                    var parallelCount = 1;
+                    if(parallel == "true") 
+                    {
+                        parallelCount = GetParallelCount(context, context.GetInput(ArtifactEventProperties.ParallelCount, required: false));
+                    }
+
+                    // To copy all the files in one directory to another directory.
+                    // Get the files in the source folder. (To recursively iterate through
+                    // all subfolders under the current directory, see
+                    // "How to: Iterate Through a Directory Tree.")
+                    // Note: Check for target path was performed previously
+                    // in this code example.
+                    if (System.IO.Directory.Exists(fileSharePath))
+                    {
+                        DirectoryCopy(targetPath, artifactPath, true, parallelCount);
+                    }
+                   
                 }else {
                     // file share artifacts are not currently supported on OSX/Linux.
                     throw new InvalidOperationException(StringUtil.Loc("FileShareOperatingSystemNotSupported"));
                 }
             }
         }
+
+            private void DirectoryCopy(string sourceDirName, string destDirName, bool copySubDirs, int parallelCount)
+            {
+                // Get the subdirectories for the specified directory.
+                DirectoryInfo dir = new DirectoryInfo(sourceDirName);
+                var opts = new ParallelOptions() { MaxDegreeOfParallelism = parallelCount };
+
+                if (!dir.Exists)
+                {
+                    throw new DirectoryNotFoundException(
+                        "Source directory does not exist or could not be found: "
+                        + sourceDirName);
+                }
+
+                DirectoryInfo[] dirs = dir.GetDirectories();
+                // If the destination directory doesn't exist, create it.
+                if (!Directory.Exists(destDirName))
+                {
+                    Directory.CreateDirectory(destDirName);
+                }
+                
+                // Get the files in the directory and copy them to the new location.
+                FileInfo[] files = dir.GetFiles();
+                Parallel.ForEach(files, opts, file => {
+                    string temppath = Path.Combine(destDirName, file.Name);
+                    file.CopyTo(temppath, false);
+                });
+
+                // If copying subdirectories, copy them and their contents to new location.
+                if (copySubDirs)
+                {
+                    foreach (DirectoryInfo subdir in dirs)
+                    {
+                        string temppath = Path.Combine(destDirName, subdir.Name);
+                        DirectoryCopy(subdir.FullName, temppath, copySubDirs, parallelCount);
+                    }
+                }
+            }
      
         private string NormalizeJobIdentifier(string jobIdentifier)
         {
             jobIdentifier = jobIdentifierRgx.Replace(jobIdentifier, string.Empty).Replace(".default", string.Empty);
             return jobIdentifier;
+        }
+
+        private int GetParallelCount(AgentTaskPluginExecutionContext context, string parallelCount)
+        {
+            var result = 8;
+            if(int.TryParse(parallelCount, out result))
+            {
+                if(result < 1) {
+                    context.Output(StringUtil.Loc("UnexpectedParallelCount"));
+                    result = 1;
+                }else if(result > 128){
+                    context.Output(StringUtil.Loc("UnexpectedParallelCount"));
+                    result = 128;
+                }
+            }else {
+                throw new ArgumentException(StringUtil.Loc("ParallelCountNotANumber"));
+            }
+
+            return result;
+        }
+
+        // used for escaping the path to the Invoke-Robocopy.ps1 script that is passed to the powershell command
+        private string pathToScriptPSString(string filePath)
+        {
+            // remove double quotes
+            var result = filePath.Replace("\"", "");
+
+            // double-up single quotes and enclose in single quotes. this is to create a single-quoted string in powershell.
+            result = result.Replace("'", "''");
+            return "'" + result + "'";
+        }
+
+        // used for escaping file paths that are ultimately passed to robocopy (via the powershell command)
+        private string pathToRobocopyPSString(string filePath)
+        {
+            // the path needs to be fixed-up due to a robocopy quirk handling trailing backslashes.
+            //
+            // according to http://ss64.com/nt/robocopy.html:
+            //   If either the source or desination are a "quoted long foldername" do not include a
+            //   trailing backslash as this will be treated as an escape character, i.e. "C:\some path\"
+            //   will fail but "C:\some path\\" or "C:\some path\." or "C:\some path" will work.
+            //
+            // furthermore, PowerShell implicitly double-quotes arguments to external commands when the
+            // argument contains unquoted spaces.
+            //
+            // note, details on PowerShell quoting rules for external commands can be found in the
+            // source code here:
+            // https://github.com/PowerShell/PowerShell/blob/v0.6.0/src/System.Management.Automation/engine/NativeCommandParameterBinder.cs
+            
+            // remove double quotes
+            var result = filePath.Replace("\"", "");
+
+            // append a "." if the path ends with a backslash. e.g. "C:\some path\" -> "C:\some path\."
+            if (result.EndsWith("\\")) {
+                result += '.';
+            }
+
+            // double-up single quotes and enclose in single quotes. this is to create a single-quoted string in powershell.
+            result = result.Replace("'", "''");
+            return "'" + result + "'";
         }
     }
 
