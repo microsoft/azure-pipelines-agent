@@ -65,7 +65,6 @@ namespace Agent.Plugins.PipelineArtifact
             AgentTaskPluginExecutionContext context, 
             CancellationToken token)
         {
-            Thread.Sleep(20000);
             string artifactName = context.GetInput(ArtifactEventProperties.ArtifactName, required: false);
             string targetPath = context.GetInput(TargetPath, required: true);
             string artifactType = context.GetInput(ArtifactEventProperties.ArtifactType, required: true);
@@ -125,10 +124,11 @@ namespace Agent.Plugins.PipelineArtifact
                 string artifactPath = Path.Join(fileSharePath, artifactName);
 
                 if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows)){
-                    DirectoryInfo artifactDirectoryInfo = Directory.CreateDirectory(artifactPath);
                     // create the artifact. at this point, mkdirP already succeeded so the path is good.
                     // the artifact should get cleaned up during retention even if the copy fails in the
                     // middle
+                    Directory.CreateDirectory(artifactPath);
+
                     // 2) associate the pipeline artifact with an build artifact
                     VssConnection connection = context.VssConnection;
                     BuildServer buildHelper = new BuildServer(connection);
@@ -164,43 +164,41 @@ namespace Agent.Plugins.PipelineArtifact
             }
         }
 
-            private void DirectoryCopy(string sourceDirName, string destDirName, bool copySubDirs, int parallelCount)
+        private void DirectoryCopy(string sourceName, string destName, bool copySubDirs, int parallelCount)
+        {
+            // Get the subdirectories for the specified directory.
+            DirectoryInfo dir = new DirectoryInfo(sourceName);
+            var opts = new ParallelOptions() { MaxDegreeOfParallelism = parallelCount };
+            // If the destination directory doesn't exist, create it.
+            if (!Directory.Exists(destName))
             {
-                // Get the subdirectories for the specified directory.
-                DirectoryInfo dir = new DirectoryInfo(sourceDirName);
-                var opts = new ParallelOptions() { MaxDegreeOfParallelism = parallelCount };
+                Directory.CreateDirectory(destName);
+            }
 
-                if (!dir.Exists)
-                {
-                    throw new DirectoryNotFoundException(
-                        "Source directory does not exist or could not be found: "
-                        + sourceDirName);
-                }
+            if(File.Exists(sourceName)) {
+                File.Copy(sourceName, destName + Path.DirectorySeparatorChar + Path.GetFileName(sourceName), true);
+                return;
+            }
 
-                DirectoryInfo[] dirs = dir.GetDirectories();
-                // If the destination directory doesn't exist, create it.
-                if (!Directory.Exists(destDirName))
-                {
-                    Directory.CreateDirectory(destDirName);
-                }
+            DirectoryInfo[] dirs = dir.GetDirectories();
                 
-                // Get the files in the directory and copy them to the new location.
-                FileInfo[] files = dir.GetFiles();
-                Parallel.ForEach(files, opts, file => {
-                    string temppath = Path.Combine(destDirName, file.Name);
-                    file.CopyTo(temppath, false);
-                });
+            // Get the files in the directory and copy them to the new location.
+            FileInfo[] files = dir.GetFiles();
+            Parallel.ForEach(files, opts, file => {
+                string temppath = Path.Combine(destName, file.Name);
+                file.CopyTo(temppath, true);
+            });
 
-                // If copying subdirectories, copy them and their contents to new location.
-                if (copySubDirs)
+            // If copying subdirectories, copy them and their contents to new location.
+            if (copySubDirs)
+            {
+                foreach (DirectoryInfo subdir in dirs)
                 {
-                    foreach (DirectoryInfo subdir in dirs)
-                    {
-                        string temppath = Path.Combine(destDirName, subdir.Name);
-                        DirectoryCopy(subdir.FullName, temppath, copySubDirs, parallelCount);
-                    }
+                    string temppath = Path.Combine(destName, subdir.Name);
+                    DirectoryCopy(subdir.FullName, temppath, copySubDirs, parallelCount);
                 }
             }
+        }
      
         private string NormalizeJobIdentifier(string jobIdentifier)
         {
