@@ -166,6 +166,12 @@ namespace Agent.Plugins.PipelineArtifact
 
         private void DirectoryCopy(string sourceName, string destName, bool copySubDirs, int parallelCount)
         {
+            // If the source path is a file, the system should copy the file to the dest directory directly. 
+            if(File.Exists(sourceName)) {
+                File.Copy(sourceName, destName + Path.DirectorySeparatorChar + Path.GetFileName(sourceName), true);
+                return;
+            }
+
             // Get the subdirectories for the specified directory.
             DirectoryInfo dir = new DirectoryInfo(sourceName);
             var opts = new ParallelOptions() { MaxDegreeOfParallelism = parallelCount };
@@ -173,11 +179,6 @@ namespace Agent.Plugins.PipelineArtifact
             if (!Directory.Exists(destName))
             {
                 Directory.CreateDirectory(destName);
-            }
-
-            if(File.Exists(sourceName)) {
-                File.Copy(sourceName, destName + Path.DirectorySeparatorChar + Path.GetFileName(sourceName), true);
-                return;
             }
 
             DirectoryInfo[] dirs = dir.GetDirectories();
