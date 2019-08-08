@@ -106,16 +106,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             try
             {
                 var featureFlag = featureAvailabilityHttpClient?.GetFeatureFlagByNameAsync(FFName).Result;
-                if (featureFlag != null && featureFlag.EffectiveState.Equals("Off", StringComparison.OrdinalIgnoreCase))
+                if (featureFlag != null && featureFlag.EffectiveState.Equals("On", StringComparison.OrdinalIgnoreCase))
                 {
-                    return false;
+                    return true;
                 }
             }
-            catch
+            finally
             {
-                return false;
             }
-            return true;
+
+            return false;
         }
     }
 }
