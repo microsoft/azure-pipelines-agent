@@ -154,7 +154,7 @@ namespace Agent.Plugins.PipelineArtifact
                     // in this code example.
                     if (System.IO.Directory.Exists(fileSharePath))
                     {
-                        DirectoryCopy(targetPath, artifactPath, true, parallelCount);
+                        DirectoryCopy(targetPath, artifactPath, true, parallelCount, context);
                     }
                    
                 }else {
@@ -164,10 +164,11 @@ namespace Agent.Plugins.PipelineArtifact
             }
         }
 
-        private void DirectoryCopy(string sourceName, string destName, bool copySubDirs, int parallelCount)
+        private void DirectoryCopy(string sourceName, string destName, bool copySubDirs, int parallelCount, AgentTaskPluginExecutionContext context)
         {
             // If the source path is a file, the system should copy the file to the dest directory directly. 
             if(File.Exists(sourceName)) {
+                context.Output(StringUtil.Loc("CopyFileToDestination", sourceName, destName));
                 File.Copy(sourceName, destName + Path.DirectorySeparatorChar + Path.GetFileName(sourceName), true);
                 return;
             }
@@ -187,6 +188,7 @@ namespace Agent.Plugins.PipelineArtifact
             FileInfo[] files = dir.GetFiles();
             Parallel.ForEach(files, opts, file => {
                 string temppath = Path.Combine(destName, file.Name);
+                context.Output(StringUtil.Loc("CopyFileToDestination", file, destName));
                 file.CopyTo(temppath, true);
             });
 
@@ -196,7 +198,7 @@ namespace Agent.Plugins.PipelineArtifact
                 foreach (DirectoryInfo subdir in dirs)
                 {
                     string temppath = Path.Combine(destName, subdir.Name);
-                    DirectoryCopy(subdir.FullName, temppath, copySubDirs, parallelCount);
+                    DirectoryCopy(subdir.FullName, temppath, copySubDirs, parallelCount, context);
                 }
             }
         }
