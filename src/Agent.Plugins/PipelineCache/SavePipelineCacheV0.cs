@@ -11,13 +11,7 @@ namespace Agent.Plugins.PipelineCache
     {
         public override string Stage => "post";
 
-        protected override async Task ProcessCommandInternalAsync(
-            AgentTaskPluginExecutionContext context,
-            Fingerprint fingerprint,
-            Func<Fingerprint[]> restoreKeysGenerator,
-            string path,
-            bool isTar,
-            CancellationToken token)
+        public override async Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
             bool successSoFar = false;
             if (context.Variables.TryGetValue("agent.jobstatus", out VariableValue jobStatusVar))
@@ -52,7 +46,17 @@ namespace Agent.Plugins.PipelineCache
                 return;
             }
 
+            await base.RunAsync(context, token);
+        }
 
+        protected override async Task ProcessCommandInternalAsync(
+            AgentTaskPluginExecutionContext context,
+            Fingerprint fingerprint,
+            Func<Fingerprint[]> restoreKeysGenerator,
+            string path,
+            bool isTar,
+            CancellationToken token)
+        {
             PipelineCacheServer server = new PipelineCacheServer();
             await server.UploadAsync(
                 context,

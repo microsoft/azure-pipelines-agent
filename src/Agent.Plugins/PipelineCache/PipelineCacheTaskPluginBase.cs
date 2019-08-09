@@ -20,14 +20,11 @@ namespace Agent.Plugins.PipelineCache
         private static readonly bool isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         private const string SaltVariableName = "AZDEVOPS_PIPELINECACHE_SALT";
         private const string OldKeyFormatMessage = "'key' format is changing to a single line: https://aka.ms/pipeline-caching-docs";
-
         private const string PackingVariableName = "AZDEVOPS_PIPELINECACHE_PACK";
-
         public Guid Id => PipelineCachePluginConstants.CacheTaskId;
-
         public abstract String Stage { get; }
 
-        internal static (bool isOldFormat, IEnumerable<string> keySegments,IEnumerable<string[]> restoreKeys) ParseIntoSegments(string salt, string key, string restoreKeysBlock)
+        internal static (bool isOldFormat, IEnumerable<string> keySegments,IEnumerable<IEnumerable<string>> restoreKeys) ParseIntoSegments(string salt, string key, string restoreKeysBlock)
         {
             Func<string,string[]> splitAcrossPipes = (s) => {
                 var segments = s.Split(new [] {'|'},StringSplitOptions.RemoveEmptyEntries).Select(segment => segment.Trim());
@@ -77,7 +74,7 @@ namespace Agent.Plugins.PipelineCache
             return (isOldFormat, keySegments, restoreKeys);
         }
         
-        public async Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
+        public async virtual Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
             ArgUtil.NotNull(context, nameof(context));
 
@@ -90,7 +87,7 @@ namespace Agent.Plugins.PipelineCache
             string key = context.GetInput(PipelineCacheTaskPluginConstants.Key, required: true);
             string restoreKeysBlock = context.GetInput(PipelineCacheTaskPluginConstants.RestoreKeys, required: false);
 
-            (bool isOldFormat, IEnumerable<string> keySegments, IEnumerable<string[]> restoreKeys) = ParseIntoSegments(salt, key, restoreKeysBlock);
+            (bool isOldFormat, IEnumerable<string> keySegments, IEnumerable<IEnumerable<string>> restoreKeys) = ParseIntoSegments(salt, key, restoreKeysBlock);
 
             if (isOldFormat)
             {

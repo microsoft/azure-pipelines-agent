@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Threading;
 using System.IO;
+using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
 using Agent.Plugins.PipelineArtifact;
 using Agent.Plugins.PipelineCache.Telemetry;
 using Agent.Sdk;
@@ -17,7 +18,6 @@ using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.PipelineCache.WebApi;
 using Microsoft.VisualStudio.Services.PipelineCache.Common;
 using Microsoft.VisualStudio.Services.WebApi;
-using System.Runtime.ExceptionServices;
 
 namespace Agent.Plugins.PipelineCache
 {
@@ -311,15 +311,13 @@ namespace Agent.Plugins.PipelineCache
                     proxyUri: null,
                     minimatchPatterns: null);
 
-                options.IsTar = true;
-
                 var processTcs = new TaskCompletionSource<int>();
 
                 using (var cancelSource = new CancellationTokenSource())
                 using (var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, cancelSource.Token))
                 using (var process = new Process())
                 {
-                    process.StartInfo.FileName = isWindows ? "7z" : "tar";
+                    process.StartInfo.FileName = isWindows ? @"C:\Program Files\7-Zip\7z.exe" : "tar";
                     process.StartInfo.Arguments = isWindows ? $"x -si -aoa -o{targetDirectory} -ttar" : $"-xf - -C {targetDirectory}";
                     process.StartInfo.UseShellExecute = false;
                     process.StartInfo.RedirectStandardInput = true;
@@ -382,10 +380,10 @@ namespace Agent.Plugins.PipelineCache
 
                         if (exitCode == 0)
                         {
-                            context.Verbose($"Process exit code: {exitCode}");
+                            context.Output($"Process exit code: {exitCode}");
                             foreach (string line in output)
                             {
-                                context.Verbose(line);
+                                context.Output(line);
                             }
                         }
                         else
