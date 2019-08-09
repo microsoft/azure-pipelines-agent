@@ -80,8 +80,9 @@ namespace Agent.Plugins.PipelineArtifact
             string defaultWorkingDirectory = context.Variables.GetValueOrDefault("system.defaultworkingdirectory").Value;
 
             targetPath = Path.IsPathFullyQualified(targetPath) ? targetPath : Path.GetFullPath(Path.Combine(defaultWorkingDirectory, targetPath));
-            
-            if(!PipelineArtifactPathHelper.IsValidArtifactName(artifactName)) {
+
+            if (!PipelineArtifactPathHelper.IsValidArtifactName(artifactName))
+            {
                 throw new ArgumentException(StringUtil.Loc("ArtifactNameIsNotValid", artifactName));
             }
 
@@ -151,29 +152,44 @@ namespace Agent.Plugins.PipelineArtifact
                     throw new ArgumentNullException("Project Name cannot be null.");
                 }
                 Guid projectId = Guid.Parse(projectName);
-                int pipelineId;
-                if (pipelineVersionToDownload == pipelineVersionToDownloadLatest)
+                int? pipelineId = null;
+
+                bool pipelineTriggeringBool = false;
+                if (bool.TryParse(pipelineTriggering, out pipelineTriggeringBool) && pipelineTriggeringBool)
                 {
-                    pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectName, tagsInput);
+                    string triggeringPipeline = context.Variables.GetValueOrDefault("build.triggeredBy.buildId")?.Value;
+
+                    if (!string.IsNullOrEmpty(triggeringPipeline))
+                    {
+                        pipelineId = int.Parse(triggeringPipeline);
+                    }
                 }
-                else if (pipelineVersionToDownload == pipelineVersionToDownloadSpecific)
+
+                if (!pipelineId.HasValue)
                 {
-                    pipelineId = Int32.Parse(userSpecifiedpipelineId);
-                }
-                else if (pipelineVersionToDownload == pipelineVersionToDownloadLatestFromBranch)
-                {
-                    pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectName, tagsInput, branchName);
-                }
-                else
-                {
-                    throw new InvalidOperationException("Unreachable code!");
+                    if (pipelineVersionToDownload == pipelineVersionToDownloadLatest)
+                    {
+                        pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectName, tagsInput);
+                    }
+                    else if (pipelineVersionToDownload == pipelineVersionToDownloadSpecific)
+                    {
+                        pipelineId = Int32.Parse(userSpecifiedpipelineId);
+                    }
+                    else if (pipelineVersionToDownload == pipelineVersionToDownloadLatestFromBranch)
+                    {
+                        pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectName, tagsInput, branchName);
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("Unreachable code!");
+                    }
                 }
                 downloadParameters = new PipelineArtifactDownloadParameters
                 {
                     ProjectRetrievalOptions = BuildArtifactRetrievalOptions.RetrieveByProjectName,
                     ProjectName = projectName,
                     ProjectId = projectId,
-                    PipelineId = pipelineId,
+                    PipelineId = pipelineId.GetValueOrDefault(),
                     ArtifactName = artifactName,
                     TargetDirectory = targetPath,
                     MinimatchFilters = minimatchPatterns,
