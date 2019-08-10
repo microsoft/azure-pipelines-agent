@@ -208,7 +208,6 @@ namespace Agent.Plugins.PipelineArtifact
         {
             VssConnection connection = context.VssConnection;
             BuildServer buildHelper = new BuildServer(connection);
-            Thread.Sleep(20000);
 
             // download all pipeline artifacts if artifact name is missing
             if (downloadOptions == DownloadOptions.MultiDownload)

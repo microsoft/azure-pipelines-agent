@@ -45,7 +45,7 @@ namespace Agent.Plugins.PipelineArtifact
         private void DownloadFileShareAsync(Guid projectId, BuildArtifact artifact, string destPath, IEnumerable<string> minimatchPatterns, CancellationToken cancellationToken, bool isSingleArtifactDownload = true)
         {
             IEnumerable<Func<string, bool>> minimatcherFuncs = MinimatchHelper.GetMinimatchFuncs(minimatchPatterns, this.tracer);
-            DirectoryCopyWithMiniMatch(artifact.Resource.Data + Path.DirectorySeparatorChar + artifact.Name, destPath, this.context, 1, minimatcherFuncs, artifact.Resource.Data + Path.DirectorySeparatorChar + artifact.Name);
+            DirectoryCopyWithMiniMatch(artifact.Resource.Data, destPath, this.context, 1, minimatcherFuncs, artifact.Resource.Data);
         }
 
         internal static void DirectoryCopyWithMiniMatch(string sourcePath, string destPath, AgentTaskPluginExecutionContext context, int parallelCount = 1, IEnumerable<Func<string, bool>> minimatchFuncs = null, string minimatchRoot = null)
@@ -86,7 +86,7 @@ namespace Agent.Plugins.PipelineArtifact
             foreach (DirectoryInfo subdir in dirs)
             {
                 string temppath = Path.Combine(destPath, subdir.Name);
-                DirectoryCopyWithMiniMatch(subdir.FullName, temppath, context, parallelCount, minimatchFuncs);
+                DirectoryCopyWithMiniMatch(subdir.FullName, temppath, context, parallelCount, minimatchFuncs, minimatchRoot);
             }
         }
     }
