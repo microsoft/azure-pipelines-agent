@@ -36,7 +36,7 @@ namespace Agent.Plugins.PipelineArtifact
                 //Upload the pipeline artifact.
                 PipelineArtifactActionRecord uploadRecord = clientTelemetry.CreateRecord<PipelineArtifactActionRecord>((level, uri, type) =>
                     new PipelineArtifactActionRecord(level, uri, type, nameof(UploadAsync), context));
-                    
+
                 PublishResult result = await clientTelemetry.MeasureActionAsync(
                     record: uploadRecord,
                     actionAsync: async () =>
@@ -208,6 +208,7 @@ namespace Agent.Plugins.PipelineArtifact
         {
             VssConnection connection = context.VssConnection;
             BuildServer buildHelper = new BuildServer(connection);
+            Thread.Sleep(20000);
 
             // download all pipeline artifacts if artifact name is missing
             if (downloadOptions == DownloadOptions.MultiDownload)
@@ -235,6 +236,8 @@ namespace Agent.Plugins.PipelineArtifact
 
                 IEnumerable<BuildArtifact> buildArtifacts = artifacts.Where(a => a.Resource.Type == PipelineArtifactConstants.Container);
                 IEnumerable<BuildArtifact> pipelineArtifacts = artifacts.Where(a => a.Resource.Type == PipelineArtifactConstants.PipelineArtifact);
+                IEnumerable<BuildArtifact> fileShareArtifacts = artifacts.Where(a => a.Resource.Type.ToLower() == PipelineArtifactConstants.FileShareArtifact);
+
                 if (buildArtifacts.Any())
                 {
                     FileContainerProvider provider = new FileContainerProvider(connection, this.CreateTracer(context));
@@ -245,6 +248,12 @@ namespace Agent.Plugins.PipelineArtifact
                 {
                     PipelineArtifactProvider provider = new PipelineArtifactProvider(context, connection, this.CreateTracer(context));
                     await provider.DownloadMultipleArtifactsAsync(downloadParameters, pipelineArtifacts, cancellationToken);
+                }
+
+                if(fileShareArtifacts.Any()) 
+                {
+                    FileShareHelper provider = new FileShareHelper(context, this.CreateTracer(context));
+                    provider.DownloadMultipleArtifactsAsync(downloadParameters, fileShareArtifacts, cancellationToken);
                 }
             }
             else if (downloadOptions == DownloadOptions.SingleDownload)

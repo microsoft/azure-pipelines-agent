@@ -154,7 +154,8 @@ namespace Agent.Plugins.PipelineArtifact
                     // in this code example.
                     if (System.IO.Directory.Exists(fileSharePath))
                     {
-                        DirectoryCopy(targetPath, artifactPath, true, parallelCount, context);
+                        FileShareHelper.DirectoryCopyWithMiniMatch(targetPath, artifactPath, context, parallelCount);
+                        context.Output(StringUtil.Loc("CopyFileComplete", artifactPath));
                     }
                    
                 }else {
@@ -164,45 +165,6 @@ namespace Agent.Plugins.PipelineArtifact
             }
         }
 
-        private void DirectoryCopy(string sourceName, string destName, bool copySubDirs, int parallelCount, AgentTaskPluginExecutionContext context)
-        {
-            // If the source path is a file, the system should copy the file to the dest directory directly. 
-            if(File.Exists(sourceName)) {
-                context.Output(StringUtil.Loc("CopyFileToDestination", sourceName, destName));
-                File.Copy(sourceName, destName + Path.DirectorySeparatorChar + Path.GetFileName(sourceName), true);
-                return;
-            }
-
-            // Get the subdirectories for the specified directory.
-            DirectoryInfo dir = new DirectoryInfo(sourceName);
-            var opts = new ParallelOptions() { MaxDegreeOfParallelism = parallelCount };
-            // If the destination directory doesn't exist, create it.
-            if (!Directory.Exists(destName))
-            {
-                Directory.CreateDirectory(destName);
-            }
-
-            DirectoryInfo[] dirs = dir.GetDirectories();
-                
-            // Get the files in the directory and copy them to the new location.
-            FileInfo[] files = dir.GetFiles();
-            Parallel.ForEach(files, opts, file => {
-                string temppath = Path.Combine(destName, file.Name);
-                context.Output(StringUtil.Loc("CopyFileToDestination", file, destName));
-                file.CopyTo(temppath, true);
-            });
-
-            // If copying subdirectories, copy them and their contents to new location.
-            if (copySubDirs)
-            {
-                foreach (DirectoryInfo subdir in dirs)
-                {
-                    string temppath = Path.Combine(destName, subdir.Name);
-                    DirectoryCopy(subdir.FullName, temppath, copySubDirs, parallelCount, context);
-                }
-            }
-        }
-     
         private string NormalizeJobIdentifier(string jobIdentifier)
         {
             jobIdentifier = jobIdentifierRgx.Replace(jobIdentifier, string.Empty).Replace(".default", string.Empty);
@@ -226,47 +188,6 @@ namespace Agent.Plugins.PipelineArtifact
             }
 
             return result;
-        }
-
-        // used for escaping the path to the Invoke-Robocopy.ps1 script that is passed to the powershell command
-        private string pathToScriptPSString(string filePath)
-        {
-            // remove double quotes
-            var result = filePath.Replace("\"", "");
-
-            // double-up single quotes and enclose in single quotes. this is to create a single-quoted string in powershell.
-            result = result.Replace("'", "''");
-            return "'" + result + "'";
-        }
-
-        // used for escaping file paths that are ultimately passed to robocopy (via the powershell command)
-        private string pathToRobocopyPSString(string filePath)
-        {
-            // the path needs to be fixed-up due to a robocopy quirk handling trailing backslashes.
-            //
-            // according to http://ss64.com/nt/robocopy.html:
-            //   If either the source or desination are a "quoted long foldername" do not include a
-            //   trailing backslash as this will be treated as an escape character, i.e. "C:\some path\"
-            //   will fail but "C:\some path\\" or "C:\some path\." or "C:\some path" will work.
-            //
-            // furthermore, PowerShell implicitly double-quotes arguments to external commands when the
-            // argument contains unquoted spaces.
-            //
-            // note, details on PowerShell quoting rules for external commands can be found in the
-            // source code here:
-            // https://github.com/PowerShell/PowerShell/blob/v0.6.0/src/System.Management.Automation/engine/NativeCommandParameterBinder.cs
-            
-            // remove double quotes
-            var result = filePath.Replace("\"", "");
-
-            // append a "." if the path ends with a backslash. e.g. "C:\some path\" -> "C:\some path\."
-            if (result.EndsWith("\\")) {
-                result += '.';
-            }
-
-            // double-up single quotes and enclose in single quotes. this is to create a single-quoted string in powershell.
-            result = result.Replace("'", "''");
-            return "'" + result + "'";
         }
     }
 
