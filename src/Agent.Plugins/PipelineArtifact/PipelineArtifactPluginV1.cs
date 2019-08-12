@@ -86,7 +86,8 @@ namespace Agent.Plugins.PipelineArtifact
                 throw new ArgumentException(StringUtil.Loc("BuildIdIsNotValid", buildIdStr));
             }
             
-            if(artifactType == pipelineType) {
+            if(artifactType == pipelineType) 
+            {
                 string hostType = context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.HostType)?.Value; 
                 if (!string.Equals(hostType, "Build", StringComparison.OrdinalIgnoreCase)) {
                     throw new InvalidOperationException(
@@ -125,7 +126,8 @@ namespace Agent.Plugins.PipelineArtifact
                 string fileSharePath = context.GetInput(ArtifactEventProperties.FileSharePath, required: true);
                 string artifactPath = Path.Join(fileSharePath, artifactName);
 
-                if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows)){
+                if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
                     // create the artifact. at this point, mkdirP already succeeded so the path is good.
                     // the artifact should get cleaned up during retention even if the copy fails in the
                     // middle
