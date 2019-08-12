@@ -58,7 +58,7 @@ namespace Agent.Plugins.PipelineArtifact
         protected override string TargetPath => "path";
 
         private static readonly Regex jobIdentifierRgx = new Regex("[^a-zA-Z0-9 - .]", RegexOptions.Compiled | RegexOptions.CultureInvariant);
-        private static readonly string pipelineArtifactType = "pipelineartifact";
+        private static readonly string pipelineType = "pipeline";
         private static readonly string fileShareType = "filepath";
 
         protected override async Task ProcessCommandInternalAsync(
@@ -86,7 +86,7 @@ namespace Agent.Plugins.PipelineArtifact
                 throw new ArgumentException(StringUtil.Loc("BuildIdIsNotValid", buildIdStr));
             }
             
-            if(artifactType == pipelineArtifactType) {
+            if(artifactType == pipelineType) {
                 string hostType = context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.HostType)?.Value; 
                 if (!string.Equals(hostType, "Build", StringComparison.OrdinalIgnoreCase)) {
                     throw new InvalidOperationException(
@@ -119,7 +119,9 @@ namespace Agent.Plugins.PipelineArtifact
                 await server.UploadAsync(context, projectId, buildId, artifactName, fullPath, token);
                 context.Output(StringUtil.Loc("UploadArtifactFinished"));
 
-            }else if (artifactType == fileShareType){
+            }
+            else if (artifactType == fileShareType)
+            {
                 string fileSharePath = context.GetInput(ArtifactEventProperties.FileSharePath, required: true);
                 string artifactPath = Path.Join(fileSharePath, artifactName);
 
@@ -158,7 +160,9 @@ namespace Agent.Plugins.PipelineArtifact
                         context.Output(StringUtil.Loc("CopyFileComplete", artifactPath));
                     }
                    
-                }else {
+                }
+                else 
+                {
                     // file share artifacts are not currently supported on OSX/Linux.
                     throw new InvalidOperationException(StringUtil.Loc("FileShareOperatingSystemNotSupported"));
                 }
