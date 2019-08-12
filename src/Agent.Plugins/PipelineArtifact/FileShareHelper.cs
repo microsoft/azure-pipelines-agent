@@ -12,49 +12,52 @@ using System.Linq;
 
 namespace Agent.Plugins.PipelineArtifact
 {
-    internal class FileShareHelper
+    internal class FileShareProvider: IArtifactProvider
     {
         private readonly AgentTaskPluginExecutionContext context;
         private readonly CallbackAppTraceSource tracer;
 
-        public FileShareHelper(AgentTaskPluginExecutionContext context, CallbackAppTraceSource tracer)
+        public FileShareProvider(AgentTaskPluginExecutionContext context, CallbackAppTraceSource tracer)
         {
             this.context = context;
             this.tracer = tracer;
         }
 
-        public void DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken)
+        public Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken)
         {
-            this.DownloadFileShareAsync(downloadParameters.ProjectId, buildArtifact, downloadParameters.TargetDirectory, downloadParameters.MinimatchFilters, cancellationToken);
+            return this.DownloadFileShareAsync(downloadParameters.ProjectId, buildArtifact, downloadParameters.TargetDirectory, downloadParameters.MinimatchFilters, cancellationToken);
         }
 
-        public void DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken)
+        public Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken)
         {
-            this.DownloadFileShareAsync(downloadParameters.ProjectId, buildArtifacts, downloadParameters.TargetDirectory, downloadParameters.MinimatchFilters, cancellationToken);
+            return this.DownloadFileShareAsync(downloadParameters.ProjectId, buildArtifacts, downloadParameters.TargetDirectory, downloadParameters.MinimatchFilters, cancellationToken);
         }
 
-        public void DownloadFileShareAsync(Guid projectId, IEnumerable<BuildArtifact> buildArtifacts, string targetDirectory, IEnumerable<string> minimatchFilters, CancellationToken cancellationToken)
+        public Task DownloadFileShareAsync(Guid projectId, IEnumerable<BuildArtifact> buildArtifacts, string targetDirectory, IEnumerable<string> minimatchFilters, CancellationToken cancellationToken)
         {
             foreach (var buildArtifact in buildArtifacts)
             {
                 var dirPath = Path.Combine(targetDirectory, buildArtifact.Name);
-                DownloadFileShareAsync(projectId, buildArtifact, dirPath, minimatchFilters, cancellationToken, isSingleArtifactDownload: false);
+                return DownloadFileShareAsync(projectId, buildArtifact, dirPath, minimatchFilters, cancellationToken, isSingleArtifactDownload: false);
             }
+
+            return Task.FromResult<object>(null);
         }
 
-        private void DownloadFileShareAsync(Guid projectId, BuildArtifact artifact, string destPath, IEnumerable<string> minimatchPatterns, CancellationToken cancellationToken, bool isSingleArtifactDownload = true)
+        private Task DownloadFileShareAsync(Guid projectId, BuildArtifact artifact, string destPath, IEnumerable<string> minimatchPatterns, CancellationToken cancellationToken, bool isSingleArtifactDownload = true)
         {
             IEnumerable<Func<string, bool>> minimatcherFuncs = MinimatchHelper.GetMinimatchFuncs(minimatchPatterns, this.tracer);
-            DirectoryCopyWithMiniMatch(artifact.Resource.Data, destPath, this.context, 1, minimatcherFuncs, artifact.Resource.Data);
+            var downloadRootPath = artifact.Resource.Data + Path.DirectorySeparatorChar + artifact.Name;
+            return DirectoryCopyWithMiniMatch(downloadRootPath, destPath, this.context, 1, minimatcherFuncs, downloadRootPath);
         }
 
-        internal static void DirectoryCopyWithMiniMatch(string sourcePath, string destPath, AgentTaskPluginExecutionContext context, int parallelCount = 1, IEnumerable<Func<string, bool>> minimatchFuncs = null, string minimatchRoot = null)
+        internal static Task DirectoryCopyWithMiniMatch(string sourcePath, string destPath, AgentTaskPluginExecutionContext context, int parallelCount = 1, IEnumerable<Func<string, bool>> minimatchFuncs = null, string minimatchRoot = null)
         {
             // If the source path is a file, the system should copy the file to the dest directory directly. 
             if(File.Exists(sourcePath)) {
                 context.Output(StringUtil.Loc("CopyFileToDestination", sourcePath, destPath));
                 File.Copy(sourcePath, destPath + Path.DirectorySeparatorChar + Path.GetFileName(sourcePath), true);
-                return;
+                return Task.FromResult<object>(null);
             }
 
             var opts = new ParallelOptions() { MaxDegreeOfParallelism = parallelCount };
@@ -86,8 +89,9 @@ namespace Agent.Plugins.PipelineArtifact
             foreach (DirectoryInfo subdir in dirs)
             {
                 string temppath = Path.Combine(destPath, subdir.Name);
-                DirectoryCopyWithMiniMatch(subdir.FullName, temppath, context, parallelCount, minimatchFuncs, minimatchRoot);
+                return DirectoryCopyWithMiniMatch(subdir.FullName, temppath, context, parallelCount, minimatchFuncs, minimatchRoot);
             }
+            return Task.FromResult<object>(null);
         }
     }
 }

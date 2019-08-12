@@ -251,8 +251,8 @@ namespace Agent.Plugins.PipelineArtifact
 
                 if(fileShareArtifacts.Any()) 
                 {
-                    FileShareHelper provider = new FileShareHelper(context, this.CreateTracer(context));
-                    provider.DownloadMultipleArtifactsAsync(downloadParameters, fileShareArtifacts, cancellationToken);
+                    FileShareProvider provider = new FileShareProvider(context, this.CreateTracer(context));
+                    await provider.DownloadMultipleArtifactsAsync(downloadParameters, fileShareArtifacts, cancellationToken);
                 }
             }
             else if (downloadOptions == DownloadOptions.SingleDownload)

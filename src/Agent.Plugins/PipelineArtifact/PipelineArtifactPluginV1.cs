@@ -154,7 +154,7 @@ namespace Agent.Plugins.PipelineArtifact
                     // in this code example.
                     if (System.IO.Directory.Exists(fileSharePath))
                     {
-                        FileShareHelper.DirectoryCopyWithMiniMatch(targetPath, artifactPath, context, parallelCount);
+                        await FileShareProvider.DirectoryCopyWithMiniMatch(targetPath, artifactPath, context, parallelCount);
                         context.Output(StringUtil.Loc("CopyFileComplete", artifactPath));
                     }
                    
