@@ -20,7 +20,6 @@ namespace Agent.Plugins.PipelineArtifact
             pipelineArtifactProvider = new PipelineArtifactProvider(context, connection, tracer);
             fileContainerProvider = new FileContainerProvider(connection, tracer);
             fileShareProvider = new FileShareProvider(context, tracer);
-
         }
 
         public IArtifactProvider GetProvider(BuildArtifact buildArtifact)
