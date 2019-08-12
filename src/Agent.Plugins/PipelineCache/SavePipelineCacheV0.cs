@@ -11,6 +11,8 @@ namespace Agent.Plugins.PipelineCache
     {
         public override string Stage => "post";
 
+        /* To mitigate the issue - https://github.com/microsoft/azure-pipelines-tasks/issues/10907, we need to check the restore condition logic, before creating the fingerprint.
+           Hence we are overriding the RunAsync function to include that logic. */
         public override async Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
             bool successSoFar = false;

@@ -18,12 +18,15 @@ using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.PipelineCache.WebApi;
 using Microsoft.VisualStudio.Services.PipelineCache.Common;
 using Microsoft.VisualStudio.Services.WebApi;
+using JsonSerializer = Microsoft.VisualStudio.Services.Content.Common.JsonSerializer;
 
 namespace Agent.Plugins.PipelineCache
 {
     public class PipelineCacheServer
     {
-        private readonly bool isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+        
+
+        TarUtils tarUtils = new TarUtils();
 
         internal async Task UploadAsync(
             AgentTaskPluginExecutionContext context,
@@ -70,6 +73,7 @@ namespace Agent.Plugins.PipelineCache
                         RootId = result.RootId,
                         ManifestId = result.ManifestId,
                         ProofNodes = result.ProofNodes.ToArray(),
+                        ContentFormat = ContentFormatConstants.Files
                     };
 
                     // Cache the artifact
@@ -83,90 +87,7 @@ namespace Agent.Plugins.PipelineCache
                 }
                 else
                 {
-                    var archiveFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + "archive.tar");
-                    var processTcs = new TaskCompletionSource<int>();
-                    using (var cancelSource = new CancellationTokenSource())
-                    using (var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, cancelSource.Token))
-                    using (var process = new Process())
-                    {
-                        process.StartInfo.FileName = "tar";
-                        process.StartInfo.Arguments = $"-cf {archiveFile} -C {path} .";
-                        process.StartInfo.UseShellExecute = false;
-                        process.StartInfo.RedirectStandardInput = true;
-                        process.StartInfo.RedirectStandardOutput = true;
-                        process.StartInfo.RedirectStandardError = true;
-                        process.EnableRaisingEvents = true;
-                        process.Exited += (sender, args) =>
-                        {
-                            cancelSource.Cancel();
-                            processTcs.SetResult(process.ExitCode);
-                        };
-
-                        try
-                        {
-                            context.Debug($"Starting '{process.StartInfo.FileName}' with arguments '{process.StartInfo.Arguments}'...");
-                            process.Start();
-                        }
-                        catch (Exception e)
-                        {
-                            process.Kill();
-                            ExceptionDispatchInfo.Capture(e).Throw();
-                        }
-
-                        var output = new List<string>();
-                        Func<string, StreamReader, Task> readLines = (prefix, reader) => Task.Run(async () =>
-                        {
-                            string line;
-                            while (null != (line = await reader.ReadLineAsync()))
-                            {
-                                lock (output)
-                                {
-                                    output.Add($"{prefix}{line}");
-                                }
-                            }
-                        });
-                        Task readStdOut = readLines("stdout: ", process.StandardOutput);
-                        Task readStdError = readLines("stderr: ", process.StandardError);
-
-                        // Our goal is to always have the process ended or killed by the time we exit the function.
-                        try
-                        {
-                            using (cancellationToken.Register(() => process.Kill()))
-                            {
-                                // readStdOut and readStdError should only fail if the process dies
-                                // processTcs.Task cannot fail as we only call SetResult on processTcs
-                                await Task.WhenAll(readStdOut, readStdError, processTcs.Task);
-                            }
-
-                            int exitCode = await processTcs.Task;
-
-                            if (exitCode == 0)
-                            {
-                                context.Output($"Process exit code: {exitCode}");
-                                foreach (string line in output)
-                                {
-                                    context.Output(line);
-                                }
-                            }
-                            else
-                            {
-                                throw new Exception($"Process returned non-zero exit code: {exitCode}");
-                            }
-                        }
-                        catch (Exception e)
-                        {
-                            // Delete archive file.
-                            if(File.Exists(archiveFile))
-                            {
-                                File.Delete(archiveFile);
-                            }
-                            foreach (string line in output)
-                            {
-                                context.Error(line);
-                            }
-                            ExceptionDispatchInfo.Capture(e).Throw();
-                        }
-                    } // end of tarring process.
+                    var archiveFile = tarUtils.CreateTar(context, path, cancellationToken);
 
                     //Upload the pipeline artifact.
                     PipelineCacheActionRecord uploadRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
@@ -175,7 +96,7 @@ namespace Agent.Plugins.PipelineCache
                         record: uploadRecord,
                         actionAsync: async () =>
                         {
-                            return await dedupManifestClient.PublishAsync(archiveFile, cancellationToken);
+                            return await dedupManifestClient.PublishAsync(archiveFile.Result, cancellationToken);
                         });
 
                     CreatePipelineCacheArtifactOptions options = new CreatePipelineCacheArtifactOptions
@@ -187,10 +108,14 @@ namespace Agent.Plugins.PipelineCache
                         ContentFormat = ContentFormatConstants.SingleTar
                     };
                     // delete archive file.
-                    if(File.Exists(archiveFile))
+                    try
                     {
-                        File.Delete(archiveFile);
+                        if(File.Exists(archiveFile.Result))
+                        {
+                            File.Delete(archiveFile.Result);
+                        }
                     }
+                    catch {}
                     // Cache the artifact
                     PipelineCacheActionRecord cacheRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
                         new PipelineCacheActionRecord(level, uri, type, PipelineArtifactConstants.SaveCache, context));
@@ -282,6 +207,14 @@ namespace Agent.Plugins.PipelineCache
             return pipelineCacheClient;
         }
 
+        private void ValidateTarManifest(Manifest manifest)
+        {
+            if(manifest == null || manifest.Items.Count() > 1)
+            {
+                throw new ArgumentException($"Manifest containing a tar cannot have more than one item.");
+            }
+        }
+
         private async Task DownloadPipelineCacheAsync(
             AgentTaskPluginExecutionContext context,
             DedupManifestArtifactClient dedupManifestClient,
@@ -306,99 +239,12 @@ namespace Agent.Plugins.PipelineCache
             else
             {
                 string manifestPath = Path.Combine(Path.GetTempPath(), $"{nameof(DedupManifestArtifactClient)}.{Path.GetRandomFileName()}.manifest");
-                using (var manifestStream = File.Create(manifestPath))
-                {
-                    await dedupManifestClient.DownloadToStreamAsync(manifestId, manifestStream, null, cancellationToken);
-                }
-                Manifest m = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(manifestPath));
-                        
-                var processTcs = new TaskCompletionSource<int>();
+                await dedupManifestClient.DownloadFileToPathAsync(manifestId, manifestPath, proxyUri: null, cancellationToken);
+                Manifest manifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(manifestPath));
+                this.ValidateTarManifest(manifest);
 
-                using (var cancelSource = new CancellationTokenSource())
-                using (var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, cancelSource.Token))
-                using (var process = new Process())
-                {
-                    process.StartInfo.FileName = isWindows ? @"C:\Program Files\7-Zip\7z.exe" : "tar";
-                    process.StartInfo.Arguments = isWindows ? $"x -si -aoa -o{targetDirectory} -ttar" : $"-xf - -C {targetDirectory}";
-                    process.StartInfo.UseShellExecute = false;
-                    process.StartInfo.RedirectStandardInput = true;
-                    process.StartInfo.RedirectStandardOutput = true;
-                    process.StartInfo.RedirectStandardError = true;
-                    process.EnableRaisingEvents = true;
-                    process.Exited += (sender, args) =>
-                    {
-                        cancelSource.Cancel();
-                        processTcs.SetResult(process.ExitCode);
-                    };
-
-                    context.Info($"Starting '{process.StartInfo.FileName}' with arguments '{process.StartInfo.Arguments}'...");
-                    process.Start();
-
-                    var output = new List<string>();
-
-                    Func<string, StreamReader, Task> readLines = (prefix, reader) => Task.Run(async () =>
-                    {
-                        string line;
-                        while (null != (line = await reader.ReadLineAsync()))
-                        {
-                            lock (output)
-                            {
-                                output.Add($"{prefix}{line}");
-                            }
-                        }
-                    });
-
-                    Task readStdOut = readLines("stdout: ", process.StandardOutput);
-                    Task readStdError = readLines("stderr: ", process.StandardError);
-                    Task downloadTask = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            await dedupManifestClient.DownloadToStreamAsync(DedupIdentifier.Create(m.Items[0].Blob.Id), process.StandardInput.BaseStream, proxyUri: null, linkedSource.Token);
-                            process.StandardInput.BaseStream.Close();
-                        }
-                        catch (Exception e)
-                        {
-                            process.Kill();
-                            ExceptionDispatchInfo.Capture(e).Throw();
-                        }
-                    });
-
-                    // Our goal is to always have the process ended or killed by the time we exit the function.
-                    try
-                    {
-                        using (cancellationToken.Register(() => process.Kill()))
-                        {
-                            // readStdOut and readStdError should only fail if the process dies
-                            // processTcs.Task cannot fail as we only call SetResult on processTcs
-                            // downloadTask *can* fail, but when it does, it will also kill the process
-                            await Task.WhenAll(readStdOut, readStdError, processTcs.Task, downloadTask);
-                        }
-
-                        int exitCode = await processTcs.Task;
-
-                        if (exitCode == 0)
-                        {
-                            context.Output($"Process exit code: {exitCode}");
-                            foreach (string line in output)
-                            {
-                                context.Output(line);
-                            }
-                        }
-                        else
-                        {
-                            throw new Exception($"Process returned non-zero exit code: {exitCode}");
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        foreach (string line in output)
-                        {
-                            context.Info(line);
-                        }
-                        ExceptionDispatchInfo.Capture(e).Throw();
-                    }
-                }
+                await tarUtils.DownloadTar(context, dedupManifestClient, DedupIdentifier.Create(manifest.Items[0].Blob.Id), targetDirectory, cancellationToken);
+   
             }
 
         }
