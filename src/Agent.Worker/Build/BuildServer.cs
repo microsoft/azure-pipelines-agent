@@ -23,7 +23,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             _buildHttpClient = connection.GetClient<Build2.BuildHttpClient>();
         }
 
-        public async Task<Build2.BuildArtifact> AssociateArtifact(
+        public async Task<Build2.BuildArtifact> AssociateArtifactAsync(
             int buildId,
             string name,
             string jobId,

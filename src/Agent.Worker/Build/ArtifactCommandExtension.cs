@@ -212,7 +212,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             CancellationToken cancellationToken)
         {
             BuildServer buildHelper = new BuildServer(connection, projectId);
-            var artifact = await buildHelper.AssociateArtifact(buildId, name, jobId, type, data, propertiesDictionary, cancellationToken);
+            var artifact = await buildHelper.AssociateArtifactAsync(buildId, name, jobId, type, data, propertiesDictionary, cancellationToken);
             context.Output(StringUtil.Loc("AssociateArtifactWithBuild", artifact.Id, buildId));
         }
 
@@ -237,7 +237,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             context.Output(StringUtil.Loc("UploadToFileContainer", source, fileContainerFullPath));
 
             BuildServer buildHelper = new BuildServer(connection, projectId);
-            var artifact = await buildHelper.AssociateArtifact(buildId, name, jobId, ArtifactResourceTypes.Container, fileContainerFullPath, propertiesDictionary, cancellationToken);
+            var artifact = await buildHelper.AssociateArtifactAsync(buildId, name, jobId, ArtifactResourceTypes.Container, fileContainerFullPath, propertiesDictionary, cancellationToken);
             context.Output(StringUtil.Loc("AssociateArtifactWithBuild", artifact.Id, buildId));
         }
 

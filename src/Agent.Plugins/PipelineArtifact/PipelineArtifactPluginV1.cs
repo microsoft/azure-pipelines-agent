@@ -135,13 +135,13 @@ namespace Agent.Plugins.PipelineArtifact
 
                     // 2) associate the pipeline artifact with an build artifact
                     VssConnection connection = context.VssConnection;
-                    BuildServer buildHelper = new BuildServer(connection);
+                    BuildServer buildServer = new BuildServer(connection);
                     Dictionary<string, string> propertiesDictionary = new Dictionary<string, string>();
                     propertiesDictionary.Add(FileShareArtifactUploadEventProperties.ArtifactName, artifactName);
                     propertiesDictionary.Add(FileShareArtifactUploadEventProperties.ArtifactType, fileShareType);
                     propertiesDictionary.Add(FileShareArtifactUploadEventProperties.ArtifactLocation, fileSharePath);
 
-                    var artifact = await buildHelper.AssociateArtifact(projectId, buildId, artifactName, ArtifactResourceTypes.FilePath, fileSharePath, propertiesDictionary, token);
+                    var artifact = await buildServer.AssociateArtifactAsync(projectId, buildId, artifactName, ArtifactResourceTypes.FilePath, fileSharePath, propertiesDictionary, token);
                     var parallel = context.GetInput(ArtifactEventProperties.Parallel, required: false);
 
                     var parallelCount = 1;
