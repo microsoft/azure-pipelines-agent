@@ -292,7 +292,7 @@ namespace Agent.Plugins.PipelineCache
             CancellationToken cancellationToken)
         {
 
-            // Throw for bunch of invalid combinations of istar and contentFormat.
+            // Throw for bunch of invalid combinations of istar and contentFormat ??
             if (!isTar)
             {
                 DownloadDedupManifestArtifactOptions options = DownloadDedupManifestArtifactOptions.CreateWithManifestId(
@@ -305,12 +305,13 @@ namespace Agent.Plugins.PipelineCache
             }
             else
             {
-                DownloadDedupManifestArtifactOptions options = DownloadDedupManifestArtifactOptions.CreateWithManifestId(
-                    manifestId,
-                    targetDirectory,
-                    proxyUri: null,
-                    minimatchPatterns: null);
-
+                string manifestPath = Path.Combine(Path.GetTempPath(), $"{nameof(DedupManifestArtifactClient)}.{Path.GetRandomFileName()}.manifest");
+                using (var manifestStream = File.Create(manifestPath))
+                {
+                    await dedupManifestClient.DownloadToStreamAsync(manifestId, manifestStream, null, cancellationToken);
+                }
+                Manifest m = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(manifestPath));
+                        
                 var processTcs = new TaskCompletionSource<int>();
 
                 using (var cancelSource = new CancellationTokenSource())
@@ -353,10 +354,8 @@ namespace Agent.Plugins.PipelineCache
                     {
                         try
                         {
-                            options.Stream = process.StandardInput.BaseStream;
-                            await dedupManifestClient.DownloadAsync(options, linkedSource.Token);
-                            //process.StandardInput.BaseStream.Close();
-                            options.Stream.Close();
+                            await dedupManifestClient.DownloadToStreamAsync(DedupIdentifier.Create(m.Items[0].Blob.Id), process.StandardInput.BaseStream, proxyUri: null, linkedSource.Token);
+                            process.StandardInput.BaseStream.Close();
                         }
                         catch (Exception e)
                         {
