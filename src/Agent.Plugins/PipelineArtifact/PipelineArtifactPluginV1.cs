@@ -200,7 +200,6 @@ namespace Agent.Plugins.PipelineArtifact
         public static readonly string ArtifactName = "artifactname";
         public static readonly string ArtifactLocation = "artifactlocation";
         public static readonly string ArtifactType = "artifacttype";
-        public static readonly string Browsable = "Browsable";
     }
 
     // Can be invoked from a build run or a release run should a build be set as the artifact. 
