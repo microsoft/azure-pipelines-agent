@@ -13,14 +13,13 @@ namespace Agent.Plugins.PipelineArtifact
     {
         private readonly FileContainerProvider fileContainerProvider;
         private readonly PipelineArtifactProvider pipelineArtifactProvider;
-
-        private readonly FileShareProvider fileShareHelper;
+        private readonly FileShareProvider fileShareProvider;
 
         public ArtifactProviderFactory(AgentTaskPluginExecutionContext context, VssConnection connection, CallbackAppTraceSource tracer)
         {
             pipelineArtifactProvider = new PipelineArtifactProvider(context, connection, tracer);
             fileContainerProvider = new FileContainerProvider(connection, tracer);
-            fileShareHelper = new FileShareProvider(context, tracer);
+            fileShareProvider = new FileShareProvider(context, tracer);
 
         }
 
@@ -37,7 +36,7 @@ namespace Agent.Plugins.PipelineArtifact
                     provider = fileContainerProvider;
                     break;
                 case PipelineArtifactConstants.FileShareArtifact:
-                    provider = fileShareHelper;
+                    provider = fileShareProvider;
                     break;
                 default:
                     throw new InvalidOperationException($"{buildArtifact} is not a type of PipelineArtifact, FileShare or BuildArtifact");
