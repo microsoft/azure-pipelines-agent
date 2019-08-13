@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
@@ -56,15 +57,16 @@ namespace Agent.Plugins.PipelineCache
             Fingerprint fingerprint,
             Func<Fingerprint[]> restoreKeysGenerator,
             string path,
-            bool isTar,
             CancellationToken token)
         {
+            VariableValue packValue = context.Variables.GetValueOrDefault(PackingVariableName);
+            string pack = packValue?.Value ?? string.Empty;
             PipelineCacheServer server = new PipelineCacheServer();
             await server.UploadAsync(
                 context,
                 fingerprint, 
                 path,
-                isTar,
+                !String.IsNullOrWhiteSpace(pack),
                 token);
         }
     }

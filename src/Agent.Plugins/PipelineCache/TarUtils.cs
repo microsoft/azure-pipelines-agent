@@ -114,7 +114,7 @@ namespace Agent.Plugins.PipelineCache
             using (var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, cancelSource.Token))
             using (var process = new Process())
             {
-                process.StartInfo.FileName = isWindows ? @"C:\Program Files\7-Zip\7z.exe" : "tar";
+                process.StartInfo.FileName = isWindows ? "7z" : "tar";
                 process.StartInfo.Arguments = isWindows ? $"x -si -aoa -o{targetDirectory} -ttar" : $"-xf - -C {targetDirectory}";
                 process.StartInfo.UseShellExecute = false;
                 process.StartInfo.RedirectStandardInput = true;

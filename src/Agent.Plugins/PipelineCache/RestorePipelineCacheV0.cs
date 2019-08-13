@@ -16,7 +16,6 @@ namespace Agent.Plugins.PipelineCache
             Fingerprint fingerprint,
             Func<Fingerprint[]> restoreKeysGenerator,
             string path,
-            bool isTar,
             CancellationToken token)
         {
             context.SetTaskVariable(RestoreStepRanVariableName, RestoreStepRanVariableValue);
@@ -28,7 +27,6 @@ namespace Agent.Plugins.PipelineCache
                 (new [] { fingerprint}).Concat(restoreFingerprints).ToArray(),
                 path,
                 context.GetInput(PipelineCacheTaskPluginConstants.CacheHitVariable, required: false),
-                isTar,
                 token);
         }
     }

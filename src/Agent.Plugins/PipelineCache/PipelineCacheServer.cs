@@ -23,9 +23,7 @@ using JsonSerializer = Microsoft.VisualStudio.Services.Content.Common.JsonSerial
 namespace Agent.Plugins.PipelineCache
 {
     public class PipelineCacheServer
-    {
-        
-
+    {       
         TarUtils tarUtils = new TarUtils();
 
         internal async Task UploadAsync(
@@ -130,7 +128,6 @@ namespace Agent.Plugins.PipelineCache
             Fingerprint[] fingerprints,
             string path,
             string cacheHitVariable,
-            bool isTar,
             CancellationToken cancellationToken)
         {
             VssConnection connection = context.VssConnection;
@@ -157,7 +154,7 @@ namespace Agent.Plugins.PipelineCache
                         record: downloadRecord,
                         actionAsync: async () =>
                         {
-                            await this.DownloadPipelineCacheAsync(context, dedupManifestClient, result.ManifestId, path, isTar, result.ContentFormat, cancellationToken);
+                            await this.DownloadPipelineCacheAsync(context, dedupManifestClient, result.ManifestId, path, result.ContentFormat, cancellationToken);
                         });
 
                     // Send results to CustomerIntelligence
@@ -220,13 +217,10 @@ namespace Agent.Plugins.PipelineCache
             DedupManifestArtifactClient dedupManifestClient,
             DedupIdentifier manifestId,
             string targetDirectory,
-            bool isTar,
             string contentFormat,
             CancellationToken cancellationToken)
         {
-
-            // Throw for bunch of invalid combinations of istar and contentFormat ??
-            if (!isTar)
+            if (contentFormat == ContentFormatConstants.Files)
             {
                 DownloadDedupManifestArtifactOptions options = DownloadDedupManifestArtifactOptions.CreateWithManifestId(
                     manifestId,
@@ -242,9 +236,7 @@ namespace Agent.Plugins.PipelineCache
                 await dedupManifestClient.DownloadFileToPathAsync(manifestId, manifestPath, proxyUri: null, cancellationToken);
                 Manifest manifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(manifestPath));
                 this.ValidateTarManifest(manifest);
-
                 await tarUtils.DownloadTar(context, dedupManifestClient, DedupIdentifier.Create(manifest.Items[0].Blob.Id), targetDirectory, cancellationToken);
-   
             }
 
         }
