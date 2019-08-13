@@ -76,8 +76,9 @@ namespace Agent.Plugins.PipelineArtifact
 
             targetPath = Path.IsPathFullyQualified(targetPath) ? targetPath : Path.GetFullPath(Path.Combine(defaultWorkingDirectory, targetPath));
 
-            if(!PipelineArtifactPathHelper.IsValidArtifactName(artifactName)) 
-            {
+            Thread.Sleep(20000);
+            
+            if(!PipelineArtifactPathHelper.IsValidArtifactName(artifactName)) {
                 throw new ArgumentException(StringUtil.Loc("ArtifactNameIsNotValid", artifactName));
             }
 

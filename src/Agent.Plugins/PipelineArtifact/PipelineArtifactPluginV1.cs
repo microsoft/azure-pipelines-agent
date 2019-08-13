@@ -45,8 +45,6 @@ namespace Agent.Plugins.PipelineArtifact
             public static readonly string ItemPattern = "itemPattern";
             public static readonly string ArtifactType = "artifactType";
             public static readonly string FileSharePath = "fileSharePath";
-            public static readonly string Parallel = "parallel";
-            public static readonly string ParallelCount = "parallelCount";
         }
     }
 
@@ -67,11 +65,7 @@ namespace Agent.Plugins.PipelineArtifact
         {
             string artifactName = context.GetInput(ArtifactEventProperties.ArtifactName, required: false);
             string targetPath = context.GetInput(TargetPath, required: true);
-            string artifactType = context.GetInput(ArtifactEventProperties.ArtifactType, required: false);
-            if(string.IsNullOrEmpty(artifactType))
-            {
-                artifactType = pipelineType;
-            }
+            string artifactType = context.GetInput(ArtifactEventProperties.ArtifactType, required: true);
             artifactType = artifactType.ToLower();
 
             string defaultWorkingDirectory = context.Variables.GetValueOrDefault("system.defaultworkingdirectory").Value;
@@ -128,44 +122,11 @@ namespace Agent.Plugins.PipelineArtifact
             else if (artifactType == fileShareType)
             {
                 string fileSharePath = context.GetInput(ArtifactEventProperties.FileSharePath, required: true);
-                string artifactPath = Path.Join(fileSharePath, artifactName);
 
                 if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
-                    // create the artifact. at this point, mkdirP already succeeded so the path is good.
-                    // the artifact should get cleaned up during retention even if the copy fails in the
-                    // middle
-                    Directory.CreateDirectory(artifactPath);
-
-                    // 2) associate the pipeline artifact with an build artifact
-                    VssConnection connection = context.VssConnection;
-                    BuildServer buildServer = new BuildServer(connection);
-                    Dictionary<string, string> propertiesDictionary = new Dictionary<string, string>();
-                    propertiesDictionary.Add(FileShareArtifactUploadEventProperties.ArtifactName, artifactName);
-                    propertiesDictionary.Add(FileShareArtifactUploadEventProperties.ArtifactType, fileShareType);
-                    propertiesDictionary.Add(FileShareArtifactUploadEventProperties.ArtifactLocation, fileSharePath);
-
-                    var artifact = await buildServer.AssociateArtifactAsync(projectId, buildId, artifactName, ArtifactResourceTypes.FilePath, fileSharePath, propertiesDictionary, token);
-                    var parallel = context.GetInput(ArtifactEventProperties.Parallel, required: false);
-
-                    var parallelCount = 1;
-                    if(parallel == "true") 
-                    {
-                        parallelCount = GetParallelCount(context, context.GetInput(ArtifactEventProperties.ParallelCount, required: false));
-                    }
-
-                    // To copy all the files in one directory to another directory.
-                    // Get the files in the source folder. (To recursively iterate through
-                    // all subfolders under the current directory, see
-                    // "How to: Iterate Through a Directory Tree.")
-                    // Note: Check for target path was performed previously
-                    // in this code example.
-                    if (System.IO.Directory.Exists(fileSharePath))
-                    {
-                        await FileShareProvider.DirectoryCopyWithMiniMatch(targetPath, artifactPath, context, parallelCount);
-                        context.Output(StringUtil.Loc("CopyFileComplete", artifactPath));
-                    }
-                   
+                    FilePathUNCServer server = new FilePathUNCServer();
+                    await server.UploadAsync(context, projectId, buildId, artifactName, targetPath, fileSharePath, token);                  
                 }
                 else 
                 {
@@ -180,32 +141,6 @@ namespace Agent.Plugins.PipelineArtifact
             jobIdentifier = jobIdentifierRgx.Replace(jobIdentifier, string.Empty).Replace(".default", string.Empty);
             return jobIdentifier;
         }
-
-        private int GetParallelCount(AgentTaskPluginExecutionContext context, string parallelCount)
-        {
-            var result = 8;
-            if(int.TryParse(parallelCount, out result))
-            {
-                if(result < 1) {
-                    context.Output(StringUtil.Loc("UnexpectedParallelCount"));
-                    result = 1;
-                }else if(result > 128){
-                    context.Output(StringUtil.Loc("UnexpectedParallelCount"));
-                    result = 128;
-                }
-            }else {
-                throw new ArgumentException(StringUtil.Loc("ParallelCountNotANumber"));
-            }
-
-            return result;
-        }
-    }
-
-    internal static class FileShareArtifactUploadEventProperties
-    {
-        public static readonly string ArtifactName = "artifactname";
-        public static readonly string ArtifactLocation = "artifactlocation";
-        public static readonly string ArtifactType = "artifacttype";
     }
 
     // Can be invoked from a build run or a release run should a build be set as the artifact. 
