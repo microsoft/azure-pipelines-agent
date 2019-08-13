@@ -33,19 +33,16 @@ namespace Agent.Plugins.PipelineArtifact
             // 2) associate the pipeline artifact with an build artifact
             VssConnection connection = context.VssConnection;
             BuildServer buildServer = new BuildServer(connection);
-            Dictionary<string, string> propertiesDictionary = new Dictionary<string, string>();
-            propertiesDictionary.Add(FileShareArtifactUploadEventProperties.ArtifactName, artifactName);
-            propertiesDictionary.Add(FileShareArtifactUploadEventProperties.ArtifactType, PipelineArtifactConstants.FileShareArtifact);
-            propertiesDictionary.Add(FileShareArtifactUploadEventProperties.ArtifactLocation, fileSharePath);
+            var propertiesDictionary = new Dictionary<string, string>
+            {
+                { FileShareArtifactUploadEventProperties.ArtifactName, artifactName },
+                { FileShareArtifactUploadEventProperties.ArtifactType, PipelineArtifactConstants.FileShareArtifact },
+                { FileShareArtifactUploadEventProperties.ArtifactLocation, fileSharePath }
+            };
 
             var artifact = await buildServer.AssociateArtifactAsync(projectId, buildId, artifactName, ArtifactResourceTypes.FilePath, fileSharePath, propertiesDictionary, token);
             var parallel = context.GetInput(FileShareArtifactUploadEventProperties.Parallel, required: false);
-
-            var parallelCount = 1;
-            if(parallel == "true") 
-            {
-                parallelCount = GetParallelCount(context, context.GetInput(FileShareArtifactUploadEventProperties.ParallelCount, required: false));
-            }
+            var parallelCount = parallel == "true" ? GetParallelCount(context, context.GetInput(FileShareArtifactUploadEventProperties.ParallelCount, required: false)) : 1;
 
             // To copy all the files in one directory to another directory.
             // Get the files in the source folder. (To recursively iterate through
@@ -62,13 +59,14 @@ namespace Agent.Plugins.PipelineArtifact
 
         internal static class FileShareArtifactUploadEventProperties
         {
-            public static readonly string ArtifactName = "artifactname";
-            public static readonly string ArtifactLocation = "artifactlocation";
-            public static readonly string ArtifactType = "artifacttype";
-            public static readonly string ParallelCount = "parallelCount";
-            public static readonly string Parallel = "parallel";
+            public const string ArtifactName = "artifactname";
+            public const string ArtifactLocation = "artifactlocation";
+            public const string ArtifactType = "artifacttype";
+            public const string ParallelCount = "parallelCount";
+            public const string Parallel = "parallel";
         }
 
+        // Enter the degree of parallelism, or number of threads used, to perform the copy. The value must be at least 1 and not greater than 128.
         private int GetParallelCount(AgentTaskPluginExecutionContext context, string parallelCount)
         {
             var result = 8;

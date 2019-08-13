@@ -30,7 +30,8 @@ namespace Agent.Plugins.PipelineArtifact
 
         public Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken)
         {
-            return this.DownloadFileShareAsync(downloadParameters.ProjectId, buildArtifacts, downloadParameters.TargetDirectory, downloadParameters.MinimatchFilters, cancellationToken);
+            this.DownloadFileShareAsync(downloadParameters.ProjectId, buildArtifacts, downloadParameters.TargetDirectory, downloadParameters.MinimatchFilters, cancellationToken);
+            return Task.CompletedTask;
         }
 
         public Task DownloadFileShareAsync(Guid projectId, IEnumerable<BuildArtifact> buildArtifacts, string targetDirectory, IEnumerable<string> minimatchFilters, CancellationToken cancellationToken)
@@ -38,10 +39,10 @@ namespace Agent.Plugins.PipelineArtifact
             foreach (var buildArtifact in buildArtifacts)
             {
                 var dirPath = Path.Combine(targetDirectory, buildArtifact.Name);
-                return DownloadFileShareAsync(projectId, buildArtifact, dirPath, minimatchFilters, cancellationToken, isSingleArtifactDownload: false);
+                this.DownloadFileShareAsync(projectId, buildArtifact, dirPath, minimatchFilters, cancellationToken, isSingleArtifactDownload: false);
             }
 
-            return Task.FromResult<object>(null);
+            return Task.CompletedTask;
         }
 
         private Task DownloadFileShareAsync(Guid projectId, BuildArtifact artifact, string destPath, IEnumerable<string> minimatchPatterns, CancellationToken cancellationToken, bool isSingleArtifactDownload = true)
@@ -91,7 +92,7 @@ namespace Agent.Plugins.PipelineArtifact
                 string temppath = Path.Combine(destPath, subdir.Name);
                 return DirectoryCopyWithMiniMatch(subdir.FullName, temppath, context, parallelCount, minimatchFuncs, minimatchRoot);
             }
-            return Task.FromResult<object>(null);
+            return Task.CompletedTask;
         }
     }
 }

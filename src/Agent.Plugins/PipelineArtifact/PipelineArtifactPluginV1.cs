@@ -54,10 +54,9 @@ namespace Agent.Plugins.PipelineArtifact
     {
         public override Guid Id => PipelineArtifactPluginConstants.PublishPipelineArtifactTaskId;
         protected override string TargetPath => "path";
-
         private static readonly Regex jobIdentifierRgx = new Regex("[^a-zA-Z0-9 - .]", RegexOptions.Compiled | RegexOptions.CultureInvariant);
-        private static readonly string pipelineType = "pipeline";
-        private static readonly string fileShareType = "filepath";
+        private const string pipelineType = "pipeline";
+        private const string fileShareType = "filepath";
 
         protected override async Task ProcessCommandInternalAsync(
             AgentTaskPluginExecutionContext context, 
