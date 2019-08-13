@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
@@ -248,7 +247,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 
     public class MountVolume
     {
-                
         public MountVolume(string sourceVolumePath, string targetVolumePath, bool readOnly = false)
         {
             this.SourceVolumePath = sourceVolumePath;
@@ -261,47 +259,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             ParseVolumeString(fromString);
         }
 
-        private static Regex unixifyWindowsDriveRegex = new Regex(@"(^|:)([a-zA-Z]):(\\|/)", RegexOptions.Compiled);
-        private string UnixifyWindowsDriveInPath(string path)
-        {
-            
-            return unixifyWindowsDriveRegex.Replace(path, "$1/$2/$3");
-        }
-
-        private static Regex restoreWindowsDriveRegex = new Regex(@"^/([a-zA-Z])/", RegexOptions.Compiled);
-        private string RestoreWindowsDriveInPath(string path)
-        {
-            
-            return restoreWindowsDriveRegex.Replace(path, "$1:");
-        }
-
         private void ParseVolumeString(string volume)
         {
-            ReadOnly = false;
-            SourceVolumePath = null;
-
-            string readonlyToken = ":ro";
-            if (volume.ToLower().EndsWith(readonlyToken))
+            var volumeSplit = volume.Split(":");
+            if (volumeSplit.Length == 3)
             {
-                ReadOnly = true;
-                volume = volume.Remove(volume.Length-readonlyToken.Length);
+                // source:target:ro
+                SourceVolumePath = volumeSplit[0];
+                TargetVolumePath = volumeSplit[1];
+                ReadOnly = String.Equals(volumeSplit[2], "ro", StringComparison.OrdinalIgnoreCase);
             }
-            if (volume.StartsWith(":"))
+            else if (volumeSplit.Length == 2)
             {
-                volume = volume.Substring(1);
-            }
-
-            var volumeSplit = UnixifyWindowsDriveInPath(volume).Split(":");
-            if (volumeSplit.Length == 2)
-            {
-                // source:target
-                SourceVolumePath = RestoreWindowsDriveInPath(volumeSplit[0]);
-                TargetVolumePath = RestoreWindowsDriveInPath(volumeSplit[1]);
+                if (String.Equals(volumeSplit[1], "ro", StringComparison.OrdinalIgnoreCase))
+                {
+                    // target:ro
+                    TargetVolumePath = volumeSplit[0];
+                    ReadOnly = true;
+                }
+                else
+                {
+                    // source:target
+                    SourceVolumePath = volumeSplit[0];
+                    TargetVolumePath = volumeSplit[1];
+                    ReadOnly = false;
+                }
             }
             else
             {
                 // target - or, default to passing straight through
                 TargetVolumePath = volume;
+                ReadOnly = false;
             }
         }
 
