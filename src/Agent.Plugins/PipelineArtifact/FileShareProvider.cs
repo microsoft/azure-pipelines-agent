@@ -50,7 +50,7 @@ namespace Agent.Plugins.PipelineArtifact
         private void CopyFileShare(Guid projectId, BuildArtifact artifact, string destPath, IEnumerable<string> minimatchPatterns, CancellationToken cancellationToken, bool isSingleArtifactDownload = true)
         {
             var downloadRootPath = artifact.Resource.Data + Path.DirectorySeparatorChar + artifact.Name;
-            minimatchPatterns = minimatchPatterns.Select(pattern => Path.Combine("*" + downloadRootPath, pattern));
+            minimatchPatterns = minimatchPatterns.Select(pattern => Path.Combine(downloadRootPath, pattern));
             IEnumerable<Func<string, bool>> minimatcherFuncs = MinimatchHelper.GetMinimatchFuncs( minimatchPatterns, this.tracer);
             DirectoryCopyWithMiniMatch(downloadRootPath, destPath, defaultParallelCount, minimatcherFuncs);
         }

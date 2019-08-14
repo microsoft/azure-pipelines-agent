@@ -217,7 +217,6 @@ namespace Agent.Plugins.PipelineArtifact
             DownloadOptions downloadOptions,
             CancellationToken cancellationToken)
         {
-            Thread.Sleep(20000);
             VssConnection connection = context.VssConnection;
             BuildServer buildHelper = new BuildServer(connection);
 
