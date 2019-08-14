@@ -7,13 +7,12 @@ using Agent.Sdk;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 
 namespace Agent.Plugins.PipelineArtifact
 {
-    // A wrapper of DedupManifestArtifactClient, providing basic functionalities such as uploading and downloading pipeline artifacts.
     public class FilePathUNCServer
     {
-        // Upload from target path to Azure DevOps BlobStore service through DedupManifestArtifactClient, then associate it with the build
         internal async Task UploadAsync(
             AgentTaskPluginExecutionContext context,
             Guid projectId,
@@ -25,7 +24,7 @@ namespace Agent.Plugins.PipelineArtifact
         {
             string artifactPath = Path.Join(fileSharePath, artifactName);
 
-            // create the artifact. at this point, mkdirP already succeeded so the path is good.
+            // create the artifact. at this point, mkdir already succeeded so the path is good.
             // the artifact should get cleaned up during retention even if the copy fails in the
             // middle
             Directory.CreateDirectory(artifactPath);
@@ -52,7 +51,8 @@ namespace Agent.Plugins.PipelineArtifact
             // in this code example.
             if (System.IO.Directory.Exists(fileSharePath))
             {
-                await FileShareProvider.DirectoryCopyWithMiniMatch(targetPath, artifactPath, context, parallelCount);
+                FileShareProvider provider = new FileShareProvider(context, new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information));
+                await provider.PublishArtifactAsync(targetPath, artifactPath, parallelCount);
                 context.Output(StringUtil.Loc("CopyFileComplete", artifactPath));
             }
         }
@@ -67,6 +67,7 @@ namespace Agent.Plugins.PipelineArtifact
         }
 
         // Enter the degree of parallelism, or number of threads used, to perform the copy. The value must be at least 1 and not greater than 128.
+        // This is the same logic as the build artifact tasks https://github.com/microsoft/azure-pipelines-tasks/blob/master/Tasks/PublishBuildArtifactsV1/publishbuildartifacts.ts
         private int GetParallelCount(AgentTaskPluginExecutionContext context, string parallelCount)
         {
             var result = 8;

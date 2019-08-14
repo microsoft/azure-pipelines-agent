@@ -16,6 +16,7 @@ namespace Agent.Plugins.PipelineArtifact
     {
         private readonly AgentTaskPluginExecutionContext context;
         private readonly CallbackAppTraceSource tracer;
+        private const int defaultParallelCount = 1;
 
         public FileShareProvider(AgentTaskPluginExecutionContext context, CallbackAppTraceSource tracer)
         {
@@ -25,40 +26,42 @@ namespace Agent.Plugins.PipelineArtifact
 
         public Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken)
         {
-            return this.DownloadFileShareAsync(downloadParameters.ProjectId, buildArtifact, downloadParameters.TargetDirectory, downloadParameters.MinimatchFilters, cancellationToken);
+            this.CopyFileShare(downloadParameters.ProjectId, buildArtifact, downloadParameters.TargetDirectory, downloadParameters.MinimatchFilters, cancellationToken);
+            return Task.CompletedTask;
         }
 
         public Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken)
         {
-            this.DownloadFileShareAsync(downloadParameters.ProjectId, buildArtifacts, downloadParameters.TargetDirectory, downloadParameters.MinimatchFilters, cancellationToken);
-            return Task.CompletedTask;
-        }
-
-        public Task DownloadFileShareAsync(Guid projectId, IEnumerable<BuildArtifact> buildArtifacts, string targetDirectory, IEnumerable<string> minimatchFilters, CancellationToken cancellationToken)
-        {
             foreach (var buildArtifact in buildArtifacts)
             {
-                var dirPath = Path.Combine(targetDirectory, buildArtifact.Name);
-                this.DownloadFileShareAsync(projectId, buildArtifact, dirPath, minimatchFilters, cancellationToken, isSingleArtifactDownload: false);
+                var dirPath = Path.Combine(downloadParameters.TargetDirectory, buildArtifact.Name);
+                this.CopyFileShare(downloadParameters.ProjectId, buildArtifact, dirPath, downloadParameters.MinimatchFilters, cancellationToken, isSingleArtifactDownload: false);
             }
 
             return Task.CompletedTask;
         }
 
-        private Task DownloadFileShareAsync(Guid projectId, BuildArtifact artifact, string destPath, IEnumerable<string> minimatchPatterns, CancellationToken cancellationToken, bool isSingleArtifactDownload = true)
+        public Task PublishArtifactAsync(string sourcePath, string destPath, int parallelCount)
         {
-            IEnumerable<Func<string, bool>> minimatcherFuncs = MinimatchHelper.GetMinimatchFuncs(minimatchPatterns, this.tracer);
-            var downloadRootPath = artifact.Resource.Data + Path.DirectorySeparatorChar + artifact.Name;
-            return DirectoryCopyWithMiniMatch(downloadRootPath, destPath, this.context, 1, minimatcherFuncs, downloadRootPath);
+            this.DirectoryCopyWithMiniMatch(sourcePath, destPath, parallelCount);
+            return Task.CompletedTask;
         }
 
-        internal static Task DirectoryCopyWithMiniMatch(string sourcePath, string destPath, AgentTaskPluginExecutionContext context, int parallelCount = 1, IEnumerable<Func<string, bool>> minimatchFuncs = null, string minimatchRoot = null)
+        private void CopyFileShare(Guid projectId, BuildArtifact artifact, string destPath, IEnumerable<string> minimatchPatterns, CancellationToken cancellationToken, bool isSingleArtifactDownload = true)
+        {
+            var downloadRootPath = artifact.Resource.Data + Path.DirectorySeparatorChar + artifact.Name;
+            minimatchPatterns = minimatchPatterns.Select(pattern => Path.Combine("*" + downloadRootPath, pattern));
+            IEnumerable<Func<string, bool>> minimatcherFuncs = MinimatchHelper.GetMinimatchFuncs( minimatchPatterns, this.tracer);
+            DirectoryCopyWithMiniMatch(downloadRootPath, destPath, defaultParallelCount, minimatcherFuncs);
+        }
+
+        private void DirectoryCopyWithMiniMatch(string sourcePath, string destPath, int parallelCount = defaultParallelCount, IEnumerable<Func<string, bool>> minimatchFuncs = null)
         {
             // If the source path is a file, the system should copy the file to the dest directory directly. 
             if(File.Exists(sourcePath)) {
-                context.Output(StringUtil.Loc("CopyFileToDestination", sourcePath, destPath));
+                this.context.Output(StringUtil.Loc("CopyFileToDestination", sourcePath, destPath));
                 File.Copy(sourcePath, destPath + Path.DirectorySeparatorChar + Path.GetFileName(sourcePath), true);
-                return Task.FromResult<object>(null);
+                return;
             }
 
             var opts = new ParallelOptions() { MaxDegreeOfParallelism = parallelCount };
@@ -76,12 +79,12 @@ namespace Agent.Plugins.PipelineArtifact
                 
             // Get the files in the directory and copy them to the new location.
             FileInfo[] files = dir.GetFiles();
+    
             Parallel.ForEach(files, opts, file => {
-                var matchingPath = !string.IsNullOrEmpty(minimatchRoot)? file.FullName.Replace(minimatchRoot + Path.DirectorySeparatorChar, string.Empty): string.Empty;
-                if (minimatchFuncs == null || minimatchFuncs.Any(match => match(matchingPath))) 
+                if (minimatchFuncs == null || minimatchFuncs.Any(match => match(file.FullName))) 
                 {
                     string temppath = Path.Combine(destPath, file.Name);
-                    context.Output(StringUtil.Loc("CopyFileToDestination", file, destPath));
+                    this.context.Output(StringUtil.Loc("CopyFileToDestination", file, destPath));
                     file.CopyTo(temppath, true);
                 }
             });
@@ -90,9 +93,8 @@ namespace Agent.Plugins.PipelineArtifact
             foreach (DirectoryInfo subdir in dirs)
             {
                 string temppath = Path.Combine(destPath, subdir.Name);
-                return DirectoryCopyWithMiniMatch(subdir.FullName, temppath, context, parallelCount, minimatchFuncs, minimatchRoot);
+                DirectoryCopyWithMiniMatch(subdir.FullName, temppath, parallelCount, minimatchFuncs);
             }
-            return Task.CompletedTask;
         }
     }
 }
