@@ -51,7 +51,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
                 new MountVolumeTest("c:\\dst\\dir:ro", new MountVolume(null, "c:\\dst\\dir", true), "Maps anonymous Docker volume read-only into target dir using Windows-style paths"), 
                 new MountVolumeTest("c:\\src\\dir:c:\\dst\\dir:ro", new MountVolume("c:\\src\\dir", "c:\\dst\\dir", true), "Maps source to read-only target dir using Windows-style paths"), 
                 new MountVolumeTest("c\\:\\src\\dir:c\\:\\dst\\dir:ro", new MountVolume("c:\\src\\dir", "c:\\dst\\dir", true), "Maps source to read-only target dir using Windows-style paths and explicit escape"), 
-
             };
 
             foreach (var test in tests)
