@@ -261,18 +261,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             ParseVolumeString(fromString);
         }
 
-        private static Regex unixifyWindowsDriveRegex = new Regex(@"(^|:)([a-zA-Z]):(\\|/)", RegexOptions.Compiled);
-        private string UnixifyWindowsDriveInPath(string path)
+        private static Regex autoEscapeWindowsDriveRegex = new Regex(@"(^|:)([a-zA-Z]):(\\|/)", RegexOptions.Compiled);
+        private string AutoEscapeWindowsDriveInPath(string path)
         {
             
-            return unixifyWindowsDriveRegex.Replace(path, "$1/$2/$3");
-        }
-
-        private static Regex restoreWindowsDriveRegex = new Regex(@"^/([a-zA-Z])/", RegexOptions.Compiled);
-        private string RestoreWindowsDriveInPath(string path)
-        {
-            
-            return restoreWindowsDriveRegex.Replace(path, "$1:");
+            return autoEscapeWindowsDriveRegex.Replace(path, @"$1$2\:$3");
         }
 
         private void ParseVolumeString(string volume)
@@ -291,12 +284,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                 volume = volume.Substring(1);
             }
 
-            var volumeSplit = UnixifyWindowsDriveInPath(volume).Split(":");
-            if (volumeSplit.Length == 2)
+            var volumes = new List<string>();
+            // split by colon, but honor escaping of colons
+            var volumeSplit = AutoEscapeWindowsDriveInPath(volume).Split(':');
+            var appendNextIteration = false;
+            foreach (var fragment in volumeSplit)
+            {
+                if (appendNextIteration)
+                {
+                    var orig = volumes[volumes.Count - 1];
+                    orig = orig.Remove(orig.Length - 1); // remove the trailing backslash
+                    volumes[volumes.Count - 1] = orig + ":" + fragment;
+                    appendNextIteration = false;
+                }
+                else
+                {
+                    volumes.Add(fragment);
+                }
+                // if this fragment ends with backslash, then the : was escaped
+                if (fragment.EndsWith(@"\"))
+                {
+                    appendNextIteration = true;
+                }
+            }
+
+            if (volumes.Count == 2)
             {
                 // source:target
-                SourceVolumePath = RestoreWindowsDriveInPath(volumeSplit[0]);
-                TargetVolumePath = RestoreWindowsDriveInPath(volumeSplit[1]);
+                SourceVolumePath = volumes[0];
+                TargetVolumePath = volumes[1];
             }
             else
             {
