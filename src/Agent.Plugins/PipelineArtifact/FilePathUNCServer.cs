@@ -73,14 +73,19 @@ namespace Agent.Plugins.PipelineArtifact
             var result = 8;
             if(int.TryParse(parallelCount, out result))
             {
-                if(result < 1) {
+                if(result < 1) 
+                {
                     context.Output(StringUtil.Loc("UnexpectedParallelCount"));
                     result = 1;
-                }else if(result > 128){
+                }
+                else if(result > 128)
+                {
                     context.Output(StringUtil.Loc("UnexpectedParallelCount"));
                     result = 128;
                 }
-            }else {
+            }
+            else 
+            {
                 throw new ArgumentException(StringUtil.Loc("ParallelCountNotANumber"));
             }
 
