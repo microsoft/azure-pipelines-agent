@@ -17,7 +17,7 @@ namespace Agent.Plugins.PipelineCache
         protected const string RestoreStepRanVariableValue = "true";
         private const string SaltVariableName = "AZDEVOPS_PIPELINECACHE_SALT";
         private const string OldKeyFormatMessage = "'key' format is changing to a single line: https://aka.ms/pipeline-caching-docs";
-        protected const string PackingVariableName = "AZDEVOPS_PIPELINECACHE_PACK";
+        protected const string PackingVariableName = "AZP_CACHING_TAR";
         public Guid Id => PipelineCachePluginConstants.CacheTaskId;
         public abstract String Stage { get; }
 
