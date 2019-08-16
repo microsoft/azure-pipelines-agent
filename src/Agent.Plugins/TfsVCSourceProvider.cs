@@ -91,7 +91,7 @@ namespace Agent.Plugins.Repository
 
 #if OS_WINDOWS
             // Set TFVC_BUILDAGENT_POLICYPATH
-            string policyDllPath = Path.Combine(executionContext.Variables.GetValueOrDefault("Agent.ServerOMDirectory")?.Value, "Microsoft.TeamFoundation.VersionControl.Controls.dll");
+            string policyDllPath = Path.Combine(executionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value, "externals", "tf", "Microsoft.TeamFoundation.VersionControl.Controls.dll");
             ArgUtil.File(policyDllPath, nameof(policyDllPath));
             const string policyPathEnvKey = "TFVC_BUILDAGENT_POLICYPATH";
             executionContext.Output(StringUtil.Loc("SetEnvVar", policyPathEnvKey));

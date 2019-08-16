@@ -26,9 +26,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
             assertPath(@"./**,!./.git/**", true);
             assertPath(@"/src/foo", true);
             assertPath(@"src/foo", true);
-
+            
             // ones we don't feel great about
             assertPath(@"We should go to the store/mall", true);
+            assertPath(@"KEY_SALT=5-macos-10.13-stable-x86_64-apple-darwin", true);
+            assertPath(@"ruby:2.6.2", true);
         }
     }
 }

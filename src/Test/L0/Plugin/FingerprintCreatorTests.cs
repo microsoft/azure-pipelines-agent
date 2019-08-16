@@ -72,7 +72,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 {
                     $"{Path.GetDirectoryName(path1)},!{path1}",
                 };
-                Assert.Throws<FileNotFoundException>(
+                Assert.Throws<AggregateException>(
                     () => FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments)
                 );
             }
@@ -93,7 +93,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments);
                 
                 Assert.Equal(1, f.Segments.Length);
-                Assert.Equal(FingerprintCreator.SummarizeString($"\nSHA256({Path.GetFileName(path1)})=[{content1.Length}]{hash1.ToHex()}"), f.Segments[0]);
+
+                var matchedFile = new FingerprintCreator.MatchedFile(Path.GetFileName(path1), content1.Length, hash1.ToHex());
+                Assert.Equal(matchedFile.GetHash(), f.Segments[0]);
             }
         }
 
@@ -111,10 +113,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                     $"{path2}",
                 };
                 Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments);
+
+                var file1 = new FingerprintCreator.MatchedFile(Path.GetFileName(path1), content1.Length, hash1.ToHex());
+                var file2 = new FingerprintCreator.MatchedFile(Path.GetFileName(path2), content2.Length, hash2.ToHex());
                 
                 Assert.Equal(2, f.Segments.Length);
-                Assert.Equal(FingerprintCreator.SummarizeString($"\nSHA256({Path.GetFileName(path1)})=[{content1.Length}]{hash1.ToHex()}"), f.Segments[0]);
-                Assert.Equal(FingerprintCreator.SummarizeString($"\nSHA256({Path.GetFileName(path2)})=[{content2.Length}]{hash2.ToHex()}"), f.Segments[1]);
+                Assert.Equal(file1.GetHash(), f.Segments[0]);
+                Assert.Equal(file2.GetHash(), f.Segments[1]);
             }
         }
 
@@ -142,10 +147,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 };
 
                 Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments);
+
+                var file1 = new FingerprintCreator.MatchedFile(relPath1, content1.Length, hash1.ToHex());
+                var file2 = new FingerprintCreator.MatchedFile(relPath2, content2.Length, hash2.ToHex());
                 
                 Assert.Equal(2, f.Segments.Length);
-                Assert.Equal(FingerprintCreator.SummarizeString($"\nSHA256({relPath1})=[{content1.Length}]{hash1.ToHex()}"), f.Segments[0]);
-                Assert.Equal(FingerprintCreator.SummarizeString($"\nSHA256({relPath2})=[{content2.Length}]{hash2.ToHex()}"), f.Segments[1]);
+                Assert.Equal(file1.GetHash(), f.Segments[0]);
+                Assert.Equal(file2.GetHash(), f.Segments[1]);
             }
         }
 

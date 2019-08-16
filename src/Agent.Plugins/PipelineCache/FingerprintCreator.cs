@@ -53,7 +53,7 @@ namespace Agent.Plugins.PipelineCache
             return true;
         }
 
-        internal static Func<string,bool> CreateMinimatchFilter(AgentTaskPluginExecutionContext context, string rule, bool invert)
+        internal static Func<string, bool> CreateMinimatchFilter(AgentTaskPluginExecutionContext context, string rule, bool invert)
         {
             Func<string,bool> filter = Minimatcher.CreateFilter(rule, minimatchOptions);
             Func<string,bool> tracedFilter = (path) => {
@@ -98,6 +98,45 @@ namespace Agent.Plugins.PipelineCache
             public SearchOption Depth;
         }
 
+        internal class MatchedFile
+        {
+            private static readonly SHA256Managed s_sha256 = new SHA256Managed();
+
+            public MatchedFile(string displayPath, long fileLength, string hash)
+            {
+                this.DisplayPath = displayPath;
+                this.FileLength = fileLength;
+                this.Hash = hash;    
+            }
+
+            public MatchedFile(string displayPath, FileStream fs): 
+                this(displayPath, fs.Length, s_sha256.ComputeHash(fs).ToHex())
+            {
+            }
+
+            public string DisplayPath;
+            public long FileLength;
+            public string Hash;
+
+            public string GetHash() {
+                return MatchedFile.GenerateHash(new [] { this });
+            }
+
+            public static string GenerateHash(IEnumerable<MatchedFile> matches) {                
+                string s = matches.Aggregate(new StringBuilder(),
+                        (sb, file) => sb.Append($"\nSHA256({file.DisplayPath})=[{file.FileLength}]{file.Hash}"),
+                        sb => sb.ToString());
+
+                return Convert.ToBase64String(s_sha256.ComputeHash(Encoding.UTF8.GetBytes(s)));
+            }
+        }
+
+        internal enum KeySegmentType
+        {
+            String = 0,
+            FilePath = 1,
+            FilePattern = 2
+        }
 
         // Given a globby path, figure out where to start enumerating.
         // Room for optimization here e.g. 
@@ -159,25 +198,70 @@ namespace Agent.Plugins.PipelineCache
             string filePathRoot,
             IEnumerable<string> keySegments)
         {
-            var sha256 = new SHA256Managed();
+            // Quickly validate all segments
+            foreach (string keySegment in keySegments)
+            {
+                CheckKeySegment(keySegment);
+            }
 
             string defaultWorkingDirectory = context.Variables.GetValueOrDefault(
                 "system.defaultworkingdirectory" // Constants.Variables.System.DefaultWorkingDirectory
                 )?.Value;
 
             var resolvedSegments = new List<string>();
+            var exceptions = new List<Exception>();
 
-            foreach (string keySegment in keySegments)
+            Action<string, KeySegmentType, Object> LogKeySegment = (segment, type, details) =>
             {
-                CheckKeySegment(keySegment);
-            }
-
-            foreach (string keySegment in keySegments)
-            {
-                if (IsPathyKeySegment(keySegment))
+                Func<string,int,string> FormatForDisplay = (value, displayLength) =>
                 {
-                    context.Verbose($"Interpretting `{keySegment}` as a path.");
+                    if (value.Length > displayLength)
+                    {
+                        value = value.Substring(0, displayLength - 3) + "...";
+                    }
 
+                    return value.PadRight(displayLength);
+                };
+
+                string formattedSegment = FormatForDisplay(segment, Math.Min(keySegments.Select(s => s.Length).Max(), 50));
+
+                if (type == KeySegmentType.String)
+                {
+                    context.Output($" - {formattedSegment} [string]");
+                }
+                else
+                {
+                    var matches = (details as MatchedFile[]) ?? new MatchedFile[0];
+                    
+                    if (type == KeySegmentType.FilePath)
+                    {
+                        string fileHash = matches.Length > 0 ? matches[0].Hash : null;
+                        context.Output($" - {formattedSegment} [file] {(!string.IsNullOrWhiteSpace(fileHash) ? $"--> {fileHash}" : "(not found)")}");
+                    }
+                    else if (type == KeySegmentType.FilePattern)
+                    {
+                        context.Output($" - {formattedSegment} [file pattern; matches: {matches.Length}]");
+                        if (matches.Any())
+                        {
+                            int filePathDisplayLength = Math.Min(matches.Select(mf => mf.DisplayPath.Length).Max(), 70);
+                            foreach (var match in matches)
+                            {
+                                context.Output($"   - {FormatForDisplay(match.DisplayPath, filePathDisplayLength)} --> {match.Hash}");
+                            }
+                        }
+                    }   
+                }
+            };    
+
+            foreach (string keySegment in keySegments)
+            {
+                if (!IsPathyKeySegment(keySegment))
+                {
+                    LogKeySegment(keySegment, KeySegmentType.String, null);
+                    resolvedSegments.Add(keySegment);
+                }
+                else
+                {
                     string[] pathRules = keySegment.Split(new []{','}, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToArray();
                     string[] includeRules = pathRules.Where(p => !p.StartsWith('!')).ToArray();
 
@@ -206,7 +290,7 @@ namespace Agent.Plugins.PipelineCache
                         return MakePathCanonical(defaultWorkingDirectory, excludeRule);
                     }).ToArray();
 
-                    var fileHashes = new SortedDictionary<string,string>(StringComparer.Ordinal);
+                    var matchedFiles = new SortedDictionary<string, MatchedFile>(StringComparer.Ordinal);
 
                     foreach(var kvp in enumerations)
                     {
@@ -221,45 +305,41 @@ namespace Agent.Plugins.PipelineCache
                         {
                             using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
                             {
-                                byte[] hash = sha256.ComputeHash(fs);
                                 // Path.GetRelativePath returns 'The relative path, or path if the paths don't share the same root.'
                                 string displayPath = filePathRoot == null ? path : Path.GetRelativePath(filePathRoot, path);
-                                fileHashes.Add(path, $"\nSHA256({displayPath})=[{fs.Length}]{hash.ToHex()}");
+                                matchedFiles.Add(path, new MatchedFile(displayPath, fs));
                             }
                         }
                     }
 
-                    if (!fileHashes.Any())
-                    {
-                        throw new FileNotFoundException("No files found.");
-                    }
+                    var patternSegment = keySegment.IndexOfAny(GlobChars) >= 0 || matchedFiles.Count() > 1;
 
-                    var fileHashesBuilder = new StringBuilder();
-                    foreach(string fileHashString in fileHashes.Values)
-                    {
-                        fileHashesBuilder.Append(fileHashString);
-                    }
+                    LogKeySegment(keySegment, 
+                        patternSegment ? KeySegmentType.FilePattern : KeySegmentType.FilePath,
+                        matchedFiles.Values.ToArray());
 
-                    string wholeFileHashString = fileHashesBuilder.ToString();
-                    string summary = SummarizeString(wholeFileHashString);
-                    context.Output($"File hashes summarized as `{summary}` from BASE64(SHA256(`{wholeFileHashString}`))");
-                    resolvedSegments.Add(summary);
-                } 
-                else
-                {
-                    context.Verbose($"Interpretting `{keySegment}` as a string.");
-                    resolvedSegments.Add($"{keySegment}");
-                }
+                    if (!matchedFiles.Any())
+                    {
+                        if (patternSegment)
+                        {
+                            exceptions.Add(new FileNotFoundException($"No matching files found for pattern: {keySegment}"));
+                        }
+                        else
+                        {
+                            exceptions.Add(new FileNotFoundException($"File not found: {keySegment}"));
+                        }
+                    }
+                
+                    resolvedSegments.Add(MatchedFile.GenerateHash(matchedFiles.Values));
+                }                 
+            }
+
+            if (exceptions.Any())
+            {
+                throw new AggregateException(exceptions);
             }
 
             return new Fingerprint() { Segments = resolvedSegments.ToArray() };
-        }
-
-        internal static string SummarizeString(string input)
-        {
-            var sha256 = new SHA256Managed();
-            byte[] fileHashStringBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(input));
-            return Convert.ToBase64String(fileHashStringBytes);
         }
     }
 }
