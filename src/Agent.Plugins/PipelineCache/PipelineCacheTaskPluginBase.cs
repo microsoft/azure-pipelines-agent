@@ -15,7 +15,7 @@ namespace Agent.Plugins.PipelineCache
     {
         protected const string RestoreStepRanVariableName = "RESTORE_STEP_RAN";
         protected const string RestoreStepRanVariableValue = "true";
-        private const string SaltVariableName = "AZDEVOPS_PIPELINECACHE_SALT";
+        private const string SaltVariableName = "AZP_CACHING_SALT";
         private const string OldKeyFormatMessage = "'key' format is changing to a single line: https://aka.ms/pipeline-caching-docs";
         protected const string PackingVariableName = "AZP_CACHING_TAR";
         public Guid Id => PipelineCachePluginConstants.CacheTaskId;
@@ -92,13 +92,13 @@ namespace Agent.Plugins.PipelineCache
             }
 
             context.Output($"Resolving key: {string.Join("|", keySegments)}");
-            Fingerprint keyFp = FingerprintCreator.EvaluateKeyToFingerprint(context, worksapceRoot, keySegments);
+            Fingerprint keyFp = FingerprintCreator.EvaluateKeyToFingerprint(context, workspaceRoot, keySegments);
             context.Output($"Resolved to: {keyFp}");
 
             Func<Fingerprint[]> restoreKeysGenerator = () => 
                 restoreKeys.Select(restoreKey => {
                     context.Output($"Resolving restore key: {string.Join("|", restoreKey)}");
-                    Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, worksapceRoot, restoreKey);
+                    Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, workspaceRoot, restoreKey);
                     f.Segments = f.Segments.Concat(new [] { Fingerprint.Wildcard} ).ToArray();
                     context.Output($"Resolved to: {f}");
                     return f;

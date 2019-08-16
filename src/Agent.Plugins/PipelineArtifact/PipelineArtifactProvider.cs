@@ -33,7 +33,7 @@ namespace Agent.Plugins.PipelineArtifact
             return parallelism;
         } 
 
-        private readonly BuildDropManager buildDropManager;
+        private readonly DedupManifestArtifactClient dedupManifestArtifactClient;
         private readonly CallbackAppTraceSource tracer;
 
         public PipelineArtifactProvider(AgentTaskPluginExecutionContext context, VssConnection connection, CallbackAppTraceSource tracer)
@@ -43,7 +43,7 @@ namespace Agent.Plugins.PipelineArtifact
             dedupStoreHttpClient.SetTracer(tracer);
             int parallelism = GetDedupStoreClientMaxParallelism(context);
             var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, parallelism);
-            buildDropManager = new BuildDropManager(client, this.tracer);
+            dedupManifestArtifactClient = new DedupManifestArtifactClient(client, this.tracer);
         }
 
         public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken)
@@ -54,7 +54,7 @@ namespace Agent.Plugins.PipelineArtifact
                 downloadParameters.TargetDirectory,
                 proxyUri: null,
                 minimatchPatterns: downloadParameters.MinimatchFilters);
-            await buildDropManager.DownloadAsync(options, cancellationToken);
+            await dedupManifestArtifactClient.DownloadAsync(options, cancellationToken);
         }
 
         public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken)
@@ -69,7 +69,7 @@ namespace Agent.Plugins.PipelineArtifact
                 proxyUri: null,
                 minimatchPatterns: downloadParameters.MinimatchFilters,
                 minimatchFilterWithArtifactName: downloadParameters.MinimatchFilterWithArtifactName);
-            await buildDropManager.DownloadAsync(options, cancellationToken);
+            await dedupManifestArtifactClient.DownloadAsync(options, cancellationToken);
         }
     }
 }

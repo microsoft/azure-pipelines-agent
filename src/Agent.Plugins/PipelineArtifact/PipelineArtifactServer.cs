@@ -281,13 +281,13 @@ namespace Agent.Plugins.PipelineArtifact
             }
         }
 
-        private BuildDropManager CreateBulidDropManager(AgentTaskPluginExecutionContext context, VssConnection connection)
+        private DedupManifestArtifactClient CreateDedupManifestClient(AgentTaskPluginExecutionContext context, VssConnection connection)
         {
             var dedupStoreHttpClient = connection.GetClient<DedupStoreHttpClient>();
             var tracer = this.CreateTracer(context);
             dedupStoreHttpClient.SetTracer(tracer);
             var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, PipelineArtifactProvider.GetDedupStoreClientMaxParallelism(context));
-            var buildDropManager = new BuildDropManager(client, tracer);
+            var buildDropManager = new DedupManifestArtifactClient(client, tracer);
             return buildDropManager;
         }
 

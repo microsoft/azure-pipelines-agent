@@ -51,7 +51,7 @@ namespace Agent.Plugins.PipelineCache
                     return;
                 }
 
-                string uploadPath = await this.GetUploadPath(preferredContentFormat, context, path, cancellationToken);
+                string uploadPath = await this.GetUploadPathAsync(preferredContentFormat, context, path, cancellationToken);
                 //Upload the pipeline artifact.
                 PipelineCacheActionRecord uploadRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
                     new PipelineCacheActionRecord(level, uri, type, nameof(dedupManifestClient.PublishAsync), context));
@@ -72,15 +72,17 @@ namespace Agent.Plugins.PipelineCache
                 };
 
                 // delete archive file if it's tar.
-                if(preferredContentFormat == ContentFormatConstants.SingleTar)
-                try
+                if (string.Equals(preferredContentFormat, ContentFormatConstants.SingleTar, StringComparison.OrdinalIgnoreCase))
                 {
-                    if(File.Exists(uploadPath))
+                    try
                     {
-                        File.Delete(uploadPath);
+                        if (File.Exists(uploadPath))
+                        {
+                            File.Delete(uploadPath);
+                        }
                     }
+                    catch { }
                 }
-                catch {}
                 
                 // Cache the artifact
                 PipelineCacheActionRecord cacheRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
@@ -176,10 +178,10 @@ namespace Agent.Plugins.PipelineCache
             return pipelineCacheClient;
         }
 
-        private async Task<string> GetUploadPath(string preferredContentFormat, AgentTaskPluginExecutionContext context, string path, CancellationToken cancellationToken)
+        private async Task<string> GetUploadPathAsync(string preferredContentFormat, AgentTaskPluginExecutionContext context, string path, CancellationToken cancellationToken)
         {
             string uploadPath = path;
-            if(preferredContentFormat == ContentFormatConstants.SingleTar)
+            if(string.Equals(preferredContentFormat, ContentFormatConstants.SingleTar, StringComparison.OrdinalIgnoreCase))
             {
                 uploadPath = await TarUtils.ArchiveFilesToTarAsync(context, path, cancellationToken);
             }
