@@ -204,7 +204,7 @@ namespace Agent.Plugins.PipelineCache
 
         private static void ValidateTarManifest(Manifest manifest)
         {
-            if (manifest == null || manifest.Items.Count() != 1 || !manifest.Items.Any(i => i.Path == $"/{archiveFileName}"))
+            if (manifest == null || manifest.Items.Count() != 1 || !manifest.Items.Single().Path.Equals($"/{archiveFileName}", StringComparison.Ordinal))
             {
                 throw new ArgumentException($"Manifest containing a tar cannot have more than one item.");
             }
