@@ -75,8 +75,8 @@ namespace Agent.Plugins.PipelineCache
             ValidateTarManifest(manifest);
             DedupIdentifier dedupId = DedupIdentifier.Create(manifest.Items.Single(i => i.Path == $"/{archiveFileName}").Blob.Id);
             bool does7zExists = isWindows ? CheckIf7ZExists() : false;
-            string processFileName = (isWindows && does7zExists) ? "7z" : "tar";
-            string processArguments = (isWindows && does7zExists) ? $"x -si -aoa -o{targetDirectory} -ttar" : $"-xf - -C {targetDirectory}";
+            string processFileName = (does7zExists) ? "7z" : "tar";
+            string processArguments = (does7zExists) ? $"x -si -aoa -o{targetDirectory} -ttar" : $"-xf - -C {targetDirectory}";
 
             Func<Process, CancellationToken, Task> downloadTaskFunc =
                 (process, ct) =>
