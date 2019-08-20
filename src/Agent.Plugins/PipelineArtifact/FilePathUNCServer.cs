@@ -52,7 +52,7 @@ namespace Agent.Plugins.PipelineArtifact
             if (System.IO.Directory.Exists(fileSharePath))
             {
                 FileShareProvider provider = new FileShareProvider(context, new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information));
-                await provider.PublishArtifactAsync(targetPath, artifactPath, parallelCount);
+                await provider.PublishArtifactAsync(targetPath, artifactPath, parallelCount, token);
                 context.Output(StringUtil.Loc("CopyFileComplete", artifactPath));
             }
         }

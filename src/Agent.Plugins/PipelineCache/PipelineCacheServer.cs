@@ -52,7 +52,7 @@ namespace Agent.Plugins.PipelineCache
                         return await dedupManifestClient.PublishAsync(path, cancellationToken);
                     });
 
-                CreatePipelineCacheArtifactOptions options = new CreatePipelineCacheArtifactOptions
+                CreatePipelineCacheArtifactContract options = new CreatePipelineCacheArtifactContract
                 {
                     Fingerprint = fingerprint,
                     RootId = result.RootId,

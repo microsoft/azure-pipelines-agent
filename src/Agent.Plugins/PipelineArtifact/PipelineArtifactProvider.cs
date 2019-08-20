@@ -31,7 +31,7 @@ namespace Agent.Plugins.PipelineArtifact
             return parallelism;
         } 
 
-        private readonly BuildDropManager buildDropManager;
+        private readonly DedupManifestArtifactClient buildDropManager;
         private readonly CallbackAppTraceSource tracer;
 
         public PipelineArtifactProvider(AgentTaskPluginExecutionContext context, VssConnection connection, CallbackAppTraceSource tracer)
@@ -41,7 +41,7 @@ namespace Agent.Plugins.PipelineArtifact
             dedupStoreHttpClient.SetTracer(tracer);
             int parallelism = GetDedupStoreClientMaxParallelism(context);
             var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, parallelism);
-            buildDropManager = new BuildDropManager(client, this.tracer);
+            buildDropManager = new DedupManifestArtifactClient(client, this.tracer);
         }
 
         public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken)

@@ -70,9 +70,11 @@ namespace Agent.Plugins.PipelineArtifact
             string defaultWorkingDirectory = context.Variables.GetValueOrDefault("system.defaultworkingdirectory").Value;
 
             targetPath = Path.IsPathFullyQualified(targetPath) ? targetPath : Path.GetFullPath(Path.Combine(defaultWorkingDirectory, targetPath));
-   
+
             // Project ID
-            Guid projectId = new Guid(context.Variables.GetValueOrDefault(BuildVariables.TeamProjectId)?.Value ?? Guid.Empty.ToString());
+            var teamProjectId = context.Variables.GetValueOrDefault(BuildVariables.TeamProjectId)?.Value;
+            Guid projectId = teamProjectId != null ? new Guid(teamProjectId) : Guid.Empty;
+
             ArgUtil.NotEmpty(projectId, nameof(projectId));
 
             // Build ID

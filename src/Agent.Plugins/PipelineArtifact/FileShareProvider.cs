@@ -30,7 +30,7 @@ namespace Agent.Plugins.PipelineArtifact
         public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken)
         {
             var downloadRootPath = buildArtifact.Resource.Data + Path.DirectorySeparatorChar + buildArtifact.Name;
-            await this.CopyFileShare(downloadParameters.ProjectId, downloadRootPath, downloadParameters.TargetDirectory, downloadParameters.MinimatchFilters, cancellationToken);
+            await this.CopyFileShareAsync(downloadRootPath, downloadParameters.TargetDirectory, downloadParameters.MinimatchFilters, cancellationToken);
         }
 
         public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken)
@@ -39,18 +39,18 @@ namespace Agent.Plugins.PipelineArtifact
             {
                 var dirPath = Path.Combine(downloadParameters.TargetDirectory, buildArtifact.Name);
                 var downloadRootPath = buildArtifact.Resource.Data;
-                await this.CopyFileShare(downloadParameters.ProjectId, downloadRootPath, dirPath, downloadParameters.MinimatchFilters, cancellationToken, isSingleArtifactDownload: false);
+                await this.CopyFileShareAsync(downloadRootPath, dirPath, downloadParameters.MinimatchFilters, cancellationToken);
             }
         }
 
-        public async Task PublishArtifactAsync(string sourcePath, string destPath, int parallelCount)
+        public async Task PublishArtifactAsync(string sourcePath, string destPath, int parallelCount, CancellationToken cancellationToken)
         {
-            await this.DirectoryCopyWithMiniMatch(sourcePath, destPath, CancellationToken.None, parallelCount);
+            await this.DirectoryCopyWithMiniMatch(sourcePath, destPath, cancellationToken, parallelCount);
         }
 
-        private async Task CopyFileShare(Guid projectId, string downloadRootPath, string destPath, IEnumerable<string> minimatchPatterns, CancellationToken cancellationToken, bool isSingleArtifactDownload = true)
+        private async Task CopyFileShareAsync(string downloadRootPath, string destPath, IEnumerable<string> minimatchPatterns, CancellationToken cancellationToken)
         {
-            //minimatchPatterns = minimatchPatterns.Select(pattern => Path.Combine(downloadRootPath, pattern));
+            minimatchPatterns = minimatchPatterns.Select(pattern => Path.Combine(downloadRootPath, pattern));
             IEnumerable<Func<string, bool>> minimatcherFuncs = MinimatchHelper.GetMinimatchFuncs(minimatchPatterns, this.tracer);
             await DirectoryCopyWithMiniMatch(downloadRootPath, destPath, cancellationToken, defaultParallelCount, minimatcherFuncs);
         }
@@ -58,11 +58,13 @@ namespace Agent.Plugins.PipelineArtifact
         private async Task DirectoryCopyWithMiniMatch(string sourcePath, string destPath, CancellationToken cancellationToken, int parallelCount = defaultParallelCount, IEnumerable<Func<string, bool>> minimatchFuncs = null)
         {
             // If the source path is a file, the system should copy the file to the dest directory directly. 
-            if(File.Exists(sourcePath)) {
+            if(File.Exists(sourcePath)) 
+            {
                 destPath = destPath + Path.DirectorySeparatorChar + Path.GetFileName(sourcePath);
                 this.context.Output(StringUtil.Loc("CopyFileToDestination", sourcePath, destPath));
                 File.Copy(sourcePath, destPath, true);
                 await Task.CompletedTask;
+                return;
             }
 
             // Get the subdirectories for the specified directory.
@@ -73,9 +75,7 @@ namespace Agent.Plugins.PipelineArtifact
             {
                 Directory.CreateDirectory(destPath);
             }
-
-            DirectoryInfo[] dirs = dir.GetDirectories();
-                
+   
             // Get the files in the directory and copy them to the new location.
             var files = dir.GetFiles("*", SearchOption.AllDirectories);
 
@@ -91,8 +91,10 @@ namespace Agent.Plugins.PipelineArtifact
                 {
                     if (minimatchFuncs == null || minimatchFuncs.Any(match => match(file.FullName))) 
                     {
-                        string tempPath = Path.Combine(destPath, file.Name);
+                        string tempPath = Path.Combine(destPath, Path.GetRelativePath(sourcePath, file.FullName));
                         this.context.Output(StringUtil.Loc("CopyFileToDestination", file, tempPath));
+                        FileInfo tempFile = new System.IO.FileInfo(tempPath);
+                        tempFile.Directory.Create(); // If the directory already exists, this method does nothing.
                         file.CopyTo(tempPath, true);
                     }
                 },
