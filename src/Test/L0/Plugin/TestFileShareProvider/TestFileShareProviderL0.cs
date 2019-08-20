@@ -26,7 +26,7 @@ namespace Test.L0.Plugin.TestFileShareProviderL0
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 var provider = new FileShareProvider(context, new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information));
-                // Get the current directory.
+                // Get source directory path and destination directory path
                 string sourcePath = Path.Combine(Directory.GetCurrentDirectory(), TestSourceFolder);
                 string destPath = Path.Combine(Directory.GetCurrentDirectory(), TestDestFolder);
                 await provider.PublishArtifactAsync(sourcePath, destPath, 1, CancellationToken.None);
