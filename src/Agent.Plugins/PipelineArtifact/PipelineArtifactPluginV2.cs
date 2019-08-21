@@ -59,6 +59,7 @@ namespace Agent.Plugins.PipelineArtifact
             AgentTaskPluginExecutionContext context,
             CancellationToken token)
         {
+            Thread.Sleep(20000);
             ArgUtil.NotNull(context, nameof(context));
             string artifactName = context.GetInput(ArtifactEventProperties.ArtifactName, required: false);
             string branchName = context.GetInput(ArtifactEventProperties.BranchName, required: false);
@@ -76,7 +77,8 @@ namespace Agent.Plugins.PipelineArtifact
 
             targetPath = Path.IsPathFullyQualified(targetPath) ? targetPath : Path.GetFullPath(Path.Combine(defaultWorkingDirectory, targetPath));
 
-            if(!PipelineArtifactPathHelper.IsValidArtifactName(artifactName)) {
+            if(!PipelineArtifactPathHelper.IsValidArtifactName(artifactName)) 
+            {
                 throw new ArgumentException(StringUtil.Loc("ArtifactNameIsNotValid", artifactName));
             }
 

@@ -29,8 +29,8 @@ namespace Agent.Plugins.PipelineArtifact
 
         public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken)
         {
-            var downloadRootPath = buildArtifact.Resource.Data + Path.DirectorySeparatorChar + buildArtifact.Name;
-            await this.CopyFileShareAsync(downloadRootPath, downloadParameters.TargetDirectory, downloadParameters.MinimatchFilters, cancellationToken);
+            var downloadRootPath = Path.Combine(buildArtifact.Resource.Data, buildArtifact.Name);
+            await this.CopyFileShareAsync(downloadRootPath, Path.Combine(downloadParameters.TargetDirectory, buildArtifact.Name), downloadParameters.MinimatchFilters, cancellationToken);
         }
 
         public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken)
