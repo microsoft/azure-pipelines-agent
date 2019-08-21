@@ -45,7 +45,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                         throw;
                     }
 
-                    SleepAction(MillisecondsToSleepBetweenRetries * Convert.Toint32(Math.Pow(2, retryCount))).Wait();
+                    SleepAction(MillisecondsToSleepBetweenRetries * Convert.ToInt32(Math.Pow(2, retryCount))).Wait();
                 }
             }
         }
