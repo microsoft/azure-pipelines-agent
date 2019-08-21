@@ -73,6 +73,9 @@ namespace Agent.Plugins.PipelineCache
             CancellationToken cancellationToken)
         {
             ValidateTarManifest(manifest);
+
+            Directory.CreateDirectory(targetDirectory);
+            
             DedupIdentifier dedupId = DedupIdentifier.Create(manifest.Items.Single(i => i.Path == $"/{archiveFileName}").Blob.Id);
             bool does7zExists = isWindows ? CheckIf7ZExists() : false;
             string processFileName = (does7zExists) ? "7z" : "tar";
