@@ -45,7 +45,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                         throw;
                     }
 
-                    SleepAction(MillisecondsToSleepBetweenRetries);
+                    SleepAction(MillisecondsToSleepBetweenRetries * Math.Pow(2, retryCount)).Wait();
                 }
             }
         }
@@ -68,7 +68,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                         throw;
                     }
 
-                    SleepAction(MillisecondsToSleepBetweenRetries);
+                    await SleepAction(MillisecondsToSleepBetweenRetries * Math.Pow(2, retryCount));
                 }
             }
         }
