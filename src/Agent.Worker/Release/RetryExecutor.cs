@@ -17,7 +17,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 
         public Func<Exception, bool> ShouldRetryAction { get; set; }
 
-        protected Action<int> SleepAction { get; set; }
+        protected Func<int, Task> SleepAction { get; set; }
 
         public RetryExecutor()
         {
@@ -45,7 +45,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                         throw;
                     }
 
-                    SleepAction(MillisecondsToSleepBetweenRetries * Math.Pow(2, retryCount)).Wait();
+                    SleepAction(MillisecondsToSleepBetweenRetries * Convert.Toint32(Math.Pow(2, retryCount))).Wait();
                 }
             }
         }
@@ -68,7 +68,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                         throw;
                     }
 
-                    await SleepAction(MillisecondsToSleepBetweenRetries * Math.Pow(2, retryCount));
+                    await SleepAction(MillisecondsToSleepBetweenRetries * Convert.ToInt32(Math.Pow(2, retryCount)));
                 }
             }
         }
