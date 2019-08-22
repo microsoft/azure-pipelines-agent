@@ -59,7 +59,6 @@ namespace Agent.Plugins.PipelineArtifact
             AgentTaskPluginExecutionContext context,
             CancellationToken token)
         {
-            Thread.Sleep(20000);
             ArgUtil.NotNull(context, nameof(context));
             string artifactName = context.GetInput(ArtifactEventProperties.ArtifactName, required: false);
             string branchName = context.GetInput(ArtifactEventProperties.BranchName, required: false);
