@@ -8,6 +8,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
+using Microsoft.VisualStudio.Services.WebPlatform;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
@@ -30,6 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private readonly object _sync = new object();
         private string _testRunSystem;
         private const string _testRunSystemCustomFieldName = "TestRunSystem";
+        private Dictionary<string, object> _telemetryProperties;
 
         public Type ExtensionType => typeof(IWorkerCommandExtension);
 
@@ -55,6 +58,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         {
             ArgUtil.NotNull(context, nameof(context));
             _executionContext = context;
+
+            _telemetryProperties = new Dictionary<string, object>();
 
             LoadPublishTestResultsInputs(context, eventProperties, data);
 
@@ -121,6 +126,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 _executionContext.Result = TaskResult.Failed;
                 _executionContext.Error(StringUtil.Loc("FailedTestsInResults"));
             }
+
+            _telemetryProperties.Add("GuidId", _executionContext.Id.ToString());
+            PublishTelemetry(connection);
         }
 
         /// <summary>
@@ -500,7 +508,49 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 runCreateModel.BuildReference.TargetBranchName = pullRequestTargetBranchName;
             }
         }
+
+        private void PublishTelemetry(VssConnection vssConnection)
+        {
+            CustomerIntelligenceEvent ciEvent;
+            ICustomerIntelligenceServer ciService;
+            try
+            {
+                ciEvent = new CustomerIntelligenceEvent()
+                {
+                    Area = PublishTestResultsEventProperties.TelemetryArea,
+                    Feature = PublishTestResultsEventProperties.TelemetryFeature,
+                    Properties = _telemetryProperties
+                };
+
+                ciService = HostContext.GetService<ICustomerIntelligenceServer>();
+                ciService.Initialize(vssConnection);
+
+                var commandContext = HostContext.CreateService<IAsyncCommandContext>();
+                commandContext.InitializeCommandContext(_executionContext, StringUtil.Loc("Telemetry"));
+                commandContext.Task = PublishEventsAsync(ciService, ciEvent);
+
+                _executionContext.AsyncCommands.Add(commandContext);
+
+            }
+            catch (Exception ex)
+            {
+                _executionContext.Debug(StringUtil.Loc("TelemetryCommandFailed", ex.Message));
+            }
+        }
+
+        private async Task PublishEventsAsync(ICustomerIntelligenceServer ciService, CustomerIntelligenceEvent ciEvent)
+        {
+            try
+            {
+                await ciService.PublishEventsAsync(new CustomerIntelligenceEvent[] { ciEvent });
+            }
+            catch (Exception ex)
+            {
+                _executionContext.Debug(StringUtil.Loc("TelemetryCommandFailed", ex.Message));
+            }
+        }
     }
+
 
     internal static class WellKnownResultsCommand
     {
@@ -518,5 +568,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         public static readonly string ResultFiles = "resultFiles";
         public static readonly string TestRunSystem = "testRunSystem";
         public static readonly string FailTaskOnFailedTests = "failTaskOnFailedTests";
+        public static readonly string TelemetryFeature = "PublishTestResultsCommand";
+        public static readonly string TelemetryArea = "TestExecution";
     }
 }
