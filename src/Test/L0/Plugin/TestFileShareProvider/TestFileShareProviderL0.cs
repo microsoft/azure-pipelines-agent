@@ -62,7 +62,7 @@ namespace Test.L0.Plugin.TestFileShareProviderL0
                 buildArtifact.Resource.Data = sourcePath;
                 
                 await provider.DownloadSingleArtifactAsync(downloadParameters, buildArtifact, CancellationToken.None);
-                var sourceFiles = Directory.GetFiles(Path.Combine(sourcePath, buildArtifact.Name));
+                var sourceFiles = Directory.GetFiles(sourcePath);
                 var destFiles = Directory.GetFiles(destPath);
 
                 Assert.Equal(sourceFiles.Length, destFiles.Length);
@@ -78,9 +78,14 @@ namespace Test.L0.Plugin.TestFileShareProviderL0
         {
             DirectoryInfo destDir = new DirectoryInfo(TestDestFolder);
 
-            foreach (FileInfo file in destDir.GetFiles())
+            foreach (FileInfo file in destDir.GetFiles("*", SearchOption.AllDirectories))
             {
                 file.Delete(); 
+            }
+
+            foreach (DirectoryInfo dir in destDir.EnumerateDirectories())
+            {
+                dir.Delete(true); 
             }
         }
     }

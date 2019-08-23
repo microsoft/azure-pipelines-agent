@@ -126,7 +126,7 @@ namespace Agent.Plugins.PipelineArtifact
 
                 if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
-                    FilePathUNCServer server = new FilePathUNCServer();
+                    FilePathServer server = new FilePathServer();
                     await server.UploadAsync(context, projectId, buildId, artifactName, targetPath, fileSharePath, token);                  
                 }
                 else 
