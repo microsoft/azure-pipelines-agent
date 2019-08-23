@@ -24,12 +24,11 @@ namespace Agent.Plugins.PipelineArtifact
         {
             string artifactPath = Path.Join(fileSharePath, artifactName);
 
-            // create the artifact. at this point, mkdir already succeeded so the path is good.
+            // Create the artifact. at this point, mkdir already succeeded so the path is good.
             // the artifact should get cleaned up during retention even if the copy fails in the
-            // middle
+            // middle.
             Directory.CreateDirectory(artifactPath);
 
-            // 2) associate the pipeline artifact with an build artifact
             VssConnection connection = context.VssConnection;
             BuildServer buildServer = new BuildServer(connection);
             var propertiesDictionary = new Dictionary<string, string>
@@ -39,16 +38,11 @@ namespace Agent.Plugins.PipelineArtifact
                 { FileShareArtifactUploadEventProperties.ArtifactLocation, fileSharePath }
             };
 
+            // Associate the pipeline artifact with an build artifact.
             var artifact = await buildServer.AssociateArtifactAsync(projectId, buildId, artifactName, ArtifactResourceTypes.FilePath, fileSharePath, propertiesDictionary, token);
             var parallel = context.GetInput(FileShareArtifactUploadEventProperties.Parallel, required: false);
             var parallelCount = parallel == "true" ? GetParallelCount(context, context.GetInput(FileShareArtifactUploadEventProperties.ParallelCount, required: false)) : 1;
 
-            // To copy all the files in one directory to another directory.
-            // Get the files in the source folder. (To recursively iterate through
-            // all subfolders under the current directory, see
-            // "How to: Iterate Through a Directory Tree.")
-            // Note: Check for target path was performed previously
-            // in this code example.
             if (System.IO.Directory.Exists(fileSharePath))
             {
                 FileShareProvider provider = new FileShareProvider(context, new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information));

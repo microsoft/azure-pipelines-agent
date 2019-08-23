@@ -35,7 +35,7 @@ namespace Agent.Plugins.PipelineArtifact
                     provider = fileShareProvider;
                     break;
                 default:
-                    throw new InvalidOperationException($"{buildArtifact} is not a type of PipelineArtifact, FileShare or BuildArtifact");
+                    throw new InvalidOperationException($"{buildArtifact} is not of type PipelineArtifact, FileShare or BuildArtifact");
             }
             return provider;
         }
