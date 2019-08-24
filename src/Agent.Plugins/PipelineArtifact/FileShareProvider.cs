@@ -154,11 +154,11 @@ namespace Agent.Plugins.PipelineArtifact
                         killProcessOnCancel: true,
                         cancellationToken: cancellationToken);
 
-                executionContext.Output(StringUtil.Loc("RMRobocopyBasedArtifactDownloadExitCode", exitCode));
+                executionContext.Output(StringUtil.Loc("RobocopyBasedPublishArtifactTaskExitCode", exitCode));
 
                 if (exitCode >= 8)
                 {
-                    throw new Exception(StringUtil.Loc("RMRobocopyBasedArtifactDownloadFailed", exitCode));
+                    throw new Exception(StringUtil.Loc("RobocopyBasedPublishArtifactTaskFailed", exitCode));
                 }
             }
         }

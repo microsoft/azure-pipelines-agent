@@ -508,6 +508,8 @@
   "RMUpdateReleaseNameForRelease": "Update release name to {0} for release {1}.",
   "RMUpdateReleaseNameForReleaseComment": "Updating release name to {0} using task logging command",
   "RMUserChoseToSkipArtifactDownload": "Skipping artifact download based on the setting specified.",
+  "RobocopyBasedPublishArtifactTaskExitCode": "Robocopy exit code: {0}",
+  "RobocopyBasedPublishArtifactTaskFailed": "Robocopy based publish failed with exit code: {0}",
   "RSAKeyFileNotFound": "RSA key file {0} was not found",
   "RunAgentAsServiceDescription": "run agent as service? (Y/N)",
   "RunAsAutoLogonDescription": "configure autologon and run agent on startup? (Y/N)",
