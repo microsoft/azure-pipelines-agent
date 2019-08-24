@@ -413,6 +413,7 @@
   "Prompt0": "Enter {0}",
   "Prompt0Default1": "Enter {0} (press enter for {1})",
   "PSScriptError": "PowerShell script completed with {0} errors.",
+  "PublishingArtifactUsingRobocopy": "Uploading artifact using robocopy.",
   "PublishCodeCoverage": "Publish code coverage",
   "PublishedCodeCoverageArtifact": "Published '{0}' as artifact '{1}'",
   "PublishingCodeCoverage": "Publishing coverage summary data to TFS server.",

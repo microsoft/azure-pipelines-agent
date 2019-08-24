@@ -10,21 +10,24 @@ using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Agent;
 using Microsoft.VisualStudio.Services.Content.Common;
 
 
 namespace Agent.Plugins.PipelineArtifact
 {
-    internal class FileShareProvider: IArtifactProvider
+    internal class FileShareProvider: AgentService, IArtifactProvider
     {
         private readonly AgentTaskPluginExecutionContext context;
         private readonly CallbackAppTraceSource tracer;
         private const int defaultParallelCount = 1;
+        private string hostType;
 
         public FileShareProvider(AgentTaskPluginExecutionContext context, CallbackAppTraceSource tracer)
         {
             this.context = context;
             this.tracer = tracer;
+            this.hostType = context.Variables.GetValueOrDefault("system.hosttype")?.Value;
         }
 
         public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken)
@@ -45,7 +48,8 @@ namespace Agent.Plugins.PipelineArtifact
 
         public async Task PublishArtifactAsync(string sourcePath, string destPath, int parallelCount, CancellationToken cancellationToken)
         {
-            await this.DirectoryCopyWithMiniMatch(sourcePath, destPath, cancellationToken, parallelCount);
+            //await this.DirectoryCopyWithMiniMatch(sourcePath, destPath, cancellationToken, parallelCount);
+            await PublishArtifactUsingRobocopyAsync(this.context, new HostContext(this.hostType), sourcePath, destPath, cancellationToken);
         }
 
         private async Task CopyFileShareAsync(string downloadRootPath, string destPath, IEnumerable<string> minimatchPatterns, CancellationToken cancellationToken)
@@ -101,6 +105,62 @@ namespace Agent.Plugins.PipelineArtifact
                 dataflowBlockOptions: parallelism);
 
             await actionBlock.SendAllAndCompleteAsync(files, actionBlock, cancellationToken);
+        }
+
+        
+        private async Task PublishArtifactUsingRobocopyAsync(AgentTaskPluginExecutionContext executionContext, IHostContext hostContext, string dropLocation, string downloadFolderPath, CancellationToken cancellationToken)
+        {
+            string verbose = executionContext.Variables.GetValueOrDefault(Constants.Variables.System.Debug)?.Value;
+
+            executionContext.Output(StringUtil.Loc("PublishingArtifactUsingRobocopy"));
+            using (var processInvoker = hostContext.CreateService<IProcessInvoker>())
+            {
+                // Save STDOUT from worker, worker will use STDOUT report unhandle exception.
+                processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stdout)
+                {
+                    if (!string.IsNullOrEmpty(stdout.Data))
+                    {
+                        executionContext.Output(stdout.Data);
+                    }
+                };
+
+                // Save STDERR from worker, worker will use STDERR on crash.
+                processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stderr)
+                {
+                    if (!string.IsNullOrEmpty(stderr.Data))
+                    {
+                        executionContext.Error(stderr.Data);
+                    }
+                };
+
+                var trimChars = new[] { '\\', '/' };
+
+                dropLocation = Path.Combine(dropLocation.TrimEnd(trimChars));
+                downloadFolderPath = downloadFolderPath.TrimEnd(trimChars);
+
+                string robocopyArguments = "\"" + dropLocation + "\" \"" + downloadFolderPath + "\" /E /COPY:DA /NP /R:3";
+                if (verbose != "true")
+                {
+                    robocopyArguments = robocopyArguments + " /NDL /NFL";
+                }
+
+                int exitCode = await processInvoker.ExecuteAsync(
+                        workingDirectory: "",
+                        fileName: "robocopy",
+                        arguments: robocopyArguments,
+                        environment: null,
+                        requireExitCodeZero: false,
+                        outputEncoding: null,
+                        killProcessOnCancel: true,
+                        cancellationToken: cancellationToken);
+
+                executionContext.Output(StringUtil.Loc("RMRobocopyBasedArtifactDownloadExitCode", exitCode));
+
+                if (exitCode >= 8)
+                {
+                    throw new Exception(StringUtil.Loc("RMRobocopyBasedArtifactDownloadFailed", exitCode));
+                }
+            }
         }
     }
 }
