@@ -612,3 +612,4 @@
   "WorkspaceMappingNotMatched": "Workspace mappings are not matched for workspace {0}",
   "Y": "Y",
   "ZipSlipFailure": "Entry is outside of the target dir: {0}"
+}

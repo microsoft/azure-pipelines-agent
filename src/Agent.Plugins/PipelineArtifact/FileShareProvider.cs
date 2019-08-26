@@ -132,7 +132,7 @@ namespace Agent.Plugins.PipelineArtifact
                     if (minimatchFuncs == null || minimatchFuncs.Any(match => match(file))) 
                     {
                         string tempPath = Path.Combine(destPath, Path.GetRelativePath(sourcePath, file));
-                        this.context.Output(StringUtil.Loc("CopyFileToDestination", file, tempPath));
+                        context.Output(StringUtil.Loc("CopyFileToDestination", file, tempPath));
                         FileInfo tempFile = new System.IO.FileInfo(tempPath);
                         using (StreamReader fileReader = GetFileReader(file))
                         {
