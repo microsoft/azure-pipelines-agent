@@ -25,6 +25,7 @@ namespace Test.L0.Plugin.TestFileShareProviderL0
             using(var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
+                context.Variables.Add("system.hosttype", "build");
                 var provider = new FileShareProvider(context, new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information));
                 // Get source directory path and destination directory path
                 string sourcePath = Path.Combine(Directory.GetCurrentDirectory(), TestSourceFolder);
