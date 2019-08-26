@@ -115,10 +115,9 @@ namespace Agent.Plugins.PipelineArtifact
             // If user has specified a relative folder in the drop, change the drop location itself. 
             sourcePath = Path.Combine(sourcePath.TrimEnd(trimChars));
 
-            List<string> files =
+            IEnumerable<string> files =
                 new DirectoryInfo(sourcePath).EnumerateFiles("*", SearchOption.AllDirectories)
-                    .Select(path => path.FullName)
-                    .ToList();
+                    .Select(path => path.FullName);
 
             var parallelism = new ExecutionDataflowBlockOptions()
             {
