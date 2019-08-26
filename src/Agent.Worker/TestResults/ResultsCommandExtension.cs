@@ -31,6 +31,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private string _testRunSystem;
         private const string _testRunSystemCustomFieldName = "TestRunSystem";
 
+        //telemetry parameter
+        public const string _telemetryFeature = "PublishTestResultsCommand";
+        public const string _telemetryArea = "TestExecution";
+        private Dictionary<string, object> _telemetryProperties;
+        private TelemetryPublisher _telemetryPublisher;
+
         public Type ExtensionType => typeof(IWorkerCommandExtension);
 
         public string CommandArea => "results";
@@ -55,6 +61,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         {
             ArgUtil.NotNull(context, nameof(context));
             _executionContext = context;
+
+            _telemetryProperties = new Dictionary<string, object>();
+            PopulateTelemetryData();
 
             LoadPublishTestResultsInputs(context, eventProperties, data);
 
@@ -103,6 +112,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
             var publisher = HostContext.GetService<ITestRunPublisher>();
             publisher.InitializePublisher(context, connection, teamProject, resultReader);
+
+            _telemetryPublisher = TelemetryPublisher.GetInstance(connection);
 
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
@@ -245,6 +256,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     TestRun testRun = await publisher.StartTestRunAsync(testRunData, _executionContext.CancellationToken);
                     await publisher.AddResultsAsync(testRun, runResults.ToArray(), _executionContext.CancellationToken);
                     await publisher.EndTestRunAsync(testRunData, testRun.Id, true, _executionContext.CancellationToken);
+                    
+                    await PublishTelemetryAsync();
                 }
             }
             catch (Exception ex) when (!(ex is OperationCanceledException))
@@ -317,6 +330,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                         }
                     });
                     await Task.WhenAll(publishTasks);
+
+                    await PublishTelemetryAsync();
                 }
             }
             catch (Exception ex) when (!(ex is OperationCanceledException))
@@ -499,6 +514,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             {
                 runCreateModel.BuildReference.TargetBranchName = pullRequestTargetBranchName;
             }
+        }
+
+        private async Task PublishTelemetryAsync()
+        {
+            await _telemetryPublisher.PublishAsync(_telemetryArea, _telemetryFeature, _telemetryProperties);
+        }
+
+        private void PopulateTelemetryData()
+        {
+            _telemetryProperties.Add("GuidId", _executionContext.Id);
+            _telemetryProperties.Add("BuildId", _executionContext.Variables.Build_BuildId);
+            _telemetryProperties.Add("BuildUri", _executionContext.Variables.Build_BuildUri);
+            _telemetryProperties.Add("Attempt", _executionContext.Variables.System_JobAttempt);
+            _telemetryProperties.Add("ProjectId", _executionContext.Variables.System_TeamProjectId);
+            _telemetryProperties.Add("ProjectName", _executionContext.Variables.System_TeamProject);
+
+            if (!string.IsNullOrWhiteSpace(_executionContext.Variables.Release_ReleaseUri))
+            {
+                _telemetryProperties.Add("ReleaseUri", _executionContext.Variables.Release_ReleaseUri);
+                _telemetryProperties.Add("ReleaseId", _executionContext.Variables.Release_ReleaseId);
+            }
+                
         }
     }
 
