@@ -518,7 +518,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
         private async Task PublishTelemetryAsync()
         {
-            await _telemetryPublisher.PublishAsync(_telemetryArea, _telemetryFeature, _telemetryProperties);
+            try
+            {
+                await _telemetryPublisher.PublishAsync(_telemetryArea, _telemetryFeature, _telemetryProperties);
+            }
+            catch(Exception ex)
+            {
+                _executionContext.Debug(StringUtil.Loc("TelemetryCommandFailed", ex.Message));
+            }
         }
 
         private void PopulateTelemetryData()
