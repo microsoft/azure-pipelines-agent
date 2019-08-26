@@ -12,7 +12,7 @@ namespace Microsoft.VisualStudio.Services.Agent
     [ServiceLocator(Default = typeof(JobNotification))]
     public interface IJobNotification : IAgentService, IDisposable
     {
-        Task JobStarted(Guid jobId, string accessToken, Uri serverUrl);
+        Task JobStarted(Guid jobId, string accessToken, Uri serverUrl, Guid planId, string identifier, string definitionId, string planType);
         Task JobCompleted(Guid jobId);
         void StartClient(string pipeName, string monitorSocketAddress, CancellationToken cancellationToken);
         void StartClient(string socketAddress, string monitorSocketAddress);
@@ -28,11 +28,11 @@ namespace Microsoft.VisualStudio.Services.Agent
         private bool _useSockets = false;
         private bool _isMonitorConfigured = false;
 
-        public async Task JobStarted(Guid jobId, string accessToken, Uri serverUrl)
+        public async Task JobStarted(Guid jobId, string accessToken, Uri serverUrl, Guid planId, string identifier, string definitionId, string planType)
         {
             Trace.Info("Entering JobStarted Notification");
 
-            StartMonitor(jobId, accessToken, serverUrl);
+            StartMonitor(jobId, accessToken, serverUrl, planId, identifier, definitionId, planType);
 
             if (_configured)
             {
@@ -158,7 +158,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
         
-        private void StartMonitor(Guid jobId, string accessToken, Uri serverUri)
+        private void StartMonitor(Guid jobId, string accessToken, Uri serverUri, Guid planId, string identifier, string definitionId, string planType)
         {
             if(String.IsNullOrEmpty(accessToken)) 
             {
@@ -171,7 +171,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Trace.Info("Entering StartMonitor");
                 if (_isMonitorConfigured)
                 {
-                    String message = $"Start {jobId.ToString()} {accessToken} {serverUri.ToString()} {System.Diagnostics.Process.GetCurrentProcess().Id}";
+                    String message = $"Start {jobId.ToString()} {accessToken} {serverUri.ToString()} {System.Diagnostics.Process.GetCurrentProcess().Id} {planId.ToString()} {identifier} {definitionId} {planType}";
 
                     Trace.Info("Writing StartMonitor to socket");
                     _monitorSocket.Send(Encoding.UTF8.GetBytes(message));

@@ -4,20 +4,22 @@
 
 ## Supported Distributions and Versions
 
+We support the following OSes, a subset of [the ones .NET Core 2.1 supports](https://github.com/dotnet/core/blob/master/release-notes/2.1/2.1-supported-os.md):
+
 x64
   - Red Hat Enterprise Linux 6 (see note 1), 7
   - CentOS 6 (see note 1), 7
   - Oracle Linux 7
-  - Fedora 28, 27
-  - Debian 9, 8.7 or later versions
-  - Ubuntu 18.04, Ubuntu 16.04, Ubuntu 14.04
+  - Fedora 30, 29
+  - Debian 9
+  - Ubuntu 18.04, Ubuntu 16.04
   - Linux Mint 18, 17
   - openSUSE 42.3 or later versions
   - SUSE Enterprise Linux (SLES) 12 SP2 or later versions
 
 ARM32 (see note 2)
-  - Debian 9 or later versions
-  - Ubuntu 18.04 or later versions
+  - Debian 9
+  - Ubuntu 18.04
 
 > Notes:
 > 1. Red Hat Enterprise Linux 6 and CentOS 6 require installing the specialized "rhel.6-x64" agent package

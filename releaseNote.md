@@ -1,13 +1,13 @@
 ## Features
-  - Pipeline Caching CacheBeta 1.0 agent changes #2358
+  - Using TCM TestResultsHttpClient in the agent command to publish test results. (#2371)
+  - Adding tarring support for Pipeline Cache (#2369) 
   
 ## Bugs
-  - Getting the latest successful build instead of latest in DPA #2350
-  - Pass through parameters to listener #2353 
-  - Use ArtifactHttpClientFactory to generate dedupStoreClient that includes ArtifactHttpRetryHandler #2357
+  - Updated to support windows-style paths for container volume mounting (#2391)
+  - Improve logging around cache key/fingerprint calculation (#2375)
 
 ## Misc
-  - Use Azure Artifacts for nugetvssprivate #2359
+  - Adding some parameters in start monitor to be passed to process telemetry (#2377)
 
 ## Agent Downloads  
 

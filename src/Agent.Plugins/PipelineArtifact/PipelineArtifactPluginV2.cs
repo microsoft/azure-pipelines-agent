@@ -164,6 +164,9 @@ namespace Agent.Plugins.PipelineArtifact
                 {
                     throw new InvalidOperationException("Unreachable code!");
                 }
+
+                context.Output(StringUtil.Loc("DownloadingFromBuild", pipelineId));
+
                 downloadParameters = new PipelineArtifactDownloadParameters
                 {
                     ProjectRetrievalOptions = BuildArtifactRetrievalOptions.RetrieveByProjectName,
@@ -178,7 +181,7 @@ namespace Agent.Plugins.PipelineArtifact
             }
             else
             {
-                throw new InvalidOperationException($"Build type '{sourceRun}' is not recognized.");
+                throw new InvalidOperationException($"Build type '{sourceRun}' is not recognized."); 
             }
 
             string fullPath = this.CreateDirectoryIfDoesntExist(targetPath);

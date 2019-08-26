@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
@@ -247,6 +248,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 
     public class MountVolume
     {
+                
         public MountVolume(string sourceVolumePath, string targetVolumePath, bool readOnly = false)
         {
             this.SourceVolumePath = sourceVolumePath;
@@ -259,37 +261,63 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             ParseVolumeString(fromString);
         }
 
+        private static Regex autoEscapeWindowsDriveRegex = new Regex(@"(^|:)([a-zA-Z]):(\\|/)", RegexOptions.Compiled);
+        private string AutoEscapeWindowsDriveInPath(string path)
+        {
+            
+            return autoEscapeWindowsDriveRegex.Replace(path, @"$1$2\:$3");
+        }
+
         private void ParseVolumeString(string volume)
         {
-            var volumeSplit = volume.Split(":");
-            if (volumeSplit.Length == 3)
+            ReadOnly = false;
+            SourceVolumePath = null;
+
+            string readonlyToken = ":ro";
+            if (volume.ToLower().EndsWith(readonlyToken))
             {
-                // source:target:ro
-                SourceVolumePath = volumeSplit[0];
-                TargetVolumePath = volumeSplit[1];
-                ReadOnly = String.Equals(volumeSplit[2], "ro", StringComparison.OrdinalIgnoreCase);
+                ReadOnly = true;
+                volume = volume.Remove(volume.Length-readonlyToken.Length);
             }
-            else if (volumeSplit.Length == 2)
+            if (volume.StartsWith(":"))
             {
-                if (String.Equals(volumeSplit[1], "ro", StringComparison.OrdinalIgnoreCase))
+                volume = volume.Substring(1);
+            }
+
+            var volumes = new List<string>();
+            // split by colon, but honor escaping of colons
+            var volumeSplit = AutoEscapeWindowsDriveInPath(volume).Split(':');
+            var appendNextIteration = false;
+            foreach (var fragment in volumeSplit)
+            {
+                if (appendNextIteration)
                 {
-                    // target:ro
-                    TargetVolumePath = volumeSplit[0];
-                    ReadOnly = true;
+                    var orig = volumes[volumes.Count - 1];
+                    orig = orig.Remove(orig.Length - 1); // remove the trailing backslash
+                    volumes[volumes.Count - 1] = orig + ":" + fragment;
+                    appendNextIteration = false;
                 }
                 else
                 {
-                    // source:target
-                    SourceVolumePath = volumeSplit[0];
-                    TargetVolumePath = volumeSplit[1];
-                    ReadOnly = false;
+                    volumes.Add(fragment);
                 }
+                // if this fragment ends with backslash, then the : was escaped
+                if (fragment.EndsWith(@"\"))
+                {
+                    appendNextIteration = true;
+                }
+            }
+
+            if (volumes.Count == 2)
+            {
+                // source:target
+                SourceVolumePath = volumes[0];
+                TargetVolumePath = volumes[1];
             }
             else
             {
                 // target - or, default to passing straight through
                 TargetVolumePath = volume;
-                ReadOnly = false;
             }
         }
 

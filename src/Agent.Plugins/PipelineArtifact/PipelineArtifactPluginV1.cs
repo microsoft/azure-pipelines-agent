@@ -249,6 +249,9 @@ namespace Agent.Plugins.PipelineArtifact
                 {
                     throw new InvalidOperationException("Unreachable code!");
                 }
+
+                context.Output(StringUtil.Loc("DownloadingFromBuild", pipelineId));
+                
                 downloadParameters = new PipelineArtifactDownloadParameters
                 {
                     ProjectRetrievalOptions = BuildArtifactRetrievalOptions.RetrieveByProjectName,
