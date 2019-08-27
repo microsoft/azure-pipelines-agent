@@ -123,6 +123,8 @@ namespace Agent.Plugins.PipelineArtifact
             else if (artifactType == fileShareType)
             {
                 string fileSharePath = context.GetInput(ArtifactEventProperties.FileSharePath, required: true);
+                string defaultSourceDirectory = context.Variables.GetValueOrDefault("build.sourcesdirectory").Value;
+                fileSharePath = Path.IsPathFullyQualified(fileSharePath) ? fileSharePath : Path.GetFullPath(Path.Combine(defaultSourceDirectory, fileSharePath));
 
                 if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
