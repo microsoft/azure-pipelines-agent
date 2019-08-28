@@ -10,7 +10,7 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts.Definition;
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
 {
     // TODO: Add test for this
-    public class FileShareArtifact: AgentService
+    public class FileShareArtifact
     {
         // This is only used by build artifact. This isn't a officially supported artifact type in RM
         public async Task DownloadArtifactAsync(IExecutionContext executionContext, IHostContext hostContext, ArtifactDefinition artifactDefinition, string dropLocation, string localFolderPath)
