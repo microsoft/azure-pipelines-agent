@@ -35,15 +35,17 @@ namespace Agent.Plugins.PipelineArtifact
         public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken)
         {
             var downloadRootPath = Path.Combine(buildArtifact.Resource.Data, buildArtifact.Name);
-            await this.CopyFileShareAsync(downloadRootPath, Path.Combine(downloadParameters.TargetDirectory, buildArtifact.Name), downloadParameters.MinimatchFilters, cancellationToken);
+            var minimatchPatterns = downloadParameters.MinimatchFilters.Select(pattern => Path.Combine(buildArtifact.Resource.Data, pattern));
+            await this.CopyFileShareAsync(downloadRootPath, Path.Combine(downloadParameters.TargetDirectory, buildArtifact.Name), minimatchPatterns, cancellationToken);
         }
 
         public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken)
         {
-            foreach (var buildArtifact in buildArtifacts)
+            foreach (var buildArtifact in buildArtifacts)   
             {
                 var downloadRootPath = Path.Combine(buildArtifact.Resource.Data, buildArtifact.Name);
-                await this.CopyFileShareAsync(downloadRootPath, Path.Combine(downloadParameters.TargetDirectory, buildArtifact.Name), downloadParameters.MinimatchFilters, cancellationToken);
+                var minimatchPatterns = downloadParameters.MinimatchFilters.Select(pattern => Path.Combine(buildArtifact.Resource.Data, pattern));
+                await this.CopyFileShareAsync(downloadRootPath, Path.Combine(downloadParameters.TargetDirectory, buildArtifact.Name), minimatchPatterns, cancellationToken);
             }
         }
 
@@ -54,7 +56,6 @@ namespace Agent.Plugins.PipelineArtifact
 
         private async Task CopyFileShareAsync(string downloadRootPath, string destPath, IEnumerable<string> minimatchPatterns, CancellationToken cancellationToken)
         {
-            minimatchPatterns = minimatchPatterns.Select(pattern => Path.Combine(downloadRootPath, pattern));
             IEnumerable<Func<string, bool>> minimatcherFuncs = MinimatchHelper.GetMinimatchFuncs(minimatchPatterns, this.tracer);
             await DownloadFileShareArtifactAsync(downloadRootPath, destPath, defaultParallelCount, cancellationToken, minimatcherFuncs);
         }
@@ -112,12 +113,10 @@ namespace Agent.Plugins.PipelineArtifact
         {
             var trimChars = new[] { '\\', '/' };
 
-            // If user has specified a relative folder in the drop, change the drop location itself. 
             sourcePath = Path.Combine(sourcePath.TrimEnd(trimChars));
 
-            IEnumerable<string> files =
-                new DirectoryInfo(sourcePath).EnumerateFiles("*", SearchOption.AllDirectories)
-                    .Select(path => path.FullName);
+            IEnumerable<FileInfo> files =
+                new DirectoryInfo(sourcePath).EnumerateFiles("*", SearchOption.AllDirectories);
 
             var parallelism = new ExecutionDataflowBlockOptions()
             {
@@ -126,65 +125,21 @@ namespace Agent.Plugins.PipelineArtifact
                 CancellationToken = cancellationToken
             };
 
-            var actionBlock = NonSwallowingActionBlock.Create<string>(
-                action: async file =>
+            var actionBlock = NonSwallowingActionBlock.Create<FileInfo>(
+                action: file =>
                 {
-                    if (minimatchFuncs == null || minimatchFuncs.Any(match => match(file))) 
-                    {
-                        string tempPath = Path.Combine(destPath, Path.GetRelativePath(sourcePath, file));
-                        context.Output(StringUtil.Loc("CopyFileToDestination", file, tempPath));
-                        FileInfo tempFile = new System.IO.FileInfo(tempPath);
-                        using (StreamReader fileReader = GetFileReader(file))
-                        {
-                            await WriteStreamToFile(
-                                fileReader.BaseStream,
-                                tempFile.FullName,
-                                DefaultStreamBufferSize,
-                                cancellationToken);
-                        }
-                    }
-                },
+                    if (minimatchFuncs == null || minimatchFuncs.Any(match => match(file.FullName))) 
+                            {
+                                string tempPath = Path.Combine(destPath, Path.GetRelativePath(sourcePath, file.FullName));
+                                this.context.Output(StringUtil.Loc("CopyFileToDestination", file, tempPath));
+                                FileInfo tempFile = new System.IO.FileInfo(tempPath);
+                                tempFile.Directory.Create(); // If the directory already exists, this method does nothing.
+                                file.CopyTo(tempPath, true);
+                            }
+                        },
                 dataflowBlockOptions: parallelism);
                 
                 await actionBlock.SendAllAndCompleteAsync(files, actionBlock, cancellationToken);
-        }
-        
-        private async Task WriteStreamToFile(Stream stream, string filePath, int bufferSize, CancellationToken cancellationToken)
-        {
-            ArgUtil.NotNull(stream, nameof(stream));
-            ArgUtil.NotNullOrEmpty(filePath, nameof(filePath));
-
-            EnsureDirectoryExists(Path.GetDirectoryName(filePath));
-            using (var targetStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize, true))
-            {
-                await stream.CopyToAsync(targetStream, bufferSize, cancellationToken);
-            }
-        }
-      
-        private StreamReader GetFileReader(string filePath)
-        {
-            string path = Path.Combine(ValidatePath(filePath));
-            if (!File.Exists(path))
-            {
-                throw new FileNotFoundException(StringUtil.Loc("FileNotFound", path));
-            }
-
-            return new StreamReader(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, DefaultStreamBufferSize, true));
-        }
-
-        private void EnsureDirectoryExists(string directoryPath)
-        {
-            string path = ValidatePath(directoryPath);
-            if (!Directory.Exists(path))
-            {
-                Directory.CreateDirectory(path);
-            }
-        }
-
-        private string ValidatePath(string path)
-        {
-            ArgUtil.NotNullOrEmpty(path, nameof(path));
-            return Path.GetFullPath(path);
         }
     }
 }

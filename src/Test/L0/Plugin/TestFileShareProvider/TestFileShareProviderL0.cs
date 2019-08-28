@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,7 +16,7 @@ namespace Test.L0.Plugin.TestFileShareProviderL0
     {
         private const string TestSourceFolder = "testFolder1";
         private const string TestDestFolder = "testFolder2";
-        private const string TestMultidownloadSourceFolder = "testDownload";
+        private const string TestDownloadSourceFolder = "testDownload";
 
         [Fact]
         [Trait("Level", "L0")]
@@ -52,7 +53,7 @@ namespace Test.L0.Plugin.TestFileShareProviderL0
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 var provider = new FileShareProvider(context, new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information));
                 
-                string sourcePath = Path.Combine(Directory.GetCurrentDirectory(), TestMultidownloadSourceFolder);
+                string sourcePath = Path.Combine(Directory.GetCurrentDirectory(), TestDownloadSourceFolder);
                 string destPath = Path.Combine(Directory.GetCurrentDirectory(), TestDestFolder);
                 PipelineArtifactDownloadParameters downloadParameters = new PipelineArtifactDownloadParameters();
                 downloadParameters.TargetDirectory = destPath;
@@ -71,6 +72,34 @@ namespace Test.L0.Plugin.TestFileShareProviderL0
                 {
                     Assert.True(destFiles.Any(f => Path.GetFileName(f).Equals(Path.GetFileName(file))));
                 }
+                TestCleanup();
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public async Task TestDownloadArtifactAsyncWithMinimatchPattern()
+        {
+            using(var hostContext = new TestHostContext(this))
+            {
+                var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
+                var provider = new FileShareProvider(context, new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information));
+                
+                string sourcePath = Path.Combine(Directory.GetCurrentDirectory(), TestDownloadSourceFolder);
+                string destPath = Path.Combine(Directory.GetCurrentDirectory(), TestDestFolder);
+                PipelineArtifactDownloadParameters downloadParameters = new PipelineArtifactDownloadParameters();
+                downloadParameters.TargetDirectory = destPath;
+                downloadParameters.MinimatchFilters = new string[] {"drop/test2.txt"};
+                BuildArtifact buildArtifact = new BuildArtifact();
+                buildArtifact.Name = "drop";
+                buildArtifact.Resource = new ArtifactResource();
+                buildArtifact.Resource.Data = sourcePath;
+                
+                await provider.DownloadMultipleArtifactsAsync(downloadParameters, new List<BuildArtifact> {buildArtifact}, CancellationToken.None);
+                var sourceFiles = Directory.GetFiles(sourcePath);
+                var destFiles = Directory.GetFiles(Path.Combine(destPath, buildArtifact.Name));
+                Assert.Equal(1, destFiles.Length);
                 TestCleanup();
             }
         }
