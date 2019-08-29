@@ -90,10 +90,7 @@ namespace Agent.Plugins.PipelineArtifact
 
                 string robocopyArguments = "\"" + dropLocation + "\" \"" + downloadFolderPath + "\" * /E /COPY:DA /NP /R:3";
 
-                if (parallelCount > 1)
-                {
-                    robocopyArguments = robocopyArguments + " /MT:" + parallelCount;
-                }
+                robocopyArguments += " /MT:" + parallelCount;
 
                 int exitCode = await processInvoker.ExecuteAsync(
                         workingDirectory: "",
