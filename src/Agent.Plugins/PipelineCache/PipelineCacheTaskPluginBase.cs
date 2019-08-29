@@ -11,6 +11,12 @@ using Microsoft.VisualStudio.Services.PipelineCache.WebApi;
 
 namespace Agent.Plugins.PipelineCache
 {
+    public enum TarType
+    {
+        GNU,
+        BSD
+    }
+    
     public abstract class PipelineCacheTaskPluginBase : IAgentTaskPlugin
     {
         protected const string RestoreStepRanVariableName = "RESTORE_STEP_RAN";

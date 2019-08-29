@@ -34,8 +34,17 @@ namespace Agent.Plugins.PipelineCache
             {
                 File.Delete(archiveFile);
             }
+
+            TarType tarType = CheckTarType();
+            Console.WriteLine($"Tar type is {t.ToString()}");
+
             var processFileName = "tar";
             var processArguments = $"-cf {archiveFile} -C {inputPath} .";
+
+            if(tarType.Equals(TarType.GNU))
+            {
+                processArguments = "--force-local " + processArguments;
+            }
 
             Action actionOnFailure = () =>
             {
@@ -229,6 +238,38 @@ namespace Agent.Plugins.PipelineCache
                     return false;
                 }
                 return true;
+            }
+        }
+
+        private static TarType CheckTarType()
+        {
+            using (var process = new Process())
+            {
+                process.StartInfo.FileName = "tar";
+                process.StartInfo.RedirectStandardError = true;
+                process.StartInfo.RedirectStandardOutput = true;
+                process.StartInfo.Arguments = "--version";
+                try
+                {
+                    process.Start();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"Exception is {e}");
+                }
+
+                string line;
+                TarType tarType = TarType.GNU;
+                while( null != (line = process.StandardOutput.ReadLine()))
+                {
+                    if (line.IndexOf("bsd", 0, StringComparison.OrdinalIgnoreCase) != -1)
+                    {
+                        tarType = TarType.BSD;
+                        break;
+                    }
+                }
+
+                return tarType;
             }
         }
     }
