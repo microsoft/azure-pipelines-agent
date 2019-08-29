@@ -41,7 +41,7 @@ namespace Agent.Plugins.PipelineArtifact
 
         public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken)
         {
-            foreach (var buildArtifact in buildArtifacts)   
+            foreach (var buildArtifact in buildArtifacts)
             {
                 var downloadRootPath = Path.Combine(buildArtifact.Resource.Data, buildArtifact.Name);
                 var minimatchPatterns = downloadParameters.MinimatchFilters.Select(pattern => Path.Combine(buildArtifact.Resource.Data, pattern));
@@ -60,7 +60,8 @@ namespace Agent.Plugins.PipelineArtifact
             await DownloadFileShareArtifactAsync(downloadRootPath, destPath, defaultParallelCount, cancellationToken, minimatcherFuncs);
         }
         
-        private async Task PublishArtifactUsingRobocopyAsync(AgentTaskPluginExecutionContext executionContext, IHostContext hostContext, string dropLocation, string downloadFolderPath, int parallelCount, CancellationToken cancellationToken)
+        private async Task PublishArtifactUsingRobocopyAsync(AgentTaskPluginExecutionContext executionContext, IHostContext hostContext, 
+        string dropLocation,string downloadFolderPath, int parallelCount, CancellationToken cancellationToken)
         {
             executionContext.Output(StringUtil.Loc("PublishingArtifactUsingRobocopy"));
             using (var processInvoker = hostContext.CreateService<IProcessInvoker>())
@@ -116,7 +117,7 @@ namespace Agent.Plugins.PipelineArtifact
         {
             var trimChars = new[] { '\\', '/' };
 
-            sourcePath = Path.Combine(sourcePath.TrimEnd(trimChars));
+            sourcePath = sourcePath.TrimEnd(trimChars);
 
             IEnumerable<FileInfo> files =
                 new DirectoryInfo(sourcePath).EnumerateFiles("*", SearchOption.AllDirectories);
@@ -135,9 +136,8 @@ namespace Agent.Plugins.PipelineArtifact
                     {
                         string destinationPath = Path.Combine(destPath, Path.GetRelativePath(sourcePath, file.FullName));
                         this.context.Output(StringUtil.Loc("CopyFileToDestination", file, destinationPath));
-                        FileInfo destinationFile = new System.IO.FileInfo(destinationPath);
-                        destinationFile.Directory.Create(); // If the directory already exists, this method does nothing.
-                        file.CopyTo(destinationPath, true);
+                        Directory.CreateDirectory(destinationPath); // If the directory already exists, this method does nothing.
+                        file.CopyTo(destinationPath, overwrite: true);
                     }
                 },
                 dataflowBlockOptions: parallelism);

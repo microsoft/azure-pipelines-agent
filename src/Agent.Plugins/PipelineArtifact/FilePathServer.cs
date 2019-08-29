@@ -24,9 +24,6 @@ namespace Agent.Plugins.PipelineArtifact
         {
             string artifactPath = Path.Join(fileSharePath, artifactName);
 
-            // Create the artifact. at this point, mkdir already succeeded so the path is good.
-            // the artifact should get cleaned up during retention even if the copy fails in the
-            // middle.
             Directory.CreateDirectory(artifactPath);
 
             VssConnection connection = context.VssConnection;
@@ -38,12 +35,12 @@ namespace Agent.Plugins.PipelineArtifact
                 { FileShareArtifactUploadEventProperties.ArtifactLocation, fileSharePath }
             };
 
-            // Associate the pipeline artifact with an build artifact.
+            // Associate the pipeline artifact with a build artifact.
             var artifact = await buildServer.AssociateArtifactAsync(projectId, buildId, artifactName, ArtifactResourceTypes.FilePath, fileSharePath, propertiesDictionary, token);
             var parallel = context.GetInput(FileShareArtifactUploadEventProperties.Parallel, required: false);
             var parallelCount = parallel == "true" ? GetParallelCount(context, context.GetInput(FileShareArtifactUploadEventProperties.ParallelCount, required: false)) : 1;
 
-            if (System.IO.Directory.Exists(fileSharePath))
+            if (Directory.Exists(fileSharePath))
             {
                 FileShareProvider provider = new FileShareProvider(context, new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information));
                 await provider.PublishArtifactAsync(targetPath, artifactPath, parallelCount, token);

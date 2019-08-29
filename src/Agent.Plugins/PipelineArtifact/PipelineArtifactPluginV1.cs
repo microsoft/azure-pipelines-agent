@@ -123,13 +123,13 @@ namespace Agent.Plugins.PipelineArtifact
             else if (artifactType == fileShareType)
             {
                 string fileSharePath = context.GetInput(ArtifactEventProperties.FileSharePath, required: true);
-                string defaultSourceDirectory = context.Variables.GetValueOrDefault("build.sourcesdirectory").Value;
-                fileSharePath = Path.IsPathFullyQualified(fileSharePath) ? fileSharePath : Path.GetFullPath(Path.Combine(defaultSourceDirectory, fileSharePath));
+
+                fileSharePath = Path.IsPathFullyQualified(fileSharePath) ? fileSharePath : Path.GetFullPath(Path.Combine(defaultWorkingDirectory, fileSharePath));
 
                 if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
                     FilePathServer server = new FilePathServer();
-                    await server.UploadAsync(context, projectId, buildId, artifactName, targetPath, fileSharePath, token);                  
+                    await server.UploadAsync(context, projectId, buildId, artifactName, targetPath, fileSharePath, token);               
                 }
                 else 
                 {

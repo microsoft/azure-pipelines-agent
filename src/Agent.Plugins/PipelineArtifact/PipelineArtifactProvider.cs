@@ -50,7 +50,8 @@ namespace Agent.Plugins.PipelineArtifact
 
         public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken)
         {
-            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(this.context, this.connection, cancellationToken, out BlobStoreClientTelemetry clientTelemetry);
+            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(
+                this.context, this.connection, cancellationToken, out BlobStoreClientTelemetry clientTelemetry);
 
             using(clientTelemetry) {
                 var manifestId = DedupIdentifier.Create(buildArtifact.Resource.Data);
@@ -75,7 +76,8 @@ namespace Agent.Plugins.PipelineArtifact
 
         public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken)
         {
-            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(this.context, this.connection, cancellationToken, out BlobStoreClientTelemetry clientTelemetry);
+            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(
+                this.context, this.connection, cancellationToken, out BlobStoreClientTelemetry clientTelemetry);
 
             using(clientTelemetry) {
                 var artifactNameAndManifestIds = buildArtifacts.ToDictionary(
