@@ -113,7 +113,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             var publisher = HostContext.GetService<ITestRunPublisher>();
             publisher.InitializePublisher(context, connection, teamProject, resultReader);
 
-            _telemetryPublisher = TelemetryPublisher.GetInstance(connection);
+            _telemetryPublisher = new TelemetryPublisher(connection);
 
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
