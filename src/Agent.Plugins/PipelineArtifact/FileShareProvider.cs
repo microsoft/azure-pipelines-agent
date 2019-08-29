@@ -51,7 +51,7 @@ namespace Agent.Plugins.PipelineArtifact
 
         public async Task PublishArtifactAsync(string sourcePath, string destPath, int parallelCount, CancellationToken cancellationToken)
         {
-            await PublishArtifactUsingRobocopyAsync(this.context, new HostContext(this.hostType), sourcePath, destPath, cancellationToken);
+            await PublishArtifactUsingRobocopyAsync(this.context, new HostContext(this.hostType), sourcePath, destPath, parallelCount, cancellationToken);
         }
 
         private async Task CopyFileShareAsync(string downloadRootPath, string destPath, IEnumerable<string> minimatchPatterns, CancellationToken cancellationToken)
@@ -60,7 +60,7 @@ namespace Agent.Plugins.PipelineArtifact
             await DownloadFileShareArtifactAsync(downloadRootPath, destPath, defaultParallelCount, cancellationToken, minimatcherFuncs);
         }
         
-        private async Task PublishArtifactUsingRobocopyAsync(AgentTaskPluginExecutionContext executionContext, IHostContext hostContext, string dropLocation, string downloadFolderPath, CancellationToken cancellationToken)
+        private async Task PublishArtifactUsingRobocopyAsync(AgentTaskPluginExecutionContext executionContext, IHostContext hostContext, string dropLocation, string downloadFolderPath, int parallelCount, CancellationToken cancellationToken)
         {
             executionContext.Output(StringUtil.Loc("PublishingArtifactUsingRobocopy"));
             using (var processInvoker = hostContext.CreateService<IProcessInvoker>())
@@ -90,6 +90,11 @@ namespace Agent.Plugins.PipelineArtifact
 
                 string robocopyArguments = "\"" + dropLocation + "\" \"" + downloadFolderPath + "\" * /E /COPY:DA /NP /R:3";
 
+                if (parallelCount > 1)
+                {
+                    robocopyArguments = robocopyArguments + " /MT:" + parallelCount;
+                }
+
                 int exitCode = await processInvoker.ExecuteAsync(
                         workingDirectory: "",
                         fileName: "robocopy",
@@ -102,6 +107,7 @@ namespace Agent.Plugins.PipelineArtifact
 
                 executionContext.Output(StringUtil.Loc("RobocopyBasedPublishArtifactTaskExitCode", exitCode));
 
+                // Exit code returned from robocopy. For more info https://blogs.technet.microsoft.com/deploymentguys/2008/06/16/robocopy-exit-codes/
                 if (exitCode >= 8)
                 {
                     throw new Exception(StringUtil.Loc("RobocopyBasedPublishArtifactTaskFailed", exitCode));
@@ -129,14 +135,14 @@ namespace Agent.Plugins.PipelineArtifact
                 action: file =>
                 {
                     if (minimatchFuncs == null || minimatchFuncs.Any(match => match(file.FullName))) 
-                            {
-                                string tempPath = Path.Combine(destPath, Path.GetRelativePath(sourcePath, file.FullName));
-                                this.context.Output(StringUtil.Loc("CopyFileToDestination", file, tempPath));
-                                FileInfo tempFile = new System.IO.FileInfo(tempPath);
-                                tempFile.Directory.Create(); // If the directory already exists, this method does nothing.
-                                file.CopyTo(tempPath, true);
-                            }
-                        },
+                    {
+                        string destinationPath = Path.Combine(destPath, Path.GetRelativePath(sourcePath, file.FullName));
+                        this.context.Output(StringUtil.Loc("CopyFileToDestination", file, destinationPath));
+                        FileInfo destinationFile = new System.IO.FileInfo(destinationPath);
+                        destinationFile.Directory.Create(); // If the directory already exists, this method does nothing.
+                        file.CopyTo(destinationPath, true);
+                    }
+                },
                 dataflowBlockOptions: parallelism);
                 
                 await actionBlock.SendAllAndCompleteAsync(files, actionBlock, cancellationToken);

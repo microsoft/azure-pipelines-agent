@@ -64,8 +64,8 @@ namespace Agent.Plugins.PipelineArtifact
         {
             string artifactName = context.GetInput(ArtifactEventProperties.ArtifactName, required: false);
             string targetPath = context.GetInput(TargetPath, required: true);
-            string artifactType = context.GetInput(ArtifactEventProperties.ArtifactType, required: true);
-            artifactType = artifactType.ToLower();
+            string artifactType = context.GetInput(ArtifactEventProperties.ArtifactType, required: false);
+            artifactType = string.IsNullOrEmpty(artifactType)? pipelineType: artifactType.ToLower();
 
             string defaultWorkingDirectory = context.Variables.GetValueOrDefault("system.defaultworkingdirectory").Value;
 
