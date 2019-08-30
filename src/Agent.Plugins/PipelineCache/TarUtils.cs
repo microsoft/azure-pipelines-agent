@@ -35,16 +35,8 @@ namespace Agent.Plugins.PipelineCache
                 File.Delete(archiveFile);
             }
 
-            TarType tarType = CheckTarType();
-            Console.WriteLine($"Tar type is {t.ToString()}");
-
             var processFileName = "tar";
-            var processArguments = $"-cf {archiveFile} -C {inputPath} .";
-
-            if(tarType.Equals(TarType.GNU))
-            {
-                processArguments = "--force-local " + processArguments;
-            }
+            var processArguments = $"-cf \"{archiveFileName}\" -C \"{inputPath}\" ."; // If given the absolute path, the GNU tar fails. The workaround is to start the tarring process in the temp directory, and simply speficy 'archive.tar'
 
             Action actionOnFailure = () =>
             {
@@ -59,6 +51,7 @@ namespace Agent.Plugins.PipelineCache
                 context,
                 processFileName,
                 processArguments,
+                Path.GetTempPath(), // Set the process working directory to TEMP.
                 // no additional tasks on create are required to run whilst running the TAR process
                 (Process process, CancellationToken ct) => Task.CompletedTask,
                 actionOnFailure,
@@ -88,7 +81,7 @@ namespace Agent.Plugins.PipelineCache
             DedupIdentifier dedupId = DedupIdentifier.Create(manifest.Items.Single(i => i.Path == $"/{archiveFileName}").Blob.Id);
             bool does7zExists = isWindows ? CheckIf7ZExists() : false;
             string processFileName = (does7zExists) ? "7z" : "tar";
-            string processArguments = (does7zExists) ? $"x -si -aoa -o{targetDirectory} -ttar" : $"-xf - -C {targetDirectory}";
+            string processArguments = (does7zExists) ? $"x -si -aoa -o\"{targetDirectory}\" -ttar" : $"-xf - -C ."; // Instead of targetDirectory, we are providing . to tar, because the tar process is being started from targetDirectory.
 
             Func<Process, CancellationToken, Task> downloadTaskFunc =
                 (process, ct) =>
@@ -100,7 +93,11 @@ namespace Agent.Plugins.PipelineCache
                     }
                     catch (Exception e)
                     {
-                        process.Kill();
+                        try
+                        {
+                            process.Kill();
+                        }
+                        catch {}
                         ExceptionDispatchInfo.Capture(e).Throw();
                     }
                 });
@@ -109,6 +106,7 @@ namespace Agent.Plugins.PipelineCache
                 context,
                 processFileName,
                 processArguments,
+                targetDirectory, // Set the process working directory to targetDirectory.
                 downloadTaskFunc,
                 () => { },
                 cancellationToken);
@@ -118,6 +116,7 @@ namespace Agent.Plugins.PipelineCache
             AgentTaskPluginExecutionContext context,
             string processFileName,
             string processArguments,
+            string processWorkingDirectory,
             Func<Process, CancellationToken, Task> additionalTaskToExecuteWhilstRunningProcess,
             Action actionOnFailure,
             CancellationToken cancellationToken)
@@ -127,7 +126,7 @@ namespace Agent.Plugins.PipelineCache
             using (var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, cancelSource.Token))
             using (var process = new Process())
             {
-                SetProcessStartInfo(process, processFileName, processArguments);
+                SetProcessStartInfo(process, processFileName, processArguments, processWorkingDirectory);
                 process.EnableRaisingEvents = true;
                 process.Exited += (sender, args) =>
                 {
@@ -204,7 +203,7 @@ namespace Agent.Plugins.PipelineCache
             }
         }
 
-        private static void SetProcessStartInfo(Process process, string processFileName, string processArguments)
+        private static void SetProcessStartInfo(Process process, string processFileName, string processArguments, string processWorkingDirectory)
         {
             process.StartInfo.FileName = processFileName;
             process.StartInfo.Arguments = processArguments;
@@ -212,6 +211,7 @@ namespace Agent.Plugins.PipelineCache
             process.StartInfo.RedirectStandardInput = true;
             process.StartInfo.RedirectStandardOutput = true;
             process.StartInfo.RedirectStandardError = true;
+            process.StartInfo.WorkingDirectory = processWorkingDirectory;
         }
 
         private static void ValidateTarManifest(Manifest manifest)
@@ -238,38 +238,6 @@ namespace Agent.Plugins.PipelineCache
                     return false;
                 }
                 return true;
-            }
-        }
-
-        private static TarType CheckTarType()
-        {
-            using (var process = new Process())
-            {
-                process.StartInfo.FileName = "tar";
-                process.StartInfo.RedirectStandardError = true;
-                process.StartInfo.RedirectStandardOutput = true;
-                process.StartInfo.Arguments = "--version";
-                try
-                {
-                    process.Start();
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine($"Exception is {e}");
-                }
-
-                string line;
-                TarType tarType = TarType.GNU;
-                while( null != (line = process.StandardOutput.ReadLine()))
-                {
-                    if (line.IndexOf("bsd", 0, StringComparison.OrdinalIgnoreCase) != -1)
-                    {
-                        tarType = TarType.BSD;
-                        break;
-                    }
-                }
-
-                return tarType;
             }
         }
     }
