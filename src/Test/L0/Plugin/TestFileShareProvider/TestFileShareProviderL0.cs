@@ -98,7 +98,7 @@ namespace Test.L0.Plugin.TestFileShareProviderL0
                 TestCleanup();
             }
         }
-        
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
@@ -146,12 +146,12 @@ namespace Test.L0.Plugin.TestFileShareProviderL0
 
             foreach (FileInfo file in destDir.GetFiles("*", SearchOption.AllDirectories))
             {
-                file.Delete(); 
+                file.Delete();
             }
 
             foreach (DirectoryInfo dir in destDir.EnumerateDirectories())
             {
-                dir.Delete(true); 
+                dir.Delete(true);
             }
         }
 
@@ -161,7 +161,7 @@ namespace Test.L0.Plugin.TestFileShareProviderL0
             rng.NextBytes(data);
             return data;
         }
-        byte[] ComputeHash(string filePath)
+        private byte[] ComputeHash(string filePath)
         {
             using (var md5 = MD5.Create())
             {
@@ -170,12 +170,12 @@ namespace Test.L0.Plugin.TestFileShareProviderL0
         }
     }
 
-        public class TestFile
+    public class TestFile
     {
         public string RelativePath { get; protected set; }
         public byte[] Content { get; protected set; }
         protected internal TestFile(byte[] content)
-        {         
+        {     
             this.Content = content;
         }
 
