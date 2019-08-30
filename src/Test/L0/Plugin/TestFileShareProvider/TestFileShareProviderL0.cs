@@ -157,12 +157,14 @@ namespace Test.L0.Plugin.TestFileShareProviderL0
             }
         }
 
-        private byte[] GenerateRandomData(){
+        private byte[] GenerateRandomData()
+        {
             byte[] data = new byte[1024];
             Random rng = new Random();
             rng.NextBytes(data);
             return data;
         }
+
         private byte[] ComputeHash(string filePath)
         {
             using (var md5 = MD5.Create())
@@ -174,7 +176,6 @@ namespace Test.L0.Plugin.TestFileShareProviderL0
 
     public class TestFile
     {
-        public string RelativePath { get; protected set; }
         public byte[] Content { get; protected set; }
         protected internal TestFile(byte[] content)
         {     
