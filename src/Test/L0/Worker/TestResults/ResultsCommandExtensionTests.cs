@@ -2,7 +2,9 @@
 using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
+using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.VisualStudio.Services.Agent.Worker.TestResults;
+using Microsoft.VisualStudio.Services.WebPlatform;
 using Moq;
 using System;
 using System.Collections.Generic;
@@ -26,6 +28,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         private Mock<ITestRunPublisher> _mockTestRunPublisher;
         private Mock<IExtensionManager> _mockExtensionManager;
         private Mock<IAsyncCommandContext> _mockCommandContext;
+        private Mock<ICustomerIntelligenceServer> _mockCustomerIntelligenceServer;
         private TestHostContext _hc;
         private Variables _variables;
 
@@ -40,6 +43,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
                 .Returns(testRunData);
 
             _mockTestRunPublisher = new Mock<ITestRunPublisher>();
+
+            _mockCustomerIntelligenceServer = new Mock<ICustomerIntelligenceServer>();
+            _mockCustomerIntelligenceServer.Setup(x => x.PublishEventsAsync(It.IsAny<CustomerIntelligenceEvent[]>()));
         }
 
         [Fact]
@@ -695,6 +701,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         {
             _hc = new TestHostContext(this, name);
             _hc.SetSingleton(_mockResultReader.Object);
+
+            _hc.SetSingleton(_mockCustomerIntelligenceServer.Object);
 
             _mockExtensionManager = new Mock<IExtensionManager>();
             _mockExtensionManager.Setup(x => x.GetExtensions<IResultReader>()).Returns(new List<IResultReader> { _mockResultReader.Object, new JUnitResultReader(), new NUnitResultReader() });

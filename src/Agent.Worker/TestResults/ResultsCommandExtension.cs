@@ -540,7 +540,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
         private void PopulateTelemetryData()
         {
-            _telemetryProperties.Add("GuidId", _executionContext.Id);
+            _telemetryProperties.Add("ExecutionId", _executionContext.Id);
             _telemetryProperties.Add("BuildId", _executionContext.Variables.Build_BuildId);
             _telemetryProperties.Add("BuildUri", _executionContext.Variables.Build_BuildUri);
             _telemetryProperties.Add("Attempt", _executionContext.Variables.System_JobAttempt);
