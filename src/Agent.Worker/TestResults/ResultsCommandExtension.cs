@@ -8,6 +8,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
+using Newtonsoft.Json;
+using Microsoft.VisualStudio.Services.WebPlatform;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
@@ -35,7 +38,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         public const string _telemetryFeature = "PublishTestResultsCommand";
         public const string _telemetryArea = "TestExecution";
         private Dictionary<string, object> _telemetryProperties;
-        private TelemetryPublisher _telemetryPublisher;
 
         public Type ExtensionType => typeof(IWorkerCommandExtension);
 
@@ -113,17 +115,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             var publisher = HostContext.GetService<ITestRunPublisher>();
             publisher.InitializePublisher(context, connection, teamProject, resultReader);
 
-            _telemetryPublisher = new TelemetryPublisher(connection);
-
+            var ciService = HostContext.GetService<ICustomerIntelligenceServer>();
+            ciService.Initialize(connection);
+            
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
             if (_mergeResults)
             {
-                commandContext.Task = PublishAllTestResultsToSingleTestRunAsync(_testResultFiles, publisher, buildId, runContext, resultReader.Name, context.CancellationToken);
+                commandContext.Task = PublishAllTestResultsToSingleTestRunAsync(_testResultFiles, publisher, buildId, runContext, resultReader.Name, ciService, context.CancellationToken);
             }
             else
             {
-                commandContext.Task = PublishToNewTestRunPerTestResultFileAsync(_testResultFiles, publisher, runContext, resultReader.Name, PublishBatchSize, context.CancellationToken);
+                commandContext.Task = PublishToNewTestRunPerTestResultFileAsync(_testResultFiles, publisher, runContext, resultReader.Name, PublishBatchSize, ciService, context.CancellationToken);
             }
             _executionContext.AsyncCommands.Add(commandContext);
 
@@ -137,7 +140,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         /// <summary>
         /// Publish single test run
         /// </summary>
-        private async Task PublishAllTestResultsToSingleTestRunAsync(List<string> resultFiles, ITestRunPublisher publisher, int buildId, TestRunContext runContext, string resultReader, CancellationToken cancellationToken)
+        private async Task PublishAllTestResultsToSingleTestRunAsync(List<string> resultFiles, ITestRunPublisher publisher, int buildId, TestRunContext runContext, string resultReader, ICustomerIntelligenceServer ciService, CancellationToken cancellationToken)
         {
             try
             {
@@ -256,9 +259,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     TestRun testRun = await publisher.StartTestRunAsync(testRunData, _executionContext.CancellationToken);
                     await publisher.AddResultsAsync(testRun, runResults.ToArray(), _executionContext.CancellationToken);
                     await publisher.EndTestRunAsync(testRunData, testRun.Id, true, _executionContext.CancellationToken);
-                    
-                    await PublishTelemetryAsync();
                 }
+
+                await PublishEventsAsync(ciService);
             }
             catch (Exception ex) when (!(ex is OperationCanceledException))
             {
@@ -275,6 +278,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             TestRunContext runContext,
             string resultReader,
             int batchSize,
+            ICustomerIntelligenceServer ciService,
             CancellationToken cancellationToken)
         {
             try
@@ -330,9 +334,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                         }
                     });
                     await Task.WhenAll(publishTasks);
-
-                    await PublishTelemetryAsync();
                 }
+
+                await PublishEventsAsync(ciService);
             }
             catch (Exception ex) when (!(ex is OperationCanceledException))
             {
@@ -516,11 +520,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
         }
 
-        private async Task PublishTelemetryAsync()
+        private async Task PublishEventsAsync(ICustomerIntelligenceServer ciService)
         {
             try
             {
-                await _telemetryPublisher.PublishAsync(_telemetryArea, _telemetryFeature, _telemetryProperties);
+                CustomerIntelligenceEvent ciEvent = new CustomerIntelligenceEvent()
+                {
+                    Area = _telemetryArea,
+                    Feature = _telemetryFeature,
+                    Properties = _telemetryProperties
+                };
+
+                await ciService.PublishEventsAsync(new CustomerIntelligenceEvent[] { ciEvent });
             }
             catch(Exception ex)
             {
@@ -542,7 +553,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 _telemetryProperties.Add("ReleaseUri", _executionContext.Variables.Release_ReleaseUri);
                 _telemetryProperties.Add("ReleaseId", _executionContext.Variables.Release_ReleaseId);
             }
-                
         }
     }
 
