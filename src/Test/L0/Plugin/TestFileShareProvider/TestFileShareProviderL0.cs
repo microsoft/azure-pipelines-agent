@@ -29,9 +29,10 @@ namespace Test.L0.Plugin.TestFileShareProviderL0
         {
             if(!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                Assert.True(true);
+                // Robocopy only works in Windows and since agent is using Xunit, Assert.Inconclusive doesn't exist. 
+                return;
             }
-            
+
             byte[] sourceContent = GenerateRandomData();
             TestFile sourceFile = new TestFile(sourceContent);
 

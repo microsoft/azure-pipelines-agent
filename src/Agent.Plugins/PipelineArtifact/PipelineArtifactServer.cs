@@ -118,7 +118,7 @@ namespace Agent.Plugins.PipelineArtifact
                         throw new InvalidOperationException($"Invalid {nameof(downloadParameters.ProjectRetrievalOptions)}!");
                     }
 
-                    IEnumerable<BuildArtifact> fileShareArtifacts = artifacts.Where(a => a.Resource.Type.ToLower() == PipelineArtifactConstants.FileShareArtifact);
+                    IEnumerable<BuildArtifact> fileShareArtifacts = artifacts.Where(a => string.Equals(a.Resource.Type, PipelineArtifactConstants.FileShareArtifact, StringComparison.OrdinalIgnoreCase));
                     if(fileShareArtifacts.Any()) 
                     {
                         throw new InvalidOperationException("File Share is not supported in the Download Pipeline Artifact V1 task. Please use Download Pipeline Artifact V2 task instead.");
