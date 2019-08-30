@@ -60,8 +60,8 @@ namespace Agent.Plugins.PipelineArtifact
             await DownloadFileShareArtifactAsync(downloadRootPath, destPath, defaultParallelCount, cancellationToken, minimatcherFuncs);
         }
         
-        private async Task PublishArtifactUsingRobocopyAsync(AgentTaskPluginExecutionContext executionContext, IHostContext hostContext, 
-        string dropLocation,string downloadFolderPath, int parallelCount, CancellationToken cancellationToken)
+        private async Task PublishArtifactUsingRobocopyAsync(AgentTaskPluginExecutionContext executionContext, IHostContext hostContext, string dropLocation, 
+            string downloadFolderPath, int parallelCount, CancellationToken cancellationToken)
         {
             executionContext.Output(StringUtil.Loc("PublishingArtifactUsingRobocopy"));
             using (var processInvoker = hostContext.CreateService<IProcessInvoker>())
@@ -130,19 +130,64 @@ namespace Agent.Plugins.PipelineArtifact
             };
 
             var actionBlock = NonSwallowingActionBlock.Create<FileInfo>(
-                action: file =>
+               action: async file =>
                 {
                     if (minimatchFuncs == null || minimatchFuncs.Any(match => match(file.FullName))) 
                     {
-                        string destinationPath = Path.Combine(destPath, Path.GetRelativePath(sourcePath, file.FullName));
-                        this.context.Output(StringUtil.Loc("CopyFileToDestination", file, destinationPath));
-                        Directory.CreateDirectory(destinationPath); // If the directory already exists, this method does nothing.
-                        file.CopyTo(destinationPath, overwrite: true);
+                        string tempPath = Path.Combine(destPath, Path.GetRelativePath(sourcePath, file.FullName));
+                        context.Output(StringUtil.Loc("CopyFileToDestination", file, tempPath));
+                        FileInfo tempFile = new System.IO.FileInfo(tempPath);
+                        using (StreamReader fileReader = GetFileReader(file.FullName))
+                        {
+                            await WriteStreamToFile(
+                                fileReader.BaseStream,
+                                tempFile.FullName,
+                                DefaultStreamBufferSize,
+                                cancellationToken);
+                        }
                     }
                 },
                 dataflowBlockOptions: parallelism);
                 
                 await actionBlock.SendAllAndCompleteAsync(files, actionBlock, cancellationToken);
+        }
+
+        private async Task WriteStreamToFile(Stream stream, string filePath, int bufferSize, CancellationToken cancellationToken)
+        {
+            ArgUtil.NotNull(stream, nameof(stream));
+            ArgUtil.NotNullOrEmpty(filePath, nameof(filePath));
+
+            EnsureDirectoryExists(Path.GetDirectoryName(filePath));
+            using (var targetStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize, useAsync: true))
+            {
+                await stream.CopyToAsync(targetStream, bufferSize, cancellationToken);
+            }
+        }
+
+        private StreamReader GetFileReader(string filePath)
+        {
+            string path = Path.Combine(ValidatePath(filePath));
+            if (!File.Exists(path))
+            {
+                throw new FileNotFoundException(StringUtil.Loc("FileNotFound", path));
+            }
+
+            return new StreamReader(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, DefaultStreamBufferSize, true));
+        }
+
+        private void EnsureDirectoryExists(string directoryPath)
+        {
+            string path = ValidatePath(directoryPath);
+            if (!Directory.Exists(path))
+            {
+                Directory.CreateDirectory(path);
+            }
+        }
+
+        private string ValidatePath(string path)
+        {
+            ArgUtil.NotNullOrEmpty(path, nameof(path));
+            return Path.GetFullPath(path);
         }
     }
 }

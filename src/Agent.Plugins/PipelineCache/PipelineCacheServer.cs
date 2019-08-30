@@ -61,7 +61,7 @@ namespace Agent.Plugins.PipelineCache
                     {
                         return await dedupManifestClient.PublishAsync(uploadPath, cancellationToken);
                     });
-
+        
                 CreatePipelineCacheArtifactContract options = new CreatePipelineCacheArtifactContract
                 {
                     Fingerprint = fingerprint,

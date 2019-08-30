@@ -209,7 +209,7 @@ namespace Agent.Plugins.PipelineArtifact
                     if (string.Equals(hostType, "Release", StringComparison.OrdinalIgnoreCase) ||
                         string.Equals(hostType, "DeploymentGroup", StringComparison.OrdinalIgnoreCase))
                     {
-                        throw new InvalidOperationException(StringUtil.Loc("BuildIdIsNotAvailable", hostType ?? string.Empty));
+                        throw new InvalidOperationException(StringUtil.Loc("BuildIdIsNotAvailable", hostType ?? string.Empty, hostType ?? string.Empty));
                     }
                     else if (!string.Equals(hostType, "Build", StringComparison.OrdinalIgnoreCase))
                     {
