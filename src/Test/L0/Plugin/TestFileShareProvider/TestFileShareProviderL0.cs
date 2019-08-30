@@ -13,7 +13,6 @@ using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Tests;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Xunit;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Test.L0.Plugin.TestFileShareProviderL0
 {
@@ -99,7 +98,6 @@ namespace Test.L0.Plugin.TestFileShareProviderL0
                 TestCleanup();
             }
         }
-
         
         [Fact]
         [Trait("Level", "L0")]
