@@ -27,6 +27,11 @@ namespace Test.L0.Plugin.TestFileShareProviderL0
         [Trait("Category", "Plugin")]
         public async Task TestPublishArtifactAsync()
         {
+            if(!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                Assert.True(true);
+            }
+            
             byte[] sourceContent = GenerateRandomData();
             TestFile sourceFile = new TestFile(sourceContent);
 
@@ -34,10 +39,6 @@ namespace Test.L0.Plugin.TestFileShareProviderL0
 
             using(var hostContext = new TestHostContext(this))
             {
-                if(!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                {
-                    Assert.True(true);
-                }
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 context.Variables.Add("system.hosttype", "build");
                 var provider = new FileShareProvider(context, new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information));
