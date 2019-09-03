@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Threading;
 using System.Xml;
+using Microsoft.TeamFoundation.TestClient.PublishTestResults;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
@@ -33,7 +34,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         /// </summary>
         /// <param name="filePath">File path</param>
         /// <returns>TestRunData</returns>
-        public TestRunData ReadResults(IExecutionContext executionContext, string filePath, TestRunContext runContext)
+        public LegacyTestRunData ReadResults(IExecutionContext executionContext, string filePath, TestRunContext runContext)
         {
             _executionContext = executionContext;
 
@@ -89,7 +90,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 }
             }
 
-            TestRunData testRunData = new TestRunData(
+            LegacyTestRunData testRunData = new LegacyTestRunData(
                 name: runName,
                 buildId: runContext.BuildId,
                 startedDate: runStartDate != DateTime.MinValue ? runStartDate.ToString("o") : null,
@@ -194,7 +195,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
         public string Name => "VSTest";
 
-        private void AddRunLevelAttachments(string filePath, XmlDocument doc, TestRunData testRunData)
+        private void AddRunLevelAttachments(string filePath, XmlDocument doc, LegacyTestRunData testRunData)
         {
             var runAttachments = new List<string>();
             if (AddResultsFileToRunLevelAttachments)

@@ -1,4 +1,6 @@
-﻿namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
+﻿using Microsoft.TeamFoundation.TestClient.PublishTestResults;
+
+namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
     public interface IResultReader : IExtension
     {
@@ -7,7 +9,7 @@
         /// </summary>
         /// <param name="filePath">File path</param>
         /// <returns>TestCaseResultData Array</returns>
-        TestRunData ReadResults(IExecutionContext executionContext, string filePath, TestRunContext runContext);
+        LegacyTestRunData ReadResults(IExecutionContext executionContext, string filePath, TestRunContext runContext);
 
         /// <summary>
         /// Should the run level attachments be uploaded

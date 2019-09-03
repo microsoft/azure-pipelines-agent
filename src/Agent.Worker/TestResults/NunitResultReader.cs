@@ -1,4 +1,5 @@
-﻿using Microsoft.TeamFoundation.TestManagement.WebApi;
+﻿using Microsoft.TeamFoundation.TestClient.PublishTestResults;
+using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.WebApi;
 using System;
@@ -14,7 +15,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         {
         }
 
-        public TestRunData GetTestRunData(string filePath, XmlDocument doc, XmlNode testResultsNode, TestRunContext runContext, bool addResultsAsAttachments)
+        public LegacyTestRunData GetTestRunData(string filePath, XmlDocument doc, XmlNode testResultsNode, TestRunContext runContext, bool addResultsAsAttachments)
         {
             var results = new List<TestCaseResultData>();
 
@@ -111,7 +112,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
 
             //create test run data
-            TestRunData testRunData = new TestRunData(
+            LegacyTestRunData testRunData = new LegacyTestRunData(
                 name: runName,
                 startedDate: (runStartTime == DateTime.MinValue) ? string.Empty : runStartTime.ToString("o"),
                 completedDate: (runStartTime == DateTime.MinValue) ? string.Empty : runStartTime.Add(totalRunDuration).ToString("o"),
@@ -261,12 +262,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
     public interface INUnitResultsXmlReader
     {
-        TestRunData GetTestRunData(string filePath, XmlDocument doc, XmlNode testResultsNode, TestRunContext runContext, bool addResultsAsAttachments);
+        LegacyTestRunData GetTestRunData(string filePath, XmlDocument doc, XmlNode testResultsNode, TestRunContext runContext, bool addResultsAsAttachments);
     }
 
     internal class NUnit2ResultsXmlReader: NUnitResultsXmlReader, INUnitResultsXmlReader
     {
-        public new TestRunData GetTestRunData(string filePath, XmlDocument doc, XmlNode testResultsNode, TestRunContext runContext, bool addResultsAsAttachments)
+        public new LegacyTestRunData GetTestRunData(string filePath, XmlDocument doc, XmlNode testResultsNode, TestRunContext runContext, bool addResultsAsAttachments)
         {
             this.InnerTestSuiteNodeName = "results/test-suite";
             this.TestCaseNodeName = "results/test-case";
@@ -352,7 +353,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
             return testCaseResultData;
         }
-        public TestRunData GetTestRunData(string filePath, XmlDocument doc, XmlNode testResultsNode, TestRunContext runContext, bool addResultsAsAttachments)
+        public LegacyTestRunData GetTestRunData(string filePath, XmlDocument doc, XmlNode testResultsNode, TestRunContext runContext, bool addResultsAsAttachments)
         {
             var testRunNode = doc.SelectSingleNode("test-run");
             var testRunStartedOn = DateTime.MinValue;
@@ -402,7 +403,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 // Adding results file itself as run level attachment.
                 runLevelAttachments.Add(filePath);
             }
-            TestRunData testRunData = new TestRunData(
+            LegacyTestRunData testRunData = new LegacyTestRunData(
                 name: runContext != null && !string.IsNullOrWhiteSpace(runContext.RunName) ? runContext.RunName : _defaultRunName,
                 startedDate: (testRunStartedOn == DateTime.MinValue ? string.Empty : testRunStartedOn.ToString("o")),
                 completedDate: (testRunEndedOn == DateTime.MinValue ? string.Empty : testRunEndedOn.ToString("o")),
@@ -457,7 +458,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             AddResultsFileToRunLevelAttachments = true;
         }
 
-        public TestRunData ReadResults(IExecutionContext executionContext, string filePath, TestRunContext runContext = null)
+        public LegacyTestRunData ReadResults(IExecutionContext executionContext, string filePath, TestRunContext runContext = null)
         {
             var doc = new XmlDocument();
             try

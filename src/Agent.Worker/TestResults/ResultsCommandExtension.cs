@@ -10,6 +10,8 @@ using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.TeamFoundation.TestClient.PublishTestResults;
 using System.Diagnostics;
+using Microsoft.VisualStudio.Services.FeatureAvailability.WebApi;
+using Microsoft.VisualStudio.Services.FeatureAvailability;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
@@ -25,6 +27,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private string _runTitle;
         private bool _publishRunLevelAttachments;
         private int _runCounter = 0;
+        private bool isTestResultsEnabled = true;
 
         private bool _failTaskOnFailedTests;
 
@@ -65,34 +68,52 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
             VssConnection connection = WorkerUtilities.GetVssConnection(_executionContext);
 
-            ITestRunPublisher testRunPublisher = new TestRunPublisher(connection, new CommandTraceListener(_executionContext));
-
-            var publisher = HostContext.GetService<ITestRunDataPublisher>();
-            publisher.InitializePublisher(context, connection, teamProject, testRunPublisher);
-
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
-            if (_mergeResults)
+
+            if (isTestResultsEnabled)
             {
-                commandContext.Task = PublishAllTestResultsToSingleTestRunAsync(_testResultFiles, publisher, buildId, runContext, resultReader.Name, context.CancellationToken);
+                ITestRunPublisher testRunPublisher = new TestRunPublisher(connection, new CommandTraceListener(_executionContext));
+
+                var publisher = HostContext.GetService<ITestRunDataPublisher>();
+                publisher.InitializePublisher(context, connection, teamProject, testRunPublisher);
+
+                var parser = new Parser();
+                TestDataProvider testDataProvider = parser.ParseTestResultFiles(context, _testRunner, runContext, _testResultFiles);
+
+                commandContext.Task = PublishTestRunData(publisher, testDataProvider, runContext);
+                _executionContext.AsyncCommands.Add(commandContext);
             }
             else
             {
-                commandContext.Task = PublishToNewTestRunPerTestResultFileAsync(_testResultFiles, publisher, runContext, resultReader.Name, PublishBatchSize, context.CancellationToken);
+                IResultReader resultReader = GetTestResultReader(_testRunner);
+                
+                var legacyPublisher = HostContext.GetService<ILegacyTestRunPublisher>();
+                legacyPublisher.InitializePublisher(context, connection, teamProject, resultReader);
+
+                if (_mergeResults)
+                {
+                    commandContext.Task = PublishAllTestResultsToSingleTestRunAsync(_testResultFiles, legacyPublisher, runContext, resultReader.Name, context.CancellationToken);
+                }
+                else
+                {
+                    commandContext.Task = PublishToNewTestRunPerTestResultFileAsync(_testResultFiles, legacyPublisher, runContext, resultReader.Name, PublishBatchSize, context.CancellationToken);
+                }
+                _executionContext.AsyncCommands.Add(commandContext);
             }
-            _executionContext.AsyncCommands.Add(commandContext);
 
             if (_isTestRunOutcomeFailed)
             {
                 _executionContext.Result = TaskResult.Failed;
                 _executionContext.Error(StringUtil.Loc("FailedTestsInResults"));
             }
+            
         }
 
         /// <summary>
         /// Publish single test run
         /// </summary>
-        private async Task PublishAllTestResultsToSingleTestRunAsync(List<string> resultFiles, ITestRunPublisher publisher, int buildId, TestRunContext runContext, string resultReader, CancellationToken cancellationToken)
+        private async Task PublishAllTestResultsToSingleTestRunAsync(List<string> resultFiles, ILegacyTestRunPublisher publisher, TestRunContext runContext, string resultReader, CancellationToken cancellationToken)
         {
             try
             {
@@ -111,7 +132,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     cancellationToken.ThrowIfCancellationRequested();
                     //test case results
                     _executionContext.Debug(StringUtil.Format("Reading test results from file '{0}'", resultFile));
-                    TestRunData resultFileRunData = publisher.ReadResultsFromFile(runContext, resultFile);
+                    LegacyTestRunData resultFileRunData = publisher.ReadResultsFromFile(runContext, resultFile);
 
                     if (_failTaskOnFailedTests)
                     {
@@ -178,7 +199,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 if (runResults.Count > 0)
                 {
                     string runName = string.IsNullOrWhiteSpace(_runTitle)
-                    ? StringUtil.Format("{0}_TestResults_{1}", _testRunner, buildId)
+                    ? StringUtil.Format("{0}_TestResults_{1}", _testRunner, runContext.BuildId)
                     : _runTitle;
 
                     if (DateTime.Compare(minStartDate, maxCompleteDate) > 0)
@@ -191,7 +212,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     maxCompleteDate = dateFormatError || DateTime.Equals(maxCompleteDate, DateTime.MinValue) ? minStartDate.Add(totalTestCaseDuration) : maxCompleteDate;
 
                     //creat test run
-                    TestRunData testRunData = new TestRunData(
+                    LegacyTestRunData testRunData = new LegacyTestRunData(
                         name: runName,
                         startedDate: minStartDate.ToString("o"),
                         completedDate: maxCompleteDate.ToString("o"),
@@ -203,10 +224,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                         releaseUri: runContext != null ? runContext.ReleaseUri : null,
                         releaseEnvironmentUri: runContext != null ? runContext.ReleaseEnvironmentUri : null
                     );
-                    testRunData.PipelineReference = GetTestPipelineReference(runContext);
+                    testRunData.PipelineReference = runContext.PipelineReference;
                     testRunData.Attachments = runAttachments.ToArray();
                     testRunData.AddCustomField(_testRunSystemCustomFieldName, _testRunSystem);
-                    AddTargetBranchInfoToRunCreateModel(testRunData, runContext.PullRequestTargetBranchName);
+                    AddTargetBranchInfoToRunCreateModel(testRunData, runContext.TargetBranchName);
 
                     TestRun testRun = await publisher.StartTestRunAsync(testRunData, _executionContext.CancellationToken);
                     await publisher.AddResultsAsync(testRun, runResults.ToArray(), _executionContext.CancellationToken);
@@ -224,7 +245,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         /// Publish separate test run for each result file that has results.
         /// </summary>
         private async Task PublishToNewTestRunPerTestResultFileAsync(List<string> resultFiles,
-            ITestRunPublisher publisher,
+            ILegacyTestRunPublisher publisher,
             TestRunContext runContext,
             string resultReader,
             int batchSize,
@@ -253,8 +274,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                         }
 
                         _executionContext.Debug(StringUtil.Format("Reading test results from file '{0}'", resultFile));
-                        TestRunData testRunData = publisher.ReadResultsFromFile(runContext, resultFile, runName);
-                        testRunData.PipelineReference = GetTestPipelineReference(runContext);
+                        LegacyTestRunData testRunData = publisher.ReadResultsFromFile(runContext, resultFile, runName);
+                        testRunData.PipelineReference = runContext.PipelineReference;
                         if (_failTaskOnFailedTests)
                         {
                             _isTestRunOutcomeFailed = _isTestRunOutcomeFailed || GetTestRunOutcome(testRunData);
@@ -267,7 +288,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                             if (testRunData.Results != null && testRunData.Results.Length > 0)
                             {
                                 testRunData.AddCustomField(_testRunSystemCustomFieldName, _testRunSystem);
-                                AddTargetBranchInfoToRunCreateModel(testRunData, runContext.PullRequestTargetBranchName);
+                                AddTargetBranchInfoToRunCreateModel(testRunData, runContext.TargetBranchName);
                                 TestRun testRun = await publisher.StartTestRunAsync(testRunData, _executionContext.CancellationToken);
                                 await publisher.AddResultsAsync(testRun, testRunData.Results, _executionContext.CancellationToken);
                                 await publisher.EndTestRunAsync(testRunData, testRun.Id, cancellationToken: _executionContext.CancellationToken);
@@ -292,22 +313,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
         }
 
-        private PipelineReference GetTestPipelineReference(TestRunContext runContext)
-        {
-            PipelineReference pipelineReference = null;
-            if (runContext != null)
-            {
-                pipelineReference = new PipelineReference()
-                {
-                    PipelineId = runContext.BuildId,
-                    StageReference = new StageReference() { StageName = runContext.StageName, Attempt = runContext.StageAttempt },
-                    PhaseReference = new PhaseReference() { PhaseName = runContext.PhaseName, Attempt = runContext.PhaseAttempt },
-                    JobReference = new JobReference() { JobName = runContext.JobName, Attempt = runContext.JobAttempt }
-                };
-            }
-            return pipelineReference;
-        }
-
         private string GetRunTitle()
         {
             lock (_sync)
@@ -321,7 +326,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         /// </summary>
         /// <param name="testRunDataList"></param>
         /// <returns></returns>
-        private bool GetTestRunOutcome(TestRunData testRunData)
+        private bool GetTestRunOutcome(LegacyTestRunData testRunData)
         {
             foreach (var testCaseResultData in testRunData.Results)
             {
@@ -529,6 +534,80 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             );
             return testRunContext;
 
+        }
+
+        private PublishOptions GetPublishOptions()
+        {
+            var publishOptions = new PublishOptions()
+            {
+                IsMergeTestResultsToSingleRun = _mergeResults,
+                IsAddTestRunAttachments = _publishRunLevelAttachments
+            };
+
+            return publishOptions;
+        }
+
+        private async Task PublishTestRunData(ITestRunDataPublisher publisher, TestDataProvider testDataProvider, TestRunContext testRunContext)
+        {
+            try
+            {
+                var testRunData = testDataProvider.GetTestRunData();
+                await publisher.Publish(testRunContext, testRunData, GetPublishOptions(), _executionContext.CancellationToken);
+                
+                if (_failTaskOnFailedTests)
+                {
+                    _isTestRunOutcomeFailed = _isTestRunOutcomeFailed || GetTestRunOutcome(testRunData);
+                }
+            }
+            catch (Exception ex)
+            {
+                _executionContext.Error("Could not publish test run level data."+ ex);
+            }
+        }
+
+        private bool GetTestRunOutcome(IList<TestRunData> testRunDataList)
+        {
+            if (_failTaskOnFailedTests)
+            {
+                // Reads through each testCaseResult in testRunDataList 
+                foreach (var testRunData in testRunDataList)
+                {
+                    foreach (var testCaseResult in testRunData.TestResults)
+                    {
+                        // Return true if outcome is failed or aborted
+                        if (testCaseResult.Outcome == TestOutcome.Failed.ToString() || testCaseResult.Outcome == TestOutcome.Aborted.ToString())
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private bool IsFeatureFlagEnabled(VssConnection connection, string featureFlagName)
+        {
+            try
+            {
+                var publisher = new TestRunDataPublisher();
+                var featureAvailabilityHttpClient = connection.GetClient<FeatureAvailabilityHttpClient>();
+
+                FeatureFlag featureFlag = featureAvailabilityHttpClient.GetFeatureFlagByNameAsync(featureFlagName).Result;
+                if (featureFlag != null && featureFlag.EffectiveState.Equals("On", StringComparison.OrdinalIgnoreCase))
+                {
+                    _executionContext.Debug($"{featureFlagName} feature flag is on");
+                    return true;
+                }
+
+                _executionContext.Debug($"{featureFlagName} feature flag is off");
+                return false;
+            }
+            catch
+            {
+                _executionContext.Debug("Exception while fetching feature flag value");
+                return false;
+            }
         }
     }
 

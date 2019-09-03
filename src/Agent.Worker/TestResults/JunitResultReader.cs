@@ -1,4 +1,5 @@
-﻿using Microsoft.TeamFoundation.TestManagement.WebApi;
+﻿using Microsoft.TeamFoundation.TestClient.PublishTestResults;
+using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.WebApi;
 using System;
@@ -25,7 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         /// <param name="filePath"></param>
         /// <param name="runContext"></param>
         /// <returns></returns>
-        public TestRunData ReadResults(IExecutionContext executionContext, string filePath, TestRunContext runContext = null)
+        public LegacyTestRunData ReadResults(IExecutionContext executionContext, string filePath, TestRunContext runContext = null)
         {
             // http://windyroad.com.au/dl/Open%20Source/JUnit.xsd
             
@@ -142,7 +143,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 ? runSummary.TimeStamp.Add(runSummary.SuiteTimeDataAvailable ? runSummary.TestSuiteDuration 
                 : runSummary.TotalTestCaseDuration) : maxCompletedTime;
             //create test run data
-            var testRunData = new TestRunData(
+            var testRunData = new LegacyTestRunData(
                 name: runSummary.Name,
                 startedDate: runSummary.TimeStamp != DateTime.MinValue ? runSummary.TimeStamp.ToString("o") : null,
                 completedDate: maxCompletedTime != DateTime.MinValue ? maxCompletedTime.ToString("o") : null,

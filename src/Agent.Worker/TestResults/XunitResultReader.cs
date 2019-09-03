@@ -1,4 +1,5 @@
-﻿using Microsoft.TeamFoundation.TestManagement.WebApi;
+﻿using Microsoft.TeamFoundation.TestClient.PublishTestResults;
+using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.WebApi;
 using System;
@@ -19,7 +20,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             AddResultsFileToRunLevelAttachments = true;
         }
         //Based on the XUnit V2 format: http://xunit.github.io/docs/format-xml-v2.html
-        public TestRunData ReadResults(IExecutionContext executionContext, string filePath, TestRunContext runContext = null)
+        public LegacyTestRunData ReadResults(IExecutionContext executionContext, string filePath, TestRunContext runContext = null)
         {
             List<TestCaseResultData> results = new List<TestCaseResultData>();
 
@@ -256,7 +257,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             maxCompletedTime = dateTimeParseError || assemblyRunDateTimeAttributesNotPresent || maxCompletedTime == DateTime.MinValue ? minStartTime.Add(assemblyTimeAttributeNotPresent ? TimeSpan.FromSeconds(testRunDuration) : TimeSpan.FromSeconds(assemblyRunDuration)) : maxCompletedTime;
 
             executionContext.Output(string.Format("Obtained XUnit Test Run Start Date: {0} and Completed Date: {1}", minStartTime.ToString("o"), maxCompletedTime.ToString("o")));
-            TestRunData testRunData = new TestRunData(
+            LegacyTestRunData testRunData = new LegacyTestRunData(
                 name: runName,
                 buildId: runContext != null ? runContext.BuildId : 0,
                 startedDate: minStartTime != DateTime.MinValue ? minStartTime.ToString("o") : null,

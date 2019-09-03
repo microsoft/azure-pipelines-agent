@@ -1,4 +1,5 @@
-﻿using Microsoft.TeamFoundation.TestManagement.WebApi;
+﻿using Microsoft.TeamFoundation.TestClient.PublishTestResults;
+using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.WebApi;
 using System;
@@ -25,7 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         /// <param name="filePath"></param>
         /// <param name="runContext"></param>
         /// <returns></returns>
-        public TestRunData ReadResults(IExecutionContext executionContext, string filePath, TestRunContext runContext = null)
+        public LegacyTestRunData ReadResults(IExecutionContext executionContext, string filePath, TestRunContext runContext = null)
         {
             _ec = executionContext;
 
@@ -67,7 +68,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             ParseRunStartAndFinishDates(node);
 
             //create test run data object
-            TestRunData testRunData = new TestRunData(
+            LegacyTestRunData testRunData = new LegacyTestRunData(
                 name: runName,
                 startedDate: (_runStartDate == DateTime.MinValue) ? string.Empty : _runStartDate.ToString("o"),
                 completedDate: (_runFinishDate == DateTime.MinValue) ? string.Empty : _runFinishDate.ToString("o"),
