@@ -8,6 +8,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.TeamFoundation.TestClient.PublishTestResults;
+using System.Diagnostics;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
@@ -59,50 +61,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             LoadPublishTestResultsInputs(context, eventProperties, data);
 
             string teamProject = context.Variables.System_TeamProject;
-            string owner = context.Variables.Build_RequestedFor;
-            string buildUri = context.Variables.Build_BuildUri;
-            int buildId = context.Variables.Build_BuildId ?? 0;
-            string pullRequestTargetBranchName = context.Variables.System_PullRequest_TargetBranch;
-            string stageName = context.Variables.System_StageName;
-            string phaseName = context.Variables.System_PhaseName;
-            string jobName = context.Variables.System_JobName;
-            int stageAttempt = context.Variables.System_StageAttempt ?? 0;
-            int phaseAttempt = context.Variables.System_PhaseAttempt ?? 0;
-            int jobAttempt = context.Variables.System_JobAttempt ?? 0;
+            TestRunContext runContext = CreateTestRunContext();
 
-
-            //Temporary fix to support publish in RM scenarios where there might not be a valid Build ID associated.
-            //TODO: Make a cleaner fix after TCM User Story 401703 is completed.
-            if (buildId == 0)
-            {
-                _platform = _configuration = null;
-            }
-
-            string releaseUri = null;
-            string releaseEnvironmentUri = null;
-
-            // Check to identify if we are in the Release management flow; if not, then release fields will be kept null while publishing to TCM 
-            if (!string.IsNullOrWhiteSpace(context.Variables.Release_ReleaseUri))
-            {
-                releaseUri = context.Variables.Release_ReleaseUri;
-                releaseEnvironmentUri = context.Variables.Release_ReleaseEnvironmentUri;
-            }
-
-            IResultReader resultReader = GetTestResultReader(_testRunner);
-            TestRunContext runContext = new TestRunContext(owner, _platform, _configuration, buildId, buildUri, releaseUri, releaseEnvironmentUri);
-            runContext.StageName = stageName;
-            runContext.StageAttempt = stageAttempt;
-            runContext.PhaseName = phaseName;
-            runContext.PhaseAttempt = phaseAttempt;
-            runContext.JobName = jobName;
-            runContext.JobAttempt = jobAttempt;
-
-            runContext.PullRequestTargetBranchName = pullRequestTargetBranchName;
-            
             VssConnection connection = WorkerUtilities.GetVssConnection(_executionContext);
 
-            var publisher = HostContext.GetService<ITestRunPublisher>();
-            publisher.InitializePublisher(context, connection, teamProject, resultReader);
+            ITestRunPublisher testRunPublisher = new TestRunPublisher(connection, new CommandTraceListener(_executionContext));
+
+            var publisher = HostContext.GetService<ITestRunDataPublisher>();
+            publisher.InitializePublisher(context, connection, teamProject, testRunPublisher);
 
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
@@ -116,7 +82,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
             _executionContext.AsyncCommands.Add(commandContext);
 
-            if(_isTestRunOutcomeFailed)
+            if (_isTestRunOutcomeFailed)
             {
                 _executionContext.Result = TaskResult.Failed;
                 _executionContext.Error(StringUtil.Loc("FailedTestsInResults"));
@@ -147,7 +113,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     _executionContext.Debug(StringUtil.Format("Reading test results from file '{0}'", resultFile));
                     TestRunData resultFileRunData = publisher.ReadResultsFromFile(runContext, resultFile);
 
-                    if(_failTaskOnFailedTests)
+                    if (_failTaskOnFailedTests)
                     {
                         _isTestRunOutcomeFailed = _isTestRunOutcomeFailed || GetTestRunOutcome(resultFileRunData);
                     }
@@ -289,7 +255,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                         _executionContext.Debug(StringUtil.Format("Reading test results from file '{0}'", resultFile));
                         TestRunData testRunData = publisher.ReadResultsFromFile(runContext, resultFile, runName);
                         testRunData.PipelineReference = GetTestPipelineReference(runContext);
-                        if(_failTaskOnFailedTests)
+                        if (_failTaskOnFailedTests)
                         {
                             _isTestRunOutcomeFailed = _isTestRunOutcomeFailed || GetTestRunOutcome(testRunData);
                         }
@@ -329,7 +295,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private PipelineReference GetTestPipelineReference(TestRunContext runContext)
         {
             PipelineReference pipelineReference = null;
-            if(runContext != null)
+            if (runContext != null)
             {
                 pipelineReference = new PipelineReference()
                 {
@@ -357,9 +323,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         /// <returns></returns>
         private bool GetTestRunOutcome(TestRunData testRunData)
         {
-            foreach(var testCaseResultData in testRunData.Results)
+            foreach (var testCaseResultData in testRunData.Results)
             {
-                if(testCaseResultData.Outcome == TestOutcome.Failed.ToString() || testCaseResultData.Outcome == TestOutcome.Aborted.ToString())
+                if (testCaseResultData.Outcome == TestOutcome.Failed.ToString() || testCaseResultData.Outcome == TestOutcome.Aborted.ToString())
                 {
                     return true;
                 }
@@ -490,7 +456,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             {
                 return;
             }
-            
+
             if (runCreateModel.BuildReference == null)
             {
                 runCreateModel.BuildReference = new BuildConfiguration() { TargetBranchName = pullRequestTargetBranchName };
@@ -499,6 +465,70 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             {
                 runCreateModel.BuildReference.TargetBranchName = pullRequestTargetBranchName;
             }
+        }
+
+        private TestRunContext CreateTestRunContext()
+        {
+            string releaseUri = null;
+            string releaseEnvironmentUri = null;
+
+            string teamProject = _executionContext.Variables.System_TeamProject;
+            string owner = _executionContext.Variables.Build_RequestedFor;
+            string buildUri = _executionContext.Variables.Build_BuildUri;
+            int buildId = _executionContext.Variables.Build_BuildId ?? 0;
+            string pullRequestTargetBranchName = _executionContext.Variables.System_PullRequest_TargetBranch;
+            string stageName = _executionContext.Variables.System_StageName;
+            string phaseName = _executionContext.Variables.System_PhaseName;
+            string jobName = _executionContext.Variables.System_JobName;
+            int stageAttempt = _executionContext.Variables.System_StageAttempt ?? 0;
+            int phaseAttempt = _executionContext.Variables.System_PhaseAttempt ?? 0;
+            int jobAttempt = _executionContext.Variables.System_JobAttempt ?? 0;
+
+            //Temporary fix to support publish in RM scenarios where there might not be a valid Build ID associated.
+            //TODO: Make a cleaner fix after TCM User Story 401703 is completed.
+            if (buildId == 0)
+            {
+                _platform = _configuration = null;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_executionContext.Variables.Release_ReleaseUri))
+            {
+                releaseUri = _executionContext.Variables.Release_ReleaseUri;
+                releaseEnvironmentUri = _executionContext.Variables.Release_ReleaseEnvironmentUri;
+            }
+
+            // If runName is not provided by the task, then create runName from testRunner name and buildId.
+            string runName = String.IsNullOrWhiteSpace(_runTitle)
+                ? String.Format("{0}_TestResults_{1}", _testRunner, buildId)
+                : _runTitle;
+
+            StageReference stageReference = new StageReference() { StageName = stageName, Attempt = Convert.ToInt32(stageAttempt) };
+            PhaseReference phaseReference = new PhaseReference() { PhaseName = phaseName, Attempt = Convert.ToInt32(phaseAttempt) };
+            JobReference jobReference = new JobReference() { JobName = jobName, Attempt = Convert.ToInt32(jobAttempt) };
+            PipelineReference pipelineReference = new PipelineReference()
+            {
+                PipelineId = buildId,
+                StageReference = stageReference,
+                PhaseReference = phaseReference,
+                JobReference = jobReference
+            };
+
+            TestRunContext testRunContext = new TestRunContext(
+                owner: owner,
+                platform: _platform,
+                configuration: _configuration,
+                buildId: buildId,
+                buildUri: buildUri,
+                releaseUri: releaseUri,
+                releaseEnvironmentUri: releaseEnvironmentUri,
+                runName: runName,
+                testRunSystem: _testRunSystem,
+                buildAttachmentProcessor: new CodeCoverageBuildAttachmentProcessor(),
+                targetBranchName: pullRequestTargetBranchName,
+                pipelineReference: pipelineReference
+            );
+            return testRunContext;
+
         }
     }
 
