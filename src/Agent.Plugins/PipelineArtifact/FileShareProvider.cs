@@ -32,11 +32,10 @@ namespace Agent.Plugins.PipelineArtifact
             this.hostType = context.Variables.GetValueOrDefault("system.hosttype")?.Value;
         }
 
+        // For the current existing build artifact task, the artifact name is also created during ssingle download and we want to preserve this behavior. 
         public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken)
         {
-            var downloadRootPath = Path.Combine(buildArtifact.Resource.Data, buildArtifact.Name);
-            var minimatchPatterns = downloadParameters.MinimatchFilters.Select(pattern => Path.Combine(buildArtifact.Resource.Data, pattern));
-            await this.CopyFileShareAsync(downloadRootPath, Path.Combine(downloadParameters.TargetDirectory, buildArtifact.Name), minimatchPatterns, cancellationToken);
+           await this.DownloadMultipleArtifactsAsync(downloadParameters, new List<BuildArtifact>{ buildArtifact }, cancellationToken);
         }
 
         public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken)
