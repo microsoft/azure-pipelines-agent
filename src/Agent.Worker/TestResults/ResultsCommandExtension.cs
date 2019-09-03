@@ -35,7 +35,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
         //telemetry parameter
         private const string _telemetryFeature = "PublishTestResultsCommand";
-        private const string _telemetryArea = "TestExecution";
+        private const string _telemetryArea = "TestResults";
         private Dictionary<string, object> _telemetryProperties;
 
         public Type ExtensionType => typeof(IWorkerCommandExtension);
