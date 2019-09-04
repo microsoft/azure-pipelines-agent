@@ -76,13 +76,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 ITestRunPublisher testRunPublisher = new TestRunPublisher(connection, new CommandTraceListener(_executionContext));
 
                 var publisher = HostContext.GetService<ITestRunDataPublisher>();
-                publisher.InitializePublisher(context, connection, teamProject, testRunPublisher);
+                publisher.InitializePublisher(context, teamProject, testRunPublisher);
 
-                var parser = new Parser();
-                TestDataProvider testDataProvider = parser.ParseTestResultFiles(context, _testRunner, runContext, _testResultFiles);
+                var parser = new Parser(context);
+                TestDataProvider testDataProvider = parser.ParseTestResultFiles(_testRunner, runContext, _testResultFiles);
 
                 commandContext.Task = PublishTestRunData(publisher, testDataProvider, runContext);
-                _executionContext.AsyncCommands.Add(commandContext);
             }
             else
             {
@@ -99,8 +98,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 {
                     commandContext.Task = PublishToNewTestRunPerTestResultFileAsync(_testResultFiles, legacyPublisher, runContext, resultReader.Name, PublishBatchSize, context.CancellationToken);
                 }
-                _executionContext.AsyncCommands.Add(commandContext);
             }
+
+            _executionContext.AsyncCommands.Add(commandContext);
 
             if (_isTestRunOutcomeFailed)
             {
@@ -552,7 +552,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             try
             {
                 var testRunData = testDataProvider.GetTestRunData();
-                await publisher.Publish(testRunContext, testRunData, GetPublishOptions(), _executionContext.CancellationToken);
+                await publisher.PublishAsync(testRunContext, testRunData, GetPublishOptions(), _executionContext.CancellationToken);
                 
                 if (_failTaskOnFailedTests)
                 {
