@@ -405,14 +405,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             var environmentName = command.GetEnvironmentName();
 
             var environmentInstance = await GetEnvironmentAsync(_projectName, environmentName);
-
-            //agentSettings.PoolId = environmentInstance.Pool.Id;
-            //agentSettings.PoolName = deploymentGroup.Pool.Name;
+           
             agentSettings.EnvironmentId = environmentInstance.Id;
-            agentSettings.ProjectName = _projectName;
-
-            // ToDo Correct this
-            agentSettings.ProjectId = Guid.NewGuid().ToString();
+            agentSettings.ProjectName = environmentInstance.Project.Name;
+            agentSettings.ProjectId = environmentInstance.Project.Id.ToString();            
         }
 
         public override string GetFailedToFindPoolErrorString() => StringUtil.Loc("FailedToFindEnvironment");
@@ -424,12 +420,40 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public override async Task<TaskAgent> AddAgentAsync(AgentSettings agentSettings, TaskAgent agent, CommandSettings command)
         {
-            var virtualMachine = new VirtualMachineResource() { Agent = agent };
+            var virtualMachine = new VirtualMachineResource() { Name = agent.Name, Agent = agent };
+            var tags = GetVirtualMachineResourceTags(command);
+            virtualMachine.Tags = tags;
 
             virtualMachine = await _environmentsServer.AddEnvironmentVMAsync(new Guid(agentSettings.ProjectId), agentSettings.EnvironmentId, virtualMachine);
 
+            var pool =  await _environmentsServer.GetEnvironmentPoolAsync(new Guid(agentSettings.ProjectId), agentSettings.EnvironmentId);
+            agentSettings.PoolId = pool.Id;
+
             return virtualMachine.Agent;
         }
+
+        private IList<String> GetVirtualMachineResourceTags(CommandSettings command)
+        {
+            // Get and apply Tags in case agent is configured against Deployment Group
+            var result = new List<String>();
+            bool needToAddTags = command.GetEnvironmentVirtualMachineResourceTagsRequired();
+            if (needToAddTags)
+            {
+                string tagString = command.GetDeploymentGroupTags();
+                Trace.Info("Given tags - {0} will be processed and added", tagString);
+
+                if (!string.IsNullOrWhiteSpace(tagString))
+                {
+                    var tagsList =
+                        tagString.Split(',').Where(s => !string.IsNullOrWhiteSpace(s))
+                            .Select(s => s.Trim())
+                            .Distinct(StringComparer.CurrentCultureIgnoreCase).ToList();
+                    
+                    result.AddRange(tagsList);
+                }
+            }
+            return result;
+        } 
 
         public override async Task DeleteAgentAsync(AgentSettings agentSettings)
         {
@@ -483,11 +507,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             List<VirtualMachineResource> machines;
             if (!string.IsNullOrWhiteSpace(agentSettings.ProjectId))
             {
-                machines = await _environmentsServer.GetEnvironmentVMsAsyncAsync(new Guid(agentSettings.ProjectId), agentSettings.EnvironmentId, agentSettings.AgentName);
+                machines = await _environmentsServer.GetEnvironmentVMsAsync(new Guid(agentSettings.ProjectId), agentSettings.EnvironmentId, agentSettings.AgentName);
             }
             else
             {
-                machines = await _environmentsServer.GetEnvironmentVMsAsyncAsync(agentSettings.ProjectName, agentSettings.EnvironmentId, agentSettings.AgentName);
+                machines = await _environmentsServer.GetEnvironmentVMsAsync(agentSettings.ProjectName, agentSettings.EnvironmentId, agentSettings.AgentName);
             }
 
             return machines;

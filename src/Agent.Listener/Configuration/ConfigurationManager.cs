@@ -295,7 +295,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 }
                 else
                 {
-                    // Create a new agent. 
+                    // Create a new agent.
                     agent = CreateNewAgent(agentSettings.AgentName, publicKey, systemCapabilities);
 
                     try

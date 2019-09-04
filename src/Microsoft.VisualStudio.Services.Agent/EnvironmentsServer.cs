@@ -29,10 +29,11 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         Task DeleteEnvironmentVMAsync(Guid projectId, int environmentId, int virtualMachineId);
 
-        // Get Deployment Machines
-        Task<List<VirtualMachineResource>> GetEnvironmentVMsAsyncAsync(string projectName, int environmentId, string virtualMachine);
+        Task<List<VirtualMachineResource>> GetEnvironmentVMsAsync(string projectName, int environmentId, string virtualMachine);
 
-        Task<List<VirtualMachineResource>> GetEnvironmentVMsAsyncAsync(Guid projectGuid, int environmentId, string virtualMachine);
+        Task<List<VirtualMachineResource>> GetEnvironmentVMsAsync(Guid projectGuid, int environmentId, string virtualMachine);
+
+        Task<TaskAgentPoolReference> GetEnvironmentPoolAsync(Guid projectGuid, int environmentId);
     }
 
     public sealed class EnvironmentsServer : AgentService, IEnvironmentsServer
@@ -55,7 +56,8 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public Task<List<EnvironmentInstance>> GetEnvironmentsAsync(string projectName, string environmentName)
         {
-            throw new NotImplementedException();
+            CheckConnection();
+            return _environmentsHttpClient.GetEnvironmentsAsync(projectName, environmentName);
         }
 
         public Task<VirtualMachineResource> UpdateEnvironmentVMsAsync(Guid projectId, int environmentId, List<VirtualMachineResource> virtualMachineResources)
@@ -65,7 +67,10 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public Task<VirtualMachineResource> AddEnvironmentVMAsync(Guid projectId, int environmentId, VirtualMachineResource virtualMachineResource)
         {
-            throw new NotImplementedException();
+            CheckConnection();
+            var virtualMachineResourceCreateParameters = new VirtualMachineResourceCreateParameters();
+            virtualMachineResourceCreateParameters.virtualMachineResource = virtualMachineResource;
+            return _environmentsHttpClient.AddVirtualMachineResourceAsync(projectId.ToString(), environmentId, virtualMachineResourceCreateParameters);
         }
 
         public Task<VirtualMachineResource> ReplaceEnvironmentVMAsync(Guid projectId, int environmentId, VirtualMachineResource virtualMachineResource)
@@ -83,14 +88,21 @@ namespace Microsoft.VisualStudio.Services.Agent
             throw new NotImplementedException();
         }
 
-        public Task<List<VirtualMachineResource>> GetEnvironmentVMsAsyncAsync(string projectName, int environmentId, string virtualMachine)
+        public Task<List<VirtualMachineResource>> GetEnvironmentVMsAsync(string projectName, int environmentId, string virtualMachine)
         {
-            throw new NotImplementedException();
+            return Task.FromResult(new List<VirtualMachineResource>());
         }
 
-        public Task<List<VirtualMachineResource>> GetEnvironmentVMsAsyncAsync(Guid projectGuid, int environmentId, string virtualMachine)
+        public Task<List<VirtualMachineResource>> GetEnvironmentVMsAsync(Guid projectGuid, int environmentId, string virtualMachine)
         {
-            throw new NotImplementedException();
+            return Task.FromResult(new List<VirtualMachineResource>());
+        }
+
+        public Task<TaskAgentPoolReference> GetEnvironmentPoolAsync(Guid projectGuid, int environmentId)
+        {
+            CheckConnection();            
+            return _environmentsHttpClient.GetLinkedPoolAsync(projectGuid, environmentId);
+
         }
 
 

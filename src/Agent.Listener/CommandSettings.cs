@@ -32,6 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Constants.Agent.CommandLine.Flags.Commit,
             Constants.Agent.CommandLine.Flags.DeploymentGroup,
             Constants.Agent.CommandLine.Flags.DeploymentPool,
+            Constants.Agent.CommandLine.Flags.Environments,
 #if OS_WINDOWS
             Constants.Agent.CommandLine.Flags.GitUseSChannel,
 #endif
@@ -220,6 +221,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         }
 
         public bool GetDeploymentGroupTagsRequired()
+        {
+            return TestFlag(Constants.Agent.CommandLine.Flags.AddMachineGroupTags)
+                   || TestFlagOrPrompt(
+                           name: Constants.Agent.CommandLine.Flags.AddDeploymentGroupTags,
+                           description: StringUtil.Loc("AddDeploymentGroupTagsFlagDescription"),
+                           defaultValue: false);
+        }
+
+        public bool GetEnvironmentVirtualMachineResourceTagsRequired()
         {
             return TestFlag(Constants.Agent.CommandLine.Flags.AddMachineGroupTags)
                    || TestFlagOrPrompt(
