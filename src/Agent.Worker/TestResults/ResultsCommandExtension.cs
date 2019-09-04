@@ -111,22 +111,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             
             VssConnection connection = WorkerUtilities.GetVssConnection(_executionContext);
 
-            var publisher = HostContext.GetService<ITestRunPublisher>();
-            publisher.InitializePublisher(context, connection, teamProject, resultReader);
-
-            var ciService = HostContext.GetService<ICustomerIntelligenceServer>();
-            ciService.Initialize(connection);
-            
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
-            if (_mergeResults)
-            {
-                commandContext.Task = PublishAllTestResultsToSingleTestRunAsync(_testResultFiles, publisher, buildId, runContext, resultReader.Name, ciService, context.CancellationToken);
-            }
-            else
-            {
-                commandContext.Task = PublishToNewTestRunPerTestResultFileAsync(_testResultFiles, publisher, runContext, resultReader.Name, PublishBatchSize, ciService, context.CancellationToken);
-            }
+            commandContext.Task = PublishTestResultsAsync(connection, teamProject, _testResultFiles, buildId, runContext, resultReader, context.CancellationToken);
             _executionContext.AsyncCommands.Add(commandContext);
 
             if(_isTestRunOutcomeFailed)
@@ -136,10 +123,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
         }
 
+        private async Task PublishTestResultsAsync(VssConnection connection, String teamProject, List<string> resultFiles, int buildId, TestRunContext runContext, IResultReader resultReader, CancellationToken cancellationToken)
+        {
+            var publisher = HostContext.GetService<ITestRunPublisher>();
+            publisher.InitializePublisher(_executionContext, connection, teamProject, resultReader);
+
+            if (_mergeResults)
+            {
+                await PublishAllTestResultsToSingleTestRunAsync(_testResultFiles, publisher, buildId, runContext, resultReader.Name, cancellationToken);
+            }
+            else
+            {
+                await PublishToNewTestRunPerTestResultFileAsync(_testResultFiles, publisher, runContext, resultReader.Name, PublishBatchSize, cancellationToken);
+            }
+
+            await PublishEventsAsync(connection);
+        }
+
         /// <summary>
         /// Publish single test run
         /// </summary>
-        private async Task PublishAllTestResultsToSingleTestRunAsync(List<string> resultFiles, ITestRunPublisher publisher, int buildId, TestRunContext runContext, string resultReader, ICustomerIntelligenceServer ciService, CancellationToken cancellationToken)
+        private async Task PublishAllTestResultsToSingleTestRunAsync(List<string> resultFiles, ITestRunPublisher publisher, int buildId, TestRunContext runContext, string resultReader, CancellationToken cancellationToken)
         {
             try
             {
@@ -259,8 +263,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     await publisher.AddResultsAsync(testRun, runResults.ToArray(), _executionContext.CancellationToken);
                     await publisher.EndTestRunAsync(testRunData, testRun.Id, true, _executionContext.CancellationToken);
                 }
-
-                await PublishEventsAsync(ciService);
             }
             catch (Exception ex) when (!(ex is OperationCanceledException))
             {
@@ -277,7 +279,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             TestRunContext runContext,
             string resultReader,
             int batchSize,
-            ICustomerIntelligenceServer ciService,
             CancellationToken cancellationToken)
         {
             try
@@ -334,8 +335,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     });
                     await Task.WhenAll(publishTasks);
                 }
-
-                await PublishEventsAsync(ciService);
             }
             catch (Exception ex) when (!(ex is OperationCanceledException))
             {
@@ -519,7 +518,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
         }
 
-        private async Task PublishEventsAsync(ICustomerIntelligenceServer ciService)
+        private async Task PublishEventsAsync(VssConnection connection)
         {
             try
             {
@@ -530,6 +529,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     Properties = _telemetryProperties
                 };
 
+                var ciService = HostContext.GetService<ICustomerIntelligenceServer>();
+                ciService.Initialize(connection);
                 await ciService.PublishEventsAsync(new CustomerIntelligenceEvent[] { ciEvent });
             }
             catch(Exception ex)
