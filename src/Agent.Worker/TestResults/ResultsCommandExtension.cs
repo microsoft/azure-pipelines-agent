@@ -113,7 +113,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
-            commandContext.Task = PublishTestResultsAsync(connection, teamProject, _testResultFiles, buildId, runContext, resultReader, context.CancellationToken);
+            commandContext.Task = PublishTestResultsAsync(connection, teamProject, buildId, runContext, resultReader);
             _executionContext.AsyncCommands.Add(commandContext);
 
             if(_isTestRunOutcomeFailed)
@@ -123,18 +123,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
         }
 
-        private async Task PublishTestResultsAsync(VssConnection connection, String teamProject, List<string> resultFiles, int buildId, TestRunContext runContext, IResultReader resultReader, CancellationToken cancellationToken)
+        private async Task PublishTestResultsAsync(VssConnection connection, String teamProject, int buildId, TestRunContext runContext, IResultReader resultReader)
         {
             var publisher = HostContext.GetService<ITestRunPublisher>();
             publisher.InitializePublisher(_executionContext, connection, teamProject, resultReader);
 
             if (_mergeResults)
             {
-                await PublishAllTestResultsToSingleTestRunAsync(_testResultFiles, publisher, buildId, runContext, resultReader.Name, cancellationToken);
+                await PublishAllTestResultsToSingleTestRunAsync(_testResultFiles, publisher, buildId, runContext, resultReader.Name, _executionContext.CancellationToken);
             }
             else
             {
-                await PublishToNewTestRunPerTestResultFileAsync(_testResultFiles, publisher, runContext, resultReader.Name, PublishBatchSize, cancellationToken);
+                await PublishToNewTestRunPerTestResultFileAsync(_testResultFiles, publisher, runContext, resultReader.Name, PublishBatchSize, _executionContext.CancellationToken);
             }
 
             await PublishEventsAsync(connection);
