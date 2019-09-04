@@ -8,6 +8,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
+using Microsoft.VisualStudio.Services.WebPlatform;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
@@ -30,6 +32,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private readonly object _sync = new object();
         private string _testRunSystem;
         private const string _testRunSystemCustomFieldName = "TestRunSystem";
+
+        //telemetry parameter
+        private const string _telemetryFeature = "PublishTestResultsCommand";
+        private const string _telemetryArea = "TestResults";
+        private Dictionary<string, object> _telemetryProperties;
 
         public Type ExtensionType => typeof(IWorkerCommandExtension);
 
@@ -55,6 +62,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         {
             ArgUtil.NotNull(context, nameof(context));
             _executionContext = context;
+
+            _telemetryProperties = new Dictionary<string, object>();
+            PopulateTelemetryData();
 
             LoadPublishTestResultsInputs(context, eventProperties, data);
 
@@ -101,19 +111,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             
             VssConnection connection = WorkerUtilities.GetVssConnection(_executionContext);
 
-            var publisher = HostContext.GetService<ITestRunPublisher>();
-            publisher.InitializePublisher(context, connection, teamProject, resultReader);
-
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
-            if (_mergeResults)
-            {
-                commandContext.Task = PublishAllTestResultsToSingleTestRunAsync(_testResultFiles, publisher, buildId, runContext, resultReader.Name, context.CancellationToken);
-            }
-            else
-            {
-                commandContext.Task = PublishToNewTestRunPerTestResultFileAsync(_testResultFiles, publisher, runContext, resultReader.Name, PublishBatchSize, context.CancellationToken);
-            }
+            commandContext.Task = PublishTestResultsAsync(connection, teamProject, buildId, runContext, resultReader); 
             _executionContext.AsyncCommands.Add(commandContext);
 
             if(_isTestRunOutcomeFailed)
@@ -121,6 +121,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 _executionContext.Result = TaskResult.Failed;
                 _executionContext.Error(StringUtil.Loc("FailedTestsInResults"));
             }
+        }
+
+        private async Task PublishTestResultsAsync(VssConnection connection, String teamProject, int buildId, TestRunContext runContext, IResultReader resultReader)
+        {
+            var publisher = HostContext.GetService<ITestRunPublisher>();
+            publisher.InitializePublisher(_executionContext, connection, teamProject, resultReader);
+
+            if (_mergeResults)
+            {
+                await PublishAllTestResultsToSingleTestRunAsync(_testResultFiles, publisher, buildId, runContext, resultReader.Name, _executionContext.CancellationToken);
+            }
+            else
+            {
+                await PublishToNewTestRunPerTestResultFileAsync(_testResultFiles, publisher, runContext, resultReader.Name, PublishBatchSize, _executionContext.CancellationToken);
+            }
+
+            await PublishEventsAsync(connection);
         }
 
         /// <summary>
@@ -498,6 +515,43 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             else
             {
                 runCreateModel.BuildReference.TargetBranchName = pullRequestTargetBranchName;
+            }
+        }
+
+        private async Task PublishEventsAsync(VssConnection connection)
+        {
+            try
+            {
+                CustomerIntelligenceEvent ciEvent = new CustomerIntelligenceEvent()
+                {
+                    Area = _telemetryArea,
+                    Feature = _telemetryFeature,
+                    Properties = _telemetryProperties
+                };
+
+                var ciService = HostContext.GetService<ICustomerIntelligenceServer>();
+                ciService.Initialize(connection);
+                await ciService.PublishEventsAsync(new CustomerIntelligenceEvent[] { ciEvent });
+            }
+            catch(Exception ex)
+            {
+                _executionContext.Debug(StringUtil.Loc("TelemetryCommandFailed", ex.Message));
+            }
+        }
+
+        private void PopulateTelemetryData()
+        {
+            _telemetryProperties.Add("ExecutionId", _executionContext.Id);
+            _telemetryProperties.Add("BuildId", _executionContext.Variables.Build_BuildId);
+            _telemetryProperties.Add("BuildUri", _executionContext.Variables.Build_BuildUri);
+            _telemetryProperties.Add("Attempt", _executionContext.Variables.System_JobAttempt);
+            _telemetryProperties.Add("ProjectId", _executionContext.Variables.System_TeamProjectId);
+            _telemetryProperties.Add("ProjectName", _executionContext.Variables.System_TeamProject);
+
+            if (!string.IsNullOrWhiteSpace(_executionContext.Variables.Release_ReleaseUri))
+            {
+                _telemetryProperties.Add("ReleaseUri", _executionContext.Variables.Release_ReleaseUri);
+                _telemetryProperties.Add("ReleaseId", _executionContext.Variables.Release_ReleaseId);
             }
         }
     }
