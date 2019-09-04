@@ -113,7 +113,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
-            commandContext.Task = PublishTestResultsAsync(connection, teamProject, buildId, runContext, resultReader);
+            commandContext.Task = PublishTestResultsAsync(connection, teamProject, buildId, runContext, resultReader); 
             _executionContext.AsyncCommands.Add(commandContext);
 
             if(_isTestRunOutcomeFailed)
