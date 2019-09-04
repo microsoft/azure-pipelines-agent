@@ -16,7 +16,7 @@ using Microsoft.VisualStudio.Services.Content.Common;
 
 namespace Agent.Plugins.PipelineArtifact
 {
-    internal class FileShareProvider: AgentService, IArtifactProvider
+    internal class FileShareProvider: IArtifactProvider
     {
         private readonly AgentTaskPluginExecutionContext context;
         private readonly CallbackAppTraceSource tracer;
@@ -50,7 +50,7 @@ namespace Agent.Plugins.PipelineArtifact
 
         public async Task PublishArtifactAsync(string sourcePath, string destPath, int parallelCount, CancellationToken cancellationToken)
         {
-            await PublishArtifactUsingRobocopyAsync(this.context, new HostContext(this.hostType), sourcePath, destPath, parallelCount, cancellationToken);
+            await PublishArtifactUsingRobocopyAsync(this.context, sourcePath, destPath, parallelCount, cancellationToken);
         }
 
         private async Task CopyFileShareAsync(string downloadRootPath, string destPath, IEnumerable<string> minimatchPatterns, CancellationToken cancellationToken)
@@ -59,11 +59,11 @@ namespace Agent.Plugins.PipelineArtifact
             await DownloadFileShareArtifactAsync(downloadRootPath, destPath, defaultParallelCount, cancellationToken, minimatcherFuncs);
         }
         
-        private async Task PublishArtifactUsingRobocopyAsync(AgentTaskPluginExecutionContext executionContext, IHostContext hostContext, string dropLocation, 
+        private async Task PublishArtifactUsingRobocopyAsync(AgentTaskPluginExecutionContext executionContext, string dropLocation, 
             string downloadFolderPath, int parallelCount, CancellationToken cancellationToken)
         {
             executionContext.Output(StringUtil.Loc("PublishingArtifactUsingRobocopy"));
-            using (var processInvoker = hostContext.CreateService<IProcessInvoker>())
+            using (var processInvoker = new ProcessInvoker(this.context))
             {
                 // Save STDOUT from worker, worker will use STDOUT report unhandle exception.
                 processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stdout)

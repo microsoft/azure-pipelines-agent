@@ -187,6 +187,7 @@ namespace Agent.Plugins.PipelineArtifact
 
             PipelineArtifactServer server = new PipelineArtifactServer();
             PipelineArtifactDownloadParameters downloadParameters;
+
             if (buildType == buildTypeCurrent)
             {
                 // TODO: use a constant for project id, which is currently defined in Microsoft.VisualStudio.Services.Agent.Constants.Variables.System.TeamProjectId (Ting)
