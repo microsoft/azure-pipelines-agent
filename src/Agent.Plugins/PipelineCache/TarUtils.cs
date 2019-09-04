@@ -30,7 +30,7 @@ namespace Agent.Plugins.PipelineCache
         {
             if(File.Exists(inputPath))
             {
-                throw new InvalidOperationException($"Please specify path to a directory, File path is not allowed. {inputPath} is a file.");
+                throw new DirectoryNotFoundException($"Please specify path to a directory, File path is not allowed. {inputPath} is a file.");
             }
 
             var archiveFileName = CreateArchiveFileName();
@@ -192,7 +192,7 @@ namespace Agent.Plugins.PipelineCache
             }
         }
 
-        private static void SetProcessStartInfo(ProcessStartInfo processStartInfo, string processFileName, string processArguments, string processWorkingDirectory)
+        private static void CreateProcessStartInfo(ProcessStartInfo processStartInfo, string processFileName, string processArguments, string processWorkingDirectory)
         {
             processStartInfo.FileName = processFileName;
             processStartInfo.Arguments = processArguments;
@@ -206,20 +206,29 @@ namespace Agent.Plugins.PipelineCache
         private static ProcessStartInfo GetCreateTarProcessInfo(string archiveFileName, string inputPath)
         {
             var processFileName = "tar";
-            inputPath = (inputPath.EndsWith(Path.DirectorySeparatorChar)) ? inputPath.TrimEnd(Path.DirectorySeparatorChar) : inputPath;
+            inputPath = inputPath.TrimEnd(Path.DirectorySeparatorChar).TrimEnd(Path.AltDirectorySeparatorChar);
             var processArguments = $"-cf \"{archiveFileName}\" -C \"{inputPath}\" ."; // If given the absolute path for the '-cf' option, the GNU tar fails. The workaround is to start the tarring process in the temp directory, and simply speficy 'archive.tar' for that option.
             ProcessStartInfo processStartInfo = new ProcessStartInfo();
-            SetProcessStartInfo(processStartInfo, processFileName, processArguments, processWorkingDirectory: Path.GetTempPath()); // We want to create the archiveFile in temp folder, and hence starting the tar process from TEMP to avoid absolute paths in tar cmd line.
+            CreateProcessStartInfo(processStartInfo, processFileName, processArguments, processWorkingDirectory: Path.GetTempPath()); // We want to create the archiveFile in temp folder, and hence starting the tar process from TEMP to avoid absolute paths in tar cmd line.
             return processStartInfo;
         }
 
         private static ProcessStartInfo GetExtractStartProcessInfo(string targetDirectory)
         {
-            bool does7zExists = isWindows ? CheckIf7ZExists() : false;
-            string processFileName = (does7zExists) ? "7z" : "tar";
-            string processArguments = (does7zExists) ? $"x -si -aoa -o\"{targetDirectory}\" -ttar" : $"-xf - -C ."; // Instead of targetDirectory, we are providing . to tar, because the tar process is being started from targetDirectory.
+            string processFileName, processArguments;
+            if (isWindows && CheckIf7ZExists())
+            {
+                processFileName = "7z";
+                processArguments = $"x -si -aoa -o\"{targetDirectory}\" -ttar";
+            }
+            else
+            {
+                processFileName = "tar";
+                processArguments = $"-xf - -C ."; // Instead of targetDirectory, we are providing . to tar, because the tar process is being started from targetDirectory.
+            }
+
             ProcessStartInfo processStartInfo = new ProcessStartInfo();
-            SetProcessStartInfo(processStartInfo, processFileName, processArguments, processWorkingDirectory: targetDirectory);
+            CreateProcessStartInfo(processStartInfo, processFileName, processArguments, processWorkingDirectory: targetDirectory);
             return processStartInfo;
         }
 
