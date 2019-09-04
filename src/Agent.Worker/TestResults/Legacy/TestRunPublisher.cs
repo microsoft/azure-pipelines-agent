@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
-    [ServiceLocator(Default = typeof(TestRunPublisher))]
+    [ServiceLocator(Default = typeof(LegacyTestRunPublisher))]
     public interface ILegacyTestRunPublisher : IAgentService
     {
         void InitializePublisher(IExecutionContext executionContext, VssConnection connection, string projectName, IResultReader resultReader);

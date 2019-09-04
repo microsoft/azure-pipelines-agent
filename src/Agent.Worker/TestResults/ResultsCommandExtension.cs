@@ -12,6 +12,7 @@ using Microsoft.TeamFoundation.TestClient.PublishTestResults;
 using System.Diagnostics;
 using Microsoft.VisualStudio.Services.FeatureAvailability.WebApi;
 using Microsoft.VisualStudio.Services.FeatureAvailability;
+using Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
@@ -27,7 +28,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private string _runTitle;
         private bool _publishRunLevelAttachments;
         private int _runCounter = 0;
-        private bool isTestResultsEnabled = true;
 
         private bool _failTaskOnFailedTests;
 
@@ -71,7 +71,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
 
-            if (isTestResultsEnabled)
+            FeatureAvailabilityHttpClient featureAvailabilityHttpClient = connection.GetClient<FeatureAvailabilityHttpClient>();
+            if (FeatureFlagUtility.GetFeatureFlagState(featureAvailabilityHttpClient, TestResultsConstants.EnablePublishToTestResultsLibrary, commandContext))
             {
                 ITestRunPublisher testRunPublisher = new TestRunPublisher(connection, new CommandTraceListener(_executionContext));
 
