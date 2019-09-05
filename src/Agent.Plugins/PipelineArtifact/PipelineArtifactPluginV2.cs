@@ -78,7 +78,7 @@ namespace Agent.Plugins.PipelineArtifact
             targetPath = Path.IsPathFullyQualified(targetPath) ? targetPath : Path.GetFullPath(Path.Combine(defaultWorkingDirectory, targetPath));
 
             bool onPrem = !String.Equals(context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.ServerType)?.Value, "Hosted", StringComparison.OrdinalIgnoreCase);
-            if(onPrem) 
+            if (onPrem) 
             {
                 throw new InvalidOperationException(StringUtil.Loc("OnPremIsNotSupported"));
             }

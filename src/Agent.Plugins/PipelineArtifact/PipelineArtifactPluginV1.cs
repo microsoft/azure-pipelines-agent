@@ -70,7 +70,7 @@ namespace Agent.Plugins.PipelineArtifact
             string defaultWorkingDirectory = context.Variables.GetValueOrDefault("system.defaultworkingdirectory").Value;
 
             bool onPrem = !String.Equals(context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.ServerType)?.Value, "Hosted", StringComparison.OrdinalIgnoreCase);
-            if(onPrem) 
+            if (onPrem) 
             {
                 throw new InvalidOperationException(StringUtil.Loc("OnPremIsNotSupported"));
             }
