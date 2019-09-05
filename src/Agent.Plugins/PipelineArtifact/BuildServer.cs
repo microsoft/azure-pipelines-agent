@@ -22,7 +22,6 @@ namespace Agent.Plugins.PipelineArtifact
         }
 
         // Associate the specified artifact with a build, along with custom data.
-
         public async Task<BuildArtifact> AssociateArtifactAsync(
             Guid projectId,
             int pipelineId,
