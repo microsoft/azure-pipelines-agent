@@ -27,7 +27,6 @@ namespace Agent.Plugins.PipelineArtifact
             Guid projectId,
             int pipelineId,
             string name,
-            string jobId,
             string type,
             string data,
             Dictionary<string, string> propertiesDictionary,
@@ -36,7 +35,6 @@ namespace Agent.Plugins.PipelineArtifact
             BuildArtifact artifact = new BuildArtifact()
             {
                 Name = name,
-                Source = jobId,
                 Resource = new ArtifactResource()
                 {
                     Data = data,

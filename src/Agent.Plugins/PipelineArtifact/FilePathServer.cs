@@ -37,7 +37,7 @@ namespace Agent.Plugins.PipelineArtifact
             };
 
             // Associate the pipeline artifact with a build artifact.
-            var artifact = await buildServer.AssociateArtifactAsync(projectId, buildId, artifactName, context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.JobId)?.Value ?? String.Empty, ArtifactResourceTypes.FilePath, fileSharePath, propertiesDictionary, token);
+            var artifact = await buildServer.AssociateArtifactAsync(projectId, buildId, artifactName, ArtifactResourceTypes.FilePath, fileSharePath, propertiesDictionary, token);
             var parallel = context.GetInput(FileShareArtifactUploadEventProperties.Parallel, required: false);
             var parallelCount = parallel == "true" ? GetParallelCount(context, context.GetInput(FileShareArtifactUploadEventProperties.ParallelCount, required: false)) : 1;
 
