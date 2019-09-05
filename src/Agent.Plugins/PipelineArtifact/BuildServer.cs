@@ -24,8 +24,9 @@ namespace Agent.Plugins.PipelineArtifact
         // Associate the specified artifact with a build, along with custom data.
         public async Task<BuildArtifact> AssociateArtifactAsync(
             Guid projectId,
-            int pipelineId,
+            int buildId,
             string name,
+            string jobId,
             string type,
             string data,
             Dictionary<string, string> propertiesDictionary,
@@ -34,6 +35,7 @@ namespace Agent.Plugins.PipelineArtifact
             BuildArtifact artifact = new BuildArtifact()
             {
                 Name = name,
+                Source = jobId,
                 Resource = new ArtifactResource()
                 {
                     Data = data,
@@ -42,7 +44,7 @@ namespace Agent.Plugins.PipelineArtifact
                 }
             };
 
-            return await _buildHttpClient.CreateArtifactAsync(artifact, projectId, pipelineId, cancellationToken: cancellationToken);
+            return await _buildHttpClient.CreateArtifactAsync(artifact, projectId, buildId, cancellationToken: cancellationToken);
         }
 
         // Get named artifact from a build
