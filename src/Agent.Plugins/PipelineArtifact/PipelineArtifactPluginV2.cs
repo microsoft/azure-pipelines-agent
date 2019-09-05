@@ -9,6 +9,7 @@ using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Agent.Sdk;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 
 namespace Agent.Plugins.PipelineArtifact
 {
@@ -73,6 +74,12 @@ namespace Agent.Plugins.PipelineArtifact
             string tags = context.GetInput(ArtifactEventProperties.Tags, required: false);
             string userSpecifiedpipelineId = context.GetInput(pipelineRunId, required: false);
             string defaultWorkingDirectory = context.Variables.GetValueOrDefault("system.defaultworkingdirectory").Value;
+
+            bool onPrem = !String.Equals(context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.ServerType)?.Value, "Hosted", StringComparison.OrdinalIgnoreCase);
+            if(onPrem) 
+            {
+                throw new InvalidOperationException(StringUtil.Loc("OnPremIsNotSupported"));
+            }
 
             targetPath = Path.IsPathFullyQualified(targetPath) ? targetPath : Path.GetFullPath(Path.Combine(defaultWorkingDirectory, targetPath));
 

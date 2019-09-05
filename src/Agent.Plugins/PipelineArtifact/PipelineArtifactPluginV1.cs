@@ -67,6 +67,12 @@ namespace Agent.Plugins.PipelineArtifact
             string artifactType = context.GetInput(ArtifactEventProperties.ArtifactType, required: false);
             artifactType = string.IsNullOrEmpty(artifactType)? pipelineType: artifactType.ToLower();
 
+            bool onPrem = !String.Equals(context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.ServerType)?.Value, "Hosted", StringComparison.OrdinalIgnoreCase);
+            if(onPrem) 
+            {
+                throw new InvalidOperationException(StringUtil.Loc("OnPremIsNotSupported"));
+            }
+
             string defaultWorkingDirectory = context.Variables.GetValueOrDefault("system.defaultworkingdirectory").Value;
 
             targetPath = Path.IsPathFullyQualified(targetPath) ? targetPath : Path.GetFullPath(Path.Combine(defaultWorkingDirectory, targetPath));
