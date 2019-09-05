@@ -12,7 +12,6 @@ using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Microsoft.TeamFoundation.DistributedTask.WebApi;
 
 namespace Agent.Plugins.PipelineArtifact
 {
