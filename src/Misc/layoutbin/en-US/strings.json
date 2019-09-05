@@ -389,6 +389,7 @@
   "NotLinux": "This Agent version is built for Linux. Please install a correct build for your OS.",
   "NotOSX": "This Agent version is built for OSX. Please install a correct build for your OS.",
   "NotWindows": "This Agent version is built for Windows. Please install a correct build for your OS.",
+  "OnPremIsNotSupported": "Pipieline Artifact Task is not supported in on-premises. Please use Build Artifact Task instead.",
   "OperatingSystemShutdown": "Operating system is shutting down for computer '{0}'",
   "OperationFailed": "Error: Operation {0} failed with return code {1}",
   "OutputVariablePublishFailed": "Failed to publish output variables.",
