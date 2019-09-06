@@ -187,7 +187,7 @@ namespace Agent.Plugins.PipelineArtifact
                     ProjectRetrievalOptions = BuildArtifactRetrievalOptions.RetrieveByProjectName,
                     ProjectName = projectName,
                     ProjectId = projectId,
-                    PipelineId = pipelineId.GetValueOrDefault(),
+                    PipelineId = pipelineId.Value,
                     ArtifactName = artifactName,
                     TargetDirectory = targetPath,
                     MinimatchFilters = minimatchPatterns,
