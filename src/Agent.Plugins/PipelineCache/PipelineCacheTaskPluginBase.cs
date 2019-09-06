@@ -15,12 +15,10 @@ namespace Agent.Plugins.PipelineCache
     {
         protected const string RestoreStepRanVariableName = "RESTORE_STEP_RAN";
         protected const string RestoreStepRanVariableValue = "true";
-
-        private const string SaltVariableName = "AZDEVOPS_PIPELINECACHE_SALT";
+        private const string SaltVariableName = "AZP_CACHING_SALT";
         private const string OldKeyFormatMessage = "'key' format is changing to a single line: https://aka.ms/pipeline-caching-docs";
-
+        protected const string PackingVariableName = "AZP_CACHING_TAR";
         public Guid Id => PipelineCachePluginConstants.CacheTaskId;
-
         public abstract String Stage { get; }
 
         internal static (bool isOldFormat, string[] keySegments,IEnumerable<string[]> restoreKeys) ParseIntoSegments(string salt, string key, string restoreKeysBlock)
@@ -73,7 +71,7 @@ namespace Agent.Plugins.PipelineCache
             return (isOldFormat, keySegments, restoreKeys);
         }
         
-        public async Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
+        public async virtual Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
             ArgUtil.NotNull(context, nameof(context));
 
@@ -81,7 +79,7 @@ namespace Agent.Plugins.PipelineCache
             string salt = saltValue?.Value ?? string.Empty;
 
             VariableValue workspaceRootValue = context.Variables.GetValueOrDefault("pipeline.workspace");
-            string worksapceRoot = workspaceRootValue?.Value;
+            string workspaceRoot = workspaceRootValue?.Value;
 
             string key = context.GetInput(PipelineCacheTaskPluginConstants.Key, required: true);
             string restoreKeysBlock = context.GetInput(PipelineCacheTaskPluginConstants.RestoreKeys, required: false);
@@ -93,16 +91,16 @@ namespace Agent.Plugins.PipelineCache
                 context.Warning(OldKeyFormatMessage);
             }
 
-            context.Output($"Resolving key `{string.Join(" | ", keySegments)}`...");
-            Fingerprint keyFp = FingerprintCreator.EvaluateKeyToFingerprint(context, worksapceRoot, keySegments);
-            context.Output($"Resolved to `{keyFp}`.");
+            context.Output($"Resolving key: {string.Join("|", keySegments)}");
+            Fingerprint keyFp = FingerprintCreator.EvaluateKeyToFingerprint(context, workspaceRoot, keySegments);
+            context.Output($"Resolved to: {keyFp}");
 
             Func<Fingerprint[]> restoreKeysGenerator = () => 
                 restoreKeys.Select(restoreKey => {
-                    context.Output($"Resolving restore key `{string.Join(" | ", restoreKey)}`...");
-                    Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, worksapceRoot, restoreKey);
+                    context.Output($"Resolving restore key: {string.Join("|", restoreKey)}");
+                    Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, workspaceRoot, restoreKey);
                     f.Segments = f.Segments.Concat(new [] { Fingerprint.Wildcard} ).ToArray();
-                    context.Output($"Resolved to `{f}`.");
+                    context.Output($"Resolved to: {f}");
                     return f;
                 }).ToArray();
 

@@ -230,7 +230,7 @@
     "DownloadingFromBuild":  "Скачать из указанной сборки: #{0}.",
     "DownloadingJenkinsCommitsBetween":  "Скачиваются фиксации между заданиями {0} и {1}",
     "DownloadingJenkinsCommitsFailedWithException":  "Не удалось скачать фиксации для артефакта Jenkins {0}. Исключение: {1}",
-    "DownloadingTask0":  "Скачивание задачи: {0}",
+    "DownloadingTask0":  "Скачивание задачи: {0} ({1})",
     "EnsureJobFinished":  "Ожидание завершения текущего задания.",
     "EnsureTasksExist":  "Скачайте все нужные задачи.",
     "EnterValidValueFor0":  "Введите допустимое значение для \"{0}\".",

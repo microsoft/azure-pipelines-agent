@@ -229,7 +229,7 @@
     "DownloadingFromBuild":  "Von angegebenem Build herunterladen: #{0}",
     "DownloadingJenkinsCommitsBetween":  "Commits zwischen den Aufträgen {0} und {1} werden heruntergeladen.",
     "DownloadingJenkinsCommitsFailedWithException":  "Fehler beim Herunterladen der Commits für das Jenkins-Artefakt {0}. Ausnahme: {1}",
-    "DownloadingTask0":  "Der Task wird heruntergeladen: {0}",
+    "DownloadingTask0":  "Der Task wird heruntergeladen: {0} ({1})",
     "EnsureJobFinished":  "Auf den Abschluss der Ausführung des aktuellen Auftrags wird gewartet.",
     "EnsureTasksExist":  "Alle erforderlichen Aufgaben herunterladen.",
     "EnterValidValueFor0":  "Geben Sie einen gültigen Wert für {0} ein.",

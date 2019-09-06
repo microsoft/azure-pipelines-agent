@@ -230,7 +230,7 @@
     "DownloadingFromBuild":  "從指定組建 #{0} 下載",
     "DownloadingJenkinsCommitsBetween":  "正在下載工作 {0} 至 {1} 之間的認可",
     "DownloadingJenkinsCommitsFailedWithException":  "下載 jenkins 成品 {0} 的認可失敗。例外狀況: {1}",
-    "DownloadingTask0":  "正在下載工作: {0}",
+    "DownloadingTask0":  "正在下載工作: {0} ({1})",
     "EnsureJobFinished":  "正在等候目前的作業結束執行。",
     "EnsureTasksExist":  "下載所有必要工作。",
     "EnterValidValueFor0":  "請為 {0} 輸入有效的值。",

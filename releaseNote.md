@@ -1,13 +1,15 @@
 ## Features
-  - Pipeline Caching CacheBeta 1.0 agent changes #2358
-  
+  - Adding UNC path feature to Pipeline Artifact Task + Adding DPA V2 task Telemetry (#2406)
+  - Updated to support Xamarin detection with VS2019 (#2418)
+  - Adding DownloadFromWhichBuild information to DPA V1 and V2 (#2405)
+
 ## Bugs
-  - Getting the latest successful build instead of latest in DPA #2350
-  - Pass through parameters to listener #2353 
-  - Use ArtifactHttpClientFactory to generate dedupStoreClient that includes ArtifactHttpRetryHandler #2357
+  - Modifying the process working directory location for tarring (#2411)
 
 ## Misc
-  - Use Azure Artifacts for nugetvssprivate #2359
+  - Updated to include task version in message to download (#2409)
+  - Updated to print to console a message if an error was sent to trace log (#2408)
+  - Telemetry addition in PublishTestResults (#2414)
 
 ## Agent Downloads  
 

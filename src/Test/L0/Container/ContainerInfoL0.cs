@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Xunit;
 
@@ -6,33 +7,57 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
 {
     public sealed class ContainerInfoL0
     {
+        private class MountVolumeTest
+        {
+            private string Input;
+            private MountVolume Expected;
+            private string Title;
+
+            public MountVolumeTest(string input, MountVolume expected, string title="")
+            {
+                this.Input = input;
+                this.Expected = expected;
+                this.Title = title;
+            }
+
+            public void run()
+            {
+                MountVolume got = new MountVolume(Input);
+                Assert.True(Expected.SourceVolumePath == got.SourceVolumePath, $"{Title} - testing property SourceVolumePath. Expected: '{Expected.SourceVolumePath}' Got: '{got.SourceVolumePath}' ");
+                Assert.True(Expected.TargetVolumePath == got.TargetVolumePath, $"{Title} - testing property TargetVolumePath. Expected: '{Expected.TargetVolumePath}' Got: '{got.TargetVolumePath}'");
+                Assert.True(Expected.ReadOnly == got.ReadOnly, $"{Title} - testing property ReadOnly. Expected: '{Expected.ReadOnly}' Got: '{got.ReadOnly}'");
+            }
+        }
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
         public void MountVolumeConstructorParsesStringInput()
         {
-            // Arrange
-            MountVolume target = new MountVolume("/dst/dir"); // Maps anonymous Docker volume into target dir
-            MountVolume source_target = new MountVolume("/src/dir:/dst/dir"); // Maps source to target dir
-            MountVolume target_ro = new MountVolume("/dst/dir:ro");
-            MountVolume source_target_ro = new MountVolume("/src/dir:/dst/dir:ro");
+            List<MountVolumeTest> tests = new List<MountVolumeTest>
+            {
+                // Unix style paths
+                new MountVolumeTest("/dst/dir", new MountVolume(null, "/dst/dir", false), "Maps anonymous Docker volume into target dir"), 
+                new MountVolumeTest("/src/dir:/dst/dir", new MountVolume("/src/dir", "/dst/dir", false), "Maps source to target dir"), 
+                new MountVolumeTest("/dst/dir:ro", new MountVolume(null, "/dst/dir", true), "Maps anonymous Docker volume read-only into target dir"), 
+                new MountVolumeTest("/src/dir:/dst/dir:ro", new MountVolume("/src/dir", "/dst/dir", true), "Maps source to read-only target dir"), 
+                new MountVolumeTest(":/dst/dir", new MountVolume(null, "/dst/dir", false), "Maps anonymous Docker volume into target dir with leading colon"), 
+                new MountVolumeTest("/c/src/dir:/c/dst/dir", new MountVolume("/c/src/dir", "/c/dst/dir", false), "Maps source to target dir prefixed with /c/"), 
+                new MountVolumeTest("/src/dir\\:with\\:escaped\\:colons:/dst/dir\\:with\\:escaped\\:colons", new MountVolume("/src/dir:with:escaped:colons", "/dst/dir:with:escaped:colons", false), "Maps source to target dir prefixed with escaped colons"), 
 
-            // Assert
-            Assert.Null(target.SourceVolumePath);
-            Assert.Equal("/dst/dir", target.TargetVolumePath);
-            Assert.False(target.ReadOnly);
+                // Windows style paths
+                new MountVolumeTest("c:\\dst\\dir", new MountVolume(null, "c:\\dst\\dir", false), "Maps anonymous Docker volume into target dir using Windows-style paths"), 
+                new MountVolumeTest("c:\\src\\dir:c:\\dst\\dir", new MountVolume("c:\\src\\dir", "c:\\dst\\dir", false), "Maps source to target dir using Windows-style paths"), 
+                new MountVolumeTest("c:\\dst\\dir:ro", new MountVolume(null, "c:\\dst\\dir", true), "Maps anonymous Docker volume read-only into target dir using Windows-style paths"), 
+                new MountVolumeTest("c:\\src\\dir:c:\\dst\\dir:ro", new MountVolume("c:\\src\\dir", "c:\\dst\\dir", true), "Maps source to read-only target dir using Windows-style paths"), 
+                new MountVolumeTest("c\\:\\src\\dir:c\\:\\dst\\dir:ro", new MountVolume("c:\\src\\dir", "c:\\dst\\dir", true), "Maps source to read-only target dir using Windows-style paths and explicit escape"), 
+            };
 
-            Assert.Equal("/src/dir", source_target.SourceVolumePath);
-            Assert.Equal("/dst/dir", source_target.TargetVolumePath);
-            Assert.False(source_target.ReadOnly);
-
-            Assert.Null(target_ro.SourceVolumePath);
-            Assert.Equal("/dst/dir", target_ro.TargetVolumePath);
-            Assert.True(target_ro.ReadOnly);
-
-            Assert.Equal("/src/dir", source_target_ro.SourceVolumePath);
-            Assert.Equal("/dst/dir", source_target_ro.TargetVolumePath);
-            Assert.True(source_target_ro.ReadOnly);
+            foreach (var test in tests)
+            {
+                test.run();
+            }
+        
         }
     }
 }
