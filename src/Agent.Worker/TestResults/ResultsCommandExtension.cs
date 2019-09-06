@@ -28,7 +28,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
         private bool _isTestRunOutcomeFailed = false;
         private string _testRunSystem;
-        private const string _testRunSystemCustomFieldName = "TestRunSystem";
 
         //telemetry parameter
         private const string _telemetryFeature = "PublishTestResultsCommand";
@@ -40,9 +39,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         public string CommandArea => "results";
 
         public HostTypes SupportedHostTypes => HostTypes.All;
-
-        public static int PublishBatchSize = 10;
-
+        
         public void ProcessCommand(IExecutionContext context, Command command)
         {
             if (string.Equals(command.Event, WellKnownResultsCommand.PublishTestResults, StringComparison.OrdinalIgnoreCase))
