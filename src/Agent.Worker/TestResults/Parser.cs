@@ -5,61 +5,40 @@ using System.Text;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
-    public class Parser
+    public interface IParser : IExtension
     {
-        private IExecutionContext _executionContext;
+        string Name { get; }
+    
+        TestDataProvider ParseTestResultFiles(IExecutionContext executionContext, TestRunContext testRunContext, List<string> testResultsFiles);
+    }
 
-        public Parser(IExecutionContext context){
-            _executionContext = context;
-        }
+    public abstract class Parser : AgentService
+    {
+        public Type ExtensionType => typeof(IParser);
 
-        public TestDataProvider ParseTestResultFiles(string testRunner, TestRunContext testRunContext, List<string> testResultsFiles)
+        public abstract string Name { get; }
+
+        protected abstract ITestResultParser GetTestResultParser(IExecutionContext executionContext);
+
+        public TestDataProvider ParseTestResultFiles(IExecutionContext executionContext, TestRunContext testRunContext, List<string> testResultsFiles)
         {
-            if (string.IsNullOrEmpty(testRunner))
+            if (string.IsNullOrEmpty(Name))
             {
-                _executionContext.Warning("Test runner name is null or empty");
+                executionContext.Warning("Test runner name is null or empty");
                 return null;
             }
             // Create test result parser object based on the test Runner provided
-            var testResultParser = GetTestResultParser(testRunner);
+            var testResultParser = GetTestResultParser(executionContext);
             if (testResultParser == null)
             {
                 return null;
             }
 
             // Parse with the corresponding testResultParser object
-            return ParseFiles(testRunContext, testResultsFiles, testResultParser);
+            return ParseFiles(executionContext, testRunContext, testResultsFiles, testResultParser);
         }
 
-        private ITestResultParser GetTestResultParser(string testRunner)
-        {
-            var traceListener = new CommandTraceListener(_executionContext);
-            if (testRunner.Equals("VSTest", StringComparison.OrdinalIgnoreCase))
-            {
-                return new TrxResultParser(traceListener);
-            }
-            else if (testRunner.Equals("NUnit", StringComparison.OrdinalIgnoreCase))
-            {
-                return new NUnitResultParser(traceListener);
-            }
-            else if (testRunner.Equals("XUnit", StringComparison.OrdinalIgnoreCase))
-            {
-                return new XUnitResultParser(traceListener);
-            }
-            else if (testRunner.Equals("JUnit", StringComparison.OrdinalIgnoreCase))
-            {
-                return new JUnitResultParser(traceListener);
-            }
-            else if (testRunner.Equals("CTest", StringComparison.OrdinalIgnoreCase))
-            {
-                return new CTestResultParser(traceListener);
-            }
-            // Return null if testRunner value is not in supported test runners.
-            _executionContext.Warning("Invalid format: testRunner");
-            return null;
-        }
-
-        private TestDataProvider ParseFiles(TestRunContext testRunContext, List<string> testResultsFiles, ITestResultParser testResultParser)
+        private TestDataProvider ParseFiles(IExecutionContext executionContext, TestRunContext testRunContext, List<string> testResultsFiles, ITestResultParser testResultParser)
         {
             if (testResultParser == null)
             {
@@ -74,9 +53,68 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
             catch (Exception ex)
             {
-                _executionContext.Write("Failed to parse result files: ", ex.ToString());
+                executionContext.Write("Failed to parse result files: ", ex.ToString());
             }
             return testDataProvider;
         }
+    }
+
+    public class JUnitParser : Parser, IParser
+    {
+        public override string Name => "JUnit";
+
+        protected override ITestResultParser GetTestResultParser(IExecutionContext executionContext)
+        {
+            var traceListener = new CommandTraceListener(executionContext);
+            return new JUnitResultParser(traceListener);
+        }
+    }
+
+    public class XUnitParser : Parser, IParser
+    {
+        public override string Name => "XUnit";
+
+        protected override ITestResultParser GetTestResultParser(IExecutionContext executionContext)
+        {
+            var traceListener = new CommandTraceListener(executionContext);
+            return new XUnitResultParser(traceListener);
+        }
+
+    }
+
+    public class TrxParser : Parser, IParser
+    {
+        public override string Name => "VSTest";
+
+        protected override ITestResultParser GetTestResultParser(IExecutionContext executionContext)
+        {
+            var traceListener = new CommandTraceListener(executionContext);
+            return new TrxResultParser(traceListener);
+        }
+
+    }
+
+    public class NUnitParser : Parser, IParser
+    {
+        public override string Name => "NUnit";
+
+        protected override ITestResultParser GetTestResultParser(IExecutionContext executionContext)
+        {
+            var traceListener = new CommandTraceListener(executionContext);
+            return new NUnitResultParser(traceListener);
+        }
+
+    }
+
+    public class CTestParser : Parser, IParser
+    {
+        public override string Name => "CTest";
+
+        protected override ITestResultParser GetTestResultParser(IExecutionContext executionContext)
+        {
+            var traceListener = new CommandTraceListener(executionContext);
+            return new CTestResultParser(traceListener);
+        }
+
     }
 }

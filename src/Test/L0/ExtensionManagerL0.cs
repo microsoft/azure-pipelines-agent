@@ -57,9 +57,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 AssertContains<Microsoft.VisualStudio.Services.Agent.Worker.Release.IArtifactExtension>(
                     manager,
                     concreteType: typeof(Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts.BuildArtifact));
-                AssertContains<Microsoft.VisualStudio.Services.Agent.Worker.TestResults.IResultReader>(
-                    manager,
-                    concreteType: typeof(Microsoft.VisualStudio.Services.Agent.Worker.TestResults.JUnitResultReader));
             }
         }
 

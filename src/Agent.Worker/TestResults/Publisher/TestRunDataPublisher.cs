@@ -3,7 +3,6 @@ using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,7 +11,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
     [ServiceLocator(Default = typeof(TestRunDataPublisher))]
     public interface ITestRunDataPublisher : IAgentService
     {
-        void InitializePublisher(IExecutionContext executionContext, string projectName, ITestRunPublisher testRunPublisher);
+        void InitializePublisher(IExecutionContext executionContext, string projectName, VssConnection connection);
 
         Task<IList<TestRun>> PublishAsync(TestRunContext runContext, List<TestRunData> testRunData, PublishOptions publishOptions, CancellationToken cancellationToken = default(CancellationToken));
     }
@@ -23,12 +22,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private string _projectName;
         private ITestRunPublisher _testRunPublisher;
 
-        public void InitializePublisher(IExecutionContext context, string projectName, ITestRunPublisher testRunPublisher)
+        public void InitializePublisher(IExecutionContext context, string projectName, VssConnection connection)
         {
             Trace.Entering();
             _executionContext = context;
             _projectName = projectName;
-            _testRunPublisher = testRunPublisher;
+            _testRunPublisher = new TestRunPublisher(connection, new CommandTraceListener(context));
             Trace.Leaving();
         }
 

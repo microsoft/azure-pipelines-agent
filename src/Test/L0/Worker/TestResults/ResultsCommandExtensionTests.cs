@@ -1,4 +1,5 @@
 ﻿using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.TeamFoundation.TestClient.PublishTestResults;
 using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
@@ -22,24 +23,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         private Mock<IExecutionContext> _ec;
         private List<string> _warnings = new List<string>();
         private List<string> _errors = new List<string>();
-        private Mock<IResultReader> _mockResultReader;
-        private Mock<ITestRunPublisher> _mockTestRunPublisher;
-        private Mock<IExtensionManager> _mockExtensionManager;
         private Mock<IAsyncCommandContext> _mockCommandContext;
+        private Mock<ITestRunDataPublisher> _mockTestRunDataPublisher;
+        private Mock<IExtensionManager> _mockExtensionManager;
+        private Mock<IParser> _mockParser;
         private TestHostContext _hc;
         private Variables _variables;
 
         public ResultsCommandTests()
         {
-            _mockTestRunPublisher = new Mock<ITestRunPublisher>();
+            _mockTestRunDataPublisher = new Mock<ITestRunDataPublisher>();
+            var mockTestRun = MockTestRun();
+            _mockTestRunDataPublisher.Setup(x => x.PublishAsync(It.IsAny<TestRunContext>(), It.IsAny<List<TestRunData>>(), It.IsAny<PublishOptions>(), It.IsAny<CancellationToken>())).ReturnsAsync(mockTestRun);
 
-            var testRunData = new TestRunData { };
-            _mockResultReader = new Mock<IResultReader>();
-            _mockResultReader.Setup(x => x.Name).Returns("mockResults");
-            _mockResultReader.Setup(x => x.ReadResults(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<TestRunContext>()))
-                .Returns(testRunData);
+            _mockParser = new Mock<IParser>();
+            TestDataProvider mockTestRunData = MockParserData();
+            _mockParser.Setup(x => x.Name).Returns("mockResults");
+            _mockParser.Setup(x => x.ParseTestResultFiles(It.IsAny<IExecutionContext>(), It.IsAny<TestRunContext>(), It.IsAny<List<String>>())).Returns(mockTestRunData);
 
-            _mockTestRunPublisher = new Mock<ITestRunPublisher>();
         }
 
         [Fact]
@@ -52,6 +53,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             resultCommand.Initialize(_hc);
             var command = new Command("results", "publish");
             command.Properties.Add("resultFiles", "ResultFile.txt");
+
             Assert.Throws<ArgumentException>(() => resultCommand.ProcessCommand(_ec.Object, command));
         }
 
@@ -84,25 +86,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "PublishTestResults")]
-        public void Publish_NonExistingTestResultFile()
-        {
-            _mockResultReader.Setup(x => x.ReadResults(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<TestRunContext>()))
-               .Throws(new IOException("Could not find file 'nonexisting.file'"));
-            SetupMocks();
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", "nonexisting.file");
-            command.Properties.Add("type", "mockResults");
-            resultCommand.ProcessCommand(_ec.Object, command);
-            Assert.Equal(0, _errors.Count());
-            Assert.Equal(1, _warnings.Count());
-            Assert.Equal(StringUtil.Loc("InvalidResultFiles", "Could not find file 'nonexisting.file'"), _warnings[0]);
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "PublishTestResults")]
         public void Publish_InvalidJUnitResultFile()
         {
             SetupMocks();
@@ -127,7 +110,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
 
             Assert.Equal(0, _errors.Count());
             Assert.Equal(1, _warnings.Count());
-            Assert.Equal(StringUtil.Loc("InvalidResultFiles", jUnitFilePath, "JUnit"), _warnings[0]);
+            Assert.True(_warnings[0].Contains("Failed to read "+ jUnitFilePath));
         }
 
         [Fact]
@@ -157,6 +140,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
 
             Assert.Equal(0, _errors.Count());
             Assert.Equal(1, _warnings.Count());
+            Assert.True(_warnings[0].Contains("Failed to read " + jUnitFilePath));
         }
 
         [Fact]
@@ -165,542 +149,69 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         public void Publish_DataIsHonoredWhenTestResultsFieldIsNotSpecified()
         {
             SetupMocks();
-
+            
             var resultCommand = new ResultsCommandExtension();
             resultCommand.Initialize(_hc);
             var command = new Command("results", "publish");
-            command.Properties.Add("type", "NUnit");
+            command.Properties.Add("type", "mockResults");
             command.Data = "testfile1,testfile2";
             resultCommand.ProcessCommand(_ec.Object, command);
 
             Assert.Equal(0, _errors.Count());
         }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "PublishTestResults")]
-        public void VerifyPublishTaskErrorIfFailTaskIsTrueAndThereAreFailedTests()
+        
+        private List<TestRun> MockTestRun()
         {
-            SetupMocks();
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", "file1.trx,file2.trx");
-            command.Properties.Add("type", "NUnit");
-            command.Properties.Add("mergeResults", bool.TrueString);
-            command.Properties.Add("failTaskOnFailedTests", bool.TrueString);
-            var resultsFiles = new List<string> { "file1.trx", "file2.trx" };
+            List<TestRun> testRunList = new List<TestRun>();
+            TestRun testRun = new TestRun();
+            testRun.Name = "Mock test run";
+            testRunList.Add(testRun);
 
-            var testRunData = new TestRunData();
-
-            var passedTest = new TestCaseResultData();
-            passedTest.Outcome = TestOutcome.Passed.ToString();
-
-            var failedTest = new TestCaseResultData();
-            failedTest.Outcome = TestOutcome.Failed.ToString();
-
-            testRunData.Results = new TestCaseResultData[] { passedTest, failedTest };
-            testRunData.Attachments = new string[] { "attachment1", "attachment2" };
-
-            _mockTestRunPublisher.Setup(q => q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()))
-                .Callback((TestRunData trd, CancellationToken cancellationToken) =>
-                {
-                    Assert.Equal(resultsFiles.Count * testRunData.Attachments.Length, trd.Attachments.Length);
-                });
-            _mockTestRunPublisher.Setup(q => q.AddResultsAsync(It.IsAny<TestRun>(), It.IsAny<TestCaseResultData[]>(), It.IsAny<CancellationToken>()))
-                .Callback((TestRun testRun, TestCaseResultData[] tcrd, CancellationToken cancellationToken) =>
-                {
-                    Assert.Equal(resultsFiles.Count * testRunData.Results.Length, tcrd.Length);
-                });
-            _mockTestRunPublisher.Setup(q => q.ReadResultsFromFile(It.IsAny<TestRunContext>(), It.IsAny<string>()))
-                .Returns(testRunData);
-            _mockTestRunPublisher.Setup(q => q.EndTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
-
-            resultCommand.ProcessCommand(_ec.Object, command);
-
-            Assert.Equal(1, _errors.Count());
+            return testRunList;
         }
 
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "PublishTestResults")]
-        public void VerifyPublishTaskErrorIfFailTaskIsTrueAndThereAreFailedTestsInMultipleResultFiles()
+        private TestDataProvider MockParserData()
         {
-            SetupMocks();
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", "file1.trx,file2.trx");
-            command.Properties.Add("type", "NUnit");
-            command.Properties.Add("mergeResults", bool.TrueString);
-            command.Properties.Add("failTaskOnFailedTests", bool.TrueString);
-            var resultsFiles = new List<string> { "file1.trx", "file2.trx" };
-
-            var testRunDataPassed = new TestRunData();
-            var testRunDataFailed = new TestRunData();
-
-            var passedTest = new TestCaseResultData();
-            passedTest.Outcome = TestOutcome.Passed.ToString();
-
-            var failedTest = new TestCaseResultData();
-            failedTest.Outcome = TestOutcome.Failed.ToString();
-
-            testRunDataPassed.Results = new TestCaseResultData[] { passedTest };
-            testRunDataPassed.Attachments = new string[] { "attachment1", "attachment2" };
-            testRunDataFailed.Results = new TestCaseResultData[] { failedTest };
-            testRunDataPassed.Attachments = new string[] { "attachment1", "attachment2" };
-
-            _mockTestRunPublisher.Setup(q => q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()))
-                .Callback((TestRunData trd, CancellationToken cancellationToken) =>
+            List<TestRunData> mockTestRunData = new List<TestRunData>();
+            TestRunData testRunData1 = new TestRunData(new RunCreateModel("First"));
+            TestRunData testRunData2 = new TestRunData(new RunCreateModel("Second"));
+            var buildData1 = new BuildData()
+            {
+                BuildAttachments = new List<BuildAttachment>()
                 {
-                    Assert.Equal(resultsFiles.Count * testRunDataPassed.Attachments.Length, trd.Attachments.Length);
-                });
-            _mockTestRunPublisher.Setup(q => q.AddResultsAsync(It.IsAny<TestRun>(), It.IsAny<TestCaseResultData[]>(), It.IsAny<CancellationToken>()))
-                .Callback((TestRun testRun, TestCaseResultData[] tcrd, CancellationToken cancellationToken) =>
+                    new BuildAttachment() { AllowDuplicateUploads= true, Filename="file", Metadata= null, TestLogType=TestLogType.Intermediate, TestLogCompressionType = TestLogCompressionType.None }
+                }
+            };
+
+            var buildData2 = new BuildData()
+            {
+                BuildAttachments = new List<BuildAttachment>()
                 {
-                    Assert.Equal(resultsFiles.Count * testRunDataPassed.Results.Length, tcrd.Length);
-                });
-            _mockTestRunPublisher.Setup(q => q.ReadResultsFromFile(It.IsAny<TestRunContext>(), "file1.trx"))
-                .Returns(testRunDataPassed);
-            _mockTestRunPublisher.Setup(q => q.ReadResultsFromFile(It.IsAny<TestRunContext>(), "file2.trx"))
-                .Returns(testRunDataFailed);
-            _mockTestRunPublisher.Setup(q => q.EndTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
+                    new BuildAttachment() { AllowDuplicateUploads= true, Filename="file", Metadata= null, TestLogType=TestLogType.Intermediate, TestLogCompressionType = TestLogCompressionType.None }
+                }
+            };
 
-            resultCommand.ProcessCommand(_ec.Object, command);
+            mockTestRunData.Add(testRunData1);
+            mockTestRunData.Add(testRunData2);
 
-            Assert.Equal(1, _errors.Count());
+            return new TestDataProvider(new List<TestData>()
+            {
+                new TestData() { TestRunData = testRunData1, BuildData = buildData1},
+                new TestData() { TestRunData = testRunData2, BuildData = buildData1}
+            });
         }
 
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "PublishTestResults")]
-        public void VerifyPublishTaskErrorIfFailTaskIsTrueAndThereAreAbortedTests()
-        {
-            SetupMocks();
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", "file1.trx,file2.trx");
-            command.Properties.Add("type", "NUnit");
-            command.Properties.Add("mergeResults", bool.TrueString);
-            command.Properties.Add("failTaskOnFailedTests", bool.TrueString);
-            var resultsFiles = new List<string> { "file1.trx", "file2.trx" };
-
-            var testRunData = new TestRunData();
-
-            var passedTest = new TestCaseResultData();
-            passedTest.Outcome = TestOutcome.Passed.ToString();
-
-            var abortedTest = new TestCaseResultData();
-            abortedTest.Outcome = TestOutcome.Aborted.ToString();
-
-            testRunData.Results = new TestCaseResultData[] { passedTest, abortedTest };
-            testRunData.Attachments = new string[] { "attachment1", "attachment2" };
-
-            _mockTestRunPublisher.Setup(q => q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()))
-                .Callback((TestRunData trd, CancellationToken cancellationToken) =>
-                {
-                    Assert.Equal(resultsFiles.Count * testRunData.Attachments.Length, trd.Attachments.Length);
-                });
-            _mockTestRunPublisher.Setup(q => q.AddResultsAsync(It.IsAny<TestRun>(), It.IsAny<TestCaseResultData[]>(), It.IsAny<CancellationToken>()))
-                .Callback((TestRun testRun, TestCaseResultData[] tcrd, CancellationToken cancellationToken) =>
-                {
-                    Assert.Equal(resultsFiles.Count * testRunData.Results.Length, tcrd.Length);
-                });
-            _mockTestRunPublisher.Setup(q => q.ReadResultsFromFile(It.IsAny<TestRunContext>(), It.IsAny<string>()))
-                .Returns(testRunData);
-            _mockTestRunPublisher.Setup(q => q.EndTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
-
-            resultCommand.ProcessCommand(_ec.Object, command);
-
-            Assert.Equal(1, _errors.Count());
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "PublishTestResults")]
-        public void VerifyNoPublishTaskErrorIfFailTaskIsTrueAndThereAreNoneFailedTests()
-        {
-            SetupMocks();
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", "file1.trx,file2.trx");
-            command.Properties.Add("type", "NUnit");
-            command.Properties.Add("mergeResults", bool.TrueString);
-            command.Properties.Add("failTaskOnFailedTests", bool.TrueString);
-            var resultsFiles = new List<string> { "file1.trx", "file2.trx" };
-
-            var testRunData = new TestRunData();
-
-            var passedTest = new TestCaseResultData();
-            passedTest.Outcome = TestOutcome.Passed.ToString();
-
-            testRunData.Results = new TestCaseResultData[] { passedTest };
-            testRunData.Attachments = new string[] { "attachment1", "attachment2" };
-
-            _mockTestRunPublisher.Setup(q => q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()))
-                .Callback((TestRunData trd, CancellationToken cancellationToken) =>
-                {
-                    Assert.Equal(resultsFiles.Count * testRunData.Attachments.Length, trd.Attachments.Length);
-                });
-            _mockTestRunPublisher.Setup(q => q.AddResultsAsync(It.IsAny<TestRun>(), It.IsAny<TestCaseResultData[]>(), It.IsAny<CancellationToken>()))
-                .Callback((TestRun testRun, TestCaseResultData[] tcrd, CancellationToken cancellationToken) =>
-                {
-                    Assert.Equal(resultsFiles.Count * testRunData.Results.Length, tcrd.Length);
-                });
-            _mockTestRunPublisher.Setup(q => q.ReadResultsFromFile(It.IsAny<TestRunContext>(), It.IsAny<string>()))
-                .Returns(testRunData);
-            _mockTestRunPublisher.Setup(q => q.EndTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
-
-            resultCommand.ProcessCommand(_ec.Object, command);
-
-            Assert.Equal(0, _errors.Count());
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "PublishTestResults")]
-        public void VerifyNoPublishTaskErrorIfFailTaskIsFalseAndThereAreFailedTests()
-        {
-            SetupMocks();
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", "file1.trx,file2.trx");
-            command.Properties.Add("type", "NUnit");
-            command.Properties.Add("mergeResults", bool.TrueString);
-            command.Properties.Add("failTaskOnFailedTests", bool.FalseString);
-            var resultsFiles = new List<string> { "file1.trx", "file2.trx" };
-
-            var testRunData = new TestRunData();
-            
-            var passedTest = new TestCaseResultData();
-            passedTest.Outcome = TestOutcome.Passed.ToString();
-
-            var failedTest = new TestCaseResultData();
-            failedTest.Outcome = TestOutcome.Failed.ToString();
-
-            testRunData.Results = new TestCaseResultData[] { passedTest, failedTest };
-            testRunData.Attachments = new string[] { "attachment1", "attachment2" };
-
-            _mockTestRunPublisher.Setup(q => q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()))
-                .Callback((TestRunData trd, CancellationToken cancellationToken) =>
-                {
-                    Assert.Equal(resultsFiles.Count * testRunData.Attachments.Length, trd.Attachments.Length);
-                });
-            _mockTestRunPublisher.Setup(q => q.AddResultsAsync(It.IsAny<TestRun>(), It.IsAny<TestCaseResultData[]>(), It.IsAny<CancellationToken>()))
-                .Callback((TestRun testRun, TestCaseResultData[] tcrd, CancellationToken cancellationToken) =>
-                {
-                    Assert.Equal(resultsFiles.Count * testRunData.Results.Length, tcrd.Length);
-                });
-            _mockTestRunPublisher.Setup(q => q.ReadResultsFromFile(It.IsAny<TestRunContext>(), It.IsAny<string>()))
-                .Returns(testRunData);
-            _mockTestRunPublisher.Setup(q => q.EndTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
-
-            resultCommand.ProcessCommand(_ec.Object, command);
-
-            Assert.Equal(0, _errors.Count());
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "PublishTestResults")]
-        public void VerifyResultsAreMergedWhenPublishingToSingleTestRun()
-        {
-            SetupMocks();
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", "file1.trx,file2.trx");
-            command.Properties.Add("type", "NUnit");
-            command.Properties.Add("mergeResults", bool.TrueString);
-            var resultsFiles = new List<string> { "file1.trx", "file2.trx" };
-
-            var testRunData = new TestRunData();
-            testRunData.Results = new TestCaseResultData[] { new TestCaseResultData(), new TestCaseResultData() };
-            testRunData.Attachments = new string[] { "attachment1", "attachment2" };
-
-            _mockTestRunPublisher.Setup(q => q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()))
-                .Callback((TestRunData trd, CancellationToken cancellationToken) =>
-                {
-                    Assert.Equal(resultsFiles.Count * testRunData.Attachments.Length, trd.Attachments.Length);
-                });
-            _mockTestRunPublisher.Setup(q => q.AddResultsAsync(It.IsAny<TestRun>(), It.IsAny<TestCaseResultData[]>(), It.IsAny<CancellationToken>()))
-                .Callback((TestRun testRun, TestCaseResultData[] tcrd, CancellationToken cancellationToken) =>
-                {
-                    Assert.Equal(resultsFiles.Count * testRunData.Results.Length, tcrd.Length);
-                });
-            _mockTestRunPublisher.Setup(q => q.ReadResultsFromFile(It.IsAny<TestRunContext>(), It.IsAny<string>()))
-                .Returns(testRunData);
-            _mockTestRunPublisher.Setup(q => q.EndTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
-
-            resultCommand.ProcessCommand(_ec.Object, command);
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "PublishTestResults")]
-        public void VerifyTestRunSystemPropertyIsSentWhenPublishingToSignleTestRun()
-        {
-            SetupMocks();
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", "file1.trx,file2.trx");
-            command.Properties.Add("type", "NUnit");
-            command.Properties.Add("mergeResults", bool.TrueString);
-            command.Properties.Add("testRunSystem", "MAVEN");
-            var resultsFiles = new List<string> { "file1.trx", "file2.trx" };
-
-            var testRunData = new TestRunData();
-            testRunData.Results = new TestCaseResultData[] { new TestCaseResultData(), new TestCaseResultData() };
-            testRunData.Attachments = new string[] { "attachment1", "attachment2" };
-
-            _mockTestRunPublisher.Setup(q => q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()))
-                .Callback((TestRunData trd, CancellationToken cancellationToken) =>
-                {
-                    Assert.NotNull(trd.CustomTestFields);
-                    Assert.NotEmpty(trd.CustomTestFields);
-                    Assert.Equal("testRunSystem", trd.CustomTestFields[0].FieldName);
-                    Assert.Equal("MAVEN", trd.CustomTestFields[0].Value);
-                });
-            _mockTestRunPublisher.Setup(q => q.ReadResultsFromFile(It.IsAny<TestRunContext>(), It.IsAny<string>()))
-                .Returns(testRunData);
-
-            resultCommand.ProcessCommand(_ec.Object, command);
-
-            // Making sure that the callback is called.
-            _mockTestRunPublisher.Verify(q => q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()), Times.Once);
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "PublishTestResults")]
-        public void VerifyTestRunTitleIsModifiedWhenPublishingToMultipleTestRun()
-        {
-            SetupMocks();
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", "file1.trx,file2.trx");
-            command.Properties.Add("type", "NUnit");
-            command.Properties.Add("mergeResults", bool.FalseString);
-            command.Properties.Add("runTitle", "TestRunTitle");
-            var resultsFiles = new List<string> { "file1.trx", "file2.trx" };
-
-            var testRunData = new TestRunData();
-            testRunData.Results = new TestCaseResultData[] { new TestCaseResultData(), new TestCaseResultData() };
-            testRunData.Attachments = new string[] { "attachment1", "attachment2" };
-            int counter = 0;
-            _mockTestRunPublisher.Setup(q => q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()))
-                .Callback((TestRunData trd, CancellationToken cancellationToken) =>
-                {
-                    Assert.Equal(StringUtil.Format("{0}_{1}", "TestRunTitle", ++counter), trd.Name);
-                });
-            _mockTestRunPublisher.Setup(q => q.ReadResultsFromFile(It.IsAny<TestRunContext>(), It.IsAny<string>(), It.IsAny<string>()))
-                .Returns(testRunData);
-
-            resultCommand.ProcessCommand(_ec.Object, command);
-
-            // Making sure that the callback is called.
-            _mockTestRunPublisher.Verify(q => q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "PublishTestResults")]
-        public void VerifyTestRunTitleShouldNotBeModifiedWhenPublishingToSingleTestRun()
-        {
-            SetupMocks();
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", "file1.trx,file2.trx");
-            command.Properties.Add("type", "NUnit");
-            command.Properties.Add("mergeResults", bool.TrueString);
-            command.Properties.Add("runTitle", "TestRunTitle");
-            var resultsFiles = new List<string> { "file1.trx", "file2.trx" };
-
-            var testRunData = new TestRunData();
-            testRunData.Results = new TestCaseResultData[] { new TestCaseResultData(), new TestCaseResultData() };
-            testRunData.Attachments = new string[] { "attachment1", "attachment2" };
-            _mockTestRunPublisher.Setup(q => q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()))
-                .Callback((TestRunData trd, CancellationToken cancellationToken) =>
-                {
-                    Assert.Equal("TestRunTitle", trd.Name);
-                });
-            _mockTestRunPublisher.Setup(q => q.ReadResultsFromFile(It.IsAny<TestRunContext>(), It.IsAny<string>()))
-                .Returns(testRunData);
-
-            resultCommand.ProcessCommand(_ec.Object, command);
-
-            // Making sure that the callback is called.
-            _mockTestRunPublisher.Verify(q => q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()), Times.Once);
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "PublishTestResults")]
-        public void VerifyTestRunTitleShouldNotBeModifiedWhenWhenOnlyOneResultFileIsPublished()
-        {
-            SetupMocks();
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", "file1.trx");
-            command.Properties.Add("type", "NUnit");
-            // Explicitly not merging it to check if the test run title is not modified when there's only one test file.
-            command.Properties.Add("mergeResults", bool.FalseString);
-            command.Properties.Add("runTitle", "TestRunTitle");
-            var resultsFiles = new List<string> { "file1.trx"};
-
-            var testRunData = new TestRunData();
-            testRunData.Results = new TestCaseResultData[] { new TestCaseResultData()};
-            testRunData.Attachments = new string[] { "attachment1" };
-            _mockTestRunPublisher.Setup(q => q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()))
-                .Callback((TestRunData trd, CancellationToken cancellationToken) =>
-                {
-                    Assert.Equal("TestRunTitle", trd.Name);
-                });
-            _mockTestRunPublisher.Setup(q => q.ReadResultsFromFile(It.IsAny<TestRunContext>(), It.IsAny<string>(), It.IsAny<string>()))
-                .Returns(testRunData);
-
-            resultCommand.ProcessCommand(_ec.Object, command);
-
-            // Making sure that the callback is called.
-            _mockTestRunPublisher.Verify(q => q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()), Times.Once);
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "PublishTestResults")]
-        public void VerifyTestRunSystemPropertyIsSentWhenPublishingToTestRunPerFile()
-        {
-            SetupMocks();
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", "file1.trx,file2.trx");
-            command.Properties.Add("type", "NUnit");
-            command.Properties.Add("mergeResults", bool.FalseString);
-            command.Properties.Add("testRunSystem", "MAVEN");
-            var resultsFiles = new List<string> { "file1.trx", "file2.trx" };
-
-            var testRunData = new TestRunData();
-            testRunData.Results = new TestCaseResultData[] { new TestCaseResultData(), new TestCaseResultData() };
-            testRunData.Attachments = new string[] { "attachment1", "attachment2" };
-
-            _mockTestRunPublisher.Setup(q => q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()))
-                .Callback((TestRunData trd, CancellationToken cancellationToken) =>
-                {
-                    Assert.NotNull(trd.CustomTestFields);
-                    Assert.NotEmpty(trd.CustomTestFields);
-                    Assert.Equal("testRunSystem", trd.CustomTestFields[0].FieldName);
-                    Assert.Equal("MAVEN", trd.CustomTestFields[0].Value);
-                });
-
-            _mockTestRunPublisher.Setup(q => q.ReadResultsFromFile(It.IsAny<TestRunContext>(), It.IsAny<string>(), It.IsAny<string>()))
-                .Returns(testRunData);
-            resultCommand.ProcessCommand(_ec.Object, command);
-
-            // There should be two calls to startestrun
-            _mockTestRunPublisher.Verify(q=>q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "PublishTestResults")]
-        public void VerifyTestRunPipelineReferenceIsSentWhenPublishing()
-        {
-            SetupMocks("VerifyTestRunPipelineReferenceIsSentWhenPublishing", true);
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", "file1.trx");
-            command.Properties.Add("type", "NUnit");
-            // Explicitly not merging it to check if the test run title is not modified when there's only one test file.
-            command.Properties.Add("mergeResults", bool.FalseString);
-            command.Properties.Add("runTitle", "TestRunTitle");
-            var resultsFiles = new List<string> { "file1.trx" };
-           
-            var testRunData = new TestRunData();
-            testRunData.Results = new TestCaseResultData[] { new TestCaseResultData() };
-            _mockTestRunPublisher.Setup(q => q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()))
-                .Callback((TestRunData trd, CancellationToken cancellationToken) =>
-                {
-                    Assert.Equal("stage1", trd.PipelineReference.StageReference.StageName);
-                    Assert.Equal("phase1", trd.PipelineReference.PhaseReference.PhaseName);
-                    Assert.Equal("job1", trd.PipelineReference.JobReference.JobName);
-                    Assert.Equal(1, trd.PipelineReference.JobReference.Attempt);
-                    Assert.Equal(1, trd.PipelineReference.PhaseReference.Attempt);
-                    Assert.Equal(1, trd.PipelineReference.StageReference.Attempt);
-                });
-            _mockTestRunPublisher.Setup(q => q.ReadResultsFromFile(It.IsAny<TestRunContext>(), It.IsAny<string>(), It.IsAny<string>()))
-                .Returns(testRunData);
-
-            resultCommand.ProcessCommand(_ec.Object, command);
-
-            // Making sure that the callback is called.
-            _mockTestRunPublisher.Verify(q => q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()), Times.Once);
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "PublishTestResults")]
-        public void VerifyStartEndTestRunTimeWhenPublishingToSingleTestRun()
-        {
-            SetupMocks();
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", "file1.trx,file2.trx");
-            command.Properties.Add("type", "NUnit");
-            command.Properties.Add("mergeResults", bool.TrueString);
-            var resultsFiles = new List<string> { "file1.trx", "file2.trx" };
-            var durationInMs = 10;
-            var testRunData = new TestRunData();
-            var testCaseResultData = new TestCaseResultData();
-            testCaseResultData.DurationInMs = durationInMs;
-
-            testRunData.Results = new TestCaseResultData[] { testCaseResultData, testCaseResultData };
-            testRunData.Attachments = new string[] { "attachment1", "attachment2" };
-
-            _mockTestRunPublisher.Setup(q => q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()))
-                .Callback((TestRunData trd, CancellationToken cancellationToken) =>
-                {
-                    var startedDate = DateTime.Parse(trd.StartDate, null, DateTimeStyles.RoundtripKind);
-                    var endedDate = DateTime.Parse(trd.CompleteDate, null, DateTimeStyles.RoundtripKind);
-                    Assert.Equal(resultsFiles.Count * testRunData.Results.Length * durationInMs, (endedDate - startedDate).TotalMilliseconds);
-                });
-            _mockTestRunPublisher.Setup(q => q.AddResultsAsync(It.IsAny<TestRun>(), It.IsAny<TestCaseResultData[]>(), It.IsAny<CancellationToken>()))
-                .Callback((TestRun testRun, TestCaseResultData[] tcrd, CancellationToken cancellationToken) =>
-                {
-                });
-            _mockTestRunPublisher.Setup(q => q.ReadResultsFromFile(It.IsAny<TestRunContext>(), It.IsAny<string>()))
-                .Returns(testRunData);
-            _mockTestRunPublisher.Setup(q => q.EndTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
-
-            resultCommand.ProcessCommand(_ec.Object, command);
-        }
 
         private void SetupMocks([CallerMemberName] string name = "", bool includePipelineVariables = false)
         {
             _hc = new TestHostContext(this, name);
-            _hc.SetSingleton(_mockResultReader.Object);
+
+            _hc.SetSingleton(_mockTestRunDataPublisher.Object);
+            _hc.SetSingleton(_mockParser.Object);
 
             _mockExtensionManager = new Mock<IExtensionManager>();
-            _mockExtensionManager.Setup(x => x.GetExtensions<IResultReader>()).Returns(new List<IResultReader> { _mockResultReader.Object, new JUnitResultReader(), new NUnitResultReader() });
+            _mockExtensionManager.Setup(x => x.GetExtensions<IParser>()).Returns(new List<IParser> { _mockParser.Object, new JUnitParser(), new NUnitParser() });
             _hc.SetSingleton(_mockExtensionManager.Object);
-
-            _hc.SetSingleton(_mockTestRunPublisher.Object);
 
             _mockCommandContext = new Mock<IAsyncCommandContext>();
             _hc.EnqueueInstance(_mockCommandContext.Object);

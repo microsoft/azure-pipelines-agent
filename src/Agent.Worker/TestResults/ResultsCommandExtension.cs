@@ -2,17 +2,11 @@
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.TeamFoundation.TestClient.PublishTestResults;
-using System.Diagnostics;
-using Microsoft.VisualStudio.Services.FeatureAvailability.WebApi;
-using Microsoft.VisualStudio.Services.FeatureAvailability;
-using Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
@@ -70,37 +64,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
+            
+            var publisher = HostContext.GetService<ITestRunDataPublisher>();
+            publisher.InitializePublisher(context, teamProject, connection);
 
-            FeatureAvailabilityHttpClient featureAvailabilityHttpClient = connection.GetClient<FeatureAvailabilityHttpClient>();
-            if (FeatureFlagUtility.GetFeatureFlagState(featureAvailabilityHttpClient, TestResultsConstants.EnablePublishToTestResultsLibrary, commandContext))
-            {
-                ITestRunPublisher testRunPublisher = new TestRunPublisher(connection, new CommandTraceListener(_executionContext));
+            TestDataProvider testDataProvider = ParseTestResultsFile(runContext);
 
-                var publisher = HostContext.GetService<ITestRunDataPublisher>();
-                publisher.InitializePublisher(context, teamProject, testRunPublisher);
-
-                var parser = new Parser(context);
-                TestDataProvider testDataProvider = parser.ParseTestResultFiles(_testRunner, runContext, _testResultFiles);
-
-                commandContext.Task = PublishTestRunData(publisher, testDataProvider, runContext);
-            }
-            else
-            {
-                IResultReader resultReader = GetTestResultReader(_testRunner);
-                
-                var legacyPublisher = HostContext.GetService<ILegacyTestRunPublisher>();
-                legacyPublisher.InitializePublisher(context, connection, teamProject, resultReader);
-
-                if (_mergeResults)
-                {
-                    commandContext.Task = PublishAllTestResultsToSingleTestRunAsync(_testResultFiles, legacyPublisher, runContext, resultReader.Name, context.CancellationToken);
-                }
-                else
-                {
-                    commandContext.Task = PublishToNewTestRunPerTestResultFileAsync(_testResultFiles, legacyPublisher, runContext, resultReader.Name, PublishBatchSize, context.CancellationToken);
-                }
-            }
-
+            commandContext.Task = PublishTestRunData(publisher, testDataProvider, runContext);
+            
             _executionContext.AsyncCommands.Add(commandContext);
 
             if (_isTestRunOutcomeFailed)
@@ -110,247 +81,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
             
         }
-
-        /// <summary>
-        /// Publish single test run
-        /// </summary>
-        private async Task PublishAllTestResultsToSingleTestRunAsync(List<string> resultFiles, ILegacyTestRunPublisher publisher, TestRunContext runContext, string resultReader, CancellationToken cancellationToken)
-        {
-            try
-            {
-                //use local time since TestRunData defaults to local times
-                DateTime minStartDate = DateTime.MaxValue;
-                DateTime maxCompleteDate = DateTime.MinValue;
-                DateTime presentTime = DateTime.UtcNow;
-                bool dateFormatError = false;
-                TimeSpan totalTestCaseDuration = TimeSpan.Zero;
-                List<string> runAttachments = new List<string>();
-                List<TestCaseResultData> runResults = new List<TestCaseResultData>();
-
-                //read results from each file
-                foreach (string resultFile in resultFiles)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    //test case results
-                    _executionContext.Debug(StringUtil.Format("Reading test results from file '{0}'", resultFile));
-                    LegacyTestRunData resultFileRunData = publisher.ReadResultsFromFile(runContext, resultFile);
-
-                    if (_failTaskOnFailedTests)
-                    {
-                        _isTestRunOutcomeFailed = _isTestRunOutcomeFailed || GetTestRunOutcome(resultFileRunData);
-                    }
-
-                    if (resultFileRunData != null)
-                    {
-                        if (resultFileRunData.Results != null && resultFileRunData.Results.Length > 0)
-                        {
-                            try
-                            {
-                                if (string.IsNullOrEmpty(resultFileRunData.StartDate) || string.IsNullOrEmpty(resultFileRunData.CompleteDate))
-                                {
-                                    dateFormatError = true;
-                                }
-
-                                //As per discussion with Manoj(refer bug 565487): Test Run duration time should be minimum Start Time to maximum Completed Time when merging
-                                if (!string.IsNullOrEmpty(resultFileRunData.StartDate))
-                                {
-                                    DateTime startDate = DateTime.Parse(resultFileRunData.StartDate, null, DateTimeStyles.RoundtripKind);
-                                    minStartDate = minStartDate > startDate ? startDate : minStartDate;
-
-                                    if (!string.IsNullOrEmpty(resultFileRunData.CompleteDate))
-                                    {
-                                        DateTime endDate = DateTime.Parse(resultFileRunData.CompleteDate, null, DateTimeStyles.RoundtripKind);
-                                        maxCompleteDate = maxCompleteDate < endDate ? endDate : maxCompleteDate;
-                                    }
-                                }
-                            }
-                            catch (FormatException)
-                            {
-                                _executionContext.Warning(StringUtil.Loc("InvalidDateFormat", resultFile, resultFileRunData.StartDate, resultFileRunData.CompleteDate));
-                                dateFormatError = true;
-                            }
-
-                            //continue to calculate duration as a fallback for case: if there is issue with format or dates are null or empty
-                            foreach (TestCaseResultData tcResult in resultFileRunData.Results)
-                            {
-                                int durationInMs = Convert.ToInt32(tcResult.DurationInMs);
-                                totalTestCaseDuration = totalTestCaseDuration.Add(TimeSpan.FromMilliseconds(durationInMs));
-                            }
-
-                            runResults.AddRange(resultFileRunData.Results);
-
-                            //run attachments
-                            if (resultFileRunData.Attachments != null)
-                            {
-                                runAttachments.AddRange(resultFileRunData.Attachments);
-                            }
-                        }
-                        else
-                        {
-                            _executionContext.Output(StringUtil.Loc("NoResultFound", resultFile));
-                        }
-                    }
-                    else
-                    {
-                        _executionContext.Warning(StringUtil.Loc("InvalidResultFiles", resultFile, resultReader));
-                    }
-                }
-
-                //publish run if there are results.
-                if (runResults.Count > 0)
-                {
-                    string runName = string.IsNullOrWhiteSpace(_runTitle)
-                    ? StringUtil.Format("{0}_TestResults_{1}", _testRunner, runContext.BuildId)
-                    : _runTitle;
-
-                    if (DateTime.Compare(minStartDate, maxCompleteDate) > 0)
-                    {
-                        _executionContext.Warning(StringUtil.Loc("InvalidCompletedDate", maxCompleteDate, minStartDate));
-                        dateFormatError = true;
-                    }
-
-                    minStartDate = DateTime.Equals(minStartDate, DateTime.MaxValue) ? presentTime : minStartDate;
-                    maxCompleteDate = dateFormatError || DateTime.Equals(maxCompleteDate, DateTime.MinValue) ? minStartDate.Add(totalTestCaseDuration) : maxCompleteDate;
-
-                    //creat test run
-                    LegacyTestRunData testRunData = new LegacyTestRunData(
-                        name: runName,
-                        startedDate: minStartDate.ToString("o"),
-                        completedDate: maxCompleteDate.ToString("o"),
-                        state: "InProgress",
-                        isAutomated: true,
-                        buildId: runContext != null ? runContext.BuildId : 0,
-                        buildFlavor: runContext != null ? runContext.Configuration : string.Empty,
-                        buildPlatform: runContext != null ? runContext.Platform : string.Empty,
-                        releaseUri: runContext != null ? runContext.ReleaseUri : null,
-                        releaseEnvironmentUri: runContext != null ? runContext.ReleaseEnvironmentUri : null
-                    );
-                    testRunData.PipelineReference = runContext.PipelineReference;
-                    testRunData.Attachments = runAttachments.ToArray();
-                    testRunData.AddCustomField(_testRunSystemCustomFieldName, _testRunSystem);
-                    AddTargetBranchInfoToRunCreateModel(testRunData, runContext.TargetBranchName);
-
-                    TestRun testRun = await publisher.StartTestRunAsync(testRunData, _executionContext.CancellationToken);
-                    await publisher.AddResultsAsync(testRun, runResults.ToArray(), _executionContext.CancellationToken);
-                    await publisher.EndTestRunAsync(testRunData, testRun.Id, true, _executionContext.CancellationToken);
-                }
-            }
-            catch (Exception ex) when (!(ex is OperationCanceledException))
-            {
-                //Do not fail the task.
-                LogPublishTestResultsFailureWarning(ex);
-            }
-        }
-
-        /// <summary>
-        /// Publish separate test run for each result file that has results.
-        /// </summary>
-        private async Task PublishToNewTestRunPerTestResultFileAsync(List<string> resultFiles,
-            ILegacyTestRunPublisher publisher,
-            TestRunContext runContext,
-            string resultReader,
-            int batchSize,
-            CancellationToken cancellationToken)
-        {
-            try
-            {
-                var groupedFiles = resultFiles
-                    .Select((resultFile, index) => new { Index = index, file = resultFile })
-                    .GroupBy(pair => pair.Index / batchSize)
-                    .Select(bucket => bucket.Select(pair => pair.file).ToList())
-                    .ToList();
-
-                bool changeTestRunTitle = resultFiles.Count > 1;
-
-                foreach (var files in groupedFiles)
-                {
-                    // Publish separate test run for each result file that has results.
-                    var publishTasks = files.Select(async resultFile =>
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        string runName = _runTitle;
-                        if (!string.IsNullOrWhiteSpace(_runTitle) && changeTestRunTitle)
-                        {
-                            runName = GetRunTitle();
-                        }
-
-                        _executionContext.Debug(StringUtil.Format("Reading test results from file '{0}'", resultFile));
-                        LegacyTestRunData testRunData = publisher.ReadResultsFromFile(runContext, resultFile, runName);
-                        testRunData.PipelineReference = runContext.PipelineReference;
-                        if (_failTaskOnFailedTests)
-                        {
-                            _isTestRunOutcomeFailed = _isTestRunOutcomeFailed || GetTestRunOutcome(testRunData);
-                        }
-
-                        cancellationToken.ThrowIfCancellationRequested();
-
-                        if (testRunData != null)
-                        {
-                            if (testRunData.Results != null && testRunData.Results.Length > 0)
-                            {
-                                testRunData.AddCustomField(_testRunSystemCustomFieldName, _testRunSystem);
-                                AddTargetBranchInfoToRunCreateModel(testRunData, runContext.TargetBranchName);
-                                TestRun testRun = await publisher.StartTestRunAsync(testRunData, _executionContext.CancellationToken);
-                                await publisher.AddResultsAsync(testRun, testRunData.Results, _executionContext.CancellationToken);
-                                await publisher.EndTestRunAsync(testRunData, testRun.Id, cancellationToken: _executionContext.CancellationToken);
-                            }
-                            else
-                            {
-                                _executionContext.Output(StringUtil.Loc("NoResultFound", resultFile));
-                            }
-                        }
-                        else
-                        {
-                            _executionContext.Warning(StringUtil.Loc("InvalidResultFiles", resultFile, resultReader));
-                        }
-                    });
-                    await Task.WhenAll(publishTasks);
-                }
-            }
-            catch (Exception ex) when (!(ex is OperationCanceledException))
-            {
-                //Do not fail the task.
-                LogPublishTestResultsFailureWarning(ex);
-            }
-        }
-
+        
         private string GetRunTitle()
         {
             lock (_sync)
             {
                 return StringUtil.Format("{0}_{1}", _runTitle, ++_runCounter);
             }
-        }
-
-        /// <summary>
-        /// Reads a list testRunData Object and returns true if any test case outcome is failed
-        /// </summary>
-        /// <param name="testRunDataList"></param>
-        /// <returns></returns>
-        private bool GetTestRunOutcome(LegacyTestRunData testRunData)
-        {
-            foreach (var testCaseResultData in testRunData.Results)
-            {
-                if (testCaseResultData.Outcome == TestOutcome.Failed.ToString() || testCaseResultData.Outcome == TestOutcome.Aborted.ToString())
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        private IResultReader GetTestResultReader(string testRunner)
-        {
-            var extensionManager = HostContext.GetService<IExtensionManager>();
-            IResultReader reader = (extensionManager.GetExtensions<IResultReader>()).FirstOrDefault(x => testRunner.Equals(x.Name, StringComparison.OrdinalIgnoreCase));
-
-            if (reader == null)
-            {
-                throw new ArgumentException("Unknown Test Runner.");
-            }
-
-            reader.AddResultsFileToRunLevelAttachments = _publishRunLevelAttachments;
-            return reader;
         }
 
         private void LoadPublishTestResultsInputs(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
@@ -587,29 +324,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             return false;
         }
 
-        private bool IsFeatureFlagEnabled(VssConnection connection, string featureFlagName)
+        private TestDataProvider ParseTestResultsFile(TestRunContext runContext)
         {
-            try
+            var extensionManager = HostContext.GetService<IExtensionManager>();
+            IParser parser = (extensionManager.GetExtensions<IParser>()).FirstOrDefault(x => _testRunner.Equals(x.Name, StringComparison.OrdinalIgnoreCase));
+            
+            if (parser == null)
             {
-                var publisher = new TestRunDataPublisher();
-                var featureAvailabilityHttpClient = connection.GetClient<FeatureAvailabilityHttpClient>();
-
-                FeatureFlag featureFlag = featureAvailabilityHttpClient.GetFeatureFlagByNameAsync(featureFlagName).Result;
-                if (featureFlag != null && featureFlag.EffectiveState.Equals("On", StringComparison.OrdinalIgnoreCase))
-                {
-                    _executionContext.Debug($"{featureFlagName} feature flag is on");
-                    return true;
-                }
-
-                _executionContext.Debug($"{featureFlagName} feature flag is off");
-                return false;
+                throw new ArgumentException("Unknown test runner");
             }
-            catch
-            {
-                _executionContext.Debug("Exception while fetching feature flag value");
-                return false;
-            }
+            return parser.ParseTestResultFiles(_executionContext, runContext, _testResultFiles);
         }
+
     }
 
     internal static class WellKnownResultsCommand

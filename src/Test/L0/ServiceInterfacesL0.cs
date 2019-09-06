@@ -75,7 +75,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 typeof(IExecutionContext),
                 typeof(IHandler),
                 typeof(IJobExtension),
-                typeof(IResultReader),
                 typeof(ISourceProvider),
                 typeof(IStep),
                 typeof(IStepHost),
@@ -86,9 +85,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 typeof(ITfsVCWorkspace),
                 typeof(IWorkerCommandExtension),
                 typeof(IContainerProvider),
-                typeof(INUnitResultsXmlReader),
                 typeof(IMaintenanceServiceProvider),
-                typeof(IDiagnosticLogManager)
+                typeof(IDiagnosticLogManager),
+                typeof(IParser)
             };
             Validate(
                 assembly: typeof(IStepsRunner).GetTypeInfo().Assembly,
