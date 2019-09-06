@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.TeamFoundation.TestClient.PublishTestResults;
+using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
+using Microsoft.VisualStudio.Services.WebPlatform;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
@@ -21,14 +23,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private string _configuration;
         private string _runTitle;
         private bool _publishRunLevelAttachments;
-        private int _runCounter = 0;
 
         private bool _failTaskOnFailedTests;
 
         private bool _isTestRunOutcomeFailed = false;
-        private readonly object _sync = new object();
         private string _testRunSystem;
         private const string _testRunSystemCustomFieldName = "TestRunSystem";
+
+        //telemetry parameter
+        private const string _telemetryFeature = "PublishTestResultsCommand";
+        private const string _telemetryArea = "TestResults";
+        private Dictionary<string, object> _telemetryProperties;
 
         public Type ExtensionType => typeof(IWorkerCommandExtension);
 
@@ -55,6 +60,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             ArgUtil.NotNull(context, nameof(context));
             _executionContext = context;
 
+            _telemetryProperties = new Dictionary<string, object>();
+            PopulateTelemetryData();
+
             LoadPublishTestResultsInputs(context, eventProperties, data);
 
             string teamProject = context.Variables.System_TeamProject;
@@ -65,13 +73,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
             
-            var publisher = HostContext.GetService<ITestRunDataPublisher>();
-            publisher.InitializePublisher(context, teamProject, connection);
-
+            
             TestDataProvider testDataProvider = ParseTestResultsFile(runContext);
 
-            commandContext.Task = PublishTestRunData(publisher, testDataProvider, runContext);
-            
+            commandContext.Task = PublishTestRunDataAsync(connection, teamProject, testDataProvider, runContext);
             _executionContext.AsyncCommands.Add(commandContext);
 
             if (_isTestRunOutcomeFailed)
@@ -80,14 +85,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 _executionContext.Error(StringUtil.Loc("FailedTestsInResults"));
             }
             
-        }
-        
-        private string GetRunTitle()
-        {
-            lock (_sync)
-            {
-                return StringUtil.Format("{0}_{1}", _runTitle, ++_runCounter);
-            }
         }
 
         private void LoadPublishTestResultsInputs(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
@@ -285,10 +282,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             return publishOptions;
         }
 
-        private async Task PublishTestRunData(ITestRunDataPublisher publisher, TestDataProvider testDataProvider, TestRunContext testRunContext)
+        private async Task PublishTestRunDataAsync(VssConnection connection, String teamProject, TestDataProvider testDataProvider, TestRunContext testRunContext)
         {
             try
             {
+                var publisher = HostContext.GetService<ITestRunDataPublisher>();
+                publisher.InitializePublisher(_executionContext, teamProject, connection);
+
                 var testRunData = testDataProvider.GetTestRunData();
                 await publisher.PublishAsync(testRunContext, testRunData, GetPublishOptions(), _executionContext.CancellationToken);
                 
@@ -296,6 +296,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 {
                     _isTestRunOutcomeFailed = _isTestRunOutcomeFailed || GetTestRunOutcome(testRunData);
                 }
+
+                await PublishEventsAsync(connection);
             }
             catch (Exception ex)
             {
@@ -336,6 +338,42 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             return parser.ParseTestResultFiles(_executionContext, runContext, _testResultFiles);
         }
 
+        private async Task PublishEventsAsync(VssConnection connection)
+        {
+            try
+            {
+                CustomerIntelligenceEvent ciEvent = new CustomerIntelligenceEvent()
+                {
+                    Area = _telemetryArea,
+                    Feature = _telemetryFeature,
+                    Properties = _telemetryProperties
+                };
+
+                var ciService = HostContext.GetService<ICustomerIntelligenceServer>();
+                ciService.Initialize(connection);
+                await ciService.PublishEventsAsync(new CustomerIntelligenceEvent[] { ciEvent });
+            }
+            catch(Exception ex)
+            {
+                _executionContext.Debug(StringUtil.Loc("TelemetryCommandFailed", ex.Message));
+            }
+        }
+
+        private void PopulateTelemetryData()
+        {
+            _telemetryProperties.Add("ExecutionId", _executionContext.Id);
+            _telemetryProperties.Add("BuildId", _executionContext.Variables.Build_BuildId);
+            _telemetryProperties.Add("BuildUri", _executionContext.Variables.Build_BuildUri);
+            _telemetryProperties.Add("Attempt", _executionContext.Variables.System_JobAttempt);
+            _telemetryProperties.Add("ProjectId", _executionContext.Variables.System_TeamProjectId);
+            _telemetryProperties.Add("ProjectName", _executionContext.Variables.System_TeamProject);
+
+            if (!string.IsNullOrWhiteSpace(_executionContext.Variables.Release_ReleaseUri))
+            {
+                _telemetryProperties.Add("ReleaseUri", _executionContext.Variables.Release_ReleaseUri);
+                _telemetryProperties.Add("ReleaseId", _executionContext.Variables.Release_ReleaseId);
+            }
+        }
     }
 
     internal static class WellKnownResultsCommand

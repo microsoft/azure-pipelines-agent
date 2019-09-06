@@ -3,7 +3,9 @@ using Microsoft.TeamFoundation.TestClient.PublishTestResults;
 using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
+using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.VisualStudio.Services.Agent.Worker.TestResults;
+using Microsoft.VisualStudio.Services.WebPlatform;
 using Moq;
 using System;
 using System.Collections.Generic;
@@ -27,6 +29,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         private Mock<ITestRunDataPublisher> _mockTestRunDataPublisher;
         private Mock<IExtensionManager> _mockExtensionManager;
         private Mock<IParser> _mockParser;
+        private Mock<ICustomerIntelligenceServer> _mockCustomerIntelligenceServer;
+
         private TestHostContext _hc;
         private Variables _variables;
 
@@ -40,7 +44,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             TestDataProvider mockTestRunData = MockParserData();
             _mockParser.Setup(x => x.Name).Returns("mockResults");
             _mockParser.Setup(x => x.ParseTestResultFiles(It.IsAny<IExecutionContext>(), It.IsAny<TestRunContext>(), It.IsAny<List<String>>())).Returns(mockTestRunData);
-
+            
+            _mockCustomerIntelligenceServer = new Mock<ICustomerIntelligenceServer>();
+            _mockCustomerIntelligenceServer.Setup(x => x.PublishEventsAsync(It.IsAny<CustomerIntelligenceEvent[]>()));
         }
 
         [Fact]
@@ -208,6 +214,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
 
             _hc.SetSingleton(_mockTestRunDataPublisher.Object);
             _hc.SetSingleton(_mockParser.Object);
+
+            _hc.SetSingleton(_mockCustomerIntelligenceServer.Object);
 
             _mockExtensionManager = new Mock<IExtensionManager>();
             _mockExtensionManager.Setup(x => x.GetExtensions<IParser>()).Returns(new List<IParser> { _mockParser.Object, new JUnitParser(), new NUnitParser() });
