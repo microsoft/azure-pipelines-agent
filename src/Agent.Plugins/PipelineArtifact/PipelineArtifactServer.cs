@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Agent.Sdk;
 using Agent.Plugins.PipelineArtifact.Telemetry;
 using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
 using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
@@ -53,7 +54,15 @@ namespace Agent.Plugins.PipelineArtifact
                 propertiesDictionary.Add(PipelineArtifactConstants.RootId, result.RootId.ValueString);
                 propertiesDictionary.Add(PipelineArtifactConstants.ProofNodes, StringUtil.ConvertToJson(result.ProofNodes.ToArray()));
                 propertiesDictionary.Add(PipelineArtifactConstants.ArtifactSize, result.ContentSize.ToString());
-                var artifact = await buildHelper.AssociateArtifactAsync(projectId, pipelineId, name, ArtifactResourceTypes.PipelineArtifact, result.ManifestId.ValueString, propertiesDictionary, cancellationToken);
+                var artifact = await buildHelper.AssociateArtifactAsync(projectId, 
+                                                                        pipelineId, 
+                                                                        name, 
+                                                                        context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.JobId)?.Value?? string.Empty, 
+                                                                        ArtifactResourceTypes.PipelineArtifact, 
+                                                                        result.ManifestId.ValueString, 
+                                                                        propertiesDictionary, 
+                                                                        cancellationToken);
+
                 context.Output(StringUtil.Loc("AssociateArtifactWithBuild", artifact.Id, pipelineId));
             }
         }

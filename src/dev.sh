@@ -157,7 +157,7 @@ function package ()
         echo "You must build first.  Expecting to find ${LAYOUT_DIR}/bin"
     fi
 
-    agent_ver=$("${LAYOUT_DIR}/bin/Agent.Listener" --version) || failed "version"
+    agent_ver=$("${LAYOUT_DIR}/bin/Agent.Listener" --version | tail -n 1) || failed "version"
     agent_pkg_name="vsts-agent-${RUNTIME_ID}-${agent_ver}"
 
     heading "Packaging ${agent_pkg_name}"
