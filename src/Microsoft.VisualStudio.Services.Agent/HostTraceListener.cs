@@ -9,6 +9,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 {
     public sealed class HostTraceListener : TextWriterTraceListener
     {
+        public bool DisableConsoleReporting { get; set; } 
         private const string _logFileNamingPattern = "{0}_{1:yyyyMMdd-HHmmss}-utc.log";
         private string _logFileDirectory;
         private string _logFilePrefix;
@@ -69,7 +70,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             WriteLine(message);
             WriteFooter(eventCache);
 
-            if (!_diagErrorDetected && eventType < TraceEventType.Warning)
+            if (!_diagErrorDetected && !DisableConsoleReporting && eventType < TraceEventType.Warning)
             {
                 Console.WriteLine(StringUtil.Loc("FoundErrorInTrace", eventType.ToString(), _logFilePath));
                 _diagErrorDetected = true;
