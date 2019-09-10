@@ -271,7 +271,7 @@ namespace Agent.Plugins.PipelineArtifact
 
                 if(fileShareArtifacts.Any()) 
                 {
-                    FileShareProvider provider = new FileShareProvider(context, this.CreateTracer(context));
+                    FileShareProvider provider = new FileShareProvider(context, connection, this.CreateTracer(context));
                     await provider.DownloadMultipleArtifactsAsync(downloadParameters, fileShareArtifacts, cancellationToken);
                 }
             }
@@ -301,6 +301,7 @@ namespace Agent.Plugins.PipelineArtifact
 
                 ArtifactProviderFactory factory = new ArtifactProviderFactory(context, connection, this.CreateTracer(context));
                 IArtifactProvider provider = factory.GetProvider(buildArtifact);
+                
                 await provider.DownloadSingleArtifactAsync(downloadParameters, buildArtifact, cancellationToken);
             }
             else
