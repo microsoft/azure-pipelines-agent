@@ -71,7 +71,7 @@ namespace Agent.Plugins.PipelineArtifact
                     record: downloadRecord,
                     actionAsync: async () =>
                     {
-                        await DownloadArtifactsAsync(downloadParameters, buildArtifacts, cancellationToken);
+                        return await DownloadArtifactsAsync(downloadParameters, buildArtifacts, cancellationToken);
                     }
                 );
 
