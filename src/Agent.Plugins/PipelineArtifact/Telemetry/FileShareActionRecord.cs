@@ -5,7 +5,7 @@ using Microsoft.VisualStudio.Services.Content.Common.Telemetry;
 namespace Agent.Plugins.PipelineArtifact.Telemetry
 {
     /// <summary>
-    /// Generic telemetry record for use with Pipeline Artifact events.
+    /// Generic telemetry record for use with FileShare Artifact events.
     /// </summary>
     public class FileShareActionRecord : PipelineArtifactActionRecord
     {
