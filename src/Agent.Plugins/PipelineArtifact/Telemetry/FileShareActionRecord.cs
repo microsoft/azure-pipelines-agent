@@ -9,11 +9,11 @@ namespace Agent.Plugins.PipelineArtifact.Telemetry
     /// </summary>
     public class FileShareActionRecord : PipelineArtifactActionRecord
     {
-        public new long FileCount;
-        public long ContentSize;
-        public long TimeLapse;
-        public string Command;
-        public int ExitCode;
+        public new long FileCount { get; private set; }
+        public long ContentSize { get; private set; }
+        public long TimeLapse { get; private set; }
+        public string Command { get; private set; }
+        public int ExitCode { get; private set; }
 
         public FileShareActionRecord(TelemetryInformationLevel level, Uri baseAddress, string eventNamePrefix, string eventNameSuffix, AgentTaskPluginExecutionContext context, uint attemptNumber = 1)
             : base(level, baseAddress, eventNamePrefix, eventNameSuffix, context, attemptNumber)
@@ -26,7 +26,6 @@ namespace Agent.Plugins.PipelineArtifact.Telemetry
             {
                 FileSharePublishResult result = value as FileSharePublishResult;
                 Command = result.Command;
-                TimeLapse = result.TimeLapse;
                 ExitCode = result.ExitCode;
             }
 
@@ -42,13 +41,11 @@ namespace Agent.Plugins.PipelineArtifact.Telemetry
  
     public sealed class FileSharePublishResult
     {
-        public readonly string Command;
-        public readonly long TimeLapse;
-        public readonly int ExitCode;
+        public string Command { get; private set; }
+        public int ExitCode { get; private set; }
 
         public FileSharePublishResult(long timeLapse, string command, int exitCode)
         {
-            this.TimeLapse = timeLapse;
             this.Command = command;
             this.ExitCode = exitCode;
         }
@@ -56,9 +53,9 @@ namespace Agent.Plugins.PipelineArtifact.Telemetry
 
     public sealed class FileShareDownloadResult
     {
-        public long FileCount;
-        public long ContentSize;
-        public long TimeLapse;
+        public long FileCount { get; private set; }
+        public long ContentSize { get; private set; }
+        public long TimeLapse { get; private set; }
 
         public FileShareDownloadResult(long timeLapse, long fileCount, long contentSize)
         {

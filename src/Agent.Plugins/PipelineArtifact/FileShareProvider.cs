@@ -88,7 +88,7 @@ namespace Agent.Plugins.PipelineArtifact
             {
                 var downloadRootPath = Path.Combine(buildArtifact.Resource.Data, buildArtifact.Name);
                 var minimatchPatterns = downloadParameters.MinimatchFilters.Select(pattern => Path.Combine(buildArtifact.Resource.Data, pattern));
-                await this.CopyFileShareAsync(downloadRootPath, Path.Combine(downloadParameters.TargetDirectory, buildArtifact.Name), minimatchPatterns, cancellationToken, fileShareDownloadResult);
+                await this.CopyFileShareAsync(downloadRootPath, Path.Combine(downloadParameters.TargetDirectory, buildArtifact.Name), minimatchPatterns, fileShareDownloadResult, cancellationToken);
             }
             
             return fileShareDownloadResult;
@@ -129,11 +129,11 @@ namespace Agent.Plugins.PipelineArtifact
             string downloadRootPath,
             string destPath,
             IEnumerable<string> minimatchPatterns,
-            CancellationToken cancellationToken,
-            FileShareDownloadResult result)
+            FileShareDownloadResult result,
+            CancellationToken cancellationToken)
         {
             IEnumerable<Func<string, bool>> minimatcherFuncs = MinimatchHelper.GetMinimatchFuncs(minimatchPatterns, this.tracer);
-            await DownloadFileShareArtifactAsync(downloadRootPath, destPath, defaultParallelCount, cancellationToken, minimatcherFuncs, result);
+            await DownloadFileShareArtifactAsync(downloadRootPath, destPath, defaultParallelCount, cancellationToken, result, minimatcherFuncs);
         }
         
         private async Task<FileSharePublishResult> PublishArtifactUsingRobocopyAsync(
@@ -143,7 +143,6 @@ namespace Agent.Plugins.PipelineArtifact
             int parallelCount,
             CancellationToken cancellationToken)
         {
-            Stopwatch watch = Stopwatch.StartNew();
             executionContext.Output(StringUtil.Loc("PublishingArtifactUsingRobocopy"));
             using (var processInvoker = new ProcessInvoker(this.context))
             {
@@ -191,8 +190,7 @@ namespace Agent.Plugins.PipelineArtifact
                     throw new Exception(StringUtil.Loc("RobocopyBasedPublishArtifactTaskFailed", exitCode));
                 }
 
-                watch.Stop();        
-                return new FileSharePublishResult (watch.ElapsedMilliseconds, robocopyArguments, exitCode);
+                return new FileSharePublishResult (robocopyArguments, exitCode);
             }
 
         }
@@ -202,8 +200,8 @@ namespace Agent.Plugins.PipelineArtifact
             string destPath,
             int parallelCount,
             CancellationToken cancellationToken,
-            IEnumerable<Func<string, bool>> minimatchFuncs = null,
-            FileShareDownloadResult result = null)
+            FileShareDownloadResult result,
+            IEnumerable<Func<string, bool>> minimatchFuncs = null)
         {
             var trimChars = new[] { '\\', '/' };
 
