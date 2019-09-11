@@ -32,7 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Constants.Agent.CommandLine.Flags.Commit,
             Constants.Agent.CommandLine.Flags.DeploymentGroup,
             Constants.Agent.CommandLine.Flags.DeploymentPool,
-            Constants.Agent.CommandLine.Flags.Environments,
+            Constants.Agent.CommandLine.Flags.Environment,
 #if OS_WINDOWS
             Constants.Agent.CommandLine.Flags.GitUseSChannel,
 #endif
@@ -101,7 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         public bool Version => TestFlag(Constants.Agent.CommandLine.Flags.Version);
         public bool DeploymentGroup => TestFlag(Constants.Agent.CommandLine.Flags.MachineGroup) || TestFlag(Constants.Agent.CommandLine.Flags.DeploymentGroup);
         public bool DeploymentPool => TestFlag(Constants.Agent.CommandLine.Flags.DeploymentPool);
-        public bool EnvironmentVMResource => TestFlag(Constants.Agent.CommandLine.Flags.Environments);
+        public bool EnvironmentVMResource => TestFlag(Constants.Agent.CommandLine.Flags.Environment);
         public bool WhatIf => TestFlag(Constants.Agent.CommandLine.Flags.WhatIf);
 #if OS_WINDOWS
         public bool GitUseSChannel => TestFlag(Constants.Agent.CommandLine.Flags.GitUseSChannel);
@@ -385,10 +385,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         public bool GetEnvironmentVirtualMachineResourceTagsRequired()
         {
-            return TestFlag(Constants.Agent.CommandLine.Flags.AddMachineGroupTags)
+            return TestFlag(Constants.Agent.CommandLine.Flags.AddEnvironmentVirtualMachineResourceTags)
                    || TestFlagOrPrompt(
-                           name: Constants.Agent.CommandLine.Flags.AddDeploymentGroupTags,
-                           description: StringUtil.Loc("AddDeploymentGroupTagsFlagDescription"),
+                           name: Constants.Agent.CommandLine.Flags.AddEnvironmentVirtualMachineResourceTags,
+                           description: StringUtil.Loc("AddEnvironmentVMResourceTags"),
                            defaultValue: false);
         }
         
