@@ -70,7 +70,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
                         });
 
             _testResultServer = new Mock<ITestResultsServer>();
-            _testResultServer.Setup(x => x.InitializeServer(It.IsAny<VssConnection>()));
+            _testResultServer.Setup(x => x.InitializeServer(It.IsAny<VssConnection>(), It.IsAny<IExecutionContext>()));
             _testResultServer.Setup(x => x.AddTestResultsToTestRunAsync(It.IsAny<TestCaseResult[]>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
                         .Callback<TestCaseResult[], string, int, CancellationToken>
                         ((currentBatch, projectName, testRunId, cancellationToken) =>

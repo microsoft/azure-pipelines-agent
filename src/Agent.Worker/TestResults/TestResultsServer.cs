@@ -13,7 +13,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
     [ServiceLocator(Default = typeof(TestResultsServer))]
     public interface ITestResultsServer : IAgentService
     {
-        void InitializeServer(VssConnection connection);
+        void InitializeServer(VssConnection connection, IExecutionContext executionContext);
         Task<List<TestCaseResult>> AddTestResultsToTestRunAsync(TestCaseResult[] currentBatch, string projectName, int testRunId, CancellationToken cancellationToken = default(CancellationToken));
         Task<TestRun> CreateTestRunAsync(string projectName, RunCreateModel testRunData, CancellationToken cancellationToken = default(CancellationToken));
         Task<TestRun> UpdateTestRunAsync(string projectName, int testRunId, RunUpdateModel updateModel, CancellationToken cancellationToken = default(CancellationToken));
@@ -28,12 +28,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
         private ITestResultsHttpClient TestHttpClient { get; set; }
 
-        public void InitializeServer(VssConnection connection)
+        public void InitializeServer(VssConnection connection, IExecutionContext executionContext)
         {
             ArgUtil.NotNull(connection, nameof(connection));
             _connection = connection;
-            FeatureAvailabilityHttpClient featureAvailabilityHttpClient = connection.GetClient<FeatureAvailabilityHttpClient>();
-            if (GetFeatureFlagState(featureAvailabilityHttpClient, EnablePublishToTcmServiceDirectlyFromTaskFF))
+
+            if (GetFeatureFlagState(executionContext, connection, EnablePublishToTcmServiceDirectlyFromTaskFF))
             {
                 TestHttpClient = connection.GetClient<TestResultsHttpClient>();
             }
@@ -99,23 +99,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             return await TestHttpClient.CreateTestSubResultAttachmentAsync(reqModel, projectName, testRunId, testCaseResultId, testSubResultId, cancellationToken);
         }
 
-        private const string EnablePublishToTcmServiceDirectlyFromTaskFF = "TestManagement.Server.EnablePublishToTcmServiceDirectlyFromTask";
-
-        private static bool GetFeatureFlagState(FeatureAvailabilityHttpClient featureAvailabilityHttpClient, string FFName)
+        private static bool GetFeatureFlagState(IExecutionContext executionContext, VssConnection connection, string FFName)
         {
             try
             {
+                FeatureAvailabilityHttpClient featureAvailabilityHttpClient = connection.GetClient<FeatureAvailabilityHttpClient>(TFSServiceInstanceGuid);
                 var featureFlag = featureAvailabilityHttpClient?.GetFeatureFlagByNameAsync(FFName).Result;
                 if (featureFlag != null && featureFlag.EffectiveState.Equals("On", StringComparison.OrdinalIgnoreCase))
                 {
                     return true;
                 }
             }
-            finally
+            catch(Exception ex)
             {
+                executionContext.Output("Unable to get the FF: " + EnablePublishToTcmServiceDirectlyFromTaskFF + ". Reason: " + ex.Message);
             }
 
             return false;
         }
+
+        private static Guid TFSServiceInstanceGuid = new Guid("00025394-6065-48CA-87D9-7F5672854EF7");
+        private const string EnablePublishToTcmServiceDirectlyFromTaskFF = "TestManagement.Server.EnablePublishToTcmServiceDirectlyFromTask";
     }
 }
