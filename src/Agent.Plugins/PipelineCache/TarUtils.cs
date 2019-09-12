@@ -110,18 +110,18 @@ namespace Agent.Plugins.PipelineCache
             Action actionOnFailure,
             CancellationToken cancellationToken)
         {
-            var processTcs = new TaskCompletionSource<int>();
+            //var processTcs = new TaskCompletionSource<int>();
             using (var cancelSource = new CancellationTokenSource())
             using (var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, cancelSource.Token))
             using (var process = new Process())
             {
                 process.StartInfo = processStartInfo;
                 process.EnableRaisingEvents = true;
-                process.Exited += (sender, args) =>
+                /*process.Exited += (sender, args) =>
                 {
                     cancelSource.Cancel();
                     processTcs.SetResult(process.ExitCode);
-                };
+                };*/
 
                 try
                 {
@@ -159,13 +159,13 @@ namespace Agent.Plugins.PipelineCache
                         {
                             readStdOut,
                             readStdError,
-                            processTcs.Task,
+                            //processTcs.Task,
                             additionalTaskToExecuteWhilstRunningProcess(process, linkedSource.Token)
                         };
                         await Task.WhenAll(tasks);
                     }
 
-                    int exitCode = await processTcs.Task;
+                    /*int exitCode = await processTcs.Task;
 
                     if (exitCode == 0)
                     {
@@ -178,7 +178,7 @@ namespace Agent.Plugins.PipelineCache
                     else
                     {
                         throw new Exception($"Process returned non-zero exit code: {exitCode}");
-                    }
+                    }*/
                 }
                 catch (Exception e)
                 {
@@ -198,8 +198,8 @@ namespace Agent.Plugins.PipelineCache
             processStartInfo.Arguments = processArguments;
             processStartInfo.UseShellExecute = false;
             processStartInfo.RedirectStandardInput = true;
-            processStartInfo.RedirectStandardOutput = true;
-            processStartInfo.RedirectStandardError = true;
+            //processStartInfo.RedirectStandardOutput = true;
+            //processStartInfo.RedirectStandardError = true;
             processStartInfo.WorkingDirectory = processWorkingDirectory;
         }
 
@@ -207,7 +207,7 @@ namespace Agent.Plugins.PipelineCache
         {
             var processFileName = "tar";
             inputPath = inputPath.TrimEnd(Path.DirectorySeparatorChar).TrimEnd(Path.AltDirectorySeparatorChar);
-            var processArguments = $"-cf \"{archiveFileName}\" -C \"{inputPath}\" ."; // If given the absolute path for the '-cf' option, the GNU tar fails. The workaround is to start the tarring process in the temp directory, and simply speficy 'archive.tar' for that option.
+            var processArguments = $"-cvf \"{archiveFileName}\" -C \"{inputPath}\" ."; // If given the absolute path for the '-cf' option, the GNU tar fails. The workaround is to start the tarring process in the temp directory, and simply speficy 'archive.tar' for that option.
             ProcessStartInfo processStartInfo = new ProcessStartInfo();
             CreateProcessStartInfo(processStartInfo, processFileName, processArguments, processWorkingDirectory: Path.GetTempPath()); // We want to create the archiveFile in temp folder, and hence starting the tar process from TEMP to avoid absolute paths in tar cmd line.
             return processStartInfo;
@@ -224,7 +224,7 @@ namespace Agent.Plugins.PipelineCache
             else
             {
                 processFileName = "tar";
-                processArguments = $"-xf - -C ."; // Instead of targetDirectory, we are providing . to tar, because the tar process is being started from targetDirectory.
+                processArguments = $"-xvf - -C ."; // Instead of targetDirectory, we are providing . to tar, because the tar process is being started from targetDirectory.
             }
 
             ProcessStartInfo processStartInfo = new ProcessStartInfo();
