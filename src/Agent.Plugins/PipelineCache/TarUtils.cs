@@ -75,7 +75,7 @@ namespace Agent.Plugins.PipelineCache
             
             DedupIdentifier dedupId = DedupIdentifier.Create(manifest.Items.Single(i => i.Path.EndsWith(archive, StringComparison.OrdinalIgnoreCase)).Blob.Id);
             ProcessStartInfo processStartInfo = GetExtractStartProcessInfo(targetDirectory);
-
+            
             Func<Process, CancellationToken, Task> downloadTaskFunc =
                 (process, ct) =>
                 Task.Run(async () => {
