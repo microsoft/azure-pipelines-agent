@@ -110,9 +110,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     return true;
                 }
             }
-            catch(Exception)
+            catch(Exception ex)
             {
-                executionContext.Output("Unable to get the FF: " + EnablePublishToTcmServiceDirectlyFromTaskFF);
+                executionContext.Output("Unable to get the FF: " + EnablePublishToTcmServiceDirectlyFromTaskFF + ". Reason: " + ex.Message);
             }
 
             return false;
