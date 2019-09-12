@@ -46,7 +46,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             _resultReader = resultReader;
             connection.InnerHandler.Settings.SendTimeout = TimeSpan.FromSeconds(PUBLISH_TIMEOUT);
             _testResultsServer = HostContext.GetService<ITestResultsServer>();
-            _testResultsServer.InitializeServer(connection);
+            _testResultsServer.InitializeServer(connection, executionContext);
             Trace.Leaving();
         }
 
