@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 
@@ -36,7 +37,7 @@ namespace Agent.Plugins.PipelineCache
             var archiveFileName = CreateArchiveFileName();
             var archiveFile = Path.Combine(Path.GetTempPath(), archiveFileName);
 
-            ProcessStartInfo processStartInfo = GetCreateTarProcessInfo(archiveFileName, inputPath);
+            ProcessStartInfo processStartInfo = GetCreateTarProcessInfo(context, archiveFileName, inputPath);
 
             Action actionOnFailure = () =>
             {
@@ -74,7 +75,7 @@ namespace Agent.Plugins.PipelineCache
             Directory.CreateDirectory(targetDirectory);
             
             DedupIdentifier dedupId = DedupIdentifier.Create(manifest.Items.Single(i => i.Path.EndsWith(archive, StringComparison.OrdinalIgnoreCase)).Blob.Id);
-            ProcessStartInfo processStartInfo = GetExtractStartProcessInfo(targetDirectory);
+            ProcessStartInfo processStartInfo = GetExtractStartProcessInfo(context, targetDirectory);
 
             Func<Process, CancellationToken, Task> downloadTaskFunc =
                 (process, ct) =>
@@ -110,19 +111,10 @@ namespace Agent.Plugins.PipelineCache
             Action actionOnFailure,
             CancellationToken cancellationToken)
         {
-            //var processTcs = new TaskCompletionSource<int>();
-            //using (var cancelSource = new CancellationTokenSource())
-            using (var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             using (var process = new Process())
             {
                 process.StartInfo = processStartInfo;
                 process.EnableRaisingEvents = true;
-                /*process.Exited += (sender, args) =>
-                {
-                    // cancelSource.Cancel();
-                    context.Output("Process completed: " + process.ExitCode);
-                    processTcs.SetResult(process.ExitCode);
-                };*/
 
                 try
                 {
@@ -134,62 +126,17 @@ namespace Agent.Plugins.PipelineCache
                     ExceptionDispatchInfo.Capture(e).Throw();
                 }
 
-                /*var output = new List<string>();
-                Task readLines(string prefix, StreamReader reader) => Task.Run(async () =>
-                {
-                    try
-                    {
-                        string line;
-                        while (null != (line = await reader.ReadLineAsync()))
-                        {
-                            lock (output)
-                            {
-                                output.Add($"{prefix}{line}");
-                            }
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        context.Error(e.ToString());
-                    }
-                });*/
-
-                //Task readStdOut = readLines("stdout: ", process.StandardOutput);
-                //Task readStdError = readLines("stderr: ", process.StandardError);
-
                 // Our goal is to always have the process ended or killed by the time we exit the function.
                 try
                 {
-                    /*using (cancellationToken.Register(() => process.Kill()))
-                    {
-                        // readStdOut and readStdError should only fail if the process dies
-                        // processTcs.Task cannot fail as we only call SetResult on processTcs
-                        IEnumerable<Task> tasks = new List<Task>
-                        {
-                            readStdOut,
-                            readStdError,
-                            processTcs.Task,
-                            additionalTaskToExecuteWhilstRunningProcess(process, linkedSource.Token)
-                        };
+                    await additionalTaskToExecuteWhilstRunningProcess(process, cancellationToken);
+                    process.WaitForExit();
 
-                        await Task.WhenAll(tasks);*/
-                        await additionalTaskToExecuteWhilstRunningProcess(process, linkedSource.Token);
-                        
-                    //}
-
-                     //await additionalTaskToExecuteWhilstRunningProcess(process, linkedSource.Token);
-                     //process.WaitForExit();
-                     //int exitCode = process.ExitCode;
-                     process.WaitForExit();
-                     int exitCode = process.ExitCode;//await processTcs.Task;
+                    int exitCode = process.ExitCode;
 
                     if (exitCode == 0)
                     {
                         context.Output($"Process exit code: {exitCode}");
-                        /*foreach (string line in output)
-                        {
-                            context.Output(line);
-                        }*/
                     }
                     else
                     {
@@ -199,10 +146,6 @@ namespace Agent.Plugins.PipelineCache
                 catch (Exception e)
                 {
                     actionOnFailure();
-                    /*foreach (string line in output)
-                    {
-                        context.Error(line);
-                    }*/
                     ExceptionDispatchInfo.Capture(e).Throw();
                 }
             }
@@ -214,33 +157,49 @@ namespace Agent.Plugins.PipelineCache
             processStartInfo.Arguments = processArguments;
             processStartInfo.UseShellExecute = false;
             processStartInfo.RedirectStandardInput = true;
-            //processStartInfo.RedirectStandardOutput = true;
-            //processStartInfo.RedirectStandardError = true;
             processStartInfo.WorkingDirectory = processWorkingDirectory;
         }
 
-        private static ProcessStartInfo GetCreateTarProcessInfo(string archiveFileName, string inputPath)
+        private static ProcessStartInfo GetCreateTarProcessInfo(AgentTaskPluginExecutionContext context, string archiveFileName, string inputPath)
         {
             var processFileName = "tar";
             inputPath = inputPath.TrimEnd(Path.DirectorySeparatorChar).TrimEnd(Path.AltDirectorySeparatorChar);
             var processArguments = $"-cf \"{archiveFileName}\" -C \"{inputPath}\" ."; // If given the absolute path for the '-cf' option, the GNU tar fails. The workaround is to start the tarring process in the temp directory, and simply speficy 'archive.tar' for that option.
+
+            if (IsSystemDebugTrue(context))
+            {
+                processArguments = "-v " + processArguments;
+            }
+            if (isWindows)
+            {
+                processArguments = "-h " + processArguments;
+            }
+            
             ProcessStartInfo processStartInfo = new ProcessStartInfo();
             CreateProcessStartInfo(processStartInfo, processFileName, processArguments, processWorkingDirectory: Path.GetTempPath()); // We want to create the archiveFile in temp folder, and hence starting the tar process from TEMP to avoid absolute paths in tar cmd line.
             return processStartInfo;
         }
 
-        private static ProcessStartInfo GetExtractStartProcessInfo(string targetDirectory)
+        private static ProcessStartInfo GetExtractStartProcessInfo(AgentTaskPluginExecutionContext context, string targetDirectory)
         {
             string processFileName, processArguments;
             if (isWindows && CheckIf7ZExists())
             {
                 processFileName = "7z";
                 processArguments = $"x -si -aoa -o\"{targetDirectory}\" -ttar";
+                if (IsSystemDebugTrue(context))
+                {
+                    processArguments = "-bb1 " + processArguments;
+                }
             }
             else
             {
                 processFileName = "tar";
                 processArguments = $"-xf - -C ."; // Instead of targetDirectory, we are providing . to tar, because the tar process is being started from targetDirectory.
+                if (IsSystemDebugTrue(context))
+                {
+                    processArguments = "-v " + processArguments;
+                }
             }
 
             ProcessStartInfo processStartInfo = new ProcessStartInfo();
@@ -271,6 +230,15 @@ namespace Agent.Plugins.PipelineCache
         private static string CreateArchiveFileName()
         {
             return $"{Guid.NewGuid().ToString("N")}_{archive}";
+        }
+
+        private static bool IsSystemDebugTrue(AgentTaskPluginExecutionContext context)
+        {
+             if (context.Variables.TryGetValue("system.debug", out VariableValue systemDebugVar))
+            {
+                return string.Equals(systemDebugVar?.Value, "true", StringComparison.OrdinalIgnoreCase);
+            }
+            return false;
         }
 
         private static bool CheckIf7ZExists()
