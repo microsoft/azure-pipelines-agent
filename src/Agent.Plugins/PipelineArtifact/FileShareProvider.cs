@@ -25,12 +25,19 @@ namespace Agent.Plugins.PipelineArtifact
         private readonly CallbackAppTraceSource tracer;
         private const int defaultParallelCount = 1;
         private readonly VssConnection connection;
+        private readonly IDedupManifestArtifactClientFactory factory;
 
         // Default stream buffer size set in the existing file share implementation https://github.com/microsoft/azure-pipelines-agent/blob/ffb3a9b3e2eb5a1f34a0f45d0f2b8639740d37d3/src/Agent.Worker/Release/Artifacts/FileShareArtifact.cs#L154
         private const int DefaultStreamBufferSize = 8192;
 
-        public FileShareProvider(AgentTaskPluginExecutionContext context, VssConnection connection, CallbackAppTraceSource tracer)
+        public FileShareProvider(AgentTaskPluginExecutionContext context, VssConnection connection, CallbackAppTraceSource tracer) : this(context, connection, tracer, DedupManifestArtifactClientFactory.Instance)
         {
+
+        }
+
+        internal FileShareProvider(AgentTaskPluginExecutionContext context, VssConnection connection, CallbackAppTraceSource tracer, IDedupManifestArtifactClientFactory factory)
+        {
+            this.factory = factory;
             this.context = context;
             this.tracer = tracer;
             this.connection = connection;
@@ -38,30 +45,13 @@ namespace Agent.Plugins.PipelineArtifact
 
         public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken) 
         {
-            BlobStoreClientTelemetry clientTelemetry;
-            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(context, connection, cancellationToken, out clientTelemetry);
-            using (clientTelemetry)
-            {
-                FileShareActionRecord downloadRecord = clientTelemetry.CreateRecord<FileShareActionRecord>((level, uri, type) =>
-                    new FileShareActionRecord(level, uri, type, nameof(CopyFileShareAsync), context));
-
-                await clientTelemetry.MeasureActionAsync(
-                    record: downloadRecord,
-                    actionAsync: async () =>
-                    {
-                        return await DownloadArtifactsAsync(downloadParameters, new List<BuildArtifact> { buildArtifact }, cancellationToken);
-                    }
-                );
-
-                // Send results to CustomerIntelligence
-                context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: downloadRecord);
-            }
+            await DownloadMultipleArtifactsAsync(downloadParameters, new List<BuildArtifact> { buildArtifact }, cancellationToken);
         }
 
         public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken) 
         {
             BlobStoreClientTelemetry clientTelemetry;
-            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(context, connection, cancellationToken, out clientTelemetry);
+            DedupManifestArtifactClient dedupManifestClient = this.factory.CreateDedupManifestClient(context, connection, cancellationToken, out clientTelemetry);
             using (clientTelemetry)
             {
                 FileShareActionRecord downloadRecord = clientTelemetry.CreateRecord<FileShareActionRecord>((level, uri, type) =>
@@ -80,62 +70,60 @@ namespace Agent.Plugins.PipelineArtifact
             }
         }
 
-        public async Task<FileShareDownloadResult> DownloadArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken)
+        private async Task<FileShareDownloadResult> DownloadArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken)
         {
-            var fileShareDownloadResult = new FileShareDownloadResult(0, 0, 0);
-
+            var records = new List<ArtifactRecord>();
+            long totalContentSize = 0;
+            int totalFileCount = 0;
             foreach (var buildArtifact in buildArtifacts)
             {
                 var downloadRootPath = Path.Combine(buildArtifact.Resource.Data, buildArtifact.Name);
                 var minimatchPatterns = downloadParameters.MinimatchFilters.Select(pattern => Path.Combine(buildArtifact.Resource.Data, pattern));
-                await this.CopyFileShareAsync(downloadRootPath, Path.Combine(downloadParameters.TargetDirectory, buildArtifact.Name), minimatchPatterns, fileShareDownloadResult, cancellationToken);
+                var record = await this.CopyFileShareAsync(downloadRootPath, Path.Combine(downloadParameters.TargetDirectory, buildArtifact.Name), minimatchPatterns, cancellationToken);
+                totalContentSize += record.ContentSize;
+                totalFileCount += record.FileCount;
+                records.Add(record);
             }
             
-            return fileShareDownloadResult;
+            return new FileShareDownloadResult(records, totalFileCount, totalContentSize);
         }
 
-        public async Task PublishSingleArtifactAsync(
+        public async Task PublishArtifactAsync(
             string sourcePath,
             string destPath,
             int parallelCount,
             CancellationToken cancellationToken) 
         {
             BlobStoreClientTelemetry clientTelemetry;
-            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(context, connection, cancellationToken, out clientTelemetry);
+            DedupManifestArtifactClient dedupManifestClient = this.factory.CreateDedupManifestClient(context, connection, cancellationToken, out clientTelemetry);
             using (clientTelemetry)
             {
-                FileShareActionRecord downloadRecord = clientTelemetry.CreateRecord<FileShareActionRecord>((level, uri, type) =>
+                FileShareActionRecord publishRecord = clientTelemetry.CreateRecord<FileShareActionRecord>((level, uri, type) =>
                     new FileShareActionRecord(level, uri, type, nameof(PublishArtifactAsync), context));
 
                 await clientTelemetry.MeasureActionAsync(
-                    record: downloadRecord,
+                    record: publishRecord,
                     actionAsync: async () =>
                     {
-                        return await PublishArtifactAsync(sourcePath, destPath, parallelCount, cancellationToken);
+                        return await PublishArtifactUsingRobocopyAsync(this.context, sourcePath, destPath, parallelCount, cancellationToken);
                     }
                 );
 
                 // Send results to CustomerIntelligence
-                context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: downloadRecord);
+                context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: publishRecord);
             }
         }
 
-        public async Task<FileSharePublishResult> PublishArtifactAsync(string sourcePath, string destPath, int parallelCount, CancellationToken cancellationToken)
-        {
-            return await PublishArtifactUsingRobocopyAsync(this.context, sourcePath, destPath, parallelCount, cancellationToken);
-        }
-
-        private async Task CopyFileShareAsync(
+        private async Task<ArtifactRecord> CopyFileShareAsync(
             string downloadRootPath,
             string destPath,
             IEnumerable<string> minimatchPatterns,
-            FileShareDownloadResult result,
             CancellationToken cancellationToken)
         {
             IEnumerable<Func<string, bool>> minimatcherFuncs = MinimatchHelper.GetMinimatchFuncs(minimatchPatterns, this.tracer);
-            await DownloadFileShareArtifactAsync(downloadRootPath, destPath, defaultParallelCount, cancellationToken, result, minimatcherFuncs);
+            return await DownloadFileShareArtifactAsync(downloadRootPath, destPath, defaultParallelCount, cancellationToken, minimatcherFuncs);
         }
-        
+
         private async Task<FileSharePublishResult> PublishArtifactUsingRobocopyAsync(
             AgentTaskPluginExecutionContext executionContext,
             string dropLocation,
@@ -192,20 +180,22 @@ namespace Agent.Plugins.PipelineArtifact
 
                 return new FileSharePublishResult (robocopyArguments, exitCode);
             }
-
         }
 
-        private async Task DownloadFileShareArtifactAsync(
+        private async Task<ArtifactRecord> DownloadFileShareArtifactAsync(
             string sourcePath,
             string destPath,
             int parallelCount,
             CancellationToken cancellationToken,
-            FileShareDownloadResult result,
             IEnumerable<Func<string, bool>> minimatchFuncs = null)
         {
+            Stopwatch watch = Stopwatch.StartNew();
+
             var trimChars = new[] { '\\', '/' };
 
             sourcePath = sourcePath.TrimEnd(trimChars);
+
+            var artifactName =  new DirectoryInfo(destPath).Name;
 
             IEnumerable<FileInfo> files =
                 new DirectoryInfo(sourcePath).EnumerateFiles("*", SearchOption.AllDirectories);
@@ -217,9 +207,8 @@ namespace Agent.Plugins.PipelineArtifact
                 CancellationToken = cancellationToken
             };
 
-            result = result == null? new FileShareDownloadResult(0,0,0) : result;
-
-            Stopwatch watch = Stopwatch.StartNew();
+            var contentSize = 0;
+            var fileCount = 0;
 
             var actionBlock = NonSwallowingActionBlock.Create<FileInfo>(
                action: async file =>
@@ -237,8 +226,8 @@ namespace Agent.Plugins.PipelineArtifact
                                 DefaultStreamBufferSize,
                                 cancellationToken);
                         }
-                        result.ContentSize += tempPath.Length;
-                        result.FileCount += 1;
+                        contentSize += tempPath.Length;
+                        fileCount += 1;
                     }
                 },
                 dataflowBlockOptions: parallelism);
@@ -246,7 +235,11 @@ namespace Agent.Plugins.PipelineArtifact
                 await actionBlock.SendAllAndCompleteAsync(files, actionBlock, cancellationToken);
 
             watch.Stop();
-            result.TimeLapse += watch.ElapsedMilliseconds;
+
+            return new ArtifactRecord(artifactName,
+                                      fileCount,
+                                      contentSize,
+                                      watch.ElapsedMilliseconds);
         }
 
         private async Task WriteStreamToFile(Stream stream, string filePath, int bufferSize, CancellationToken cancellationToken)

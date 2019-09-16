@@ -14,7 +14,7 @@ using Microsoft.VisualStudio.Services.Agent.Tests;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Xunit;
 
-namespace Test.L0.Plugin.TestFileShareProviderL0
+namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
     public class TestFileShareProviderL0
     {
@@ -42,7 +42,8 @@ namespace Test.L0.Plugin.TestFileShareProviderL0
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 context.Variables.Add("system.hosttype", "build");
-                var provider = new FileShareProvider(context, null, new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information));
+                var provider = new FileShareProvider(context, null, new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information), new MockDedupManifestArtifactClientFactory());
+
                 // Get source directory path and destination directory path
                 string sourcePath = Path.Combine(Directory.GetCurrentDirectory(), TestSourceFolder);
                 string destPath = Path.Combine(Directory.GetCurrentDirectory(), TestDestFolder);
@@ -75,7 +76,7 @@ namespace Test.L0.Plugin.TestFileShareProviderL0
             using(var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
-                var provider = new FileShareProvider(context, null, new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information));
+                var provider = new FileShareProvider(context, null, new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information), new MockDedupManifestArtifactClientFactory());
                 
                 string sourcePath = Path.Combine(Directory.GetCurrentDirectory(), TestDownloadSourceFolder);
                 string destPath = Path.Combine(Directory.GetCurrentDirectory(), TestDestFolder);
@@ -87,7 +88,7 @@ namespace Test.L0.Plugin.TestFileShareProviderL0
                 buildArtifact.Resource = new ArtifactResource();
                 buildArtifact.Resource.Data = sourcePath;
                 
-                await provider.DownloadArtifactsAsync(downloadParameters, new List<BuildArtifact> { buildArtifact }, CancellationToken.None);
+                await provider.DownloadMultipleArtifactsAsync(downloadParameters, new List<BuildArtifact> { buildArtifact }, CancellationToken.None);
                 var sourceFiles = Directory.GetFiles(sourcePath);
                 var destFiles = Directory.GetFiles(destPath);
 
@@ -117,7 +118,7 @@ namespace Test.L0.Plugin.TestFileShareProviderL0
             using(var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
-                var provider = new FileShareProvider(context, null, new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information));
+                var provider = new FileShareProvider(context, null, new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information), new MockDedupManifestArtifactClientFactory());
                 
                 string sourcePath = Path.Combine(Directory.GetCurrentDirectory(), TestDownloadSourceFolder);
                 string destPath = Path.Combine(Directory.GetCurrentDirectory(), TestDestFolder);
@@ -129,7 +130,7 @@ namespace Test.L0.Plugin.TestFileShareProviderL0
                 buildArtifact.Resource = new ArtifactResource();
                 buildArtifact.Resource.Data = sourcePath;
                 
-                await provider.DownloadArtifactsAsync(downloadParameters, new List<BuildArtifact> {buildArtifact}, CancellationToken.None);
+                await provider.DownloadMultipleArtifactsAsync(downloadParameters, new List<BuildArtifact> {buildArtifact}, CancellationToken.None);
                 var sourceFiles = Directory.GetFiles(sourcePath);
                 var destFiles = Directory.GetFiles(Path.Combine(destPath, buildArtifact.Name));
                 Assert.Equal(1, destFiles.Length);

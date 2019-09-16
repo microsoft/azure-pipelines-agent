@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Content.Common.Telemetry;
 
@@ -9,11 +10,12 @@ namespace Agent.Plugins.PipelineArtifact.Telemetry
     /// </summary>
     public class FileShareActionRecord : PipelineArtifactActionRecord
     {
-        public new long FileCount { get; private set; }
-        public long ContentSize { get; private set; }
+        public int TotalFile { get; private set; }
+        public long TotalContentSize { get; private set; }
         public long TimeLapse { get; private set; }
         public string Command { get; private set; }
         public int ExitCode { get; private set; }
+        public IList<ArtifactRecord> ArtifactRecords { get; private set; }
 
         public FileShareActionRecord(TelemetryInformationLevel level, Uri baseAddress, string eventNamePrefix, string eventNameSuffix, AgentTaskPluginExecutionContext context, uint attemptNumber = 1)
             : base(level, baseAddress, eventNamePrefix, eventNameSuffix, context, attemptNumber)
@@ -32,9 +34,9 @@ namespace Agent.Plugins.PipelineArtifact.Telemetry
             if (value is FileShareDownloadResult)
             {
                 FileShareDownloadResult result = value as FileShareDownloadResult;
-                FileCount = result.FileCount;
-                ContentSize = result.ContentSize;
-                TimeLapse = result.TimeLapse;
+                TotalFile = result.FileCount;
+                TotalContentSize = result.ContentSize;
+                this.ArtifactRecords = result.ArtifactRecords;
             }
         }
     }
@@ -44,7 +46,7 @@ namespace Agent.Plugins.PipelineArtifact.Telemetry
         public string Command { get; private set; }
         public int ExitCode { get; private set; }
 
-        public FileSharePublishResult(long timeLapse, string command, int exitCode)
+        public FileSharePublishResult(string command, int exitCode)
         {
             this.Command = command;
             this.ExitCode = exitCode;
@@ -53,15 +55,31 @@ namespace Agent.Plugins.PipelineArtifact.Telemetry
 
     public sealed class FileShareDownloadResult
     {
-        public long FileCount { get; private set; }
+        public int FileCount { get; private set; }
+        public long ContentSize { get; private set; }
+        public IList<ArtifactRecord> ArtifactRecords { get; private set; }
+
+        public FileShareDownloadResult(IList<ArtifactRecord> records, int fileCount, long contentSize)
+        {
+            this.FileCount = fileCount;
+            this.ContentSize = contentSize;
+            this.ArtifactRecords = records;
+        }
+    }
+
+    public sealed class ArtifactRecord
+    {
+        public string ArtifactName { get; private set; }
+        public int FileCount { get; private set; }
         public long ContentSize { get; private set; }
         public long TimeLapse { get; private set; }
 
-        public FileShareDownloadResult(long timeLapse, long fileCount, long contentSize)
+        public ArtifactRecord(string artifactName, int fileCount, long contentSize, long timeLapse)
         {
-            this.TimeLapse = timeLapse;
+            this.ArtifactName = artifactName;
             this.FileCount = fileCount;
             this.ContentSize = contentSize;
+            this.TimeLapse = timeLapse;
         }
     }
 }

@@ -2,18 +2,29 @@ using System;
 using System.Diagnostics;
 using System.Threading;
 using Agent.Sdk;
-using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common;
-using Microsoft.VisualStudio.Services.Common;
+using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
+using System.Runtime.CompilerServices;
+using Agent.Plugins.PipelineArtifact.Telemetry;
 
+[assembly: InternalsVisibleToAttribute("Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry")]
 namespace Agent.Plugins.PipelineArtifact
-{    
-    public static class DedupManifestArtifactClientFactory
+{
+    public interface IDedupManifestArtifactClientFactory
     {
-        public static DedupManifestArtifactClient CreateDedupManifestClient(AgentTaskPluginExecutionContext context, VssConnection connection, CancellationToken cancellationToken, out BlobStoreClientTelemetry telemetry)
+        DedupManifestArtifactClient CreateDedupManifestClient(AgentTaskPluginExecutionContext context, VssConnection connection, CancellationToken cancellationToken, out BlobStoreClientTelemetry telemetry);
+    }
+
+    public class DedupManifestArtifactClientFactory : IDedupManifestArtifactClientFactory
+    {
+        public static readonly DedupManifestArtifactClientFactory Instance = new DedupManifestArtifactClientFactory();
+        private DedupManifestArtifactClientFactory() 
+        {
+        }
+        public DedupManifestArtifactClient CreateDedupManifestClient(AgentTaskPluginExecutionContext context, VssConnection connection, CancellationToken cancellationToken, out BlobStoreClientTelemetry telemetry)
         {
             var tracer = new CallbackAppTraceSource(str => context.Output(str), SourceLevels.Information);
 

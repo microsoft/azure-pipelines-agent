@@ -50,7 +50,7 @@ namespace Agent.Plugins.PipelineArtifact
 
         public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken)
         {
-            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(
+            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClient(
                 this.context, this.connection, cancellationToken, out BlobStoreClientTelemetry clientTelemetry);
 
             using(clientTelemetry) {
@@ -76,7 +76,7 @@ namespace Agent.Plugins.PipelineArtifact
 
         public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken)
         {
-            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(
+            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClient(
                 this.context, this.connection, cancellationToken, out BlobStoreClientTelemetry clientTelemetry);
 
             using(clientTelemetry) {
