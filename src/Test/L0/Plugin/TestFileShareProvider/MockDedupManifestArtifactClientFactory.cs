@@ -16,9 +16,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         public DedupManifestArtifactClient CreateDedupManifestClient(AgentTaskPluginExecutionContext context, VssConnection connection, CancellationToken cancellationToken, out BlobStoreClientTelemetry telemetry)
         {
             telemetrySender = new TestTelemetrySender();
-            telemetry = new BlobStoreClientTelemetry(NoopAppTraceSource.Instance,
-                                                                    baseAddress,
-                                                                    telemetrySender);
+            telemetry = new BlobStoreClientTelemetry(
+                NoopAppTraceSource.Instance,
+                baseAddress,
+                telemetrySender);
 
             return null;
         }

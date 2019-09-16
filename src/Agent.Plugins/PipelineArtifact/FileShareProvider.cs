@@ -32,7 +32,6 @@ namespace Agent.Plugins.PipelineArtifact
 
         public FileShareProvider(AgentTaskPluginExecutionContext context, VssConnection connection, CallbackAppTraceSource tracer) : this(context, connection, tracer, DedupManifestArtifactClientFactory.Instance)
         {
-
         }
 
         internal FileShareProvider(AgentTaskPluginExecutionContext context, VssConnection connection, CallbackAppTraceSource tracer, IDedupManifestArtifactClientFactory factory)
