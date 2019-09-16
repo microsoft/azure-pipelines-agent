@@ -190,6 +190,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             else
                             {
                                 executionContext.Warning(StringUtil.Loc("TaskDownloadFailed", task.Name, ex.Message));
+                                if (ex.InnerException != null) {
+                                    executionContext.Warning("Inner Exception: {ex.InnerException.Message}");
+                                }
                             }
                         }
                     }
