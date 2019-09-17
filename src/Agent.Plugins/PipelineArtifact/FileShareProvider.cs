@@ -217,8 +217,8 @@ namespace Agent.Plugins.PipelineArtifact
                                 DefaultStreamBufferSize,
                                 cancellationToken);
                         }
-                        contentSize += tempPath.Length;
-                        fileCount += 1;
+                        Interlocked.Add(ref contentSize, tempPath.Length);
+                        Interlocked.Increment(ref fileCount);
                     }
                 },
                 dataflowBlockOptions: parallelism);
