@@ -54,7 +54,7 @@ namespace Agent.Plugins.PipelineArtifact
             using (clientTelemetry)
             {
                 FileShareActionRecord downloadRecord = clientTelemetry.CreateRecord<FileShareActionRecord>((level, uri, type) =>
-                    new FileShareActionRecord(level, uri, type, nameof(CopyFileShareAsync), context));
+                    new FileShareActionRecord(level, uri, type, nameof(DownloadArtifactsAsync), context));
 
                 await clientTelemetry.MeasureActionAsync(
                     record: downloadRecord,
@@ -78,7 +78,7 @@ namespace Agent.Plugins.PipelineArtifact
             {
                 var downloadRootPath = Path.Combine(buildArtifact.Resource.Data, buildArtifact.Name);
                 var minimatchPatterns = downloadParameters.MinimatchFilters.Select(pattern => Path.Combine(buildArtifact.Resource.Data, pattern));
-                var record = await this.CopyFileShareAsync(downloadRootPath, Path.Combine(downloadParameters.TargetDirectory, buildArtifact.Name), minimatchPatterns, cancellationToken);
+                var record = await this.DownloadFileShareArtifactAsync(downloadRootPath, Path.Combine(downloadParameters.TargetDirectory, buildArtifact.Name), defaultParallelCount, cancellationToken, minimatchPatterns);
                 totalContentSize += record.ContentSize;
                 totalFileCount += record.FileCount;
                 records.Add(record);
@@ -111,16 +111,6 @@ namespace Agent.Plugins.PipelineArtifact
                 // Send results to CustomerIntelligence
                 context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: publishRecord);
             }
-        }
-
-        private async Task<ArtifactRecord> CopyFileShareAsync(
-            string downloadRootPath,
-            string destPath,
-            IEnumerable<string> minimatchPatterns,
-            CancellationToken cancellationToken)
-        {
-            IEnumerable<Func<string, bool>> minimatcherFuncs = MinimatchHelper.GetMinimatchFuncs(minimatchPatterns, this.tracer);
-            return await DownloadFileShareArtifactAsync(downloadRootPath, destPath, defaultParallelCount, cancellationToken, minimatcherFuncs);
         }
 
         private async Task<FileSharePublishResult> PublishArtifactUsingRobocopyAsync(
@@ -186,9 +176,11 @@ namespace Agent.Plugins.PipelineArtifact
             string destPath,
             int parallelCount,
             CancellationToken cancellationToken,
-            IEnumerable<Func<string, bool>> minimatchFuncs = null)
+            IEnumerable<string> minimatchPatterns = null)
         {
             Stopwatch watch = Stopwatch.StartNew();
+
+            IEnumerable<Func<string, bool>> minimatchFuncs = MinimatchHelper.GetMinimatchFuncs(minimatchPatterns, this.tracer);
 
             var trimChars = new[] { '\\', '/' };
 
