@@ -17,8 +17,7 @@ namespace Agent.Plugins.PipelineCache
     public static class TarUtils
     {
         private readonly static bool isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-
-        private const string archiveFileName = "archive.tar";
+        private const string archive = "archive.tar";
 
         /// <summary>
         /// Will archive files in the input path into a TAR file.
@@ -29,27 +28,25 @@ namespace Agent.Plugins.PipelineCache
             string inputPath,
             CancellationToken cancellationToken)
         {
-            var archiveFile = Path.Combine(Path.GetTempPath(), archiveFileName);
-            if (File.Exists(archiveFile))
+            if(File.Exists(inputPath))
             {
-                File.Delete(archiveFile);
+                throw new DirectoryNotFoundException($"Please specify path to a directory, File path is not allowed. {inputPath} is a file.");
             }
-            var processFileName = "tar";
-            var processArguments = $"-cf {archiveFile} -C {inputPath} .";
+
+            var archiveFileName = CreateArchiveFileName();
+            var archiveFile = Path.Combine(Path.GetTempPath(), archiveFileName);
+
+            ProcessStartInfo processStartInfo = GetCreateTarProcessInfo(archiveFileName, inputPath);
 
             Action actionOnFailure = () =>
             {
                 // Delete archive file.
-                if (File.Exists(archiveFile))
-                {
-                    File.Delete(archiveFile);
-                }
+                TryDeleteFile(archiveFile);
             };
 
             await RunProcessAsync(
                 context,
-                processFileName,
-                processArguments,
+                processStartInfo,
                 // no additional tasks on create are required to run whilst running the TAR process
                 (Process process, CancellationToken ct) => Task.CompletedTask,
                 actionOnFailure,
@@ -76,10 +73,8 @@ namespace Agent.Plugins.PipelineCache
 
             Directory.CreateDirectory(targetDirectory);
             
-            DedupIdentifier dedupId = DedupIdentifier.Create(manifest.Items.Single(i => i.Path == $"/{archiveFileName}").Blob.Id);
-            bool does7zExists = isWindows ? CheckIf7ZExists() : false;
-            string processFileName = (does7zExists) ? "7z" : "tar";
-            string processArguments = (does7zExists) ? $"x -si -aoa -o{targetDirectory} -ttar" : $"-xf - -C {targetDirectory}";
+            DedupIdentifier dedupId = DedupIdentifier.Create(manifest.Items.Single(i => i.Path.EndsWith(archive, StringComparison.OrdinalIgnoreCase)).Blob.Id);
+            ProcessStartInfo processStartInfo = GetExtractStartProcessInfo(targetDirectory);
 
             Func<Process, CancellationToken, Task> downloadTaskFunc =
                 (process, ct) =>
@@ -91,15 +86,18 @@ namespace Agent.Plugins.PipelineCache
                     }
                     catch (Exception e)
                     {
-                        process.Kill();
+                        try
+                        {
+                            process.Kill();
+                        }
+                        catch {}
                         ExceptionDispatchInfo.Capture(e).Throw();
                     }
                 });
 
             return RunProcessAsync(
                 context,
-                processFileName,
-                processArguments,
+                processStartInfo,
                 downloadTaskFunc,
                 () => { },
                 cancellationToken);
@@ -107,8 +105,7 @@ namespace Agent.Plugins.PipelineCache
 
         private static async Task RunProcessAsync(
             AgentTaskPluginExecutionContext context,
-            string processFileName,
-            string processArguments,
+            ProcessStartInfo processStartInfo,
             Func<Process, CancellationToken, Task> additionalTaskToExecuteWhilstRunningProcess,
             Action actionOnFailure,
             CancellationToken cancellationToken)
@@ -118,7 +115,7 @@ namespace Agent.Plugins.PipelineCache
             using (var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, cancelSource.Token))
             using (var process = new Process())
             {
-                SetProcessStartInfo(process, processFileName, processArguments);
+                process.StartInfo = processStartInfo;
                 process.EnableRaisingEvents = true;
                 process.Exited += (sender, args) =>
                 {
@@ -195,22 +192,69 @@ namespace Agent.Plugins.PipelineCache
             }
         }
 
-        private static void SetProcessStartInfo(Process process, string processFileName, string processArguments)
+        private static void CreateProcessStartInfo(ProcessStartInfo processStartInfo, string processFileName, string processArguments, string processWorkingDirectory)
         {
-            process.StartInfo.FileName = processFileName;
-            process.StartInfo.Arguments = processArguments;
-            process.StartInfo.UseShellExecute = false;
-            process.StartInfo.RedirectStandardInput = true;
-            process.StartInfo.RedirectStandardOutput = true;
-            process.StartInfo.RedirectStandardError = true;
+            processStartInfo.FileName = processFileName;
+            processStartInfo.Arguments = processArguments;
+            processStartInfo.UseShellExecute = false;
+            processStartInfo.RedirectStandardInput = true;
+            processStartInfo.RedirectStandardOutput = true;
+            processStartInfo.RedirectStandardError = true;
+            processStartInfo.WorkingDirectory = processWorkingDirectory;
+        }
+
+        private static ProcessStartInfo GetCreateTarProcessInfo(string archiveFileName, string inputPath)
+        {
+            var processFileName = "tar";
+            inputPath = inputPath.TrimEnd(Path.DirectorySeparatorChar).TrimEnd(Path.AltDirectorySeparatorChar);
+            var processArguments = $"-cf \"{archiveFileName}\" -C \"{inputPath}\" ."; // If given the absolute path for the '-cf' option, the GNU tar fails. The workaround is to start the tarring process in the temp directory, and simply speficy 'archive.tar' for that option.
+            ProcessStartInfo processStartInfo = new ProcessStartInfo();
+            CreateProcessStartInfo(processStartInfo, processFileName, processArguments, processWorkingDirectory: Path.GetTempPath()); // We want to create the archiveFile in temp folder, and hence starting the tar process from TEMP to avoid absolute paths in tar cmd line.
+            return processStartInfo;
+        }
+
+        private static ProcessStartInfo GetExtractStartProcessInfo(string targetDirectory)
+        {
+            string processFileName, processArguments;
+            if (isWindows && CheckIf7ZExists())
+            {
+                processFileName = "7z";
+                processArguments = $"x -si -aoa -o\"{targetDirectory}\" -ttar";
+            }
+            else
+            {
+                processFileName = "tar";
+                processArguments = $"-xf - -C ."; // Instead of targetDirectory, we are providing . to tar, because the tar process is being started from targetDirectory.
+            }
+
+            ProcessStartInfo processStartInfo = new ProcessStartInfo();
+            CreateProcessStartInfo(processStartInfo, processFileName, processArguments, processWorkingDirectory: targetDirectory);
+            return processStartInfo;
         }
 
         private static void ValidateTarManifest(Manifest manifest)
         {
-            if (manifest == null || manifest.Items.Count() != 1 || !manifest.Items.Single().Path.Equals($"/{archiveFileName}", StringComparison.Ordinal))
+            if (manifest == null || manifest.Items.Count() != 1 || !manifest.Items.Single().Path.EndsWith(archive, StringComparison.OrdinalIgnoreCase))
             {
                 throw new ArgumentException($"Manifest containing a tar cannot have more than one item.");
             }
+        }
+
+        private static void TryDeleteFile(string fileName)
+        {
+            try
+            {
+                if (File.Exists(fileName))
+                {
+                    File.Delete(fileName);
+                }
+            }
+            catch {}        
+        }
+
+        private static string CreateArchiveFileName()
+        {
+            return $"{Guid.NewGuid().ToString("N")}_{archive}";
         }
 
         private static bool CheckIf7ZExists()

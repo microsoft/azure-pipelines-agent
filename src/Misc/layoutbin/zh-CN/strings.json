@@ -230,7 +230,7 @@
     "DownloadingFromBuild":  "从指定的生成下载: #{0}",
     "DownloadingJenkinsCommitsBetween":  "下载作业 {0} 至 {1} 之间的提交",
     "DownloadingJenkinsCommitsFailedWithException":  "下载 jenkins 项目 {0} 的提交失败。异常: {1}",
-    "DownloadingTask0":  "正在下载任务: {0}",
+    "DownloadingTask0":  "正在下载任务: {0} ({1})",
     "EnsureJobFinished":  "等待当前作业完成运行。",
     "EnsureTasksExist":  "下载全部所需任务。",
     "EnterValidValueFor0":  "为 {0} 输入一个有效值。",

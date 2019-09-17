@@ -4,16 +4,12 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Agent.Sdk;
 using Microsoft.TeamFoundation.Build.WebApi;
-using Microsoft.TeamFoundation.Core.WebApi;
-using Microsoft.VisualStudio.Services.BlobStore.Common;
-using Microsoft.VisualStudio.Services.Content.Common.Tracing;
-using Microsoft.VisualStudio.Services.BlobStore.WebApi;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
-using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Agent.Sdk;
 
 namespace Agent.Plugins.PipelineArtifact
 {
@@ -80,8 +76,15 @@ namespace Agent.Plugins.PipelineArtifact
             string defaultWorkingDirectory = context.Variables.GetValueOrDefault("system.defaultworkingdirectory").Value;
 
             targetPath = Path.IsPathFullyQualified(targetPath) ? targetPath : Path.GetFullPath(Path.Combine(defaultWorkingDirectory, targetPath));
-            
-            if(!PipelineArtifactPathHelper.IsValidArtifactName(artifactName)) {
+
+            bool onPrem = !String.Equals(context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.ServerType)?.Value, "Hosted", StringComparison.OrdinalIgnoreCase);
+            if (onPrem)
+            {
+                throw new InvalidOperationException(StringUtil.Loc("OnPremIsNotSupported"));
+            }
+
+            if (!PipelineArtifactPathHelper.IsValidArtifactName(artifactName))
+            {
                 throw new ArgumentException(StringUtil.Loc("ArtifactNameIsNotValid", artifactName));
             }
 
@@ -120,7 +123,7 @@ namespace Agent.Plugins.PipelineArtifact
                     if (string.Equals(hostType, "Release", StringComparison.OrdinalIgnoreCase) ||
                         string.Equals(hostType, "DeploymentGroup", StringComparison.OrdinalIgnoreCase))
                     {
-                        throw new InvalidOperationException(StringUtil.Loc("BuildIdIsNotAvailable", hostType ?? string.Empty));
+                        throw new InvalidOperationException(StringUtil.Loc("BuildIdIsNotAvailable", hostType ?? string.Empty, hostType ?? string.Empty));
                     }
                     else if (!string.Equals(hostType, "Build", StringComparison.OrdinalIgnoreCase))
                     {
@@ -151,22 +154,37 @@ namespace Agent.Plugins.PipelineArtifact
                     throw new ArgumentNullException("Project Name cannot be null.");
                 }
                 Guid projectId = Guid.Parse(projectName);
-                int pipelineId;
-                if (pipelineVersionToDownload == pipelineVersionToDownloadLatest)
+                int? pipelineId = null;
+
+                bool pipelineTriggeringBool = false;
+                if (bool.TryParse(pipelineTriggering, out pipelineTriggeringBool) && pipelineTriggeringBool)
                 {
-                    pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectName, tagsInput);
+                    string triggeringPipeline = context.Variables.GetValueOrDefault("build.triggeredBy.buildId")?.Value;
+
+                    if (!string.IsNullOrEmpty(triggeringPipeline))
+                    {
+                        pipelineId = int.Parse(triggeringPipeline);
+                    }
                 }
-                else if (pipelineVersionToDownload == pipelineVersionToDownloadSpecific)
+
+                if (!pipelineId.HasValue)
                 {
-                    pipelineId = Int32.Parse(userSpecifiedpipelineId);
-                }
-                else if (pipelineVersionToDownload == pipelineVersionToDownloadLatestFromBranch)
-                {
-                    pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectName, tagsInput, branchName);
-                }
-                else
-                {
-                    throw new InvalidOperationException("Unreachable code!");
+                    if (pipelineVersionToDownload == pipelineVersionToDownloadLatest)
+                    {
+                        pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectName, tagsInput);
+                    }
+                    else if (pipelineVersionToDownload == pipelineVersionToDownloadSpecific)
+                    {
+                        pipelineId = Int32.Parse(userSpecifiedpipelineId);
+                    }
+                    else if (pipelineVersionToDownload == pipelineVersionToDownloadLatestFromBranch)
+                    {
+                        pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectName, tagsInput, branchName);
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("Unreachable code!");
+                    }
                 }
 
                 context.Output(StringUtil.Loc("DownloadingFromBuild", pipelineId));
@@ -176,7 +194,7 @@ namespace Agent.Plugins.PipelineArtifact
                     ProjectRetrievalOptions = BuildArtifactRetrievalOptions.RetrieveByProjectName,
                     ProjectName = projectName,
                     ProjectId = projectId,
-                    PipelineId = pipelineId,
+                    PipelineId = pipelineId.Value,
                     ArtifactName = artifactName,
                     TargetDirectory = targetPath,
                     MinimatchFilters = minimatchPatterns,
@@ -185,7 +203,7 @@ namespace Agent.Plugins.PipelineArtifact
             }
             else
             {
-                throw new InvalidOperationException($"Build type '{sourceRun}' is not recognized."); 
+                throw new InvalidOperationException($"Build type '{sourceRun}' is not recognized.");
             }
 
             string fullPath = this.CreateDirectoryIfDoesntExist(targetPath);

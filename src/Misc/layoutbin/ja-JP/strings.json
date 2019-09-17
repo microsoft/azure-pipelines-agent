@@ -230,7 +230,7 @@
     "DownloadingFromBuild":  "指定したビルドからダウンロード: #{0}",
     "DownloadingJenkinsCommitsBetween":  "ジョブ {0} と {1} の間のコミットをダウンロードしています",
     "DownloadingJenkinsCommitsFailedWithException":  "Jenkins 成果物 {0} のコミットのダウンロードに失敗しました。例外: {1}",
-    "DownloadingTask0":  "タスクをダウンロードしています: {0}",
+    "DownloadingTask0":  "タスクをダウンロードしています: {0} ({1})",
     "EnsureJobFinished":  "現行ジョブの実行の終了を待機しています。",
     "EnsureTasksExist":  "必要なタスクをすべてダウンロードします。",
     "EnterValidValueFor0":  "{0} の有効な値を入力してください。",

@@ -55,6 +55,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
 
             var traceListener = new HostTraceListener(TraceFileName);
+            traceListener.DisableConsoleReporting = true;
             _secretMasker = new SecretMasker();
             _secretMasker.AddValueEncoder(ValueEncoders.JsonStringEscape);
             _secretMasker.AddValueEncoder(ValueEncoders.UriDataEscape);

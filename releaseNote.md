@@ -1,13 +1,12 @@
 ## Features
-  - Using TCM TestResultsHttpClient in the agent command to publish test results. (#2371)
-  - Adding tarring support for Pipeline Cache (#2369) 
-  
+  - Update environmetserver to use vm resource client api's (#2433)
+  - Adding check and show error message in on-prem scenario  (#2425)
+
 ## Bugs
-  - Updated to support windows-style paths for container volume mounting (#2391)
-  - Improve logging around cache key/fingerprint calculation (#2375)
+  - Fix missing job source for pipeline artifacts (#2427)
 
 ## Misc
-  - Adding some parameters in start monitor to be passed to process telemetry (#2377)
+  - Changing vss-api-netcore version to 0.5.131-private (#2428)
 
 ## Agent Downloads  
 

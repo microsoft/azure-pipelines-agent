@@ -230,7 +230,7 @@
     "DownloadingFromBuild":  "지정된 다음 빌드에서 다운로드: #{0}",
     "DownloadingJenkinsCommitsBetween":  "{0} 작업과 {1} 작업 간의 커밋 다운로드 중",
     "DownloadingJenkinsCommitsFailedWithException":  "Jenkins 아티팩트 {0}에 대한 커밋을 다운로드하지 못했습니다. 예외: {1}",
-    "DownloadingTask0":  "작업 다운로드 중: {0}",
+    "DownloadingTask0":  "작업 다운로드 중: {0} ({1})",
     "EnsureJobFinished":  "현재 작업 실행이 완료될 때까지 기다리는 중입니다.",
     "EnsureTasksExist":  "필수 작업을 모두 다운로드합니다.",
     "EnterValidValueFor0":  "{0}에 대해 유효한 값을 입력하세요.",

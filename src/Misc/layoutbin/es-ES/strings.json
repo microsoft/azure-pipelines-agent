@@ -240,7 +240,7 @@
     "DownloadingFromBuild":  "Descargar de la compilación especificada: #{0}",
     "DownloadingJenkinsCommitsBetween":  "Descargando confirmaciones entre los trabajos {0} a {1}",
     "DownloadingJenkinsCommitsFailedWithException":  "No se pudieron descargar confirmaciones del artefacto de Jenkins {0}. Excepción: {1}",
-    "DownloadingTask0":  "Descargando tarea: {0}",
+    "DownloadingTask0":  "Descargando tarea: {0} ({1})",
     "EnsureJobFinished":  "Esperando a que el trabajo actual termine de ejecutarse.",
     "EnsureTasksExist":  "Descargar todas las tareas necesarias.",
     "EnterValidValueFor0":  "Escriba un valor válido para {0}.",

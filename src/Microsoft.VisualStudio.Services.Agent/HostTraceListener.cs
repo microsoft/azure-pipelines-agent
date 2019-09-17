@@ -9,6 +9,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 {
     public sealed class HostTraceListener : TextWriterTraceListener
     {
+        public bool DisableConsoleReporting { get; set; } 
         private const string _logFileNamingPattern = "{0}_{1:yyyyMMdd-HHmmss}-utc.log";
         private string _logFileDirectory;
         private string _logFilePrefix;
@@ -17,6 +18,8 @@ namespace Microsoft.VisualStudio.Services.Agent
         private int _currentPageSize;
         private int _pageSizeLimit;
         private int _retentionDays;
+        private bool _diagErrorDetected = false;
+        private string _logFilePath;
 
         public HostTraceListener(string logFileDirectory, string logFilePrefix, int pageSizeLimit, int retentionDays)
             : base()
@@ -48,8 +51,9 @@ namespace Microsoft.VisualStudio.Services.Agent
             : base()
         {
             ArgUtil.NotNullOrEmpty(logFile, nameof(logFile));
-            Directory.CreateDirectory(Path.GetDirectoryName(logFile));
-            Stream logStream = new FileStream(logFile, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, bufferSize: 4096);
+            _logFilePath = logFile;
+            Directory.CreateDirectory(Path.GetDirectoryName(_logFilePath));
+            Stream logStream = new FileStream(_logFilePath, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, bufferSize: 4096);
             Writer = new StreamWriter(logStream);
         }
 
@@ -65,6 +69,12 @@ namespace Microsoft.VisualStudio.Services.Agent
             WriteHeader(source, eventType, id);
             WriteLine(message);
             WriteFooter(eventCache);
+
+            if (!_diagErrorDetected && !DisableConsoleReporting && eventType < TraceEventType.Warning)
+            {
+                Console.WriteLine(StringUtil.Loc("FoundErrorInTrace", eventType.ToString(), _logFilePath));
+                _diagErrorDetected = true;
+            }
         }
 
         public override void WriteLine(string message)
@@ -184,15 +194,15 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
 
             string fileName = StringUtil.Format(_logFileNamingPattern, _logFilePrefix, DateTime.UtcNow);
-            string logFile = Path.Combine(_logFileDirectory, fileName);
+            _logFilePath = Path.Combine(_logFileDirectory, fileName);
             Stream logStream;
-            if (File.Exists(logFile))
+            if (File.Exists(_logFilePath))
             {
-                logStream = new FileStream(logFile, FileMode.Append, FileAccess.Write, FileShare.Read, bufferSize: 4096);
+                logStream = new FileStream(_logFilePath, FileMode.Append, FileAccess.Write, FileShare.Read, bufferSize: 4096);
             }
             else
             {
-                logStream = new FileStream(logFile, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, bufferSize: 4096);
+                logStream = new FileStream(_logFilePath, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, bufferSize: 4096);
             }
 
             return new StreamWriter(logStream);

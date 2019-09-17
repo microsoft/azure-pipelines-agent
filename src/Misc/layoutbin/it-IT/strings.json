@@ -230,7 +230,7 @@
     "DownloadingFromBuild":  "Scarica dalla compilazione specificata: n. {0}",
     "DownloadingJenkinsCommitsBetween":  "Download dei commit tra il processo {0} e {1}",
     "DownloadingJenkinsCommitsFailedWithException":  "Il download dei commit per l\u0027artefatto Jenkins {0} non è riuscito. Eccezione: {1}",
-    "DownloadingTask0":  "Download dell\u0027attività: {0}",
+    "DownloadingTask0":  "Download dell\u0027attività: {0} ({1})",
     "EnsureJobFinished":  "In attesa del completamento dell\u0027esecuzione del processo corrente.",
     "EnsureTasksExist":  "Scarica tutte le attività obbligatorie.",
     "EnterValidValueFor0":  "Immettere un valore valido per {0}.",

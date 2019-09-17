@@ -63,7 +63,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
                 string fileContainerFullPath = StringUtil.Format($"#/{containerId}/{file.Item2}");
 
                 Build.BuildServer buildHelper = new Build.BuildServer(_connection, projectId);
-                var artifact = await buildHelper.AssociateArtifact(_buildId, file.Item2, jobId, ArtifactResourceTypes.Container, fileContainerFullPath, artifactProperties, cancellationToken);
+                var artifact = await buildHelper.AssociateArtifactAsync(_buildId, file.Item2, jobId, ArtifactResourceTypes.Container, fileContainerFullPath, artifactProperties, cancellationToken);
                 context.Output(StringUtil.Loc("PublishedCodeCoverageArtifact", file.Item1, file.Item2));
             });
 

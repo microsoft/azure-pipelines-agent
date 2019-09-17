@@ -140,7 +140,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             if (!string.IsNullOrEmpty(ProxyAddress) && !Uri.IsWellFormedUriString(ProxyAddress, UriKind.Absolute))
             {
-                Trace.Info($"The proxy url is not a well formed absolute uri string: {ProxyAddress}.");
+                Trace.Error($"The proxy url is not a well formed absolute uri string: {ProxyAddress}.");
                 ProxyAddress = string.Empty;
             }
 

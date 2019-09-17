@@ -685,7 +685,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 // Inform the user that a download is taking place. The download could take a while if
                 // the task zip is large. It would be nice to print the localized name, but it is not
                 // available from the reference included in the job message.
-                _term.WriteLine(StringUtil.Loc("DownloadingTask0", task.Name));
+                _term.WriteLine(StringUtil.Loc("DownloadingTask0", task.Name, task.Version));
                 string zipFile;
                 var version = new TaskVersion(task.Version);
 
