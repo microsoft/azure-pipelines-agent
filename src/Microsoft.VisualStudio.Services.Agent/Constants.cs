@@ -78,6 +78,8 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static readonly OSPlatform Platform = OSPlatform.OSX;
 #elif OS_WINDOWS
             public static readonly OSPlatform Platform = OSPlatform.Windows;
+#else
+    #error Unknown OS
 #endif
 
 #if X86
@@ -88,6 +90,8 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static readonly Architecture PlatformArchitecture = Architecture.Arm;
 #elif ARM64            
             public static readonly Architecture PlatformArchitecture = Architecture.Arm64;
+#else  
+    #error Unknown Architecture
 #endif
 
             public static readonly TimeSpan ExitOnUnloadTimeout = TimeSpan.FromSeconds(30);

@@ -1,15 +1,12 @@
 ## Features
-  - Adding UNC path feature to Pipeline Artifact Task + Adding DPA V2 task Telemetry (#2406)
-  - Updated to support Xamarin detection with VS2019 (#2418)
-  - Adding DownloadFromWhichBuild information to DPA V1 and V2 (#2405)
+  - Update environmetserver to use vm resource client api's (#2433)
+  - Adding check and show error message in on-prem scenario  (#2425)
 
 ## Bugs
-  - Modifying the process working directory location for tarring (#2411)
+  - Fix missing job source for pipeline artifacts (#2427)
 
 ## Misc
-  - Updated to include task version in message to download (#2409)
-  - Updated to print to console a message if an error was sent to trace log (#2408)
-  - Telemetry addition in PublishTestResults (#2414)
+  - Changing vss-api-netcore version to 0.5.131-private (#2428)
 
 ## Agent Downloads  
 

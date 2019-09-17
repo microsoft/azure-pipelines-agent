@@ -28,8 +28,8 @@ namespace Agent.Plugins.PipelineArtifact
         }
 
         protected abstract Task ProcessCommandInternalAsync(
-            AgentTaskPluginExecutionContext context, 
-            CancellationToken token);  
+            AgentTaskPluginExecutionContext context,
+            CancellationToken token);
 
         // Properties set by tasks
         protected static class ArtifactEventProperties
@@ -59,13 +59,13 @@ namespace Agent.Plugins.PipelineArtifact
         private const string fileShareType = "filepath";
 
         protected override async Task ProcessCommandInternalAsync(
-            AgentTaskPluginExecutionContext context, 
+            AgentTaskPluginExecutionContext context,
             CancellationToken token)
         {
             string artifactName = context.GetInput(ArtifactEventProperties.ArtifactName, required: false);
             string targetPath = context.GetInput(TargetPath, required: true);
             string artifactType = context.GetInput(ArtifactEventProperties.ArtifactType, required: false);
-            artifactType = string.IsNullOrEmpty(artifactType)? pipelineType: artifactType.ToLower();
+            artifactType = string.IsNullOrEmpty(artifactType) ? pipelineType : artifactType.ToLower();
 
             string defaultWorkingDirectory = context.Variables.GetValueOrDefault("system.defaultworkingdirectory").Value;
 
@@ -90,13 +90,14 @@ namespace Agent.Plugins.PipelineArtifact
                 // This should not happen since the build id comes from build environment. But a user may override that so we must be careful.
                 throw new ArgumentException(StringUtil.Loc("BuildIdIsNotValid", buildIdStr));
             }
-            
-            if(artifactType == pipelineType) 
+
+            if (artifactType == pipelineType)
             {
-                string hostType = context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.HostType)?.Value; 
-                if (!string.Equals(hostType, "Build", StringComparison.OrdinalIgnoreCase)) {
+                string hostType = context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.HostType)?.Value;
+                if (!string.Equals(hostType, "Build", StringComparison.OrdinalIgnoreCase))
+                {
                     throw new InvalidOperationException(
-                        StringUtil.Loc("CannotUploadFromCurrentEnvironment", hostType ?? string.Empty)); 
+                        StringUtil.Loc("CannotUploadFromCurrentEnvironment", hostType ?? string.Empty));
                 }
 
                 if (String.IsNullOrWhiteSpace(artifactName))
@@ -106,7 +107,8 @@ namespace Agent.Plugins.PipelineArtifact
                     artifactName = normalizedJobIdentifier;
                 }
 
-                if(!PipelineArtifactPathHelper.IsValidArtifactName(artifactName)) {
+                if (!PipelineArtifactPathHelper.IsValidArtifactName(artifactName))
+                {
                     throw new ArgumentException(StringUtil.Loc("ArtifactNameIsNotValid", artifactName));
                 }
 
@@ -132,12 +134,12 @@ namespace Agent.Plugins.PipelineArtifact
 
                 fileSharePath = Path.IsPathFullyQualified(fileSharePath) ? fileSharePath : Path.GetFullPath(Path.Combine(defaultWorkingDirectory, fileSharePath));
 
-                if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
                     FilePathServer server = new FilePathServer();
-                    await server.UploadAsync(context, projectId, buildId, artifactName, targetPath, fileSharePath, token);               
+                    await server.UploadAsync(context, projectId, buildId, artifactName, targetPath, fileSharePath, token);
                 }
-                else 
+                else
                 {
                     // file share artifacts are not currently supported on OSX/Linux.
                     throw new InvalidOperationException(StringUtil.Loc("FileShareOperatingSystemNotSupported"));
@@ -164,7 +166,7 @@ namespace Agent.Plugins.PipelineArtifact
         static readonly string buildVersionToDownloadLatestFromBranch = "latestFromBranch";
 
         protected override async Task ProcessCommandInternalAsync(
-            AgentTaskPluginExecutionContext context, 
+            AgentTaskPluginExecutionContext context,
             CancellationToken token)
         {
             ArgUtil.NotNull(context, nameof(context));
@@ -198,7 +200,7 @@ namespace Agent.Plugins.PipelineArtifact
             {
                 // TODO: use a constant for project id, which is currently defined in Microsoft.VisualStudio.Services.Agent.Constants.Variables.System.TeamProjectId (Ting)
                 string projectIdStr = context.Variables.GetValueOrDefault("system.teamProjectId")?.Value;
-                if(String.IsNullOrEmpty(projectIdStr))
+                if (String.IsNullOrEmpty(projectIdStr))
                 {
                     throw new ArgumentNullException("Project ID cannot be null.");
                 }
@@ -241,31 +243,46 @@ namespace Agent.Plugins.PipelineArtifact
             }
             else if (buildType == buildTypeSpecific)
             {
-                int pipelineId;
-                if (buildVersionToDownload == buildVersionToDownloadLatest)
+                int? pipelineId = null;
+
+                bool buildTriggeringBool = false;
+                if (bool.TryParse(buildTriggering, out buildTriggeringBool) && buildTriggeringBool)
                 {
-                    pipelineId = await this.GetpipelineIdAsync(context, buildPipelineDefinition, buildVersionToDownload, projectName, tagsInput);
+                    string triggeringPipeline = context.Variables.GetValueOrDefault("build.triggeredBy.buildId")?.Value;
+
+                    if (!string.IsNullOrEmpty(triggeringPipeline))
+                    {
+                        pipelineId = int.Parse(triggeringPipeline);
+                    }
                 }
-                else if (buildVersionToDownload == buildVersionToDownloadSpecific)
+
+                if (!pipelineId.HasValue)
                 {
-                    pipelineId = Int32.Parse(userSpecifiedpipelineId);
-                }
-                else if (buildVersionToDownload == buildVersionToDownloadLatestFromBranch)
-                {
-                    pipelineId = await this.GetpipelineIdAsync(context, buildPipelineDefinition, buildVersionToDownload, projectName, tagsInput, branchName);
-                }
-                else
-                {
-                    throw new InvalidOperationException("Unreachable code!");
+                    if (buildVersionToDownload == buildVersionToDownloadLatest)
+                    {
+                        pipelineId = await this.GetpipelineIdAsync(context, buildPipelineDefinition, buildVersionToDownload, projectName, tagsInput);
+                    }
+                    else if (buildVersionToDownload == buildVersionToDownloadSpecific)
+                    {
+                        pipelineId = Int32.Parse(userSpecifiedpipelineId);
+                    }
+                    else if (buildVersionToDownload == buildVersionToDownloadLatestFromBranch)
+                    {
+                        pipelineId = await this.GetpipelineIdAsync(context, buildPipelineDefinition, buildVersionToDownload, projectName, tagsInput, branchName);
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("Unreachable code!");
+                    }
                 }
 
                 context.Output(StringUtil.Loc("DownloadingFromBuild", pipelineId));
-                
+
                 downloadParameters = new PipelineArtifactDownloadParameters
                 {
                     ProjectRetrievalOptions = BuildArtifactRetrievalOptions.RetrieveByProjectName,
                     ProjectName = projectName,
-                    PipelineId = pipelineId,
+                    PipelineId = pipelineId.Value,
                     ArtifactName = artifactName,
                     TargetDirectory = targetPath,
                     MinimatchFilters = minimatchPatterns,
@@ -310,7 +327,7 @@ namespace Agent.Plugins.PipelineArtifact
             return fullPath;
         }
 
-        private async Task<int> GetpipelineIdAsync(AgentTaskPluginExecutionContext context, string buildPipelineDefinition, string buildVersionToDownload, string project, string[] tagFilters, string branchName=null)
+        private async Task<int> GetpipelineIdAsync(AgentTaskPluginExecutionContext context, string buildPipelineDefinition, string buildVersionToDownload, string project, string[] tagFilters, string branchName = null)
         {
             var definitions = new List<int>() { Int32.Parse(buildPipelineDefinition) };
             VssConnection connection = context.VssConnection;
