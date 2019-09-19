@@ -28,7 +28,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
         private bool _failTaskOnFailedTests;
 
-        private bool _isTestRunOutcomeFailed = false;
         private string _testRunSystem;
 
         //telemetry parameter
@@ -73,12 +72,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
             commandContext.Task = PublishTestRunDataAsync(connection, teamProject, runContext);
             _executionContext.AsyncCommands.Add(commandContext);
-
-            if (_isTestRunOutcomeFailed)
-            {
-                _executionContext.Result = TaskResult.Failed;
-                _executionContext.Error(StringUtil.Loc("FailedTestsInResults"));
-            }
             
         }
 
@@ -279,6 +272,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
         private async Task PublishTestRunDataAsync(VssConnection connection, String teamProject, TestRunContext testRunContext)
         {
+            bool isTestRunOutcomeFailed = false;
             try
             {
                 var featureFlagService = HostContext.GetService<IFeatureFlagService>();
@@ -292,19 +286,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
                     var testRunData = testDataProvider.GetTestRunData();
                     await publisher.PublishAsync(testRunContext, testRunData, GetPublishOptions(), _executionContext.CancellationToken);
-                    
-                    _isTestRunOutcomeFailed = GetTestRunOutcome(testRunData);
+
+                    isTestRunOutcomeFailed = GetTestRunOutcome(testRunData);
                     
                 }
                 else {
                     var publisher = HostContext.GetService<ILegacyTestRunDataPublisher>();
                     publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner, _publishRunLevelAttachments);
 
-                    bool isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, _runTitle, _executionContext.Variables.Build_BuildId, _mergeResults);
+                    isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, _runTitle, _executionContext.Variables.Build_BuildId, _mergeResults);
+                }
 
-                    if(_failTaskOnFailedTests){
-                        _isTestRunOutcomeFailed = isTestRunOutcomeFailed;
-                    }
+                if (isTestRunOutcomeFailed)
+                {
+                    _executionContext.Result = TaskResult.Failed;
+                    _executionContext.Error(StringUtil.Loc("FailedTestsInResults"));
                 }
 
                 await PublishEventsAsync(connection);
