@@ -96,12 +96,20 @@ namespace Microsoft.VisualStudio.Services.Agent
                     Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts.CustomArtifact, Agent.Worker");
                     break;
                 // Worker test result readers.
-                case "Microsoft.VisualStudio.Services.Agent.Worker.TestResults.IResultReader":
-                    Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.TestResults.JUnitResultReader, Agent.Worker");
-                    Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.TestResults.NUnitResultReader, Agent.Worker");
-                    Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.TestResults.CTestResultReader, Agent.Worker");
-                    Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.TestResults.TrxResultReader, Agent.Worker");
-                    Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.TestResults.XUnitResultReader, Agent.Worker");
+                case "Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults.IResultReader":
+                    Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults.JUnitResultReader, Agent.Worker");
+                    Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults.NUnitResultReader, Agent.Worker");
+                    Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults.CTestResultReader, Agent.Worker");
+                    Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults.TrxResultReader, Agent.Worker");
+                    Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults.XUnitResultReader, Agent.Worker");
+                    break;
+                // Worker test result parser.
+                case "Microsoft.VisualStudio.Services.Agent.Worker.TestResults.IParser":
+                    Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.TestResults.JUnitParser, Agent.Worker");
+                    Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.TestResults.NUnitParser, Agent.Worker");
+                    Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.TestResults.CTestParser, Agent.Worker");
+                    Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.TestResults.TrxParser, Agent.Worker");
+                    Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.TestResults.XUnitParser, Agent.Worker");
                     break;
                 // Worker code coverage summary reader extensions.
                 case "Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage.ICodeCoverageSummaryReader":

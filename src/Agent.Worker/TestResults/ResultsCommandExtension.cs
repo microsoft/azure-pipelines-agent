@@ -9,12 +9,14 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.TeamFoundation.TestClient.PublishTestResults;
 using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.VisualStudio.Services.WebPlatform;
+using Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
     public sealed class ResultsCommandExtension : AgentService, IWorkerCommandExtension
     {
         private IExecutionContext _executionContext;
+        private const string _publishTestResultsLibFeatureFlag = "";
         //publish test results inputs
         private List<string> _testResultFiles;
         private string _testRunner;
@@ -69,11 +71,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
-            
-            
-            TestDataProvider testDataProvider = ParseTestResultsFile(runContext);
-
-            commandContext.Task = PublishTestRunDataAsync(connection, teamProject, testDataProvider, runContext);
+            commandContext.Task = PublishTestRunDataAsync(connection, teamProject, runContext);
             _executionContext.AsyncCommands.Add(commandContext);
 
             if (_isTestRunOutcomeFailed)
@@ -279,19 +277,34 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             return publishOptions;
         }
 
-        private async Task PublishTestRunDataAsync(VssConnection connection, String teamProject, TestDataProvider testDataProvider, TestRunContext testRunContext)
+        private async Task PublishTestRunDataAsync(VssConnection connection, String teamProject, TestRunContext testRunContext)
         {
             try
             {
-                var publisher = HostContext.GetService<ITestRunDataPublisher>();
-                publisher.InitializePublisher(_executionContext, teamProject, connection);
+                var featureFlagService = HostContext.GetService<IFeatureFlagService>();
+                featureFlagService.InitializeFeatureService(_executionContext, connection);
 
-                var testRunData = testDataProvider.GetTestRunData();
-                await publisher.PublishAsync(testRunContext, testRunData, GetPublishOptions(), _executionContext.CancellationToken);
-                
-                if (_failTaskOnFailedTests)
-                {
-                    _isTestRunOutcomeFailed = _isTestRunOutcomeFailed || GetTestRunOutcome(testRunData);
+                if (featureFlagService.GetFeatureFlagState(_publishTestResultsLibFeatureFlag, Service.TFS)){
+                    TestDataProvider testDataProvider = ParseTestResultsFile(testRunContext);
+
+                    var publisher = HostContext.GetService<ITestRunDataPublisher>();
+                    publisher.InitializePublisher(_executionContext, teamProject, connection);
+
+                    var testRunData = testDataProvider.GetTestRunData();
+                    await publisher.PublishAsync(testRunContext, testRunData, GetPublishOptions(), _executionContext.CancellationToken);
+                    
+                    _isTestRunOutcomeFailed = GetTestRunOutcome(testRunData);
+                    
+                }
+                else {
+                    var publisher = HostContext.GetService<ILegacyTestRunDataPublisher>();
+                    publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner, _publishRunLevelAttachments);
+
+                    bool isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, _runTitle, _executionContext.Variables.Build_BuildId, _mergeResults);
+
+                    if(_failTaskOnFailedTests){
+                        _isTestRunOutcomeFailed = isTestRunOutcomeFailed;
+                    }
                 }
 
                 await PublishEventsAsync(connection);
@@ -302,7 +315,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
         }
 
-        private bool GetTestRunOutcome(IList<TestRunData> testRunDataList)
+        private bool GetTestRunOutcome(IList<Microsoft.TeamFoundation.TestClient.PublishTestResults.TestRunData> testRunDataList)
         {
             if (_failTaskOnFailedTests)
             {
