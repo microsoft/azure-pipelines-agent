@@ -55,6 +55,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
         private void ProcessPublishTestResultsCommand(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
         {
+            //System.Diagnostics.Debugger.Launch();
             ArgUtil.NotNull(context, nameof(context));
             _executionContext = context;
 
@@ -272,23 +273,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
         private async Task PublishTestRunDataAsync(VssConnection connection, String teamProject, TestRunContext testRunContext)
         {
-            bool isTestRunOutcomeFailed = false;
             try
             {
+                bool isTestRunOutcomeFailed = false;
+
                 var featureFlagService = HostContext.GetService<IFeatureFlagService>();
                 featureFlagService.InitializeFeatureService(_executionContext, connection);
-
-                if (featureFlagService.GetFeatureFlagState(_publishTestResultsLibFeatureFlag, Service.TFS)){
-                    TestDataProvider testDataProvider = ParseTestResultsFile(testRunContext);
-
+                
+                //This check is used to determine to use PublishTestResults dll or existing publisher code for publishing runs
+                if (featureFlagService.GetFeatureFlagState(_publishTestResultsLibFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid)){
                     var publisher = HostContext.GetService<ITestRunDataPublisher>();
-                    publisher.InitializePublisher(_executionContext, teamProject, connection);
+                    publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner);
 
-                    var testRunData = testDataProvider.GetTestRunData();
-                    await publisher.PublishAsync(testRunContext, testRunData, GetPublishOptions(), _executionContext.CancellationToken);
-
-                    isTestRunOutcomeFailed = GetTestRunOutcome(testRunData);
-                    
+                    isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, GetPublishOptions(), _executionContext.CancellationToken);
                 }
                 else {
                     var publisher = HostContext.GetService<ILegacyTestRunDataPublisher>();
@@ -309,39 +306,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             {
                 _executionContext.Error("Could not publish test run level data."+ ex);
             }
-        }
-
-        private bool GetTestRunOutcome(IList<Microsoft.TeamFoundation.TestClient.PublishTestResults.TestRunData> testRunDataList)
-        {
-            if (_failTaskOnFailedTests)
-            {
-                // Reads through each testCaseResult in testRunDataList 
-                foreach (var testRunData in testRunDataList)
-                {
-                    foreach (var testCaseResult in testRunData.TestResults)
-                    {
-                        // Return true if outcome is failed or aborted
-                        if (testCaseResult.Outcome == TestOutcome.Failed.ToString() || testCaseResult.Outcome == TestOutcome.Aborted.ToString())
-                        {
-                            return true;
-                        }
-                    }
-                }
-            }
-
-            return false;
-        }
-
-        private TestDataProvider ParseTestResultsFile(TestRunContext runContext)
-        {
-            var extensionManager = HostContext.GetService<IExtensionManager>();
-            IParser parser = (extensionManager.GetExtensions<IParser>()).FirstOrDefault(x => _testRunner.Equals(x.Name, StringComparison.OrdinalIgnoreCase));
-            
-            if (parser == null)
-            {
-                throw new ArgumentException("Unknown test runner");
-            }
-            return parser.ParseTestResultFiles(_executionContext, runContext, _testResultFiles);
         }
 
         private async Task PublishEventsAsync(VssConnection connection)

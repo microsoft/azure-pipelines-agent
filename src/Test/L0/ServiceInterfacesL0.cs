@@ -6,6 +6,7 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Build;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Microsoft.VisualStudio.Services.Agent.Worker.Release;
 using Microsoft.VisualStudio.Services.Agent.Worker.TestResults;
+using Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -87,7 +88,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 typeof(IContainerProvider),
                 typeof(IMaintenanceServiceProvider),
                 typeof(IDiagnosticLogManager),
-                typeof(IParser)
+                typeof(IParser),
+                typeof(IResultReader),
+                typeof(INUnitResultsXmlReader)
             };
             Validate(
                 assembly: typeof(IStepsRunner).GetTypeInfo().Assembly,

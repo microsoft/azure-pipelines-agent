@@ -31,14 +31,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         private Mock<IParser> _mockParser;
         private Mock<ICustomerIntelligenceServer> _mockCustomerIntelligenceServer;
 
+        private Mock<IFeatureFlagService> _mockFeatureFlagService;
+
         private TestHostContext _hc;
         private Variables _variables;
 
         public ResultsCommandTests()
         {
             _mockTestRunDataPublisher = new Mock<ITestRunDataPublisher>();
-            var mockTestRun = MockTestRun();
-            _mockTestRunDataPublisher.Setup(x => x.PublishAsync(It.IsAny<TestRunContext>(), It.IsAny<List<TestRunData>>(), It.IsAny<PublishOptions>(), It.IsAny<CancellationToken>())).ReturnsAsync(mockTestRun);
+            _mockTestRunDataPublisher.Setup(x => x.PublishAsync(It.IsAny<TestRunContext>(), It.IsAny<List<string>>(), It.IsAny<PublishOptions>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
 
             _mockParser = new Mock<IParser>();
             TestDataProvider mockTestRunData = MockParserData();
@@ -47,6 +48,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             
             _mockCustomerIntelligenceServer = new Mock<ICustomerIntelligenceServer>();
             _mockCustomerIntelligenceServer.Setup(x => x.PublishEventsAsync(It.IsAny<CustomerIntelligenceEvent[]>()));
+
+            _mockFeatureFlagService = new Mock<IFeatureFlagService>();
+            _mockFeatureFlagService.Setup(x => x.GetFeatureFlagState(It.IsAny<string>(), It.IsAny<Guid>())).Returns(true);
         }
 
         [Fact]
@@ -66,20 +70,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "PublishTestResults")]
-        public void Publish_InvalidTestRunner()
-        {
-            SetupMocks();
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", "ResultFile.txt");
-            command.Properties.Add("type", "MyTestRunner");
-            Assert.Throws<ArgumentException>(() => resultCommand.ProcessCommand(_ec.Object, command));
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "PublishTestResults")]
         public void Publish_NullTestResultFiles()
         {
             SetupMocks();
@@ -87,66 +77,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             resultCommand.Initialize(_hc);
             var command = new Command("results", "publish");
             Assert.Throws<ArgumentException>(() => resultCommand.ProcessCommand(_ec.Object, command));
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "PublishTestResults")]
-        public void Publish_InvalidJUnitResultFile()
-        {
-            SetupMocks();
-
-            string jUnitFilePath = "JUnitSampleResults.txt";
-            File.WriteAllText(jUnitFilePath, "badformat", Encoding.UTF8);
-
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", jUnitFilePath);
-            command.Properties.Add("type", "JUnit");
-
-            try
-            {
-                resultCommand.ProcessCommand(_ec.Object, command);
-            }
-            finally
-            {
-                File.Delete(jUnitFilePath);
-            }
-
-            Assert.Equal(0, _errors.Count());
-            Assert.Equal(1, _warnings.Count());
-            Assert.True(_warnings[0].Contains("Failed to read "+ jUnitFilePath));
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "PublishTestResults")]
-        public void Publish_InvalidNUnitResultFile()
-        {
-            SetupMocks();
-
-            string jUnitFilePath = "NUnitSampleResults.txt";
-            File.WriteAllText(jUnitFilePath, "badformat", Encoding.UTF8);
-
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", jUnitFilePath);
-            command.Properties.Add("type", "NUnit");
-
-            try
-            {
-                resultCommand.ProcessCommand(_ec.Object, command);
-            }
-            finally
-            {
-                File.Delete(jUnitFilePath);
-            }
-
-            Assert.Equal(0, _errors.Count());
-            Assert.Equal(1, _warnings.Count());
-            Assert.True(_warnings[0].Contains("Failed to read " + jUnitFilePath));
         }
 
         [Fact]
@@ -216,6 +146,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             _hc.SetSingleton(_mockParser.Object);
 
             _hc.SetSingleton(_mockCustomerIntelligenceServer.Object);
+            _hc.SetSingleton(_mockFeatureFlagService.Object);
 
             _mockExtensionManager = new Mock<IExtensionManager>();
             _mockExtensionManager.Setup(x => x.GetExtensions<IParser>()).Returns(new List<IParser> { _mockParser.Object, new JUnitParser(), new NUnitParser() });

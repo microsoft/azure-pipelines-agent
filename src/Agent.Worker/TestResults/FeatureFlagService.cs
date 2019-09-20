@@ -12,7 +12,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
     {
         void InitializeFeatureService(IExecutionContext executionContext, VssConnection connection);
 
-        bool GetFeatureFlagState(string FFName, Service service);
+        bool GetFeatureFlagState(string featureFlagName, Guid serviceInstanceId);
     }
 
     public class FeatureFlagService :  AgentService, IFeatureFlagService
@@ -28,12 +28,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             Trace.Leaving();
         }
 
-        public bool GetFeatureFlagState(string FFName, Service service)
+        public bool GetFeatureFlagState(string featureFlagName, Guid serviceInstanceId)
         {
             try
             {
-                FeatureAvailabilityHttpClient featureAvailabilityHttpClient = GetFeatureAvailabilityHttpClient(service);
-                var featureFlag = featureAvailabilityHttpClient?.GetFeatureFlagByNameAsync(FFName).Result;
+                FeatureAvailabilityHttpClient featureAvailabilityHttpClient = _connection.GetClient<FeatureAvailabilityHttpClient>(TestResultsConstants.TCMServiceInstanceGuid);
+                var featureFlag = featureAvailabilityHttpClient?.GetFeatureFlagByNameAsync(featureFlagName).Result;
                 if (featureFlag != null && featureFlag.EffectiveState.Equals("On", StringComparison.OrdinalIgnoreCase))
                 {
                     return true;
@@ -41,28 +41,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
             catch
             {
-                _executionContext.Debug(StringUtil.Format("Failed to get FF {0} Value. By default, publishing data to TCM.", FFName));
-                return false;
+                _executionContext.Debug(StringUtil.Format("Failed to get FF {0} Value.", featureFlagName));
             }
             return false;
         }
-
-        private FeatureAvailabilityHttpClient GetFeatureAvailabilityHttpClient(Service service){
-            FeatureAvailabilityHttpClient featureAvailabilityHttpClient;
-            switch(service){
-                case Service.TCM: 
-                    featureAvailabilityHttpClient =  _connection.GetClient<FeatureAvailabilityHttpClient>(TestResultsConstants.TCMServiceInstanceGuid);
-                    break;
-                default:
-                    featureAvailabilityHttpClient =  _connection.GetClient<FeatureAvailabilityHttpClient>(TestResultsConstants.TFSServiceInstanceGuid);
-                    break;          
-            }
-            return featureAvailabilityHttpClient;
-        }
-    }
-
-    public enum Service{
-        TFS,
-        TCM
     }
 }
