@@ -273,39 +273,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
         private async Task PublishTestRunDataAsync(VssConnection connection, String teamProject, TestRunContext testRunContext)
         {
-            try
-            {
-                bool isTestRunOutcomeFailed = false;
+            bool isTestRunOutcomeFailed = false;
 
-                var featureFlagService = HostContext.GetService<IFeatureFlagService>();
-                featureFlagService.InitializeFeatureService(_executionContext, connection);
-                
-                //This check is used to determine to use PublishTestResults dll or existing publisher code for publishing runs
-                if (featureFlagService.GetFeatureFlagState(_publishTestResultsLibFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid)){
-                    var publisher = HostContext.GetService<ITestRunDataPublisher>();
-                    publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner);
+            var featureFlagService = HostContext.GetService<IFeatureFlagService>();
+            featureFlagService.InitializeFeatureService(_executionContext, connection);
+            
+            //This check is used to determine to use PublishTestResults dll or existing publisher code for publishing runs
+            if (featureFlagService.GetFeatureFlagState(_publishTestResultsLibFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid)){
+                var publisher = HostContext.GetService<ITestRunDataPublisher>();
+                publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner);
 
-                    isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, GetPublishOptions(), _executionContext.CancellationToken);
-                }
-                else {
-                    var publisher = HostContext.GetService<ILegacyTestRunDataPublisher>();
-                    publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner, _publishRunLevelAttachments);
-
-                    isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, _runTitle, _executionContext.Variables.Build_BuildId, _mergeResults);
-                }
-
-                if (isTestRunOutcomeFailed)
-                {
-                    _executionContext.Result = TaskResult.Failed;
-                    _executionContext.Error(StringUtil.Loc("FailedTestsInResults"));
-                }
-
-                await PublishEventsAsync(connection);
+                isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, GetPublishOptions(), _executionContext.CancellationToken);
             }
-            catch (Exception ex)
-            {
-                _executionContext.Error("Could not publish test run level data."+ ex);
+            else {
+                var publisher = HostContext.GetService<ILegacyTestRunDataPublisher>();
+                publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner, _publishRunLevelAttachments);
+
+                isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, _runTitle, _executionContext.Variables.Build_BuildId, _mergeResults);
             }
+
+            if (isTestRunOutcomeFailed)
+            {
+                _executionContext.Result = TaskResult.Failed;
+                _executionContext.Error(StringUtil.Loc("FailedTestsInResults"));
+            }
+
+            await PublishEventsAsync(connection);
         }
 
         private async Task PublishEventsAsync(VssConnection connection)
