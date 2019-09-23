@@ -6,7 +6,12 @@ using System.IO;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
-    public class ContainerStructureResultReader : AgentService, IResultReader
+    /// <summary>
+    /// Reads result output from google container strucutre test.
+    /// https://github.com/GoogleContainerTools/container-structure-test
+    /// Example JSON: https://gist.github.com/navin22/30edd4041f5eb14b0d860ee07fdc2184
+    /// </summary>
+    public class ContainerStructureTestResultReader : AgentService, IResultReader
     {
         public bool AddResultsFileToRunLevelAttachments {get;set;}
 
@@ -14,7 +19,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
         public Type ExtensionType => typeof(IResultReader);
 
-        public ContainerStructureResultReader()
+        public ContainerStructureTestResultReader()
         {
             AddResultsFileToRunLevelAttachments = true;
         }
@@ -31,6 +36,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
                 JsonTestSummary testSummary = StringUtil.ConvertFromJson<JsonTestSummary>(jsonTestSummary);
 
+                // Adding the minimum details from the JSON.
                 TestRunData testRunData = new TestRunData( name: "Container Structure Test",
                     isAutomated: true,
                     buildId: runContext != null ? runContext.BuildId : 0,
@@ -78,7 +84,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         public int Fail {get;set;}
         public JsonTestResult[] Results {get;set;}
         public JsonTestSummary()
-        {            
+        {
         }
 
     }
