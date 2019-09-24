@@ -16,7 +16,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
     public sealed class ResultsCommandExtension : AgentService, IWorkerCommandExtension
     {
         private IExecutionContext _executionContext;
-        private const string _publishTestResultsLibFeatureFlag = "";
+        
         //publish test results inputs
         private List<string> _testResultFiles;
         private string _testRunner;
@@ -55,7 +55,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
         private void ProcessPublishTestResultsCommand(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
         {
-            //System.Diagnostics.Debugger.Launch();
             ArgUtil.NotNull(context, nameof(context));
             _executionContext = context;
 
@@ -279,7 +278,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             featureFlagService.InitializeFeatureService(_executionContext, connection);
             
             //This check is used to determine to use PublishTestResults dll or existing publisher code for publishing runs
-            if (featureFlagService.GetFeatureFlagState(_publishTestResultsLibFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid)){
+            if (featureFlagService.GetFeatureFlagState(TestResultsConstants.UsePublishTestResultsLibFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid)){
                 var publisher = HostContext.GetService<ITestRunDataPublisher>();
                 publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner);
 
@@ -292,7 +291,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, _runTitle, _executionContext.Variables.Build_BuildId, _mergeResults);
             }
 
-            if (isTestRunOutcomeFailed)
+            if (isTestRunOutcomeFailed && _failTaskOnFailedTests)
             {
                 _executionContext.Result = TaskResult.Failed;
                 _executionContext.Error(StringUtil.Loc("FailedTestsInResults"));
