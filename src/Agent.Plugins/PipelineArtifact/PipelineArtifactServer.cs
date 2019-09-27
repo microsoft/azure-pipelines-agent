@@ -13,6 +13,7 @@ using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using System.Globalization;
 
 namespace Agent.Plugins.PipelineArtifact
 {
@@ -29,8 +30,9 @@ namespace Agent.Plugins.PipelineArtifact
             CancellationToken cancellationToken)
         {
             VssConnection connection = context.VssConnection;
+            
             BlobStoreClientTelemetry clientTelemetry;
-            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(context, connection, cancellationToken, out clientTelemetry);
+            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClient(context, connection, cancellationToken, out clientTelemetry);
 
             using (clientTelemetry)
             {
@@ -98,7 +100,7 @@ namespace Agent.Plugins.PipelineArtifact
         {
             VssConnection connection = context.VssConnection;
             BlobStoreClientTelemetry clientTelemetry;
-            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.CreateDedupManifestClient(context, connection, cancellationToken, out clientTelemetry);
+            DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClient(context, connection, cancellationToken, out clientTelemetry);
             BuildServer buildHelper = new BuildServer(connection);
 
             using (clientTelemetry)
@@ -271,7 +273,7 @@ namespace Agent.Plugins.PipelineArtifact
 
                 if(fileShareArtifacts.Any()) 
                 {
-                    FileShareProvider provider = new FileShareProvider(context, this.CreateTracer(context));
+                    FileShareProvider provider = new FileShareProvider(context, connection, this.CreateTracer(context));
                     await provider.DownloadMultipleArtifactsAsync(downloadParameters, fileShareArtifacts, cancellationToken);
                 }
             }
@@ -301,6 +303,7 @@ namespace Agent.Plugins.PipelineArtifact
 
                 ArtifactProviderFactory factory = new ArtifactProviderFactory(context, connection, this.CreateTracer(context));
                 IArtifactProvider provider = factory.GetProvider(buildArtifact);
+                
                 await provider.DownloadSingleArtifactAsync(downloadParameters, buildArtifact, cancellationToken);
             }
             else

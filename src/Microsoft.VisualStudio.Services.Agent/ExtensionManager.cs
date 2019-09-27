@@ -102,6 +102,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults.CTestResultReader, Agent.Worker");
                     Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults.TrxResultReader, Agent.Worker");
                     Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults.XUnitResultReader, Agent.Worker");
+                    Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.TestResults.ContainerStructureTestResultReader, Agent.Worker");
                     break;
                 // Worker test result parser.
                 case "Microsoft.VisualStudio.Services.Agent.Worker.TestResults.IParser":

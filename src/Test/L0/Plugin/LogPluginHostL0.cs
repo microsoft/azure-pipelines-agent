@@ -100,7 +100,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.LogPluginHost
             public async Task ProcessLineAsync(IAgentLogPluginContext context, Pipelines.TaskStepDefinitionReference step, string line)
             {
                 context.Output("BLOCK");
-                await Task.Delay(-1);
+                await Task.Delay(TimeSpan.FromMilliseconds(-1));
             }
         }
 
