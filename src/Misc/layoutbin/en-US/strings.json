@@ -609,6 +609,7 @@
   "UploadingPipelineArtifact": "Uploading pipeline artifact from {0} for build #{1}",
   "UploadToFileContainer": "Upload '{0}' to file container: '{1}'",
   "UserName": "user name",
+  "UserNameLog": "Agent running as: '{0}'",
   "UserShutdownAgent": "The agent has received a shutdown signal. This can happen when the agent service is stopped, or a manually started agent is canceled.",
   "Variable0ContainsCyclicalReference": "Unable to expand variable '{0}'. A cyclical reference was detected.",
   "Variable0ExceedsMaxDepth1": "Unable to expand variable '{0}'. The max expansion depth ({1}) was exceeded.",

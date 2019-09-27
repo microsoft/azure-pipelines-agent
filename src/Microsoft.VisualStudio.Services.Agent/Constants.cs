@@ -53,6 +53,10 @@ namespace Microsoft.VisualStudio.Services.Agent
         public static string PluginTracePrefix = "##[plugin.trace]";
         public static readonly int AgentDownloadRetryMaxAttempts = 3;
 
+        // Environment variable set on hosted Azure Pipelines images to
+        // store the version of the image
+        public static readonly string ImageVersionVariable = "ImageVersion";
+
         // This enum is embedded within the Constants class to make it easier to reference and avoid
         // ambiguous type reference with System.Runtime.InteropServices.OSPlatform and System.Runtime.InteropServices.Architecture
         public enum OSPlatform
@@ -288,8 +292,6 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             public static readonly string MacroPrefix = "$(";
             public static readonly string MacroSuffix = ")";
-
-            public static readonly string ImageVersion = "ImageVersion";
 
             public static class Agent
             {
