@@ -1,8 +1,10 @@
+using Agent.Sdk;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using Microsoft.VisualStudio.Services.WebApi;
 using Newtonsoft.Json.Linq;
 
@@ -14,12 +16,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         {
             get
             {
-                switch (Constants.Agent.Platform)
+                switch (PlatformUtil.RunningOnOS)
                 {
-                    case Constants.OSPlatform.Linux:
-                    case Constants.OSPlatform.OSX:
+                    case PlatformUtil.OS.Linux:
+                    case PlatformUtil.OS.OSX:
                         return StringComparer.Ordinal;
-                    case Constants.OSPlatform.Windows:
+                    case PlatformUtil.OS.Windows:
                         return StringComparer.OrdinalIgnoreCase;
                     default:
                         throw new NotSupportedException(); // Should never reach here.
@@ -31,13 +33,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         {
             get
             {
-                switch (Constants.Agent.Platform)
+                switch (PlatformUtil.RunningOnOS)
                 {
-                    case Constants.OSPlatform.Linux:
+                    case PlatformUtil.OS.Linux:
                         return "Linux";
-                    case Constants.OSPlatform.OSX:
+                    case PlatformUtil.OS.OSX:
                         return "Darwin";
-                    case Constants.OSPlatform.Windows:
+                    case PlatformUtil.OS.Windows:
                         return Environment.GetEnvironmentVariable("OS");
                     default:
                         throw new NotSupportedException(); // Should never reach here.
@@ -49,14 +51,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         {
             get
             {
-                switch (Constants.Agent.PlatformArchitecture)
+                switch (PlatformUtil.RunningOnArchitecture)
                 {
-                    case Constants.Architecture.X86:
+                    case Architecture.X86:
                         return "X86";
-                    case Constants.Architecture.X64:
+                    case Architecture.X64:
                         return "X64";
-                    case Constants.Architecture.Arm:
+                    case Architecture.Arm:
                         return "ARM";
+                    case Architecture.Arm64:
+                        return "ARM64";
                     default:
                         throw new NotSupportedException(); // Should never reach here.
                 }

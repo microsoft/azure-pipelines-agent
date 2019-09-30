@@ -1,3 +1,4 @@
+using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Capabilities;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -140,10 +141,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             AgentSettings agentSettings = new AgentSettings();
             // TEE EULA
             agentSettings.AcceptTeeEula = false;
-            switch (Constants.Agent.Platform)
+            switch (PlatformUtil.RunningOnOS)
             {
-                case Constants.OSPlatform.OSX:
-                case Constants.OSPlatform.Linux:
+                case PlatformUtil.OS.OSX:
+                case PlatformUtil.OS.Linux:
                     // Write the section header.
                     WriteSection(StringUtil.Loc("EulasSectionHeader"));
 
@@ -158,7 +159,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     // Prompt to acccept the TEE EULA.
                     agentSettings.AcceptTeeEula = command.GetAcceptTeeEula();
                     break;
-                case Constants.OSPlatform.Windows:
+                case PlatformUtil.OS.Windows:
                     // Warn and continue if .NET 4.6 is not installed.
                     if (!NetFrameworkUtil.Test(new Version(4, 6), Trace))
                     {
@@ -369,14 +370,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
             else
             {
-                switch (Constants.Agent.Platform)
+                switch (PlatformUtil.RunningOnOS)
                 {
-                    case Constants.OSPlatform.OSX:
-                    case Constants.OSPlatform.Linux:
+                    case PlatformUtil.OS.OSX:
+                    case PlatformUtil.OS.Linux:
                         // Save the provided admin cred for compat with previous agent.
                         _store.SaveCredential(credProvider.CredentialData);
                         break;
-                    case Constants.OSPlatform.Windows:
+                    case PlatformUtil.OS.Windows:
                         // Not supported against TFS 2015.
                         _term.WriteError(StringUtil.Loc("Tfs2015NotSupported"));
                         return;
@@ -620,7 +621,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
             else
             {
-                defaultAuth = Constants.Agent.Platform == Constants.OSPlatform.Windows ? Constants.Configuration.Integrated : Constants.Configuration.Negotiate;
+                defaultAuth = PlatformUtil.RunningOnOS == PlatformUtil.OS.Windows ? Constants.Configuration.Integrated : Constants.Configuration.Negotiate;
             }
 
             string authType = command.GetAuth(defaultValue: defaultAuth);
