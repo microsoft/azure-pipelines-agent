@@ -276,9 +276,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
             var featureFlagService = HostContext.GetService<IFeatureFlagService>();
             featureFlagService.InitializeFeatureService(_executionContext, connection);
+            var publishTestResultsLibFeatureState = featureFlagService.GetFeatureFlagState(TestResultsConstants.UsePublishTestResultsLibFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
+            _telemetryProperties.Add("UsePublishTestResultsLib", publishTestResultsLibFeatureState);
             
             //This check is to determine to use "Microsoft.TeamFoundation.PublishTestResults" Library or the agent code to parse and publish the test results.
-            if (featureFlagService.GetFeatureFlagState(TestResultsConstants.UsePublishTestResultsLibFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid)){
+            if (publishTestResultsLibFeatureState){
                 var publisher = HostContext.GetService<ITestRunDataPublisher>();
                 publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner);
 
