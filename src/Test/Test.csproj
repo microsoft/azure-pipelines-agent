@@ -6,6 +6,7 @@
     <ProjectReference Include="..\Microsoft.VisualStudio.Services.Agent\Microsoft.VisualStudio.Services.Agent.csproj" />
     <ProjectReference Include="..\Agent.Worker\Agent.Worker.csproj" />
     <ProjectReference Include="..\Agent.Plugins\Agent.Plugins.csproj" />
+    <ProjectReference Include="..\Agent.Sdk\Agent.Sdk.csproj" />
   </ItemGroup>
 
   <ItemGroup>

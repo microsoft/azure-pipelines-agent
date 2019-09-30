@@ -16,6 +16,7 @@ using System.IO.Compression;
 using Microsoft.VisualStudio.Services.Agent.Worker.Build;
 using System.Diagnostics;
 using Newtonsoft.Json.Linq;
+using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -226,10 +227,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
 
                 // Expand container properties
-                jobContext.Container?.ExpandProperties(jobContext.Variables);
+                if (jobContext.Container != null)
+                {
+                    this.ExpandProperties(jobContext.Container, jobContext.Variables);
+                }
                 foreach (var sidecar in jobContext.SidecarContainers)
                 {
-                    sidecar.ExpandProperties(jobContext.Variables);
+                    this.ExpandProperties(sidecar, jobContext.Variables);
                 }
 
                 // Get the job extension.
@@ -328,6 +332,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 await ShutdownQueue(throwOnFailure: false);
             }
+        }
+
+        public void ExpandProperties(ContainerInfo container, Variables variables)
+        {
+            // Expand port mapping
+            variables.ExpandValues(container.UserPortMappings);
+
+            // Expand volume mounts
+            variables.ExpandValues(container.UserMountVolumes);
+            foreach (var volume in container.UserMountVolumes.Values)
+            {
+                // After mount volume variables are expanded, they are final
+                container.MountVolumes.Add(new MountVolume(volume));
+            }
+
+            // Expand env vars
+            variables.ExpandValues(container.ContainerEnvironmentVariables);
+
+            // Expand image and options strings
+            container.ContainerImage = variables.ExpandValue(nameof(container.ContainerImage), container.ContainerImage);
+            container.ContainerCreateOptions = variables.ExpandValue(nameof(container.ContainerCreateOptions), container.ContainerCreateOptions);
         }
 
         private async Task<TaskResult> CompleteJobAsync(IJobServer jobServer, IExecutionContext jobContext, Pipelines.AgentJobRequestMessage message, TaskResult? taskResult = null)

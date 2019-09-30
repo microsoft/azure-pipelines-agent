@@ -10,6 +10,7 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.WebApi;
 using Newtonsoft.Json;
+using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {

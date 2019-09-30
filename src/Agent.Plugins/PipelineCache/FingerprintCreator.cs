@@ -314,7 +314,14 @@ namespace Agent.Plugins.PipelineCache
 
                     var patternSegment = keySegment.IndexOfAny(GlobChars) >= 0 || matchedFiles.Count() > 1;
 
-                    LogKeySegment(keySegment, 
+                    var displayKeySegment = keySegment;
+
+                    if (context.Container != null)
+                    {
+                        displayKeySegment = context.Container.TranslateToContainerPath(displayKeySegment);
+                    }
+
+                    LogKeySegment(displayKeySegment, 
                         patternSegment ? KeySegmentType.FilePattern : KeySegmentType.FilePath,
                         matchedFiles.Values.ToArray());
 
@@ -322,11 +329,11 @@ namespace Agent.Plugins.PipelineCache
                     {
                         if (patternSegment)
                         {
-                            exceptions.Add(new FileNotFoundException($"No matching files found for pattern: {keySegment}"));
+                            exceptions.Add(new FileNotFoundException($"No matching files found for pattern: {displayKeySegment}"));
                         }
                         else
                         {
-                            exceptions.Add(new FileNotFoundException($"File not found: {keySegment}"));
+                            exceptions.Add(new FileNotFoundException($"File not found: {displayKeySegment}"));
                         }
                     }
                 

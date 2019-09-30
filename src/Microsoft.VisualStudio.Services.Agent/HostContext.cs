@@ -14,6 +14,8 @@ using System.Net.Http;
 using System.Diagnostics.Tracing;
 using Microsoft.TeamFoundation.DistributedTask.Logging;
 using System.Net.Http.Headers;
+using Agent.Sdk;
+using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -35,6 +37,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         event EventHandler Unloading;
         void ShutdownAgent(ShutdownReason reason);
         void WritePerfCounter(string counter);
+        ContainerInfo CreateContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true);
     }
 
     public enum StartupType
@@ -420,6 +423,28 @@ namespace Microsoft.VisualStudio.Services.Agent
             _trace.Info($"Agent will be shutdown for {reason.ToString()}");
             AgentShutdownReason = reason;
             _agentShutdownTokenSource.Cancel();
+        }
+ 
+        public ContainerInfo CreateContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true)
+        {
+            ContainerInfo containerInfo = new ContainerInfo(container, isJobContainer);
+            Dictionary<string, string> pathMappings = new Dictionary<string, string>();
+#if OS_WINDOWS
+            pathMappings[this.GetDirectory(WellKnownDirectory.Tools)] = "C:\\__t"; // Tool cache folder may come from ENV, so we need a unique folder to avoid collision
+            pathMappings[this.GetDirectory(WellKnownDirectory.Work)] = "C:\\__w";
+            pathMappings[this.GetDirectory(WellKnownDirectory.Root)] = "C:\\__a";
+            // add -v '\\.\pipe\docker_engine:\\.\pipe\docker_engine' when they are available (17.09)
+#else
+            pathMappings[this.GetDirectory(WellKnownDirectory.Tools)] = "/__t"; // Tool cache folder may come from ENV, so we need a unique folder to avoid collision
+            pathMappings[this.GetDirectory(WellKnownDirectory.Work)] = "/__w";
+            pathMappings[this.GetDirectory(WellKnownDirectory.Root)] = "/__a";
+            if (containerInfo.IsJobContainer)
+            {
+                containerInfo.MountVolumes.Add(new MountVolume("/var/run/docker.sock", "/var/run/docker.sock"));
+            }
+#endif      
+            containerInfo.AddPathMappings(pathMappings);
+            return containerInfo;
         }
 
         public override void Dispose()

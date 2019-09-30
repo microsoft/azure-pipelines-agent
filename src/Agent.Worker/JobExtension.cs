@@ -7,6 +7,7 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System.Linq;
 using System.Diagnostics;
+using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -131,7 +132,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (context.Container != null || context.SidecarContainers.Count > 0)
                     {
                         var containerProvider = HostContext.GetService<IContainerOperationProvider>();
-                        var containers = new List<Container.ContainerInfo>();
+                        var containers = new List<ContainerInfo>();
                         if (context.Container != null)
                         {
                             containers.Add(context.Container);

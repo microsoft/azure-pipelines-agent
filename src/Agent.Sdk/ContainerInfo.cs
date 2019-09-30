@@ -4,8 +4,9 @@ using System.IO;
 using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using System.Threading;
 
-namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
+namespace Agent.Sdk
 {
     public class ContainerInfo
     {
@@ -21,8 +22,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
         private Dictionary<string, string> _pathMappings = new Dictionary<string, string>();
 #endif
 
-        public ContainerInfo(IHostContext hostContext, Pipelines.ContainerResource container, Boolean isJobContainer = true)
+        public ContainerInfo()
         {
+            this.IsJobContainer = true;
+        }
+
+        public ContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true)
+        { 
             this.ContainerName = container.Alias;
 
             string containerImage = container.Properties.Get<string>("image");
@@ -37,20 +43,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             this.ContainerCommand = container.Properties.Get<string>("command", defaultValue: "");
             this.IsJobContainer = isJobContainer;
 
-#if OS_WINDOWS
-            _pathMappings[hostContext.GetDirectory(WellKnownDirectory.Tools)] = "C:\\__t"; // Tool cache folder may come from ENV, so we need a unique folder to avoid collision
-            _pathMappings[hostContext.GetDirectory(WellKnownDirectory.Work)] = "C:\\__w";
-            _pathMappings[hostContext.GetDirectory(WellKnownDirectory.Root)] = "C:\\__a";
-            // add -v '\\.\pipe\docker_engine:\\.\pipe\docker_engine' when they are available (17.09)
-#else
-            _pathMappings[hostContext.GetDirectory(WellKnownDirectory.Tools)] = "/__t"; // Tool cache folder may come from ENV, so we need a unique folder to avoid collision
-            _pathMappings[hostContext.GetDirectory(WellKnownDirectory.Work)] = "/__w";
-            _pathMappings[hostContext.GetDirectory(WellKnownDirectory.Root)] = "/__a";
-            if (this.IsJobContainer)
-            {
-                this.MountVolumes.Add(new MountVolume("/var/run/docker.sock", "/var/run/docker.sock"));
-            }
-#endif
             if (container.Ports?.Count > 0)
             {
                 foreach (var port in container.Ports)
@@ -76,7 +68,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
         public string ContainerCommand { get; set; }
         public string ContainerBringNodePath { get; set; }
         public Guid ContainerRegistryEndpoint { get; private set; }
-        public string ContainerCreateOptions { get; private set; }
+        public string ContainerCreateOptions { get; set; }
         public bool SkipContainerImagePull { get; private set; }
 #if !OS_WINDOWS
         public string CurrentUserName { get; set; }
@@ -145,6 +137,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                 }
 
                 return _portMappings;
+            }
+        }
+
+        public Dictionary<string, string> PathMappings
+        {
+            get
+            {
+                if (_pathMappings == null)
+                {
+                    _pathMappings = new Dictionary<string, string>();
+                }
+
+                return _pathMappings;
             }
         }
 
@@ -224,30 +229,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             }
         }
 
-        public void ExpandProperties(Variables variables)
+        public void AddPathMappings(Dictionary<string, string> pathMappings)
         {
-            // Expand port mapping
-            variables.ExpandValues(UserPortMappings);
-
-            // Expand volume mounts
-            variables.ExpandValues(UserMountVolumes);
-            foreach (var volume in UserMountVolumes.Values)
+            foreach (var path in pathMappings)
             {
-                // After mount volume variables are expanded, they are final
-                MountVolumes.Add(new MountVolume(volume));
+                PathMappings.Add(path.Key, path.Value);
             }
-
-            // Expand env vars
-            variables.ExpandValues(ContainerEnvironmentVariables);
-
-            // Expand image and options strings
-            ContainerImage = variables.ExpandValue(nameof(ContainerImage), ContainerImage);
-            ContainerCreateOptions = variables.ExpandValue(nameof(ContainerCreateOptions), ContainerCreateOptions);
         }
     }
 
     public class MountVolume
     {
+        public MountVolume()
+        {
+
+        }
                 
         public MountVolume(string sourceVolumePath, string targetVolumePath, bool readOnly = false)
         {
@@ -328,6 +324,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 
     public class PortMapping
     {
+
+        public PortMapping()
+        {
+
+        }
+
         public PortMapping(string hostPort, string containerPort, string protocol)
         {
             this.HostPort = hostPort;
@@ -342,6 +344,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 
     public class DockerVersion
     {
+        public DockerVersion()
+        {
+
+        }
+        
         public DockerVersion(Version serverVersion, Version clientVersion)
         {
             this.ServerVersion = serverVersion;
