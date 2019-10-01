@@ -66,7 +66,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     // Set agent version variable.
                     context.Variables.Set(Constants.Variables.Agent.Version, BuildConstants.AgentPackage.Version);
+                    context.Output(StringUtil.Loc("AgentNameLog", context.Variables.Get(Constants.Variables.Agent.Name)));
+                    context.Output(StringUtil.Loc("AgentMachineNameLog", context.Variables.Get(Constants.Variables.Agent.MachineName)));
                     context.Output(StringUtil.Loc("AgentVersion", BuildConstants.AgentPackage.Version));
+                    if (context.Variables.TryGetValue(Constants.ImageVersionVariable, out string imageVersion))
+                    {
+                        context.Output(StringUtil.Loc("ImageVersionLog", imageVersion));
+                    }
+                    context.Output(StringUtil.Loc("UserNameLog", System.Environment.UserName));
 
                     // Print proxy setting information for better diagnostic experience
                     var agentWebProxy = HostContext.GetService<IVstsAgentWebProxy>();

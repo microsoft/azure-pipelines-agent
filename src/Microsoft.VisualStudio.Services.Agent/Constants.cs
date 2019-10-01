@@ -54,6 +54,10 @@ namespace Microsoft.VisualStudio.Services.Agent
         public static string PluginTracePrefix = "##[plugin.trace]";
         public static readonly int AgentDownloadRetryMaxAttempts = 3;
 
+        // Environment variable set on hosted Azure Pipelines images to
+        // store the version of the image
+        public static readonly string ImageVersionVariable = "ImageVersion";
+
         public static class Agent
         {
             public static readonly TimeSpan ExitOnUnloadTimeout = TimeSpan.FromSeconds(30);
