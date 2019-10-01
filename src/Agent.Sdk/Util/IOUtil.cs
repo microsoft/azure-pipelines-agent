@@ -1,3 +1,4 @@
+using Agent.Sdk;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -14,26 +15,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
     {
         public static string ExeExtension
         {
-            get
-            {
-#if OS_WINDOWS
-                return ".exe";
-#else
-                return string.Empty;
-#endif
-            }
+            get =>
+                PlatformUtil.RunningOnOS == PlatformUtil.OS.Windows
+                ? ".exe"
+                : string.Empty;
         }
 
         public static StringComparison FilePathStringComparison
         {
-            get
-            {
-#if OS_LINUX
-                return StringComparison.Ordinal;
-#else
-                return StringComparison.OrdinalIgnoreCase;
-#endif
-            }
+            get =>
+                PlatformUtil.RunningOnOS == PlatformUtil.OS.Linux
+                ? StringComparison.Ordinal
+                : StringComparison.OrdinalIgnoreCase;
         }
 
         public static void SaveObject(object obj, string path)
@@ -337,18 +330,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                     throw new InvalidOperationException($"The file path {relativePath} is invalid");
                 }
 
-#if OS_WINDOWS
-                if (segments.Count > 1)
+                if (PlatformUtil.RunningOnOS == PlatformUtil.OS.Windows)
                 {
-                    return String.Join(Path.DirectorySeparatorChar, segments);
+                    if (segments.Count > 1)
+                    {
+                        return String.Join(Path.DirectorySeparatorChar, segments);
+                    }
+                    else
+                    {
+                        return segments.Pop() + Path.DirectorySeparatorChar;
+                    }
                 }
                 else
                 {
-                    return segments.Pop() + Path.DirectorySeparatorChar;
+                    return Path.DirectorySeparatorChar + String.Join(Path.DirectorySeparatorChar, segments);
                 }
-#else
-                return Path.DirectorySeparatorChar + String.Join(Path.DirectorySeparatorChar, segments);
-#endif
             }
         }
 
