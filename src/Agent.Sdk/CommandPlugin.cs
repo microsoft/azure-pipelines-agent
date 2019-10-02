@@ -48,14 +48,12 @@ namespace Agent.Sdk
             this.Properties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             this.Variables = new Dictionary<string, VariableValue>(StringComparer.OrdinalIgnoreCase);
 
+            StringComparer comparer = StringComparer.Ordinal;
             if (PlatformUtil.RunningOnOS == PlatformUtil.OS.Windows)
             {
-                this.ContainerPathMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                comparer = StringComparer.OrdinalIgnoreCase;
             }
-            else
-            {
-                this.ContainerPathMappings = new Dictionary<string, string>();
-            }
+            this.ContainerPathMappings = new Dictionary<string, string>(comparer);
         }
 
         public string Data { get; set; }

@@ -39,7 +39,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                             pathExt = ".com;.exe;.bat;.cmd;.vbs;.vbe;.js;.jse;.wsf;.wsh";
                         }
 
-                        string[] pathExtSegments = pathExt.Split(new string[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
+                        string[] pathExtSegments = pathExt.Split(new char[] { Path.PathSeparator }, StringSplitOptions.RemoveEmptyEntries);
 
                         // if command already has an extension.
                         if (pathExtSegments.Any(ext => command.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
@@ -62,8 +62,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                         }
                         else
                         {
-                            string searchPattern;
-                            searchPattern = StringUtil.Format($"{command}.*");
+                            string searchPattern = StringUtil.Format($"{command}.*");
                             try
                             {
                                 matches = Directory.GetFiles(pathSegment, searchPattern);

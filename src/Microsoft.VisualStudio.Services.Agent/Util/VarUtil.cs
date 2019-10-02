@@ -2,7 +2,6 @@ using Agent.Sdk;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -10,22 +9,18 @@ using Newtonsoft.Json.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Util
 {
-    public static class VarUtil
+  public static class VarUtil
     {
         public static StringComparer EnvironmentVariableKeyComparer
         {
             get
             {
-                switch (PlatformUtil.RunningOnOS)
+                if (PlatformUtil.RunningOnOS == PlatformUtil.OS.Windows)
                 {
-                    case PlatformUtil.OS.Linux:
-                    case PlatformUtil.OS.OSX:
-                        return StringComparer.Ordinal;
-                    case PlatformUtil.OS.Windows:
-                        return StringComparer.OrdinalIgnoreCase;
-                    default:
-                        throw new NotSupportedException(); // Should never reach here.
+                    return StringComparer.OrdinalIgnoreCase;
                 }
+
+                return StringComparer.Ordinal;
             }
         }
 
