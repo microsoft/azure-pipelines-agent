@@ -26,7 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         private List<string> _warnings = new List<string>();
         private List<string> _errors = new List<string>();
         private Mock<IAsyncCommandContext> _mockCommandContext;
-        private Mock<ITestRunDataPublisher> _mockTestRunDataPublisher;
+        private Mock<ITestDataPublisher> _mockTestRunDataPublisher;
         private Mock<IExtensionManager> _mockExtensionManager;
         private Mock<IParser> _mockParser;
         private Mock<ICustomerIntelligenceServer> _mockCustomerIntelligenceServer;
@@ -38,7 +38,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
 
         public ResultsCommandTests()
         {
-            _mockTestRunDataPublisher = new Mock<ITestRunDataPublisher>();
+            _mockTestRunDataPublisher = new Mock<ITestDataPublisher>();
             _mockTestRunDataPublisher.Setup(x => x.PublishAsync(It.IsAny<TestRunContext>(), It.IsAny<List<string>>(), It.IsAny<PublishOptions>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
 
             _mockParser = new Mock<IParser>();

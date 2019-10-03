@@ -21,6 +21,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 case TraceEventType.Warning:
                     _context.Warning(message);
                     break;
+                case TraceEventType.Information:
+                    _context.Output(message);
+                    break;
                 case TraceEventType.Error:
                     _context.Error(message);
                     break;
