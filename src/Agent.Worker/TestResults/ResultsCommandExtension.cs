@@ -280,7 +280,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             _telemetryProperties.Add("UsePublishTestResultsLib", publishTestResultsLibFeatureState);
             
             //This check is to determine to use "Microsoft.TeamFoundation.PublishTestResults" Library or the agent code to parse and publish the test results.
-            if (publishTestResultsLibFeatureState){
+            if (publishTestResultsLibFeatureState){ 
                 var publisher = HostContext.GetService<ITestRunDataPublisher>();
                 publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner);
 
