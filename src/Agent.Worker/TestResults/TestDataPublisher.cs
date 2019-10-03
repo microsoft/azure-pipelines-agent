@@ -52,6 +52,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
                 if (testDataProvider != null){
                     var testRunData = testDataProvider.GetTestRunData();
+                    //publishing run level attachment
                     publishTasks.Add(Task.Run(() => _testRunPublisher.PublishTestRunDataAsync(runContext, _projectName, testRunData, publishOptions, cancellationToken)));
 
                     //publishing build level attachment
