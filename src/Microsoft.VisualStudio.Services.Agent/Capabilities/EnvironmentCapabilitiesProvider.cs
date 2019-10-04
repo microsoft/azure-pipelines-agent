@@ -1,3 +1,4 @@
+using Agent.Sdk;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -34,11 +35,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
             var capabilities = new List<Capability>();
 
             // Initialize the ignored hash set.
-#if OS_WINDOWS
-            var comparer = StringComparer.OrdinalIgnoreCase;
-#else
             var comparer = StringComparer.Ordinal;
-#endif
+            if (PlatformUtil.RunningOnOS == PlatformUtil.OS.Windows)
+            {
+                comparer = StringComparer.OrdinalIgnoreCase;
+            }
             var ignored = new HashSet<string>(s_wellKnownIgnored, comparer);
 
             // Also ignore env vars specified by the 'VSO_AGENT_IGNORE' env var.
