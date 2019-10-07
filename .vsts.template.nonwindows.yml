@@ -1,5 +1,6 @@
 parameters:
   componentDetection: 'false'
+  testLogTitle: 'Non-Windows'
 
 steps:
 
@@ -38,5 +39,5 @@ steps:
   condition: always()
   inputs:
     pathToPublish: src/Test/TestLogs
-    artifactName: $(System.JobId)
+    artifactName: ${{ parameters.testLogTitle }}-$(System.JobId)
     artifactType: container
