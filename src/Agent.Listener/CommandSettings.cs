@@ -124,6 +124,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             {
                 // Test if starts with VSTS_AGENT_INPUT_.
                 string fullKey = entry.Key as string ?? string.Empty;
+                _trace.Info($"Found: {fullKey}");
                 if (fullKey.StartsWith(envPrefix, StringComparison.OrdinalIgnoreCase))
                 {
                     string val = (entry.Value as string ?? string.Empty).Trim();
