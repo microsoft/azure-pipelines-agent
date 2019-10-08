@@ -632,7 +632,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
             else
             {
-                defaultAuth = PlatformUtil.RunningOnOS == PlatformUtil.OS.Windows ? Constants.Configuration.Integrated : Constants.Configuration.Negotiate;
+                defaultAuth = PlatformUtil.RunningOnWindows ? Constants.Configuration.Integrated : Constants.Configuration.Negotiate;
             }
 
             string authType = command.GetAuth(defaultValue: defaultAuth);

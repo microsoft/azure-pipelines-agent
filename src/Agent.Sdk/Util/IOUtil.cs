@@ -16,7 +16,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         public static string ExeExtension
         {
             get =>
-                PlatformUtil.RunningOnOS == PlatformUtil.OS.Windows
+                PlatformUtil.RunningOnWindows
                 ? ".exe"
                 : string.Empty;
         }
@@ -24,7 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         public static StringComparison FilePathStringComparison
         {
             get =>
-                PlatformUtil.RunningOnOS == PlatformUtil.OS.Linux
+                PlatformUtil.RunningOnLinux
                 ? StringComparison.Ordinal
                 : StringComparison.OrdinalIgnoreCase;
         }
@@ -330,7 +330,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                     throw new InvalidOperationException($"The file path {relativePath} is invalid");
                 }
 
-                if (PlatformUtil.RunningOnOS == PlatformUtil.OS.Windows)
+                if (PlatformUtil.RunningOnWindows)
                 {
                     if (segments.Count > 1)
                     {

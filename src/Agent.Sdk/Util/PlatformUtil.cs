@@ -62,6 +62,21 @@ namespace Agent.Sdk
             }
         }
 
+        public static bool RunningOnWindows
+        {
+            get => PlatformUtil.RunningOnOS == PlatformUtil.OS.Windows;
+        }
+
+        public static bool RunningOnMacOS
+        {
+            get => PlatformUtil.RunningOnOS == PlatformUtil.OS.OSX;
+        }
+
+        public static bool RunningOnLinux
+        {
+            get => PlatformUtil.RunningOnOS == PlatformUtil.OS.Linux;
+        }
+
         public static Architecture BuiltOnArchitecture
         {
             get

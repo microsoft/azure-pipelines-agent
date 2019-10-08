@@ -249,7 +249,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             // code page:
             //      [DllImport("api-ms-win-core-console-l1-1-0.dll", SetLastError = true)]
             //      public extern static uint GetConsoleOutputCP();
-            if (PlatformUtil.RunningOnOS == PlatformUtil.OS.Windows)
+            if (PlatformUtil.RunningOnWindows)
             {
                 StringUtil.EnsureRegisterEncodings();
             }
@@ -437,7 +437,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         private async Task<bool> SendSIGINT(TimeSpan timeout)
         {
-            if (PlatformUtil.RunningOnOS == PlatformUtil.OS.Windows)
+            if (PlatformUtil.RunningOnWindows)
             {
                 return await SendCtrlSignal(ConsoleCtrlEvent.CTRL_C, timeout);
             }
@@ -447,7 +447,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         private async Task<bool> SendSIGTERM(TimeSpan timeout)
         {
-            if (PlatformUtil.RunningOnOS == PlatformUtil.OS.Windows)
+            if (PlatformUtil.RunningOnWindows)
             {
                 return await SendCtrlSignal(ConsoleCtrlEvent.CTRL_BREAK, timeout);
             }
@@ -533,7 +533,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         private void KillProcessTree()
         {
-            if (PlatformUtil.RunningOnOS == PlatformUtil.OS.Windows)
+            if (PlatformUtil.RunningOnWindows)
             {
                 WindowsKillProcessTree();
             }

@@ -29,7 +29,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             VssClientHttpRequestSettings.Default.UserAgent = headerValues;
             VssClientHttpRequestSettings.Default.ClientCertificateManager = clientCert;
 
-            if (PlatformUtil.RunningOnOS == PlatformUtil.OS.Linux || PlatformUtil.RunningOnOS == PlatformUtil.OS.OSX)
+            if (PlatformUtil.RunningOnLinux || PlatformUtil.RunningOnMacOS)
             {
                 // The .NET Core 2.1 runtime switched its HTTP default from HTTP 1.1 to HTTP 2.
                 // This causes problems with some versions of the Curl handler.

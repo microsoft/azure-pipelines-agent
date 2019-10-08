@@ -19,7 +19,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         static StringUtil()
         {
-            if (PlatformUtil.RunningOnOS == PlatformUtil.OS.Windows)
+            if (PlatformUtil.RunningOnWindows)
             {
                 // By default, only Unicode encodings, ASCII, and code page 28591 are supported.
                 // This line is required to support the full set of encodings that were included
@@ -88,7 +88,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         public static Encoding GetSystemEncoding()
         {
-            if (PlatformUtil.RunningOnOS == PlatformUtil.OS.Windows)
+            if (PlatformUtil.RunningOnWindows)
             {
                 // The static constructor should have registered the required encodings.
                 // Code page 0 is equivalent to the current system default (i.e. CP_ACP).

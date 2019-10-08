@@ -15,7 +15,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         {
             get
             {
-                if (PlatformUtil.RunningOnOS == PlatformUtil.OS.Windows)
+                if (PlatformUtil.RunningOnWindows)
                 {
                     return StringComparer.OrdinalIgnoreCase;
                 }

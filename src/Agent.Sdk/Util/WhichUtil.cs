@@ -30,7 +30,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 {
                     string[] matches = null;
 
-                    if (PlatformUtil.RunningOnOS == PlatformUtil.OS.Windows)
+                    if (PlatformUtil.RunningOnWindows)
                     {
                         string pathExt = Environment.GetEnvironmentVariable("PATHEXT");
                         if (string.IsNullOrEmpty(pathExt))
