@@ -1,3 +1,4 @@
+using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Concurrent;
@@ -283,15 +284,18 @@ namespace Microsoft.VisualStudio.Services.Agent
                     break;
 
                 case WellKnownConfigFile.CredentialStore:
-#if OS_OSX
-                    path = Path.Combine(
-                        GetDirectory(WellKnownDirectory.Root),
-                        ".credential_store.keychain");
-#else
-                    path = Path.Combine(
-                        GetDirectory(WellKnownDirectory.Root),
-                        ".credential_store");
-#endif
+                    if (PlatformUtil.RunningOnOS == PlatformUtil.OS.OSX)
+                    {
+                        path = Path.Combine(
+                            GetDirectory(WellKnownDirectory.Root),
+                            ".credential_store.keychain");
+                    }
+                    else
+                    {
+                        path = Path.Combine(
+                            GetDirectory(WellKnownDirectory.Root),
+                            ".credential_store");
+                    }
                     break;
 
                 case WellKnownConfigFile.Certificates:
