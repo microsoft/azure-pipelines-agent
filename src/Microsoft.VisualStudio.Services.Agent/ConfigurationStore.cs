@@ -88,10 +88,9 @@ namespace Microsoft.VisualStudio.Services.Agent
     [DataContract]
     public sealed class AgentRuntimeOptions
     {
-#if OS_WINDOWS
         [DataMember(EmitDefaultValue = false)]
+        /// <summary>Use SecureChannel (only valid on Windows)</summary>
         public bool GitUseSecureChannel { get; set; }
-#endif
     }
 
     [ServiceLocator(Default = typeof(ConfigurationStore))]
