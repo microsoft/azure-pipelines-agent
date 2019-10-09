@@ -1,20 +1,22 @@
 # Agent Authentication and Authorization
 
 ## Goals
-
-  - Support agent from untrusted domains
-  - The account that configures the agent and the account the agent runs as, is not relevant for accessing VSTS or TFS resources during a build.
-  - Accessing VSTS or TFS resources is done with a per-build token which expires when build completes.
-  - The token is granted to trusted parts of the system: the agent, installed tasks and script steps specified by the build admin as trusted.  Protect the token from developer contributions such as unit tests, msbuild targets (not designated as trusted by the build admin). 
-  - Same code and scheme for VSTS private agents and TFS on-prem server and agents.
+  - Support agent installs in untrusted domains
+  - The account that configures or runs the agent process is not relevant for accessing Azure DevOps resources.
+  - Accessing Azure DevOps resources is done with a per-job token which expires when job completes.
+  - The token is granted to trusted parts of the system including the agent, installed tasks and script steps specified by the build admin as trusted. 
+  - Protect the token from developer contributions such as unit tests, msbuild targets (not designated as trusted by the build admin). 
+  - Same code and scheme for agents connecting to either Azure DevOps in the cloud or deployed on-prem.
 
 ## Configuration
 
-Configuring an agent registers an agent with a pool using your identity.  Configuring an agent is [covered here in the documentation](https://www.visualstudio.com/en-us/docs/build/actions/agents/v2-windows).
+Configuring an agent registers an agent with a pool using your identity.  
+Configuring an agent is [covered here in the documentation](https://www.visualstudio.com/en-us/docs/build/actions/agents/v2-windows).
 
 ![Config](res/01AgentConfig.png)
 
-Configuration is done with the user being authenticated via a PAT (VSTS | TFS) or optionally for on-prem TFS integrated auth (domain logged on credentials) or NTLM (supply username and password from non domain joined machine - typically Linux or OSX).
+Configuration is done with the user being authenticated via a PAT (or AAD).
+On-premisis deployments also support integrated auth (domain logged on credentials) or NTLM (supply username and password from non domain joined machine - typically Linux or OSX).
 
 *Your credentials are not stored and are only relevant for registering the agent with the service.*
 
@@ -28,28 +30,38 @@ After configuring the agent, the agent can be started interactively (./run.cmd o
 
 ![Start](res/02AgentStartListen.png)
 
-On start, the agent listener process loads the RSA private key (on windows decrypting with machine key DPAPI), sends a JWT token which signed by the private key to the service in order to exchange back an OAuth token that has permission to calls the message queue (http long poll) waiting for a job message to run.  
+On start, the agent listener process loads the RSA private key (on windows decrypting with machine key DPAPI), sends a JWT token which signed by the private key to the service.
+The server response with an OAuth token that grants permission to access the message queue (http long poll), allowing the agent to acquire the messages it will eventually run.
 
 ## Queue Build
 
-When a build is queued, it's demands are evaluated, it is matched to an agent and place in an agents queue of messages.  The agent is listening for jobs via the message queue http long poll.  The message also encrypted with the agent's public key service stored during agent configuration.  
+When a build is queued, its demands are evaluated, it is matched to an agent and a message is placed in a queue of messages for that agent.  
+The agent is listening for jobs via the message queue http long poll.  
+The message encrypted with the agent's public key, stored during agent configuration.  
 
 ![Queue](res/03AgentQueueBuild.png)
 
-A build is queued manually or as the result of a check-in trigger or build schedule.  A [JWT token](http://self-issued.info/docs/draft-ietf-oauth-json-web-token.html) is generated to for the project or collection level build service account (see options tab of build definition).  The lifetime of the JWT token is the lifetime of the build or at most the build timeout (options tab).
+A build is queued manually or as the result of a check-in trigger or build schedule.  
+A [JWT token](http://self-issued.info/docs/draft-ietf-oauth-json-web-token.html) is generated, granting limited access to the project or collection level build service account (see options tab of build definition).  
+The lifetime of the JWT token is the lifetime of the build or at most the build timeout (options tab).
 
-## Accessing VSTS or TFS Resources
+## Accessing Azure DevOps Resources
 
-The job message sent to the agent contains the token to talk back to VSTS or TFS.  The agent listener parent process will spawn a agent worker process for that build and send the job message over IPC.  The token is never persisted.  
+The job message sent to the agent contains the token to talk back to Azure DevOps.  
+The agent listener parent process will spawn an agent worker process for that job and send it the job message over IPC.
+The token is never persisted.
 
-When the worker runs each task it will be sent via an envvar, encrypted, stored in memory and cleared.  The token is registered as a secret and scrubbed from the logs as they are written.
+Each task is run as a unique subprocess. 
+The encrypted access token will be provided as an environment variable in each task subprocess.  
+The token is registered with the agent as a secret and scrubbed from the logs as they are written.
 
-There is an option (checkbox on option tab) to make the token accessible to ad-hoc scripts during the build (powershell, bash, and batch task scripts).
+There is an option to make the token accessible to ad-hoc scripts during the build (powershell, bash, and batch task scripts).
 
-NOTE:  The point is to make the token not *readily* available to developer contributed assets like unit tests and build (msbuild etc..) targets and scripts.  The token is meant for tasks and scripts that are trusted by the build admin by (1) installing the task or (2) directing a build definition to run that script.  The goal is to avoid having the token accidentally leak in scripts.  Even then, the token will expire at the end of the build which helps mitigate any accidental exposure.
-
+NOTE: The point is to make the token not *readily* available to developer contributed assets like unit tests and build (msbuild etc..) targets and scripts.  
+The token is meant for tasks and scripts that are trusted by the build admin by (1) installing the task or (2) directing a build definition to run that script.  
+The goal is to avoid having the token accidentally leak in scripts.  
+Even then, the token will expire at the end of the job which helps mitigate any accidental exposure.
 
 ## Relevant Planned Work
-
   - Run tasks in docker image.  Agent runs in host OS, agent and tasks mapped in read only, tasks run in container
   - Composition of Rights.  The ability to designate scopes up to per definition on what resources can be used with the per build token.

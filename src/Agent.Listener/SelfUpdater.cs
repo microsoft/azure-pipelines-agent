@@ -62,7 +62,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             await UpdateAgentUpdateStateAsync(StringUtil.Loc("EnsureJobFinished"));
 
             await jobDispatcher.WaitAsync(token);
-            Trace.Info($"All running job has exited.");
+            Trace.Info($"All running jobs have exited.");
 
             // delete agent backup
             DeletePreviousVersionAgentBackup(token);

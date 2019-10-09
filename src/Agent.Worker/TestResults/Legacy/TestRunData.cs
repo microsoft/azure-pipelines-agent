@@ -1,7 +1,7 @@
 ﻿using Microsoft.TeamFoundation.TestManagement.WebApi;
 using System.Collections.Generic;
 
-namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
+namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 {
     public class TestRunData : RunCreateModel
     {

@@ -2,20 +2,21 @@
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.TeamFoundation.TestClient.PublishTestResults;
 using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.VisualStudio.Services.WebPlatform;
+using Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
     public sealed class ResultsCommandExtension : AgentService, IWorkerCommandExtension
     {
         private IExecutionContext _executionContext;
+        
         //publish test results inputs
         private List<string> _testResultFiles;
         private string _testRunner;
@@ -24,14 +25,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private string _configuration;
         private string _runTitle;
         private bool _publishRunLevelAttachments;
-        private int _runCounter = 0;
 
         private bool _failTaskOnFailedTests;
 
-        private bool _isTestRunOutcomeFailed = false;
-        private readonly object _sync = new object();
         private string _testRunSystem;
-        private const string _testRunSystemCustomFieldName = "TestRunSystem";
 
         //telemetry parameter
         private const string _telemetryFeature = "PublishTestResultsCommand";
@@ -43,9 +40,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         public string CommandArea => "results";
 
         public HostTypes SupportedHostTypes => HostTypes.All;
-
-        public static int PublishBatchSize = 10;
-
+        
         public void ProcessCommand(IExecutionContext context, Command command)
         {
             if (string.Equals(command.Event, WellKnownResultsCommand.PublishTestResults, StringComparison.OrdinalIgnoreCase))
@@ -69,333 +64,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             LoadPublishTestResultsInputs(context, eventProperties, data);
 
             string teamProject = context.Variables.System_TeamProject;
-            string owner = context.Variables.Build_RequestedFor;
-            string buildUri = context.Variables.Build_BuildUri;
-            int buildId = context.Variables.Build_BuildId ?? 0;
-            string pullRequestTargetBranchName = context.Variables.System_PullRequest_TargetBranch;
-            string stageName = context.Variables.System_StageName;
-            string phaseName = context.Variables.System_PhaseName;
-            string jobName = context.Variables.System_JobName;
-            int stageAttempt = context.Variables.System_StageAttempt ?? 0;
-            int phaseAttempt = context.Variables.System_PhaseAttempt ?? 0;
-            int jobAttempt = context.Variables.System_JobAttempt ?? 0;
+            TestRunContext runContext = CreateTestRunContext();
 
-
-            //Temporary fix to support publish in RM scenarios where there might not be a valid Build ID associated.
-            //TODO: Make a cleaner fix after TCM User Story 401703 is completed.
-            if (buildId == 0)
-            {
-                _platform = _configuration = null;
-            }
-
-            string releaseUri = null;
-            string releaseEnvironmentUri = null;
-
-            // Check to identify if we are in the Release management flow; if not, then release fields will be kept null while publishing to TCM 
-            if (!string.IsNullOrWhiteSpace(context.Variables.Release_ReleaseUri))
-            {
-                releaseUri = context.Variables.Release_ReleaseUri;
-                releaseEnvironmentUri = context.Variables.Release_ReleaseEnvironmentUri;
-            }
-
-            IResultReader resultReader = GetTestResultReader(_testRunner);
-            TestRunContext runContext = new TestRunContext(owner, _platform, _configuration, buildId, buildUri, releaseUri, releaseEnvironmentUri);
-            runContext.StageName = stageName;
-            runContext.StageAttempt = stageAttempt;
-            runContext.PhaseName = phaseName;
-            runContext.PhaseAttempt = phaseAttempt;
-            runContext.JobName = jobName;
-            runContext.JobAttempt = jobAttempt;
-
-            runContext.PullRequestTargetBranchName = pullRequestTargetBranchName;
-            
             VssConnection connection = WorkerUtilities.GetVssConnection(_executionContext);
 
             var commandContext = HostContext.CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
-            commandContext.Task = PublishTestResultsAsync(connection, teamProject, buildId, runContext, resultReader); 
+            commandContext.Task = PublishTestRunDataAsync(connection, teamProject, runContext);
             _executionContext.AsyncCommands.Add(commandContext);
-
-            if(_isTestRunOutcomeFailed)
-            {
-                _executionContext.Result = TaskResult.Failed;
-                _executionContext.Error(StringUtil.Loc("FailedTestsInResults"));
-            }
-        }
-
-        private async Task PublishTestResultsAsync(VssConnection connection, String teamProject, int buildId, TestRunContext runContext, IResultReader resultReader)
-        {
-            var publisher = HostContext.GetService<ITestRunPublisher>();
-            publisher.InitializePublisher(_executionContext, connection, teamProject, resultReader);
-
-            if (_mergeResults)
-            {
-                await PublishAllTestResultsToSingleTestRunAsync(_testResultFiles, publisher, buildId, runContext, resultReader.Name, _executionContext.CancellationToken);
-            }
-            else
-            {
-                await PublishToNewTestRunPerTestResultFileAsync(_testResultFiles, publisher, runContext, resultReader.Name, PublishBatchSize, _executionContext.CancellationToken);
-            }
-
-            await PublishEventsAsync(connection);
-        }
-
-        /// <summary>
-        /// Publish single test run
-        /// </summary>
-        private async Task PublishAllTestResultsToSingleTestRunAsync(List<string> resultFiles, ITestRunPublisher publisher, int buildId, TestRunContext runContext, string resultReader, CancellationToken cancellationToken)
-        {
-            try
-            {
-                //use local time since TestRunData defaults to local times
-                DateTime minStartDate = DateTime.MaxValue;
-                DateTime maxCompleteDate = DateTime.MinValue;
-                DateTime presentTime = DateTime.UtcNow;
-                bool dateFormatError = false;
-                TimeSpan totalTestCaseDuration = TimeSpan.Zero;
-                List<string> runAttachments = new List<string>();
-                List<TestCaseResultData> runResults = new List<TestCaseResultData>();
-
-                //read results from each file
-                foreach (string resultFile in resultFiles)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    //test case results
-                    _executionContext.Debug(StringUtil.Format("Reading test results from file '{0}'", resultFile));
-                    TestRunData resultFileRunData = publisher.ReadResultsFromFile(runContext, resultFile);
-
-                    if(_failTaskOnFailedTests)
-                    {
-                        _isTestRunOutcomeFailed = _isTestRunOutcomeFailed || GetTestRunOutcome(resultFileRunData);
-                    }
-
-                    if (resultFileRunData != null)
-                    {
-                        if (resultFileRunData.Results != null && resultFileRunData.Results.Length > 0)
-                        {
-                            try
-                            {
-                                if (string.IsNullOrEmpty(resultFileRunData.StartDate) || string.IsNullOrEmpty(resultFileRunData.CompleteDate))
-                                {
-                                    dateFormatError = true;
-                                }
-
-                                //As per discussion with Manoj(refer bug 565487): Test Run duration time should be minimum Start Time to maximum Completed Time when merging
-                                if (!string.IsNullOrEmpty(resultFileRunData.StartDate))
-                                {
-                                    DateTime startDate = DateTime.Parse(resultFileRunData.StartDate, null, DateTimeStyles.RoundtripKind);
-                                    minStartDate = minStartDate > startDate ? startDate : minStartDate;
-
-                                    if (!string.IsNullOrEmpty(resultFileRunData.CompleteDate))
-                                    {
-                                        DateTime endDate = DateTime.Parse(resultFileRunData.CompleteDate, null, DateTimeStyles.RoundtripKind);
-                                        maxCompleteDate = maxCompleteDate < endDate ? endDate : maxCompleteDate;
-                                    }
-                                }
-                            }
-                            catch (FormatException)
-                            {
-                                _executionContext.Warning(StringUtil.Loc("InvalidDateFormat", resultFile, resultFileRunData.StartDate, resultFileRunData.CompleteDate));
-                                dateFormatError = true;
-                            }
-
-                            //continue to calculate duration as a fallback for case: if there is issue with format or dates are null or empty
-                            foreach (TestCaseResultData tcResult in resultFileRunData.Results)
-                            {
-                                int durationInMs = Convert.ToInt32(tcResult.DurationInMs);
-                                totalTestCaseDuration = totalTestCaseDuration.Add(TimeSpan.FromMilliseconds(durationInMs));
-                            }
-
-                            runResults.AddRange(resultFileRunData.Results);
-
-                            //run attachments
-                            if (resultFileRunData.Attachments != null)
-                            {
-                                runAttachments.AddRange(resultFileRunData.Attachments);
-                            }
-                        }
-                        else
-                        {
-                            _executionContext.Output(StringUtil.Loc("NoResultFound", resultFile));
-                        }
-                    }
-                    else
-                    {
-                        _executionContext.Warning(StringUtil.Loc("InvalidResultFiles", resultFile, resultReader));
-                    }
-                }
-
-                //publish run if there are results.
-                if (runResults.Count > 0)
-                {
-                    string runName = string.IsNullOrWhiteSpace(_runTitle)
-                    ? StringUtil.Format("{0}_TestResults_{1}", _testRunner, buildId)
-                    : _runTitle;
-
-                    if (DateTime.Compare(minStartDate, maxCompleteDate) > 0)
-                    {
-                        _executionContext.Warning(StringUtil.Loc("InvalidCompletedDate", maxCompleteDate, minStartDate));
-                        dateFormatError = true;
-                    }
-
-                    minStartDate = DateTime.Equals(minStartDate, DateTime.MaxValue) ? presentTime : minStartDate;
-                    maxCompleteDate = dateFormatError || DateTime.Equals(maxCompleteDate, DateTime.MinValue) ? minStartDate.Add(totalTestCaseDuration) : maxCompleteDate;
-
-                    //creat test run
-                    TestRunData testRunData = new TestRunData(
-                        name: runName,
-                        startedDate: minStartDate.ToString("o"),
-                        completedDate: maxCompleteDate.ToString("o"),
-                        state: "InProgress",
-                        isAutomated: true,
-                        buildId: runContext != null ? runContext.BuildId : 0,
-                        buildFlavor: runContext != null ? runContext.Configuration : string.Empty,
-                        buildPlatform: runContext != null ? runContext.Platform : string.Empty,
-                        releaseUri: runContext != null ? runContext.ReleaseUri : null,
-                        releaseEnvironmentUri: runContext != null ? runContext.ReleaseEnvironmentUri : null
-                    );
-                    testRunData.PipelineReference = GetTestPipelineReference(runContext);
-                    testRunData.Attachments = runAttachments.ToArray();
-                    testRunData.AddCustomField(_testRunSystemCustomFieldName, _testRunSystem);
-                    AddTargetBranchInfoToRunCreateModel(testRunData, runContext.PullRequestTargetBranchName);
-
-                    TestRun testRun = await publisher.StartTestRunAsync(testRunData, _executionContext.CancellationToken);
-                    await publisher.AddResultsAsync(testRun, runResults.ToArray(), _executionContext.CancellationToken);
-                    await publisher.EndTestRunAsync(testRunData, testRun.Id, true, _executionContext.CancellationToken);
-                }
-            }
-            catch (Exception ex) when (!(ex is OperationCanceledException))
-            {
-                //Do not fail the task.
-                LogPublishTestResultsFailureWarning(ex);
-            }
-        }
-
-        /// <summary>
-        /// Publish separate test run for each result file that has results.
-        /// </summary>
-        private async Task PublishToNewTestRunPerTestResultFileAsync(List<string> resultFiles,
-            ITestRunPublisher publisher,
-            TestRunContext runContext,
-            string resultReader,
-            int batchSize,
-            CancellationToken cancellationToken)
-        {
-            try
-            {
-                var groupedFiles = resultFiles
-                    .Select((resultFile, index) => new { Index = index, file = resultFile })
-                    .GroupBy(pair => pair.Index / batchSize)
-                    .Select(bucket => bucket.Select(pair => pair.file).ToList())
-                    .ToList();
-
-                bool changeTestRunTitle = resultFiles.Count > 1;
-
-                foreach (var files in groupedFiles)
-                {
-                    // Publish separate test run for each result file that has results.
-                    var publishTasks = files.Select(async resultFile =>
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        string runName = _runTitle;
-                        if (!string.IsNullOrWhiteSpace(_runTitle) && changeTestRunTitle)
-                        {
-                            runName = GetRunTitle();
-                        }
-
-                        _executionContext.Debug(StringUtil.Format("Reading test results from file '{0}'", resultFile));
-                        TestRunData testRunData = publisher.ReadResultsFromFile(runContext, resultFile, runName);
-                        testRunData.PipelineReference = GetTestPipelineReference(runContext);
-                        if(_failTaskOnFailedTests)
-                        {
-                            _isTestRunOutcomeFailed = _isTestRunOutcomeFailed || GetTestRunOutcome(testRunData);
-                        }
-
-                        cancellationToken.ThrowIfCancellationRequested();
-
-                        if (testRunData != null)
-                        {
-                            if (testRunData.Results != null && testRunData.Results.Length > 0)
-                            {
-                                testRunData.AddCustomField(_testRunSystemCustomFieldName, _testRunSystem);
-                                AddTargetBranchInfoToRunCreateModel(testRunData, runContext.PullRequestTargetBranchName);
-                                TestRun testRun = await publisher.StartTestRunAsync(testRunData, _executionContext.CancellationToken);
-                                await publisher.AddResultsAsync(testRun, testRunData.Results, _executionContext.CancellationToken);
-                                await publisher.EndTestRunAsync(testRunData, testRun.Id, cancellationToken: _executionContext.CancellationToken);
-                            }
-                            else
-                            {
-                                _executionContext.Output(StringUtil.Loc("NoResultFound", resultFile));
-                            }
-                        }
-                        else
-                        {
-                            _executionContext.Warning(StringUtil.Loc("InvalidResultFiles", resultFile, resultReader));
-                        }
-                    });
-                    await Task.WhenAll(publishTasks);
-                }
-            }
-            catch (Exception ex) when (!(ex is OperationCanceledException))
-            {
-                //Do not fail the task.
-                LogPublishTestResultsFailureWarning(ex);
-            }
-        }
-
-        private PipelineReference GetTestPipelineReference(TestRunContext runContext)
-        {
-            PipelineReference pipelineReference = null;
-            if(runContext != null)
-            {
-                pipelineReference = new PipelineReference()
-                {
-                    PipelineId = runContext.BuildId,
-                    StageReference = new StageReference() { StageName = runContext.StageName, Attempt = runContext.StageAttempt },
-                    PhaseReference = new PhaseReference() { PhaseName = runContext.PhaseName, Attempt = runContext.PhaseAttempt },
-                    JobReference = new JobReference() { JobName = runContext.JobName, Attempt = runContext.JobAttempt }
-                };
-            }
-            return pipelineReference;
-        }
-
-        private string GetRunTitle()
-        {
-            lock (_sync)
-            {
-                return StringUtil.Format("{0}_{1}", _runTitle, ++_runCounter);
-            }
-        }
-
-        /// <summary>
-        /// Reads a list testRunData Object and returns true if any test case outcome is failed
-        /// </summary>
-        /// <param name="testRunDataList"></param>
-        /// <returns></returns>
-        private bool GetTestRunOutcome(TestRunData testRunData)
-        {
-            foreach(var testCaseResultData in testRunData.Results)
-            {
-                if(testCaseResultData.Outcome == TestOutcome.Failed.ToString() || testCaseResultData.Outcome == TestOutcome.Aborted.ToString())
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        private IResultReader GetTestResultReader(string testRunner)
-        {
-            var extensionManager = HostContext.GetService<IExtensionManager>();
-            IResultReader reader = (extensionManager.GetExtensions<IResultReader>()).FirstOrDefault(x => testRunner.Equals(x.Name, StringComparison.OrdinalIgnoreCase));
-
-            if (reader == null)
-            {
-                throw new ArgumentException("Unknown Test Runner.");
-            }
-
-            reader.AddResultsFileToRunLevelAttachments = _publishRunLevelAttachments;
-            return reader;
+            
         }
 
         private void LoadPublishTestResultsInputs(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
@@ -507,7 +184,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             {
                 return;
             }
-            
+
             if (runCreateModel.BuildReference == null)
             {
                 runCreateModel.BuildReference = new BuildConfiguration() { TargetBranchName = pullRequestTargetBranchName };
@@ -516,6 +193,113 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             {
                 runCreateModel.BuildReference.TargetBranchName = pullRequestTargetBranchName;
             }
+        }
+
+        private TestRunContext CreateTestRunContext()
+        {
+            string releaseUri = null;
+            string releaseEnvironmentUri = null;
+
+            string teamProject = _executionContext.Variables.System_TeamProject;
+            string owner = _executionContext.Variables.Build_RequestedFor;
+            string buildUri = _executionContext.Variables.Build_BuildUri;
+            int buildId = _executionContext.Variables.Build_BuildId ?? 0;
+            string pullRequestTargetBranchName = _executionContext.Variables.System_PullRequest_TargetBranch;
+            string stageName = _executionContext.Variables.System_StageName;
+            string phaseName = _executionContext.Variables.System_PhaseName;
+            string jobName = _executionContext.Variables.System_JobName;
+            int stageAttempt = _executionContext.Variables.System_StageAttempt ?? 0;
+            int phaseAttempt = _executionContext.Variables.System_PhaseAttempt ?? 0;
+            int jobAttempt = _executionContext.Variables.System_JobAttempt ?? 0;
+
+            //Temporary fix to support publish in RM scenarios where there might not be a valid Build ID associated.
+            //TODO: Make a cleaner fix after TCM User Story 401703 is completed.
+            if (buildId == 0)
+            {
+                _platform = _configuration = null;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_executionContext.Variables.Release_ReleaseUri))
+            {
+                releaseUri = _executionContext.Variables.Release_ReleaseUri;
+                releaseEnvironmentUri = _executionContext.Variables.Release_ReleaseEnvironmentUri;
+            }
+
+            // If runName is not provided by the task, then create runName from testRunner name and buildId.
+            string runName = String.IsNullOrWhiteSpace(_runTitle)
+                ? String.Format("{0}_TestResults_{1}", _testRunner, buildId)
+                : _runTitle;
+
+            StageReference stageReference = new StageReference() { StageName = stageName, Attempt = Convert.ToInt32(stageAttempt) };
+            PhaseReference phaseReference = new PhaseReference() { PhaseName = phaseName, Attempt = Convert.ToInt32(phaseAttempt) };
+            JobReference jobReference = new JobReference() { JobName = jobName, Attempt = Convert.ToInt32(jobAttempt) };
+            PipelineReference pipelineReference = new PipelineReference()
+            {
+                PipelineId = buildId,
+                StageReference = stageReference,
+                PhaseReference = phaseReference,
+                JobReference = jobReference
+            };
+
+            TestRunContext testRunContext = new TestRunContext(
+                owner: owner,
+                platform: _platform,
+                configuration: _configuration,
+                buildId: buildId,
+                buildUri: buildUri,
+                releaseUri: releaseUri,
+                releaseEnvironmentUri: releaseEnvironmentUri,
+                runName: runName,
+                testRunSystem: _testRunSystem,
+                buildAttachmentProcessor: new CodeCoverageBuildAttachmentProcessor(),
+                targetBranchName: pullRequestTargetBranchName,
+                pipelineReference: pipelineReference
+            );
+            return testRunContext;
+
+        }
+
+        private PublishOptions GetPublishOptions()
+        {
+            var publishOptions = new PublishOptions()
+            {
+                IsMergeTestResultsToSingleRun = _mergeResults,
+                IsAddTestRunAttachments = _publishRunLevelAttachments
+            };
+
+            return publishOptions;
+        }
+
+        private async Task PublishTestRunDataAsync(VssConnection connection, String teamProject, TestRunContext testRunContext)
+        {
+            bool isTestRunOutcomeFailed = false;
+
+            var featureFlagService = HostContext.GetService<IFeatureFlagService>();
+            featureFlagService.InitializeFeatureService(_executionContext, connection);
+            var publishTestResultsLibFeatureState = featureFlagService.GetFeatureFlagState(TestResultsConstants.UsePublishTestResultsLibFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
+            _telemetryProperties.Add("UsePublishTestResultsLib", publishTestResultsLibFeatureState);
+            
+            //This check is to determine to use "Microsoft.TeamFoundation.PublishTestResults" Library or the agent code to parse and publish the test results.
+            if (publishTestResultsLibFeatureState){
+                var publisher = HostContext.GetService<ITestDataPublisher>();
+                publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner);
+
+                isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, GetPublishOptions(), _executionContext.CancellationToken);
+            }
+            else {
+                var publisher = HostContext.GetService<ILegacyTestRunDataPublisher>();
+                publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner, _publishRunLevelAttachments);
+
+                isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, _runTitle, _executionContext.Variables.Build_BuildId, _mergeResults);
+            }
+
+            if (isTestRunOutcomeFailed && _failTaskOnFailedTests)
+            {
+                _executionContext.Result = TaskResult.Failed;
+                _executionContext.Error(StringUtil.Loc("FailedTestsInResults"));
+            }
+
+            await PublishEventsAsync(connection);
         }
 
         private async Task PublishEventsAsync(VssConnection connection)

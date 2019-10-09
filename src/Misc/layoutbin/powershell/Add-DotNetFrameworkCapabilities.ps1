@@ -88,6 +88,7 @@ function Add-Versions {
             $release = Get-RegistryValue -Hive 'LocalMachine' -View $View -KeyName $profileKeyName -ValueName 'Release'
             $versionString = switch ($release) {
                 # We put the releaseVersion into version range, since customer might install beta/preview version .NET Framework.
+                # These magic values come from: https://docs.microsoft.com/en-us/dotnet/framework/migration-guide/how-to-determine-which-versions-are-installed
                 378389 { "4.5.0" }
                 { $_ -gt 378389 -and $_ -le 378758 } { "4.5.1" }
                 { $_ -gt 378758 -and $_ -le 379893 } { "4.5.2" }
@@ -95,7 +96,10 @@ function Add-Versions {
                 { $_ -gt 380995 -and $_ -le 393297 } { "4.6.0" }
                 { $_ -gt 393297 -and $_ -le 394271 } { "4.6.1" }
                 { $_ -gt 394271 -and $_ -le 394806 } { "4.6.2" }
-	            { $_ -gt 394806 } { "4.7.0" }
+                { $_ -gt 394806 -and $_ -le 460805 } { "4.7.0" }
+                { $_ -gt 460805 -and $_ -le 461310 } { "4.7.1" }
+                { $_ -gt 461310 -and $_ -le 461814 } { "4.7.2" }
+                { $_ -gt 461814 } { "4.8.0"}
             }
 
             if (!$versionString) {

@@ -28,6 +28,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
         private Mock<IConfigurationStore> _store;
         private Mock<IExtensionManager> _extnMgr;
         private Mock<IDeploymentGroupServer> _machineGroupServer;
+        private Mock<IEnvironmentsServer> _environmentsServer;
         private Mock<IVstsAgentWebProxy> _vstsAgentWebProxy;
         private Mock<IAgentCertificateManager> _cert;
 
@@ -55,6 +56,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
         private string _expectedWorkFolder = "_work";
         private int _expectedPoolId = 1;
         private int _expectedDeploymentMachineId = 81;
+        private int _expectedEnvironmentVMResourceId = 71;
         private RSACryptoServiceProvider rsa = null;
         private AgentSettings _configMgrAgentSettings = new AgentSettings();
 
@@ -68,6 +70,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             _extnMgr = new Mock<IExtensionManager>();
             _rsaKeyManager = new Mock<IRSAKeyManager>();
             _machineGroupServer = new Mock<IDeploymentGroupServer>();
+            _environmentsServer = new Mock<IEnvironmentsServer>();
             _vstsAgentWebProxy = new Mock<IVstsAgentWebProxy>();
             _cert = new Mock<IAgentCertificateManager>();
 
@@ -145,6 +148,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             tc.SetSingleton<IAgentServer>(_agentServer.Object);
             tc.SetSingleton<ILocationServer>(_locationServer.Object);
             tc.SetSingleton<IDeploymentGroupServer>(_machineGroupServer.Object);
+            tc.SetSingleton<IEnvironmentsServer>(_environmentsServer.Object);
             tc.SetSingleton<ICapabilitiesManager>(_capabilitiesManager);
             tc.SetSingleton<IVstsAgentWebProxy>(_vstsAgentWebProxy.Object);
             tc.SetSingleton<IAgentCertificateManager>(_cert.Object);
@@ -512,11 +516,119 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             }
         }
 
+        /*
+         * Agent configuartion as deployment agent against VSTS account
+         * Collectioion name is not required
+         */
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "ConfigurationManagement")]
+        public async Task CanEnsureEnvironmentVMResourceConfigureVSTSScenario()
+        {
+            SetEnvironmentVMResourceMocks();
+            var projectId = Guid.NewGuid();
+
+            using (TestHostContext tc = CreateTestContext())
+            {                
+                Tracing trace = tc.GetTrace();
+
+                trace.Info("Creating config manager");
+                IConfigurationManager configManager = new ConfigurationManager();
+                configManager.Initialize(tc);
+
+                trace.Info("Preparing command line arguments for Environment VM resource config vsts scenario");
+                var command = new CommandSettings(
+                    tc,
+                    new[]
+                    {
+                        "configure",
+#if !OS_WINDOWS
+                       "--acceptteeeula",
+#endif
+                        "--environment",
+                        "--url", _expectedVSTSServerUrl,
+                        "--agent", "environmentVMResourceName",
+                        "--projectname", "environmentPrj",
+                        "--environmentname", "env1",
+                        "--work", _expectedWorkFolder,
+                        "--auth", _expectedAuthType,
+                        "--token", _expectedToken
+                    });
+                trace.Info("Constructed.");
+
+                _store.Setup(x => x.IsConfigured()).Returns(false);
+                _configMgrAgentSettings = null;
+
+                _extnMgr.Setup(x => x.GetExtensions<IConfigurationProvider>()).Returns(GetConfigurationProviderList(tc));
+                _environmentsServer.Setup(x => x.GetEnvironmentsAsync(It.IsAny<string>(), It.IsAny<string>())).Returns(Task.FromResult(GetEnvironments("environmentPrj", projectId)));
+
+                trace.Info("Ensuring all the required parameters are available in the command line parameter");
+                await configManager.ConfigureAsync(command);
+
+                _store.Setup(x => x.IsConfigured()).Returns(true);
+
+                trace.Info("Configured, verifying all the parameter value");
+                var s = configManager.LoadSettings();
+                Assert.NotNull(s);
+                Assert.True(s.ServerUrl.Equals(_expectedVSTSServerUrl, StringComparison.CurrentCultureIgnoreCase));
+                Assert.True(s.AgentName.Equals("environmentVMResourceName"));
+                Assert.True(s.AgentId.Equals(35));
+                Assert.True(s.PoolId.Equals(57));
+                Assert.True(s.WorkFolder.Equals(_expectedWorkFolder));
+                Assert.True(s.MachineGroupId.Equals(0));
+                Assert.True(s.DeploymentGroupId.Equals(0));
+                Assert.True(s.EnvironmentId.Equals(54));
+                Assert.True(s.ProjectName.Equals("environmentPrj"));
+                Assert.True(s.ProjectId.Equals(projectId.ToString()));
+                Assert.True(s.EnvironmentVMResourceId.Equals(_expectedEnvironmentVMResourceId));
+
+                // Validate mock calls
+                _environmentsServer.Verify( x => x.ConnectAsync(It.IsAny<VssConnection>()), Times.Once);
+                _environmentsServer.Verify(x => x.AddEnvironmentVMAsync(It.IsAny<Guid>(), It.Is<int>(e => e == 54 ), It.Is<VirtualMachineResource>( v => v.Agent.Name == "environmentVMResourceName")), Times.Once);
+                _environmentsServer.Verify(x => x.GetEnvironmentVMsAsync(It.IsAny<Guid>(), It.Is<int>(e => e == 54), It.Is<string>( v => v == "environmentVMResourceName")), Times.Once);
+                _environmentsServer.Verify(x => x.GetEnvironmentsAsync(It.IsAny<string>(), It.Is<string>( e => e == "env1")), Times.Once);
+                _environmentsServer.Verify(x => x.GetEnvironmentPoolAsync(It.Is<Guid>( p => p == projectId ), It.Is<int>( e => e == 54)), Times.Once);
+            }
+        }
+
+        private void SetEnvironmentVMResourceMocks()
+        {
+            var expectedAgent = new TaskAgent("environmentVMResourceName") { Id = 35 };
+
+            expectedAgent.Authorization = new TaskAgentAuthorization
+            {
+                ClientId = Guid.NewGuid(),
+                AuthorizationUrl = new Uri("http://localhost:8080/tfs"),
+            };
+
+            var environmentPool = new TaskAgentPoolReference
+            {
+                Id = 57
+            };
+
+            var expectedEnvironmentVMResource = new VirtualMachineResource { Agent = expectedAgent, Id = _expectedEnvironmentVMResourceId, Name = "environmentVMResourceName" };
+
+            _environmentsServer.Setup(x => x.ConnectAsync(It.IsAny<VssConnection>())).Returns(Task.FromResult<object>(null));
+            _environmentsServer.Setup(x => x.AddEnvironmentVMAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<VirtualMachineResource>())).Returns(Task.FromResult(expectedEnvironmentVMResource));
+            _environmentsServer.Setup(x => x.ReplaceEnvironmentVMAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<VirtualMachineResource>())).Returns(Task.FromResult(expectedEnvironmentVMResource));
+            _environmentsServer.Setup(x => x.GetEnvironmentVMsAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>())).Returns(Task.FromResult(new List<VirtualMachineResource>() { }));
+            _environmentsServer.Setup(x => x.DeleteEnvironmentVMAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>())).Returns(Task.FromResult<object>(null));
+            _environmentsServer.Setup(x => x.GetEnvironmentPoolAsync(It.IsAny<Guid>(), It.IsAny<int>())).Returns(Task.FromResult(environmentPool));
+        }
+
         private List<DeploymentGroup> GetDeploymentGroups(int dgId, int poolId)
         {
             var dgJson = "{'id':" + dgId.ToString() + ",'project':{'id':'" + _expectedProjectId + "','name':'Test-Project1'},'name':'ch-test','pool':{'id':" + poolId.ToString() + ",'scope':'0efb4611-d565-4cd1-9a64-7d6cb6d7d5f0'}}";
             var deploymentGroup = JsonConvert.DeserializeObject<DeploymentGroup>(dgJson);
             return new List<DeploymentGroup>() { deploymentGroup };
+        }
+
+        private List<EnvironmentInstance> GetEnvironments(string projectName, Guid projectId)
+        {
+            var environmentJson = "{'id':54, 'project':{'id':'" + projectId + "','name':'" + projectName  +"'},'name':'env1'}";
+            var env = JsonConvert.DeserializeObject<EnvironmentInstance>(environmentJson);
+            
+            return new List<EnvironmentInstance>{ env };
         }
 
         // Init the Agent Config Provider
@@ -531,7 +643,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             IConfigurationProvider sharedDeploymentAgentConfiguration = new SharedDeploymentAgentConfigProvider();
             sharedDeploymentAgentConfiguration.Initialize(tc);
 
-            return new List<IConfigurationProvider> { buildReleasesAgentConfigProvider, _deploymentGroupAgentConfigProvider, sharedDeploymentAgentConfiguration };
+            IConfigurationProvider environmentVMResourceConfiguration = new EnvironmentVMResourceConfigProvider();
+            environmentVMResourceConfiguration.Initialize(tc);
+
+            return new List<IConfigurationProvider> { buildReleasesAgentConfigProvider, _deploymentGroupAgentConfigProvider, sharedDeploymentAgentConfiguration, environmentVMResourceConfiguration };
         }
         // TODO Unit Test for IsConfigured - Rename config file and make sure it returns false
 

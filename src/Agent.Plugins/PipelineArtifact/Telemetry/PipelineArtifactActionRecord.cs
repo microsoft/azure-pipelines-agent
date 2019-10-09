@@ -11,7 +11,7 @@ namespace Agent.Plugins.PipelineArtifact.Telemetry
     /// </summary>
     public class PipelineArtifactActionRecord : PipelineTelemetryRecord
     {
-        public static long FileCount { get; private set; }
+        public long FileCount { get; private set; }
 
         public PipelineArtifactActionRecord(TelemetryInformationLevel level, Uri baseAddress, string eventNamePrefix, string eventNameSuffix, AgentTaskPluginExecutionContext context, uint attemptNumber = 1)
             : base(level, baseAddress, eventNamePrefix, eventNameSuffix, context, attemptNumber)

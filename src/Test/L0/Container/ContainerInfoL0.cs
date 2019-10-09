@@ -1,6 +1,9 @@
 using System;
+using System.IO;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
+using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
@@ -58,6 +61,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
                 test.run();
             }
         
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void DefaultContainerInfoMappings()
+        {
+            var dockerContainer = new Pipelines.ContainerResource()
+                {
+                    Alias = "vsts_container_preview",
+                    Image = "foo"
+                };
+            using (TestHostContext hc = CreateTestContext())
+            {
+                ContainerInfo info = new ContainerInfo(hc, dockerContainer);
+                Assert.True(info.TranslateToContainerPath(hc.GetDirectory(WellKnownDirectory.Tools)).EndsWith($"{Path.DirectorySeparatorChar}__t"), "Tools directory maps");
+                Assert.True(info.TranslateToContainerPath(hc.GetDirectory(WellKnownDirectory.Work)).EndsWith($"{Path.DirectorySeparatorChar}__w"), "Work directory maps");
+                Assert.True(info.TranslateToContainerPath(hc.GetDirectory(WellKnownDirectory.Root)).EndsWith($"{Path.DirectorySeparatorChar}__a"), "Root directory maps");
+            }
+        }
+
+        private TestHostContext CreateTestContext([CallerMemberName] string testName = "")
+        {
+            TestHostContext hc = new TestHostContext(this, testName);
+            return hc;
         }
     }
 }

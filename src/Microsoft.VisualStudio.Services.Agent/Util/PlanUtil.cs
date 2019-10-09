@@ -5,7 +5,6 @@ using System.Net.Http;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
-using Microsoft.VisualStudio.Services.OAuth;
 using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
 

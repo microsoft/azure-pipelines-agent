@@ -10,8 +10,9 @@ using System.IO.Compression;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using TestRunContext = Microsoft.TeamFoundation.TestClient.PublishTestResults.TestRunContext;
 
-namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
+namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 {
     [ServiceLocator(Default = typeof(TestRunPublisher))]
     public interface ITestRunPublisher : IAgentService

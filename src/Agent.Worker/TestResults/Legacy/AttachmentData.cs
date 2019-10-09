@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
+namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 {
     /// <summary>
     /// This class is used to contain attachments list for the test run and the attachments for sub results.

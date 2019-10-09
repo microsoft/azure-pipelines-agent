@@ -32,6 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Constants.Agent.CommandLine.Flags.Commit,
             Constants.Agent.CommandLine.Flags.DeploymentGroup,
             Constants.Agent.CommandLine.Flags.DeploymentPool,
+            Constants.Agent.CommandLine.Flags.Environment,
 #if OS_WINDOWS
             Constants.Agent.CommandLine.Flags.GitUseSChannel,
 #endif
@@ -57,6 +58,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Constants.Agent.CommandLine.Args.DeploymentGroupName,
             Constants.Agent.CommandLine.Args.DeploymentPoolName,
             Constants.Agent.CommandLine.Args.DeploymentGroupTags,
+            Constants.Agent.CommandLine.Args.EnvironmentName,
+            Constants.Agent.CommandLine.Args.EnvironmentVMResourceTags,
             Constants.Agent.CommandLine.Args.MachineGroupName,
             Constants.Agent.CommandLine.Args.MachineGroupTags,
             Constants.Agent.CommandLine.Args.Matrix,
@@ -98,6 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         public bool Version => TestFlag(Constants.Agent.CommandLine.Flags.Version);
         public bool DeploymentGroup => TestFlag(Constants.Agent.CommandLine.Flags.MachineGroup) || TestFlag(Constants.Agent.CommandLine.Flags.DeploymentGroup);
         public bool DeploymentPool => TestFlag(Constants.Agent.CommandLine.Flags.DeploymentPool);
+        public bool EnvironmentVMResource => TestFlag(Constants.Agent.CommandLine.Flags.Environment);
         public bool WhatIf => TestFlag(Constants.Agent.CommandLine.Flags.WhatIf);
 #if OS_WINDOWS
         public bool GitUseSChannel => TestFlag(Constants.Agent.CommandLine.Flags.GitUseSChannel);
@@ -225,7 +229,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                            name: Constants.Agent.CommandLine.Flags.AddDeploymentGroupTags,
                            description: StringUtil.Loc("AddDeploymentGroupTagsFlagDescription"),
                            defaultValue: false);
-        }
+        }        
 
         public bool GetAutoLaunchBrowser()
         {
@@ -357,6 +361,45 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 return GetArgOrPrompt(
                     name: Constants.Agent.CommandLine.Args.DeploymentGroupTags,
                     description: StringUtil.Loc("DeploymentGroupTags"),
+                    defaultValue: string.Empty,
+                    validator: Validators.NonEmptyValidator);
+            }
+            return result;
+        }
+
+        // Environments
+
+        public string GetEnvironmentName()
+        {
+            var result = GetArg(Constants.Agent.CommandLine.Args.EnvironmentName);
+            if (string.IsNullOrEmpty(result))
+            {
+                return GetArgOrPrompt(
+                    name: Constants.Agent.CommandLine.Args.EnvironmentName,
+                    description: StringUtil.Loc("EnvironmentName"),
+                    defaultValue: string.Empty,
+                    validator: Validators.NonEmptyValidator);
+            }
+            return result;
+        }
+
+        public bool GetEnvironmentVirtualMachineResourceTagsRequired()
+        {
+            return TestFlag(Constants.Agent.CommandLine.Flags.AddEnvironmentVirtualMachineResourceTags)
+                   || TestFlagOrPrompt(
+                           name: Constants.Agent.CommandLine.Flags.AddEnvironmentVirtualMachineResourceTags,
+                           description: StringUtil.Loc("AddEnvironmentVMResourceTags"),
+                           defaultValue: false);
+        }
+        
+        public string GetEnvironmentVirtualMachineResourceTags()
+        {
+            var result = GetArg(Constants.Agent.CommandLine.Args.EnvironmentVMResourceTags);
+            if (string.IsNullOrEmpty(result))
+            {
+                return GetArgOrPrompt(
+                    name: Constants.Agent.CommandLine.Args.EnvironmentVMResourceTags,
+                    description: StringUtil.Loc("EnvironmentVMResourceTags"),
                     defaultValue: string.Empty,
                     validator: Validators.NonEmptyValidator);
             }

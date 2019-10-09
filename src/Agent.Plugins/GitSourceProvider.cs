@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Text;
-using System.Diagnostics;
 using Agent.Sdk;
 using System.Linq;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;

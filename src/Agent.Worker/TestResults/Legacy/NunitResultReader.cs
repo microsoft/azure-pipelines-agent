@@ -5,8 +5,9 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Xml;
+using TestRunContext = Microsoft.TeamFoundation.TestClient.PublishTestResults.TestRunContext;
 
-namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
+namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 {
     internal class NUnitResultsXmlReader
     {

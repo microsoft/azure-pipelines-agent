@@ -1,4 +1,4 @@
-namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
+namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 {
     public interface IConverter<in TResultData, in TResultWebApi>
     {

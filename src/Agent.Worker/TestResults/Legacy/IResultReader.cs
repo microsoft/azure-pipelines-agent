@@ -1,4 +1,6 @@
-﻿namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
+﻿using TestRunContext = Microsoft.TeamFoundation.TestClient.PublishTestResults.TestRunContext;
+
+namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 {
     public interface IResultReader : IExtension
     {

@@ -75,12 +75,13 @@ namespace Agent.Sdk
 
             VssClientHttpRequestSettings.Default.UserAgent = headerValues;
 
-#if OS_LINUX || OS_OSX
-            // The .NET Core 2.1 runtime switched its HTTP default from HTTP 1.1 to HTTP 2.
-            // This causes problems with some versions of the Curl handler.
-            // See GitHub issue https://github.com/dotnet/corefx/issues/32376
-            VssClientHttpRequestSettings.Default.UseHttp11 = true;
-#endif
+            if (PlatformUtil.RunningOnOS == PlatformUtil.OS.Linux || PlatformUtil.RunningOnOS == PlatformUtil.OS.OSX)
+            {
+                // The .NET Core 2.1 runtime switched its HTTP default from HTTP 1.1 to HTTP 2.
+                // This causes problems with some versions of the Curl handler.
+                // See GitHub issue https://github.com/dotnet/corefx/issues/32376
+                VssClientHttpRequestSettings.Default.UseHttp11 = true;
+            }
 
             var certSetting = GetCertConfiguration();
             if (certSetting != null)

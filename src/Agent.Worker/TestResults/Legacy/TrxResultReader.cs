@@ -11,8 +11,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Threading;
 using System.Xml;
+using TestRunContext = Microsoft.TeamFoundation.TestClient.PublishTestResults.TestRunContext;
 
-namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
+namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 {
     public class TrxResultReader : AgentService, IResultReader
     {

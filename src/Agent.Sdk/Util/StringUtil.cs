@@ -1,3 +1,4 @@
+using Agent.Sdk;
 using Microsoft.VisualStudio.Services.WebApi;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -18,17 +19,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         static StringUtil()
         {
-#if OS_WINDOWS
-            // By default, only Unicode encodings, ASCII, and code page 28591 are supported.
-            // This line is required to support the full set of encodings that were included
-            // in Full .NET prior to 4.6.
-            //
-            // For example, on an en-US box, this is required for loading the encoding for the
-            // default console output code page '437'. Without loading the correct encoding for
-            // code page IBM437, some characters cannot be translated correctly, e.g. write 'ç'
-            // from powershell.exe.
-            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-#endif
+            if (PlatformUtil.RunningOnOS == PlatformUtil.OS.Windows)
+            {
+                // By default, only Unicode encodings, ASCII, and code page 28591 are supported.
+                // This line is required to support the full set of encodings that were included
+                // in Full .NET prior to 4.6.
+                //
+                // For example, on an en-US box, this is required for loading the encoding for the
+                // default console output code page '437'. Without loading the correct encoding for
+                // code page IBM437, some characters cannot be translated correctly, e.g. write 'ç'
+                // from powershell.exe.
+                Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            }
         }
 
         public static string SubstringPrefix(string value, int count)
@@ -86,14 +88,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         public static Encoding GetSystemEncoding()
         {
-#if OS_WINDOWS
-            // The static constructor should have registered the required encodings.
-            // Code page 0 is equivalent to the current system default (i.e. CP_ACP).
-            // E.g. code page 1252 on an en-US box.
-            return Encoding.GetEncoding(0);
-#else
-            throw new NotSupportedException(nameof(GetSystemEncoding)); // Should never reach here.
-#endif
+            if (PlatformUtil.RunningOnOS == PlatformUtil.OS.Windows)
+            {
+                // The static constructor should have registered the required encodings.
+                // Code page 0 is equivalent to the current system default (i.e. CP_ACP).
+                // E.g. code page 1252 on an en-US box.
+                return Encoding.GetEncoding(0);
+            }
+            else
+            {
+                throw new NotSupportedException(nameof(GetSystemEncoding)); // Should never reach here.
+            }
         }
 
         // Do not combine the non-format overload with the format overload.

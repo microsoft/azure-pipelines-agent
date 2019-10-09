@@ -1,12 +1,9 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
-using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Newtonsoft.Json.Linq;
@@ -166,7 +163,7 @@ namespace Agent.Plugins.Repository
                     IOUtil.DeleteDirectory(expectRepoPath, CancellationToken.None);
                 }
 
-                executionContext.Output($"Repository will locate at '{expectRepoPath}'.");
+                executionContext.Output($"Repository will be located at '{expectRepoPath}'.");
                 repo.Properties.Set<string>(Pipelines.RepositoryPropertyNames.Path, expectRepoPath);
             }
 

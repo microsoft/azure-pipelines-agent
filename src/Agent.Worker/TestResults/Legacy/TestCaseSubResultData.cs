@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.TeamFoundation.TestManagement.WebApi;
 
-namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
+namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 {
     public class TestCaseSubResultData
     {

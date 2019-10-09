@@ -63,6 +63,14 @@ namespace Agent.Plugins.PipelineArtifact
             CancellationToken token)
         {
             string artifactName = context.GetInput(ArtifactEventProperties.ArtifactName, required: false);
+            if (string.IsNullOrEmpty(artifactName))
+            {
+                context.Output($"Artifact name was not inserted for publishing.");
+            }
+            else
+            {
+                context.Output($"Artifact name input: {artifactName}");                
+            }
             string targetPath = context.GetInput(TargetPath, required: true);
             string artifactType = context.GetInput(ArtifactEventProperties.ArtifactType, required: false);
             artifactType = string.IsNullOrEmpty(artifactType) ? pipelineType : artifactType.ToLower();

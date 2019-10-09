@@ -52,10 +52,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                             trace.Info($"Find the env.");
                             return;
                         }
+                        else
+                        {
+                            Assert.True(false, "Expected environment '" + envValue + "' did not match actual '" + value + "'");
+                        }
                     }
                     catch (Exception ex)
                     {
                         trace.Error(ex);
+                        Assert.True(false, "Fail to retrive process environment variable due to exception: " + ex.Message);
                     }
 
                     Assert.True(false, "Fail to retrive process environment variable.");
