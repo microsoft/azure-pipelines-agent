@@ -61,7 +61,7 @@ At this point, you should have all required pieces `ca.pem`, `client-cert.pem`, 
 
 ### No-Windows
 
-As I mentioned before, most Linux backgroud application just expect all certificate related files are on disk, and use `OpenSSL` to deal with cert is quiet common on Liunx, so I assume for customer who wants to setup Build/Release agent on Linux already has `ca.pem`, `client-cert.pem` and `client-cert-key.pem` in place. So the only missing piece should be the client cert archive `.pfx` file.  
+As I mentioned before, most Linux backgroud application just expect all certificate related files are on disk, and use `OpenSSL` to deal with cert is quiet common on Linux, so I assume for customer who wants to setup Build/Release agent on Linux already has `ca.pem`, `client-cert.pem` and `client-cert-key.pem` in place. So the only missing piece should be the client cert archive `.pfx` file.  
 ```
 From Terminal:
 openssl pkcs12 -export -out client-cert-archive.pfx -passout pass:<YOURCERTPASSWORD> -inkey client-cert-key.pem -in client-cert.pem -passin pass:<YOURCERTPASSWORD> -certfile CA.pem
