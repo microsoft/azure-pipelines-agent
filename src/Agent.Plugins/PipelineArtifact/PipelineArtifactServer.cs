@@ -61,7 +61,7 @@ namespace Agent.Plugins.PipelineArtifact
                 BuildArtifact buildArtifact = await AsyncHttpRetryHelper.InvokeAsync(
                     async () => 
                     {
-                        var artifact = await buildHelper.AssociateArtifactAsync(projectId, 
+                        return await buildHelper.AssociateArtifactAsync(projectId, 
                                                                                 pipelineId, 
                                                                                 name, 
                                                                                 context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.JobId)?.Value?? string.Empty, 
@@ -70,7 +70,6 @@ namespace Agent.Plugins.PipelineArtifact
                                                                                 propertiesDictionary, 
                                                                                 cancellationToken);
 
-                        return artifact;
                     },
                     maxRetries: 3,
                     tracer,
@@ -323,12 +322,6 @@ namespace Agent.Plugins.PipelineArtifact
             {
                 throw new InvalidOperationException($"Invalid {nameof(downloadOptions)}!");
             }
-        }
-
-        private CallbackAppTraceSource CreateTracer(AgentTaskPluginExecutionContext context)
-        {
-            var tracer = new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information);
-            return tracer;
         }
 
         public class Tracer {
