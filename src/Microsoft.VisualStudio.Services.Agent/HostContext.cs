@@ -284,7 +284,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     break;
 
                 case WellKnownConfigFile.CredentialStore:
-                    if (PlatformUtil.RunningOnOS == PlatformUtil.OS.OSX)
+                    if (PlatformUtil.RunningOnMacOS)
                     {
                         path = Path.Combine(
                             GetDirectory(WellKnownDirectory.Root),

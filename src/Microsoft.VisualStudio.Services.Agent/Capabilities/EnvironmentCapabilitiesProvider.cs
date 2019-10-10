@@ -36,7 +36,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
 
             // Initialize the ignored hash set.
             var comparer = StringComparer.Ordinal;
-            if (PlatformUtil.RunningOnOS == PlatformUtil.OS.Windows)
+            if (PlatformUtil.RunningOnWindows)
             {
                 comparer = StringComparer.OrdinalIgnoreCase;
             }

@@ -47,7 +47,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         public static string PathVariable
         {
             get => 
-                PlatformUtil.RunningOnOS == PlatformUtil.OS.Windows
+                PlatformUtil.RunningOnWindows
                 ? "Path"
                 : "PATH";
         }

@@ -43,11 +43,11 @@ namespace Microsoft.VisualStudio.Services.Agent
                 case "Microsoft.VisualStudio.Services.Agent.Capabilities.ICapabilitiesProvider":
                     Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Capabilities.AgentCapabilitiesProvider, Microsoft.VisualStudio.Services.Agent");
                     Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Capabilities.EnvironmentCapabilitiesProvider, Microsoft.VisualStudio.Services.Agent");
-                    if (PlatformUtil.RunningOnOS == PlatformUtil.OS.Linux || PlatformUtil.RunningOnOS == PlatformUtil.OS.OSX)
+                    if (PlatformUtil.RunningOnLinux || PlatformUtil.RunningOnMacOS)
                     {
                         Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Capabilities.NixCapabilitiesProvider, Microsoft.VisualStudio.Services.Agent");
                     }
-                    if (PlatformUtil.RunningOnOS == PlatformUtil.OS.Windows)
+                    if (PlatformUtil.RunningOnWindows)
                     {
                         Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Capabilities.PowerShellCapabilitiesProvider, Microsoft.VisualStudio.Services.Agent");
                     }
