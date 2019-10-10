@@ -33,11 +33,11 @@ namespace Agent.Plugins.PipelineArtifact
             return parallelism;
         } 
 
-        private readonly CallbackAppTraceSource tracer;
+        private readonly IAppTraceSource tracer;
         private readonly AgentTaskPluginExecutionContext context;
         private readonly VssConnection connection;
 
-        public PipelineArtifactProvider(AgentTaskPluginExecutionContext context, VssConnection connection, CallbackAppTraceSource tracer)
+        public PipelineArtifactProvider(AgentTaskPluginExecutionContext context, VssConnection connection, IAppTraceSource tracer)
         {
             var dedupStoreHttpClient = connection.GetClient<DedupStoreHttpClient>();
             this.tracer = tracer;

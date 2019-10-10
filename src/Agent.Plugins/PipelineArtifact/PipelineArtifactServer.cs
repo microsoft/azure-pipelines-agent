@@ -20,6 +20,13 @@ namespace Agent.Plugins.PipelineArtifact
     // A wrapper of DedupManifestArtifactClient, providing basic functionalities such as uploading and downloading pipeline artifacts.
     public class PipelineArtifactServer
     {
+        private readonly IAppTraceSource tracer;
+
+        public PipelineArtifactServer(IAppTraceSource tracer)
+        {
+            this.tracer = tracer;
+        }
+
         // Upload from target path to Azure DevOps BlobStore service through DedupManifestArtifactClient, then associate it with the build
         internal async Task UploadAsync(
             AgentTaskPluginExecutionContext context,
@@ -56,7 +63,6 @@ namespace Agent.Plugins.PipelineArtifact
                 propertiesDictionary.Add(PipelineArtifactConstants.RootId, result.RootId.ValueString);
                 propertiesDictionary.Add(PipelineArtifactConstants.ProofNodes, StringUtil.ConvertToJson(result.ProofNodes.ToArray()));
                 propertiesDictionary.Add(PipelineArtifactConstants.ArtifactSize, result.ContentSize.ToString());
-                var tracer = Tracer.CreateTracer(context);
 
                 BuildArtifact buildArtifact = await AsyncHttpRetryHelper.InvokeAsync(
                     async () => 
@@ -273,19 +279,19 @@ namespace Agent.Plugins.PipelineArtifact
 
                 if (buildArtifacts.Any())
                 {
-                    FileContainerProvider provider = new FileContainerProvider(connection, Tracer.CreateTracer(context));
+                    FileContainerProvider provider = new FileContainerProvider(connection, this.tracer);
                     await provider.DownloadMultipleArtifactsAsync(downloadParameters, buildArtifacts, cancellationToken);
                 }
 
                 if (pipelineArtifacts.Any())
                 {
-                    PipelineArtifactProvider provider = new PipelineArtifactProvider(context, connection, Tracer.CreateTracer(context));
+                    PipelineArtifactProvider provider = new PipelineArtifactProvider(context, connection, this.tracer);
                     await provider.DownloadMultipleArtifactsAsync(downloadParameters, pipelineArtifacts, cancellationToken);
                 }
 
                 if(fileShareArtifacts.Any()) 
                 {
-                    FileShareProvider provider = new FileShareProvider(context, connection, Tracer.CreateTracer(context));
+                    FileShareProvider provider = new FileShareProvider(context, connection, this.tracer);
                     await provider.DownloadMultipleArtifactsAsync(downloadParameters, fileShareArtifacts, cancellationToken);
                 }
             }
@@ -313,7 +319,7 @@ namespace Agent.Plugins.PipelineArtifact
                     throw new InvalidOperationException($"Invalid {nameof(downloadParameters.ProjectRetrievalOptions)}!");
                 }
 
-                ArtifactProviderFactory factory = new ArtifactProviderFactory(context, connection, Tracer.CreateTracer(context));
+                ArtifactProviderFactory factory = new ArtifactProviderFactory(context, connection, this.tracer);
                 IArtifactProvider provider = factory.GetProvider(buildArtifact);
                 
                 await provider.DownloadSingleArtifactAsync(downloadParameters, buildArtifact, cancellationToken);
@@ -321,19 +327,6 @@ namespace Agent.Plugins.PipelineArtifact
             else
             {
                 throw new InvalidOperationException($"Invalid {nameof(downloadOptions)}!");
-            }
-        }
-
-        public class Tracer {
-            private static CallbackAppTraceSource tracer;
-            private Tracer(AgentTaskPluginExecutionContext context) {
-                tracer = new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information);
-            }
-            public static CallbackAppTraceSource CreateTracer(AgentTaskPluginExecutionContext context){
-                if(tracer == null) {
-                    new Tracer(context);
-                }
-                return tracer;
             }
         }
     }
