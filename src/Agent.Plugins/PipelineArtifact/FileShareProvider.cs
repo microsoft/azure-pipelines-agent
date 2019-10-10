@@ -22,7 +22,7 @@ namespace Agent.Plugins.PipelineArtifact
     internal class FileShareProvider: IArtifactProvider
     {
         private readonly AgentTaskPluginExecutionContext context;
-        private readonly CallbackAppTraceSource tracer;
+        private readonly IAppTraceSource tracer;
         private const int defaultParallelCount = 1;
         private readonly VssConnection connection;
         private readonly IDedupManifestArtifactClientFactory factory;
@@ -30,11 +30,11 @@ namespace Agent.Plugins.PipelineArtifact
         // Default stream buffer size set in the existing file share implementation https://github.com/microsoft/azure-pipelines-agent/blob/ffb3a9b3e2eb5a1f34a0f45d0f2b8639740d37d3/src/Agent.Worker/Release/Artifacts/FileShareArtifact.cs#L154
         private const int DefaultStreamBufferSize = 8192;
 
-        public FileShareProvider(AgentTaskPluginExecutionContext context, VssConnection connection, CallbackAppTraceSource tracer) : this(context, connection, tracer, DedupManifestArtifactClientFactory.Instance)
+        public FileShareProvider(AgentTaskPluginExecutionContext context, VssConnection connection, IAppTraceSource tracer) : this(context, connection, tracer, DedupManifestArtifactClientFactory.Instance)
         {
         }
 
-        internal FileShareProvider(AgentTaskPluginExecutionContext context, VssConnection connection, CallbackAppTraceSource tracer, IDedupManifestArtifactClientFactory factory)
+        internal FileShareProvider(AgentTaskPluginExecutionContext context, VssConnection connection, IAppTraceSource tracer, IDedupManifestArtifactClientFactory factory)
         {
             this.factory = factory;
             this.context = context;

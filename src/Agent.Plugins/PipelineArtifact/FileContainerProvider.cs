@@ -22,9 +22,9 @@ namespace Agent.Plugins.PipelineArtifact
     internal class FileContainerProvider : IArtifactProvider
     {
         private readonly FileContainerHttpClient containerClient;
-        private readonly CallbackAppTraceSource tracer;
+        private readonly IAppTraceSource tracer;
 
-        public FileContainerProvider(VssConnection connection, CallbackAppTraceSource tracer)
+        public FileContainerProvider(VssConnection connection, IAppTraceSource tracer)
         {
             containerClient = connection.GetClient<FileContainerHttpClient>();
             this.tracer = tracer;
