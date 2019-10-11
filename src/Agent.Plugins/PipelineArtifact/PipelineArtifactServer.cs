@@ -78,9 +78,9 @@ namespace Agent.Plugins.PipelineArtifact
 
                     },
                     maxRetries: 3,
-                    tracer,
+                    tracer: tracer,
                     canRetryDelegate: e => e is TimeoutException || e.InnerException is TimeoutException,
-                    cancellationToken,
+                    cancellationToken: cancellationToken,
                     continueOnCapturedContext: false);
                 
                 context.Output(StringUtil.Loc("AssociateArtifactWithBuild", buildArtifact.Id, pipelineId));
