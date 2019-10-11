@@ -16,7 +16,7 @@ namespace Agent.Plugins.PipelineArtifact
     {
         public abstract Guid Id { get; }
         public string Stage => "main";
-        protected CallbackAppTraceSource tracer;
+        protected IAppTraceSource tracer;
 
         public async Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
