@@ -68,13 +68,13 @@ namespace Agent.Plugins.PipelineArtifact
                     async () => 
                     {
                         return await buildHelper.AssociateArtifactAsync(projectId, 
-                                                                                pipelineId, 
-                                                                                name, 
-                                                                                context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.JobId)?.Value?? string.Empty, 
-                                                                                ArtifactResourceTypes.PipelineArtifact, 
-                                                                                result.ManifestId.ValueString, 
-                                                                                propertiesDictionary, 
-                                                                                cancellationToken);
+                                                                        pipelineId, 
+                                                                        name, 
+                                                                        context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.JobId)?.Value?? string.Empty, 
+                                                                        ArtifactResourceTypes.PipelineArtifact, 
+                                                                        result.ManifestId.ValueString, 
+                                                                        propertiesDictionary, 
+                                                                        cancellationToken);
 
                     },
                     maxRetries: 3,
