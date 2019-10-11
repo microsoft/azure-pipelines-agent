@@ -4,6 +4,7 @@
 - Consume PublishTestResults library in TestResults Publish command (#2430)
 
 ## Bugs
+- Add retry handler for the CreateArtifactAsync function (#2495)
 - Fix long path issues for Pipeline Artifacts/Pipeline Caching (#2467)
 - Fix tar download issue in Linux (#2452)
 
