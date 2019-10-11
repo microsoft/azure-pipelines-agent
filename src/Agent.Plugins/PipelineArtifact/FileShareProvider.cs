@@ -30,7 +30,7 @@ namespace Agent.Plugins.PipelineArtifact
         // Default stream buffer size set in the existing file share implementation https://github.com/microsoft/azure-pipelines-agent/blob/ffb3a9b3e2eb5a1f34a0f45d0f2b8639740d37d3/src/Agent.Worker/Release/Artifacts/FileShareArtifact.cs#L154
         private const int DefaultStreamBufferSize = 8192;
 
-        internal FileShareProvider(AgentTaskPluginExecutionContext context, IAppTraceSource tracer)
+        public FileShareProvider(AgentTaskPluginExecutionContext context, IAppTraceSource tracer)
         {
             this.context = context;
             this.tracer = tracer;
