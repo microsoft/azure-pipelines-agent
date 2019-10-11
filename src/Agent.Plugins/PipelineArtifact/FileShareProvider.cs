@@ -1,17 +1,22 @@
-﻿using System;
+﻿  
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
+using Agent.Plugins.PipelineArtifact.Telemetry;
 using Agent.Sdk;
 using Microsoft.TeamFoundation.Build.WebApi;
-using Microsoft.VisualStudio.Services.BlobStore.Common;
-using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Microsoft.VisualStudio.Services.Agent;
+using Microsoft.VisualStudio.Services.BlobStore.Common;
+using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
+using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common;
+using Microsoft.VisualStudio.Services.Content.Common.Tracing;
+using Microsoft.VisualStudio.Services.WebApi;
 
 
 namespace Agent.Plugins.PipelineArtifact
@@ -19,17 +24,16 @@ namespace Agent.Plugins.PipelineArtifact
     internal class FileShareProvider: IArtifactProvider
     {
         private readonly AgentTaskPluginExecutionContext context;
-        private readonly CallbackAppTraceSource tracer;
+        private readonly IAppTraceSource tracer;
         private const int defaultParallelCount = 1;
-        private string hostType;
+
         // Default stream buffer size set in the existing file share implementation https://github.com/microsoft/azure-pipelines-agent/blob/ffb3a9b3e2eb5a1f34a0f45d0f2b8639740d37d3/src/Agent.Worker/Release/Artifacts/FileShareArtifact.cs#L154
         private const int DefaultStreamBufferSize = 8192;
 
-        public FileShareProvider(AgentTaskPluginExecutionContext context, CallbackAppTraceSource tracer)
+        internal FileShareProvider(AgentTaskPluginExecutionContext context, IAppTraceSource tracer)
         {
             this.context = context;
             this.tracer = tracer;
-            this.hostType = context.Variables.GetValueOrDefault("system.hosttype")?.Value;
         }
 
         // For the current existing build artifact task, the artifact name is also created during single download process and we want to preserve this behavior. 
