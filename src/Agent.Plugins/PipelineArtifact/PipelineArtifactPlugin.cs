@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.Build.WebApi;
@@ -9,6 +8,7 @@ using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Agent.Sdk;
 using System.Text.RegularExpressions;
+using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 
 namespace Agent.Plugins.PipelineArtifact
 {
@@ -16,6 +16,7 @@ namespace Agent.Plugins.PipelineArtifact
     {
         public abstract Guid Id { get; }
         public string Stage => "main";
+        protected IAppTraceSource tracer;
 
         public async Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
@@ -23,6 +24,8 @@ namespace Agent.Plugins.PipelineArtifact
             // Path
             // TODO: Translate targetPath from container to host (Ting)
             string targetPath = context.GetInput(ArtifactEventProperties.TargetPath, required: true);
+
+            this.tracer = new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information);
 
             await ProcessCommandInternalAsync(context, targetPath, token);
         }
@@ -101,7 +104,7 @@ namespace Agent.Plugins.PipelineArtifact
 
             // Upload to VSTS BlobStore, and associate the artifact with the build.
             context.Output(StringUtil.Loc("UploadingPipelineArtifact", fullPath, buildId));
-            PipelineArtifactServer server = new PipelineArtifactServer();
+            PipelineArtifactServer server = new PipelineArtifactServer(tracer);
             await server.UploadAsync(context, projectId, buildId, artifactName, fullPath, token);
             context.Output(StringUtil.Loc("UploadArtifactFinished"));
         }
@@ -181,7 +184,7 @@ namespace Agent.Plugins.PipelineArtifact
 
             // Download from VSTS BlobStore
             context.Output(StringUtil.Loc("DownloadArtifactTo", targetPath));
-            PipelineArtifactServer server = new PipelineArtifactServer();
+            PipelineArtifactServer server = new PipelineArtifactServer(tracer);
             await server.DownloadAsync(context, projectId, buildId, artifactName, targetPath, token);
             context.Output(StringUtil.Loc("DownloadArtifactFinished"));
         }

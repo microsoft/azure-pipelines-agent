@@ -12,6 +12,7 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using Agent.Sdk;
 using System.Text.RegularExpressions;
 using System.Runtime.InteropServices;
+using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 
 namespace Agent.Plugins.PipelineArtifact
 {
@@ -20,10 +21,12 @@ namespace Agent.Plugins.PipelineArtifact
         public abstract Guid Id { get; }
         protected virtual string TargetPath => "targetPath";
         protected virtual string PipelineId => "pipelineId";
+        protected CallbackAppTraceSource tracer;
         public string Stage => "main";
 
         public Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
+            this.tracer = new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information);
             return this.ProcessCommandInternalAsync(context, token);
         }
 
@@ -131,7 +134,7 @@ namespace Agent.Plugins.PipelineArtifact
 
                 // Upload to VSTS BlobStore, and associate the artifact with the build.
                 context.Output(StringUtil.Loc("UploadingPipelineArtifact", fullPath, buildId));
-                PipelineArtifactServer server = new PipelineArtifactServer();
+                PipelineArtifactServer server = new PipelineArtifactServer(tracer);
                 await server.UploadAsync(context, projectId, buildId, artifactName, fullPath, token);
                 context.Output(StringUtil.Loc("UploadArtifactFinished"));
 
@@ -201,7 +204,7 @@ namespace Agent.Plugins.PipelineArtifact
                 StringSplitOptions.None
             );
 
-            PipelineArtifactServer server = new PipelineArtifactServer();
+            PipelineArtifactServer server = new PipelineArtifactServer(tracer);
             PipelineArtifactDownloadParameters downloadParameters;
 
             if (buildType == buildTypeCurrent)

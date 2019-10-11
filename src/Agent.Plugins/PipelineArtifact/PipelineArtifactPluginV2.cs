@@ -10,6 +10,7 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 
 namespace Agent.Plugins.PipelineArtifact
 {
@@ -18,11 +19,13 @@ namespace Agent.Plugins.PipelineArtifact
         public abstract Guid Id { get; }
         protected virtual string DownloadPath => "path";
         protected virtual string pipelineRunId => "runId";
+        protected CallbackAppTraceSource tracer;
 
         public string Stage => "main";
 
         public Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
+            this.tracer = new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information);
             return this.ProcessCommandInternalAsync(context, token);
         }
 
@@ -98,7 +101,7 @@ namespace Agent.Plugins.PipelineArtifact
                 StringSplitOptions.None
             );
 
-            PipelineArtifactServer server = new PipelineArtifactServer();
+            PipelineArtifactServer server = new PipelineArtifactServer(tracer);
             PipelineArtifactDownloadParameters downloadParameters;
 
             if (sourceRun == sourceRunCurrent)
