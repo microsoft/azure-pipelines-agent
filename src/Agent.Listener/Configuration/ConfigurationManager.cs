@@ -468,10 +468,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     //if you are adding code after this, keep that in mind
                 }
             }
-            else
+            else if (PlatformUtil.RunningOnLinux)
             {
-                // generate service config script for macOS and Linux, GenerateScripts() will no-op on Windows.
+                // generate service config script for Linux
                 var serviceControlManager = HostContext.GetService<ILinuxServiceControlManager>();
+                serviceControlManager.GenerateScripts(agentSettings);
+            }
+            else if (PlatformUtil.RunningOnMacOS)
+            {
+                // generate service config script for macOS
+                var serviceControlManager = HostContext.GetService<IMacOSServiceControlManager>();
                 serviceControlManager.GenerateScripts(agentSettings);
             }
         }

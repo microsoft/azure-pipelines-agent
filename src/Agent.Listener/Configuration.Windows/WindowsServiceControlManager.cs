@@ -8,6 +8,14 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
+    [ServiceLocator(Default = typeof(WindowsServiceControlManager))]
+    public interface IWindowsServiceControlManager : IAgentService
+    {
+        void ConfigureService(AgentSettings settings, CommandSettings command);
+
+        void UnconfigureService();
+    }
+
     public class WindowsServiceControlManager : ServiceControlManager, IWindowsServiceControlManager
     {
         public const string WindowsServiceControllerName = "AgentService.exe";

@@ -4,24 +4,6 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
-    [ServiceLocator(Default = typeof(WindowsServiceControlManager))]
-    public interface IWindowsServiceControlManager : IAgentService
-    {
-        void ConfigureService(AgentSettings settings, CommandSettings command);
-
-        void UnconfigureService();
-    }
-
-#if OS_LINUX
-    [ServiceLocator(Default = typeof(SystemDControlManager))]
-#elif OS_OSX
-    [ServiceLocator(Default = typeof(OsxServiceControlManager))]
-#endif
-    public interface ILinuxServiceControlManager : IAgentService
-    {
-        void GenerateScripts(AgentSettings settings);
-    }
-
     public class ServiceControlManager : AgentService
     {
         public void CalculateServiceName(AgentSettings settings, string serviceNamePattern, string serviceDisplayNamePattern, out string serviceName, out string serviceDisplayName)
