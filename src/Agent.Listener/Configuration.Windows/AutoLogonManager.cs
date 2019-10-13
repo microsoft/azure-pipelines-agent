@@ -1,4 +1,3 @@
-#if OS_WINDOWS
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -226,4 +225,3 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         }
     }
 }
-#endif

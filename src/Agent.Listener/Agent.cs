@@ -1,3 +1,4 @@
+using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -193,21 +194,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 Trace.Info($"Set agent startup type - {startType}");
                 HostContext.StartupType = startType;
 
-#if OS_WINDOWS
-                if (store.IsAutoLogonConfigured())
+                if (PlatformUtil.RunningOnWindows)
                 {
-                    if (HostContext.StartupType != StartupType.Service)
+                    if (store.IsAutoLogonConfigured())
                     {
-                        Trace.Info($"Autologon is configured on the machine, dumping all the autologon related registry settings");
-                        var autoLogonRegManager = HostContext.GetService<IAutoLogonRegistryManager>();
-                        autoLogonRegManager.DumpAutoLogonRegistrySettings();
-                    }
-                    else
-                    {
-                        Trace.Info($"Autologon is configured on the machine but current Agent.Listner.exe is launched from the windows service");
+                        if (HostContext.StartupType != StartupType.Service)
+                        {
+                            Trace.Info($"Autologon is configured on the machine, dumping all the autologon related registry settings");
+                            var autoLogonRegManager = HostContext.GetService<IAutoLogonRegistryManager>();
+                            autoLogonRegManager.DumpAutoLogonRegistrySettings();
+                        }
+                        else
+                        {
+                            Trace.Info($"Autologon is configured on the machine but current Agent.Listner.exe is launched from the windows service");
+                        }
                     }
                 }
-#endif
                 // Run the agent interactively or as service
                 return await RunAsync(settings, command.RunOnce);
             }
@@ -479,15 +481,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         private void PrintUsage(CommandSettings command)
         {
-            string separator;
-            string ext;
-#if OS_WINDOWS
-            separator = "\\";
-            ext = "cmd";
-#else
-            separator = "/";
-            ext = "sh";
-#endif
+            string separator = "/";
+            string ext = "sh";
+            if (PlatformUtil.RunningOnWindows)
+            {
+                separator = "\\";
+                ext = "cmd";
+            }
 
             string commonHelp = StringUtil.Loc("CommandLineHelp_Common");
             string envHelp = StringUtil.Loc("CommandLineHelp_Env");

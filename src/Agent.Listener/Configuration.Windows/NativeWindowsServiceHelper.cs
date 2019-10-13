@@ -1,4 +1,3 @@
-#if OS_WINDOWS
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -1378,4 +1377,3 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public IntPtr hProfile;
     }
 }
-#endif

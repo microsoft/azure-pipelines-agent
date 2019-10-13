@@ -1,4 +1,3 @@
-#if OS_WINDOWS
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.Win32;
 using System;
@@ -451,4 +450,3 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         }
     }
 }
-#endif

@@ -1,4 +1,5 @@
-﻿using Microsoft.TeamFoundation.DistributedTask.WebApi;
+﻿using Agent.Sdk;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Diagnostics;
@@ -76,13 +77,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
             // kick off update script
             Process invokeScript = new Process();
-#if OS_WINDOWS
-            invokeScript.StartInfo.FileName = WhichUtil.Which("cmd.exe", trace: Trace);
-            invokeScript.StartInfo.Arguments = $"/c \"{updateScript}\"";
-#elif (OS_OSX || OS_LINUX)
-            invokeScript.StartInfo.FileName = WhichUtil.Which("bash", trace: Trace);
-            invokeScript.StartInfo.Arguments = $"\"{updateScript}\"";
-#endif
+            if (PlatformUtil.RunningOnWindows)
+            {
+                invokeScript.StartInfo.FileName = WhichUtil.Which("cmd.exe", trace: Trace);
+                invokeScript.StartInfo.Arguments = $"/c \"{updateScript}\"";
+            }
+            else if (PlatformUtil.RunningOnMacOS || PlatformUtil.RunningOnLinux)
+            {
+                invokeScript.StartInfo.FileName = WhichUtil.Which("bash", trace: Trace);
+                invokeScript.StartInfo.Arguments = $"\"{updateScript}\"";
+            }
             invokeScript.Start();
             Trace.Info($"Update script start running");
 
@@ -320,29 +324,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
             // for windows service back compat with old windows agent, we need make sure the servicehost.exe is still the old name
             // if the current bin folder has VsoAgentService.exe, then the new agent bin folder needs VsoAgentService.exe as well
-#if OS_WINDOWS
-            if (File.Exists(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), "VsoAgentService.exe")))
+            if (PlatformUtil.RunningOnWindows)
             {
-                Trace.Info($"Make a copy of AgentService.exe, name it VsoAgentService.exe");
-                File.Copy(Path.Combine(binVersionDir, "AgentService.exe"), Path.Combine(binVersionDir, "VsoAgentService.exe"), true);
-                File.Copy(Path.Combine(binVersionDir, "AgentService.exe.config"), Path.Combine(binVersionDir, "VsoAgentService.exe.config"), true);
-
-                Trace.Info($"Make a copy of Agent.Listener.exe, name it VsoAgent.exe");
-                File.Copy(Path.Combine(binVersionDir, "Agent.Listener.exe"), Path.Combine(binVersionDir, "VsoAgent.exe"), true);
-                File.Copy(Path.Combine(binVersionDir, "Agent.Listener.dll"), Path.Combine(binVersionDir, "VsoAgent.dll"), true);
-
-                // in case of we remove all pdb file from agent package.
-                if (File.Exists(Path.Combine(binVersionDir, "AgentService.pdb")))
+                if (File.Exists(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), "VsoAgentService.exe")))
                 {
-                    File.Copy(Path.Combine(binVersionDir, "AgentService.pdb"), Path.Combine(binVersionDir, "VsoAgentService.pdb"), true);
-                }
+                    Trace.Info($"Make a copy of AgentService.exe, name it VsoAgentService.exe");
+                    File.Copy(Path.Combine(binVersionDir, "AgentService.exe"), Path.Combine(binVersionDir, "VsoAgentService.exe"), true);
+                    File.Copy(Path.Combine(binVersionDir, "AgentService.exe.config"), Path.Combine(binVersionDir, "VsoAgentService.exe.config"), true);
 
-                if (File.Exists(Path.Combine(binVersionDir, "Agent.Listener.pdb")))
-                {
-                    File.Copy(Path.Combine(binVersionDir, "Agent.Listener.pdb"), Path.Combine(binVersionDir, "VsoAgent.pdb"), true);
+                    Trace.Info($"Make a copy of Agent.Listener.exe, name it VsoAgent.exe");
+                    File.Copy(Path.Combine(binVersionDir, "Agent.Listener.exe"), Path.Combine(binVersionDir, "VsoAgent.exe"), true);
+                    File.Copy(Path.Combine(binVersionDir, "Agent.Listener.dll"), Path.Combine(binVersionDir, "VsoAgent.dll"), true);
+
+                    // in case of we remove all pdb file from agent package.
+                    if (File.Exists(Path.Combine(binVersionDir, "AgentService.pdb")))
+                    {
+                        File.Copy(Path.Combine(binVersionDir, "AgentService.pdb"), Path.Combine(binVersionDir, "VsoAgentService.pdb"), true);
+                    }
+
+                    if (File.Exists(Path.Combine(binVersionDir, "Agent.Listener.pdb")))
+                    {
+                        File.Copy(Path.Combine(binVersionDir, "Agent.Listener.pdb"), Path.Combine(binVersionDir, "VsoAgent.pdb"), true);
+                    }
                 }
             }
-#endif
         }
 
         private void DeletePreviousVersionAgentBackup(CancellationToken token)
@@ -429,11 +434,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             string updateLog = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Diag), $"SelfUpdate-{DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")}.log");
             string agentRoot = HostContext.GetDirectory(WellKnownDirectory.Root);
 
-#if OS_WINDOWS
-            string templateName = "update.cmd.template";
-#else
             string templateName = "update.sh.template";
-#endif
+            if (PlatformUtil.RunningOnWindows)
+            {
+                templateName = "update.cmd.template";
+            }
 
             string templatePath = Path.Combine(agentRoot, $"bin.{_targetPackage.Version}", templateName);
             string template = File.ReadAllText(templatePath);
@@ -446,11 +451,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             template = template.Replace("_UPDATE_LOG_", updateLog);
             template = template.Replace("_RESTART_INTERACTIVE_AGENT_", restartInteractiveAgent ? "1" : "0");
 
-#if OS_WINDOWS
-            string scriptName = "_update.cmd";
-#else
             string scriptName = "_update.sh";
-#endif
+            if (PlatformUtil.RunningOnWindows)
+            {
+                scriptName = "_update.cmd";
+            }
 
             string updateScript = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), scriptName);
             if (File.Exists(updateScript))

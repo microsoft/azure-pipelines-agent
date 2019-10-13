@@ -437,43 +437,43 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             bool saveRuntimeOptions = false;
             var runtimeOptions = new AgentRuntimeOptions();
-#if OS_WINDOWS
-            if (command.GitUseSChannel)
+            if (PlatformUtil.RunningOnWindows && command.GitUseSChannel)
             {
                 saveRuntimeOptions = true;
                 runtimeOptions.GitUseSecureChannel = true;
             }
-#endif
             if (saveRuntimeOptions)
             {
                 Trace.Info("Save agent runtime options to disk.");
                 _store.SaveAgentRuntimeOptions(runtimeOptions);
             }
 
-#if OS_WINDOWS
-            // config windows service
-            bool runAsService = command.GetRunAsService();
-            if (runAsService)
+            if (PlatformUtil.RunningOnWindows)
             {
-                Trace.Info("Configuring to run the agent as service");
-                var serviceControlManager = HostContext.GetService<IWindowsServiceControlManager>();
-                serviceControlManager.ConfigureService(agentSettings, command);
+                // config windows service
+                bool runAsService = command.GetRunAsService();
+                if (runAsService)
+                {
+                    Trace.Info("Configuring to run the agent as service");
+                    var serviceControlManager = HostContext.GetService<IWindowsServiceControlManager>();
+                    serviceControlManager.ConfigureService(agentSettings, command);
+                }
+                // config auto logon
+                else if (command.GetRunAsAutoLogon())
+                {
+                    Trace.Info("Agent is going to run as process setting up the 'AutoLogon' capability for the agent.");
+                    var autoLogonConfigManager = HostContext.GetService<IAutoLogonManager>();
+                    await autoLogonConfigManager.ConfigureAsync(command);
+                    //Important: The machine may restart if the autologon user is not same as the current user
+                    //if you are adding code after this, keep that in mind
+                }
             }
-            // config auto logon
-            else if (command.GetRunAsAutoLogon())
+            else
             {
-                Trace.Info("Agent is going to run as process setting up the 'AutoLogon' capability for the agent.");
-                var autoLogonConfigManager = HostContext.GetService<IAutoLogonManager>();
-                await autoLogonConfigManager.ConfigureAsync(command);
-                //Important: The machine may restart if the autologon user is not same as the current user
-                //if you are adding code after this, keep that in mind
+                // generate service config script for macOS and Linux, GenerateScripts() will no-op on Windows.
+                var serviceControlManager = HostContext.GetService<ILinuxServiceControlManager>();
+                serviceControlManager.GenerateScripts(agentSettings);
             }
-
-#elif OS_LINUX || OS_OSX
-            // generate service config script for OSX and Linux, GenerateScripts() will no-opt on windows.
-            var serviceControlManager = HostContext.GetService<ILinuxServiceControlManager>();
-            serviceControlManager.GenerateScripts(agentSettings);
-#endif
         }
 
         public async Task UnconfigureAsync(CommandSettings command)
@@ -487,35 +487,41 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 {
                     currentAction = StringUtil.Loc("UninstallingService");
                     _term.WriteLine(currentAction);
-#if OS_WINDOWS
-                    var serviceControlManager = HostContext.GetService<IWindowsServiceControlManager>();
-                    serviceControlManager.UnconfigureService();
-                    _term.WriteLine(StringUtil.Loc("Success") + currentAction);
-#elif OS_LINUX
-                    // unconfig system D service first
-                    throw new Exception(StringUtil.Loc("UnconfigureServiceDService"));
-#elif OS_OSX
-                    // unconfig osx service first
-                    throw new Exception(StringUtil.Loc("UnconfigureOSXService"));
-#endif
+                    if (PlatformUtil.RunningOnWindows)
+                    {
+                        var serviceControlManager = HostContext.GetService<IWindowsServiceControlManager>();
+                        serviceControlManager.UnconfigureService();
+                        _term.WriteLine(StringUtil.Loc("Success") + currentAction);
+                    }
+                    else if (PlatformUtil.RunningOnLinux)
+                    {
+                        // unconfig systemd service first
+                        throw new Exception(StringUtil.Loc("UnconfigureServiceDService"));
+                    }
+                    else if (PlatformUtil.RunningOnMacOS)
+                    {
+                        // unconfig macOS service first
+                        throw new Exception(StringUtil.Loc("UnconfigureOSXService"));
+                    }
                 }
                 else
                 {
-#if OS_WINDOWS
-                    //running as process, unconfigure autologon if it was configured                    
-                    if (_store.IsAutoLogonConfigured())
+                    if (PlatformUtil.RunningOnWindows)
                     {
-                        currentAction = StringUtil.Loc("UnconfigAutologon");
-                        _term.WriteLine(currentAction);
-                        var autoLogonConfigManager = HostContext.GetService<IAutoLogonManager>();
-                        autoLogonConfigManager.Unconfigure();
-                        _term.WriteLine(StringUtil.Loc("Success") + currentAction);
+                        //running as process, unconfigure autologon if it was configured                    
+                        if (_store.IsAutoLogonConfigured())
+                        {
+                            currentAction = StringUtil.Loc("UnconfigAutologon");
+                            _term.WriteLine(currentAction);
+                            var autoLogonConfigManager = HostContext.GetService<IAutoLogonManager>();
+                            autoLogonConfigManager.Unconfigure();
+                            _term.WriteLine(StringUtil.Loc("Success") + currentAction);
+                        }
+                        else
+                        {
+                            Trace.Info("AutoLogon was not configured on the agent.");
+                        }
                     }
-                    else
-                    {
-                        Trace.Info("AutoLogon was not configured on the agent.");
-                    }
-#endif
                 }
 
                 //delete agent from the server

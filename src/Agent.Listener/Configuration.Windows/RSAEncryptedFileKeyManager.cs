@@ -1,5 +1,4 @@
-﻿#if OS_WINDOWS
-using System.IO;
+﻿using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -82,4 +81,3 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         }
     }
 }
-#endif

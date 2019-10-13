@@ -4,7 +4,6 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
-#if OS_WINDOWS
     [ServiceLocator(Default = typeof(WindowsServiceControlManager))]
     public interface IWindowsServiceControlManager : IAgentService
     {
@@ -12,9 +11,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         void UnconfigureService();
     }
-#endif
-
-#if !OS_WINDOWS
 
 #if OS_LINUX
     [ServiceLocator(Default = typeof(SystemDControlManager))]
@@ -25,7 +21,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
     {
         void GenerateScripts(AgentSettings settings);
     }
-#endif
 
     public class ServiceControlManager : AgentService
     {
