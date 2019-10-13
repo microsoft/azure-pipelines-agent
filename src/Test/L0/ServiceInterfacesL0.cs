@@ -124,7 +124,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 CustomAttributeNamedArgument defaultArg =
                     attribute
                     .NamedArguments
-                    .SingleOrDefault(x => String.Equals(x.MemberName, ServiceLocatorAttribute.DefaultPropertyName, StringComparison.Ordinal));
+                    .SingleOrDefault(x => String.Equals(x.MemberName, nameof(ServiceLocatorAttribute.Default), StringComparison.Ordinal));
                 Type concreteType = defaultArg.TypedValue.Value as Type;
                 string invalidConcreteTypeMessage = $"Invalid Default parameter on {nameof(ServiceLocatorAttribute)} for the interface '{interfaceTypeInfo.FullName}'. The default implementation must not be null, must not be an interface, must be a class, and must implement the interface '{interfaceTypeInfo.FullName}'.";
                 Assert.True(concreteType != null, invalidConcreteTypeMessage);

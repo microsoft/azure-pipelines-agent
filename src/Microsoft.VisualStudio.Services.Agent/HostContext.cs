@@ -368,7 +368,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 {
                     foreach (CustomAttributeNamedArgument arg in attribute.NamedArguments)
                     {
-                        if (string.Equals(arg.MemberName, ServiceLocatorAttribute.DefaultPropertyName, StringComparison.Ordinal))
+                        if (string.Equals(arg.MemberName, nameof(ServiceLocatorAttribute.Default), StringComparison.Ordinal))
                         {
                             target = arg.TypedValue.Value as Type;
                         }
