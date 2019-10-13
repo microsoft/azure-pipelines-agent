@@ -33,6 +33,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             {
                 typeof(ICredentialProvider),
                 typeof(IConfigurationProvider),
+                // RSAKeyManager is accessed through RSAKeyManagerFactory
+                typeof(IRSAKeyManager),
             };
             Validate(
                 assembly: typeof(IMessageListener).GetTypeInfo().Assembly,

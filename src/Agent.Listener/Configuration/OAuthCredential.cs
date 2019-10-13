@@ -34,7 +34,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             // We expect the key to be in the machine store at this point. Configuration should have set all of
             // this up correctly so we can use the key to generate access tokens.
-            var keyManager = context.GetService<IRSAKeyManager>();
+            var keyManager = context.GetService<IRSAKeyManagerFactory>().Instance;
             var signingCredentials = VssSigningCredentials.Create(() => keyManager.GetKey());
             var clientCredential = new VssOAuthJwtBearerClientCredential(clientId, authorizationUrl, signingCredentials);
             var agentCredential = new VssOAuthCredential(new Uri(oathEndpointUrl, UriKind.Absolute), VssOAuthGrant.ClientCredentials, clientCredential);

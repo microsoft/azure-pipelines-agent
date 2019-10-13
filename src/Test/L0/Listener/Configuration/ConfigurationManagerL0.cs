@@ -45,6 +45,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
 #endif
 
         private Mock<IRSAKeyManager> _rsaKeyManager;
+        private Mock<IRSAKeyManagerFactory> _rsaKeyManagerFactory;
         private ICapabilitiesManager _capabilitiesManager;
         private DeploymentGroupAgentConfigProvider _deploymentGroupAgentConfigProvider;
         private string _expectedToken = "expectedToken";
@@ -72,6 +73,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             _promptManager = new Mock<IPromptManager>();
             _store = new Mock<IConfigurationStore>();
             _extnMgr = new Mock<IExtensionManager>();
+            _rsaKeyManagerFactory = new Mock<IRSAKeyManagerFactory>();
             _rsaKeyManager = new Mock<IRSAKeyManager>();
             _machineGroupServer = new Mock<IDeploymentGroupServer>();
             _environmentsServer = new Mock<IEnvironmentsServer>();
@@ -143,6 +145,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             rsa = new RSACryptoServiceProvider(2048);
 
             _rsaKeyManager.Setup(x => x.CreateKey()).Returns(rsa);
+            _rsaKeyManagerFactory.Setup(x => x.Instance).Returns(_rsaKeyManager.Object);
+            
         }
 
         private TestHostContext CreateTestContext([CallerMemberName] String testName = "")
@@ -168,6 +172,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             tc.SetSingleton<IMacOSServiceControlManager>(_serviceControlManager.Object);
 #endif
 
+            tc.SetSingleton<IRSAKeyManagerFactory>(_rsaKeyManagerFactory.Object);
             tc.SetSingleton<IRSAKeyManager>(_rsaKeyManager.Object);
 
             return tc;

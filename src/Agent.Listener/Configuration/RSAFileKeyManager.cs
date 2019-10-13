@@ -1,5 +1,4 @@
-﻿#if OS_LINUX || OS_OSX
-using System;
+﻿using System;
 using System.IO;
 using System.Security.Cryptography;
 using System.Threading;
@@ -92,4 +91,3 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         }
     }
 }
-#endif
