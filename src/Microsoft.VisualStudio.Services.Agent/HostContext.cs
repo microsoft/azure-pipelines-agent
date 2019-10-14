@@ -356,7 +356,10 @@ namespace Microsoft.VisualStudio.Services.Agent
         /// </summary>
         public T CreateService<T>() where T : class, IAgentService
         {
-            Type target;
+            Type target = null;
+            Type defaultTarget = null;
+            Type platformTarget = null;
+
             if (!_serviceTypes.TryGetValue(typeof(T), out target))
             {
                 // Infer the concrete type from the ServiceLocatorAttribute.
@@ -364,18 +367,25 @@ namespace Microsoft.VisualStudio.Services.Agent
                     .GetTypeInfo()
                     .CustomAttributes
                     .FirstOrDefault(x => x.AttributeType == typeof(ServiceLocatorAttribute));
-                if (attribute != null)
+                if (!(attribute is null))
                 {
                     foreach (CustomAttributeNamedArgument arg in attribute.NamedArguments)
                     {
                         if (string.Equals(arg.MemberName, nameof(ServiceLocatorAttribute.Default), StringComparison.Ordinal))
                         {
-                            target = arg.TypedValue.Value as Type;
+                            defaultTarget = arg.TypedValue.Value as Type;
+                        }
+
+                        if (PlatformUtil.RunningOnWindows && string.Equals(arg.MemberName, nameof(ServiceLocatorAttribute.PreferredOnWindows), StringComparison.Ordinal))
+                        {
+                            platformTarget = arg.TypedValue.Value as Type;
                         }
                     }
                 }
 
-                if (target == null)
+                target = platformTarget ?? defaultTarget;
+
+                if (target is null)
                 {
                     throw new KeyNotFoundException(string.Format(CultureInfo.InvariantCulture, "Service mapping not found for key '{0}'.", typeof(T).FullName));
                 }

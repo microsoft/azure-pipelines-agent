@@ -121,17 +121,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 Assert.True(attribute != null, $"Missing {nameof(ServiceLocatorAttribute)} for interface '{interfaceTypeInfo.FullName}'. Add the attribute to the interface or whitelist the interface in the test.");
 
                 // Assert the interface is mapped to a concrete type.
-                CustomAttributeNamedArgument defaultArg =
-                    attribute
-                    .NamedArguments
-                    .SingleOrDefault(x => String.Equals(x.MemberName, nameof(ServiceLocatorAttribute.Default), StringComparison.Ordinal));
-                Type concreteType = defaultArg.TypedValue.Value as Type;
-                string invalidConcreteTypeMessage = $"Invalid Default parameter on {nameof(ServiceLocatorAttribute)} for the interface '{interfaceTypeInfo.FullName}'. The default implementation must not be null, must not be an interface, must be a class, and must implement the interface '{interfaceTypeInfo.FullName}'.";
-                Assert.True(concreteType != null, invalidConcreteTypeMessage);
-                TypeInfo concreteTypeInfo = concreteType.GetTypeInfo();
-                Assert.False(concreteTypeInfo.IsInterface, invalidConcreteTypeMessage);
-                Assert.True(concreteTypeInfo.IsClass, invalidConcreteTypeMessage);
-                Assert.True(concreteTypeInfo.ImplementedInterfaces.Any(x => x.GetTypeInfo() == interfaceTypeInfo), invalidConcreteTypeMessage);
+                // Also check platform-specific interfaces if they exist
+                foreach (string argName in new string[] {
+                    nameof(ServiceLocatorAttribute.Default),
+                    nameof(ServiceLocatorAttribute.PreferredOnWindows),
+                })
+                {
+                    CustomAttributeNamedArgument arg =
+                        attribute
+                        .NamedArguments
+                        .SingleOrDefault(x => String.Equals(x.MemberName, argName, StringComparison.Ordinal));
+                    
+                    if (arg.TypedValue.Value is null && !argName.Equals(nameof(ServiceLocatorAttribute.Default)))
+                    {
+                        // a non-"Default" attribute isn't present, which is OK
+                        continue;
+                    }
+
+                    Type concreteType = arg.TypedValue.Value as Type;
+                    string invalidConcreteTypeMessage = $"Invalid {argName} parameter on {nameof(ServiceLocatorAttribute)} for the interface '{interfaceTypeInfo.FullName}'. The implementation must not be null, must not be an interface, must be a class, and must implement the interface '{interfaceTypeInfo.FullName}'.";
+                    Assert.True(concreteType != null, invalidConcreteTypeMessage);
+                    TypeInfo concreteTypeInfo = concreteType.GetTypeInfo();
+                    Assert.False(concreteTypeInfo.IsInterface, invalidConcreteTypeMessage);
+                    Assert.True(concreteTypeInfo.IsClass, invalidConcreteTypeMessage);
+                    Assert.True(concreteTypeInfo.ImplementedInterfaces.Any(x => x.GetTypeInfo() == interfaceTypeInfo), invalidConcreteTypeMessage);
+                }
             }
         }
     }

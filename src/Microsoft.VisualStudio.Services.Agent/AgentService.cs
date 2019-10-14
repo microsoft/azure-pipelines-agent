@@ -7,6 +7,7 @@ namespace Microsoft.VisualStudio.Services.Agent
     public sealed class ServiceLocatorAttribute : Attribute
     {
         public Type Default { get; set; }
+        public Type PreferredOnWindows { get; set; }
     }
 
     public interface IAgentService
