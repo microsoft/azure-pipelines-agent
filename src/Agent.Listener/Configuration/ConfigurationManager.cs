@@ -234,7 +234,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _agentServer = HostContext.GetService<IAgentServer>();
             // We want to use the native CSP of the platform for storage, so we use the RSACSP directly
             RSAParameters publicKey;
-            var keyManager = HostContext.GetService<IRSAKeyManagerFactory>().Instance;
+            var keyManager = HostContext.GetService<IRSAKeyManager>();
             using (var rsa = keyManager.CreateKey())
             {
                 publicKey = rsa.ExportParameters(false);
@@ -590,7 +590,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 if (hasCredentials)
                 {
                     _store.DeleteCredential();
-                    var keyManager = HostContext.GetService<IRSAKeyManagerFactory>().Instance;
+                    var keyManager = HostContext.GetService<IRSAKeyManager>();
                     keyManager.DeleteKey();
                     _term.WriteLine(StringUtil.Loc("Success") + currentAction);
                 }

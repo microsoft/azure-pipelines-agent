@@ -304,7 +304,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             if (_session.EncryptionKey.Encrypted)
             {
                 // The agent session encryption key uses the AES symmetric algorithm
-                var keyManager = HostContext.GetService<IRSAKeyManagerFactory>().Instance;
+                var keyManager = HostContext.GetService<IRSAKeyManager>();
                 using (var rsa = keyManager.GetKey())
                 {
                     return aes.CreateDecryptor(rsa.Decrypt(_session.EncryptionKey.Value, RSAEncryptionPadding.OaepSHA1), message.IV);
