@@ -1,3 +1,4 @@
+using Agent.Sdk;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -502,12 +503,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var runtimeOptions = HostContext.GetService<IConfigurationStore>().GetAgentRuntimeOptions();
             if (runtimeOptions != null)
             {
-#if OS_WINDOWS
-                if (runtimeOptions.GitUseSecureChannel)
+                if (PlatformUtil.RunningOnWindows && runtimeOptions.GitUseSecureChannel)
                 {
                     Variables.Set(Constants.Variables.Agent.GitUseSChannel, runtimeOptions.GitUseSecureChannel.ToString());
                 }
-#endif                
             }
 
             // Job timeline record.

@@ -1,3 +1,4 @@
+using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Build;
@@ -140,11 +141,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public int? Release_Parallel_Download_Limit => GetInt(Constants.Variables.Release.ReleaseParallelDownloadLimit);
 
-#if OS_WINDOWS
-        public bool Retain_Default_Encoding => GetBoolean(Constants.Variables.Agent.RetainDefaultEncoding) ?? true;
-#else
-        public bool Retain_Default_Encoding => true;
-#endif
+        public bool Retain_Default_Encoding
+        {
+            get
+            {
+                if (!PlatformUtil.RunningOnWindows)
+                {
+                    return true;
+                }
+                return GetBoolean(Constants.Variables.Agent.RetainDefaultEncoding) ?? true;
+            }
+        }
 
         public string System_CollectionId => Get(Constants.Variables.System.CollectionId);
 

@@ -1,3 +1,4 @@
+using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System.IO;
 using System.Text;
@@ -48,17 +49,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             ArgUtil.NotNull(Inputs, nameof(Inputs));
             ArgUtil.Directory(TaskDirectory, nameof(TaskDirectory));
 
-#if !OS_WINDOWS
-            // Ensure compat vso-task-lib exist at the root of _work folder
-            // This will make vsts-agent works against 2015 RTM/QU1 TFS, since tasks in those version doesn't package with task lib
-            // Put the 0.5.5 version vso-task-lib into the root of _work/node_modules folder, so tasks are able to find those lib.
-            if (!File.Exists(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), "node_modules", "vso-task-lib", "package.json")))
+            if (!PlatformUtil.RunningOnWindows)
             {
-                string vsoTaskLibFromExternal = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "vso-task-lib");
-                string compatVsoTaskLibInWork = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), "node_modules", "vso-task-lib");
-                IOUtil.CopyDirectory(vsoTaskLibFromExternal, compatVsoTaskLibInWork, ExecutionContext.CancellationToken);
+                // Ensure compat vso-task-lib exist at the root of _work folder
+                // This will make vsts-agent works against 2015 RTM/QU1 TFS, since tasks in those version doesn't package with task lib
+                // Put the 0.5.5 version vso-task-lib into the root of _work/node_modules folder, so tasks are able to find those lib.
+                if (!File.Exists(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), "node_modules", "vso-task-lib", "package.json")))
+                {
+                    string vsoTaskLibFromExternal = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "vso-task-lib");
+                    string compatVsoTaskLibInWork = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), "node_modules", "vso-task-lib");
+                    IOUtil.CopyDirectory(vsoTaskLibFromExternal, compatVsoTaskLibInWork, ExecutionContext.CancellationToken);
+                }
             }
-#endif
 
             // Update the env dictionary.
             AddInputsToEnvironment();
@@ -115,13 +117,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             // file name character on Linux.
             string arguments = StepHost.ResolvePathForStepHost(StringUtil.Format(@"""{0}""", target.Replace(@"""", @"\""")));
 
-#if OS_WINDOWS
-            // It appears that node.exe outputs UTF8 when not in TTY mode.
-            Encoding outputEncoding = Encoding.UTF8;
-#else
-            // Let .NET choose the default.
+            // Let .NET choose the default, except on Windows.
             Encoding outputEncoding = null;
-#endif
+            if (PlatformUtil.RunningOnWindows)
+            {
+                // It appears that node.exe outputs UTF8 when not in TTY mode.
+                outputEncoding = Encoding.UTF8;
+            }
 
             // Execute the process. Exit code 0 should always be returned.
             // A non-zero exit code indicates infrastructural failure.

@@ -1,4 +1,5 @@
-﻿using Microsoft.TeamFoundation.DistributedTask.WebApi;
+﻿using Agent.Sdk;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Newtonsoft.Json;
 using System;
@@ -333,11 +334,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 var workDirectoryDrive = new DriveInfo(HostContext.GetDirectory(WellKnownDirectory.Work));
                 long freeSpace = workDirectoryDrive.AvailableFreeSpace;
                 long totalSpace = workDirectoryDrive.TotalSize;
-#if OS_WINDOWS
-                context.Output($"Working directory belongs to drive: '{workDirectoryDrive.Name}'");
-#else
-                context.Output($"Information about file system on which working directory resides.");
-#endif
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    context.Output($"Working directory belongs to drive: '{workDirectoryDrive.Name}'");
+                }
+                else
+                {
+                    context.Output($"Information about file system on which working directory resides.");
+                }
                 context.Output($"Total size: '{totalSpace / 1024.0 / 1024.0} MB'");
                 context.Output($"Available space: '{freeSpace / 1024.0 / 1024.0} MB'");
             }

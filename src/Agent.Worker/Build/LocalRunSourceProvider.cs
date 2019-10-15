@@ -1,3 +1,4 @@
+using Agent.Sdk;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -23,13 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNull(endpoint, nameof(endpoint));
 
-            bool preferGitFromPath;
-#if OS_WINDOWS
-            preferGitFromPath = false;
-#else
-            preferGitFromPath = true;
-#endif
-            if (!preferGitFromPath)
+            if (PlatformUtil.RunningOnWindows)
             {
                 // Add git to the PATH.
                 string gitPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "git", "cmd", $"git{IOUtil.ExeExtension}");

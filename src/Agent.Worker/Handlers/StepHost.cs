@@ -1,3 +1,4 @@
+using Agent.Sdk;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -161,24 +162,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             string entryScript = Container.TranslateToContainerPath(Path.Combine(tempDir, "containerHandlerInvoker.js"));
 
-#if !OS_WINDOWS
-            string containerExecutionArgs = $"exec -i -u {Container.CurrentUserId} {Container.ContainerId} {node} {entryScript}";
-#else
-            string containerExecutionArgs = $"exec -i {Container.ContainerId} {node} {entryScript}";
-#endif
+            string containerExecutionArgs;
+            if (PlatformUtil.RunningOnWindows)
+            {
+                containerExecutionArgs = $"exec -i {Container.ContainerId} {node} {entryScript}";
+            }
+            else
+            {
+                containerExecutionArgs = $"exec -i -u {Container.CurrentUserId} {Container.ContainerId} {node} {entryScript}";
+            }
 
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
             {
                 processInvoker.OutputDataReceived += OutputDataReceived;
                 processInvoker.ErrorDataReceived += ErrorDataReceived;
 
-#if OS_WINDOWS
-                // It appears that node.exe outputs UTF8 when not in TTY mode.
-                outputEncoding = Encoding.UTF8;
-#else
-                // Let .NET choose the default.
+                // Let .NET choose the default encoding, except on Windows.
                 outputEncoding = null;
-#endif
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    // It appears that node.exe outputs UTF8 when not in TTY mode.
+                    outputEncoding = Encoding.UTF8;
+                }
 
                 var redirectStandardIn = new InputQueue<string>();
                 redirectStandardIn.Enqueue(JsonUtility.ToString(payload));

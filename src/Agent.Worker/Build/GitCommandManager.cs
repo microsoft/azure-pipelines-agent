@@ -1,3 +1,4 @@
+using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
@@ -98,11 +99,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
     public class GitCommandManager : AgentService, IGitCommandManager
     {
-#if OS_WINDOWS
-        private static readonly Encoding s_encoding = Encoding.UTF8;
-#else
-        private static readonly Encoding s_encoding = null;
-#endif
+        private static Encoding _encoding
+        {
+            get => PlatformUtil.RunningOnWindows
+                ? Encoding.UTF8
+                : null;
+        }
         private string _gitHttpUserAgentEnv = null;
         private string _gitPath = null;
         private Version _gitVersion = null;
@@ -148,17 +150,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // Resolve the location of git.
             if (useBuiltInGit)
             {
-#if OS_WINDOWS
-                _gitPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "git", "cmd", $"git{IOUtil.ExeExtension}");
-
-                // Prepend the PATH.
-                context.Output(StringUtil.Loc("Prepending0WithDirectoryContaining1", Constants.PathVariable, Path.GetFileName(_gitPath)));
-                PathUtil.PrependPath(Path.GetDirectoryName(_gitPath));
-                context.Debug($"{Constants.PathVariable}: '{Environment.GetEnvironmentVariable(Constants.PathVariable)}'");
-#else
-                // There is no built-in git for OSX/Linux
                 _gitPath = null;
-#endif
+
+                // The Windows agent ships a copy of Git
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    _gitPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "git", "cmd", $"git{IOUtil.ExeExtension}");
+
+                    // Prepend the PATH.
+                    context.Output(StringUtil.Loc("Prepending0WithDirectoryContaining1", Constants.PathVariable, Path.GetFileName(_gitPath)));
+                    PathUtil.PrependPath(Path.GetDirectoryName(_gitPath));
+                    context.Debug($"{Constants.PathVariable}: '{Environment.GetEnvironmentVariable(Constants.PathVariable)}'");
+                }
             }
             else
             {
@@ -561,7 +564,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 arguments: arg,
                 environment: GetGitEnvironmentVariables(context),
                 requireExitCodeZero: false,
-                outputEncoding: s_encoding,
+                outputEncoding: _encoding,
                 cancellationToken: cancellationToken);
         }
 
@@ -599,7 +602,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 arguments: arg,
                 environment: GetGitEnvironmentVariables(context),
                 requireExitCodeZero: false,
-                outputEncoding: s_encoding,
+                outputEncoding: _encoding,
                 cancellationToken: default(CancellationToken));
         }
 
@@ -625,7 +628,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 arguments: arg,
                 environment: GetGitEnvironmentVariables(context),
                 requireExitCodeZero: false,
-                outputEncoding: s_encoding,
+                outputEncoding: _encoding,
                 cancellationToken: cancellationToken);
         }
 
