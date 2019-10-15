@@ -11,13 +11,19 @@ using Microsoft.VisualStudio.Services.PipelineCache.WebApi;
 
 namespace Agent.Plugins.PipelineCache
 {
+    public enum ContentFormat
+    {
+        SingleTar,
+        Files
+    }
+
     public abstract class PipelineCacheTaskPluginBase : IAgentTaskPlugin
     {
         protected const string RestoreStepRanVariableName = "RESTORE_STEP_RAN";
         protected const string RestoreStepRanVariableValue = "true";
         private const string SaltVariableName = "AZP_CACHING_SALT";
         private const string OldKeyFormatMessage = "'key' format is changing to a single line: https://aka.ms/pipeline-caching-docs";
-        protected const string PackingVariableName = "AZP_CACHING_TAR";
+        protected const string ContentFormatVariableName = "AZP_CACHING_CONTENT_FORMAT";
         public Guid Id => PipelineCachePluginConstants.CacheTaskId;
         public abstract String Stage { get; }
 

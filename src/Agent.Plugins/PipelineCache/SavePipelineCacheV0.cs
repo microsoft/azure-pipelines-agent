@@ -4,11 +4,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
-using Microsoft.VisualStudio.Services.PipelineCache.Common;
 using Microsoft.VisualStudio.Services.PipelineCache.WebApi;
 
 namespace Agent.Plugins.PipelineCache
-{    
+{
     public class SavePipelineCacheV0 : PipelineCacheTaskPluginBase
     {
         public override string Stage => "post";
@@ -60,9 +59,19 @@ namespace Agent.Plugins.PipelineCache
             string path,
             CancellationToken token)
         {
-            VariableValue packValue = context.Variables.GetValueOrDefault(PackingVariableName);
-            string pack = packValue?.Value ?? string.Empty;
-            string contentFomat = (!String.IsNullOrWhiteSpace(pack)) ? ContentFormatConstants.SingleTar : ContentFormatConstants.Files;
+            VariableValue contentFormatVar = context.Variables.GetValueOrDefault(ContentFormatVariableName);
+            string contentFormatValue = contentFormatVar.Value ?? string.Empty;
+            contentFormatValue = contentFormatValue.Trim();
+
+            ContentFormat contentFormat;
+            if (string.IsNullOrWhiteSpace(contentFormatValue))
+            {
+                contentFormat = ContentFormat.Files;
+            }
+            else
+            {
+                contentFormat = Enum.Parse<ContentFormat>(contentFormatValue, ignoreCase: true);
+            }
 
             PipelineCacheServer server = new PipelineCacheServer();
             await server.UploadAsync(
@@ -70,7 +79,7 @@ namespace Agent.Plugins.PipelineCache
                 fingerprint, 
                 path,
                 token,
-                contentFomat);
+                contentFormat);
         }
     }
 }
