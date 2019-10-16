@@ -321,6 +321,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Run the task.
             await handler.RunAsync();
+
+            ExecutionContext.Variables.Unset(Constants.Variables.Task.DisplayName);
+            ExecutionContext.Variables.Unset(WellKnownDistributedTaskVariables.TaskInstanceId);
+            ExecutionContext.Variables.Unset(WellKnownDistributedTaskVariables.TaskDisplayName);
+            ExecutionContext.Variables.Unset(WellKnownDistributedTaskVariables.TaskInstanceName);
         }
 
         private string TranslateFilePathInput(string inputValue)

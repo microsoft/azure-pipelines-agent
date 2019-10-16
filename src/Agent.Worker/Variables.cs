@@ -312,6 +312,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return null;
         }
 
+        public void Unset(string name)
+        {
+            // Validate the args.
+            ArgUtil.NotNullOrEmpty(name, nameof(name));
+
+            // Remove the variable.
+            lock (_setLock)
+            {
+                Variable dummy;
+                 _expanded.Remove(name, out dummy);
+                _nonexpanded.Remove(name, out dummy);
+                _trace.Verbose($"Unset '{name}'");
+            }
+        }
+
         public void Set(string name, string val, bool secret = false)
         {
             // Validate the args.

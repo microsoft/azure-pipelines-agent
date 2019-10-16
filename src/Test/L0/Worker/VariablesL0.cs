@@ -751,5 +751,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Assert.Equal("bar", variables.Get("foo"));
             }
         }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void Unset()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                List<string> warnings;
+                var variables = new Variables(hc, new Dictionary<string, VariableValue>(), out warnings);
+
+                variables.Set("foo", "bar");
+
+                Assert.Equal("bar", variables.Get("foo"));
+                variables.Unset("foo");
+                Assert.Equal(null, variables.Get("foo"));
+            }
+        }
     }
 }
