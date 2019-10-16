@@ -530,9 +530,8 @@ namespace Agent.Plugins.Repository
             }
             else
             {
-                char dirSeparator = Path.DirectorySeparatorChar;
                 // delete the index.lock file left by previous canceled build or any operation cause git.exe crash last time.
-                string lockFile = Path.Combine(targetPath, $".git{dirSeparator}index.lock");
+                string lockFile = Path.Combine(targetPath, ".git", "index.lock");
                 if (File.Exists(lockFile))
                 {
                     try
@@ -547,7 +546,7 @@ namespace Agent.Plugins.Repository
                 }
 
                 // delete the shallow.lock file left by previous canceled build or any operation cause git.exe crash last time.
-                string shallowLockFile = Path.Combine(targetPath, $".git{dirSeparator}shallow.lock");
+                string shallowLockFile = Path.Combine(targetPath, ".git", "shallow.lock");
                 if (File.Exists(shallowLockFile))
                 {
                     try
