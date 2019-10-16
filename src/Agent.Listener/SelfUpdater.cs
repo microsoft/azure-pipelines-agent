@@ -82,7 +82,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 invokeScript.StartInfo.FileName = WhichUtil.Which("cmd.exe", trace: Trace);
                 invokeScript.StartInfo.Arguments = $"/c \"{updateScript}\"";
             }
-            else if (PlatformUtil.RunningOnMacOS || PlatformUtil.RunningOnLinux)
+            else
             {
                 invokeScript.StartInfo.FileName = WhichUtil.Which("bash", trace: Trace);
                 invokeScript.StartInfo.Arguments = $"\"{updateScript}\"";

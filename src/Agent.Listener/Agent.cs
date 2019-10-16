@@ -481,11 +481,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         private void PrintUsage(CommandSettings command)
         {
-            string separator = "/";
             string ext = "sh";
             if (PlatformUtil.RunningOnWindows)
             {
-                separator = "\\";
                 ext = "cmd";
             }
 
@@ -493,15 +491,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             string envHelp = StringUtil.Loc("CommandLineHelp_Env");
             if (command.Configure)
             {
-                _term.WriteLine(StringUtil.Loc("CommandLineHelp_Configure", separator, ext, commonHelp, envHelp));
+                _term.WriteLine(StringUtil.Loc("CommandLineHelp_Configure", Path.DirectorySeparatorChar, ext, commonHelp, envHelp));
             }
             else if (command.Remove)
             {
-                _term.WriteLine(StringUtil.Loc("CommandLineHelp_Remove", separator, ext, commonHelp, envHelp));
+                _term.WriteLine(StringUtil.Loc("CommandLineHelp_Remove", Path.DirectorySeparatorChar, ext, commonHelp, envHelp));
             }
             else
             {
-                _term.WriteLine(StringUtil.Loc("CommandLineHelp", separator, ext));
+                _term.WriteLine(StringUtil.Loc("CommandLineHelp", Path.DirectorySeparatorChar, ext));
             }
         }
     }
