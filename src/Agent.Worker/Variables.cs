@@ -35,7 +35,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Data.Unset(name);
             }
         }
-
     }
 
     public sealed class Variables
