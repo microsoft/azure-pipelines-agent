@@ -1,6 +1,6 @@
 
 # Output Variables
-
+##vso
 ## Overview
 
 The feature is to allow a given task to publish a set of variables back to server, so the variables can be used in downstream jobs. All output variables from the same task instance have its own namespace, so they don’t overlap each other within the job.
