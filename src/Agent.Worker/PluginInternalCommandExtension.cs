@@ -57,9 +57,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 // Set the directory variables.
                 string _workDirectory = HostContext.GetDirectory(WellKnownDirectory.Work);
-                context.SetVariable(Constants.Variables.System.DefaultWorkingDirectory, Path.Combine(_workDirectory, trackingConfig.SourcesDirectory), isFilePath: true);
                 context.SetVariable(Constants.Variables.Build.SourcesDirectory, Path.Combine(_workDirectory, trackingConfig.SourcesDirectory), isFilePath: true);
                 context.SetVariable(Constants.Variables.Build.RepoLocalPath, Path.Combine(_workDirectory, trackingConfig.SourcesDirectory), isFilePath: true);
+
+                // Only set the working directory here if we are NOT in Multi-checkout
+                if (!RepositoryUtil.HasMultipleCheckouts(context.JobSettings))
+                {
+                    context.SetVariable(Constants.Variables.System.DefaultWorkingDirectory, Path.Combine(_workDirectory, trackingConfig.SourcesDirectory), isFilePath: true);
+                }
             }
 
             repository.Properties.Set("__AZP_READY", bool.TrueString);

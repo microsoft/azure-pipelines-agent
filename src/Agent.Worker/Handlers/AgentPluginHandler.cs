@@ -1,16 +1,6 @@
 ﻿using Microsoft.VisualStudio.Services.Agent.Util;
-using System.Collections.Generic;
-using System.IO;
-using System.Text;
 using System.Threading.Tasks;
-using System.Linq;
 using System;
-using Newtonsoft.Json.Linq;
-using System.Text.RegularExpressions;
-using Microsoft.VisualStudio.Services.Agent.Worker.Container;
-using Agent.Sdk;
-using Microsoft.TeamFoundation.DistributedTask.WebApi;
-using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {

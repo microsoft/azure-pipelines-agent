@@ -38,7 +38,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             using (TestHostContext hc = Setup())
             {
                 // Act.
-                _buildDirectoryManager.PrepareDirectory(_ec.Object, _repository, _workspaceOptions);
+                _buildDirectoryManager.PrepareDirectory(_ec.Object, new [] { _repository }, _workspaceOptions);
 
                 // Assert.
                 Assert.True(Directory.Exists(Path.Combine(_workFolder, _newConfig.BuildDirectory, Constants.Build.Path.ArtifactsDirectory)));
@@ -56,7 +56,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             using (TestHostContext hc = Setup())
             {
                 // Act.
-                _buildDirectoryManager.PrepareDirectory(_ec.Object, _repository, _workspaceOptions);
+                _buildDirectoryManager.PrepareDirectory(_ec.Object, new [] { _repository }, _workspaceOptions);
 
                 // Assert.
                 _trackingManager.Verify(x => x.Create(_ec.Object, _repository, HashKey, _trackingFile, false));
@@ -72,7 +72,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             using (TestHostContext hc = Setup(existingConfigKind: ExistingConfigKind.Nonmatching))
             {
                 // Act.
-                _buildDirectoryManager.PrepareDirectory(_ec.Object, _repository, _workspaceOptions);
+                _buildDirectoryManager.PrepareDirectory(_ec.Object, new [] { _repository }, _workspaceOptions);
 
                 // Assert.
                 _trackingManager.Verify(x => x.LoadIfExists(_ec.Object, _trackingFile));
@@ -95,7 +95,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 File.WriteAllText(path: sourceFile, contents: "some source contents");
 
                 // Act.
-                _buildDirectoryManager.PrepareDirectory(_ec.Object, _repository, _workspaceOptions);
+                _buildDirectoryManager.PrepareDirectory(_ec.Object, new [] { _repository }, _workspaceOptions);
 
                 // Assert.
                 Assert.True(Directory.Exists(sourcesDirectory));
@@ -122,7 +122,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 File.WriteAllText(path: testResultsFile, contents: "some test result contents");
 
                 // Act.
-                _buildDirectoryManager.PrepareDirectory(_ec.Object, _repository, _workspaceOptions);
+                _buildDirectoryManager.PrepareDirectory(_ec.Object, new [] { _repository }, _workspaceOptions);
 
                 // Assert.
                 Assert.True(Directory.Exists(artifactsDirectory));
@@ -147,7 +147,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 File.WriteAllText(path: looseFile, contents: "some loose file contents");
 
                 // Act.
-                _buildDirectoryManager.PrepareDirectory(_ec.Object, _repository, _workspaceOptions);
+                _buildDirectoryManager.PrepareDirectory(_ec.Object, new [] { _repository }, _workspaceOptions);
 
                 // Assert.
                 Assert.Equal(4, Directory.GetFileSystemEntries(buildDirectory, "*", SearchOption.AllDirectories).Length);
@@ -172,7 +172,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 File.WriteAllText(path: binaryFile, contents: "some binary contents");
 
                 // Act.
-                _buildDirectoryManager.PrepareDirectory(_ec.Object, _repository, _workspaceOptions);
+                _buildDirectoryManager.PrepareDirectory(_ec.Object, new [] { _repository }, _workspaceOptions);
 
                 // Assert.
                 Assert.True(Directory.Exists(binariesDirectory));
@@ -189,7 +189,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             using (TestHostContext hc = Setup())
             {
                 // Act.
-                _buildDirectoryManager.PrepareDirectory(_ec.Object, _repository, _workspaceOptions);
+                _buildDirectoryManager.PrepareDirectory(_ec.Object, new [] { _repository }, _workspaceOptions);
 
                 // Assert.
                 Assert.Equal(Path.Combine(_workFolder, _newConfig.SourcesDirectory), _repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path));
@@ -205,7 +205,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             using (TestHostContext hc = Setup(existingConfigKind: ExistingConfigKind.Matching))
             {
                 // Act.
-                _buildDirectoryManager.PrepareDirectory(_ec.Object, _repository, _workspaceOptions);
+                _buildDirectoryManager.PrepareDirectory(_ec.Object, new [] { _repository }, _workspaceOptions);
 
                 // Assert.
                 _trackingManager.Verify(x => x.LoadIfExists(_ec.Object, _trackingFile));
@@ -222,7 +222,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             using (TestHostContext hc = Setup(existingConfigKind: ExistingConfigKind.Matching))
             {
                 // Act.
-                var tracking = _buildDirectoryManager.PrepareDirectory(_ec.Object, _repository, _workspaceOptions);
+                var tracking = _buildDirectoryManager.PrepareDirectory(_ec.Object, new [] { _repository }, _workspaceOptions);
 
                 _repository.Properties.Set<string>(Pipelines.RepositoryPropertyNames.Path, Path.Combine(hc.GetDirectory(WellKnownDirectory.Work), tracking.BuildDirectory, $"test{Path.DirectorySeparatorChar}foo"));
 
@@ -242,7 +242,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             using (TestHostContext hc = Setup(existingConfigKind: ExistingConfigKind.Matching))
             {
                 // Act.
-                var tracking = _buildDirectoryManager.PrepareDirectory(_ec.Object, _repository, _workspaceOptions);
+                var tracking = _buildDirectoryManager.PrepareDirectory(_ec.Object, new [] { _repository }, _workspaceOptions);
 
                 _repository.Properties.Set<string>(Pipelines.RepositoryPropertyNames.Path, Path.Combine(hc.GetDirectory(WellKnownDirectory.Work), "test\\foo"));
 
@@ -289,7 +289,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             // Setup the endpoint.
             _repository = new Pipelines.RepositoryResource()
             {
-                Alias = "test",
+                Alias = "self",
                 Type = Pipelines.RepositoryTypes.Git,
                 Url = new Uri("http://contoso.visualstudio.com"),
             };

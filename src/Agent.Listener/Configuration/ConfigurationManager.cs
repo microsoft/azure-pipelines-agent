@@ -1,3 +1,4 @@
+using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Capabilities;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -140,10 +141,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             AgentSettings agentSettings = new AgentSettings();
             // TEE EULA
             agentSettings.AcceptTeeEula = false;
-            switch (Constants.Agent.Platform)
+            switch (PlatformUtil.RunningOnOS)
             {
-                case Constants.OSPlatform.OSX:
-                case Constants.OSPlatform.Linux:
+                case PlatformUtil.OS.OSX:
+                case PlatformUtil.OS.Linux:
                     // Write the section header.
                     WriteSection(StringUtil.Loc("EulasSectionHeader"));
 
@@ -158,7 +159,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     // Prompt to acccept the TEE EULA.
                     agentSettings.AcceptTeeEula = command.GetAcceptTeeEula();
                     break;
-                case Constants.OSPlatform.Windows:
+                case PlatformUtil.OS.Windows:
                     // Warn and continue if .NET 4.6 is not installed.
                     if (!NetFrameworkUtil.Test(new Version(4, 6), Trace))
                     {
@@ -180,6 +181,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             else if (command.DeploymentPool)
             {
                 agentType = Constants.Agent.AgentConfigurationProvider.SharedDeploymentAgentConfiguration;
+            }
+            else if (command.EnvironmentVMResource)
+            {
+                agentType = Constants.Agent.AgentConfigurationProvider.EnvironmentVMResourceConfiguration;
             }
             else
             {
@@ -291,7 +296,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 }
                 else
                 {
-                    // Create a new agent. 
+                    // Create a new agent.
                     agent = CreateNewAgent(agentSettings.AgentName, publicKey, systemCapabilities);
 
                     try
@@ -369,14 +374,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
             else
             {
-                switch (Constants.Agent.Platform)
+                switch (PlatformUtil.RunningOnOS)
                 {
-                    case Constants.OSPlatform.OSX:
-                    case Constants.OSPlatform.Linux:
+                    case PlatformUtil.OS.OSX:
+                    case PlatformUtil.OS.Linux:
                         // Save the provided admin cred for compat with previous agent.
                         _store.SaveCredential(credProvider.CredentialData);
                         break;
-                    case Constants.OSPlatform.Windows:
+                    case PlatformUtil.OS.Windows:
                         // Not supported against TFS 2015.
                         _term.WriteError(StringUtil.Loc("Tfs2015NotSupported"));
                         return;
@@ -432,43 +437,49 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             bool saveRuntimeOptions = false;
             var runtimeOptions = new AgentRuntimeOptions();
-#if OS_WINDOWS
-            if (command.GitUseSChannel)
+            if (PlatformUtil.RunningOnWindows && command.GitUseSChannel)
             {
                 saveRuntimeOptions = true;
                 runtimeOptions.GitUseSecureChannel = true;
             }
-#endif
             if (saveRuntimeOptions)
             {
                 Trace.Info("Save agent runtime options to disk.");
                 _store.SaveAgentRuntimeOptions(runtimeOptions);
             }
 
-#if OS_WINDOWS
-            // config windows service
-            bool runAsService = command.GetRunAsService();
-            if (runAsService)
+            if (PlatformUtil.RunningOnWindows)
             {
-                Trace.Info("Configuring to run the agent as service");
-                var serviceControlManager = HostContext.GetService<IWindowsServiceControlManager>();
-                serviceControlManager.ConfigureService(agentSettings, command);
+                // config windows service
+                bool runAsService = command.GetRunAsService();
+                if (runAsService)
+                {
+                    Trace.Info("Configuring to run the agent as service");
+                    var serviceControlManager = HostContext.GetService<IWindowsServiceControlManager>();
+                    serviceControlManager.ConfigureService(agentSettings, command);
+                }
+                // config auto logon
+                else if (command.GetRunAsAutoLogon())
+                {
+                    Trace.Info("Agent is going to run as process setting up the 'AutoLogon' capability for the agent.");
+                    var autoLogonConfigManager = HostContext.GetService<IAutoLogonManager>();
+                    await autoLogonConfigManager.ConfigureAsync(command);
+                    //Important: The machine may restart if the autologon user is not same as the current user
+                    //if you are adding code after this, keep that in mind
+                }
             }
-            // config auto logon
-            else if (command.GetRunAsAutoLogon())
+            else if (PlatformUtil.RunningOnLinux)
             {
-                Trace.Info("Agent is going to run as process setting up the 'AutoLogon' capability for the agent.");
-                var autoLogonConfigManager = HostContext.GetService<IAutoLogonManager>();
-                await autoLogonConfigManager.ConfigureAsync(command);
-                //Important: The machine may restart if the autologon user is not same as the current user
-                //if you are adding code after this, keep that in mind
+                // generate service config script for Linux
+                var serviceControlManager = HostContext.GetService<ILinuxServiceControlManager>();
+                serviceControlManager.GenerateScripts(agentSettings);
             }
-
-#elif OS_LINUX || OS_OSX
-            // generate service config script for OSX and Linux, GenerateScripts() will no-opt on windows.
-            var serviceControlManager = HostContext.GetService<ILinuxServiceControlManager>();
-            serviceControlManager.GenerateScripts(agentSettings);
-#endif
+            else if (PlatformUtil.RunningOnMacOS)
+            {
+                // generate service config script for macOS
+                var serviceControlManager = HostContext.GetService<IMacOSServiceControlManager>();
+                serviceControlManager.GenerateScripts(agentSettings);
+            }
         }
 
         public async Task UnconfigureAsync(CommandSettings command)
@@ -482,35 +493,41 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 {
                     currentAction = StringUtil.Loc("UninstallingService");
                     _term.WriteLine(currentAction);
-#if OS_WINDOWS
-                    var serviceControlManager = HostContext.GetService<IWindowsServiceControlManager>();
-                    serviceControlManager.UnconfigureService();
-                    _term.WriteLine(StringUtil.Loc("Success") + currentAction);
-#elif OS_LINUX
-                    // unconfig system D service first
-                    throw new Exception(StringUtil.Loc("UnconfigureServiceDService"));
-#elif OS_OSX
-                    // unconfig osx service first
-                    throw new Exception(StringUtil.Loc("UnconfigureOSXService"));
-#endif
+                    if (PlatformUtil.RunningOnWindows)
+                    {
+                        var serviceControlManager = HostContext.GetService<IWindowsServiceControlManager>();
+                        serviceControlManager.UnconfigureService();
+                        _term.WriteLine(StringUtil.Loc("Success") + currentAction);
+                    }
+                    else if (PlatformUtil.RunningOnLinux)
+                    {
+                        // unconfig systemd service first
+                        throw new Exception(StringUtil.Loc("UnconfigureServiceDService"));
+                    }
+                    else if (PlatformUtil.RunningOnMacOS)
+                    {
+                        // unconfig macOS service first
+                        throw new Exception(StringUtil.Loc("UnconfigureOSXService"));
+                    }
                 }
                 else
                 {
-#if OS_WINDOWS
-                    //running as process, unconfigure autologon if it was configured                    
-                    if (_store.IsAutoLogonConfigured())
+                    if (PlatformUtil.RunningOnWindows)
                     {
-                        currentAction = StringUtil.Loc("UnconfigAutologon");
-                        _term.WriteLine(currentAction);
-                        var autoLogonConfigManager = HostContext.GetService<IAutoLogonManager>();
-                        autoLogonConfigManager.Unconfigure();
-                        _term.WriteLine(StringUtil.Loc("Success") + currentAction);
+                        //running as process, unconfigure autologon if it was configured                    
+                        if (_store.IsAutoLogonConfigured())
+                        {
+                            currentAction = StringUtil.Loc("UnconfigAutologon");
+                            _term.WriteLine(currentAction);
+                            var autoLogonConfigManager = HostContext.GetService<IAutoLogonManager>();
+                            autoLogonConfigManager.Unconfigure();
+                            _term.WriteLine(StringUtil.Loc("Success") + currentAction);
+                        }
+                        else
+                        {
+                            Trace.Info("AutoLogon was not configured on the agent.");
+                        }
                     }
-                    else
-                    {
-                        Trace.Info("AutoLogon was not configured on the agent.");
-                    }
-#endif
                 }
 
                 //delete agent from the server
@@ -528,12 +545,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     VssCredentials creds = credProvider.GetVssCredentials(HostContext);
                     Trace.Info("cred retrieved");
 
+                    bool isEnvironmentVMResource = false;
                     bool isDeploymentGroup = (settings.MachineGroupId > 0) || (settings.DeploymentGroupId > 0);
+                    if(!isDeploymentGroup)
+                    {
+                        isEnvironmentVMResource = settings.EnvironmentId > 0;
+                    }
 
                     Trace.Info("Agent configured for deploymentGroup : {0}", isDeploymentGroup.ToString());
 
                     string agentType = isDeploymentGroup
                    ? Constants.Agent.AgentConfigurationProvider.DeploymentAgentConfiguration
+                   : isEnvironmentVMResource 
+                   ? Constants.Agent.AgentConfigurationProvider.EnvironmentVMResourceConfiguration 
                    : Constants.Agent.AgentConfigurationProvider.BuildReleasesAgentConfiguration;
 
                     var extensionManager = HostContext.GetService<IExtensionManager>();
@@ -620,7 +644,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
             else
             {
-                defaultAuth = Constants.Agent.Platform == Constants.OSPlatform.Windows ? Constants.Configuration.Integrated : Constants.Configuration.Negotiate;
+                defaultAuth = PlatformUtil.RunningOnWindows ? Constants.Configuration.Integrated : Constants.Configuration.Negotiate;
             }
 
             string authType = command.GetAuth(defaultValue: defaultAuth);

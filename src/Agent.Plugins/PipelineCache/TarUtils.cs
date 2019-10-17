@@ -74,7 +74,8 @@ namespace Agent.Plugins.PipelineCache
 
             Directory.CreateDirectory(targetDirectory);
             
-            DedupIdentifier dedupId = DedupIdentifier.Create(manifest.Items.Single(i => i.Path.EndsWith(archive, StringComparison.OrdinalIgnoreCase)).Blob.Id);
+            DedupIdentifier dedupId = DedupIdentifier.Create(manifest.Items.Single(i => i.Path.EndsWith(archive, StringComparison.OrdinalIgnoreCase)).Blob.Id);          
+
             ProcessStartInfo processStartInfo = GetExtractStartProcessInfo(context, targetDirectory);
 
             Func<Process, CancellationToken, Task> downloadTaskFunc =

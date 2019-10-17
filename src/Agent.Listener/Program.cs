@@ -1,4 +1,5 @@
-﻿using Microsoft.VisualStudio.Services.Agent.Util;
+﻿using Agent.Sdk;
+using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Globalization;
 using System.IO;
@@ -30,39 +31,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         public async static Task<int> MainAsync(IHostContext context, string[] args)
         {
             Tracing trace = context.GetTrace("AgentProcess");
-            trace.Info($"Agent is built for {Constants.Agent.Platform} ({Constants.Agent.PlatformArchitecture}) - {BuildConstants.AgentPackage.PackageName}.");
+            trace.Info($"Agent built on {PlatformUtil.BuiltOnOS} ({PlatformUtil.BuiltOnArchitecture}) - {BuildConstants.AgentPackage.PackageName}.");
+            trace.Info($"Agent built for {PlatformUtil.BuiltForOS} ({PlatformUtil.BuiltForArchitecture}).");
+            trace.Info($"Running on {PlatformUtil.RunningOnOS} ({PlatformUtil.RunningOnArchitecture}).");
             trace.Info($"RuntimeInformation: {RuntimeInformation.OSDescription}.");
             context.WritePerfCounter("AgentProcessStarted");
             var terminal = context.GetService<ITerminal>();
 
-            // Validate the binaries intended for one OS are not running on a different OS.
-            switch (Constants.Agent.Platform)
-            {
-                case Constants.OSPlatform.Linux:
-                    if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                    {
-                        terminal.WriteLine(StringUtil.Loc("NotLinux"));
-                        return Constants.Agent.ReturnCode.TerminatedError;
-                    }
-                    break;
-                case Constants.OSPlatform.OSX:
-                    if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                    {
-                        terminal.WriteLine(StringUtil.Loc("NotOSX"));
-                        return Constants.Agent.ReturnCode.TerminatedError;
-                    }
-                    break;
-                case Constants.OSPlatform.Windows:
-                    if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                    {
-                        terminal.WriteLine(StringUtil.Loc("NotWindows"));
-                        return Constants.Agent.ReturnCode.TerminatedError;
-                    }
-                    break;
-                default:
-                    terminal.WriteLine(StringUtil.Loc("PlatformNotSupport", RuntimeInformation.OSDescription, Constants.Agent.Platform.ToString()));
-                    return Constants.Agent.ReturnCode.TerminatedError;
-            }
+            // TODO: check that the right supporting tools are available for this platform
+            // (replaces the check for build platform vs runtime platform)
 
             try
             {
@@ -85,27 +62,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     return Constants.Agent.ReturnCode.TerminatedError;
                 }
 
-#if OS_WINDOWS
-                // Validate PowerShell 3.0 or higher is installed.
-                var powerShellExeUtil = context.GetService<IPowerShellExeUtil>();
-                try
+                if (PlatformUtil.RunningOnWindows)
                 {
-                    powerShellExeUtil.GetPath();
-                }
-                catch (Exception e)
-                {
-                    terminal.WriteError(StringUtil.Loc("ErrorOccurred", e.Message));
-                    trace.Error(e);
-                    return Constants.Agent.ReturnCode.TerminatedError;
-                }
+                    // Validate PowerShell 3.0 or higher is installed.
+                    var powerShellExeUtil = context.GetService<IPowerShellExeUtil>();
+                    try
+                    {
+                        powerShellExeUtil.GetPath();
+                    }
+                    catch (Exception e)
+                    {
+                        terminal.WriteError(StringUtil.Loc("ErrorOccurred", e.Message));
+                        trace.Error(e);
+                        return Constants.Agent.ReturnCode.TerminatedError;
+                    }
 
-                // Validate .NET Framework 4.5 or higher is installed.
-                if (!NetFrameworkUtil.Test(new Version(4, 5), trace))
-                {
-                    terminal.WriteError(StringUtil.Loc("MinimumNetFramework"));
-                    return Constants.Agent.ReturnCode.TerminatedError;
+                    // Validate .NET Framework 4.5 or higher is installed.
+                    if (!NetFrameworkUtil.Test(new Version(4, 5), trace))
+                    {
+                        terminal.WriteError(StringUtil.Loc("MinimumNetFramework"));
+                        return Constants.Agent.ReturnCode.TerminatedError;
+                    }
                 }
-#endif
 
                 // Add environment variables from .env file
                 string envFile = Path.Combine(context.GetDirectory(WellKnownDirectory.Root), ".env");

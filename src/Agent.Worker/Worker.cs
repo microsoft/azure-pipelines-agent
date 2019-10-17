@@ -1,7 +1,6 @@
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Threading;

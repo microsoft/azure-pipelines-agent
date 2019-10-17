@@ -23,6 +23,11 @@ namespace Agent.Sdk
         Task RunAsync(AgentTaskPluginExecutionContext executionContext, CancellationToken token);
     }
 
+    public class WellKnownJobSettings
+    {
+        public static readonly string HasMultipleCheckouts = "HasMultipleCheckouts";
+    }
+
     public class AgentTaskPluginExecutionContext : ITraceWriter
     {
         private VssConnection _connection;
@@ -49,6 +54,7 @@ namespace Agent.Sdk
         public Dictionary<string, VariableValue> TaskVariables { get; set; }
         public Dictionary<string, string> Inputs { get; set; }
         public ContainerInfo Container {get; set; }
+        public Dictionary<string, string> JobSettings { get; set; }
 
         [JsonIgnore]
         public VssConnection VssConnection
@@ -76,12 +82,13 @@ namespace Agent.Sdk
 
             VssClientHttpRequestSettings.Default.UserAgent = headerValues;
 
-#if OS_LINUX || OS_OSX
-            // The .NET Core 2.1 runtime switched its HTTP default from HTTP 1.1 to HTTP 2.
-            // This causes problems with some versions of the Curl handler.
-            // See GitHub issue https://github.com/dotnet/corefx/issues/32376
-            VssClientHttpRequestSettings.Default.UseHttp11 = true;
-#endif
+            if (PlatformUtil.RunningOnLinux || PlatformUtil.RunningOnMacOS)
+            {
+                // The .NET Core 2.1 runtime switched its HTTP default from HTTP 1.1 to HTTP 2.
+                // This causes problems with some versions of the Curl handler.
+                // See GitHub issue https://github.com/dotnet/corefx/issues/32376
+                VssClientHttpRequestSettings.Default.UseHttp11 = true;
+            }
 
             var certSetting = GetCertConfiguration();
             if (certSetting != null)
@@ -114,6 +121,7 @@ namespace Agent.Sdk
             ArgUtil.NotNull(credentials, nameof(credentials));
             return VssUtil.CreateConnection(systemConnection.Url, credentials);
         }
+
         public string GetInput(string name, bool required = false)
         {
             string value = null;

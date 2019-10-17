@@ -1,12 +1,9 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
-using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Newtonsoft.Json.Linq;
@@ -85,6 +82,17 @@ namespace Agent.Plugins.Repository
                 }
             }
         }
+
+        protected bool HasMultipleCheckouts(AgentTaskPluginExecutionContext executionContext)
+        {
+            return executionContext != null && RepositoryUtil.HasMultipleCheckouts(executionContext.JobSettings);
+        }
+
+        protected bool ShouldUpdateRepositoryPath(AgentTaskPluginExecutionContext executionContext, string repositoryAlias)
+        {
+            // Only update the repo path if this is the only checkout task or this checkout task is for the 'self' repo
+            return !HasMultipleCheckouts(executionContext) || RepositoryUtil.IsPrimaryRepositoryName(repositoryAlias);
+        }
     }
 
     public class CheckoutTask : RepositoryTask
@@ -123,23 +131,34 @@ namespace Agent.Plugins.Repository
             ArgUtil.NotNullOrEmpty(buildDirectory, nameof(buildDirectory));
             ArgUtil.NotNullOrEmpty(tempDirectory, nameof(tempDirectory));
 
+            // Determine the path that we should clone/move the repository into
             string expectRepoPath;
             var path = executionContext.GetInput("path");
             if (!string.IsNullOrEmpty(path))
             {
+                // When the checkout task provides a path, always use that one
                 expectRepoPath = IOUtil.ResolvePath(buildDirectory, path);
                 if (!expectRepoPath.StartsWith(buildDirectory.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar))
                 {
                     throw new ArgumentException($"Input path '{path}' should resolve to a directory under '{buildDirectory}', current resolved path '{expectRepoPath}'.");
                 }
             }
+            else if (HasMultipleCheckouts(executionContext))
+            {
+                // When there are multiple checkout tasks (and this one didn't set the path), default to directory 1/<repoName>
+                expectRepoPath = Path.Combine(buildDirectory, RepositoryUtil.GetCloneDirectory(repo));
+            }
             else
             {
-                // When repository doesn't has path set, default to sources directory 1/s
+                // When there's a single checkout task that doesn't have path set, default to sources directory 1/s
                 expectRepoPath = Path.Combine(buildDirectory, "s");
             }
 
-            executionContext.UpdateRepositoryPath(repoAlias, expectRepoPath);
+            // Don't update the repository path for every checkout task (it should only be updated once)
+            if (ShouldUpdateRepositoryPath(executionContext, repo.Alias))
+            {
+                executionContext.UpdateRepositoryPath(repoAlias, expectRepoPath);
+            }
 
             executionContext.Debug($"Repository requires to be placed at '{expectRepoPath}', current location is '{currentRepoPath}'");
             if (!string.Equals(currentRepoPath.Trim(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), expectRepoPath.Trim(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), IOUtil.FilePathStringComparison))
@@ -166,7 +185,7 @@ namespace Agent.Plugins.Repository
                     IOUtil.DeleteDirectory(expectRepoPath, CancellationToken.None);
                 }
 
-                executionContext.Output($"Repository will locate at '{expectRepoPath}'.");
+                executionContext.Output($"Repository will be located at '{expectRepoPath}'.");
                 repo.Properties.Set<string>(Pipelines.RepositoryPropertyNames.Path, expectRepoPath);
             }
 

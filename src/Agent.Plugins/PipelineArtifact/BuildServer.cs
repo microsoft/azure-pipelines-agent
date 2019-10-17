@@ -3,10 +3,8 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.Build.WebApi;
-using Microsoft.TeamFoundation.Core.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Agent.Sdk;
 
 namespace Agent.Plugins.PipelineArtifact
 {
@@ -17,6 +15,7 @@ namespace Agent.Plugins.PipelineArtifact
 
         public BuildServer(VssConnection connection)
         {
+            connection.Settings.SendTimeout = TimeSpan.FromSeconds(300);
             ArgUtil.NotNull(connection, nameof(connection));
             _buildHttpClient = connection.GetClient<BuildHttpClient>();
         }

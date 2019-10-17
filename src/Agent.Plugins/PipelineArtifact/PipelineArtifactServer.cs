@@ -9,17 +9,24 @@ using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
 using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
+using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using System.Globalization;
 
 namespace Agent.Plugins.PipelineArtifact
 {
     // A wrapper of DedupManifestArtifactClient, providing basic functionalities such as uploading and downloading pipeline artifacts.
     public class PipelineArtifactServer
     {
+        private readonly IAppTraceSource tracer;
+
+        public PipelineArtifactServer(IAppTraceSource tracer)
+        {
+            this.tracer = tracer;
+        }
+
         // Upload from target path to Azure DevOps BlobStore service through DedupManifestArtifactClient, then associate it with the build
         internal async Task UploadAsync(
             AgentTaskPluginExecutionContext context,
@@ -56,7 +63,11 @@ namespace Agent.Plugins.PipelineArtifact
                 propertiesDictionary.Add(PipelineArtifactConstants.RootId, result.RootId.ValueString);
                 propertiesDictionary.Add(PipelineArtifactConstants.ProofNodes, StringUtil.ConvertToJson(result.ProofNodes.ToArray()));
                 propertiesDictionary.Add(PipelineArtifactConstants.ArtifactSize, result.ContentSize.ToString());
-                var artifact = await buildHelper.AssociateArtifactAsync(projectId, 
+
+                BuildArtifact buildArtifact = await AsyncHttpRetryHelper.InvokeAsync(
+                    async () => 
+                    {
+                        return await buildHelper.AssociateArtifactAsync(projectId, 
                                                                         pipelineId, 
                                                                         name, 
                                                                         context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.JobId)?.Value?? string.Empty, 
@@ -65,7 +76,14 @@ namespace Agent.Plugins.PipelineArtifact
                                                                         propertiesDictionary, 
                                                                         cancellationToken);
 
-                context.Output(StringUtil.Loc("AssociateArtifactWithBuild", artifact.Id, pipelineId));
+                    },
+                    maxRetries: 3,
+                    tracer: tracer,
+                    canRetryDelegate: e => e is TimeoutException || e.InnerException is TimeoutException,
+                    cancellationToken: cancellationToken,
+                    continueOnCapturedContext: false);
+                
+                context.Output(StringUtil.Loc("AssociateArtifactWithBuild", buildArtifact.Id, pipelineId));
             }
         }
 
@@ -129,12 +147,6 @@ namespace Agent.Plugins.PipelineArtifact
                         throw new InvalidOperationException($"Invalid {nameof(downloadParameters.ProjectRetrievalOptions)}!");
                     }
 
-                    IEnumerable<BuildArtifact> fileShareArtifacts = artifacts.Where(a => string.Equals(a.Resource.Type, PipelineArtifactConstants.FileShareArtifact, StringComparison.OrdinalIgnoreCase));
-                    if(fileShareArtifacts.Any()) 
-                    {
-                        throw new InvalidOperationException("File Share is not supported in the Download Pipeline Artifact V1 task. Please use Download Pipeline Artifact V2 task instead.");
-                    }
-
                     IEnumerable<BuildArtifact> pipelineArtifacts = artifacts.Where(a => string.Equals(a.Resource.Type, PipelineArtifactConstants.PipelineArtifact, StringComparison.OrdinalIgnoreCase));
                     if (pipelineArtifacts.Count() == 0)
                     {
@@ -189,11 +201,6 @@ namespace Agent.Plugins.PipelineArtifact
                     else
                     {
                         throw new InvalidOperationException($"Invalid {nameof(downloadParameters.ProjectRetrievalOptions)}!");
-                    }
-
-                    if(buildArtifact.Resource.Type == PipelineArtifactConstants.FileShareArtifact) 
-                    {
-                        throw new InvalidOperationException("File Share is not supported in the Download Pipeline Artifact V1 task. Please use Download Pipeline Artifact V2 task instead.");
                     }
 
                     var manifestId = DedupIdentifier.Create(buildArtifact.Resource.Data);
@@ -261,19 +268,19 @@ namespace Agent.Plugins.PipelineArtifact
 
                 if (buildArtifacts.Any())
                 {
-                    FileContainerProvider provider = new FileContainerProvider(connection, this.CreateTracer(context));
+                    FileContainerProvider provider = new FileContainerProvider(connection, this.tracer);
                     await provider.DownloadMultipleArtifactsAsync(downloadParameters, buildArtifacts, cancellationToken);
                 }
 
                 if (pipelineArtifacts.Any())
                 {
-                    PipelineArtifactProvider provider = new PipelineArtifactProvider(context, connection, this.CreateTracer(context));
+                    PipelineArtifactProvider provider = new PipelineArtifactProvider(context, connection, this.tracer);
                     await provider.DownloadMultipleArtifactsAsync(downloadParameters, pipelineArtifacts, cancellationToken);
                 }
 
                 if(fileShareArtifacts.Any()) 
                 {
-                    FileShareProvider provider = new FileShareProvider(context, connection, this.CreateTracer(context));
+                    FileShareProvider provider = new FileShareProvider(context, connection, this.tracer);
                     await provider.DownloadMultipleArtifactsAsync(downloadParameters, fileShareArtifacts, cancellationToken);
                 }
             }
@@ -301,7 +308,7 @@ namespace Agent.Plugins.PipelineArtifact
                     throw new InvalidOperationException($"Invalid {nameof(downloadParameters.ProjectRetrievalOptions)}!");
                 }
 
-                ArtifactProviderFactory factory = new ArtifactProviderFactory(context, connection, this.CreateTracer(context));
+                ArtifactProviderFactory factory = new ArtifactProviderFactory(context, connection, this.tracer);
                 IArtifactProvider provider = factory.GetProvider(buildArtifact);
                 
                 await provider.DownloadSingleArtifactAsync(downloadParameters, buildArtifact, cancellationToken);
@@ -310,12 +317,6 @@ namespace Agent.Plugins.PipelineArtifact
             {
                 throw new InvalidOperationException($"Invalid {nameof(downloadOptions)}!");
             }
-        }
-
-        private CallbackAppTraceSource CreateTracer(AgentTaskPluginExecutionContext context)
-        {
-            var tracer = new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information);
-            return tracer;
         }
     }
 

@@ -12,7 +12,7 @@ namespace Agent.Plugins.PipelineArtifact
         private readonly PipelineArtifactProvider pipelineArtifactProvider;
         private readonly FileShareProvider fileShareProvider;
 
-        public ArtifactProviderFactory(AgentTaskPluginExecutionContext context, VssConnection connection, CallbackAppTraceSource tracer)
+        public ArtifactProviderFactory(AgentTaskPluginExecutionContext context, VssConnection connection, IAppTraceSource tracer)
         {
             pipelineArtifactProvider = new PipelineArtifactProvider(context, connection, tracer);
             fileContainerProvider = new FileContainerProvider(connection, tracer);

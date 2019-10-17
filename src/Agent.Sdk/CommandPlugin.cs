@@ -1,30 +1,16 @@
 ﻿using System;
-using System.Collections;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Globalization;
-using System.IO;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Common;
-using Microsoft.VisualStudio.Services.OAuth;
 using Microsoft.VisualStudio.Services.WebApi;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Agent.Sdk
 {
@@ -47,19 +33,12 @@ namespace Agent.Sdk
             this.Endpoints = new List<ServiceEndpoint>();
             this.Properties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             this.Variables = new Dictionary<string, VariableValue>(StringComparer.OrdinalIgnoreCase);
-
-#if OS_WINDOWS
-            this.ContainerPathMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-#else
-            this.ContainerPathMappings = new Dictionary<string, string>();
-#endif
         }
 
         public string Data { get; set; }
         public Dictionary<string, string> Properties { get; set; }
         public List<ServiceEndpoint> Endpoints { get; set; }
         public Dictionary<string, VariableValue> Variables { get; set; }
-        public Dictionary<string, string> ContainerPathMappings { get; set; }
 
         [JsonIgnore]
         public VssConnection VssConnection
@@ -129,12 +108,13 @@ namespace Agent.Sdk
 
             VssClientHttpRequestSettings.Default.UserAgent = headerValues;
 
-#if OS_LINUX || OS_OSX
-            // The .NET Core 2.1 runtime switched its HTTP default from HTTP 1.1 to HTTP 2.
-            // This causes problems with some versions of the Curl handler.
-            // See GitHub issue https://github.com/dotnet/corefx/issues/32376
-            VssClientHttpRequestSettings.Default.UseHttp11 = true;
-#endif
+            if (PlatformUtil.RunningOnLinux || PlatformUtil.RunningOnMacOS)
+            {
+                // The .NET Core 2.1 runtime switched its HTTP default from HTTP 1.1 to HTTP 2.
+                // This causes problems with some versions of the Curl handler.
+                // See GitHub issue https://github.com/dotnet/corefx/issues/32376
+                VssClientHttpRequestSettings.Default.UseHttp11 = true;
+            }
 
             var certSetting = GetCertConfiguration();
             if (certSetting != null)
@@ -166,40 +146,6 @@ namespace Agent.Sdk
             VssCredentials credentials = VssUtil.GetVssCredential(systemConnection);
             ArgUtil.NotNull(credentials, nameof(credentials));
             return VssUtil.CreateConnection(systemConnection.Url, credentials);
-        }
-
-        public string TranslateContainerPathToHostPath(string path)
-        {
-            if (!string.IsNullOrEmpty(path))
-            {
-                foreach (var mapping in this.ContainerPathMappings)
-                {
-#if OS_WINDOWS
-                    if (string.Equals(path, mapping.Value, StringComparison.OrdinalIgnoreCase))
-                    {
-                        return mapping.Key;
-                    }
-
-                    if (path.StartsWith(mapping.Value + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
-                        path.StartsWith(mapping.Value + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-                    {
-                        return mapping.Key + path.Remove(0, mapping.Value.Length);
-                    }
-#else
-                    if (string.Equals(path, mapping.Value))
-                    {
-                        return mapping.Key;
-                    }
-
-                    if (path.StartsWith(mapping.Value + Path.DirectorySeparatorChar))
-                    {
-                        return mapping.Key + path.Remove(0, mapping.Value.Length);
-                    }
-#endif
-                }
-            }
-
-            return path;
         }
 
         private AgentCertificateSettings GetCertConfiguration()

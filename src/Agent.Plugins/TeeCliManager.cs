@@ -1,5 +1,3 @@
-using Agent.Sdk;
-using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using System;
 using System.Collections.Generic;
 using System.IO;

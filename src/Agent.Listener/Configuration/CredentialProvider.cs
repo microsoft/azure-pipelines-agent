@@ -1,3 +1,4 @@
+using Agent.Sdk;
 using System;
 using System.Diagnostics;
 using System.Linq;
@@ -88,13 +89,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 try
                 {
-#if OS_WINDOWS
-                    Process.Start(new ProcessStartInfo() { FileName = codeResult.VerificationUrl, UseShellExecute = true });
-#elif OS_LINUX
-                    Process.Start(new ProcessStartInfo() { FileName = "xdg-open", Arguments = codeResult.VerificationUrl });
-#else
-                    Process.Start(new ProcessStartInfo() { FileName = "open", Arguments = codeResult.VerificationUrl });
-#endif
+                    if (PlatformUtil.RunningOnWindows)
+                    {
+                        Process.Start(new ProcessStartInfo() { FileName = codeResult.VerificationUrl, UseShellExecute = true });
+                    }
+                    else if (PlatformUtil.RunningOnLinux)
+                    {
+                        Process.Start(new ProcessStartInfo() { FileName = "xdg-open", Arguments = codeResult.VerificationUrl });
+                    }
+                    else if (PlatformUtil.RunningOnMacOS)
+                    {
+                        Process.Start(new ProcessStartInfo() { FileName = "open", Arguments = codeResult.VerificationUrl });
+                    }
+                    else
+                    {
+                        throw new NotImplementedException("Unexpected platform");
+                    }
                 }
                 catch (Exception ex)
                 {

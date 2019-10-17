@@ -1,4 +1,5 @@
 using System;
+using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -42,58 +43,25 @@ namespace Microsoft.VisualStudio.Services.Agent
 
     public static class Constants
     {
-        /// <summary>Path environment varible name.</summary>
-#if OS_WINDOWS
-        public static readonly string PathVariable = "Path";
-#else
-        public static readonly string PathVariable = "PATH";
-#endif
+        /// <summary>Name of environment variable holding the path.</summary>
+        public static string PathVariable
+        {
+            get => 
+                PlatformUtil.RunningOnWindows
+                ? "Path"
+                : "PATH";
+        }
         public static string TFBuild = "TF_BUILD";
         public static string ProcessLookupId = "VSTS_PROCESS_LOOKUP_ID";
         public static string PluginTracePrefix = "##[plugin.trace]";
         public static readonly int AgentDownloadRetryMaxAttempts = 3;
 
-        // This enum is embedded within the Constants class to make it easier to reference and avoid
-        // ambiguous type reference with System.Runtime.InteropServices.OSPlatform and System.Runtime.InteropServices.Architecture
-        public enum OSPlatform
-        {
-            OSX,
-            Linux,
-            Windows
-        }
-
-        public enum Architecture
-        {
-            X86,
-            X64,
-            Arm,
-            Arm64
-        }
+        // Environment variable set on hosted Azure Pipelines images to
+        // store the version of the image
+        public static readonly string ImageVersionVariable = "ImageVersion";
 
         public static class Agent
         {
-#if OS_LINUX
-            public static readonly OSPlatform Platform = OSPlatform.Linux;
-#elif OS_OSX
-            public static readonly OSPlatform Platform = OSPlatform.OSX;
-#elif OS_WINDOWS
-            public static readonly OSPlatform Platform = OSPlatform.Windows;
-#else
-    #error Unknown OS
-#endif
-
-#if X86
-            public static readonly Architecture PlatformArchitecture = Architecture.X86;
-#elif X64
-            public static readonly Architecture PlatformArchitecture = Architecture.X64;
-#elif ARM
-            public static readonly Architecture PlatformArchitecture = Architecture.Arm;
-#elif ARM64            
-            public static readonly Architecture PlatformArchitecture = Architecture.Arm64;
-#else  
-    #error Unknown Architecture
-#endif
-
             public static readonly TimeSpan ExitOnUnloadTimeout = TimeSpan.FromSeconds(30);
 
             public static class CommandLine
@@ -108,6 +76,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public static readonly string DeploymentGroupName = "deploymentgroupname";
                     public static readonly string DeploymentPoolName = "deploymentpoolname";
                     public static readonly string DeploymentGroupTags = "deploymentgrouptags";
+                    public static readonly string EnvironmentName = "environmentname";
+                    public static readonly string EnvironmentVMResourceTags = "virtualmachineresourcetags";
                     public static readonly string MachineGroupName = "machinegroupname";
                     public static readonly string MachineGroupTags = "machinegrouptags";
                     public static readonly string Matrix = "matrix";
@@ -162,9 +132,11 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public static readonly string AcceptTeeEula = "acceptteeeula";
                     public static readonly string AddDeploymentGroupTags = "adddeploymentgrouptags";
                     public static readonly string AddMachineGroupTags = "addmachinegrouptags";
+                    public static readonly string AddEnvironmentVirtualMachineResourceTags = "addvirtualmachineresourcetags";
                     public static readonly string Commit = "commit";
                     public static readonly string DeploymentGroup = "deploymentgroup";
                     public static readonly string DeploymentPool = "deploymentpool";
+                    public static readonly string Environment = "environment";
                     public static readonly string OverwriteAutoLogon = "overwriteautologon";
                     public static readonly string GitUseSChannel = "gituseschannel";
                     public static readonly string Help = "help";
@@ -196,6 +168,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string BuildReleasesAgentConfiguration = "BuildReleasesAgentConfiguration";
                 public static readonly string DeploymentAgentConfiguration = "DeploymentAgentConfiguration";
                 public static readonly string SharedDeploymentAgentConfiguration = "SharedDeploymentAgentConfiguration";
+                public static readonly string EnvironmentVMResourceConfiguration = "EnvironmentVMResourceConfiguration";
             }
         }
 

@@ -20,6 +20,7 @@ jobs:
   - template: .vsts.template.windows.yml
     parameters:
       componentDetection: 'true'
+      testLogTitle: 'Windows-x64'
 
   # Package dotnet core windows dependency (VC++ Redistributable)
   - powershell: |
@@ -63,6 +64,8 @@ jobs:
 
   # Steps template for windows platform
   - template: .vsts.template.windows.yml
+    parameters:
+      testLogTitle: 'Windows-x86'
 
   # Package dotnet core windows dependency (VC++ Redistributable)
   - powershell: |
@@ -107,6 +110,7 @@ jobs:
   - template: .vsts.template.nonwindows.yml
     parameters:
       componentDetection: 'true'
+      testLogTitle: 'Linux-x64'
 
   # Create agent package zip
   - script: ./dev.sh package Release
@@ -135,6 +139,8 @@ jobs:
 
   # Steps template for non-windows platform
   - template: .vsts.template.nonwindows.yml
+    parameters:
+      testLogTitle: 'Linux-ARM'
 
   # Create agent package zip
   - script: ./dev.sh package Release
@@ -162,6 +168,8 @@ jobs:
 
   # Steps template for non-windows platform
   - template: .vsts.template.nonwindows.yml
+    parameters:
+      testLogTitle: 'RHEL-x64'
 
   # Create agent package zip
   - script: ./dev.sh package Release
@@ -190,6 +198,7 @@ jobs:
   - template: .vsts.template.nonwindows.yml
     parameters:
       componentDetection: 'true'
+      testLogTitle: 'macOS-x64'
   
   # Create agent package zip
   - script: ./dev.sh package Release

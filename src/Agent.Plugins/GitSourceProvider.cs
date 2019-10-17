@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Text;
-using System.Diagnostics;
 using Agent.Sdk;
 using System.Linq;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
@@ -51,7 +50,7 @@ namespace Agent.Plugins.Repository
 
         public override string GenerateAuthHeader(AgentTaskPluginExecutionContext executionContext, string username, string password)
         {
-            // can't generate auth header for external git. 
+            // can't generate auth header for external git.
             throw new NotSupportedException(nameof(ExternalGitSourceProvider.GenerateAuthHeader));
         }
     }
@@ -84,7 +83,7 @@ namespace Agent.Plugins.Repository
 
         public override string GenerateAuthHeader(AgentTaskPluginExecutionContext executionContext, string username, string password)
         {
-            // use basic auth header with username:password in base64encoding. 
+            // use basic auth header with username:password in base64encoding.
             string authHeader = $"{username ?? string.Empty}:{password ?? string.Empty}";
             string base64encodedAuthHeader = Convert.ToBase64String(Encoding.UTF8.GetBytes(authHeader));
 
@@ -253,7 +252,7 @@ namespace Agent.Plugins.Repository
             // input Submodules can be ['', true, false, recursive]
             // '' or false indicate don't checkout submodules
             // true indicate checkout top level submodules
-            // recursive indicate checkout submodules recursively 
+            // recursive indicate checkout submodules recursively
             bool checkoutSubmodules = false;
             bool checkoutNestedSubmodules = false;
             string submoduleInput = executionContext.GetInput(Pipelines.PipelineConstants.CheckoutTaskInputs.Submodules);
@@ -309,7 +308,7 @@ namespace Agent.Plugins.Repository
             }
 
             bool exposeCred = StringUtil.ConvertToBoolean(executionContext.GetInput(Pipelines.PipelineConstants.CheckoutTaskInputs.PersistCredentials));
-            
+
             // Read 'disable fetch by commit' value from the execution variable first, then from the environment variable if the first one is not set
             bool fetchByCommit = GitSupportsFetchingCommitBySha1Hash && !StringUtil.ConvertToBoolean(
                 executionContext.Variables.GetValueOrDefault("VSTS.DisableFetchByCommit")?.Value ??
@@ -333,7 +332,7 @@ namespace Agent.Plugins.Repository
             executionContext.Debug($"schannelSslBackend={schannelSslBackend}");
 
             // Determine which git will be use
-            // On windows, we prefer the built-in portable git within the agent's externals folder, 
+            // On windows, we prefer the built-in portable git within the agent's externals folder,
             // set system.prefergitfrompath=true can change the behavior, agent will find git.exe from %PATH%
             var definitionSetting = executionContext.Variables.GetValueOrDefault("system.prefergitfrompath");
             if (definitionSetting != null)
@@ -532,7 +531,7 @@ namespace Agent.Plugins.Repository
             else
             {
                 // delete the index.lock file left by previous canceled build or any operation cause git.exe crash last time.
-                string lockFile = Path.Combine(targetPath, ".git\\index.lock");
+                string lockFile = Path.Combine(targetPath, ".git", "index.lock");
                 if (File.Exists(lockFile))
                 {
                     try
@@ -546,8 +545,8 @@ namespace Agent.Plugins.Repository
                     }
                 }
 
-                // delete the shallow.lock file left by previous canceled build or any operation cause git.exe crash last time.		
-                string shallowLockFile = Path.Combine(targetPath, ".git\\shallow.lock");
+                // delete the shallow.lock file left by previous canceled build or any operation cause git.exe crash last time.
+                string shallowLockFile = Path.Combine(targetPath, ".git", "shallow.lock");
                 if (File.Exists(shallowLockFile))
                 {
                     try
@@ -672,8 +671,8 @@ namespace Agent.Plugins.Repository
             List<string> additionalLfsFetchArgs = new List<string>();
             if (!selfManageGitCreds)
             {
-                // v2.9 git support provide auth header as cmdline arg. 
-                // as long 2.9 git exist, VSTS repo, TFS repo and Github repo will use this to handle auth challenge. 
+                // v2.9 git support provide auth header as cmdline arg.
+                // as long 2.9 git exist, VSTS repo, TFS repo and Github repo will use this to handle auth challenge.
                 if (gitSupportAuthHeader)
                 {
                     additionalFetchArgs.Add($"-c http.extraheader=\"AUTHORIZATION: {GenerateAuthHeader(executionContext, username, password)}\"");
@@ -831,7 +830,7 @@ namespace Agent.Plugins.Repository
 
             // Checkout
             // sourceToBuild is used for checkout
-            // if sourceBranch is a PR branch or sourceVersion is null, make sure branch name is a remote branch. we need checkout to detached head. 
+            // if sourceBranch is a PR branch or sourceVersion is null, make sure branch name is a remote branch. we need checkout to detached head.
             // (change refs/heads to refs/remotes/origin, refs/pull to refs/remotes/pull, or leave it as it when the branch name doesn't contain refs/...)
             // if sourceVersion provide, just use that for checkout, since when you checkout a commit, it will end up in detached head.
             cancellationToken.ThrowIfCancellationRequested();
@@ -949,7 +948,7 @@ namespace Agent.Plugins.Repository
                         executionContext.Debug("Use SChannel SslBackend for git submodule update.");
                         additionalSubmoduleUpdateArgs.Add("-c http.sslbackend=\"schannel\"");
                     }
-#endif                    
+#endif
                 }
 
                 int exitCode_submoduleUpdate = await gitCommandManager.GitSubmoduleUpdate(executionContext, targetPath, fetchDepth, string.Join(" ", additionalSubmoduleUpdateArgs), checkoutNestedSubmodules, cancellationToken);

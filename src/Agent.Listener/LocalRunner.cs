@@ -1,3 +1,4 @@
+using Agent.Sdk;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -499,12 +500,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             // Resolve the location of git.
             if (_gitPath == null)
             {
-#if OS_WINDOWS
-                _gitPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "git", "cmd", $"git{IOUtil.ExeExtension}");
-                ArgUtil.File(_gitPath, nameof(_gitPath));
-#else
-                _gitPath = WhichUtil.Which("git", require: true);
-#endif
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    _gitPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "git", "cmd", $"git{IOUtil.ExeExtension}");
+                    ArgUtil.File(_gitPath, nameof(_gitPath));
+                }
+                else
+                {
+                    _gitPath = WhichUtil.Which("git", require: true);
+                }
             }
 
             // Prepare the environment variables to overlay.
@@ -543,11 +547,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 output.AppendLine(message.Data);
                 Console.WriteLine(message.Data);
             };
-#if OS_WINDOWS
-            Encoding encoding = Encoding.UTF8;
-#else
             Encoding encoding = null;
-#endif
+            if (PlatformUtil.RunningOnWindows)
+            {
+                encoding = Encoding.UTF8;
+            }
             await processInvoker.ExecuteAsync(
                 workingDirectory: Directory.GetCurrentDirectory(),
                 fileName: _gitPath,

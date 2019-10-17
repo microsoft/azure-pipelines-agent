@@ -34,7 +34,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public override string GenerateAuthHeader(string username, string password)
         {
-            // can't generate auth header for external git. 
+            // can't generate auth header for external git.
             throw new NotSupportedException(nameof(ExternalGitSourceProvider.GenerateAuthHeader));
         }
     }
@@ -75,7 +75,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public override string GenerateAuthHeader(string username, string password)
         {
-            // use basic auth header with username:password in base64encoding. 
+            // use basic auth header with username:password in base64encoding.
             string authHeader = $"{username ?? string.Empty}:{password ?? string.Empty}";
             string base64encodedAuthHeader = Convert.ToBase64String(Encoding.UTF8.GetBytes(authHeader));
 
@@ -305,7 +305,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             Trace.Info($"schannelSslBackend={schannelSslBackend}");
 
             // Determine which git will be use
-            // On windows, we prefer the built-in portable git within the agent's externals folder, 
+            // On windows, we prefer the built-in portable git within the agent's externals folder,
             // set system.prefergitfrompath=true can change the behavior, agent will find git.exe from %PATH%
             var definitionSetting = executionContext.Variables.GetBoolean(Constants.Variables.System.PreferGitFromPath);
             if (definitionSetting != null)
@@ -486,7 +486,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             else
             {
                 // delete the index.lock file left by previous canceled build or any operation cause git.exe crash last time.
-                string lockFile = Path.Combine(targetPath, ".git\\index.lock");
+                string lockFile = Path.Combine(targetPath, ".git", "index.lock");
                 if (File.Exists(lockFile))
                 {
                     try
@@ -501,7 +501,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 }
 
                 // delete the shallow.lock file left by previous canceled build or any operation cause git.exe crash last time.
-                string shallowLockFile = Path.Combine(targetPath, ".git\\shallow.lock");
+                string shallowLockFile = Path.Combine(targetPath, ".git", "shallow.lock");
                 if (File.Exists(shallowLockFile))
                 {
                     try
@@ -626,8 +626,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             List<string> additionalLfsFetchArgs = new List<string>();
             if (!_selfManageGitCreds)
             {
-                // v2.9 git support provide auth header as cmdline arg. 
-                // as long 2.9 git exist, VSTS repo, TFS repo and Github repo will use this to handle auth challenge. 
+                // v2.9 git support provide auth header as cmdline arg.
+                // as long 2.9 git exist, VSTS repo, TFS repo and Github repo will use this to handle auth challenge.
                 if (GitUseAuthHeaderCmdlineArg)
                 {
                     additionalFetchArgs.Add($"-c http.extraheader=\"AUTHORIZATION: {GenerateAuthHeader(username, password)}\"");
@@ -764,7 +764,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             // Checkout
             // sourceToBuild is used for checkout
-            // if sourceBranch is a PR branch or sourceVersion is null, make sure branch name is a remote branch. we need checkout to detached head. 
+            // if sourceBranch is a PR branch or sourceVersion is null, make sure branch name is a remote branch. we need checkout to detached head.
             // (change refs/heads to refs/remotes/origin, refs/pull to refs/remotes/pull, or leave it as it when the branch name doesn't contain refs/...)
             // if sourceVersion provide, just use that for checkout, since when you checkout a commit, it will end up in detached head.
             cancellationToken.ThrowIfCancellationRequested();
@@ -870,7 +870,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         executionContext.Debug("Use SChannel SslBackend for git submodule update.");
                         additionalSubmoduleUpdateArgs.Add("-c http.sslbackend=\"schannel\"");
                     }
-#endif                    
+#endif
                 }
 
                 int exitCode_submoduleUpdate = await _gitCommandManager.GitSubmoduleUpdate(executionContext, targetPath, fetchDepth, string.Join(" ", additionalSubmoduleUpdateArgs), checkoutNestedSubmodules, cancellationToken);

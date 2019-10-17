@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
+using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
@@ -33,6 +34,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         List<ServiceEndpoint> Endpoints { get; }
         List<SecureFile> SecureFiles { get; }
         List<Pipelines.RepositoryResource> Repositories { get; }
+        Dictionary<string,string> JobSettings { get; }
 
         PlanFeatures Features { get; }
         Variables Variables { get; }
@@ -98,6 +100,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public List<ServiceEndpoint> Endpoints { get; private set; }
         public List<SecureFile> SecureFiles { get; private set; }
         public List<Pipelines.RepositoryResource> Repositories { get; private set; }
+        public Dictionary<string, string> JobSettings { get; private set; }
         public Variables Variables { get; private set; }
         public Variables TaskVariables { get; private set; }
         public HashSet<string> OutputVariables => _outputvariables;
@@ -170,6 +173,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             child.Variables = Variables;
             child.Endpoints = Endpoints;
             child.Repositories = Repositories;
+            child.JobSettings = JobSettings;
             child.SecureFiles = SecureFiles;
             child.TaskVariables = taskVariables;
             child._cancellationTokenSource = new CancellationTokenSource();
@@ -396,6 +400,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Repositories
             Repositories = message.Resources.Repositories;
+
+            // JobSettings
+            JobSettings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            JobSettings[WellKnownJobSettings.HasMultipleCheckouts] = message.Steps?.Where(x => Pipelines.PipelineConstants.IsCheckoutTask(x)).Count() > 1 ? Boolean.TrueString : Boolean.FalseString;
 
             // Variables (constructor performs initial recursive expansion)
             List<string> warnings;

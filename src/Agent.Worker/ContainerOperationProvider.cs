@@ -57,10 +57,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Red Hat and CentOS 6 do not support the container feature
             throw new NotSupportedException(StringUtil.Loc("AgentDoesNotSupportContainerFeatureRhel6"));
 #else
-            var initProcessCgroup = File.ReadLines("/proc/1/cgroup");
-            if (initProcessCgroup.Any(x => x.IndexOf(":/docker/", StringComparison.OrdinalIgnoreCase) >= 0))
+            try 
             {
-                throw new NotSupportedException(StringUtil.Loc("AgentAlreadyInsideContainer"));
+                var initProcessCgroup = File.ReadLines("/proc/1/cgroup");
+                if (initProcessCgroup.Any(x => x.IndexOf(":/docker/", StringComparison.OrdinalIgnoreCase) >= 0))
+                {
+                    throw new NotSupportedException(StringUtil.Loc("AgentAlreadyInsideContainer"));
+                }
+            }
+            catch (Exception ex ) when (ex is FileNotFoundException || ex is DirectoryNotFoundException)
+            {
+                // if /proc/1/cgroup doesn't exist, we are not inside a container
             }
 #endif
 

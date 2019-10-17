@@ -67,6 +67,12 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         [DataMember(EmitDefaultValue = false)]
         public string MonitorSocketAddress { get; set; }
+
+        [DataMember(EmitDefaultValue = false)]
+        public int EnvironmentId { get; set; }
+
+        [DataMember(EmitDefaultValue = false)]
+        public int EnvironmentVMResourceId { get; set; }
     }
 
     [DataContract]
@@ -82,10 +88,9 @@ namespace Microsoft.VisualStudio.Services.Agent
     [DataContract]
     public sealed class AgentRuntimeOptions
     {
-#if OS_WINDOWS
         [DataMember(EmitDefaultValue = false)]
+        /// <summary>Use SecureChannel (only valid on Windows)</summary>
         public bool GitUseSecureChannel { get; set; }
-#endif
     }
 
     [ServiceLocator(Default = typeof(ConfigurationStore))]

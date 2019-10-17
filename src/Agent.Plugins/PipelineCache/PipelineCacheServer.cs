@@ -1,10 +1,6 @@
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Runtime.ExceptionServices;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Plugins.PipelineArtifact;
@@ -16,7 +12,6 @@ using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.PipelineCache.WebApi;
-using Microsoft.VisualStudio.Services.PipelineCache.Common;
 using Microsoft.VisualStudio.Services.WebApi;
 using JsonSerializer = Microsoft.VisualStudio.Services.Content.Common.JsonSerializer;
 
@@ -29,7 +24,7 @@ namespace Agent.Plugins.PipelineCache
             Fingerprint fingerprint,
             string path,
             CancellationToken cancellationToken,
-            string preferredContentFormat = ContentFormatConstants.Files)
+            ContentFormat contentFormat)
         {
             VssConnection connection = context.VssConnection;
             BlobStoreClientTelemetry clientTelemetry;
@@ -51,7 +46,7 @@ namespace Agent.Plugins.PipelineCache
                     return;
                 }
 
-                string uploadPath = await this.GetUploadPathAsync(preferredContentFormat, context, path, cancellationToken);
+                string uploadPath = await this.GetUploadPathAsync(contentFormat, context, path, cancellationToken);
                 //Upload the pipeline artifact.
                 PipelineCacheActionRecord uploadRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
                     new PipelineCacheActionRecord(level, uri, type, nameof(dedupManifestClient.PublishAsync), context));
@@ -68,11 +63,11 @@ namespace Agent.Plugins.PipelineCache
                     RootId = result.RootId,
                     ManifestId = result.ManifestId,
                     ProofNodes = result.ProofNodes.ToArray(),
-                    ContentFormat = preferredContentFormat
+                    ContentFormat = contentFormat.ToString(),
                 };
 
                 // delete archive file if it's tar.
-                if (string.Equals(preferredContentFormat, ContentFormatConstants.SingleTar, StringComparison.OrdinalIgnoreCase))
+                if (contentFormat == ContentFormat.SingleTar)
                 {
                     try
                     {
@@ -127,7 +122,7 @@ namespace Agent.Plugins.PipelineCache
                         record: downloadRecord,
                         actionAsync: async () =>
                         {
-                            await this.DownloadPipelineCacheAsync(context, dedupManifestClient, result.ManifestId, path, result.ContentFormat, cancellationToken);
+                            await this.DownloadPipelineCacheAsync(context, dedupManifestClient, result.ManifestId, path, Enum.Parse<ContentFormat>(result.ContentFormat), cancellationToken);
                         });
 
                     // Send results to CustomerIntelligence
@@ -178,10 +173,10 @@ namespace Agent.Plugins.PipelineCache
             return pipelineCacheClient;
         }
 
-        private async Task<string> GetUploadPathAsync(string preferredContentFormat, AgentTaskPluginExecutionContext context, string path, CancellationToken cancellationToken)
+        private async Task<string> GetUploadPathAsync(ContentFormat contentFormat, AgentTaskPluginExecutionContext context, string path, CancellationToken cancellationToken)
         {
             string uploadPath = path;
-            if(string.Equals(preferredContentFormat, ContentFormatConstants.SingleTar, StringComparison.OrdinalIgnoreCase))
+            if(contentFormat == ContentFormat.SingleTar)
             {
                 uploadPath = await TarUtils.ArchiveFilesToTarAsync(context, path, cancellationToken);
             }
@@ -193,10 +188,10 @@ namespace Agent.Plugins.PipelineCache
             DedupManifestArtifactClient dedupManifestClient,
             DedupIdentifier manifestId,
             string targetDirectory,
-            string contentFormat,
+            ContentFormat contentFormat,
             CancellationToken cancellationToken)
         {
-            if (contentFormat == ContentFormatConstants.SingleTar)
+            if (contentFormat == ContentFormat.SingleTar)
             {
                 string manifestPath = Path.Combine(Path.GetTempPath(), $"{nameof(DedupManifestArtifactClient)}.{Path.GetRandomFileName()}.manifest");
                 await dedupManifestClient.DownloadFileToPathAsync(manifestId, manifestPath, proxyUri: null, cancellationToken: cancellationToken);

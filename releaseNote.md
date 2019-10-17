@@ -1,12 +1,17 @@
 ## Features
-  - Update environmetserver to use vm resource client api's (#2433)
-  - Adding check and show error message in on-prem scenario  (#2425)
+- Support configuring the VM against environment (#2471)
+- Add Container structure test JSON output result reader for publishing the container structure test results (#2447)
+- Consume PublishTestResults library in TestResults Publish command (#2430)
 
 ## Bugs
-  - Fix missing job source for pipeline artifacts (#2427)
+- Fix long path issues for Pipeline Artifacts/Pipeline Caching (#2467)
+- Fix tar download issue in Linux (#2452)
 
 ## Misc
-  - Changing vss-api-netcore version to 0.5.131-private (#2428)
+  - Added logging on associating a pipeline artifact (#2436)
+  - Add more agent info to Initialize job logs (#2462)
+  - Detect newer .NET Framework versions (#2461)
+  - Add Telemetry for FileShare(UNC Path) (#2442)
 
 ## Agent Downloads  
 
