@@ -769,5 +769,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Assert.Equal(null, variables.Get("foo"));
             }
         }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void Scope()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                List<string> warnings;
+                var variables = new Variables(hc, new Dictionary<string, VariableValue>(), out warnings);
+                var scope = variables.CreateScope();
+                scope.Set("foo", "bar");
+
+                Assert.Equal("bar", variables.Get("foo"));
+                scope.Dispose();
+                Assert.Equal(null, variables.Get("foo"));
+            }
+        }
     }
 }
