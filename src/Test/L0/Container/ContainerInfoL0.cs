@@ -76,7 +76,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
                 };
             using (TestHostContext hc = CreateTestContext())
             {
-                ContainerInfo info = new ContainerInfo(hc, dockerContainer);
+                ContainerInfo info = hc.CreateContainerInfo(dockerContainer, isJobContainer: false);
                 Assert.True(info.TranslateToContainerPath(hc.GetDirectory(WellKnownDirectory.Tools)).EndsWith($"{Path.DirectorySeparatorChar}__t"), "Tools directory maps");
                 Assert.True(info.TranslateToContainerPath(hc.GetDirectory(WellKnownDirectory.Work)).EndsWith($"{Path.DirectorySeparatorChar}__w"), "Work directory maps");
                 Assert.True(info.TranslateToContainerPath(hc.GetDirectory(WellKnownDirectory.Root)).EndsWith($"{Path.DirectorySeparatorChar}__a"), "Root directory maps");
