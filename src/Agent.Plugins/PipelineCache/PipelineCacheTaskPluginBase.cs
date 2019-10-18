@@ -97,13 +97,13 @@ namespace Agent.Plugins.PipelineCache
                 context.Warning(OldKeyFormatMessage);
             }
 
-            context.Output($"Resolving key: {string.Join("|", keySegments)}");
+            context.Output("Resolving key:");
             Fingerprint keyFp = FingerprintCreator.EvaluateKeyToFingerprint(context, workspaceRoot, keySegments);
             context.Output($"Resolved to: {keyFp}");
 
             Func<Fingerprint[]> restoreKeysGenerator = () => 
                 restoreKeys.Select(restoreKey => {
-                    context.Output($"Resolving restore key: {string.Join("|", restoreKey)}");
+                    context.Output("Resolving restore key:");
                     Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, workspaceRoot, restoreKey);
                     f.Segments = f.Segments.Concat(new [] { Fingerprint.Wildcard} ).ToArray();
                     context.Output($"Resolved to: {f}");
