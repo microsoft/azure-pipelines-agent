@@ -1,6 +1,6 @@
 # Elastic Self-hosted Agent Pools (formerly "BYOS: Bring Your Own Subscription Agent Pools")
 
-Mcrosoft-hosted agents are extremely convenient: low/no cost, no infrastructure to maintain, and elastic with demand.
+Microsoft-hosted agents are extremely convenient: low/no cost, no infrastructure to maintain, and elastic with demand.
 In return, customers must give up control over tools, capacity, and speed.
 On the other end of the spectrum, self-hosted agents offer the exact opposite set of trade-offs: full control over everything, at the expense of maintaining and paying for infrastructure.
 With self-hosted agents, elasticity is difficult to achieve.
@@ -84,7 +84,7 @@ Later, we may consider whether this same solution works for:
 
 The mechanism under the hood being considered for managing virtual machines in Azure is VM scale sets (VMSS). 
 
-[VM scale sets](https://docs.microsoft.com/en-us/azure/virtual-machine-scale-sets/overview) has the following benefits:
+[VM scale sets](https://docs.microsoft.com/en-us/azure/virtual-machine-scale-sets/overview) have the following benefits:
 
 •	Easy to create and manage a large number of virtual machines with the same base OS image and configuration.
 •	Customer can pick one of the standard images, create their own [custom image](https://docs.microsoft.com/en-us/azure/virtual-machine-scale-sets/tutorial-use-custom-image-cli), or install their own software on top of a standard image using [script extensions](https://docs.microsoft.com/en-us/azure/virtual-machine-scale-sets/tutorial-install-apps-cli).
@@ -96,7 +96,7 @@ The mechanism under the hood being considered for managing virtual machines in A
 •	Azure Pipelines can easily grow or shrink the number of virtual machines in the scale set.
 
 Azure has a good [marketplace](https://azuremarketplace.microsoft.com/en-us/marketplace/apps?filters=virtual-machine-images) of images that customers can start with for their base images. These include Windows Server, Ubuntu, Debian based images, Windows server with Visual Studio, etc.
-In addition, we will publish our Microsoft-hosted images to this marketplace.
+In addition, wherever possible, we should publish our Microsoft-hosted images to this marketplace. There are some licensing constraints that prevent us from publishing all the software though.
 
 ### Setup
 
