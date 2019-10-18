@@ -512,6 +512,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 _expanded = expanded;
             } // End of critical section.
+
+        }
+
+        public void CopyInto(Dictionary<string, VariableValue> target)
+        {
+            foreach (var var in this.Public)
+            {
+                target[var.Key] = var.Value;
+            }
+            foreach (var var in this.Private)
+            {
+                target[var.Key] = new VariableValue(var.Value, true);
+            }
         }
 
         private sealed class RecursionState
