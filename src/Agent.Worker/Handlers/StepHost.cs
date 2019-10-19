@@ -99,11 +99,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             path = path.Trim('\"');
 
             // try to resolve path inside container if the request path is part of the mount volume
-#if OS_WINDOWS
-            if (Container.MountVolumes.Exists(x => path.StartsWith(x.SourceVolumePath, StringComparison.OrdinalIgnoreCase)))
-#else
-            if (Container.MountVolumes.Exists(x => path.StartsWith(x.SourceVolumePath)))
-#endif
+            StringComparison sc = (PlatformUtil.RunningOnWindows)
+                                ? StringComparison.OrdinalIgnoreCase
+                                : StringComparison.Ordinal;
+            if (Container.MountVolumes.Exists(x => path.StartsWith(x.SourceVolumePath, sc)))
             {
                 return Container.TranslateToContainerPath(path);
             }

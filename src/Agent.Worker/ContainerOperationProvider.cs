@@ -1,3 +1,4 @@
+using Agent.Sdk;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -44,63 +45,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Check whether we are inside a container.
             // Our container feature requires to map working directory from host to the container.
-            // If we are already inside a container, we will not able to find out the real working direcotry path on the host.
-#if OS_WINDOWS
-            // service CExecSvc is Container Execution Agent.
-            ServiceController[] scServices = ServiceController.GetServices();
-            if (scServices.Any(x => String.Equals(x.ServiceName, "cexecsvc", StringComparison.OrdinalIgnoreCase) && x.Status == ServiceControllerStatus.Running))
-            {
-                throw new NotSupportedException(StringUtil.Loc("AgentAlreadyInsideContainer"));
-            }
-#elif OS_RHEL6
-            // Red Hat and CentOS 6 do not support the container feature
-            throw new NotSupportedException(StringUtil.Loc("AgentDoesNotSupportContainerFeatureRhel6"));
-#else
-            try 
-            {
-                var initProcessCgroup = File.ReadLines("/proc/1/cgroup");
-                if (initProcessCgroup.Any(x => x.IndexOf(":/docker/", StringComparison.OrdinalIgnoreCase) >= 0))
-                {
-                    throw new NotSupportedException(StringUtil.Loc("AgentAlreadyInsideContainer"));
-                }
-            }
-            catch (Exception ex ) when (ex is FileNotFoundException || ex is DirectoryNotFoundException)
-            {
-                // if /proc/1/cgroup doesn't exist, we are not inside a container
-            }
-#endif
+            // If we're already inside a container, we won't be able to find the working directory path on the host.
+            ThrowIfAgentInContainer();
 
-#if OS_WINDOWS
-            // Check OS version (Windows server 1803 is required)
-            object windowsInstallationType = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion", "InstallationType", defaultValue: null);
-            ArgUtil.NotNull(windowsInstallationType, nameof(windowsInstallationType));
-            object windowsReleaseId = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion", "ReleaseId", defaultValue: null);
-            ArgUtil.NotNull(windowsReleaseId, nameof(windowsReleaseId));
-            executionContext.Debug($"Current Windows version: '{windowsReleaseId} ({windowsInstallationType})'");
-
-            if (int.TryParse(windowsReleaseId.ToString(), out int releaseId))
-            {
-                if (!windowsInstallationType.ToString().StartsWith("Server", StringComparison.OrdinalIgnoreCase) || releaseId < 1803)
-                {
-                    throw new NotSupportedException(StringUtil.Loc("ContainerWindowsVersionRequirement"));
-                }
-            }
-            else
-            {
-                throw new ArgumentOutOfRangeException(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ReleaseId");
-            }
-#endif
+            ThrowIfWindowsTooOld(executionContext);
 
             // Check docker client/server version
             DockerVersion dockerVersion = await _dockerManger.DockerVersion(executionContext);
             ArgUtil.NotNull(dockerVersion.ServerVersion, nameof(dockerVersion.ServerVersion));
             ArgUtil.NotNull(dockerVersion.ClientVersion, nameof(dockerVersion.ClientVersion));
 
-#if OS_WINDOWS
-            Version requiredDockerEngineAPIVersion = new Version(1, 30);  // Docker-EE version 17.6
-#else
             Version requiredDockerEngineAPIVersion = new Version(1, 35); // Docker-CE version 17.12
-#endif
+            if (PlatformUtil.RunningOnWindows)
+            {
+                requiredDockerEngineAPIVersion = new Version(1, 30);  // Docker-EE version 17.6
+            }
 
             if (dockerVersion.ServerVersion < requiredDockerEngineAPIVersion)
             {
@@ -269,32 +228,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
 
                 // Mount folder into container
-#if OS_WINDOWS
-                container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Externals), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Externals))));
-                container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Work), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Work))));
-                container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tools), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tools))));
-#else
-                string defaultWorkingDirectory = executionContext.Variables.Get(Constants.Variables.System.DefaultWorkingDirectory);
-                if (string.IsNullOrEmpty(defaultWorkingDirectory))
+                if (PlatformUtil.RunningOnWindows)
                 {
-                    throw new NotSupportedException(StringUtil.Loc("ContainerJobRequireSystemDefaultWorkDir"));
+                    container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Externals), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Externals))));
+                    container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Work), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Work))));
+                    container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tools), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tools))));
                 }
-
-                string workingDirectory = Path.GetDirectoryName(defaultWorkingDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-                container.MountVolumes.Add(new MountVolume(container.TranslateToHostPath(workingDirectory), workingDirectory));
-                container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Temp), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Temp))));
-                container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tools), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tools))));
-                container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tasks), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tasks))));
-                container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Externals), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Externals)), true));
-
-                // Ensure .taskkey file exist so we can mount it.
-                string taskKeyFile = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), ".taskkey");
-                if (!File.Exists(taskKeyFile))
+                else
                 {
-                    File.WriteAllText(taskKeyFile, string.Empty);
+                    string defaultWorkingDirectory = executionContext.Variables.Get(Constants.Variables.System.DefaultWorkingDirectory);
+                    if (string.IsNullOrEmpty(defaultWorkingDirectory))
+                    {
+                        throw new NotSupportedException(StringUtil.Loc("ContainerJobRequireSystemDefaultWorkDir"));
+                    }
+
+                    string workingDirectory = Path.GetDirectoryName(defaultWorkingDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                    container.MountVolumes.Add(new MountVolume(container.TranslateToHostPath(workingDirectory), workingDirectory));
+                    container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Temp), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Temp))));
+                    container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tools), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tools))));
+                    container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tasks), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tasks))));
+                    container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Externals), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Externals)), true));
+
+                    // Ensure .taskkey file exist so we can mount it.
+                    string taskKeyFile = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), ".taskkey");
+                    if (!File.Exists(taskKeyFile))
+                    {
+                        File.WriteAllText(taskKeyFile, string.Empty);
+                    }
+                    container.MountVolumes.Add(new MountVolume(taskKeyFile, container.TranslateToContainerPath(taskKeyFile)));
                 }
-                container.MountVolumes.Add(new MountVolume(taskKeyFile, container.TranslateToContainerPath(taskKeyFile)));
-#endif
 
                 if (container.IsJobContainer)
                 {
@@ -379,8 +341,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
             }
 
-#if !OS_WINDOWS
-            if (container.IsJobContainer)
+            if (!PlatformUtil.RunningOnWindows && container.IsJobContainer)
             {
                 // Ensure bash exist in the image
                 int execWhichBashExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"sh -c \"command -v bash\"");
@@ -524,7 +485,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                 }
             }
-#endif
         }
 
         private async Task StopContainerAsync(IExecutionContext executionContext, ContainerInfo container)
@@ -545,7 +505,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-#if !OS_WINDOWS
         private async Task<List<string>> ExecuteCommandAsync(IExecutionContext context, string command, string arg)
         {
             context.Command($"{command} {arg}");
@@ -591,7 +550,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             return outputs;
         }
-#endif
 
         private async Task CreateContainerNetworkAsync(IExecutionContext executionContext, string network)
         {
@@ -648,6 +606,66 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             else
             {
                 throw new InvalidOperationException($"Failed to initialize, {container.ContainerNetworkAlias} service is {serviceHealth}.");
+            }
+        }
+
+        private static void ThrowIfAgentInContainer()
+        {
+            if (PlatformUtil.RunningOnWindows)
+            {
+                // service CExecSvc is Container Execution Agent.
+                ServiceController[] scServices = ServiceController.GetServices();
+                if (scServices.Any(x => String.Equals(x.ServiceName, "cexecsvc", StringComparison.OrdinalIgnoreCase) && x.Status == ServiceControllerStatus.Running))
+                {
+                    throw new NotSupportedException(StringUtil.Loc("AgentAlreadyInsideContainer"));
+                }
+            }
+            else if (PlatformUtil.RunningOnRHEL6)
+            {
+                // Red Hat and CentOS 6 do not support the container feature
+                throw new NotSupportedException(StringUtil.Loc("AgentDoesNotSupportContainerFeatureRhel6"));
+            }
+            else
+            {
+                try
+                {
+                    var initProcessCgroup = File.ReadLines("/proc/1/cgroup");
+                    if (initProcessCgroup.Any(x => x.IndexOf(":/docker/", StringComparison.OrdinalIgnoreCase) >= 0))
+                    {
+                        throw new NotSupportedException(StringUtil.Loc("AgentAlreadyInsideContainer"));
+                    }
+                }
+                catch (Exception ex) when (ex is FileNotFoundException || ex is DirectoryNotFoundException)
+                {
+                    // if /proc/1/cgroup doesn't exist, we are not inside a container
+                }
+            }
+        }
+
+        private static void ThrowIfWindowsTooOld(IExecutionContext executionContext)
+        {
+            if (!PlatformUtil.RunningOnWindows)
+            {
+                return;
+            }
+
+            // Check OS version (Windows server 1803 is required)
+            object windowsInstallationType = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion", "InstallationType", defaultValue: null);
+            ArgUtil.NotNull(windowsInstallationType, nameof(windowsInstallationType));
+            object windowsReleaseId = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion", "ReleaseId", defaultValue: null);
+            ArgUtil.NotNull(windowsReleaseId, nameof(windowsReleaseId));
+            executionContext.Debug($"Current Windows version: '{windowsReleaseId} ({windowsInstallationType})'");
+
+            if (int.TryParse(windowsReleaseId.ToString(), out int releaseId))
+            {
+                if (!windowsInstallationType.ToString().StartsWith("Server", StringComparison.OrdinalIgnoreCase) || releaseId < 1803)
+                {
+                    throw new NotSupportedException(StringUtil.Loc("ContainerWindowsVersionRequirement"));
+                }
+            }
+            else
+            {
+                throw new ArgumentOutOfRangeException(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ReleaseId");
             }
         }
     }

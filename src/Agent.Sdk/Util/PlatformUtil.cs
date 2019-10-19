@@ -77,6 +77,19 @@ namespace Agent.Sdk
             get => PlatformUtil.RunningOnOS == PlatformUtil.OS.Linux;
         }
 
+        public static bool RunningOnRHEL6
+        {
+            get
+            {
+                // TODO: make this a runtime check
+#if OS_RHEL6
+                return true;
+#else
+                return false;
+#endif
+            }
+        }
+
         public static Architecture BuiltOnArchitecture
         {
             get

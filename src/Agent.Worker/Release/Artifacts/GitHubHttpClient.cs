@@ -1,3 +1,4 @@
+using Agent.Sdk;
 using System;
 using System.Net;
 using System.Net.Http;
@@ -42,9 +43,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             request.Headers.Add("Authorization", "Token " + accessToken);
             request.Headers.Add("User-Agent", "VSTS-Agent/" + BuildConstants.AgentPackage.Version);
 
-#if OS_LINUX || OS_OSX
-            request.Version = HttpVersion.Version11;
-#endif
+            if (PlatformUtil.RunningOnMacOS || PlatformUtil.RunningOnLinux)
+            {
+                request.Version = HttpVersion.Version11;
+            }
 
             int httpRequestTimeoutSeconds;
             if (!int.TryParse(Environment.GetEnvironmentVariable("VSTS_HTTP_TIMEOUT") ?? string.Empty, out httpRequestTimeoutSeconds))
