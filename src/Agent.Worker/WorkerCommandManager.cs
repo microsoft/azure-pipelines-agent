@@ -133,6 +133,49 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         void ProcessCommand(IExecutionContext context, Command command);
     }
 
+    public interface IWorkerCommand 
+    {
+        string Name { get; }
+
+        string[] Aliases { get; }
+
+        void Execute(IExecutionContext context, Command command);
+    }
+
+    public abstract class BaseWorkerCommandExtension: AgentService, IWorkerCommandExtension
+    {
+
+        public string CommandArea { get; protected set; }
+
+        public HostTypes SupportedHostTypes { get; protected set; }
+
+        public Type ExtensionType => typeof(IWorkerCommandExtension);
+
+        private Dictionary<string, IWorkerCommand> _commands = new Dictionary<string, IWorkerCommand>(StringComparer.OrdinalIgnoreCase);
+
+        protected void InstallWorkerCommand(IWorkerCommand commandExecutor)
+        {
+            // TODO: check for already defined
+            _commands[commandExecutor.Name] = commandExecutor;
+            foreach (var alias in commandExecutor.Aliases)
+            {
+                _commands[alias] = commandExecutor;
+            }
+        }
+
+        public void ProcessCommand(IExecutionContext context, Command command)
+        {
+            IWorkerCommand commandExecutor = null;
+            _commands.TryGetValue(command.Event, out commandExecutor);
+            if (commandExecutor == null)
+            {
+                // TODO: make this generic
+                throw new Exception(StringUtil.Loc("CommandNotFound2", CommandArea.ToLowerInvariant(), command.Event, CommandArea));
+            }
+            commandExecutor.Execute(context, command);
+        }
+    }
+
     [Flags]
     public enum HostTypes
     {

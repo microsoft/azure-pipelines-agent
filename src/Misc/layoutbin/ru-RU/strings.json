@@ -424,7 +424,6 @@
     "RMCachingAllItems":  "Кэширование всех элементов в контейнере файлов...",
     "RMCachingComplete":  "Кэширование завершено ({0} мс).",
     "RMCachingContainerItems":  "Кэширование элементов в \"{0}\" в контейнере файлов...",
-    "RMCommandNotFound":  "##vso[release.{0}] не распознается в качестве команды для расширения команды Release. Ознакомьтесь с документацией (http://go.microsoft.com/fwlink/?LinkId=817296).",
     "RMContainerItemNotSupported":  "Тип элемента контейнера \"{0}\" не поддерживается.",
     "RMContainerItemPathDoesnotExist":  "Путь к элементу контейнера файлов не начинается с \"{0}\": {1}",
     "RMContainerItemRequestTimedOut":  "Время ожидания запроса истекло через {0} с. Ожидание перед повторной попыткой: {1} с. Запрос: {2} {3}",

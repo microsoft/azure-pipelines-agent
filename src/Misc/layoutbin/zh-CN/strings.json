@@ -424,7 +424,6 @@
     "RMCachingAllItems":  "正在缓存文件容器中的所有项目...",
     "RMCachingComplete":  "缓存完成。({0} 毫秒)",
     "RMCachingContainerItems":  "正在缓存文件容器中“{0}”下的项目...",
-    "RMCommandNotFound":  "##vso[release.{0}] 不是已识别的发布命令扩展的命令。请参阅参考文档(http://go.microsoft.com/fwlink/?LinkId=817296)。",
     "RMContainerItemNotSupported":  "不支持容器项目类型“{0}”。",
     "RMContainerItemPathDoesnotExist":  "文件容器项路径不以 {0} 开头: {1}",
     "RMContainerItemRequestTimedOut":  "{0} 秒后请求超时；睡眠 {1} 秒，然后再次尝试。请求: {2} {3}",

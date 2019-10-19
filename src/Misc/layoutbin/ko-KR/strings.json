@@ -424,7 +424,6 @@
     "RMCachingAllItems":  "파일 컨테이너에 있는 모든 항목을 캐시하는 중...",
     "RMCachingComplete":  "캐싱이 완료되었습니다. ({0}ms)",
     "RMCachingContainerItems":  "파일 컨테이너의 \u0027{0}\u0027 아래에 있는 항목을 캐시하는 중...",
-    "RMCommandNotFound":  "##vso[release.{0}]는 릴리스 명령 확장에 대해 인식되는 명령이 아닙니다. 설명서(http://go.microsoft.com/fwlink/?LinkId=817296)를 참조하세요.",
     "RMContainerItemNotSupported":  "컨테이너 항목 종류 \u0027{0}\u0027은(는) 지원되지 않습니다.",
     "RMContainerItemPathDoesnotExist":  "파일 컨테이너 항목 경로가 {0}: {1}(으)로 시작하지 않습니다.",
     "RMContainerItemRequestTimedOut":  "{0}초 후에 요청 시간이 초과되었습니다. {1}초 동안 중지한 후 다시 시도합니다. 요청: {2} {3}",

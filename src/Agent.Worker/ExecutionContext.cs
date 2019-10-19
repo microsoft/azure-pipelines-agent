@@ -65,6 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         // others
         void ForceTaskComplete();
+        IHostContext GetHostContext();
     }
 
     public sealed class ExecutionContext : AgentService, IExecutionContext
@@ -160,6 +161,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 await Task.Delay(TimeSpan.FromSeconds(5));
                 _forceCompleted?.TrySetResult(1);
             });
+        }
+
+        public IHostContext GetHostContext()
+        {
+            return HostContext;
         }
 
         public IExecutionContext CreateChild(Guid recordId, string displayName, string refName, Variables taskVariables = null, bool outputForward = false)

@@ -206,7 +206,8 @@
     "On-premises TFS with integrated authentication",
     ".{0}config.{1} remove --unattended --auth negotiate --username myDomain\\myUserName --password myPassword"
   ],
-  "CommandNotFound": "Can't find command extension for ##vso[{0}.command]. Please reference documentation (http://go.microsoft.com/fwlink/?LinkId=817296)",
+  "CommandNotFound": "Cannot find command extension for ##vso[{0}.command]. Please reference documentation (http://go.microsoft.com/fwlink/?LinkId=817296)",
+  "CommandNotFound2": "##vso[{0}.{1}] is not a recognized command for {2} command extension. Please reference documentation (http://go.microsoft.com/fwlink/?LinkId=817296).",
   "CommandNotSupported": "{0} commands are not supported for {1} flow. Please reference documentation (http://go.microsoft.com/fwlink/?LinkId=817296)",
   "CommandProcessFailed": "Unable to process command '{0}' successfully. Please reference documentation (http://go.microsoft.com/fwlink/?LinkId=817296)",
   "ConnectingToServer": "Connecting to server ...",
@@ -461,7 +462,6 @@
   "RMCachingAllItems": "Caching all items in the file container...",
   "RMCachingComplete": "Caching complete. ({0} ms)",
   "RMCachingContainerItems": "Caching items under '{0}' in the file container...",
-  "RMCommandNotFound": "##vso[release.{0}] is not a recognized command for Release command extension. Please reference documentation (http://go.microsoft.com/fwlink/?LinkId=817296).",
   "RMContainerItemNotSupported": "Container Item type '{0}' not supported.",
   "RMContainerItemPathDoesnotExist": "File container item path doesn't start with {0}: {1}",
   "RMContainerItemRequestTimedOut": "Request timed out after {0} seconds; sleeping for {1} seconds and attempting again. Request: {2} {3}",

@@ -32,7 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             var whitelist = new[]
             {
                 typeof(ICredentialProvider),
-                typeof(IConfigurationProvider),
+                typeof(IConfigurationProvider)
             };
             Validate(
                 assembly: typeof(IMessageListener).GetTypeInfo().Assembly,
@@ -90,7 +90,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 typeof(IDiagnosticLogManager),
                 typeof(IParser),
                 typeof(IResultReader),
-                typeof(INUnitResultsXmlReader)
+                typeof(INUnitResultsXmlReader),
+                typeof(IWorkerCommand)
             };
             Validate(
                 assembly: typeof(IStepsRunner).GetTypeInfo().Assembly,

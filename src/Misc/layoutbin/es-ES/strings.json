@@ -434,7 +434,6 @@
     "RMCachingAllItems":  "Almacenando en caché todos los elementos del contenedor de archivos...",
     "RMCachingComplete":  "Almacenamiento en caché completo. ({0} ms)",
     "RMCachingContainerItems":  "Almacenando en caché los elementos bajo \u0027{0}\u0027 del contenedor de archivos...",
-    "RMCommandNotFound":  "##vso[release.{0}] no es un comando reconocido para la extensión de comando Release. Consulte la documentación (http://go.microsoft.com/fwlink/?LinkId=817296).",
     "RMContainerItemNotSupported":  "El tipo de elemento de contenedor \u0027{0}\u0027 no se admite.",
     "RMContainerItemPathDoesnotExist":  "La ruta de acceso del elemento del contenedor de archivos no empieza por {0}: {1}",
     "RMContainerItemRequestTimedOut":  "Se agotó el tiempo de espera de la solicitud tras {0} segundos; se va a entrar en modo de suspensión durante {1} segundos y se intentará de nuevo. Solicitud: {2} {3}",
