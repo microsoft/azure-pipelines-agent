@@ -38,14 +38,12 @@ namespace Agent.Plugins.Repository
 
         public override void RequirementCheck(AgentTaskPluginExecutionContext executionContext, Pipelines.RepositoryResource repository, GitCliManager gitCommandManager)
         {
-#if OS_WINDOWS
             // check git version for SChannel SSLBackend (Windows Only)
             bool schannelSslBackend = StringUtil.ConvertToBoolean(executionContext.Variables.GetValueOrDefault("agent.gituseschannel")?.Value);
-            if (schannelSslBackend)
+            if (schannelSslBackend && PlatformUtil.RunningOnWindows)
             {
                 gitCommandManager.EnsureGitVersion(_minGitVersionSupportSSLBackendOverride, throwOnNotMatch: true);
             }
-#endif
         }
 
         public override string GenerateAuthHeader(AgentTaskPluginExecutionContext executionContext, string username, string password)
@@ -71,14 +69,12 @@ namespace Agent.Plugins.Repository
 
         public override void RequirementCheck(AgentTaskPluginExecutionContext executionContext, Pipelines.RepositoryResource repository, GitCliManager gitCommandManager)
         {
-#if OS_WINDOWS
             // check git version for SChannel SSLBackend (Windows Only)
             bool schannelSslBackend = StringUtil.ConvertToBoolean(executionContext.Variables.GetValueOrDefault("agent.gituseschannel")?.Value);
-            if (schannelSslBackend)
+            if (schannelSslBackend && PlatformUtil.RunningOnWindows)
             {
                 gitCommandManager.EnsureGitVersion(_minGitVersionSupportSSLBackendOverride, throwOnNotMatch: true);
             }
-#endif
         }
 
         public override string GenerateAuthHeader(AgentTaskPluginExecutionContext executionContext, string username, string password)
@@ -171,14 +167,12 @@ namespace Agent.Plugins.Repository
                 }
             }
 
-#if OS_WINDOWS
             // check git version for SChannel SSLBackend (Windows Only)
             bool schannelSslBackend = StringUtil.ConvertToBoolean(executionContext.Variables.GetValueOrDefault("agent.gituseschannel")?.Value);
-            if (schannelSslBackend)
+            if (schannelSslBackend && PlatformUtil.RunningOnWindows)
             {
                 gitCommandManager.EnsureGitVersion(_minGitVersionSupportSSLBackendOverride, throwOnNotMatch: true);
             }
-#endif
         }
 
         public override string GenerateAuthHeader(AgentTaskPluginExecutionContext executionContext, string username, string password)
@@ -201,10 +195,8 @@ namespace Agent.Plugins.Repository
         // min git version that support add extra auth header.
         protected Version _minGitVersionSupportAuthHeader = new Version(2, 9);
 
-#if OS_WINDOWS
         // min git version that support override sslBackend setting.
         protected Version _minGitVersionSupportSSLBackendOverride = new Version(2, 14, 2);
-#endif
 
         // min git-lfs version that support add extra auth header.
         protected Version _minGitLfsVersionSupportAuthHeader = new Version(2, 1);
@@ -326,27 +318,26 @@ namespace Agent.Plugins.Repository
             executionContext.Debug($"gitLfsSupport={gitLfsSupport}");
             executionContext.Debug($"acceptUntrustedCerts={acceptUntrustedCerts}");
 
-            bool preferGitFromPath;
-#if OS_WINDOWS
             bool schannelSslBackend = StringUtil.ConvertToBoolean(executionContext.Variables.GetValueOrDefault("agent.gituseschannel")?.Value);
             executionContext.Debug($"schannelSslBackend={schannelSslBackend}");
 
-            // Determine which git will be use
-            // On windows, we prefer the built-in portable git within the agent's externals folder,
-            // set system.prefergitfrompath=true can change the behavior, agent will find git.exe from %PATH%
-            var definitionSetting = executionContext.Variables.GetValueOrDefault("system.prefergitfrompath");
-            if (definitionSetting != null)
+            // by default, find Git in the path
+            bool preferGitFromPath = true;
+
+            // On Windows, we prefer the built-in portable Git within the agent's externals folder,
+            // system.prefergitfrompath=true will cause the agent to find Git.exe from %PATH%
+            if (PlatformUtil.RunningOnWindows)
             {
-                preferGitFromPath = StringUtil.ConvertToBoolean(definitionSetting.Value);
+                var definitionSetting = executionContext.Variables.GetValueOrDefault("system.prefergitfrompath");
+                if (definitionSetting != null)
+                {
+                    preferGitFromPath = StringUtil.ConvertToBoolean(definitionSetting.Value);
+                }
+                else
+                {
+                    bool.TryParse(Environment.GetEnvironmentVariable("system.prefergitfrompath"), out preferGitFromPath);
+                }
             }
-            else
-            {
-                bool.TryParse(Environment.GetEnvironmentVariable("system.prefergitfrompath"), out preferGitFromPath);
-            }
-#else
-            // On Linux, we will always use git find in %PATH% regardless of system.prefergitfrompath
-            preferGitFromPath = true;
-#endif
 
             // Determine do we need to provide creds to git operation
             selfManageGitCreds = StringUtil.ConvertToBoolean(executionContext.Variables.GetValueOrDefault("system.selfmanagegitcreds")?.Value);
@@ -477,29 +468,30 @@ namespace Agent.Plugins.Repository
                         askPass.Add($"echo \"{agentCert.ClientCertificatePassword}\"");
                         File.WriteAllLines(clientCertPrivateKeyAskPassFile, askPass);
 
-#if !OS_WINDOWS
-                        string toolPath = WhichUtil.Which("chmod", true);
-                        string argLine = $"775 {clientCertPrivateKeyAskPassFile}";
-                        executionContext.Command($"chmod {argLine}");
-
-                        var processInvoker = new ProcessInvoker(executionContext);
-                        processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+                        if (!PlatformUtil.RunningOnWindows)
                         {
-                            if (!string.IsNullOrEmpty(args.Data))
-                            {
-                                executionContext.Output(args.Data);
-                            }
-                        };
-                        processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
-                        {
-                            if (!string.IsNullOrEmpty(args.Data))
-                            {
-                                executionContext.Output(args.Data);
-                            }
-                        };
+                            string toolPath = WhichUtil.Which("chmod", true);
+                            string argLine = $"775 {clientCertPrivateKeyAskPassFile}";
+                            executionContext.Command($"chmod {argLine}");
 
-                        await processInvoker.ExecuteAsync(executionContext.Variables.GetValueOrDefault("system.defaultworkingdirectory")?.Value, toolPath, argLine, null, true, CancellationToken.None);
-#endif
+                            var processInvoker = new ProcessInvoker(executionContext);
+                            processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+                            {
+                                if (!string.IsNullOrEmpty(args.Data))
+                                {
+                                    executionContext.Output(args.Data);
+                                }
+                            };
+                            processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+                            {
+                                if (!string.IsNullOrEmpty(args.Data))
+                                {
+                                    executionContext.Output(args.Data);
+                                }
+                            };
+
+                            await processInvoker.ExecuteAsync(executionContext.Variables.GetValueOrDefault("system.defaultworkingdirectory")?.Value, toolPath, argLine, null, true, CancellationToken.None);
+                        }
                     }
                 }
             }
@@ -741,14 +733,21 @@ namespace Agent.Plugins.Repository
                         additionalLfsFetchArgs.Add($"-c http.sslcert=\"{agentCert.ClientCertificateFile}\" -c http.sslkey=\"{agentCert.ClientCertificatePrivateKeyFile}\"");
                     }
                 }
-#if OS_WINDOWS
+
                 if (schannelSslBackend)
                 {
-                    executionContext.Debug("Use SChannel SslBackend for git fetch.");
-                    additionalFetchArgs.Add("-c http.sslbackend=\"schannel\"");
-                    additionalLfsFetchArgs.Add("-c http.sslbackend=\"schannel\"");
+                    if (PlatformUtil.RunningOnWindows)
+                    {
+                        executionContext.Debug("Use SChannel SslBackend for git fetch.");
+                        additionalFetchArgs.Add("-c http.sslbackend=\"schannel\"");
+                        additionalLfsFetchArgs.Add("-c http.sslbackend=\"schannel\"");
+                    }
+                    else
+                    {
+                        executionContext.Debug("SChannel requested. Ignored because this is not Windows.");
+                    }
                 }
-#endif
+
                 // Prepare gitlfs url for fetch and checkout
                 if (gitLfsSupport)
                 {
@@ -942,13 +941,19 @@ namespace Agent.Plugins.Repository
                             additionalSubmoduleUpdateArgs.Add($"-c http.{authorityUrl}.sslcert=\"{agentCert.ClientCertificateFile}\" -c http.{authorityUrl}.sslkey=\"{agentCert.ClientCertificatePrivateKeyFile}\"");
                         }
                     }
-#if OS_WINDOWS
+
                     if (schannelSslBackend)
                     {
-                        executionContext.Debug("Use SChannel SslBackend for git submodule update.");
-                        additionalSubmoduleUpdateArgs.Add("-c http.sslbackend=\"schannel\"");
+                        if (PlatformUtil.RunningOnWindows)
+                        {
+                            executionContext.Debug("Use SChannel SslBackend for git submodule update.");
+                            additionalSubmoduleUpdateArgs.Add("-c http.sslbackend=\"schannel\"");
+                        }
+                        else
+                        {
+                            executionContext.Debug("SChannel requested for Git submodule update. Ignored because this is not Windows.");
+                        }
                     }
-#endif
                 }
 
                 int exitCode_submoduleUpdate = await gitCommandManager.GitSubmoduleUpdate(executionContext, targetPath, fetchDepth, string.Join(" ", additionalSubmoduleUpdateArgs), checkoutNestedSubmodules, cancellationToken);
