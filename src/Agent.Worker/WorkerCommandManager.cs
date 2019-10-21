@@ -169,8 +169,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void ProcessCommand(IExecutionContext context, Command command)
         {
-            IWorkerCommand commandExecutor = null;
-            _commands.TryGetValue(command.Event, out commandExecutor);
+            _commands.TryGetValue(command.Event, out var commandExecutor);
             if (commandExecutor == null)
             {
                 // TODO: make this generic
