@@ -24,11 +24,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
         private class ReleaseUpdateReleaseNameCommand: IWorkerCommand
         {
             public string Name => "updatereleasename";
-            public string[] Aliases => new string [] {};
+            public List<string> Aliases => null;
 
             public void Execute(IExecutionContext context, Command command)
             {
-                string data = command.Data;
+                var data = command.Data;
                 ArgUtil.NotNull(context, nameof(context));
                 ArgUtil.NotNull(context.Endpoints, nameof(context.Endpoints));
 

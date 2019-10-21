@@ -137,7 +137,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         string Name { get; }
 
-        string[] Aliases { get; }
+        List<string> Aliases { get; }
 
         void Execute(IExecutionContext context, Command command);
     }
@@ -157,9 +157,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             // TODO: check for already defined
             _commands[commandExecutor.Name] = commandExecutor;
-            foreach (var alias in commandExecutor.Aliases)
+            var aliasList = commandExecutor.Aliases;
+            if (aliasList != null)
             {
-                _commands[alias] = commandExecutor;
+                foreach (var alias in commandExecutor.Aliases)
+                {
+                    _commands[alias] = commandExecutor;
+                }
             }
         }
 
