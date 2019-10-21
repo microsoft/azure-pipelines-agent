@@ -1075,16 +1075,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             // Initialize git command manager
             _gitCommandManager = HostContext.GetService<IGitCommandManager>();
-            if (PlatformUtil.RunningOnWindows)
-            {
-                // On Windows, we will always find git from externals
-                await _gitCommandManager.LoadGitExecutionInfo(executionContext, useBuiltInGit: true);
-            }
-            else
-            {
-                // On linux/OSX, we will always find git from the path
-                await _gitCommandManager.LoadGitExecutionInfo(executionContext, useBuiltInGit: false);
-            }
+
+            // On Windows, always find Git from externals
+            // On Linux/macOS, always find Git from the path
+            bool useBuiltInGit = PlatformUtil.RunningOnWindows;
+            await _gitCommandManager.LoadGitExecutionInfo(executionContext, useBuiltInGit);
 
             // if the folder is missing, skip it
             if (!Directory.Exists(repositoryPath) || !Directory.Exists(Path.Combine(repositoryPath, ".git")))
