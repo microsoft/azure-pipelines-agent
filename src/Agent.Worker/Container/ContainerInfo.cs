@@ -78,10 +78,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
         public Guid ContainerRegistryEndpoint { get; private set; }
         public string ContainerCreateOptions { get; private set; }
         public bool SkipContainerImagePull { get; private set; }
-#if !OS_WINDOWS
         public string CurrentUserName { get; set; }
         public string CurrentUserId { get; set; }
-#endif
         public bool IsJobContainer { get; set; }
 
         public IDictionary<string, string> ContainerEnvironmentVariables
