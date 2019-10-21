@@ -12,7 +12,7 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Agent.Plugins.Repository
 {
-    public sealed class TFCliManager : TfsVCCliManager
+    public sealed class TFCliManager : TfsVCCliManager, ITfsVCCliManager
     {
         public override TfsVCFeatures Features
         {

@@ -1,3 +1,4 @@
+using Agent.Sdk;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -10,7 +11,7 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Agent.Plugins.Repository
 {
-    public sealed class TeeCliManager : TfsVCCliManager
+    public sealed class TeeCliManager : TfsVCCliManager, ITfsVCCliManager
     {
         public override TfsVCFeatures Features => TfsVCFeatures.Eula;
 
@@ -173,27 +174,19 @@ namespace Agent.Plugins.Repository
             string homeDirectory = Environment.GetEnvironmentVariable("HOME");
             if (!string.IsNullOrEmpty(homeDirectory) && Directory.Exists(homeDirectory))
             {
-#if OS_OSX
+                string tfDataDirectory = (PlatformUtil.RunningOnMacOS)
+                    ? Path.Combine("Library", "Application Support", "Microsoft")
+                    : ".microsoft";
+
                 string xmlFile = Path.Combine(
                     homeDirectory,
-                    "Library",
-                    "Application Support",
-                    "Microsoft",
+                    tfDataDirectory,
                     "Team Foundation",
                     "4.0",
                     "Configuration",
                     "TEE-Mementos",
                     "com.microsoft.tfs.client.productid.xml");
-#else
-                string xmlFile = Path.Combine(
-                    homeDirectory,
-                    ".microsoft",
-                    "Team Foundation",
-                    "4.0",
-                    "Configuration",
-                    "TEE-Mementos",
-                    "com.microsoft.tfs.client.productid.xml");
-#endif
+
                 if (File.Exists(xmlFile))
                 {
                     // Load and deserialize the XML.

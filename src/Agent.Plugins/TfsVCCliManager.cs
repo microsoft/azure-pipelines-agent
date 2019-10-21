@@ -257,6 +257,29 @@ namespace Agent.Plugins.Repository
             OmitNoPrompt = 4,
             All = OmitCollectionUrl | OmitLogin | OmitNoPrompt,
         }
+
+        /*
+        public abstract string FilePath { get; }
+        public abstract void SetupProxy(string proxyUrl, string proxyUsername, string proxyPassword);
+        public abstract void SetupClientCertificate(string clientCert, string clientCertKey, string clientCertArchive, string clientCertPassword);
+        public abstract bool TestEulaAccepted();
+        public abstract Task EulaAsync();
+        public abstract Task<ITfsVCWorkspace[]> WorkspacesAsync(bool matchWorkspaceNameOnAnyComputer = false);
+        public abstract Task<ITfsVCStatus> StatusAsync(string localPath);
+        public abstract Task UndoAsync(string localPath);
+        public abstract Task ScorchAsync();
+        public abstract Task WorkspaceDeleteAsync(ITfsVCWorkspace workspace);
+        public abstract Task WorkspaceNewAsync();
+        public abstract Task WorkfoldUnmapAsync(string serverPath);
+        public abstract Task WorkfoldMapAsync(string serverPath, string localPath);
+        public abstract Task WorkfoldCloakAsync(string serverPath);
+        public abstract Task GetAsync(string localPath);
+        public abstract Task AddAsync(string localPath);
+        public abstract Task ShelveAsync(string shelveset, string commentFile, bool move);
+        public abstract Task<ITfsVCShelveset> ShelvesetsAsync(string shelveset);
+        public abstract Task UnshelveAsync(string shelveset);
+        public abstract void CleanupProxySetting();
+        */
     }
 
     [Flags]
