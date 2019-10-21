@@ -64,7 +64,7 @@ namespace Agent.Plugins.PipelineCache
             ContentFormat contentFormat;
             if (string.IsNullOrWhiteSpace(contentFormatValue))
             {
-                contentFormat = ContentFormat.Files;
+                contentFormat = ContentFormat.SingleTar;
             }
             else
             {
