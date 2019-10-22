@@ -155,24 +155,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         protected void InstallWorkerCommand(IWorkerCommand commandExecutor)
         {
-            // TODO: check for already defined
+            if (_commands.ContainsKey(commandExecutor.Name))
+            {
+                //TODO: Add some logging (or throw exception)
+                return;
+            }
             _commands[commandExecutor.Name] = commandExecutor;
             var aliasList = commandExecutor.Aliases;
             if (aliasList != null)
             {
                 foreach (var alias in commandExecutor.Aliases)
                 {
-                    _commands[alias] = commandExecutor;
+                    if (!_commands.ContainsKey(alias))
+                    {
+                        _commands[alias] = commandExecutor;
+                    }
+                    // TODO: else add some logging (or throw exception)
                 }
             }
         }
 
+        public IWorkerCommand GetWorkerCommand(String name)
+        {
+            _commands.TryGetValue(name, out var commandExecutor);
+            return commandExecutor;
+        }
+
         public void ProcessCommand(IExecutionContext context, Command command)
         {
-            _commands.TryGetValue(command.Event, out var commandExecutor);
+            var commandExecutor = GetWorkerCommand(command.Event);
             if (commandExecutor == null)
             {
-                // TODO: make this generic
                 throw new Exception(StringUtil.Loc("CommandNotFound2", CommandArea.ToLowerInvariant(), command.Event, CommandArea));
             }
             commandExecutor.Execute(context, command);
