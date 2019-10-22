@@ -53,6 +53,7 @@ namespace Agent.Sdk
         public Dictionary<string, VariableValue> Variables { get; set; }
         public Dictionary<string, VariableValue> TaskVariables { get; set; }
         public Dictionary<string, string> Inputs { get; set; }
+        public ContainerInfo Container {get; set; }
         public Dictionary<string, string> JobSettings { get; set; }
 
         [JsonIgnore]

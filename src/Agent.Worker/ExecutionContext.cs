@@ -426,11 +426,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     Alias = "vsts_container_preview"
                 };
                 dockerContainer.Properties.Set("image", imageName);
-                Container = new ContainerInfo(HostContext, dockerContainer);
+                Container = HostContext.CreateContainerInfo(dockerContainer);
             }
             else if (!string.IsNullOrEmpty(message.JobContainer))
             {
-                Container = new ContainerInfo(HostContext, message.Resources.Containers.Single(x => string.Equals(x.Alias, message.JobContainer, StringComparison.OrdinalIgnoreCase)));
+                Container = HostContext.CreateContainerInfo(message.Resources.Containers.Single(x => string.Equals(x.Alias, message.JobContainer, StringComparison.OrdinalIgnoreCase)));
             }
             else
             {
@@ -444,7 +444,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 var networkAlias = sidecar.Key;
                 var containerResourceAlias = sidecar.Value;
                 var containerResource = message.Resources.Containers.Single(c => string.Equals(c.Alias, containerResourceAlias, StringComparison.OrdinalIgnoreCase));
-                SidecarContainers.Add(new ContainerInfo(HostContext, containerResource, isJobContainer: false) { ContainerNetworkAlias = networkAlias });
+                ContainerInfo containerInfo = HostContext.CreateContainerInfo(containerResource, isJobContainer: false);
+                containerInfo.ContainerNetworkAlias = networkAlias;
+                SidecarContainers.Add(containerInfo);
             }
 
             // Proxy variables

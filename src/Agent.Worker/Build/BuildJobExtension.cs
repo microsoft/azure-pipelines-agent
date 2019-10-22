@@ -58,15 +58,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string defaultPathRoot = null;
             if (RepositoryUtil.HasMultipleCheckouts(context.JobSettings))
             {
-                // If there are multiple checkouts, set the default directory to the pipeline workspace (_work/1)
-                defaultPathRoot = context.Variables.Get(Constants.Variables.Pipeline.Workspace);
-                Trace.Info($"The Default Path Root of Build JobExtension is Pipeline.Workspace: {defaultPathRoot}");
+                // If there are multiple checkouts, set the default directory to the sources root folder (_work/1/s)
+                defaultPathRoot = context.Variables.Get(Constants.Variables.Build.SourcesDirectory);
+                Trace.Info($"The Default Path Root of Build JobExtension is build.sourcesDirectory: {defaultPathRoot}");
             }
             else if (repoInfo.Repository != null)
             {
-                // If there is only one checkout/repository, set to the repositories path
+                // If there is only one checkout/repository, set it to the repository path
                 defaultPathRoot = repoInfo.Repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
-                Trace.Info($"The Default Path Root of Build JobExtension is build.sourcesDirectory: {defaultPathRoot}");
+                Trace.Info($"The Default Path Root of Build JobExtension is repository.path: {defaultPathRoot}");
             }
 
             if (defaultPathRoot != null && defaultPathRoot.IndexOfAny(Path.GetInvalidPathChars()) < 0 &&
@@ -195,6 +195,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string _workDirectory = HostContext.GetDirectory(WellKnownDirectory.Work);
             executionContext.SetVariable(Constants.Variables.Agent.BuildDirectory, Path.Combine(_workDirectory, trackingConfig.BuildDirectory), isFilePath: true);
             executionContext.SetVariable(Constants.Variables.System.ArtifactsDirectory, Path.Combine(_workDirectory, trackingConfig.ArtifactsDirectory), isFilePath: true);
+            executionContext.SetVariable(Constants.Variables.System.DefaultWorkingDirectory, Path.Combine(_workDirectory, trackingConfig.SourcesDirectory), isFilePath: true);
             executionContext.SetVariable(Constants.Variables.Common.TestResultsDirectory, Path.Combine(_workDirectory, trackingConfig.TestResultsDirectory), isFilePath: true);
             executionContext.SetVariable(Constants.Variables.Build.BinariesDirectory, Path.Combine(_workDirectory, trackingConfig.BuildDirectory, Constants.Build.Path.BinariesDirectory), isFilePath: true);
             executionContext.SetVariable(Constants.Variables.Build.SourcesDirectory, Path.Combine(_workDirectory, trackingConfig.SourcesDirectory), isFilePath: true);
@@ -202,17 +203,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             executionContext.SetVariable(Constants.Variables.Build.ArtifactStagingDirectory, Path.Combine(_workDirectory, trackingConfig.ArtifactsDirectory), isFilePath: true);
             executionContext.SetVariable(Constants.Variables.Build.RepoLocalPath, Path.Combine(_workDirectory, trackingConfig.SourcesDirectory), isFilePath: true);
             executionContext.SetVariable(Constants.Variables.Pipeline.Workspace, Path.Combine(_workDirectory, trackingConfig.BuildDirectory), isFilePath: true);
-
-            if (RepositoryUtil.HasMultipleCheckouts(executionContext.JobSettings))
-            {
-                // If there are multiple checkouts, set the working directory to root folder (_work/1)
-                executionContext.SetVariable(Constants.Variables.System.DefaultWorkingDirectory, Path.Combine(_workDirectory, trackingConfig.BuildDirectory), isFilePath: true);
-            }
-            else
-            { 
-                // If there is only one (or none) checkout, set to the normal default sources path (_work/1/s)
-                executionContext.SetVariable(Constants.Variables.System.DefaultWorkingDirectory, Path.Combine(_workDirectory, trackingConfig.SourcesDirectory), isFilePath: true);
-            }
         }
 
         private bool TryGetRepositoryInfo(IExecutionContext executionContext, out RepositoryInfo repoInfo)
@@ -223,7 +213,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             var extensionManager = HostContext.GetService<IExtensionManager>();
             List<ISourceProvider> sourceProviders = extensionManager.GetExtensions<ISourceProvider>();
 
-            var primaryRepository = RepositoryUtil.GetRepository(executionContext.Repositories);
+            var primaryRepository = RepositoryUtil.GetPrimaryRepository(executionContext.Repositories);
 
             if (primaryRepository != null)
             {

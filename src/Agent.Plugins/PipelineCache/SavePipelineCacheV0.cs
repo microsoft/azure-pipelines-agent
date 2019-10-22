@@ -59,9 +59,7 @@ namespace Agent.Plugins.PipelineCache
             string path,
             CancellationToken token)
         {
-            VariableValue contentFormatVar = context.Variables.GetValueOrDefault(ContentFormatVariableName);
-            string contentFormatValue = contentFormatVar.Value ?? string.Empty;
-            contentFormatValue = contentFormatValue.Trim();
+            string contentFormatValue  = context.Variables.GetValueOrDefault(ContentFormatVariableName)?.Value ?? string.Empty;
 
             ContentFormat contentFormat;
             if (string.IsNullOrWhiteSpace(contentFormatValue))

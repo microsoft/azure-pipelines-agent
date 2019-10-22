@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 {

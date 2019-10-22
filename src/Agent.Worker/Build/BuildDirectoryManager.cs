@@ -72,6 +72,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         TrackingConfig UpdateDirectory(
             IExecutionContext executionContext,
             RepositoryResource repository);
+
+        string GetRelativeRepositoryPath(
+            string buildDirectory,
+            string repositoryPath);
+
     }
 
     public sealed class BuildDirectoryManager : AgentService, IBuildDirectoryManager, IMaintenanceServiceProvider
@@ -91,7 +96,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             ArgUtil.NotNull(repositories, nameof(repositories));
 
             // Get the primary repository (self)
-            var primaryRepository = RepositoryUtil.GetRepository(repositories);
+            var primaryRepository = RepositoryUtil.GetPrimaryRepository(repositories);
             ArgUtil.NotNull(primaryRepository, nameof(primaryRepository));
 
             // TODO (next PR): We need to modify the Tracking file to handle multiple repositories (currently we are only tracking the self repo)
@@ -199,7 +204,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // Set the default clone path for each repository (the Checkout task may override this later)
             foreach (var repository in repositories)
             {
-                var repoPath = GetDefaultRepositoryPath(executionContext, repository, newConfig.BuildDirectory, newConfig.SourcesDirectory);
+                var repoPath = GetDefaultRepositoryPath(executionContext, repository, newConfig.SourcesDirectory);
                 Trace.Info($"Set repository path for repository {repository.Alias} to '{repoPath}'");
                 repository.Properties.Set<string>(RepositoryPropertyNames.Path, repoPath);
             }
@@ -242,21 +247,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             Trace.Info($"Update repository path for repository {repository.Alias} to '{repoPath}'");
 
             string buildDirectory = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), newConfig.BuildDirectory);
-            if (repoPath.StartsWith(buildDirectory + Path.DirectorySeparatorChar) || repoPath.StartsWith(buildDirectory + Path.AltDirectorySeparatorChar))
-            {
-                // The sourcesDirectory in tracking file is a relative path to agent's work folder.
-                newConfig.SourcesDirectory = repoPath.Substring(HostContext.GetDirectory(WellKnownDirectory.Work).Length + 1).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            }
-            else
-            {
-                throw new ArgumentException($"Repository path '{repoPath}' should be located under agent's work directory '{buildDirectory}'.");
-            }
+            newConfig.SourcesDirectory = GetRelativeRepositoryPath(buildDirectory, repoPath);
 
             // Update the tracking config files.
             Trace.Verbose("Updating job run properties.");
             trackingManager.UpdateJobRunProperties(executionContext, newConfig, trackingFile);
 
             return newConfig;
+        }
+
+        public string GetRelativeRepositoryPath(
+            string buildDirectory, 
+            string repositoryPath)
+        {
+            ArgUtil.NotNullOrEmpty(buildDirectory, nameof(buildDirectory));
+            ArgUtil.NotNullOrEmpty(repositoryPath, nameof(repositoryPath));
+
+            if (repositoryPath.StartsWith(buildDirectory + Path.DirectorySeparatorChar) || repositoryPath.StartsWith(buildDirectory + Path.AltDirectorySeparatorChar))
+            {
+                // The sourcesDirectory in tracking file is a relative path to agent's work folder.
+                return repositoryPath.Substring(HostContext.GetDirectory(WellKnownDirectory.Work).Length + 1).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
+            else
+            {
+                throw new ArgumentException($"Repository path '{repositoryPath}' should be located under agent's work directory '{buildDirectory}'.");
+            }
         }
 
         public async Task RunMaintenanceOperation(IExecutionContext executionContext)
@@ -524,13 +539,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         private string GetDefaultRepositoryPath(
             IExecutionContext executionContext,
             RepositoryResource repository,
-            string buildDirectory,
             string defaultSourcesDirectory)
         {
             if (RepositoryUtil.HasMultipleCheckouts(executionContext.JobSettings))
             {
-                // If we have multiple checkouts they should all be rooted to the build directory (_work/1/repo1)
-                return Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), buildDirectory, RepositoryUtil.GetCloneDirectory(repository));
+                // If we have multiple checkouts they should all be rooted to the sources directory (_work/1/s/repo1)
+                return Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), defaultSourcesDirectory, RepositoryUtil.GetCloneDirectory(repository));
             }
             else
             {

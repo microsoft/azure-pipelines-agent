@@ -1,4 +1,5 @@
 using Agent.Sdk;
+using Microsoft.VisualStudio.Services.Agent;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -77,6 +78,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 // Unattend configure mode will not prompt for args if not supplied and error on any missing or invalid value.
                 if (command.Configure)
                 {
+                    PrintBanner();
                     try
                     {
                         await configManager.ConfigureAsync(command);
@@ -502,5 +504,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 _term.WriteLine(StringUtil.Loc("CommandLineHelp", Path.DirectorySeparatorChar, ext));
             }
         }
+
+        private void PrintBanner()
+        {
+            _term.WriteLine(_banner);
+        }
+
+        private static string _banner = string.Format(@"
+  ___                      ______ _            _ _                 
+ / _ \                     | ___ (_)          | (_)                
+/ /_\ \_____   _ _ __ ___  | |_/ /_ _ __   ___| |_ _ __   ___  ___ 
+|  _  |_  / | | | '__/ _ \ |  __/| | '_ \ / _ \ | | '_ \ / _ \/ __|
+| | | |/ /| |_| | | |  __/ | |   | | |_) |  __/ | | | | |  __/\__ \
+\_| |_/___|\__,_|_|  \___| \_|   |_| .__/ \___|_|_|_| |_|\___||___/
+                                   | |                             
+        agent v{0,-10}          |_|          (commit {1})
+", BuildConstants.AgentPackage.Version, BuildConstants.Source.CommitHash.Substring(0, 7));
     }
 }

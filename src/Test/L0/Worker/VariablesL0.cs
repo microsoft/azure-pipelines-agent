@@ -751,5 +751,36 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Assert.Equal("bar", variables.Get("foo"));
             }
         }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void CopyInto_Basic()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                // Arrange.
+                List<string> warnings;
+                var variables = new Variables(hc, new Dictionary<string, VariableValue>(), out warnings);
+                
+                
+                Dictionary<string,VariableValue> dict1 = new Dictionary<string, VariableValue>();
+                variables.CopyInto(dict1);
+                
+                Assert.Equal(0, dict1.Count);
+
+                variables.Set("foo", "bar");
+                variables.CopyInto(dict1);
+                Assert.Equal(1, dict1.Count);
+                Assert.Equal("bar", dict1["foo"]);
+
+                variables.Set("boo", "bah", true);
+                variables.CopyInto(dict1);
+                Assert.Equal(2, dict1.Count);
+                Assert.Equal("bar", dict1["foo"]);
+                Assert.Equal(new VariableValue("bah", true), dict1["boo"]);
+
+            }
+        }
     }
 }

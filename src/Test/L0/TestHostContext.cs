@@ -11,6 +11,8 @@ using System.Reflection;
 using System.Collections.Generic;
 using Microsoft.TeamFoundation.DistributedTask.Logging;
 using System.Net.Http.Headers;
+using Agent.Sdk;
+using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
@@ -352,6 +354,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         public Tracing GetTrace(string name)
         {
             return _traceManager[name];
+        }
+
+        public ContainerInfo CreateContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true)
+        {
+            ContainerInfo containerInfo = new ContainerInfo(container, isJobContainer);
+#if OS_WINDOWS
+            containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Tools)] = "C:\\__t"; // Tool cache folder may come from ENV, so we need a unique folder to avoid collision
+            containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Work)] = "C:\\__w";
+            containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Root)] = "C:\\__a";
+            // add -v '\\.\pipe\docker_engine:\\.\pipe\docker_engine' when they are available (17.09)
+#else
+            containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Tools)] = "/__t"; // Tool cache folder may come from ENV, so we need a unique folder to avoid collision
+            containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Work)] = "/__w";
+            containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Root)] = "/__a";
+            if (containerInfo.IsJobContainer)
+            {
+                containerInfo.MountVolumes.Add(new MountVolume("/var/run/docker.sock", "/var/run/docker.sock"));
+            }
+#endif          
+            return containerInfo;
         }
 
         public void ShutdownAgent(ShutdownReason reason)

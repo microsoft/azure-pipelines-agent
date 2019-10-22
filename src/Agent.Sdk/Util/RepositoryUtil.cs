@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
@@ -9,11 +8,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 {
     public static class RepositoryUtil
     {
-        private const string primaryRepositoryName = "self";
+        public static readonly string PrimaryRepositoryName = "self";
 
-        // To allow the const to be available outside this public class, we publish it as a static readonly string
-        public static readonly string PrimaryRepositoryName = primaryRepositoryName;
-
+        /// <summary>
+        /// Returns true if the dictionary contains the 'HasMultipleCheckouts' key and the value is set to 'true'.
+        /// </summary>
         public static bool HasMultipleCheckouts(Dictionary<string, string> jobSettings)
         {
             if (jobSettings != null && jobSettings.TryGetValue(WellKnownJobSettings.HasMultipleCheckouts, out string hasMultipleCheckoutsText))
@@ -24,28 +23,56 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             return false;
         }
 
+        /// <summary>
+        /// Returns true if the string matches the primary repository name (self)
+        /// </summary>
         public static bool IsPrimaryRepositoryName(string repoAlias)
         {
-            return string.Equals(repoAlias, primaryRepositoryName, StringComparison.OrdinalIgnoreCase);
+            return string.Equals(repoAlias, PrimaryRepositoryName, StringComparison.OrdinalIgnoreCase);
         }
 
-        public static RepositoryResource GetRepository(IList<RepositoryResource> repositories, string repoAlias = primaryRepositoryName)
+        /// <summary>
+        /// This method returns the repo from the list that is considered the primary repository.
+        /// If the list only contains 1 repo, then that is the primary repository.
+        /// If the list contains more than one, then we look for the repository with the primary repo name (self).
+        /// It returns null, if no primary repository can be found.
+        /// </summary>
+        public static RepositoryResource GetPrimaryRepository(IList<RepositoryResource> repositories)
         {
             if (repositories == null || !repositories.Any())
             {
                 return null;
             }
 
-            if (repositories.Count == 1 || String.IsNullOrEmpty(repoAlias))
+            if (repositories.Count == 1)
             {
                 return repositories.First();
             }
             else
             {
-                return repositories.FirstOrDefault(r => string.Equals(r.Alias, repoAlias, StringComparison.OrdinalIgnoreCase));
+                return GetRepository(repositories, PrimaryRepositoryName);
             }
         }
 
+        /// <summary>
+        /// This method returns the repo matching the repo alias passed.
+        /// It returns null if that repo can't be found.
+        /// </summary>
+        public static RepositoryResource GetRepository(IList<RepositoryResource> repositories, string repoAlias)
+        {
+            if (repositories == null)
+            {
+                return null;
+            }
+
+            return repositories.FirstOrDefault(r => string.Equals(r.Alias, repoAlias, StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// Returns the folder name that would be created by calling 'git.exe clone'.
+        /// This is just the relative folder name not a full path.
+        /// The repo name is used if provided, then repo url, and finally repo alias.
+        /// </summary>
         public static string GetCloneDirectory(RepositoryResource repository)
         {
             ArgUtil.NotNull(repository, nameof(repository));
@@ -58,6 +85,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             return GetCloneDirectory(repoName);
         }
 
+        /// <summary>
+        /// Returns the folder name that would be created by calling 'git.exe clone'.
+        /// This is just the relative folder name not a full path.
+        /// This can take a repo full name, partial name, or url as input.
+        /// </summary>
         public static string GetCloneDirectory(string repoName)
         {
             // The logic here was inspired by what git.exe does
