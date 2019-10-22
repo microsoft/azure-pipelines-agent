@@ -32,7 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         {
             try
             {
-                FeatureAvailabilityHttpClient featureAvailabilityHttpClient = _connection.GetClient<FeatureAvailabilityHttpClient>(TestResultsConstants.TCMServiceInstanceGuid);
+                FeatureAvailabilityHttpClient featureAvailabilityHttpClient = _connection.GetClient<FeatureAvailabilityHttpClient>(serviceInstanceId);
                 var featureFlag = featureAvailabilityHttpClient?.GetFeatureFlagByNameAsync(featureFlagName).Result;
                 if (featureFlag != null && featureFlag.EffectiveState.Equals("On", StringComparison.OrdinalIgnoreCase))
                 {
