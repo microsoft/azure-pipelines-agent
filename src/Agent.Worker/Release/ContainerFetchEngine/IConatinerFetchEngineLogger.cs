@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 ﻿namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEngine
 {
     [ServiceLocator(Default = typeof(NullExecutionLogger))]
