@@ -12,6 +12,12 @@ steps:
 - script: echo Hello, world!
   displayName: 'Run a one-line script'
 
+- task: CacheBeta@1
+  inputs:
+    key: agent | fork | $(Agent.OS)
+    path: $(Pipeline.Workspace)
+  displayName: 'Cache something'
+
 - script: |
     echo Add other tasks to build, test, and deploy your project.
     echo See https://aka.ms/yaml
