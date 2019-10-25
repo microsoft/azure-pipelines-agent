@@ -6,8 +6,7 @@
 trigger:
 - master
 
-pool:
-  vmImage: 'ubuntu-latest'
+pool: tanmay
 
 steps:
 - script: echo Hello, world!
