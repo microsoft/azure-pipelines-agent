@@ -5,14 +5,13 @@ using System.Net;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
-  // The purpose of this class is to store user's credential during agent configuration and retrive the credential back at runtime.
-#if OS_WINDOWS
-    [ServiceLocator(Default = typeof(WindowsAgentCredentialStore))]
-#elif OS_OSX
-  [ServiceLocator(Default = typeof(MacOSAgentCredentialStore))]
-#else
-    [ServiceLocator(Default = typeof(LinuxAgentCredentialStore))]
-#endif
+    // Store and retrieve user's credential for agent configuration.
+    [ServiceLocator(
+      PreferredOnWindows = typeof(WindowsAgentCredentialStore),
+      PreferredOnMacOS = typeof(MacOSAgentCredentialStore),
+      PreferredOnLinux = typeof(LinuxAgentCredentialStore),
+      Default = typeof(NoOpAgentCredentialStore)
+      )]
     public interface IAgentCredentialStore : IAgentService
     {
         NetworkCredential Write(string target, string username, string password);
