@@ -32,6 +32,18 @@ namespace Agent.Plugins.Repository
                 throw new Exception(StringUtil.Loc("MinimumNetFramework46"));
             }
 
+            // determine if we've been asked to suppress some checkout step output
+            bool reducedOutput = StringUtil.ConvertToBoolean(
+                executionContext.Variables.GetValueOrDefault("agent.source.checkout.quiet")?.Value ??
+                System.Environment.GetEnvironmentVariable("AGENT_SOURCE_CHECKOUT_QUIET"), false);
+            if (reducedOutput)
+            {
+                // TODO: LOCSTRING
+                executionContext.Output("Quiet checkout mode: less will be printed to the console.");
+                executionContext.SetTaskVariable("agent.source.checkout.quiet", "false");
+            }
+
+
             // Create the tf command manager.
             ITfsVCCliManager tf;
             if (PlatformUtil.RunningOnWindows)
@@ -290,7 +302,7 @@ namespace Agent.Plugins.Repository
             if (tf.Features.HasFlag(TfsVCFeatures.GetFromUnmappedRoot))
             {
                 // Get.
-                await tf.GetAsync(localPath: sourcesDirectory);
+                await tf.GetAsync(localPath: sourcesDirectory, quiet: reducedOutput);
             }
             else
             {
@@ -299,7 +311,7 @@ namespace Agent.Plugins.Repository
                 {
                     if (definitionMapping.MappingType == DefinitionMappingType.Map)
                     {
-                        await tf.GetAsync(localPath: definitionMapping.GetRootedLocalPath(sourcesDirectory));
+                        await tf.GetAsync(localPath: definitionMapping.GetRootedLocalPath(sourcesDirectory), quiet: reducedOutput);
                     }
                 }
             }

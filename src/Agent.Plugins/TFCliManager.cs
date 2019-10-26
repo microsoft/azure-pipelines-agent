@@ -61,10 +61,10 @@ namespace Agent.Plugins.Repository
             throw new NotSupportedException();
         }
 
-        public async Task GetAsync(string localPath)
+        public async Task GetAsync(string localPath, bool quiet = false)
         {
             ArgUtil.NotNullOrEmpty(localPath, nameof(localPath));
-            await RunCommandAsync(FormatFlags.OmitCollectionUrl, "vc", "get", $"/version:{SourceVersion}", "/recursive", "/overwrite", localPath);
+            await RunCommandAsync(FormatFlags.OmitCollectionUrl, quiet, "vc", "get", $"/version:{SourceVersion}", "/recursive", "/overwrite", localPath);
         }
 
         public string ResolvePath(string serverPath)

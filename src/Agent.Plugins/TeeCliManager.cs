@@ -39,10 +39,10 @@ namespace Agent.Plugins.Repository
             await RunCommandAsync(FormatFlags.All, "eula", "-accept");
         }
 
-        public async Task GetAsync(string localPath)
+        public async Task GetAsync(string localPath, bool quiet = false)
         {
             ArgUtil.NotNullOrEmpty(localPath, nameof(localPath));
-            await RunCommandAsync(FormatFlags.OmitCollectionUrl, "get", $"-version:{SourceVersion}", "-recursive", "-overwrite", localPath);
+            await RunCommandAsync(FormatFlags.OmitCollectionUrl, quiet, "get", $"-version:{SourceVersion}", "-recursive", "-overwrite", localPath);
         }
 
         public string ResolvePath(string serverPath)
