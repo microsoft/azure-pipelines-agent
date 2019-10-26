@@ -170,21 +170,25 @@ namespace Agent.Plugins.Repository
                 forceTag = "--force";
             }
 
+            bool reducedOutput = StringUtil.ConvertToBoolean(
+                context.Variables.GetValueOrDefault("agent.source.checkout.quiet")?.Value);
+            string progress = reducedOutput ? string.Empty : "--progress";
+
             // default options for git fetch.
-            string options = StringUtil.Format($"{forceTag} --tags --prune --progress --no-recurse-submodules {remoteName} {string.Join(" ", refSpec)}");
+            string options = StringUtil.Format($"{forceTag} --tags --prune {progress} --no-recurse-submodules {remoteName} {string.Join(" ", refSpec)}");
 
             // If shallow fetch add --depth arg
             // If the local repository is shallowed but there is no fetch depth provide for this build,
             // add --unshallow to convert the shallow repository to a complete repository
             if (fetchDepth > 0)
             {
-                options = StringUtil.Format($"{forceTag} --tags --prune --progress --no-recurse-submodules --depth={fetchDepth} {remoteName} {string.Join(" ", refSpec)}");
+                options = StringUtil.Format($"{forceTag} --tags --prune {progress} --no-recurse-submodules --depth={fetchDepth} {remoteName} {string.Join(" ", refSpec)}");
             }
             else
             {
                 if (File.Exists(Path.Combine(repositoryPath, ".git", "shallow")))
                 {
-                    options = StringUtil.Format($"{forceTag} --tags --prune --progress --no-recurse-submodules --unshallow {remoteName} {string.Join(" ", refSpec)}");
+                    options = StringUtil.Format($"{forceTag} --tags --prune {progress} --no-recurse-submodules --unshallow {remoteName} {string.Join(" ", refSpec)}");
                 }
             }
 

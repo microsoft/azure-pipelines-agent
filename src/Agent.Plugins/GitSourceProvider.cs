@@ -231,6 +231,16 @@ namespace Agent.Plugins.Repository
             string clientCertPrivateKeyAskPassFile = null;
             bool acceptUntrustedCerts = false;
 
+            bool reducedOutput = StringUtil.ConvertToBoolean(
+                executionContext.Variables.GetValueOrDefault("agent.source.checkout.quiet")?.Value ??
+                System.Environment.GetEnvironmentVariable("AGENT_SOURCE_CHECKOUT_QUIET"), false);
+            if (reducedOutput)
+            {
+                // TODO: LOCSTRING
+                executionContext.Output("Quiet checkout mode: less will be printed to the console.");
+                executionContext.SetTaskVariable("agent.source.checkout.quiet", "false");
+            }
+
             executionContext.Output($"Syncing repository: {repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Name)} ({repository.Type})");
             Uri repositoryUrl = repository.Url;
             if (!repositoryUrl.IsAbsoluteUri)
