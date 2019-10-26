@@ -236,8 +236,7 @@ namespace Agent.Plugins.Repository
                 System.Environment.GetEnvironmentVariable("AGENT_SOURCE_CHECKOUT_QUIET"), false);
             if (reducedOutput)
             {
-                // TODO: LOCSTRING
-                executionContext.Output("Quiet checkout mode: less will be printed to the console.");
+                executionContext.Output(StringUtil.Loc("QuietCheckoutModeRequested"));
                 executionContext.SetTaskVariable("agent.source.checkout.quiet", "false");
             }
 
@@ -357,7 +356,6 @@ namespace Agent.Plugins.Repository
             if (selfManageGitCreds)
             {
                 // Customer choose to own git creds by themselves.
-                executionContext.Output(StringUtil.Loc("SelfManageGitCreds"));
             }
 
             // Initialize git command manager with additional environment variables.

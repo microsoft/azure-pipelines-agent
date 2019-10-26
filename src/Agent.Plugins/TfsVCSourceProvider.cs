@@ -38,8 +38,7 @@ namespace Agent.Plugins.Repository
                 System.Environment.GetEnvironmentVariable("AGENT_SOURCE_CHECKOUT_QUIET"), false);
             if (reducedOutput)
             {
-                // TODO: LOCSTRING
-                executionContext.Output("Quiet checkout mode: less will be printed to the console.");
+                executionContext.Output(StringUtil.Loc("QuietCheckoutModeRequested"));
                 executionContext.SetTaskVariable("agent.source.checkout.quiet", "false");
             }
 
