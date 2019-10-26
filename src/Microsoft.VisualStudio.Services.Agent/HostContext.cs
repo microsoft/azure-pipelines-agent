@@ -381,7 +381,18 @@ namespace Microsoft.VisualStudio.Services.Agent
                             defaultTarget = arg.TypedValue.Value as Type;
                         }
 
-                        if (PlatformUtil.RunningOnWindows && string.Equals(arg.MemberName, nameof(ServiceLocatorAttribute.PreferredOnWindows), StringComparison.Ordinal))
+                        if (PlatformUtil.RunningOnWindows
+                            && string.Equals(arg.MemberName, nameof(ServiceLocatorAttribute.PreferredOnWindows), StringComparison.Ordinal))
+                        {
+                            platformTarget = arg.TypedValue.Value as Type;
+                        }
+                        else if (PlatformUtil.RunningOnMacOS
+                            && string.Equals(arg.MemberName, nameof(ServiceLocatorAttribute.PreferredOnMacOS), StringComparison.Ordinal))
+                        {
+                            platformTarget = arg.TypedValue.Value as Type;
+                        }
+                        else if (PlatformUtil.RunningOnLinux
+                            && string.Equals(arg.MemberName, nameof(ServiceLocatorAttribute.PreferredOnLinux), StringComparison.Ordinal))
                         {
                             platformTarget = arg.TypedValue.Value as Type;
                         }
