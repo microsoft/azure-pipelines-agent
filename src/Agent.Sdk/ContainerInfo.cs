@@ -19,15 +19,19 @@ namespace Agent.Sdk
         private List<PortMapping> _portMappings;
         private IDictionary<string, string> _environmentVariables;
 
-#if OS_WINDOWS
-        private Dictionary<string, string> _pathMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-#else
-        private Dictionary<string, string> _pathMappings = new Dictionary<string, string>();
-#endif
+        private Dictionary<string, string> _pathMappings;
 
         public ContainerInfo()
         {
             this.IsJobContainer = true;
+            if (PlatformUtil.RunningOnWindows)
+            {
+                _pathMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            }
+            else
+            {
+                _pathMappings = new Dictionary<string, string>();
+            }
         }
 
         public ContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true)
