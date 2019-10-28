@@ -139,13 +139,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             using (TestHostContext hc = Setup())
             {
                 // Arrange.
+                string sourceFolder = Path.Combine(_workFolder, "b00335b6");
+
                 // It doesn't matter for this test whether the line endings are CRLF or just LF.
-                const string Contents = @"{ 
+                string Contents = @"{ 
     ""system"" : ""build"", 
     ""collectionId"" = ""7aee6dde-6381-4098-93e7-50a8264cf066"", 
     ""definitionId"" = ""7"", 
     ""repositoryUrl"" = ""http://contoso:8080/tfs/DefaultCollection/_git/gitTest"", 
-    ""sourceFolder"" = ""C:\VsoTest\onprem\Agent\_work\b00335b6"",
+    ""sourceFolder"" = """ + sourceFolder + @""",
     ""hashKey"" = ""b00335b6923adfa64f46f3abb7da1cdc0d9bae6c""
 }";
                 WriteConfigFile(Contents);
@@ -172,18 +174,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             using (TestHostContext hc = Setup())
             {
                 // Arrange.
+                string sourceFolder = Path.Combine(_workFolder, "b00335b6");
+
                 // It doesn't matter for this test whether the line endings are CRLF or just LF.
-                const string Contents = @"{ 
+                string contents = @"{ 
     ""system"" : ""build"", 
     ""collectionId"" = ""7aee6dde-6381-4098-93e7-50a8264cf066"", 
     ""definitionId"" = ""7"", 
     ""repositoryUrl"" = ""http://contoso:8080/tfs/DefaultCollection/_git/gitTest"", 
-    ""sourceFolder"" = ""C:\VsoTest\onprem\Agent\_work\b00335b6"",
+    ""sourceFolder"" = """ + sourceFolder + @""",
     ""hashKey"" = """"
 }";
                 // An expected property is missing from the legacy content - the hash key - so the
                 // file should fail to parse properly.
-                WriteConfigFile(Contents);
+                WriteConfigFile(contents);
 
                 // Act.
                 TrackingConfigBase config = _trackingManager.LoadExistingTrackingConfig(_ec.Object);
@@ -201,13 +205,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             using (TestHostContext hc = Setup())
             {
                 // Arrange.
+                string sourceFolder = Path.Combine(_workFolder, "b00335b6");
+
                 // It doesn't matter for this test whether the line endings are CRLF or just LF.
                 string contents = @"{ 
     ""system"" : ""build"", 
     ""collectionId"" = ""7aee6dde-6381-4098-93e7-50a8264cf066"", 
     ""definitionId"" = ""7"", 
     ""repositoryUrl"" = ""http://contoso:8080/tfs/DefaultCollection/_git/gitTest"", 
-    ""sourceFolder"" = ""C:\VsoTest\onprem\Agent\_work\b00335b6"",
+    ""sourceFolder"" = """ + sourceFolder + @""",
     ""hashKey"" = ""b00335b6923adfa64f46f3abb7da1cdc0d9bae6c""
 }";
                 // Trim the trailing curly brace to make the legacy parser throw an exception.
@@ -510,16 +516,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             using (TestHostContext hc = Setup())
             {
                 // Arrange.
+                string sourceFolder = Path.Combine(_workFolder, "b00335b6");
+
                 // It doesn't matter for this test whether the line endings are CRLF or just LF.
-                const string TrackingContents = @"{
+                string trackingContents = @"{
     ""system"" : ""build"", 
     ""collectionId"" = ""7aee6dde-6381-4098-93e7-50a8264cf066"", 
     ""definitionId"" = ""7"", 
     ""repositoryUrl"" = ""http://contoso:8080/tfs/DefaultCollection/_git/gitTest"", 
-    ""sourceFolder"" = ""C:\VsoTest\onprem\Agent\_work\b00335b6"",
+    ""sourceFolder"" = """ + sourceFolder + @""",
     ""hashKey"" = ""b00335b6923adfa64f46f3abb7da1cdc0d9bae6c""
 }";
-                WriteConfigFile(TrackingContents);
+                WriteConfigFile(trackingContents);
                 TrackingConfig config = _trackingManager.LoadExistingTrackingConfig(_ec.Object);
                 Assert.NotNull(config);
 

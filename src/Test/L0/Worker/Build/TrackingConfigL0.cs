@@ -48,7 +48,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 // Arrange.
                 var legacyConfig = new LegacyTrackingConfig
                 {
-                    BuildDirectory = @"c:\path\_work\123",
+                    BuildDirectory = Path.Combine("path", "_work", "123"),
                     CollectionId = CollectionId,
                     DefinitionId = DefinitionId.ToString(),
                     HashKey = "some_hash_key",
