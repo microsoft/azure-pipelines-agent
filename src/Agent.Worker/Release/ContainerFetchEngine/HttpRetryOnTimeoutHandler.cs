@@ -1,4 +1,8 @@
-﻿using System;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
+using System;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
@@ -27,9 +31,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEng
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
-#if OS_LINUX || OS_OSX
-            request.Version = HttpVersion.Version11;
-#endif            
+            if (PlatformUtil.RunningOnMacOS || PlatformUtil.RunningOnLinux)
+            {
+                request.Version = HttpVersion.Version11;
+            }
+
             // Potential improvements:
             // 1. Calculate a max time across attempts, to avoid retries (this class) on top of retries (VssHttpRetryMessageHandler) 
             //    causing more time to pass than expected in degenerative cases.

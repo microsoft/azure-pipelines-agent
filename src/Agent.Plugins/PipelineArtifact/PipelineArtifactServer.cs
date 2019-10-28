@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -147,12 +150,6 @@ namespace Agent.Plugins.PipelineArtifact
                         throw new InvalidOperationException($"Invalid {nameof(downloadParameters.ProjectRetrievalOptions)}!");
                     }
 
-                    IEnumerable<BuildArtifact> fileShareArtifacts = artifacts.Where(a => string.Equals(a.Resource.Type, PipelineArtifactConstants.FileShareArtifact, StringComparison.OrdinalIgnoreCase));
-                    if(fileShareArtifacts.Any()) 
-                    {
-                        throw new InvalidOperationException("File Share is not supported in the Download Pipeline Artifact V1 task. Please use Download Pipeline Artifact V2 task instead.");
-                    }
-
                     IEnumerable<BuildArtifact> pipelineArtifacts = artifacts.Where(a => string.Equals(a.Resource.Type, PipelineArtifactConstants.PipelineArtifact, StringComparison.OrdinalIgnoreCase));
                     if (pipelineArtifacts.Count() == 0)
                     {
@@ -207,11 +204,6 @@ namespace Agent.Plugins.PipelineArtifact
                     else
                     {
                         throw new InvalidOperationException($"Invalid {nameof(downloadParameters.ProjectRetrievalOptions)}!");
-                    }
-
-                    if(buildArtifact.Resource.Type == PipelineArtifactConstants.FileShareArtifact) 
-                    {
-                        throw new InvalidOperationException("File Share is not supported in the Download Pipeline Artifact V1 task. Please use Download Pipeline Artifact V2 task instead.");
                     }
 
                     var manifestId = DedupIdentifier.Create(buildArtifact.Resource.Data);

@@ -1,4 +1,7 @@
-﻿using System;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System;
 using System.Runtime.Serialization;
 using System.Security.Cryptography;
 
@@ -7,11 +10,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
     /// <summary>
     /// Manages an RSA key for the agent using the most appropriate store for the target platform.
     /// </summary>
-#if OS_WINDOWS
-    [ServiceLocator(Default = typeof(RSAEncryptedFileKeyManager))]
-#else
-    [ServiceLocator(Default = typeof(RSAFileKeyManager))]
-#endif
+    [ServiceLocator(
+        PreferredOnWindows = typeof(RSAEncryptedFileKeyManager),
+        Default = typeof(RSAFileKeyManager)
+    )]
     public interface IRSAKeyManager : IAgentService
     {
         /// <summary>

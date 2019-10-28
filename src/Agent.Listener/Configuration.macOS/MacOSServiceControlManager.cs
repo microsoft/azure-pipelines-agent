@@ -1,4 +1,6 @@
-#if OS_OSX
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.IO;
 using System.Collections.Generic;
@@ -7,7 +9,13 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
-    public class OsxServiceControlManager : ServiceControlManager, ILinuxServiceControlManager
+    [ServiceLocator(Default = typeof(MacOSServiceControlManager))]
+    public interface IMacOSServiceControlManager : IAgentService
+    {
+        void GenerateScripts(AgentSettings settings);
+    }
+
+    public class MacOSServiceControlManager : ServiceControlManager, IMacOSServiceControlManager
     {
         // This is the name you would see when you do `systemctl list-units | grep vsts`
         private const string _svcNamePattern = "vsts.agent.{0}.{1}.{2}";
@@ -54,4 +62,3 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         }
     }
 }
-#endif

@@ -1,3 +1,7 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -12,6 +16,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Net.Http;
 using Newtonsoft.Json.Linq;
+using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -136,11 +141,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 jobContext.Variables.Set(Constants.Variables.Agent.OS, VarUtil.OS);
                 jobContext.Variables.Set(Constants.Variables.Agent.OSArchitecture, VarUtil.OSArchitecture);
                 jobContext.SetVariable(Constants.Variables.Agent.RootDirectory, HostContext.GetDirectory(WellKnownDirectory.Work), isFilePath: true);
-#if OS_WINDOWS
-                jobContext.SetVariable(Constants.Variables.Agent.ServerOMDirectory, HostContext.GetDirectory(WellKnownDirectory.ServerOM), isFilePath: true);
-#else
-                jobContext.Variables.Set(Constants.Variables.Agent.AcceptTeeEula, settings.AcceptTeeEula.ToString());
-#endif
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    jobContext.SetVariable(Constants.Variables.Agent.ServerOMDirectory, HostContext.GetDirectory(WellKnownDirectory.ServerOM), isFilePath: true);
+                }
+                if (!PlatformUtil.RunningOnWindows)
+                {
+                    jobContext.Variables.Set(Constants.Variables.Agent.AcceptTeeEula, settings.AcceptTeeEula.ToString());
+                }
                 jobContext.SetVariable(Constants.Variables.Agent.WorkFolder, HostContext.GetDirectory(WellKnownDirectory.Work), isFilePath: true);
                 jobContext.SetVariable(Constants.Variables.System.WorkFolder, HostContext.GetDirectory(WellKnownDirectory.Work), isFilePath: true);
 
@@ -222,10 +230,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
 
                 // Expand container properties
-                jobContext.Container?.ExpandProperties(jobContext.Variables);
+                if (jobContext.Container != null)
+                {
+                    this.ExpandProperties(jobContext.Container, jobContext.Variables);
+                }
                 foreach (var sidecar in jobContext.SidecarContainers)
                 {
-                    sidecar.ExpandProperties(jobContext.Variables);
+                    this.ExpandProperties(sidecar, jobContext.Variables);
                 }
 
                 // Get the job extension.
@@ -324,6 +335,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 await ShutdownQueue(throwOnFailure: false);
             }
+        }
+
+        public void ExpandProperties(ContainerInfo container, Variables variables)
+        {
+            // Expand port mapping
+            variables.ExpandValues(container.UserPortMappings);
+
+            // Expand volume mounts
+            variables.ExpandValues(container.UserMountVolumes);
+            foreach (var volume in container.UserMountVolumes.Values)
+            {
+                // After mount volume variables are expanded, they are final
+                container.MountVolumes.Add(new MountVolume(volume));
+            }
+
+            // Expand env vars
+            variables.ExpandValues(container.ContainerEnvironmentVariables);
+
+            // Expand image and options strings
+            container.ContainerImage = variables.ExpandValue(nameof(container.ContainerImage), container.ContainerImage);
+            container.ContainerCreateOptions = variables.ExpandValue(nameof(container.ContainerCreateOptions), container.ContainerCreateOptions);
         }
 
         private async Task<TaskResult> CompleteJobAsync(IJobServer jobServer, IExecutionContext jobContext, Pipelines.AgentJobRequestMessage message, TaskResult? taskResult = null)

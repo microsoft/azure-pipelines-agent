@@ -1,4 +1,7 @@
-﻿using System.Threading.Tasks;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System.Threading.Tasks;
 using Agent.Plugins.Log.TestResultParser.Contracts;
 
 namespace Agent.Plugins.Log.TestResultParser.Plugin

@@ -1,3 +1,7 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -32,6 +36,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         List<ServiceEndpoint> Endpoints { get; }
         List<SecureFile> SecureFiles { get; }
         List<Pipelines.RepositoryResource> Repositories { get; }
+        Dictionary<string,string> JobSettings { get; }
 
         PlanFeatures Features { get; }
         Variables Variables { get; }
@@ -63,6 +68,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         // others
         void ForceTaskComplete();
+        IHostContext GetHostContext();
     }
 
     public sealed class ExecutionContext : AgentService, IExecutionContext
@@ -97,6 +103,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public List<ServiceEndpoint> Endpoints { get; private set; }
         public List<SecureFile> SecureFiles { get; private set; }
         public List<Pipelines.RepositoryResource> Repositories { get; private set; }
+        public Dictionary<string, string> JobSettings { get; private set; }
         public Variables Variables { get; private set; }
         public Variables TaskVariables { get; private set; }
         public HashSet<string> OutputVariables => _outputvariables;
@@ -159,6 +166,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             });
         }
 
+        public IHostContext GetHostContext()
+        {
+            return HostContext;
+        }
+
         public IExecutionContext CreateChild(Guid recordId, string displayName, string refName, Variables taskVariables = null, bool outputForward = false)
         {
             Trace.Entering();
@@ -169,6 +181,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             child.Variables = Variables;
             child.Endpoints = Endpoints;
             child.Repositories = Repositories;
+            child.JobSettings = JobSettings;
             child.SecureFiles = SecureFiles;
             child.TaskVariables = taskVariables;
             child._cancellationTokenSource = new CancellationTokenSource();
@@ -396,6 +409,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Repositories
             Repositories = message.Resources.Repositories;
 
+            // JobSettings
+            JobSettings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            JobSettings[WellKnownJobSettings.HasMultipleCheckouts] = message.Steps?.Where(x => Pipelines.PipelineConstants.IsCheckoutTask(x)).Count() > 1 ? Boolean.TrueString : Boolean.FalseString;
+
             // Variables (constructor performs initial recursive expansion)
             List<string> warnings;
             Variables = new Variables(HostContext, message.Variables, out warnings);
@@ -418,11 +435,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     Alias = "vsts_container_preview"
                 };
                 dockerContainer.Properties.Set("image", imageName);
-                Container = new ContainerInfo(HostContext, dockerContainer);
+                Container = HostContext.CreateContainerInfo(dockerContainer);
             }
             else if (!string.IsNullOrEmpty(message.JobContainer))
             {
-                Container = new ContainerInfo(HostContext, message.Resources.Containers.Single(x => string.Equals(x.Alias, message.JobContainer, StringComparison.OrdinalIgnoreCase)));
+                Container = HostContext.CreateContainerInfo(message.Resources.Containers.Single(x => string.Equals(x.Alias, message.JobContainer, StringComparison.OrdinalIgnoreCase)));
             }
             else
             {
@@ -436,7 +453,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 var networkAlias = sidecar.Key;
                 var containerResourceAlias = sidecar.Value;
                 var containerResource = message.Resources.Containers.Single(c => string.Equals(c.Alias, containerResourceAlias, StringComparison.OrdinalIgnoreCase));
-                SidecarContainers.Add(new ContainerInfo(HostContext, containerResource, isJobContainer: false) { ContainerNetworkAlias = networkAlias });
+                ContainerInfo containerInfo = HostContext.CreateContainerInfo(containerResource, isJobContainer: false);
+                containerInfo.ContainerNetworkAlias = networkAlias;
+                SidecarContainers.Add(containerInfo);
             }
 
             // Proxy variables
@@ -494,12 +513,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var runtimeOptions = HostContext.GetService<IConfigurationStore>().GetAgentRuntimeOptions();
             if (runtimeOptions != null)
             {
-#if OS_WINDOWS
-                if (runtimeOptions.GitUseSecureChannel)
+                if (PlatformUtil.RunningOnWindows && runtimeOptions.GitUseSecureChannel)
                 {
                     Variables.Set(Constants.Variables.Agent.GitUseSChannel, runtimeOptions.GitUseSecureChannel.ToString());
                 }
-#endif                
             }
 
             // Job timeline record.

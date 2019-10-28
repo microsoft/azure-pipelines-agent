@@ -68,3 +68,9 @@ Troubleshooting tips are [located here](docs/troubleshooting.md)
 ## Contribute
 
 For developers that want to contribute, [read here](docs/contribute.md) on how to build and test.
+
+## Issues
+
+We accept issue reports both here (file a GitHub issue) and in [Developer Community](https://developercommunity.visualstudio.com/spaces/21/index.html).
+
+Do you think there might be a security issue? Have you been phished or identified a security vulnerability? Please don't report it here - let us know by sending an email to secure@microsoft.com.

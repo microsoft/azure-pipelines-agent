@@ -1,14 +1,16 @@
 
 
-# ![Linux](../res/linux_med.png) Linux System Prerequisites [2.125.0 or above]
+# ![Linux](../res/linux_med.png) Linux System Prerequisites
 
 ## Supported Distributions and Versions
 
 We support the following OSes, a subset of [the ones .NET Core 2.1 supports](https://github.com/dotnet/core/blob/master/release-notes/2.1/2.1-supported-os.md):
 
 x64
-  - Red Hat Enterprise Linux 6 (see note 1), 7
-  - CentOS 6 (see note 1), 7
+  - Red Hat Enterprise Linux 8, 7
+  - Red Hat Enterprise Linux 6 (see note 1)
+  - CentOS 7
+  - CentOS 6 (see note 1)
   - Oracle Linux 7
   - Fedora 30, 29
   - Debian 9

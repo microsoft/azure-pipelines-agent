@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Agent.Sdk;
 using System;
 using System.Collections.Generic;
@@ -12,7 +15,7 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Agent.Plugins.Repository
 {
-    public sealed class TFCliManager : TfsVCCliManager
+    public sealed class TFCliManager : TfsVCCliManager, ITfsVCCliManager
     {
         public override TfsVCFeatures Features
         {

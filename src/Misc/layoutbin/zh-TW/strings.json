@@ -424,7 +424,6 @@
     "RMCachingAllItems":  "正在快取檔案容器中的所有項目...",
     "RMCachingComplete":  "快取完成。({0} 毫秒)",
     "RMCachingContainerItems":  "正在快取檔案容器中 \u0027{0}\u0027 下的項目...",
-    "RMCommandNotFound":  "##vso[release.{0}] 對 Release 命令延伸模組而言是無法辨識的命令。請參閱文件 (http://go.microsoft.com/fwlink/?LinkId=817296)。",
     "RMContainerItemNotSupported":  "不支援容器項目類型 \u0027{0}\u0027。",
     "RMContainerItemPathDoesnotExist":  "檔案容器項目路徑的開頭不是 {0}: {1}",
     "RMContainerItemRequestTimedOut":  "要求在 {0} 秒後逾時; 將會睡眠 {1} 秒後再次嘗試。要求: {2} {3}",

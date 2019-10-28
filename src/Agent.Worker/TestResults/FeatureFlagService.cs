@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.FeatureAvailability.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -32,7 +35,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         {
             try
             {
-                FeatureAvailabilityHttpClient featureAvailabilityHttpClient = _connection.GetClient<FeatureAvailabilityHttpClient>(TestResultsConstants.TCMServiceInstanceGuid);
+                FeatureAvailabilityHttpClient featureAvailabilityHttpClient = _connection.GetClient<FeatureAvailabilityHttpClient>(serviceInstanceId);
                 var featureFlag = featureAvailabilityHttpClient?.GetFeatureFlagByNameAsync(featureFlagName).Result;
                 if (featureFlag != null && featureFlag.EffectiveState.Equals("On", StringComparison.OrdinalIgnoreCase))
                 {

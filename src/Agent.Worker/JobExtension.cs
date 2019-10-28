@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -7,6 +10,7 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System.Linq;
 using System.Diagnostics;
+using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -66,10 +70,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     // Set agent version variable.
                     context.Variables.Set(Constants.Variables.Agent.Version, BuildConstants.AgentPackage.Version);
+
+                    // Log agent properties
                     context.Output(StringUtil.Loc("AgentNameLog", context.Variables.Get(Constants.Variables.Agent.Name)));
                     context.Output(StringUtil.Loc("AgentMachineNameLog", context.Variables.Get(Constants.Variables.Agent.MachineName)));
                     context.Output(StringUtil.Loc("AgentVersion", BuildConstants.AgentPackage.Version));
-                    if (context.Variables.TryGetValue(Constants.ImageVersionVariable, out string imageVersion))
+                    string imageVersion = System.Environment.GetEnvironmentVariable(Constants.ImageVersionVariable);
+                    if (imageVersion != null)
                     {
                         context.Output(StringUtil.Loc("ImageVersionLog", imageVersion));
                     }
@@ -138,7 +145,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (context.Container != null || context.SidecarContainers.Count > 0)
                     {
                         var containerProvider = HostContext.GetService<IContainerOperationProvider>();
-                        var containers = new List<Container.ContainerInfo>();
+                        var containers = new List<ContainerInfo>();
                         if (context.Container != null)
                         {
                             containers.Add(context.Container);

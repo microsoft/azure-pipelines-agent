@@ -1,4 +1,7 @@
-﻿using System;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -21,6 +24,11 @@ namespace Agent.Sdk
         Guid Id { get; }
         string Stage { get; }
         Task RunAsync(AgentTaskPluginExecutionContext executionContext, CancellationToken token);
+    }
+
+    public class WellKnownJobSettings
+    {
+        public static readonly string HasMultipleCheckouts = "HasMultipleCheckouts";
     }
 
     public class AgentTaskPluginExecutionContext : ITraceWriter
@@ -48,6 +56,8 @@ namespace Agent.Sdk
         public Dictionary<string, VariableValue> Variables { get; set; }
         public Dictionary<string, VariableValue> TaskVariables { get; set; }
         public Dictionary<string, string> Inputs { get; set; }
+        public ContainerInfo Container {get; set; }
+        public Dictionary<string, string> JobSettings { get; set; }
 
         [JsonIgnore]
         public VssConnection VssConnection
@@ -114,6 +124,7 @@ namespace Agent.Sdk
             ArgUtil.NotNull(credentials, nameof(credentials));
             return VssUtil.CreateConnection(systemConnection.Url, credentials);
         }
+
         public string GetInput(string name, bool required = false)
         {
             string value = null;

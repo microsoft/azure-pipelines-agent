@@ -1,4 +1,7 @@
-﻿using Agent.Sdk;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using Microsoft.VisualStudio.Services.FileContainer.Client;
 using System;
 using System.Collections.Concurrent;

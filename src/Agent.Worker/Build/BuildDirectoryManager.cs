@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.IO;
@@ -61,7 +64,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
     {
         TrackingConfig PrepareDirectory(
             IExecutionContext executionContext,
-            RepositoryResource repository,
+            IList<RepositoryResource> repositories,
             WorkspaceOptions workspace);
 
         void CreateDirectory(
@@ -72,6 +75,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         TrackingConfig UpdateDirectory(
             IExecutionContext executionContext,
             RepositoryResource repository);
+
+        string GetRelativeRepositoryPath(
+            string buildDirectory,
+            string repositoryPath);
+
     }
 
     public sealed class BuildDirectoryManager : AgentService, IBuildDirectoryManager, IMaintenanceServiceProvider
@@ -81,19 +89,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public TrackingConfig PrepareDirectory(
             IExecutionContext executionContext,
-            RepositoryResource repository,
+            IList<RepositoryResource> repositories,
             WorkspaceOptions workspace)
         {
             // Validate parameters.
             Trace.Entering();
             ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNull(executionContext.Variables, nameof(executionContext.Variables));
-            ArgUtil.NotNull(repository, nameof(repository));
+            ArgUtil.NotNull(repositories, nameof(repositories));
+
+            // Get the primary repository (self)
+            var primaryRepository = RepositoryUtil.GetPrimaryRepository(repositories);
+            ArgUtil.NotNull(primaryRepository, nameof(primaryRepository));
+
+            // TODO (next PR): We need to modify the Tracking file to handle multiple repositories (currently we are only tracking the self repo)
             var trackingManager = HostContext.GetService<ITrackingManager>();
 
             // Defer to the source provider to calculate the hash key.
             Trace.Verbose("Calculating build directory hash key.");
-            string hashKey = repository.GetSourceDirectoryHashKey(executionContext);
+            string hashKey = primaryRepository.GetSourceDirectoryHashKey(executionContext);
             Trace.Verbose($"Hash key: {hashKey}");
 
             // Load the existing tracking file if one already exists.
@@ -128,22 +142,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 var agentSetting = HostContext.GetService<IConfigurationStore>().GetSettings();
                 newConfig = trackingManager.Create(
                     executionContext,
-                    repository,
+                    primaryRepository,
                     hashKey,
                     trackingFile,
-                    repository.TestOverrideBuildDirectory(agentSetting));
+                    primaryRepository.TestOverrideBuildDirectory(agentSetting));
                 ArgUtil.NotNull(newConfig, nameof(newConfig));
             }
             else
             {
                 // Convert legacy format to the new format if required.
-                newConfig = ConvertToNewFormat(executionContext, repository, existingConfig);
+                newConfig = ConvertToNewFormat(executionContext, primaryRepository, existingConfig);
 
                 // Fill out repository type if it's not there.
                 // repository type is a new property introduced for maintenance job
                 if (string.IsNullOrEmpty(newConfig.RepositoryType))
                 {
-                    newConfig.RepositoryType = repository.Type;
+                    newConfig.RepositoryType = primaryRepository.Type;
                 }
 
                 // For existing tracking config files, update the job run properties.
@@ -190,9 +204,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 path: Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), newConfig.SourcesDirectory),
                 deleteExisting: cleanOption == BuildCleanOption.Source);
 
-            var repoPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), newConfig.SourcesDirectory);
-            Trace.Info($"Set repository path for repository {repository.Alias} to '{repoPath}'");
-            repository.Properties.Set<string>(RepositoryPropertyNames.Path, repoPath);
+            // Set the default clone path for each repository (the Checkout task may override this later)
+            foreach (var repository in repositories)
+            {
+                var repoPath = GetDefaultRepositoryPath(executionContext, repository, newConfig.SourcesDirectory);
+                Trace.Info($"Set repository path for repository {repository.Alias} to '{repoPath}'");
+                repository.Properties.Set<string>(RepositoryPropertyNames.Path, repoPath);
+            }
 
             return newConfig;
         }
@@ -232,21 +250,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             Trace.Info($"Update repository path for repository {repository.Alias} to '{repoPath}'");
 
             string buildDirectory = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), newConfig.BuildDirectory);
-            if (repoPath.StartsWith(buildDirectory + Path.DirectorySeparatorChar) || repoPath.StartsWith(buildDirectory + Path.AltDirectorySeparatorChar))
-            {
-                // The sourcesDirectory in tracking file is a relative path to agent's work folder.
-                newConfig.SourcesDirectory = repoPath.Substring(HostContext.GetDirectory(WellKnownDirectory.Work).Length + 1).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            }
-            else
-            {
-                throw new ArgumentException($"Repository path '{repoPath}' should be located under agent's work directory '{buildDirectory}'.");
-            }
+            newConfig.SourcesDirectory = GetRelativeRepositoryPath(buildDirectory, repoPath);
 
             // Update the tracking config files.
             Trace.Verbose("Updating job run properties.");
             trackingManager.UpdateJobRunProperties(executionContext, newConfig, trackingFile);
 
             return newConfig;
+        }
+
+        public string GetRelativeRepositoryPath(
+            string buildDirectory, 
+            string repositoryPath)
+        {
+            ArgUtil.NotNullOrEmpty(buildDirectory, nameof(buildDirectory));
+            ArgUtil.NotNullOrEmpty(repositoryPath, nameof(repositoryPath));
+
+            if (repositoryPath.StartsWith(buildDirectory + Path.DirectorySeparatorChar) || repositoryPath.StartsWith(buildDirectory + Path.AltDirectorySeparatorChar))
+            {
+                // The sourcesDirectory in tracking file is a relative path to agent's work folder.
+                return repositoryPath.Substring(HostContext.GetDirectory(WellKnownDirectory.Work).Length + 1).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
+            else
+            {
+                throw new ArgumentException($"Repository path '{repositoryPath}' should be located under agent's work directory '{buildDirectory}'.");
+            }
         }
 
         public async Task RunMaintenanceOperation(IExecutionContext executionContext)
@@ -508,6 +536,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 {
                     return BuildCleanOption.None;
                 }
+            }
+        }
+
+        private string GetDefaultRepositoryPath(
+            IExecutionContext executionContext,
+            RepositoryResource repository,
+            string defaultSourcesDirectory)
+        {
+            if (RepositoryUtil.HasMultipleCheckouts(executionContext.JobSettings))
+            {
+                // If we have multiple checkouts they should all be rooted to the sources directory (_work/1/s/repo1)
+                return Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), defaultSourcesDirectory, RepositoryUtil.GetCloneDirectory(repository));
+            }
+            else
+            {
+                // For single checkouts, the repository is rooted to the sources folder (_work/1/s)
+                return Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), defaultSourcesDirectory);
             }
         }
     }

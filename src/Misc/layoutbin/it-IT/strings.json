@@ -424,7 +424,6 @@
     "RMCachingAllItems":  "Memorizzazione nella cache di tutti gli elementi presenti nel contenitore di file...",
     "RMCachingComplete":  "Memorizzazione nella cache completata. ({0} ms)",
     "RMCachingContainerItems":  "Memorizzazione nella cache degli elementi in \u0027{0}\u0027 presenti nel contenitore di file...",
-    "RMCommandNotFound":  "##vso[release.{0}] non è un comando riconosciuto per l\u0027estensione del comando release. Vedere la documentazione (http://go.microsoft.com/fwlink/?LinkId=817296).",
     "RMContainerItemNotSupported":  "Il tipo \u0027{0}\u0027 dell\u0027elemento contenitore non è supportato.",
     "RMContainerItemPathDoesnotExist":  "Il percorso dell\u0027elemento contenitore di file non inizia con {0}: {1}",
     "RMContainerItemRequestTimedOut":  "Si è verificato il timeout della richiesta dopo {0} secondi. Verrà effettuato un nuovo tentativo dopo una sospensione di {1} secondi. Richiesta: {2} {3}",

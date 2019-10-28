@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -11,6 +14,7 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.Win32;
+using Agent.Sdk;
 
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker

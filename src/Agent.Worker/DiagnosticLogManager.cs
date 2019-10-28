@@ -1,3 +1,7 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -69,11 +73,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             executionContext.Debug("Creating diagnostic log environment file.");
             string environmentFile = Path.Combine(supportFilesFolder, "environment.txt");
-#if OS_WINDOWS            
             string content = await GetEnvironmentContent(agentId, agentName, message.Steps);
-#else            
-            string content = GetEnvironmentContent(agentId, agentName, message.Steps);
-#endif            
             File.WriteAllText(environmentFile, content);
 
             // Create the capabilities file
@@ -233,8 +233,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return agentLogFiles;
         }
 
-#if OS_WINDOWS
         private async Task<string> GetEnvironmentContent(int agentId, string agentName, IList<Pipelines.JobStep> steps)
+        {
+            if (PlatformUtil.RunningOnWindows)
+            {
+                return await GetEnvironmentContentWindows(agentId, agentName, steps);
+            }
+            return GetEnvironmentContentNonWindows(agentId, agentName, steps);
+        }
+
+        private async Task<string> GetEnvironmentContentWindows(int agentId, string agentName, IList<Pipelines.JobStep> steps)
         {
             var builder = new StringBuilder();
 
@@ -322,8 +330,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             return builder.ToString();
         }
-#else
-        private string GetEnvironmentContent(int agentId, string agentName, IList<Pipelines.JobStep> steps)
+
+        private string GetEnvironmentContentNonWindows(int agentId, string agentName, IList<Pipelines.JobStep> steps)
         {
             var builder = new StringBuilder();
 
@@ -341,6 +349,5 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             return builder.ToString();
         }
-#endif
     }
 }

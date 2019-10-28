@@ -423,7 +423,6 @@
     "RMCachingAllItems":  "Alle Elemente im Dateicontainer werden zwischengespeichert...",
     "RMCachingComplete":  "Die Zwischenspeicherung wurde abgeschlossen. ({0} ms)",
     "RMCachingContainerItems":  "Elemente werden unter \"{0}\" im Dateicontainer zwischengespeichert...",
-    "RMCommandNotFound":  "##vso[task.{0}] wird nicht als Befehl für die Erweiterung des Befehls \"Release\" erkannt. Schlagen Sie in der Dokumentation (http://go.microsoft.com/fwlink/?LinkId=817296) nach.",
     "RMContainerItemNotSupported":  "Der Containerelementtyp \"{0}\" wird nicht unterstützt.",
     "RMContainerItemPathDoesnotExist":  "Der Containerelementpfad beginnt nicht mit {0}: {1}",
     "RMContainerItemRequestTimedOut":  "Timeout der Anforderung nach {0} Sekunden. Ruhezustand {1} Sekunden und erneuter Versuch. Anforderung: {2}{3}",

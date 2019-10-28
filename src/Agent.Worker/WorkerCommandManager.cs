@@ -1,4 +1,7 @@
-﻿using Microsoft.TeamFoundation.DistributedTask.WebApi;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
@@ -131,6 +134,65 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         HostTypes SupportedHostTypes { get; }
 
         void ProcessCommand(IExecutionContext context, Command command);
+    }
+
+    public interface IWorkerCommand 
+    {
+        string Name { get; }
+
+        List<string> Aliases { get; }
+
+        void Execute(IExecutionContext context, Command command);
+    }
+
+    public abstract class BaseWorkerCommandExtension: AgentService, IWorkerCommandExtension
+    {
+
+        public string CommandArea { get; protected set; }
+
+        public HostTypes SupportedHostTypes { get; protected set; }
+
+        public Type ExtensionType => typeof(IWorkerCommandExtension);
+
+        private Dictionary<string, IWorkerCommand> _commands = new Dictionary<string, IWorkerCommand>(StringComparer.OrdinalIgnoreCase);
+
+        protected void InstallWorkerCommand(IWorkerCommand commandExecutor)
+        {
+            if (_commands.ContainsKey(commandExecutor.Name))
+            {
+                //TODO: Add some logging (or throw exception)
+                return;
+            }
+            _commands[commandExecutor.Name] = commandExecutor;
+            var aliasList = commandExecutor.Aliases;
+            if (aliasList != null)
+            {
+                foreach (var alias in commandExecutor.Aliases)
+                {
+                    if (!_commands.ContainsKey(alias))
+                    {
+                        _commands[alias] = commandExecutor;
+                    }
+                    // TODO: else add some logging (or throw exception)
+                }
+            }
+        }
+
+        public IWorkerCommand GetWorkerCommand(String name)
+        {
+            _commands.TryGetValue(name, out var commandExecutor);
+            return commandExecutor;
+        }
+
+        public void ProcessCommand(IExecutionContext context, Command command)
+        {
+            var commandExecutor = GetWorkerCommand(command.Event);
+            if (commandExecutor == null)
+            {
+                throw new Exception(StringUtil.Loc("CommandNotFound2", CommandArea.ToLowerInvariant(), command.Event, CommandArea));
+            }
+            commandExecutor.Execute(context, command);
+        }
     }
 
     [Flags]

@@ -1,4 +1,7 @@
-﻿using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections;
@@ -33,9 +36,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Constants.Agent.CommandLine.Flags.DeploymentGroup,
             Constants.Agent.CommandLine.Flags.DeploymentPool,
             Constants.Agent.CommandLine.Flags.Environment,
-#if OS_WINDOWS
+            // SChannel is Windows-only
             Constants.Agent.CommandLine.Flags.GitUseSChannel,
-#endif
             Constants.Agent.CommandLine.Flags.Help,
             Constants.Agent.CommandLine.Flags.MachineGroup,
             Constants.Agent.CommandLine.Flags.NoRestart,
@@ -103,9 +105,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         public bool DeploymentPool => TestFlag(Constants.Agent.CommandLine.Flags.DeploymentPool);
         public bool EnvironmentVMResource => TestFlag(Constants.Agent.CommandLine.Flags.Environment);
         public bool WhatIf => TestFlag(Constants.Agent.CommandLine.Flags.WhatIf);
-#if OS_WINDOWS
         public bool GitUseSChannel => TestFlag(Constants.Agent.CommandLine.Flags.GitUseSChannel);
-#endif
         public bool RunOnce => TestFlag(Constants.Agent.CommandLine.Flags.Once);
 
         // Constructor.

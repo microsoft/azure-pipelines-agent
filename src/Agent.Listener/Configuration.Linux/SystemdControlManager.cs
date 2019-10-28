@@ -1,4 +1,6 @@
-#if OS_LINUX
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -8,6 +10,12 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
+    [ServiceLocator(Default = typeof(SystemDControlManager))]
+    public interface ILinuxServiceControlManager : IAgentService
+    {
+        void GenerateScripts(AgentSettings settings);
+    }
+
     public class SystemDControlManager : ServiceControlManager, ILinuxServiceControlManager
     {
         // This is the name you would see when you do `systemctl list-units | grep vsts`
@@ -51,6 +59,5 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 throw;
             }
         }
-        }
-        }
-#endif
+    }
+}

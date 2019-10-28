@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
@@ -45,6 +48,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
             builder.Check(name: "cmake");
             builder.Check(name: "curl");
             builder.Check(name: "docker");
+            builder.Check(name: "dotnet");
             builder.Check(name: "git");
             builder.Check(name: "gulp");
             builder.Check(name: "java");

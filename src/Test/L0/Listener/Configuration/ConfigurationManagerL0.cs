@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Listener;
 using Microsoft.VisualStudio.Services.Agent.Capabilities;
@@ -36,8 +39,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
         private Mock<IWindowsServiceControlManager> _serviceControlManager;
 #endif
 
-#if !OS_WINDOWS
+#if OS_LINUX
         private Mock<ILinuxServiceControlManager> _serviceControlManager;
+#endif
+
+#if OS_OSX
+        private Mock<IMacOSServiceControlManager> _serviceControlManager;
 #endif
 
         private Mock<IRSAKeyManager> _rsaKeyManager;
@@ -78,10 +85,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             _serviceControlManager = new Mock<IWindowsServiceControlManager>();
 #endif
 
-#if !OS_WINDOWS
+#if OS_LINUX
             _serviceControlManager = new Mock<ILinuxServiceControlManager>();
 #endif
 
+#if OS_OSX
+            _serviceControlManager = new Mock<IMacOSServiceControlManager>();
+#endif
             _capabilitiesManager = new CapabilitiesManager();
 
             var expectedAgent = new TaskAgent(_expectedAgentName) { Id = 1 };
@@ -155,8 +165,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
 
 #if OS_WINDOWS
             tc.SetSingleton<IWindowsServiceControlManager>(_serviceControlManager.Object);
-#else
+#elif OS_LINUX
             tc.SetSingleton<ILinuxServiceControlManager>(_serviceControlManager.Object);
+#elif OS_OSX
+            tc.SetSingleton<IMacOSServiceControlManager>(_serviceControlManager.Object);
 #endif
 
             tc.SetSingleton<IRSAKeyManager>(_rsaKeyManager.Object);

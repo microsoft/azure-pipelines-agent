@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
@@ -9,11 +12,10 @@ using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
-#if OS_WINDOWS
-    [ServiceLocator(Default = typeof(TFCommandManager))]
-#else
-    [ServiceLocator(Default = typeof(TeeCommandManager))]
-#endif
+    [ServiceLocator(
+        PreferredOnWindows = typeof(TFCommandManager),
+        Default = typeof(TeeCommandManager)
+    )]
     public interface ITfsVCCommandManager : IAgentService
     {
         CancellationToken CancellationToken { set; }

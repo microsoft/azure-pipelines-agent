@@ -1,4 +1,6 @@
-﻿#if OS_WINDOWS
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -82,4 +84,3 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         }
     }
 }
-#endif

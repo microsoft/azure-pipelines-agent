@@ -1,4 +1,6 @@
-#if OS_WINDOWS
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -1378,4 +1380,3 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public IntPtr hProfile;
     }
 }
-#endif

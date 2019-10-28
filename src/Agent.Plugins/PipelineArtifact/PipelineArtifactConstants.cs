@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 namespace Agent.Plugins.PipelineArtifact
 {
     public class PipelineArtifactConstants

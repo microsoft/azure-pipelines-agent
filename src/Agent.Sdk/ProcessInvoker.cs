@@ -1,4 +1,7 @@
-﻿using System;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -457,6 +460,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         private void ProcessExitedHandler(object sender, EventArgs e)
         {
+            Trace.Info($"Exited process {_proc.Id} with exit code {_proc.ExitCode}");
             if ((_proc.StartInfo.RedirectStandardError || _proc.StartInfo.RedirectStandardOutput) && _asyncStreamReaderCount != 0)
             {
                 _waitingOnStreams = true;
