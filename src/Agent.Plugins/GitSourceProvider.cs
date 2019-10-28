@@ -356,6 +356,7 @@ namespace Agent.Plugins.Repository
             if (selfManageGitCreds)
             {
                 // Customer choose to own git creds by themselves.
+                executionContext.Output(StringUtil.Loc("SelfManageGitCreds"));
             }
 
             // Initialize git command manager with additional environment variables.
