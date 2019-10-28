@@ -549,7 +549,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
   ""collectionUrl"": ""http://contoso:8080/tfs/DefaultCollection/"",
   ""definitionName"": null,
   ""fileFormatVersion"": 3,
-  ""lastRunOn"": """",
+  ""lastRunOn"": ""01/01/0001 00:00:00 +00:00"",
   ""repositoryType"": """",
   ""lastMaintenanceAttemptedOn"": """",
   ""lastMaintenanceCompletedOn"": """",

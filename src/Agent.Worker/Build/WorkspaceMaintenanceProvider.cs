@@ -68,11 +68,7 @@ namespace Agent.Worker.Build
             foreach (var config in trackingManager.EnumerateAllTrackingConfigs(executionContext))
             {
                 executionContext.Output(StringUtil.Loc("EvaluateTrackingFile", config.FileLocation));
-                if (config.WasConvertedFromOldFormat)
-                {
-                    executionContext.Output(StringUtil.Loc("GCOldFormatTrackingFile", config.FileLocation));
-                }
-                else if (string.IsNullOrEmpty(config.RepositoryType))
+                if (string.IsNullOrEmpty(config.RepositoryType))
                 {
                     // repository not been set.
                     executionContext.Output(StringUtil.Loc("SkipTrackingFileWithoutRepoType", config.FileLocation));

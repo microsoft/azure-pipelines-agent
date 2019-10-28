@@ -220,7 +220,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 TrackingConfig trackingConfig = LoadIfExists(executionContext, trackingFile);
                 if (trackingConfig != null)
                 {
-                    Trace.Verbose($"Found {trackingFile} and parsed correctly. WasConverted={trackingConfig.WasConvertedFromOldFormat}");
+                    Trace.Verbose($"Found {trackingFile} and parsed correctly.");
                     yield return trackingConfig;
                 }
                 else
@@ -261,25 +261,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 {
                     executionContext.Output(StringUtil.Loc("EvaluateTrackingFile", config.FileLocation));
 
-                    if (config.WasConvertedFromOldFormat)
+                    // Check the last run on time against the expiration
+                    ArgUtil.NotNull(config.LastRunOn, nameof(config.LastRunOn));
+                    executionContext.Output(StringUtil.Loc("BuildDirLastUseTIme", Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), config.BuildDirectory), config.LastRunOn?.ToString("u")));
+                    if (DateTime.UtcNow - expiration > config.LastRunOn)
                     {
-                        // If the file was in the old format just remove it
-                        executionContext.Output(StringUtil.Loc("GCOldFormatTrackingFile", config.FileLocation));
+                        // The config has expired, clean it up
+                        executionContext.Output(StringUtil.Loc("GCUnusedTrackingFile", config.FileLocation, expiration.TotalDays));
                         MarkForGarbageCollection(executionContext, config);
                         IOUtil.DeleteFile(config.FileLocation);
-                    }
-                    else
-                    {
-                        // Check the last run on time against the expiration
-                        ArgUtil.NotNull(config.LastRunOn, nameof(config.LastRunOn));
-                        executionContext.Output(StringUtil.Loc("BuildDirLastUseTIme", Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), config.BuildDirectory), config.LastRunOn?.ToString("u")));
-                        if (DateTime.UtcNow - expiration > config.LastRunOn)
-                        {
-                            // The config has expired, clean it up
-                            executionContext.Output(StringUtil.Loc("GCUnusedTrackingFile", config.FileLocation, expiration.TotalDays));
-                            MarkForGarbageCollection(executionContext, config);
-                            IOUtil.DeleteFile(config.FileLocation);
-                        }
                     }
                 }
                 catch (Exception ex)
@@ -572,8 +562,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 sourcesDirectoryNameOnly,
                 repositoryType,
                 useNewArtifactsDirectoryName: false);
-
-            newConfig.WasConvertedFromOldFormat = true;
 
             return newConfig;
         }

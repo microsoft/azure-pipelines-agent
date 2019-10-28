@@ -70,19 +70,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 // If the previous config had different repos, get a new workspace folder and mark the old one for clean up
                 trackingManager.MarkForGarbageCollection(executionContext, existingConfig);
 
-                // If the config file was updated to a new config, we need to clean up some legacy folders
-                if (existingConfig.WasConvertedFromOldFormat)
-                {
-                    // Delete the legacy artifact/staging directories.
-                    DeleteDirectory(
-                        executionContext,
-                        description: "legacy artifacts directory",
-                        path: Path.Combine(existingConfig.BuildDirectory, Constants.Build.Path.LegacyArtifactsDirectory));
-                    DeleteDirectory(
-                        executionContext,
-                        description: "legacy staging directory",
-                        path: Path.Combine(existingConfig.BuildDirectory, Constants.Build.Path.LegacyStagingDirectory));
-                }
+                // If the config file was updated to a new config, we need to delete the legacy artifact/staging directories.
+                // DeleteDirectory will check for the existence of the folders first.
+                DeleteDirectory(
+                    executionContext,
+                    description: "legacy artifacts directory",
+                    path: Path.Combine(existingConfig.BuildDirectory, Constants.Build.Path.LegacyArtifactsDirectory));
+                DeleteDirectory(
+                    executionContext,
+                    description: "legacy staging directory",
+                    path: Path.Combine(existingConfig.BuildDirectory, Constants.Build.Path.LegacyStagingDirectory));
             }
 
             // Save any changes to the config file
