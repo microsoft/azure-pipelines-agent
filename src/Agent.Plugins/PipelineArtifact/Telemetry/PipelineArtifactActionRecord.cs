@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Content.Common.Telemetry;

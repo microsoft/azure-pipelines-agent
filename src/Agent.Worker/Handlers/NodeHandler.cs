@@ -1,3 +1,7 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System.IO;
 using System.Text;
@@ -116,7 +120,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             // 2) Escape double quotes within the script file path. Double-quote is a valid
             // file name character on Linux.
             string arguments = StepHost.ResolvePathForStepHost(StringUtil.Format(@"""{0}""", target.Replace(@"""", @"\""")));
-            // Let .NET choose the default.
+            // Let .NET choose the default, except on Windows.
             Encoding outputEncoding = null;
             if (PlatformUtil.RunningOnWindows)
             {

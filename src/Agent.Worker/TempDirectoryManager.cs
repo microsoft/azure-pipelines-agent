@@ -1,3 +1,7 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.IO;
@@ -52,15 +56,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
             else
             {
-#if OS_WINDOWS
-                jobContext.Debug($"SET TMP={_tempDirectory}");
-                jobContext.Debug($"SET TEMP={_tempDirectory}");
-                jobContext.SetVariable("TMP", _tempDirectory, isFilePath: true);
-                jobContext.SetVariable("TEMP", _tempDirectory, isFilePath: true);
-#else
-                jobContext.Debug($"SET TMPDIR={_tempDirectory}");
-                jobContext.SetVariable("TMPDIR", _tempDirectory, isFilePath:true);
-#endif
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    jobContext.Debug($"SET TMP={_tempDirectory}");
+                    jobContext.Debug($"SET TEMP={_tempDirectory}");
+                    jobContext.SetVariable("TMP", _tempDirectory, isFilePath: true);
+                    jobContext.SetVariable("TEMP", _tempDirectory, isFilePath: true);
+                }
+                else
+                {
+                    jobContext.Debug($"SET TMPDIR={_tempDirectory}");
+                    jobContext.SetVariable("TMPDIR", _tempDirectory, isFilePath:true);
+                }
             }
         }
 

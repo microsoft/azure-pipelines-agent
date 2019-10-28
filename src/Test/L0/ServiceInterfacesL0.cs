@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.VisualStudio.Services.Agent.Listener;
 using Microsoft.VisualStudio.Services.Agent.Capabilities;
 using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
@@ -32,7 +35,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             var whitelist = new[]
             {
                 typeof(ICredentialProvider),
-                typeof(IConfigurationProvider),
+                typeof(IConfigurationProvider)
             };
             Validate(
                 assembly: typeof(IMessageListener).GetTypeInfo().Assembly,
@@ -90,7 +93,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 typeof(IDiagnosticLogManager),
                 typeof(IParser),
                 typeof(IResultReader),
-                typeof(INUnitResultsXmlReader)
+                typeof(INUnitResultsXmlReader),
+                typeof(IWorkerCommand)
             };
             Validate(
                 assembly: typeof(IStepsRunner).GetTypeInfo().Assembly,

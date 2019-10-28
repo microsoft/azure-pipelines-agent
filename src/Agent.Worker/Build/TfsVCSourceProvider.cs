@@ -1,3 +1,7 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
@@ -29,13 +33,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNull(endpoint, nameof(endpoint));
 
-#if OS_WINDOWS
-            // Validate .NET Framework 4.6 or higher is installed.
-            if (!NetFrameworkUtil.Test(new Version(4, 6), Trace))
+            if (PlatformUtil.RunningOnWindows)
             {
-                throw new Exception(StringUtil.Loc("MinimumNetFramework46"));
+                // Validate .NET Framework 4.6 or higher is installed.
+                if (!NetFrameworkUtil.Test(new Version(4, 6), Trace))
+                {
+                    throw new Exception(StringUtil.Loc("MinimumNetFramework46"));
+                }
             }
-#endif
 
             // Create the tf command manager.
             var tf = HostContext.CreateService<ITfsVCCommandManager>();
@@ -55,11 +60,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             var agentCertManager = HostContext.GetService<IAgentCertificateManager>();
             if (agentCertManager.SkipServerCertificateValidation)
             {
-#if OS_WINDOWS
-                executionContext.Debug("TF.exe does not support ignore SSL certificate validation error.");
-#else
                 executionContext.Debug("TF does not support ignore SSL certificate validation error.");
-#endif
             }
 
             var configUrl = new Uri(HostContext.GetService<IConfigurationStore>().GetSettings().ServerUrl);
@@ -77,14 +78,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             PathUtil.PrependPath(Path.GetDirectoryName(tfPath));
             executionContext.Debug($"{Constants.PathVariable}: '{Environment.GetEnvironmentVariable(Constants.PathVariable)}'");
 
-#if OS_WINDOWS
-            // Set TFVC_BUILDAGENT_POLICYPATH
-            string policyDllPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.ServerOM), "Microsoft.TeamFoundation.VersionControl.Controls.dll");
-            ArgUtil.File(policyDllPath, nameof(policyDllPath));
-            const string policyPathEnvKey = "TFVC_BUILDAGENT_POLICYPATH";
-            executionContext.Output(StringUtil.Loc("SetEnvVar", policyPathEnvKey));
-            Environment.SetEnvironmentVariable(policyPathEnvKey, policyDllPath);
-#endif
+            if (PlatformUtil.RunningOnWindows)
+            {
+                // Set TFVC_BUILDAGENT_POLICYPATH
+                string policyDllPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.ServerOM), "Microsoft.TeamFoundation.VersionControl.Controls.dll");
+                ArgUtil.File(policyDllPath, nameof(policyDllPath));
+                const string policyPathEnvKey = "TFVC_BUILDAGENT_POLICYPATH";
+                executionContext.Output(StringUtil.Loc("SetEnvVar", policyPathEnvKey));
+                Environment.SetEnvironmentVariable(policyPathEnvKey, policyDllPath);
+            }
 
             // Check if the administrator accepted the license terms of the TEE EULA when configuring the agent.
             AgentSettings settings = HostContext.GetService<IConfigurationStore>().GetSettings();

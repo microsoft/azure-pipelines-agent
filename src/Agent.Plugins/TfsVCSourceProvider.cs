@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using System;
 using System.Collections.Generic;
@@ -23,20 +26,34 @@ namespace Agent.Plugins.Repository
             ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNull(repository, nameof(repository));
 
-#if OS_WINDOWS
             // Validate .NET Framework 4.6 or higher is installed.
-            if (!NetFrameworkUtil.Test(new Version(4, 6), executionContext))
+            if (PlatformUtil.RunningOnWindows && !NetFrameworkUtil.Test(new Version(4, 6), executionContext))
             {
                 throw new Exception(StringUtil.Loc("MinimumNetFramework46"));
             }
-#endif
+
+            // determine if we've been asked to suppress some checkout step output
+            bool reducedOutput = StringUtil.ConvertToBoolean(
+                executionContext.Variables.GetValueOrDefault("agent.source.checkout.quiet")?.Value ??
+                System.Environment.GetEnvironmentVariable("AGENT_SOURCE_CHECKOUT_QUIET"), false);
+            if (reducedOutput)
+            {
+                executionContext.Output(StringUtil.Loc("QuietCheckoutModeRequested"));
+                executionContext.SetTaskVariable("agent.source.checkout.quiet", "false");
+            }
+
 
             // Create the tf command manager.
-#if OS_WINDOWS
-            var tf = new TFCliManager();
-#else
-            var tf = new TeeCliManager();
-#endif            
+            ITfsVCCliManager tf;
+            if (PlatformUtil.RunningOnWindows)
+            {
+                tf = new TFCliManager();
+            }
+            else
+            {
+                tf = new TeeCliManager();
+            }
+
             tf.CancellationToken = cancellationToken;
             tf.Repository = repository;
             tf.ExecutionContext = executionContext;
@@ -63,11 +80,7 @@ namespace Agent.Plugins.Repository
             var agentCertManager = executionContext.GetCertConfiguration();
             if (agentCertManager != null && agentCertManager.SkipServerCertificateValidation)
             {
-#if OS_WINDOWS
-                executionContext.Debug("TF.exe does not support ignore SSL certificate validation error.");
-#else
-                executionContext.Debug("TF does not support ignore SSL certificate validation error.");
-#endif
+                executionContext.Debug("TF does not support ignoring SSL certificate validation error.");
             }
 
             // prepare client cert, if the repository's endpoint url match the TFS/VSTS url
@@ -86,14 +99,15 @@ namespace Agent.Plugins.Repository
             executionContext.PrependPath(Path.GetDirectoryName(tfPath));
             executionContext.Debug($"PATH: '{Environment.GetEnvironmentVariable("PATH")}'");
 
-#if OS_WINDOWS
-            // Set TFVC_BUILDAGENT_POLICYPATH
-            string policyDllPath = Path.Combine(executionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value, "externals", "tf", "Microsoft.TeamFoundation.VersionControl.Controls.dll");
-            ArgUtil.File(policyDllPath, nameof(policyDllPath));
-            const string policyPathEnvKey = "TFVC_BUILDAGENT_POLICYPATH";
-            executionContext.Output(StringUtil.Loc("SetEnvVar", policyPathEnvKey));
-            executionContext.SetVariable(policyPathEnvKey, policyDllPath);
-#endif
+            if (PlatformUtil.RunningOnWindows)
+            {
+                // Set TFVC_BUILDAGENT_POLICYPATH
+                string policyDllPath = Path.Combine(executionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value, "externals", "tf", "Microsoft.TeamFoundation.VersionControl.Controls.dll");
+                ArgUtil.File(policyDllPath, nameof(policyDllPath));
+                const string policyPathEnvKey = "TFVC_BUILDAGENT_POLICYPATH";
+                executionContext.Output(StringUtil.Loc("SetEnvVar", policyPathEnvKey));
+                executionContext.SetVariable(policyPathEnvKey, policyDllPath);
+            }
 
             // Check if the administrator accepted the license terms of the TEE EULA when configuring the agent.
             if (tf.Features.HasFlag(TfsVCFeatures.Eula) && StringUtil.ConvertToBoolean(executionContext.Variables.GetValueOrDefault("Agent.AcceptTeeEula")?.Value))
@@ -287,7 +301,7 @@ namespace Agent.Plugins.Repository
             if (tf.Features.HasFlag(TfsVCFeatures.GetFromUnmappedRoot))
             {
                 // Get.
-                await tf.GetAsync(localPath: sourcesDirectory);
+                await tf.GetAsync(localPath: sourcesDirectory, quiet: reducedOutput);
             }
             else
             {
@@ -296,7 +310,7 @@ namespace Agent.Plugins.Repository
                 {
                     if (definitionMapping.MappingType == DefinitionMappingType.Map)
                     {
-                        await tf.GetAsync(localPath: definitionMapping.GetRootedLocalPath(sourcesDirectory));
+                        await tf.GetAsync(localPath: definitionMapping.GetRootedLocalPath(sourcesDirectory), quiet: reducedOutput);
                     }
                 }
             }
@@ -432,11 +446,16 @@ namespace Agent.Plugins.Repository
                 executionContext.Debug($"Undo pending changes left by shelveset '{shelvesetName}'.");
 
                 // Create the tf command manager.
-#if OS_WINDOWS
-                var tf = new TFCliManager();
-#else
-                var tf = new TeeCliManager();
-#endif
+                ITfsVCCliManager tf;
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    tf = new TFCliManager();
+                }
+                else
+                {
+                    tf = new TeeCliManager();
+                }
+                
                 tf.CancellationToken = CancellationToken.None;
                 tf.Repository = repository;
                 tf.ExecutionContext = executionContext;
@@ -518,7 +537,7 @@ namespace Agent.Plugins.Repository
             }
         }
 
-        private async Task RemoveConflictingWorkspacesAsync(TfsVCCliManager tf, ITfsVCWorkspace[] tfWorkspaces, string name, string directory)
+        private async Task RemoveConflictingWorkspacesAsync(ITfsVCCliManager tf, ITfsVCWorkspace[] tfWorkspaces, string name, string directory)
         {
             // Validate the args.
             ArgUtil.NotNullOrEmpty(name, nameof(name));

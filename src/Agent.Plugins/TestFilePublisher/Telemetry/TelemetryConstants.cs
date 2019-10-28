@@ -1,4 +1,7 @@
-﻿namespace Agent.Plugins.Log.TestFilePublisher
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+namespace Agent.Plugins.Log.TestFilePublisher
 {
     public class TelemetryConstants
     {

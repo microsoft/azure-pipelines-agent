@@ -1,3 +1,7 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
@@ -175,27 +179,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string homeDirectory = Environment.GetEnvironmentVariable("HOME");
             if (!string.IsNullOrEmpty(homeDirectory) && Directory.Exists(homeDirectory))
             {
-#if OS_OSX
+                string tfDataDirectory = (PlatformUtil.RunningOnMacOS)
+                    ? Path.Combine("Library", "Application Support", "Microsoft")
+                    : ".microsoft";
+
                 string xmlFile = Path.Combine(
                     homeDirectory,
-                    "Library",
-                    "Application Support",
-                    "Microsoft",
+                    tfDataDirectory,
                     "Team Foundation",
                     "4.0",
                     "Configuration",
                     "TEE-Mementos",
                     "com.microsoft.tfs.client.productid.xml");
-#else
-                string xmlFile = Path.Combine(
-                    homeDirectory,
-                    ".microsoft",
-                    "Team Foundation",
-                    "4.0",
-                    "Configuration",
-                    "TEE-Mementos",
-                    "com.microsoft.tfs.client.productid.xml");
-#endif
+
                 if (File.Exists(xmlFile))
                 {
                     // Load and deserialize the XML.

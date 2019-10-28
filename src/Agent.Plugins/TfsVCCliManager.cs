@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using System;
 using System.Collections.Generic;
@@ -66,7 +69,12 @@ namespace Agent.Plugins.Repository
             return RunCommandAsync(FormatFlags.None, args);
         }
 
-        protected async Task RunCommandAsync(FormatFlags formatFlags, params string[] args)
+        protected Task RunCommandAsync(FormatFlags formatFlags, params string[] args)
+        {
+            return RunCommandAsync(formatFlags, false, args);
+        }
+
+        protected async Task RunCommandAsync(FormatFlags formatFlags, bool quiet, params string[] args)
         {
             // Validation.
             ArgUtil.NotNull(args, nameof(args));
@@ -79,7 +87,14 @@ namespace Agent.Plugins.Repository
             {
                 lock (outputLock)
                 {
-                    ExecutionContext.Output(e.Data);
+                    if (quiet)
+                    {
+                        ExecutionContext.Debug(e.Data);
+                    }
+                    else
+                    {
+                        ExecutionContext.Output(e.Data);
+                    }
                 }
             };
             processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>

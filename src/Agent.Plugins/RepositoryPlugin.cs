@@ -1,4 +1,7 @@
-﻿using System;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -132,6 +135,7 @@ namespace Agent.Plugins.Repository
             ArgUtil.NotNullOrEmpty(tempDirectory, nameof(tempDirectory));
 
             // Determine the path that we should clone/move the repository into
+            const string sourcesDirectory = "s"; //Constants.Build.Path.SourcesDirectory
             string expectRepoPath;
             var path = executionContext.GetInput("path");
             if (!string.IsNullOrEmpty(path))
@@ -145,13 +149,13 @@ namespace Agent.Plugins.Repository
             }
             else if (HasMultipleCheckouts(executionContext))
             {
-                // When there are multiple checkout tasks (and this one didn't set the path), default to directory 1/<repoName>
-                expectRepoPath = Path.Combine(buildDirectory, RepositoryUtil.GetCloneDirectory(repo));
+                // When there are multiple checkout tasks (and this one didn't set the path), default to directory 1/s/<repoName>
+                expectRepoPath = Path.Combine(buildDirectory, sourcesDirectory, RepositoryUtil.GetCloneDirectory(repo));
             }
             else
             {
                 // When there's a single checkout task that doesn't have path set, default to sources directory 1/s
-                expectRepoPath = Path.Combine(buildDirectory, "s");
+                expectRepoPath = Path.Combine(buildDirectory, sourcesDirectory);
             }
 
             // Don't update the repository path for every checkout task (it should only be updated once)

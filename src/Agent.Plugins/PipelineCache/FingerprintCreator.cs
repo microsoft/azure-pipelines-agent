@@ -1,4 +1,7 @@
-﻿using Agent.Sdk;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using BuildXL.Cache.ContentStore.Interfaces.Utils;
 using Microsoft.VisualStudio.Services.PipelineCache.WebApi;
 using Minimatch;

@@ -424,7 +424,6 @@
     "RMCachingAllItems":  "Mise en cache de tous les éléments du conteneur de fichiers...",
     "RMCachingComplete":  "Mise en cache effectuée. ({0} ms)",
     "RMCachingContainerItems":  "Mise en cache des éléments situés sous \u0027{0}\u0027 dans le conteneur de fichiers...",
-    "RMCommandNotFound":  "##vso[release.{0}] n\u0027est pas une commande reconnue pour l\u0027extension de commande de mise en production. Consultez la documentation de référence (http://go.microsoft.com/fwlink/?LinkId=817296).",
     "RMContainerItemNotSupported":  "Le type d\u0027élément de conteneur \u0027{0}\u0027 n\u0027est pas pris en charge.",
     "RMContainerItemPathDoesnotExist":  "Le chemin des éléments du conteneur de fichiers ne commence pas par {0} : {1}",
     "RMContainerItemRequestTimedOut":  "La requête a expiré après {0} secondes. Une nouvelle tentative aura lieu après un passage en veille de {1} secondes. Requête : {2} {3}",

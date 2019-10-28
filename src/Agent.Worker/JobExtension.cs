@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -67,10 +70,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     // Set agent version variable.
                     context.Variables.Set(Constants.Variables.Agent.Version, BuildConstants.AgentPackage.Version);
+
+                    // Log agent properties
                     context.Output(StringUtil.Loc("AgentNameLog", context.Variables.Get(Constants.Variables.Agent.Name)));
                     context.Output(StringUtil.Loc("AgentMachineNameLog", context.Variables.Get(Constants.Variables.Agent.MachineName)));
                     context.Output(StringUtil.Loc("AgentVersion", BuildConstants.AgentPackage.Version));
-                    if (context.Variables.TryGetValue(Constants.ImageVersionVariable, out string imageVersion))
+                    string imageVersion = System.Environment.GetEnvironmentVariable(Constants.ImageVersionVariable);
+                    if (imageVersion != null)
                     {
                         context.Output(StringUtil.Loc("ImageVersionLog", imageVersion));
                     }

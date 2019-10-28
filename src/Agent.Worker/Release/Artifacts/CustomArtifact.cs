@@ -1,3 +1,7 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -97,14 +101,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
 
             if (string.Equals(streamType, WellKnownStreamTypes.FileShare, StringComparison.OrdinalIgnoreCase))
             {
-#if !OS_WINDOWS
-                throw new NotSupportedException(StringUtil.Loc("RMFileShareArtifactErrorOnNonWindowsAgent"));
-#else
+                if (!PlatformUtil.RunningOnWindows)
+                {
+                    throw new NotSupportedException(StringUtil.Loc("RMFileShareArtifactErrorOnNonWindowsAgent"));
+                }
+
                 var fileShareArtifact = new FileShareArtifact();
                 customArtifactDetails.RelativePath = artifact.RelativePath ?? string.Empty;
                 var location = artifact.FileShareLocation ?? artifact.DownloadUrl;
                 await fileShareArtifact.DownloadArtifactAsync(executionContext, hostContext, new ArtifactDefinition { Details = customArtifactDetails }, new Uri(location).LocalPath, localFolderPath);
-#endif
             }
             else if (string.Equals(streamType, WellKnownStreamTypes.Zip, StringComparison.OrdinalIgnoreCase))
             {

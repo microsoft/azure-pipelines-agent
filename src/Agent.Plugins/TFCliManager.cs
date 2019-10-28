@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Agent.Sdk;
 using System;
 using System.Collections.Generic;
@@ -12,7 +15,7 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Agent.Plugins.Repository
 {
-    public sealed class TFCliManager : TfsVCCliManager
+    public sealed class TFCliManager : TfsVCCliManager, ITfsVCCliManager
     {
         public override TfsVCFeatures Features
         {
@@ -58,10 +61,10 @@ namespace Agent.Plugins.Repository
             throw new NotSupportedException();
         }
 
-        public async Task GetAsync(string localPath)
+        public async Task GetAsync(string localPath, bool quiet = false)
         {
             ArgUtil.NotNullOrEmpty(localPath, nameof(localPath));
-            await RunCommandAsync(FormatFlags.OmitCollectionUrl, "vc", "get", $"/version:{SourceVersion}", "/recursive", "/overwrite", localPath);
+            await RunCommandAsync(FormatFlags.OmitCollectionUrl, quiet, "vc", "get", $"/version:{SourceVersion}", "/recursive", "/overwrite", localPath);
         }
 
         public string ResolvePath(string serverPath)

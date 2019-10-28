@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -16,11 +19,13 @@ namespace Agent.Plugins.Repository
 {
     public class GitCliManager
     {
-#if OS_WINDOWS
-        private static readonly Encoding s_encoding = Encoding.UTF8;
-#else
-        private static readonly Encoding s_encoding = null;
-#endif
+        private static Encoding _encoding
+        {
+            get => PlatformUtil.RunningOnWindows
+                ? Encoding.UTF8
+                : null;
+        }
+
         private readonly Dictionary<string, string> gitEnv = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             { "GIT_TERMINAL_PROMPT", "0" },
@@ -73,10 +78,12 @@ namespace Agent.Plugins.Repository
 
         public async Task LoadGitExecutionInfo(AgentTaskPluginExecutionContext context, bool useBuiltInGit)
         {
+            // There is no built-in git for OSX/Linux
+            gitPath = null;
+            
             // Resolve the location of git.
-            if (useBuiltInGit)
+            if (useBuiltInGit && PlatformUtil.RunningOnWindows)
             {
-#if OS_WINDOWS
                 string agentHomeDir = context.Variables.GetValueOrDefault("agent.homedirectory")?.Value;
                 ArgUtil.NotNullOrEmpty(agentHomeDir, nameof(agentHomeDir));
                 gitPath = Path.Combine(agentHomeDir, "externals", "git", "cmd", $"git.exe");
@@ -85,10 +92,6 @@ namespace Agent.Plugins.Repository
                 context.Output(StringUtil.Loc("Prepending0WithDirectoryContaining1", "Path", Path.GetFileName(gitPath)));
                 context.PrependPath(Path.GetDirectoryName(gitPath));
                 context.Debug($"PATH: '{Environment.GetEnvironmentVariable("PATH")}'");
-#else
-                // There is no built-in git for OSX/Linux
-                gitPath = null;
-#endif
             }
             else
             {
@@ -167,21 +170,25 @@ namespace Agent.Plugins.Repository
                 forceTag = "--force";
             }
 
+            bool reducedOutput = StringUtil.ConvertToBoolean(
+                context.Variables.GetValueOrDefault("agent.source.checkout.quiet")?.Value);
+            string progress = reducedOutput ? string.Empty : "--progress";
+
             // default options for git fetch.
-            string options = StringUtil.Format($"{forceTag} --tags --prune --progress --no-recurse-submodules {remoteName} {string.Join(" ", refSpec)}");
+            string options = StringUtil.Format($"{forceTag} --tags --prune {progress} --no-recurse-submodules {remoteName} {string.Join(" ", refSpec)}");
 
             // If shallow fetch add --depth arg
             // If the local repository is shallowed but there is no fetch depth provide for this build,
             // add --unshallow to convert the shallow repository to a complete repository
             if (fetchDepth > 0)
             {
-                options = StringUtil.Format($"{forceTag} --tags --prune --progress --no-recurse-submodules --depth={fetchDepth} {remoteName} {string.Join(" ", refSpec)}");
+                options = StringUtil.Format($"{forceTag} --tags --prune {progress} --no-recurse-submodules --depth={fetchDepth} {remoteName} {string.Join(" ", refSpec)}");
             }
             else
             {
                 if (File.Exists(Path.Combine(repositoryPath, ".git", "shallow")))
                 {
-                    options = StringUtil.Format($"{forceTag} --tags --prune --progress --no-recurse-submodules --unshallow {remoteName} {string.Join(" ", refSpec)}");
+                    options = StringUtil.Format($"{forceTag} --tags --prune {progress} --no-recurse-submodules --unshallow {remoteName} {string.Join(" ", refSpec)}");
                 }
             }
 
@@ -575,7 +582,7 @@ namespace Agent.Plugins.Repository
                 arguments: arg,
                 environment: gitEnv,
                 requireExitCodeZero: false,
-                outputEncoding: s_encoding,
+                outputEncoding: _encoding,
                 cancellationToken: cancellationToken);
         }
 
@@ -606,7 +613,7 @@ namespace Agent.Plugins.Repository
                 arguments: arg,
                 environment: gitEnv,
                 requireExitCodeZero: false,
-                outputEncoding: s_encoding,
+                outputEncoding: _encoding,
                 cancellationToken: default(CancellationToken));
         }
 
@@ -632,7 +639,7 @@ namespace Agent.Plugins.Repository
                 arguments: arg,
                 environment: gitEnv,
                 requireExitCodeZero: false,
-                outputEncoding: s_encoding,
+                outputEncoding: _encoding,
                 cancellationToken: cancellationToken);
         }
     }

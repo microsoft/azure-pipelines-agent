@@ -1,4 +1,7 @@
-﻿using Agent.Plugins.Log.TestResultParser.Contracts;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Plugins.Log.TestResultParser.Contracts;
 using Agent.Sdk;
 
 namespace Agent.Plugins.Log.TestResultParser.Plugin

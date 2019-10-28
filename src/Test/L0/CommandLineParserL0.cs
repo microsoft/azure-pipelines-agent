@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Moq;
 using System.Runtime.CompilerServices;
 using Xunit;

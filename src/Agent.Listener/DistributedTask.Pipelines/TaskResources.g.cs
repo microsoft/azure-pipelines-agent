@@ -1,4 +1,7 @@
-﻿using System.Globalization;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System.Globalization;
 
 namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipelines
 {

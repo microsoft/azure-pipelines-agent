@@ -424,7 +424,6 @@
     "RMCachingAllItems":  "ファイル コンテナー内のすべてのアイテムをキャッシュしています...",
     "RMCachingComplete":  "キャッシュが完了しました。({0} ミリ秒)",
     "RMCachingContainerItems":  "ファイル コンテナー内の \u0027{0}\u0027 に属するアイテムをキャッシュしています...",
-    "RMCommandNotFound":  "##vso[release.{0}] は、Release コマンド拡張の認識されたコマンドではありません。ドキュメント (http://go.microsoft.com/fwlink/?LinkId=817296) を参照してください",
     "RMContainerItemNotSupported":  "コンテナー アイテムの種類 \u0027{0}\u0027 はサポートされていません。",
     "RMContainerItemPathDoesnotExist":  "ファイル コンテナー アイテムのパスの先頭が {0} ではありません: {1}",
     "RMContainerItemRequestTimedOut":  "要求は {0} 秒後にタイムアウトになりました。{1} 秒間休止してから再試行しています。要求: {2} {3}",

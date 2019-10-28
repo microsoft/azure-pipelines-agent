@@ -1,3 +1,7 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -99,8 +103,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             path = path.Trim('\"');
 
             // try to resolve path inside container if the request path is part of the mount volume
-            StringComparison comparator = (PlatformUtil.RunningOnWindows) ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-            if (Container.MountVolumes.Exists(x => path.StartsWith(x.SourceVolumePath, comparator)))
+            StringComparison sc = (PlatformUtil.RunningOnWindows)
+                                ? StringComparison.OrdinalIgnoreCase
+                                : StringComparison.Ordinal;
+            if (Container.MountVolumes.Exists(x => path.StartsWith(x.SourceVolumePath, sc)))
             {
                 return Container.TranslateContainerPathForImageOS(PlatformUtil.RunningOnOS, Container.TranslateToContainerPath(path));
             }
@@ -179,8 +185,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             {
                 processInvoker.OutputDataReceived += OutputDataReceived;
                 processInvoker.ErrorDataReceived += ErrorDataReceived;
-                outputEncoding = null; // Let .NET choose the default.
 
+                // Let .NET choose the default encoding, except on Windows.
+                outputEncoding = null;
                 if (PlatformUtil.RunningOnWindows)
                 {
                     // It appears that node.exe outputs UTF8 when not in TTY mode.
