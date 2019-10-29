@@ -404,6 +404,12 @@ namespace Agent.Sdk
                 foreach (var queue in _outputQueue)
                 {
                     string pluginName = queue.Key;
+
+                    if (token.IsCancellationRequested)
+                    {
+                        break;
+                    }
+
                     if (queue.Value.Count > _shortCircuitThreshold)
                     {
                         _trace.Trace($"Plugin '{pluginName}' has too many buffered outputs.");
