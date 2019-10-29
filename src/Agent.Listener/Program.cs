@@ -34,8 +34,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         public async static Task<int> MainAsync(IHostContext context, string[] args)
         {
             Tracing trace = context.GetTrace("AgentProcess");
-            trace.Info($"Agent built on {PlatformUtil.BuiltOnOS} ({PlatformUtil.BuiltOnArchitecture}) - {BuildConstants.AgentPackage.PackageName}.");
-            trace.Info($"Agent built for {PlatformUtil.BuiltForOS} ({PlatformUtil.BuiltForArchitecture}).");
+            trace.Info($"Agent package {BuildConstants.AgentPackage.PackageName}.");
             trace.Info($"Running on {PlatformUtil.RunningOnOS} ({PlatformUtil.RunningOnArchitecture}).");
             trace.Info($"RuntimeInformation: {RuntimeInformation.OSDescription}.");
             context.WritePerfCounter("AgentProcessStarted");

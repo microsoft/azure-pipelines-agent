@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System;
+using System.IO;
 using System.Runtime.InteropServices;
 
 namespace Agent.Sdk
@@ -16,52 +18,24 @@ namespace Agent.Sdk
             Windows,
         }
 
-        public static OS BuiltOnOS
-        {
-            get
-            {
-#if OS_LINUX
-                return OS.Linux;
-#elif OS_OSX
-                return OS.OSX;
-#elif OS_WINDOWS
-                return OS.Windows;
-#else
-                #error Unknown OS
-#endif
-            }
-        }
-
-        public static OS BuiltForOS
-        {
-            get
-            {
-#if OS_LINUX
-                return OS.Linux;
-#elif OS_OSX
-                return OS.OSX;
-#elif OS_WINDOWS
-                return OS.Windows;
-#else
-                #error Unknown OS
-#endif
-            }
-        }
-
         public static OS RunningOnOS
         {
             get
             {
-                // TODO: this should become a real runtime check
-#if OS_LINUX
-                return OS.Linux;
-#elif OS_OSX
-                return OS.OSX;
-#elif OS_WINDOWS
-                return OS.Windows;
-#else
-                #error Unknown OS
-#endif
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                {
+                    return OS.Linux;
+                }
+                else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                {
+                    return OS.OSX;
+                }
+                else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    return OS.Windows;
+                }
+
+                throw new NotImplementedException($"Unsupported OS: {RuntimeInformation.OSDescription}");
             }
         }
 
@@ -84,48 +58,26 @@ namespace Agent.Sdk
         {
             get
             {
-                // TODO: make this a runtime check
-#if OS_RHEL6
-                return true;
-#else
+                if (!RunningOnLinux || !File.Exists("/etc/redhat-release"))
+                {
+                    return false;
+                }
+
+                try
+                {
+                    string redhatVersion = File.ReadAllText("/etc/redhat-release");
+                    if (redhatVersion.StartsWith("CentOS release 6.")
+                        || redhatVersion.StartsWith("Red Hat Enterprise Linux Server release 6."))
+                    {
+                        return true;
+                    }
+                }
+                catch (IOException)
+                {
+                    // IOException indicates we couldn't read that file; probably not RHEL6
+                }
+
                 return false;
-#endif
-            }
-        }
-
-        public static Architecture BuiltOnArchitecture
-        {
-            get
-            {
-#if X86
-                return Architecture.X86;
-#elif X64
-                return Architecture.X64;
-#elif ARM
-                return Architecture.Arm;
-#elif ARM64            
-                return Architecture.Arm64;
-#else  
-                #error Unknown Architecture
-#endif
-            }
-        }
-
-        public static Architecture BuiltForArchitecture
-        {
-            get
-            {
-#if X86
-                return Architecture.X86;
-#elif X64
-                return Architecture.X64;
-#elif ARM
-                return Architecture.Arm;
-#elif ARM64            
-                return Architecture.Arm64;
-#else  
-                #error Unknown Architecture
-#endif
             }
         }
 
@@ -133,18 +85,7 @@ namespace Agent.Sdk
         {
             get
             {
-                // TODO: convert to runtime check
-#if X86
-                return Architecture.X86;
-#elif X64
-                return Architecture.X64;
-#elif ARM
-                return Architecture.Arm;
-#elif ARM64            
-                return Architecture.Arm64;
-#else  
-                #error Unknown Architecture
-#endif
+                return RuntimeInformation.OSArchitecture;
             }
         }
     }
