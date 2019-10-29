@@ -106,7 +106,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             StringComparison sc = (PlatformUtil.RunningOnWindows)
                                 ? StringComparison.OrdinalIgnoreCase
                                 : StringComparison.Ordinal;
-            if (Container.MountVolumes.Exists(x => path.StartsWith(x.SourceVolumePath, sc)))
+            if (Container.MountVolumes.Exists(x => {
+                if (!string.IsNullOrEmpty(x.SourceVolumePath))
+                {
+                    return path.StartsWith(x.SourceVolumePath, sc);
+                }
+                if (!string.IsNullOrEmpty(x.TargetVolumePath))
+                {
+                    return path.StartsWith(x.TargetVolumePath, sc);
+                }
+                return false; // this should not happen, but just in case bad data got into MountVolumes, we do not want to throw an exception here
+            }))
             {
                 return Container.TranslateToContainerPath(path);
             }
