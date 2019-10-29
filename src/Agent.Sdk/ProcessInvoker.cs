@@ -549,7 +549,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         private void DecreaseProcessPriority(Process process)
         {
-            if (PlatformUtil.RunningOnOS != PlatformUtil.OS.Linux)
+            if (PlatformUtil.HostOS != PlatformUtil.OS.Linux)
             {
                 Trace.Info("OOM score adjustment is Linux-only.");
                 return;

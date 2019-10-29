@@ -104,7 +104,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 if (PlatformUtil.RunningOnWindows)
                 {
-                    throw new Exception(StringUtil.Loc("SupportedTaskHandlerNotFoundWindows", $"{PlatformUtil.RunningOnOS}({PlatformUtil.RunningOnArchitecture})"));
+                    throw new Exception(StringUtil.Loc("SupportedTaskHandlerNotFoundWindows", $"{PlatformUtil.HostOS}({PlatformUtil.HostArchitecture})"));
                 }
 
                 throw new Exception(StringUtil.Loc("SupportedTaskHandlerNotFoundLinux"));

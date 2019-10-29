@@ -35,7 +35,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         {
             Tracing trace = context.GetTrace("AgentProcess");
             trace.Info($"Agent package {BuildConstants.AgentPackage.PackageName}.");
-            trace.Info($"Running on {PlatformUtil.RunningOnOS} ({PlatformUtil.RunningOnArchitecture}).");
+            trace.Info($"Running on {PlatformUtil.HostOS} ({PlatformUtil.HostArchitecture}).");
             trace.Info($"RuntimeInformation: {RuntimeInformation.OSDescription}.");
             context.WritePerfCounter("AgentProcessStarted");
             var terminal = context.GetService<ITerminal>();

@@ -18,7 +18,7 @@ namespace Agent.Sdk
             Windows,
         }
 
-        public static OS RunningOnOS
+        public static OS HostOS
         {
             get
             {
@@ -41,17 +41,17 @@ namespace Agent.Sdk
 
         public static bool RunningOnWindows
         {
-            get => PlatformUtil.RunningOnOS == PlatformUtil.OS.Windows;
+            get => PlatformUtil.HostOS == PlatformUtil.OS.Windows;
         }
 
         public static bool RunningOnMacOS
         {
-            get => PlatformUtil.RunningOnOS == PlatformUtil.OS.OSX;
+            get => PlatformUtil.HostOS == PlatformUtil.OS.OSX;
         }
 
         public static bool RunningOnLinux
         {
-            get => PlatformUtil.RunningOnOS == PlatformUtil.OS.Linux;
+            get => PlatformUtil.HostOS == PlatformUtil.OS.Linux;
         }
 
         public static bool RunningOnRHEL6
@@ -81,7 +81,7 @@ namespace Agent.Sdk
             }
         }
 
-        public static Architecture RunningOnArchitecture
+        public static Architecture HostArchitecture
         {
             get
             {

@@ -55,7 +55,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         private void WriteProcessOomScoreAdj(int processId, int oomScoreAdj)
         {
-            if (PlatformUtil.RunningOnOS != PlatformUtil.OS.Linux)
+            if (PlatformUtil.HostOS != PlatformUtil.OS.Linux)
             {
                 Trace.Info("OOM score adjustment is Linux only");
                 return;
