@@ -15,10 +15,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
     public sealed class ProcessInvokerL0
     {
-#if OS_WINDOWS
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
         public async Task DefaultsToCurrentSystemOemEncoding()
         {
             // This test verifies that the additional code pages encoding provider is registered.
@@ -58,7 +59,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 Assert.True(stderr[0].Contains("From STDERR 'ç'"));
             }
         }
-#endif
 
         [Fact]
         [Trait("Level", "L0")]
@@ -72,18 +72,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 Int32 exitCode = -1;
                 var processInvoker = new ProcessInvokerWrapper();
                 processInvoker.Initialize(hc);
-#if OS_WINDOWS
-                exitCode = await processInvoker.ExecuteAsync("", "cmd.exe", "/c \"dir >nul\"", null, CancellationToken.None);
-#else
-                exitCode = await processInvoker.ExecuteAsync("", "bash", "-c echo .", null, CancellationToken.None);
-#endif
+                exitCode = (TestUtil.IsWindows())
+                    ? await processInvoker.ExecuteAsync("", "cmd.exe", "/c \"dir >nul\"", null, CancellationToken.None)
+                    : await processInvoker.ExecuteAsync("", "bash", "-c echo .", null, CancellationToken.None);
 
                 trace.Info("Exit Code: {0}", exitCode);
                 Assert.Equal(0, exitCode);
             }
         }
 
-#if !OS_WINDOWS
         //Run a process that normally takes 20sec to finish and cancel it.
         [Fact]
         [Trait("Level", "L0")]
@@ -98,12 +95,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 var processInvoker = new ProcessInvokerWrapper();
                 processInvoker.Initialize(hc);
                 Stopwatch watch = Stopwatch.StartNew();
-                Task execTask;
-#if OS_WINDOWS
-                execTask = processInvoker.ExecuteAsync("", "cmd.exe", $"/c \"choice /T {SecondsToRun} /D y\"", null, tokenSource.Token);
-#else
-                execTask = processInvoker.ExecuteAsync("", "bash", $"-c \"sleep {SecondsToRun}s\"", null, tokenSource.Token);
-#endif
+                Task execTask = (TestUtil.IsWindows())
+                    ? processInvoker.ExecuteAsync("", "cmd.exe", $"/c \"choice /T {SecondsToRun} /D y\"", null, tokenSource.Token)
+                    : processInvoker.ExecuteAsync("", "bash", $"-c \"sleep {SecondsToRun}s\"", null, tokenSource.Token);
+
                 await Task.Delay(500);
                 tokenSource.Cancel();
                 try
@@ -133,7 +128,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 Assert.True(elapsedSeconds <= expectedSeconds, $"cancellation failed, because task took too long to run. {elapsedSeconds}");
             }
         }
-#endif
 
         [Fact]
         [Trait("Level", "L0")]
@@ -156,11 +150,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                  };
 
                 processInvoker.Initialize(hc);
-#if OS_WINDOWS
-                var proc = processInvoker.ExecuteAsync("", "cmd.exe", "/c more", null, false, null, false, redirectSTDIN, false, false, cancellationTokenSource.Token);
-#else
-                var proc = processInvoker.ExecuteAsync("", "bash", "-c \"read input; echo $input; read input; echo $input; read input; echo $input;\"", null, false, null, false, redirectSTDIN, false, false, cancellationTokenSource.Token);
-#endif
+                var proc = (TestUtil.IsWindows())
+                    ? processInvoker.ExecuteAsync("", "cmd.exe", "/c more", null, false, null, false, redirectSTDIN, false, false, cancellationTokenSource.Token)
+                    : processInvoker.ExecuteAsync("", "bash", "-c \"read input; echo $input; read input; echo $input; read input; echo $input;\"", null, false, null, false, redirectSTDIN, false, false, cancellationTokenSource.Token);
+
                 redirectSTDIN.Enqueue("More line of STDIN");
                 redirectSTDIN.Enqueue("More line of STDIN");
                 await Task.Delay(100);
@@ -206,11 +199,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                  };
 
                 processInvoker.Initialize(hc);
-#if OS_WINDOWS
-                var proc = processInvoker.ExecuteAsync("", "cmd.exe", "/c more", null, false, null, false, redirectSTDIN, false, true, cancellationTokenSource.Token);
-#else
-                var proc = processInvoker.ExecuteAsync("", "bash", "-c \"read input; echo $input; read input; echo $input; read input; echo $input;\"", null, false, null, false, redirectSTDIN, false, true, cancellationTokenSource.Token);
-#endif
+                var proc = (TestUtil.IsWindows())
+                    ? processInvoker.ExecuteAsync("", "cmd.exe", "/c more", null, false, null, false, redirectSTDIN, false, true, cancellationTokenSource.Token)
+                    : processInvoker.ExecuteAsync("", "bash", "-c \"read input; echo $input; read input; echo $input; read input; echo $input;\"", null, false, null, false, redirectSTDIN, false, true, cancellationTokenSource.Token);
+
                 redirectSTDIN.Enqueue("More line of STDIN");
                 redirectSTDIN.Enqueue("More line of STDIN");
                 await Task.Delay(100);
@@ -235,10 +227,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
-#if OS_LINUX
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "windows")]
         public async Task OomScoreAdjIsWriten_Default()
         {
             // We are on a system that supports oom_score_adj in procfs as assumed by ProcessInvoker
@@ -275,6 +268,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "windows")]
         public async Task OomScoreAdjIsWriten_FromEnv()
         {
             // We are on a system that supports oom_score_adj in procfs as assumed by ProcessInvoker
@@ -313,6 +308,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "windows")]
         public async Task OomScoreAdjIsInherited()
         {
             // We are on a system that supports oom_score_adj in procfs as assumed by ProcessInvoker
@@ -347,6 +344,5 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 }
             }
         }
-#endif
     }
 }

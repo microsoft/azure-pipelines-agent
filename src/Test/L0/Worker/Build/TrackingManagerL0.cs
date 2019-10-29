@@ -404,13 +404,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             }
         }
 
-#if OS_WINDOWS
         // Legacy config back-compat is required for Windows only.
         // The legacy config files never existed on xplat in this form.
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-#endif
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
         public void MarksTrackingConfigForGarbageCollection_Legacy()
         {
             using (TestHostContext hc = Setup())
