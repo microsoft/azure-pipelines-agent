@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -290,9 +291,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         [JsonIgnore]
         public List<HandlerData> All => _all;
 
-#if !OS_WINDOWS || X86
-        [JsonIgnore]
-#endif
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public AzurePowerShellHandlerData AzurePowerShell
         {
             get
@@ -302,8 +301,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             set
             {
-                _azurePowerShell = value;
-                Add(value);
+                if (PlatformUtil.RunningOnWindows && !PlatformUtil.IsX86)
+                {
+                    _azurePowerShell = value;
+                    Add(value);
+                }
             }
         }
 
@@ -335,9 +337,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-#if !OS_WINDOWS || X86
-        [JsonIgnore]
-#endif
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public PowerShellHandlerData PowerShell
         {
             get
@@ -347,14 +347,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             set
             {
-                _powerShell = value;
-                Add(value);
+                if (PlatformUtil.RunningOnWindows && !PlatformUtil.IsX86)
+                {
+                    _powerShell = value;
+                    Add(value);
+                }
             }
         }
 
-#if !OS_WINDOWS
-        [JsonIgnore]
-#endif
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public PowerShell3HandlerData PowerShell3
         {
             get
@@ -364,14 +365,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             set
             {
-                _powerShell3 = value;
-                Add(value);
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    _powerShell3 = value;
+                    Add(value);
+                }
             }
         }
 
-#if !OS_WINDOWS
-        [JsonIgnore]
-#endif
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public PowerShellExeHandlerData PowerShellExe
         {
             get
@@ -381,14 +383,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             set
             {
-                _powerShellExe = value;
-                Add(value);
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    _powerShellExe = value;
+                    Add(value);
+                }
             }
         }
 
-#if !OS_WINDOWS
-        [JsonIgnore]
-#endif
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public ProcessHandlerData Process
         {
             get
@@ -398,8 +401,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             set
             {
-                _process = value;
-                Add(value);
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    _process = value;
+                    Add(value);
+                }
             }
         }
 
@@ -455,12 +461,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public bool PreferredOnCurrentPlatform()
         {
-#if OS_WINDOWS
-            const string CurrentPlatform = "windows";
-            return Platforms?.Any(x => string.Equals(x, CurrentPlatform, StringComparison.OrdinalIgnoreCase)) ?? false;
-#else
+            if (PlatformUtil.RunningOnWindows)
+            {
+                return Platforms?.Any(x => string.Equals(x, "windows", StringComparison.OrdinalIgnoreCase)) ?? false;
+            }
+
             return false;
-#endif
         }
 
         public void ReplaceMacros(IHostContext context, Definition definition)

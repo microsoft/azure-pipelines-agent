@@ -83,10 +83,27 @@ namespace Agent.Sdk
 
         public static Architecture HostArchitecture
         {
-            get
-            {
-                return RuntimeInformation.OSArchitecture;
-            }
+            get => RuntimeInformation.OSArchitecture;
+        }
+
+        public static bool IsX86
+        {
+            get => PlatformUtil.HostArchitecture == Architecture.X86;
+        }
+
+        public static bool IsX64
+        {
+            get => PlatformUtil.HostArchitecture == Architecture.X64;
+        }
+
+        public static bool IsArm
+        {
+            get => PlatformUtil.HostArchitecture == Architecture.Arm;
+        }
+
+        public static bool IsArm64
+        {
+            get => PlatformUtil.HostArchitecture == Architecture.Arm64;
         }
     }
 }
