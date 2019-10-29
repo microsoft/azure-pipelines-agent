@@ -16,7 +16,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Net.Http;
 using Newtonsoft.Json.Linq;
-using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {

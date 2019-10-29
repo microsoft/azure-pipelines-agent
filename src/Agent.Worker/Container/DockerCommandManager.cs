@@ -11,7 +11,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.Framework.Common;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 {
