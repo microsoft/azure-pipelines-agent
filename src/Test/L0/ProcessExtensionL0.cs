@@ -29,12 +29,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 Process sleep = null;
                 try
                 {
-#if OS_WINDOWS
-                    string node = Path.Combine(TestUtil.GetSrcPath(), @"..\_layout\externals\node\bin\node");
-#else
-                    string node = Path.Combine(TestUtil.GetSrcPath(), @"../_layout/externals/node/bin/node");
+                    string node = Path.Combine(
+                        TestUtil.GetSrcPath(), "..", "_layout", "externals", "node", "bin", "node");
+
+                    // TODO: this was formerly skipped on Windows - why?
                     hc.EnqueueInstance<IProcessInvoker>(new ProcessInvokerWrapper());
-#endif
+
                     var startInfo = new ProcessStartInfo(node, "-e \"setTimeout(function(){{}}, 15 * 1000);\"");
                     startInfo.Environment[envName] = envValue;
                     sleep = Process.Start(startInfo);
