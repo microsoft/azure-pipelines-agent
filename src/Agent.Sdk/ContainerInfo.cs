@@ -313,11 +313,13 @@ namespace Agent.Sdk
                 }
             }
 
-            if (volumes.Count == 2)
+            if (volumes.Count >= 2)
             {
                 // source:target
                 SourceVolumePath = volumes[0];
                 TargetVolumePath = volumes[1];
+                // if volumes.Count > 2 here, we should log something that says we ignored options passed in.
+                // for now, do nothing in order to remain backwards compatable.
             }
             else
             {
