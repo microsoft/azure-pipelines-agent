@@ -11,7 +11,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.Framework.Common;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 {
@@ -196,7 +195,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             {
                 return await ExecuteDockerCommandAsync(context, "network", $"create --label {DockerInstanceLabel} {network} --driver nat", context.CancellationToken);
             }
-            
+
             return await ExecuteDockerCommandAsync(context, "network", $"create --label {DockerInstanceLabel} {network}", context.CancellationToken);
         }
 
