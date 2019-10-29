@@ -291,7 +291,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         [JsonIgnore]
         public List<HandlerData> All => _all;
 
-        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public bool ShouldSerializeAzurePowerShell()
+            => PlatformUtil.RunningOnWindows && !PlatformUtil.IsX86;
+
         public AzurePowerShellHandlerData AzurePowerShell
         {
             get
@@ -301,11 +303,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             set
             {
-                if (PlatformUtil.RunningOnWindows && !PlatformUtil.IsX86)
-                {
-                    _azurePowerShell = value;
-                    Add(value);
-                }
+                _azurePowerShell = value;
+                Add(value);
             }
         }
 
@@ -337,7 +336,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public bool ShouldSerializePowerShell()
+            => PlatformUtil.RunningOnWindows && !PlatformUtil.IsX86;
+
         public PowerShellHandlerData PowerShell
         {
             get
@@ -347,15 +348,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             set
             {
-                if (PlatformUtil.RunningOnWindows && !PlatformUtil.IsX86)
-                {
-                    _powerShell = value;
-                    Add(value);
-                }
+                _powerShell = value;
+                Add(value);
             }
         }
 
-        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public bool ShouldSerializePowerShell3()
+            => PlatformUtil.RunningOnWindows;
+
         public PowerShell3HandlerData PowerShell3
         {
             get
@@ -365,15 +365,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             set
             {
-                if (PlatformUtil.RunningOnWindows)
-                {
-                    _powerShell3 = value;
-                    Add(value);
-                }
+                _powerShell3 = value;
+                Add(value);
             }
         }
 
-        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public bool ShouldSerializePowerShellExe()
+            => PlatformUtil.RunningOnWindows;
+
         public PowerShellExeHandlerData PowerShellExe
         {
             get
@@ -383,15 +382,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             set
             {
-                if (PlatformUtil.RunningOnWindows)
-                {
-                    _powerShellExe = value;
-                    Add(value);
-                }
+                _powerShellExe = value;
+                Add(value);
             }
         }
 
-        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public bool ShouldSerializeProcess()
+            => PlatformUtil.RunningOnWindows;
+
         public ProcessHandlerData Process
         {
             get
@@ -401,11 +399,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             set
             {
-                if (PlatformUtil.RunningOnWindows)
-                {
-                    _process = value;
-                    Add(value);
-                }
+                _process = value;
+                Add(value);
             }
         }
 
