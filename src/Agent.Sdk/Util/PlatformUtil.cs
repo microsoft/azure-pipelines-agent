@@ -58,28 +58,43 @@ namespace Agent.Sdk
         {
             get
             {
-                if (!RunningOnLinux || !File.Exists("/etc/redhat-release"))
+                if (!(detectedRHEL6 is null))
                 {
-                    return false;
+                    return (bool)detectedRHEL6;
                 }
 
+                DetectRHEL6();
+
+                return (bool)detectedRHEL6;
+            }
+        }
+
+        private static void DetectRHEL6()
+        {
+            if (!RunningOnLinux || !File.Exists("/etc/redhat-release"))
+            {
+                detectedRHEL6 = false;
+            }
+            else
+            {
                 try
                 {
                     string redhatVersion = File.ReadAllText("/etc/redhat-release");
                     if (redhatVersion.StartsWith("CentOS release 6.")
                         || redhatVersion.StartsWith("Red Hat Enterprise Linux Server release 6."))
                     {
-                        return true;
+                        detectedRHEL6 = true;
                     }
                 }
                 catch (IOException)
                 {
                     // IOException indicates we couldn't read that file; probably not RHEL6
+                    detectedRHEL6 = false;
                 }
-
-                return false;
             }
         }
+
+        private static bool? detectedRHEL6 = null;
 
         public static Architecture HostArchitecture
         {
