@@ -293,7 +293,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     break;
 
                 case WellKnownConfigFile.CredentialStore:
-                    path = (TestUtil.IsMac())
+                    path = (TestUtil.IsMacOS())
                         ? Path.Combine(
                             GetDirectory(WellKnownDirectory.Root),
                             ".credential_store.keychain")
