@@ -462,5 +462,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 item.Attributes = item.Attributes & ~FileAttributes.ReadOnly;
             }
         }
+
+        public static string GetDirectoryName(string path, PlatformUtil.OS platform)
+        {
+            string retval = Path.GetDirectoryName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (PlatformUtil.RunningOnWindows)
+            {
+                if (platform != PlatformUtil.OS.Windows)
+                {
+                    retval = retval.Replace("\\","/");
+                }
+            }
+            else
+            {
+                if (platform == PlatformUtil.OS.Windows)
+                {
+                    retval = retval.Replace("/","\\");
+                }
+            }
+            
+            return retval;
+        }
     }
 }

@@ -95,9 +95,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 legacyPShandler.Platforms = null;
             }
 
+            var targetOs = PlatformUtil.HostOS;
+            if (ExecutionContext.Container != null)
+            {
+                targetOs = ExecutionContext.Container.ImageOS;
+            }
+            Trace.Info($"Get handler data for target platform {targetOs.ToString()}");
+
             HandlerData handlerData =
                 currentExecution?.All
-                .OrderBy(x => !x.PreferredOnCurrentPlatform()) // Sort true to false.
+                .OrderBy(x => !x.PreferredOnPlatform(targetOs)) // Sort true to false.
                 .ThenBy(x => x.Priority)
                 .FirstOrDefault();
             if (handlerData == null)
@@ -135,7 +142,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 else if (handlerData is NodeHandlerData || handlerData is Node10HandlerData || handlerData is PowerShell3HandlerData)
                 {
-                    // Only the node, node10, and powershell3 handlers support running inside container. 
+                    // Only the node, node10, and powershell3 handlers support running inside container.
                     // Make sure required container is already created.
                     ArgUtil.NotNullOrEmpty(ExecutionContext.Container.ContainerId, nameof(ExecutionContext.Container.ContainerId));
                     var containerStepHost = HostContext.CreateService<IContainerStepHost>();
@@ -308,6 +315,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     ExecutionContext.OutputVariables.Add(outputVar.Name);
                 }
+            }
+
+            if (ExecutionContext.Container != null && targetOs != PlatformUtil.HostOS )
+            {
+                // translate inputs
+                Dictionary<string,string> newInputs = new Dictionary<string, string>();
+                foreach (var entry in inputs)
+                {
+                    newInputs[entry.Key] = ExecutionContext.Container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, entry.Value);
+                }
+                inputs = newInputs;
             }
 
             // Create the handler.

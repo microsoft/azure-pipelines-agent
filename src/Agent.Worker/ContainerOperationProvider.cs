@@ -6,12 +6,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.ServiceProcess;
 using System.Threading.Tasks;
-using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using System.Linq;
 using System.Threading;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
-using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.Win32;
 using Agent.Sdk;
@@ -95,6 +93,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 executionContext.Warning($"Delete stale container networks failed, docker network prune fail with exit code {networkPruneExitCode}");
             }
 
+            // We need to pull the containers first before setting up the network
+            foreach (var container in containers)
+            {
+                await PullContainerAsync(executionContext, container);
+            }
+
             // Create local docker network for this job to avoid port conflict when multiple agents run on same machine.
             // All containers within a job join the same network
             await CreateContainerNetworkAsync(executionContext, _containerNetwork);
@@ -127,7 +131,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             await RemoveContainerNetworkAsync(executionContext, _containerNetwork);
         }
 
-        private async Task StartContainerAsync(IExecutionContext executionContext, ContainerInfo container)
+        private async Task PullContainerAsync(IExecutionContext executionContext, ContainerInfo container)
         {
             Trace.Entering();
             ArgUtil.NotNull(executionContext, nameof(executionContext));
@@ -139,14 +143,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Trace.Info($"Container registry: {container.ContainerRegistryEndpoint.ToString()}");
             Trace.Info($"Container options: {container.ContainerCreateOptions}");
             Trace.Info($"Skip container image pull: {container.SkipContainerImagePull}");
-            foreach(var port in container.UserPortMappings)
-            {
-                Trace.Info($"User provided port: {port.Value}");
-            }
-            foreach(var volume in container.UserMountVolumes)
-            {
-                Trace.Info($"User provided volume: {volume.Value}");
-            }
 
             // Login to private docker registry
             string registryServer = string.Empty;
@@ -167,7 +163,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (loginServer != null) {
                         loginServer = loginServer.ToLower();
                     }
-                    
+
                     registryEndpoint.Authorization?.Parameters?.TryGetValue("serviceprincipalid", out username);
                     registryEndpoint.Authorization?.Parameters?.TryGetValue("serviceprincipalkey", out password);
 
@@ -233,69 +229,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                 }
 
-                // Mount folder into container
-                if (PlatformUtil.RunningOnWindows)
+                if (PlatformUtil.RunningOnMacOS)
                 {
-                    container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Externals), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Externals))));
-                    container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Work), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Work))));
-                    container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tools), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tools))));
+                    container.ImageOS = PlatformUtil.OS.Linux;
                 }
-                else
+                // if running on Windows, and attempting to run linux container, require container to have node
+                else if (PlatformUtil.RunningOnWindows)
                 {
-                    string defaultWorkingDirectory = executionContext.Variables.Get(Constants.Variables.System.DefaultWorkingDirectory);
-                    if (string.IsNullOrEmpty(defaultWorkingDirectory))
+                    string containerOS = await _dockerManger.DockerInspect(context: executionContext,
+                                                                dockerObject: container.ContainerImage,
+                                                                options: $"--format=\"{{{{.Os}}}}\"");
+                    if (string.Equals("linux", containerOS, StringComparison.OrdinalIgnoreCase))
                     {
-                        throw new NotSupportedException(StringUtil.Loc("ContainerJobRequireSystemDefaultWorkDir"));
+                        container.ImageOS = PlatformUtil.OS.Linux;
                     }
-
-                    string workingDirectory = Path.GetDirectoryName(defaultWorkingDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-                    container.MountVolumes.Add(new MountVolume(container.TranslateToHostPath(workingDirectory), workingDirectory));
-                    container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Temp), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Temp))));
-                    container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tools), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tools))));
-                    container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tasks), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tasks))));
-                    container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Externals), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Externals)), true));
-
-                    // Ensure .taskkey file exist so we can mount it.
-                    string taskKeyFile = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), ".taskkey");
-                    if (!File.Exists(taskKeyFile))
-                    {
-                        File.WriteAllText(taskKeyFile, string.Empty);
-                    }
-                    container.MountVolumes.Add(new MountVolume(taskKeyFile, container.TranslateToContainerPath(taskKeyFile)));
-                }
-
-                if (container.IsJobContainer)
-                {
-                    // See if this container brings its own Node.js
-                    container.ContainerBringNodePath = await _dockerManger.DockerInspect(context: executionContext,
-                                                                        dockerObject: container.ContainerImage,
-                                                                        options: $"--format=\"{{{{index .Config.Labels \\\"{_nodeJsPathLabel}\\\"}}}}\"");
-
-                    string node;
-                    if (!string.IsNullOrEmpty(container.ContainerBringNodePath))
-                    {
-                        node = container.ContainerBringNodePath;
-                    }
-                    else
-                    {
-                        node = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "node", "bin", $"node{IOUtil.ExeExtension}"));
-                    }
-                    string sleepCommand = $"\"{node}\" -e \"setInterval(function(){{}}, 24 * 60 * 60 * 1000);\"";
-                    container.ContainerCommand = sleepCommand;
-                }
-
-                container.ContainerId = await _dockerManger.DockerCreate(executionContext, container);
-                ArgUtil.NotNullOrEmpty(container.ContainerId, nameof(container.ContainerId));
-                if (container.IsJobContainer)
-                {
-                    executionContext.Variables.Set(Constants.Variables.Agent.ContainerId, container.ContainerId);
-                }
-
-                // Start container
-                int startExitCode = await _dockerManger.DockerStart(executionContext, container.ContainerId);
-                if (startExitCode != 0)
-                {
-                    throw new InvalidOperationException($"Docker start fail with exit code {startExitCode}");
                 }
             }
             finally
@@ -309,6 +256,117 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         executionContext.Error($"Docker logout fail with exit code {logoutExitCode}");
                     }
                 }
+            }
+        }
+
+        private async Task StartContainerAsync(IExecutionContext executionContext, ContainerInfo container)
+        {
+            Trace.Entering();
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+            ArgUtil.NotNull(container, nameof(container));
+            ArgUtil.NotNullOrEmpty(container.ContainerImage, nameof(container.ContainerImage));
+
+            Trace.Info($"Container name: {container.ContainerName}");
+            Trace.Info($"Container image: {container.ContainerImage}");
+            Trace.Info($"Container registry: {container.ContainerRegistryEndpoint.ToString()}");
+            Trace.Info($"Container options: {container.ContainerCreateOptions}");
+            Trace.Info($"Skip container image pull: {container.SkipContainerImagePull}");
+            foreach(var port in container.UserPortMappings)
+            {
+                Trace.Info($"User provided port: {port.Value}");
+            }
+            foreach(var volume in container.UserMountVolumes)
+            {
+                Trace.Info($"User provided volume: {volume.Value}");
+            }
+
+            if (container.ImageOS != PlatformUtil.OS.Windows)
+            {
+                string defaultWorkingDirectory = executionContext.Variables.Get(Constants.Variables.System.DefaultWorkingDirectory);
+                if (string.IsNullOrEmpty(defaultWorkingDirectory))
+                {
+                    throw new NotSupportedException(StringUtil.Loc("ContainerJobRequireSystemDefaultWorkDir"));
+                }
+
+                string workingDirectory = IOUtil.GetDirectoryName(defaultWorkingDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), container.ImageOS);
+                string mountWorkingDirectory = container.TranslateToHostPath(workingDirectory);
+                executionContext.Debug($"Default Working Directory {defaultWorkingDirectory}");
+                executionContext.Debug($"Working Directory {workingDirectory}");
+                executionContext.Debug($"Mount Working Directory {mountWorkingDirectory}");
+                container.MountVolumes.Add(new MountVolume(mountWorkingDirectory, workingDirectory));
+                container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Temp), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Temp))));
+                container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tasks), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tasks))));
+
+            }
+            else
+            {
+                container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Work), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Work))));
+
+            }
+
+            container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tools), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tools))));
+
+            bool externalReadOnly = container.ImageOS != PlatformUtil.OS.Windows; // This code was refactored to use PlatformUtils. The previous implementation did not have the externals directory mounted read-only for Windows.
+                                                                    // That seems wrong, but to prevent any potential backwards compatibility issues, we are keeping the same logic
+            container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Externals), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Externals)), externalReadOnly));
+
+            if (container.ImageOS != PlatformUtil.OS.Windows)
+            {
+                // Ensure .taskkey file exist so we can mount it.
+                string taskKeyFile = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), ".taskkey");
+                if (!File.Exists(taskKeyFile))
+                {
+                    File.WriteAllText(taskKeyFile, string.Empty);
+                }
+                container.MountVolumes.Add(new MountVolume(taskKeyFile, container.TranslateToContainerPath(taskKeyFile)));
+            }
+
+            if (container.IsJobContainer)
+            {
+                // See if this container brings its own Node.js
+                container.ContainerBringNodePath = await _dockerManger.DockerInspect(context: executionContext,
+                                                                    dockerObject: container.ContainerImage,
+                                                                    options: $"--format=\"{{{{index .Config.Labels \\\"{_nodeJsPathLabel}\\\"}}}}\"");
+
+                string node;
+                if (!string.IsNullOrEmpty(container.ContainerBringNodePath))
+                {
+                    node = container.ContainerBringNodePath;
+                }
+                else
+                {
+                    node = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "node", "bin", $"node{IOUtil.ExeExtension}"));
+
+                    // if on Mac OS X, require container to have node
+                    if (PlatformUtil.RunningOnMacOS)
+                    {
+                        container.ContainerBringNodePath = "node";
+                        node = container.ContainerBringNodePath;
+                    }
+                    // if running on Windows, and attempting to run linux container, require container to have node
+                    else if (PlatformUtil.RunningOnWindows && container.ImageOS == PlatformUtil.OS.Linux)
+                    {
+                        container.ContainerBringNodePath = "node";
+                        node = container.ContainerBringNodePath;
+                    }
+                }
+
+                string sleepCommand = $"\"{node}\" -e \"setInterval(function(){{}}, 24 * 60 * 60 * 1000);\"";
+                container.ContainerCommand = sleepCommand;
+            }
+
+            container.ContainerId = await _dockerManger.DockerCreate(executionContext, container);
+            ArgUtil.NotNullOrEmpty(container.ContainerId, nameof(container.ContainerId));
+            if (container.IsJobContainer)
+            {
+                executionContext.Variables.Set(Constants.Variables.Agent.ContainerId, container.ContainerId);
+            }
+
+            // Start container
+            int startExitCode = await _dockerManger.DockerStart(executionContext, container.ContainerId);
+            if (startExitCode != 0)
+            {
+                throw new InvalidOperationException($"Docker start fail with exit code {startExitCode}");
             }
 
             try
@@ -347,147 +405,175 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
             }
 
-            if (!PlatformUtil.RunningOnWindows && container.IsJobContainer)
+            if (!PlatformUtil.RunningOnWindows)
             {
-                // Ensure bash exist in the image
-                int execWhichBashExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"sh -c \"command -v bash\"");
-                if (execWhichBashExitCode != 0)
+                if (container.IsJobContainer)
                 {
-                    throw new InvalidOperationException($"Docker exec fail with exit code {execWhichBashExitCode}");
-                }
-
-                // Get current username
-                container.CurrentUserName = (await ExecuteCommandAsync(executionContext, "whoami", string.Empty)).FirstOrDefault();
-                ArgUtil.NotNullOrEmpty(container.CurrentUserName, nameof(container.CurrentUserName));
-
-                // Get current userId
-                container.CurrentUserId = (await ExecuteCommandAsync(executionContext, "id", $"-u {container.CurrentUserName}")).FirstOrDefault();
-                ArgUtil.NotNullOrEmpty(container.CurrentUserId, nameof(container.CurrentUserId));
-
-                executionContext.Output(StringUtil.Loc("CreateUserWithSameUIDInsideContainer", container.CurrentUserId));
-
-                // Create an user with same uid as the agent run as user inside the container.
-                // All command execute in docker will run as Root by default, 
-                // this will cause the agent on the host machine doesn't have permission to any new file/folder created inside the container.
-                // So, we create a user account with same UID inside the container and let all docker exec command run as that user.
-                string containerUserName = string.Empty;
-
-                // We need to find out whether there is a user with same UID inside the container
-                List<string> userNames = new List<string>();
-                int execGrepExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"bash -c \"grep {container.CurrentUserId} /etc/passwd | cut -f1 -d:\"", userNames);
-                if (execGrepExitCode != 0)
-                {
-                    throw new InvalidOperationException($"Docker exec fail with exit code {execGrepExitCode}");
-                }
-
-                if (userNames.Count > 0)
-                {
-                    // check all potential username that might match the UID.
-                    foreach (string username in userNames)
+                    // Ensure bash exist in the image
+                    int execWhichBashExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"sh -c \"command -v bash\"");
+                    if (execWhichBashExitCode != 0)
                     {
-                        int execIdExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"id -u {username}");
-                        if (execIdExitCode == 0)
+                        throw new InvalidOperationException($"Docker exec fail with exit code {execWhichBashExitCode}");
+                    }
+
+                    // Get current username
+                    container.CurrentUserName = (await ExecuteCommandAsync(executionContext, "whoami", string.Empty)).FirstOrDefault();
+                    ArgUtil.NotNullOrEmpty(container.CurrentUserName, nameof(container.CurrentUserName));
+
+                    // Get current userId
+                    container.CurrentUserId = (await ExecuteCommandAsync(executionContext, "id", $"-u {container.CurrentUserName}")).FirstOrDefault();
+                    ArgUtil.NotNullOrEmpty(container.CurrentUserId, nameof(container.CurrentUserId));
+
+                    executionContext.Output(StringUtil.Loc("CreateUserWithSameUIDInsideContainer", container.CurrentUserId));
+
+                    // Create an user with same uid as the agent run as user inside the container.
+                    // All command execute in docker will run as Root by default,
+                    // this will cause the agent on the host machine doesn't have permission to any new file/folder created inside the container.
+                    // So, we create a user account with same UID inside the container and let all docker exec command run as that user.
+                    string containerUserName = string.Empty;
+
+                    // We need to find out whether there is a user with same UID inside the container
+                    List<string> userNames = new List<string>();
+                    int execGrepExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"bash -c \"grep {container.CurrentUserId} /etc/passwd | cut -f1 -d:\"", userNames);
+                    if (execGrepExitCode != 0)
+                    {
+                        throw new InvalidOperationException($"Docker exec fail with exit code {execGrepExitCode}");
+                    }
+
+                    if (userNames.Count > 0)
+                    {
+                        // check all potential username that might match the UID.
+                        foreach (string username in userNames)
                         {
-                            containerUserName = username;
-                            break;
-                        }
-                    }
-                }
-
-                // Create a new user with same UID
-                if (string.IsNullOrEmpty(containerUserName))
-                {
-                    containerUserName = $"{container.CurrentUserName}_azpcontainer";
-                    int execUseraddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"useradd -m -u {container.CurrentUserId} {containerUserName}");
-                    if (execUseraddExitCode != 0)
-                    {
-                        throw new InvalidOperationException($"Docker exec fail with exit code {execUseraddExitCode}");
-                    }
-                }
-
-                executionContext.Output(StringUtil.Loc("GrantContainerUserSUDOPrivilege", containerUserName));
-
-                // Create a new group for giving sudo permission
-                int execGroupaddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"groupadd azure_pipelines_sudo");
-                if (execGroupaddExitCode != 0)
-                {
-                    throw new InvalidOperationException($"Docker exec fail with exit code {execGroupaddExitCode}");
-                }
-
-                // Add the new created user to the new created sudo group.
-                int execUsermodExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"usermod -a -G azure_pipelines_sudo {containerUserName}");
-                if (execUsermodExitCode != 0)
-                {
-                    throw new InvalidOperationException($"Docker exec fail with exit code {execUsermodExitCode}");
-                }
-
-                // Allow the new sudo group run any sudo command without providing password.
-                int execEchoExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"su -c \"echo '%azure_pipelines_sudo ALL=(ALL:ALL) NOPASSWD:ALL' >> /etc/sudoers\"");
-                if (execUsermodExitCode != 0)
-                {
-                    throw new InvalidOperationException($"Docker exec fail with exit code {execEchoExitCode}");
-                }
-
-                bool setupDockerGroup = executionContext.Variables.GetBoolean("VSTS_SETUP_DOCKERGROUP") ?? StringUtil.ConvertToBoolean(Environment.GetEnvironmentVariable("VSTS_SETUP_DOCKERGROUP"), true);
-                if (setupDockerGroup)
-                {
-                    executionContext.Output(StringUtil.Loc("AllowContainerUserRunDocker", containerUserName));
-                    // Get docker.sock group id on Host
-                    string dockerSockGroupId = (await ExecuteCommandAsync(executionContext, "stat", $"-c %g /var/run/docker.sock")).FirstOrDefault();
-
-                    // We need to find out whether there is a group with same GID inside the container
-                    string existingGroupName = null;
-                    List<string> groupsOutput = new List<string>();
-                    int execGroupGrepExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"bash -c \"cat /etc/group\"", groupsOutput);
-                    if (execGroupGrepExitCode != 0)
-                    {
-                        throw new InvalidOperationException($"Docker exec fail with exit code {execGroupGrepExitCode}");
-                    }
-
-                    if (groupsOutput.Count > 0)
-                    {
-                        // check all potential groups that might match the GID.
-                        foreach (string groupOutput in groupsOutput)
-                        {
-                            if(!string.IsNullOrEmpty(groupOutput))
+                            int execIdExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"id -u {username}");
+                            if (execIdExitCode == 0)
                             {
-                                var groupSegments = groupOutput.Split(':');
-                                if( groupSegments.Length != 4 )
-                                {
-                                    Trace.Warning($"Unexpected output from /etc/group: '{groupOutput}'");
-                                }
-                                else
-                                {
-                                    // the output of /etc/group should looks like `group:x:gid:`
-                                    var groupName = groupSegments[0];
-                                    var groupId = groupSegments[2];
-
-                                    if(string.Equals(dockerSockGroupId, groupId))
-                                    {
-                                        existingGroupName = groupName;
-                                        break;
-                                    }
-                                }
+                                containerUserName = username;
+                                break;
                             }
                         }
                     }
 
-                    if(string.IsNullOrEmpty(existingGroupName))
+                    // Create a new user with same UID
+                    if (string.IsNullOrEmpty(containerUserName))
                     {
-                        // create a new group with same gid
-                        existingGroupName = "azure_pipelines_docker";
-                        int execDockerGroupaddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"groupadd -g {dockerSockGroupId} azure_pipelines_docker");
-                        if (execDockerGroupaddExitCode != 0)
+                        containerUserName = $"{container.CurrentUserName}_azpcontainer";
+                        int execUseraddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"useradd -m -u {container.CurrentUserId} {containerUserName}");
+                        if (execUseraddExitCode != 0)
                         {
-                            throw new InvalidOperationException($"Docker exec fail with exit code {execDockerGroupaddExitCode}");
+                            throw new InvalidOperationException($"Docker exec fail with exit code {execUseraddExitCode}");
                         }
                     }
-                    
-                    // Add the new created user to the docker socket group.
-                    int execGroupUsermodExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"usermod -a -G {existingGroupName} {containerUserName}");
-                    if (execGroupUsermodExitCode != 0)
+
+                    executionContext.Output(StringUtil.Loc("GrantContainerUserSUDOPrivilege", containerUserName));
+
+                    // Create a new group for giving sudo permission
+                    int execGroupaddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"groupadd azure_pipelines_sudo");
+                    if (execGroupaddExitCode != 0)
                     {
-                        throw new InvalidOperationException($"Docker exec fail with exit code {execGroupUsermodExitCode}");
+                        throw new InvalidOperationException($"Docker exec fail with exit code {execGroupaddExitCode}");
+                    }
+
+                    // Add the new created user to the new created sudo group.
+                    int execUsermodExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"usermod -a -G azure_pipelines_sudo {containerUserName}");
+                    if (execUsermodExitCode != 0)
+                    {
+                        throw new InvalidOperationException($"Docker exec fail with exit code {execUsermodExitCode}");
+                    }
+
+                    // Allow the new sudo group run any sudo command without providing password.
+                    int execEchoExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"su -c \"echo '%azure_pipelines_sudo ALL=(ALL:ALL) NOPASSWD:ALL' >> /etc/sudoers\"");
+                    if (execUsermodExitCode != 0)
+                    {
+                        throw new InvalidOperationException($"Docker exec fail with exit code {execEchoExitCode}");
+                    }
+
+                    bool setupDockerGroup = executionContext.Variables.GetBoolean("VSTS_SETUP_DOCKERGROUP") ?? StringUtil.ConvertToBoolean(Environment.GetEnvironmentVariable("VSTS_SETUP_DOCKERGROUP"), true);
+                    if (setupDockerGroup)
+                    {
+                        executionContext.Output(StringUtil.Loc("AllowContainerUserRunDocker", containerUserName));
+                        // Get docker.sock group id on Host
+                        string statFormatOption = "-c %g";
+                        if (PlatformUtil.RunningOnMacOS)
+                        {
+                            statFormatOption = "-f %g";
+                        }
+                        string dockerSockGroupId = (await ExecuteCommandAsync(executionContext, "stat", $"{statFormatOption} /var/run/docker.sock")).FirstOrDefault();
+
+                        // We need to find out whether there is a group with same GID inside the container
+                        string existingGroupName = null;
+                        List<string> groupsOutput = new List<string>();
+                        int execGroupGrepExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"bash -c \"cat /etc/group\"", groupsOutput);
+                        if (execGroupGrepExitCode != 0)
+                        {
+                            throw new InvalidOperationException($"Docker exec fail with exit code {execGroupGrepExitCode}");
+                        }
+
+                        if (groupsOutput.Count > 0)
+                        {
+                            // check all potential groups that might match the GID.
+                            foreach (string groupOutput in groupsOutput)
+                            {
+                                if(!string.IsNullOrEmpty(groupOutput))
+                                {
+                                    var groupSegments = groupOutput.Split(':');
+                                    if( groupSegments.Length != 4 )
+                                    {
+                                        Trace.Warning($"Unexpected output from /etc/group: '{groupOutput}'");
+                                    }
+                                    else
+                                    {
+                                        // the output of /etc/group should looks like `group:x:gid:`
+                                        var groupName = groupSegments[0];
+                                        var groupId = groupSegments[2];
+
+                                        if(string.Equals(dockerSockGroupId, groupId))
+                                        {
+                                            existingGroupName = groupName;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if(string.IsNullOrEmpty(existingGroupName))
+                        {
+                            // create a new group with same gid
+                            existingGroupName = "azure_pipelines_docker";
+                            int execDockerGroupaddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"groupadd -g {dockerSockGroupId} azure_pipelines_docker");
+                            if (execDockerGroupaddExitCode != 0)
+                            {
+                                throw new InvalidOperationException($"Docker exec fail with exit code {execDockerGroupaddExitCode}");
+                            }
+                        }
+
+                        // Add the new created user to the docker socket group.
+                        int execGroupUsermodExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"usermod -a -G {existingGroupName} {containerUserName}");
+                        if (execGroupUsermodExitCode != 0)
+                        {
+                            throw new InvalidOperationException($"Docker exec fail with exit code {execGroupUsermodExitCode}");
+                        }
+
+                        // if path to node is just 'node', with no path, let's make sure it is actually there
+                        if (string.Equals(container.ContainerBringNodePath, "node", StringComparison.OrdinalIgnoreCase))
+                        {
+                            List<string> nodeVersionOutput = new List<string>();
+                            int execNodeVersionExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"bash -c \"node -v\"", nodeVersionOutput);
+                            if (execNodeVersionExitCode != 0)
+                            {
+                                throw new InvalidOperationException($"Unable to get node version on container {container.ContainerId}. Got exit code {execNodeVersionExitCode} from docker exec");
+                            }
+                            if (nodeVersionOutput.Count > 0)
+                            {
+                                executionContext.Output($"Detected Node Version: {nodeVersionOutput[0]}");
+                                Trace.Info($"Using node version {nodeVersionOutput[0]} in container {container.ContainerId}");
+                            }
+                            else
+                            {
+                                throw new InvalidOperationException($"Unable to get node version on container {container.ContainerId}. No output from node -v");
+                            }
+                        }
                     }
                 }
             }
@@ -659,9 +745,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             if (int.TryParse(windowsReleaseId.ToString(), out int releaseId))
             {
-                if (!windowsInstallationType.ToString().StartsWith("Server", StringComparison.OrdinalIgnoreCase) || releaseId < 1803)
+                if (releaseId < 1903) // >= 1903, support windows client and server
                 {
-                    throw new NotSupportedException(StringUtil.Loc("ContainerWindowsVersionRequirement"));
+                    if (!windowsInstallationType.ToString().StartsWith("Server", StringComparison.OrdinalIgnoreCase) || releaseId < 1803)
+                    {
+                        throw new NotSupportedException(StringUtil.Loc("ContainerWindowsVersionRequirement"));
+                    }
                 }
             }
             else

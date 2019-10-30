@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System;
 using Newtonsoft.Json.Linq;
 using System.Text.RegularExpressions;
+using PlatformUtil = Agent.Sdk.PlatformUtil;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
@@ -55,7 +56,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             if (!PlatformUtil.RunningOnWindows)
             {
                 // Ensure compat vso-task-lib exist at the root of _work folder
-                // This will make vsts-agent works against 2015 RTM/QU1 TFS, since tasks in those version doesn't package with task lib
+                // This will make vsts-agent work against 2015 RTM/QU1 TFS, since tasks in those version doesn't package with task lib
                 // Put the 0.5.5 version vso-task-lib into the root of _work/node_modules folder, so tasks are able to find those lib.
                 if (!File.Exists(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), "node_modules", "vso-task-lib", "package.json")))
                 {
@@ -96,7 +97,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             // node 6.x's implementation takes 2 parameters str.endsWith(searchString[, length]) / str.startsWith(searchString[, length])
             // the implementation vsts-task-lib had only takes one parameter str.endsWith(searchString) / str.startsWith(searchString).
             // as long as vsts-task-lib be loaded into memory, it will overwrite the implementation node 6.x has, 
-            // so any scirpt that use the second parameter (length) will encounter unexpected result.
+            // so any script that use the second parameter (length) will encounter unexpected result.
             // to avoid customer hit this error, we will modify the file (extensions.js) under vsts-task-lib module folder when customer choose to use Node 6.x
             Trace.Info("Inspect node_modules folder, make sure vsts-task-lib doesn't overwrite String.startsWith/endsWith.");
             FixVstsTaskLibModule();
@@ -119,7 +120,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             // 2) Escape double quotes within the script file path. Double-quote is a valid
             // file name character on Linux.
             string arguments = StepHost.ResolvePathForStepHost(StringUtil.Format(@"""{0}""", target.Replace(@"""", @"\""")));
-
             // Let .NET choose the default, except on Windows.
             Encoding outputEncoding = null;
             if (PlatformUtil.RunningOnWindows)
@@ -213,7 +213,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                 {
                                     if (_vstsTaskLibVersionNeedsFix.IsMatch(versionToken.ToString()))
                                     {
-                                        Trace.Info($"Fix extensions.js file at '{file.FullName}'. The vsts-task-lib vsersion is '{versionToken.ToString()}'");
+                                        Trace.Info($"Fix extensions.js file at '{file.FullName}'. The vsts-task-lib version is '{versionToken.ToString()}'");
 
                                         // take backup of the original file
                                         File.Copy(file.FullName, Path.Combine(file.DirectoryName, "extensions.js.vstsnode5"));

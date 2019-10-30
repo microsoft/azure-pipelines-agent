@@ -91,7 +91,7 @@ function acquireExternalTool() {
         local nested_dir=""
         if [[ "$download_basename" == *.zip ]]; then
             # Extract the zip.
-            echo "Extracting zip to layout"
+            echo "Extracting zip from $download_target to $target_dir"
             unzip "$download_target" -d "$target_dir" > /dev/null
             local rc=$?
             if [[ $rc -ne 0 && $rc -ne 1 ]]; then
@@ -104,7 +104,7 @@ function acquireExternalTool() {
             fi
         elif [[ "$download_basename" == *.tar.gz ]]; then
             # Extract the tar gz.
-            echo "Extracting tar gz to layout"
+            echo "Extracting tar gz from $download_target to $target_dir"
             tar xzf "$download_target" -C "$target_dir" > /dev/null || checkRC 'tar'
 
             # Capture the nested directory path if the fix_nested_dir flag is set.
@@ -113,7 +113,7 @@ function acquireExternalTool() {
             fi
         else
             # Copy the file.
-            echo "Copying to layout"
+            echo "Copying from $download_target to $target_dir"
             cp "$download_target" "$target_dir/" || checkRC 'cp'
         fi
 

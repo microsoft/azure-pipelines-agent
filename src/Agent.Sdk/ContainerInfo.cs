@@ -17,9 +17,13 @@ namespace Agent.Sdk
         private List<MountVolume> _mountVolumes;
         private IDictionary<string, string> _userPortMappings;
         private List<PortMapping> _portMappings;
-        private IDictionary<string, string> _environmentVariables;
-
+        private Dictionary<string, string> _environmentVariables;
         private Dictionary<string, string> _pathMappings;
+        private PlatformUtil.OS _imageOS;
+
+        public delegate void ImageOSChangedHandler(ContainerInfo container, PlatformUtil.OS oldOS);
+
+        public event ImageOSChangedHandler ImageOSChanged;
 
         public ContainerInfo()
         {
@@ -46,9 +50,11 @@ namespace Agent.Sdk
             this.ContainerRegistryEndpoint = container.Endpoint?.Id ?? Guid.Empty;
             this.ContainerCreateOptions = container.Properties.Get<string>("options");
             this.SkipContainerImagePull = container.Properties.Get<bool>("localimage");
-            _environmentVariables = container.Environment;
+            _environmentVariables = container.Environment != null ? new Dictionary<string, string>(container.Environment) : new Dictionary<string, string>();
             this.ContainerCommand = container.Properties.Get<string>("command", defaultValue: "");
             this.IsJobContainer = isJobContainer;
+            this._imageOS = PlatformUtil.HostOS;
+           _pathMappings = new Dictionary<string, string>( PlatformUtil.RunningOnWindows ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
 
             if (container.Ports?.Count > 0)
             {
@@ -80,8 +86,41 @@ namespace Agent.Sdk
         public string CurrentUserName { get; set; }
         public string CurrentUserId { get; set; }
         public bool IsJobContainer { get; set; }
+        public PlatformUtil.OS ImageOS {
+            get
+            {
+                return _imageOS;
+            }
+            set
+            {
+                var previousImageOS = _imageOS;
+                _imageOS = value;
+                if (_pathMappings != null)
+                {
+                    var newMappings = new Dictionary<string, string>( _pathMappings.Comparer);
+                    foreach (var mapping in _pathMappings)
+                    {
+                        newMappings[mapping.Key] = TranslateContainerPathForImageOS(previousImageOS, mapping.Value);
+                    }
+                    _pathMappings = newMappings;
+                }
+                if (_environmentVariables != null)
+                {
+                    var newEnvVars = new Dictionary<string, string>(_environmentVariables.Comparer);
+                    foreach (var env in _environmentVariables)
+                    {
+                        newEnvVars[env.Key] = TranslateContainerPathForImageOS(previousImageOS, env.Value);
+                    }
+                    _environmentVariables = newEnvVars;
+                }
+                if (ImageOSChanged != null)
+                {
+                    ImageOSChanged(this, previousImageOS);
+                }
+            }
+        }
 
-        public IDictionary<string, string> ContainerEnvironmentVariables
+        public Dictionary<string, string> ContainerEnvironmentVariables
         {
             get
             {
@@ -192,19 +231,45 @@ namespace Agent.Sdk
                     : StringComparison.Ordinal;
                 foreach (var mapping in _pathMappings)
                 {
+                    string retval = null;
+
                     if (string.Equals(path, mapping.Value, comparison))
                     {
-                        return mapping.Key;
+                        retval = mapping.Key;
+                    }
+                    else if (path.StartsWith(mapping.Value + Path.DirectorySeparatorChar, comparison) ||
+                             path.StartsWith(mapping.Value + Path.AltDirectorySeparatorChar, comparison))
+                    {
+                        retval = mapping.Key + path.Remove(0, mapping.Value.Length);
                     }
 
-                    if (path.StartsWith(mapping.Value + Path.DirectorySeparatorChar, comparison) ||
-                        path.StartsWith(mapping.Value + Path.AltDirectorySeparatorChar, comparison))
+                    if (retval != null)
                     {
-                        return mapping.Key + path.Remove(0, mapping.Value.Length);
+                        if (PlatformUtil.RunningOnWindows)
+                        {
+                            retval = retval.Replace("/", "\\");
+                        }
+                        else
+                        {
+                            retval = retval.Replace("\\","/");
+                        }
+                        return retval;
                     }
                 }
             }
 
+            return path;
+        }
+
+        public string TranslateContainerPathForImageOS(PlatformUtil.OS runningOs, string path)
+        {
+            if (!string.IsNullOrEmpty(path))
+            {
+                if (runningOs == PlatformUtil.OS.Windows && ImageOS == PlatformUtil.OS.Linux)
+                {
+                    return path.Replace("C:\\","/").Replace("\\", "/");
+                }
+            }
             return path;
         }
 

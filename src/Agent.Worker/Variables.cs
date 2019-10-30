@@ -358,6 +358,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
+        public void Transform(Func<string, string> function)
+        {
+            lock (_setLock)
+            {
+                Dictionary<string, Variable> modified = new Dictionary<string, Variable>();
+                foreach (var entry in _expanded)
+                {
+                    var variable = entry.Value;
+                    var newVal = function.Invoke(variable.Value);
+                    if (string.CompareOrdinal(newVal, variable.Value) != 0)
+                    {
+                        modified.Add(entry.Key, new Variable(entry.Key, newVal, variable.Secret));
+                    }
+                }
+                foreach (var entry in modified)
+                {
+                    var name = entry.Key;
+                    var variable = entry.Value;
+                    _expanded[name] = variable;
+                    _nonexpanded[name] = variable;
+                }
+            }
+        }
+
         public bool TryGetValue(string name, out string val)
         {
             Variable variable;

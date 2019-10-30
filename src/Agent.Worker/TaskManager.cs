@@ -29,7 +29,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         private const int _defaultFileStreamBufferSize = 4096;
 
-        //81920 is the default used by System.IO.Stream.CopyTo and is under the large object heap threshold (85k). 
+        //81920 is the default used by System.IO.Stream.CopyTo and is under the large object heap threshold (85k).
         private const int _defaultCopyBufferSize = 81920;
 
         public async Task DownloadAsync(IExecutionContext executionContext, IEnumerable<Pipelines.JobStep> steps)
@@ -148,7 +148,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Directory.CreateDirectory(tempDirectory);
                 int retryCount = 0;
 
-                // Allow up to 20 * 60s for any task to be downloaded from service. 
+                // Allow up to 20 * 60s for any task to be downloaded from service.
                 // Base on Kusto, the longest we have on the service today is over 850 seconds.
                 // Timeout limit can be overwrite by environment variable
                 if (!int.TryParse(Environment.GetEnvironmentVariable("VSTS_TASK_DOWNLOAD_TIMEOUT") ?? string.Empty, out int timeoutSeconds))
@@ -459,13 +459,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Inputs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         }
 
-        public bool PreferredOnCurrentPlatform()
+        public bool PreferredOnPlatform(PlatformUtil.OS os)
         {
-            if (PlatformUtil.RunningOnWindows)
+            if (os == PlatformUtil.OS.Windows)
             {
-                return Platforms?.Any(x => string.Equals(x, "windows", StringComparison.OrdinalIgnoreCase)) ?? false;
+                return Platforms?.Any(x => string.Equals(x, os.ToString(), StringComparison.OrdinalIgnoreCase)) ?? false;
             }
-
             return false;
         }
 
