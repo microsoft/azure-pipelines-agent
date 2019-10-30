@@ -2,12 +2,9 @@
 // Licensed under the MIT License.
 
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Threading;
 using System.Threading.Tasks;
-using System.Linq;
 using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests

@@ -10,7 +10,6 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipelines.Yaml;
@@ -519,9 +518,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             overlayEnvironment["GIT_TERMINAL_PROMPT"] = "0";
             // Skip any GIT_TRACE variable since GIT_TRACE will affect ouput from every git command.
             // This will fail the parse logic for detect git version, remote url, etc.
-            // Ex. 
+            // Ex.
             //      SET GIT_TRACE=true
-            //      git version 
+            //      git version
             //      11:39:58.295959 git.c:371               trace: built-in: git 'version'
             //      git version 2.11.1.windows.1
             IDictionary currentEnvironment = Environment.GetEnvironmentVariables();
@@ -707,7 +706,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     {
                         using (Stream result = await HttpClient.GetTaskContentZipAsync(task.Id, version, token))
                         {
-                            //81920 is the default used by System.IO.Stream.CopyTo and is under the large object heap threshold (85k). 
+                            //81920 is the default used by System.IO.Stream.CopyTo and is under the large object heap threshold (85k).
                             await result.CopyToAsync(fs, 81920, token);
                             await fs.FlushAsync(token);
                         }

@@ -1,10 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-﻿using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.TeamFoundation.TestClient.PublishTestResults;
 using Microsoft.TeamFoundation.TestManagement.WebApi;
-using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.VisualStudio.Services.Agent.Worker.TestResults;
@@ -12,13 +11,9 @@ using Microsoft.VisualStudio.Services.WebPlatform;
 using Moq;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
@@ -48,7 +43,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             TestDataProvider mockTestRunData = MockParserData();
             _mockParser.Setup(x => x.Name).Returns("mockResults");
             _mockParser.Setup(x => x.ParseTestResultFiles(It.IsAny<IExecutionContext>(), It.IsAny<TestRunContext>(), It.IsAny<List<String>>())).Returns(mockTestRunData);
-            
+
             _mockCustomerIntelligenceServer = new Mock<ICustomerIntelligenceServer>();
             _mockCustomerIntelligenceServer.Setup(x => x.PublishEventsAsync(It.IsAny<CustomerIntelligenceEvent[]>()));
 
@@ -88,7 +83,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         public void Publish_DataIsHonoredWhenTestResultsFieldIsNotSpecified()
         {
             SetupMocks();
-            
+
             var resultCommand = new ResultsCommandExtension();
             resultCommand.Initialize(_hc);
             var command = new Command("results", "publish");
@@ -98,7 +93,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
 
             Assert.Equal(0, _errors.Count());
         }
-        
+
         private List<TestRun> MockTestRun()
         {
             List<TestRun> testRunList = new List<TestRun>();

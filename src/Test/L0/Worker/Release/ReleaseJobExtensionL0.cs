@@ -4,7 +4,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
@@ -122,7 +121,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
             {
                 Directory.CreateDirectory(this.stubWorkFolder);
             }
-            
+
             _ec = new Mock<IExecutionContext>();
 
             _extensionManager = new Mock<IExtensionManager>();

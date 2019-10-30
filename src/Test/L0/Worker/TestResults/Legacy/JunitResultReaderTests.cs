@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-﻿using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults;
 using TestRunContext = Microsoft.TeamFoundation.TestClient.PublishTestResults.TestRunContext;
@@ -74,7 +74,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             + "</testsuite>"
             + "</testsuite>"
             + "</testsuites>";
-            
+
         private const string _sampleJunitResultXmlInvalidTime = "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
             + "<testsuite errors = \"0\" failures=\"0\" hostname=\"achalla-dev\" name=\"test.AllTests\" skipped=\"0\" tests=\"1\" time=\"NaN\" timestamp=\"2015-09-01T10:19:04\">"
             + "<properties>"
@@ -83,7 +83,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             + "<property name = \"sun.java.launcher\" value=\"SUN_STANDARD\" />"
             + "</properties>"
             + "<testcase classname = \"test.ExampleTest\" name=\"Fact\" time=\"NaN\" />"
-            + "<testcase name =\"can be instantiated\" time=\"-Infinity\" classname=\"PhantomJS 2.0.0 (Windows 8).the Admin module\"/>" 
+            + "<testcase name =\"can be instantiated\" time=\"-Infinity\" classname=\"PhantomJS 2.0.0 (Windows 8).the Admin module\"/>"
             + "<system-out><![CDATA[Set Up Complete."
             + "Sample test Successful"
             + "]]></system-out>"

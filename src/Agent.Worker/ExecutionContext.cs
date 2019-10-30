@@ -10,7 +10,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
-using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
@@ -577,7 +576,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
             }
 
-            // write to plugin daemon, 
+            // write to plugin daemon,
             if (_outputForward)
             {
                 if (_logPlugin == null)
@@ -649,7 +648,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     uriBuilder.Path += (Variables.System_TFCollectionUrl.EndsWith("/") ? "" : "/") + "_usersSettings/usage";
                     query["tab"] = "pipelines";
                     query["queryDate"] = queryDate;
-                    
+
                     // Global RU link
                     uriBuilder.Query = query.ToString();
                     string global = StringUtil.Loc("ServerTarpitUrl", uriBuilder.ToString());

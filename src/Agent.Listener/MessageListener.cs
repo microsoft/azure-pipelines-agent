@@ -13,7 +13,6 @@ using System.Threading.Tasks;
 using System.Security.Cryptography;
 using System.IO;
 using System.Text;
-using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.OAuth;
 using System.Diagnostics;
 using System.Runtime.InteropServices;

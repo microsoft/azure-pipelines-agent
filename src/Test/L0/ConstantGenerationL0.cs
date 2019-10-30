@@ -4,7 +4,6 @@
 using System.Collections.Generic;
 using Xunit;
 
-
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
     public sealed class ConstantGenerationL0

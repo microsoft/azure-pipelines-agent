@@ -6,7 +6,6 @@ using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Security.Principal;
 using System.Runtime.InteropServices;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
@@ -14,7 +13,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
     [ServiceLocator(Default = typeof(AutoLogonRegistryManager))]
     public interface IAutoLogonRegistryManager : IAgentService
     {
-        void GetAutoLogonUserDetails(out string domainName, out string userName); 
+        void GetAutoLogonUserDetails(out string domainName, out string userName);
         void UpdateRegistrySettings(CommandSettings command, string domainName, string userName, string logonPassword);
         void ResetRegistrySettings(string domainName, string userName);
         //used to log all the autologon related registry settings when agent is running
@@ -40,8 +39,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             userName = null;
             domainName = null;
 
-            var regValue = _registryManager.GetValue(RegistryHive.LocalMachine, 
-                                                        RegistryConstants.MachineSettings.SubKeys.AutoLogon, 
+            var regValue = _registryManager.GetValue(RegistryHive.LocalMachine,
+                                                        RegistryConstants.MachineSettings.SubKeys.AutoLogon,
                                                         RegistryConstants.MachineSettings.ValueNames.AutoLogon);
             if (int.TryParse(regValue, out int autoLogonEnabled)
                     && autoLogonEnabled == 1)
@@ -49,7 +48,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 userName = _registryManager.GetValue(RegistryHive.LocalMachine,
                                                         RegistryConstants.MachineSettings.SubKeys.AutoLogon,
                                                         RegistryConstants.MachineSettings.ValueNames.AutoLogonUserName);
-                domainName = _registryManager.GetValue(RegistryHive.LocalMachine, 
+                domainName = _registryManager.GetValue(RegistryHive.LocalMachine,
                                                         RegistryConstants.MachineSettings.SubKeys.AutoLogon,
                                                         RegistryConstants.MachineSettings.ValueNames.AutoLogonDomainName);
             }
@@ -64,7 +63,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 string securityId = _windowsServiceHelper.GetSecurityId(domainName, userName);
                 if(string.IsNullOrEmpty(securityId))
                 {
-                    Trace.Error($"Could not find the Security ID for the user '{domainName}\\{userName}'. AutoLogon will not be configured.");                    
+                    Trace.Error($"Could not find the Security ID for the user '{domainName}\\{userName}'. AutoLogon will not be configured.");
                     throw new Exception(StringUtil.Loc("InvalidSIDForUser", domainName, userName));
                 }
 
@@ -105,8 +104,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 Trace.Error($"Could not find the Security ID for the user '{domainName}\\{userName}'. Unconfiguration of AutoLogon is not possible.");
                 throw new Exception(StringUtil.Loc("InvalidSIDForUser", domainName, userName));
             }
-            
-            //machine specific            
+
+            //machine specific
             ResetAutoLogon(domainName, userName);
 
             //user specific
@@ -120,7 +119,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             if (_registryManager.SubKeyExists(RegistryHive.LocalMachine, RegistryConstants.MachineSettings.SubKeys.ShutdownReasonDomainPolicy))
             {
                 var shutDownReasonSubKey = RegistryConstants.MachineSettings.SubKeys.ShutdownReasonDomainPolicy;
-                var shutDownReasonValueName = RegistryConstants.MachineSettings.ValueNames.ShutdownReason;                
+                var shutDownReasonValueName = RegistryConstants.MachineSettings.ValueNames.ShutdownReason;
                 var shutdownReasonValue = _registryManager.GetValue(RegistryHive.LocalMachine, shutDownReasonSubKey, shutDownReasonValueName);
                 Trace.Info($"Shutdown reason domain policy. Subkey - {shutDownReasonSubKey} ValueName - {shutDownReasonValueName} : {shutdownReasonValue}");
             }
@@ -128,17 +127,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 Trace.Info($"Shutdown reason domain policy not found.");
             }
-            
+
             if (_registryManager.SubKeyExists(RegistryHive.LocalMachine, RegistryConstants.MachineSettings.SubKeys.LegalNotice))
             {
                 var legalNoticeSubKey = RegistryConstants.MachineSettings.SubKeys.LegalNotice;
                 var captionValueName = RegistryConstants.MachineSettings.ValueNames.LegalNoticeCaption;
-                //legal caption/text                
+                //legal caption/text
                 var legalNoticeCaption = _registryManager.GetValue(RegistryHive.LocalMachine, legalNoticeSubKey, captionValueName);
                 //we must avoid printing the text/caption in the logs as it is user data
                 var isLegalNoticeCaptionDefined = !string.IsNullOrEmpty(legalNoticeCaption);
                 Trace.Info($"Legal notice caption - Subkey - {legalNoticeSubKey} ValueName - {captionValueName}. Is defined - {isLegalNoticeCaptionDefined}");
-                
+
                 var textValueName = RegistryConstants.MachineSettings.ValueNames.LegalNoticeText;
                 var legalNoticeText =  _registryManager.GetValue(RegistryHive.LocalMachine, legalNoticeSubKey, textValueName);
                 var isLegalNoticeTextDefined = !string.IsNullOrEmpty(legalNoticeCaption);
@@ -165,7 +164,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             var screenSaverPolicySubKeyName = RegistryConstants.UserSettings.SubKeys.ScreenSaverDomainPolicy;
             var screenSaverValueName = RegistryConstants.UserSettings.ValueNames.ScreenSaver;
             if(_registryManager.SubKeyExists(RegistryHive.CurrentUser, screenSaverPolicySubKeyName))
-            {                
+            {
                 var screenSaverSettingValue = _registryManager.GetValue(RegistryHive.CurrentUser, screenSaverPolicySubKeyName, screenSaverValueName);
                 Trace.Info($"Screensaver policy.  SubKey - {screenSaverPolicySubKeyName} ValueName - {screenSaverValueName} : {screenSaverSettingValue} (1- enabled)");
             }
@@ -175,9 +174,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
 
             Trace.Info("****User specific settings****");
-            
+
             var  screenSaverSettingSubKeyName = RegistryConstants.UserSettings.SubKeys.ScreenSaver;
-            var screenSaverSettingValueName = RegistryConstants.UserSettings.ValueNames.ScreenSaver;            
+            var screenSaverSettingValueName = RegistryConstants.UserSettings.ValueNames.ScreenSaver;
             var screenSaverValue = _registryManager.GetValue(RegistryHive.CurrentUser, screenSaverSettingSubKeyName, screenSaverSettingValueName);
             Trace.Info($"Screensaver - SubKey - {screenSaverSettingSubKeyName}, ValueName - {screenSaverSettingValueName} : {screenSaverValue} (0-disabled, 1-enabled)");
 
@@ -191,12 +190,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         private void ResetAutoLogon(string domainName, string userName)
         {
-            var actualDomainNameForAutoLogon = _registryManager.GetValue(RegistryHive.LocalMachine, 
+            var actualDomainNameForAutoLogon = _registryManager.GetValue(RegistryHive.LocalMachine,
                                                                             RegistryConstants.MachineSettings.SubKeys.AutoLogon,
                                                                             RegistryConstants.MachineSettings.ValueNames.AutoLogonDomainName);
 
-            var actualUserNameForAutoLogon = _registryManager.GetValue(RegistryHive.LocalMachine, 
-                                                                            RegistryConstants.MachineSettings.SubKeys.AutoLogon, 
+            var actualUserNameForAutoLogon = _registryManager.GetValue(RegistryHive.LocalMachine,
+                                                                            RegistryConstants.MachineSettings.SubKeys.AutoLogon,
                                                                             RegistryConstants.MachineSettings.ValueNames.AutoLogonUserName);
 
             if (string.Equals(actualDomainNameForAutoLogon, domainName, StringComparison.CurrentCultureIgnoreCase)
@@ -239,32 +238,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             if (_registryManager.SubKeyExists(RegistryHive.LocalMachine, RegistryConstants.MachineSettings.SubKeys.ShutdownReasonDomainPolicy))
             {
                 //shutdown reason
-                var shutdownReasonValue = _registryManager.GetValue(RegistryHive.LocalMachine, 
-                                                                        RegistryConstants.MachineSettings.SubKeys.ShutdownReasonDomainPolicy, 
+                var shutdownReasonValue = _registryManager.GetValue(RegistryHive.LocalMachine,
+                                                                        RegistryConstants.MachineSettings.SubKeys.ShutdownReasonDomainPolicy,
                                                                         RegistryConstants.MachineSettings.ValueNames.ShutdownReason);
-                if (int.TryParse(shutdownReasonValue, out int shutdownReasonOn) 
+                if (int.TryParse(shutdownReasonValue, out int shutdownReasonOn)
                         && shutdownReasonOn == 1)
                 {
                     warningReasons.Add(StringUtil.Loc("AutoLogonPolicies_ShutdownReason"));
                 }
             }
 
-            
+
             if (_registryManager.SubKeyExists(RegistryHive.LocalMachine, RegistryConstants.MachineSettings.SubKeys.LegalNotice))
             {
                 //legal caption/text
-                var legalNoticeCaption = _registryManager.GetValue(RegistryHive.LocalMachine, 
+                var legalNoticeCaption = _registryManager.GetValue(RegistryHive.LocalMachine,
                                                                     RegistryConstants.MachineSettings.SubKeys.LegalNotice,
                                                                     RegistryConstants.MachineSettings.ValueNames.LegalNoticeCaption);
-                var legalNoticeText =  _registryManager.GetValue(RegistryHive.LocalMachine, 
-                                                                    RegistryConstants.MachineSettings.SubKeys.LegalNotice, 
+                var legalNoticeText =  _registryManager.GetValue(RegistryHive.LocalMachine,
+                                                                    RegistryConstants.MachineSettings.SubKeys.LegalNotice,
                                                                     RegistryConstants.MachineSettings.ValueNames.LegalNoticeText);
                 if (!string.IsNullOrEmpty(legalNoticeCaption) || !string.IsNullOrEmpty(legalNoticeText))
                 {
                     warningReasons.Add(StringUtil.Loc("AutoLogonPolicies_LegalNotice"));
                 }
             }
-            
+
             if (warningReasons.Count > 0)
             {
                 Trace.Warning("Following policies may affect the autologon:");
@@ -283,7 +282,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         {
             //User specific
             UpdateScreenSaverSettings(command, securityId);
-            
+
             //User specific
             string subKeyName = $"{securityId}\\{RegistryConstants.UserSettings.SubKeys.StartupProcess}";
             _registryManager.SetValue(RegistryHive.Users, subKeyName, RegistryConstants.UserSettings.ValueNames.StartupProcess, GetStartupCommand());
@@ -296,7 +295,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             string subKeyName = $"{securityId}\\{RegistryConstants.UserSettings.SubKeys.ScreenSaverDomainPolicy}";
             if(_registryManager.SubKeyExists(RegistryHive.Users, subKeyName))
-            {            
+            {
                 var screenSaverValue = _registryManager.GetValue(RegistryHive.Users, subKeyName, RegistryConstants.UserSettings.ValueNames.ScreenSaver);
                 if (int.TryParse(screenSaverValue, out int isScreenSaverDomainPolicySet)
                         && isScreenSaverDomainPolicySet == 1)
@@ -316,13 +315,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 var nameForTheBackupValue = GetBackupValueName(screenSaverValueName);
                 _registryManager.SetValue(RegistryHive.Users, screenSaverSubKeyName, nameForTheBackupValue, origValue);
             }
-            
+
             _registryManager.SetValue(RegistryHive.Users, screenSaverSubKeyName, screenSaverValueName, "0");
         }
 
         private string GetStartupCommand()
         {
-            //startup process            
+            //startup process
             string cmdExePath = Environment.GetEnvironmentVariable("comspec");
             if (string.IsNullOrEmpty(cmdExePath))
             {
@@ -334,7 +333,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             var filePath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), "run.cmd");
 
             //extra " are to handle the spaces in the file path (if any)
-            var startupCommand = $@"{cmdExePath} /D /S /C start ""Agent with AutoLogon"" ""{filePath}"" --startuptype autostartup";            
+            var startupCommand = $@"{cmdExePath} /D /S /C start ""Agent with AutoLogon"" ""{filePath}"" --startuptype autostartup";
             Trace.Info($"Agent auto logon startup command: '{startupCommand}'");
 
             return startupCommand;
@@ -345,7 +344,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             var targetHive = RegistryHive.Users;
 
             DeleteStartupCommand(targetHive, securityId);
-            
+
             var screenSaverSubKey = $"{securityId}\\{RegistryConstants.UserSettings.SubKeys.ScreenSaver}";
             var currentValue = _registryManager.GetValue(targetHive, screenSaverSubKey, RegistryConstants.UserSettings.ValueNames.ScreenSaver);
 
@@ -381,7 +380,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         {
             var nameofTheBackupValue = GetBackupValueName(name);
             var originalValue = _registryManager.GetValue(targetHive, subKeyName, nameofTheBackupValue);
-            
+
             Trace.Info($"Reverting the registry setting. Hive - {targetHive}, subKeyName - {subKeyName}, name - {name}");
             if (string.IsNullOrEmpty(originalValue))
             {
@@ -428,7 +427,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 public const string AutoLogonCount = "AutoLogonCount";
                 public const string AutoLogonPassword = "DefaultPassword";
 
-                public const string ShutdownReason = "ShutdownReasonOn";                
+                public const string ShutdownReason = "ShutdownReasonOn";
                 public const string LegalNoticeCaption = "LegalNoticeCaption";
                 public const string LegalNoticeText = "LegalNoticeText";
             }

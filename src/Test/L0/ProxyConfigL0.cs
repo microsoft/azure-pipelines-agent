@@ -7,7 +7,6 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Xunit;
-using System;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {

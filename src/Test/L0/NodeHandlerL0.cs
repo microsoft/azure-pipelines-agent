@@ -4,10 +4,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
-using Microsoft.VisualStudio.Services.Agent;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
@@ -166,7 +164,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         {
             return new TestHostContext(this, testName);
         }
-        
+
         private IExecutionContext CreateTestExecutionContext(TestHostContext tc,
             Dictionary<string, VariableValue> variables = null)
         {

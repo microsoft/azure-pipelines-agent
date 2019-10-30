@@ -3,7 +3,6 @@
 
 using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
-using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Moq;
 using System;

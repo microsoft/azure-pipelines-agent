@@ -19,7 +19,6 @@ using Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage;
 using Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts.Definition;
 using Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEngine;
 using Microsoft.VisualStudio.Services.Agent.Worker.Maintenance;
-using Microsoft.TeamFoundation.TestManagement.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
@@ -137,7 +136,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                         attribute
                         .NamedArguments
                         .SingleOrDefault(x => String.Equals(x.MemberName, argName, StringComparison.Ordinal));
-                    
+
                     if (arg.TypedValue.Value is null && !argName.Equals(nameof(ServiceLocatorAttribute.Default)))
                     {
                         // a non-"Default" attribute isn't present, which is OK

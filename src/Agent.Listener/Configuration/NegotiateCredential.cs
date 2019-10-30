@@ -3,7 +3,6 @@
 
 using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Microsoft.VisualStudio.Services.Client;
 using Microsoft.VisualStudio.Services.Common;
 using System;
 using System.Net;

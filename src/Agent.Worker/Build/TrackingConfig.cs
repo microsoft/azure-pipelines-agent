@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
-using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Newtonsoft.Json;
 using System;
 using System.ComponentModel;

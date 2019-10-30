@@ -1,11 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Xunit;
 using Agent.Sdk;

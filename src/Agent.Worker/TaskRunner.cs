@@ -12,7 +12,6 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
-using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {

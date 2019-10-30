@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-﻿using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Build;
@@ -11,7 +11,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using Xunit;
@@ -141,11 +140,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             {
                 // Arrange.
                 // It doesn't matter for this test whether the line endings are CRLF or just LF.
-                const string Contents = @"{ 
-    ""system"" : ""build"", 
-    ""collectionId"" = ""7aee6dde-6381-4098-93e7-50a8264cf066"", 
-    ""definitionId"" = ""7"", 
-    ""repositoryUrl"" = ""http://contoso:8080/tfs/DefaultCollection/_git/gitTest"", 
+                const string Contents = @"{
+    ""system"" : ""build"",
+    ""collectionId"" = ""7aee6dde-6381-4098-93e7-50a8264cf066"",
+    ""definitionId"" = ""7"",
+    ""repositoryUrl"" = ""http://contoso:8080/tfs/DefaultCollection/_git/gitTest"",
     ""sourceFolder"" = ""C:\VsoTest\onprem\Agent\_work\b00335b6"",
     ""hashKey"" = ""b00335b6923adfa64f46f3abb7da1cdc0d9bae6c""
 }";
@@ -178,11 +177,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             {
                 // Arrange.
                 // It doesn't matter for this test whether the line endings are CRLF or just LF.
-                const string Contents = @"{ 
-    ""system"" : ""build"", 
-    ""collectionId"" = ""7aee6dde-6381-4098-93e7-50a8264cf066"", 
-    ""definitionId"" = ""7"", 
-    ""repositoryUrl"" = ""http://contoso:8080/tfs/DefaultCollection/_git/gitTest"", 
+                const string Contents = @"{
+    ""system"" : ""build"",
+    ""collectionId"" = ""7aee6dde-6381-4098-93e7-50a8264cf066"",
+    ""definitionId"" = ""7"",
+    ""repositoryUrl"" = ""http://contoso:8080/tfs/DefaultCollection/_git/gitTest"",
     ""sourceFolder"" = ""C:\VsoTest\onprem\Agent\_work\b00335b6"",
     ""hashKey"" = """"
 }";
@@ -209,11 +208,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             {
                 // Arrange.
                 // It doesn't matter for this test whether the line endings are CRLF or just LF.
-                string contents = @"{ 
-    ""system"" : ""build"", 
-    ""collectionId"" = ""7aee6dde-6381-4098-93e7-50a8264cf066"", 
-    ""definitionId"" = ""7"", 
-    ""repositoryUrl"" = ""http://contoso:8080/tfs/DefaultCollection/_git/gitTest"", 
+                string contents = @"{
+    ""system"" : ""build"",
+    ""collectionId"" = ""7aee6dde-6381-4098-93e7-50a8264cf066"",
+    ""definitionId"" = ""7"",
+    ""repositoryUrl"" = ""http://contoso:8080/tfs/DefaultCollection/_git/gitTest"",
     ""sourceFolder"" = ""C:\VsoTest\onprem\Agent\_work\b00335b6"",
     ""hashKey"" = ""b00335b6923adfa64f46f3abb7da1cdc0d9bae6c""
 }";
@@ -418,10 +417,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 // Arrange.
                 // It doesn't matter for this test whether the line endings are CRLF or just LF.
                 const string TrackingContents = @"{
-    ""system"" : ""build"", 
-    ""collectionId"" = ""7aee6dde-6381-4098-93e7-50a8264cf066"", 
-    ""definitionId"" = ""7"", 
-    ""repositoryUrl"" = ""http://contoso:8080/tfs/DefaultCollection/_git/gitTest"", 
+    ""system"" : ""build"",
+    ""collectionId"" = ""7aee6dde-6381-4098-93e7-50a8264cf066"",
+    ""definitionId"" = ""7"",
+    ""repositoryUrl"" = ""http://contoso:8080/tfs/DefaultCollection/_git/gitTest"",
     ""sourceFolder"" = ""C:\VsoTest\onprem\Agent\_work\b00335b6"",
     ""hashKey"" = ""b00335b6923adfa64f46f3abb7da1cdc0d9bae6c""
 }";

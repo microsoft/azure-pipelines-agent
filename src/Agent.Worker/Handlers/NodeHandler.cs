@@ -9,7 +9,6 @@ using System.Threading.Tasks;
 using System;
 using Newtonsoft.Json.Linq;
 using System.Text.RegularExpressions;
-using PlatformUtil = Agent.Sdk.PlatformUtil;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
@@ -96,7 +95,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             // however the implementation is added in node 6.x, the implementation in vsts-task-lib is different.
             // node 6.x's implementation takes 2 parameters str.endsWith(searchString[, length]) / str.startsWith(searchString[, length])
             // the implementation vsts-task-lib had only takes one parameter str.endsWith(searchString) / str.startsWith(searchString).
-            // as long as vsts-task-lib be loaded into memory, it will overwrite the implementation node 6.x has, 
+            // as long as vsts-task-lib be loaded into memory, it will overwrite the implementation node 6.x has,
             // so any script that use the second parameter (length) will encounter unexpected result.
             // to avoid customer hit this error, we will modify the file (extensions.js) under vsts-task-lib module folder when customer choose to use Node 6.x
             Trace.Info("Inspect node_modules folder, make sure vsts-task-lib doesn't overwrite String.startsWith/endsWith.");

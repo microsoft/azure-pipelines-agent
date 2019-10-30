@@ -2,14 +2,12 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
-using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Newtonsoft.Json;
 using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Globalization;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
@@ -172,7 +170,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     // The repository type and sources folder wasn't stored in the legacy format - only the
                     // build folder was stored. Since the hash key has changed, it is
                     // unknown what the source folder was named. Just set the folder name
-                    // to "s" so the property isn't left blank. 
+                    // to "s" so the property isn't left blank.
                     repositoryType: string.Empty,
                     sourcesDirectoryNameOnly: Constants.Build.Path.SourcesDirectory);
             }

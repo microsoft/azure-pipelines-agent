@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-﻿using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.TeamFoundation.TestClient.PublishTestResults;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.TestResults;
@@ -65,7 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             TestDataProvider runDataProvider = reader.ParseTestResultFiles(_ec.Object, runContext, new List<string> { _resultFile });
             List<TestRunData> runData = runDataProvider.GetTestRunData();
 
-            
+
             Assert.Equal(runData[0].TestResults.Count, 3);
             Assert.Equal(runData[0].TestResults[0].Outcome, "NotExecuted");
             Assert.Equal(runData[0].TestResults[0].TestCaseTitle, "TestMethod2");
