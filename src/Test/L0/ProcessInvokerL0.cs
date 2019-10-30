@@ -85,6 +85,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
+        [Trait("SkipOn", "windows")]
         public async Task TestCancel()
         {
             const int SecondsToRun = 20;
@@ -95,9 +96,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 var processInvoker = new ProcessInvokerWrapper();
                 processInvoker.Initialize(hc);
                 Stopwatch watch = Stopwatch.StartNew();
-                Task execTask = (TestUtil.IsWindows())
-                    ? processInvoker.ExecuteAsync("", "cmd.exe", $"/c \"choice /T {SecondsToRun} /D y\"", null, tokenSource.Token)
-                    : processInvoker.ExecuteAsync("", "bash", $"-c \"sleep {SecondsToRun}s\"", null, tokenSource.Token);
+                Task execTask = processInvoker.ExecuteAsync("", "bash", $"-c \"sleep {SecondsToRun}s\"", null, tokenSource.Token);
 
                 await Task.Delay(500);
                 tokenSource.Cancel();
