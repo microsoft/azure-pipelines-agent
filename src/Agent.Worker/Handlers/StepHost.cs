@@ -117,7 +117,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 return false; // this should not happen, but just in case bad data got into MountVolumes, we do not want to throw an exception here
             }))
             {
-                return Container.TranslateContainerPathForImageOS(PlatformUtil.RunningOnOS, Container.TranslateToContainerPath(path));
+                return Container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, Container.TranslateToContainerPath(path));
             }
             else
             {
@@ -181,7 +181,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 node = Container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "node", "bin", $"node{IOUtil.ExeExtension}"));
             }
 
-            string entryScript = Container.TranslateContainerPathForImageOS(PlatformUtil.RunningOnOS, Container.TranslateToContainerPath(targetEntryScript));
+            string entryScript = Container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, Container.TranslateToContainerPath(targetEntryScript));
 
             string userArgs = "";
             if (!PlatformUtil.RunningOnWindows)

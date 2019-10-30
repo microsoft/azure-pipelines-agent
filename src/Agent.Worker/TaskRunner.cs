@@ -95,7 +95,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 legacyPShandler.Platforms = null;
             }
 
-            var targetOs = PlatformUtil.RunningOnOS;
+            var targetOs = PlatformUtil.HostOS;
             if (ExecutionContext.Container != null)
             {
                 targetOs = ExecutionContext.Container.ImageOS;
@@ -111,7 +111,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 if (PlatformUtil.RunningOnWindows)
                 {
-                    throw new Exception(StringUtil.Loc("SupportedTaskHandlerNotFoundWindows", $"{PlatformUtil.RunningOnOS}({PlatformUtil.RunningOnArchitecture})"));
+                    throw new Exception(StringUtil.Loc("SupportedTaskHandlerNotFoundWindows", $"{PlatformUtil.HostOS}({PlatformUtil.HostArchitecture})"));
                 }
 
                 throw new Exception(StringUtil.Loc("SupportedTaskHandlerNotFoundLinux"));
@@ -142,7 +142,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 else if (handlerData is NodeHandlerData || handlerData is Node10HandlerData || handlerData is PowerShell3HandlerData)
                 {
-                    // Only the node, node10, and powershell3 handlers support running inside container. 
+                    // Only the node, node10, and powershell3 handlers support running inside container.
                     // Make sure required container is already created.
                     ArgUtil.NotNullOrEmpty(ExecutionContext.Container.ContainerId, nameof(ExecutionContext.Container.ContainerId));
                     var containerStepHost = HostContext.CreateService<IContainerStepHost>();
@@ -317,13 +317,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
             }
 
-            if (ExecutionContext.Container != null && targetOs != PlatformUtil.RunningOnOS )
+            if (ExecutionContext.Container != null && targetOs != PlatformUtil.HostOS )
             {
                 // translate inputs
                 Dictionary<string,string> newInputs = new Dictionary<string, string>();
                 foreach (var entry in inputs)
                 {
-                    newInputs[entry.Key] = ExecutionContext.Container.TranslateContainerPathForImageOS(PlatformUtil.RunningOnOS, entry.Value);
+                    newInputs[entry.Key] = ExecutionContext.Container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, entry.Value);
                 }
                 inputs = newInputs;
             }

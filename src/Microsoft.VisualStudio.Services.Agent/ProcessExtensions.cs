@@ -15,7 +15,7 @@ namespace Microsoft.VisualStudio.Services.Agent
     {
         public static string GetEnvironmentVariable(this Process process, IHostContext hostContext, string variable)
         {
-            switch (PlatformUtil.RunningOnOS)
+            switch (PlatformUtil.HostOS)
             {
                 case PlatformUtil.OS.Linux:
                     return GetEnvironmentVariableLinux(process, hostContext, variable);
@@ -25,7 +25,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     return WindowsEnvVarHelper.GetEnvironmentVariable(process, hostContext, variable);
             }
 
-            throw new NotImplementedException($"Cannot look up environment variables on {PlatformUtil.RunningOnOS}");
+            throw new NotImplementedException($"Cannot look up environment variables on {PlatformUtil.HostOS}");
         }
 
         private static string GetEnvironmentVariableLinux(Process process, IHostContext hostContext, string variable)

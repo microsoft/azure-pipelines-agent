@@ -28,6 +28,14 @@ namespace Agent.Sdk
         public ContainerInfo()
         {
             this.IsJobContainer = true;
+            if (PlatformUtil.RunningOnWindows)
+            {
+                _pathMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            }
+            else
+            {
+                _pathMappings = new Dictionary<string, string>();
+            }
         }
 
         public ContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true)
@@ -45,7 +53,7 @@ namespace Agent.Sdk
             _environmentVariables = container.Environment != null ? new Dictionary<string, string>(container.Environment) : new Dictionary<string, string>();
             this.ContainerCommand = container.Properties.Get<string>("command", defaultValue: "");
             this.IsJobContainer = isJobContainer;
-            this._imageOS = PlatformUtil.RunningOnOS;
+            this._imageOS = PlatformUtil.HostOS;
            _pathMappings = new Dictionary<string, string>( PlatformUtil.RunningOnWindows ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
 
             if (container.Ports?.Count > 0)
@@ -78,7 +86,7 @@ namespace Agent.Sdk
         public string CurrentUserName { get; set; }
         public string CurrentUserId { get; set; }
         public bool IsJobContainer { get; set; }
-        public PlatformUtil.OS ImageOS { 
+        public PlatformUtil.OS ImageOS {
             get
             {
                 return _imageOS;
@@ -193,20 +201,18 @@ namespace Agent.Sdk
         {
             if (!string.IsNullOrEmpty(path))
             {
+                var comparison = PlatformUtil.RunningOnWindows
+                    ? StringComparison.OrdinalIgnoreCase
+                    : StringComparison.Ordinal;
                 foreach (var mapping in _pathMappings)
                 {
-                    StringComparison comparer = StringComparison.Ordinal;
-                    if (PlatformUtil.RunningOnWindows)
-                    {
-                        comparer = StringComparison.OrdinalIgnoreCase;
-                    }
-                    if (string.Equals(path, mapping.Key, comparer))
+                    if (string.Equals(path, mapping.Key, comparison))
                     {
                         return mapping.Value;
                     }
 
-                    if (path.StartsWith(mapping.Key + Path.DirectorySeparatorChar, comparer) ||
-                        path.StartsWith(mapping.Key + Path.AltDirectorySeparatorChar, comparer))
+                    if (path.StartsWith(mapping.Key + Path.DirectorySeparatorChar, comparison) ||
+                        path.StartsWith(mapping.Key + Path.AltDirectorySeparatorChar, comparison))
                     {
                         return mapping.Value + path.Remove(0, mapping.Key.Length);
                     }
@@ -220,23 +226,19 @@ namespace Agent.Sdk
         {
             if (!string.IsNullOrEmpty(path))
             {
-                
-                //path = TranslateContainerPathForImageOS(PlatformUtil.RunningOnOS, path);
+                var comparison = PlatformUtil.RunningOnWindows
+                    ? StringComparison.OrdinalIgnoreCase
+                    : StringComparison.Ordinal;
                 foreach (var mapping in _pathMappings)
                 {
                     string retval = null;
-                    StringComparison comparer = StringComparison.Ordinal;
-                    if (PlatformUtil.RunningOnWindows)
-                    {
-                        comparer = StringComparison.OrdinalIgnoreCase;
-                    }
 
-                    if (string.Equals(path, mapping.Value, comparer))
+                    if (string.Equals(path, mapping.Value, comparison))
                     {
                         retval = mapping.Key;
                     }
-                    else if (path.StartsWith(mapping.Value + Path.DirectorySeparatorChar, comparer) ||
-                             path.StartsWith(mapping.Value + Path.AltDirectorySeparatorChar, comparer))
+                    else if (path.StartsWith(mapping.Value + Path.DirectorySeparatorChar, comparison) ||
+                             path.StartsWith(mapping.Value + Path.AltDirectorySeparatorChar, comparison))
                     {
                         retval = mapping.Key + path.Remove(0, mapping.Value.Length);
                     }
