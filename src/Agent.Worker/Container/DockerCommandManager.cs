@@ -143,7 +143,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                 // replace `"` with `\"` and add `"{0}"` to all path.
                 String volumeArg;
                 String targetVolume = container.TranslateContainerPathForImageOS(PlatformUtil.RunningOnOS, volume.TargetVolumePath).Replace("\"", "\\\"");
-                
+
                 if (String.IsNullOrEmpty(volume.SourceVolumePath))
                 {
                     // Anonymous docker volume

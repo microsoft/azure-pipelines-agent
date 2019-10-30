@@ -16,7 +16,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Net.Http;
 using Newtonsoft.Json.Linq;
-using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -447,8 +446,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // the scheme://hostname:port (how the agent knows the server) is external to our server
         // in other words, an agent may have it's own way (DNS, hostname) of refering
         // to the server.  it owns that.  That's the scheme://hostname:port we will use.
-        // Example: Server's notification url is http://tfsserver:8080/tfs 
-        //          Agent config url is https://tfsserver.mycompany.com:9090/tfs 
+        // Example: Server's notification url is http://tfsserver:8080/tfs
+        //          Agent config url is https://tfsserver.mycompany.com:9090/tfs
         private Uri ReplaceWithConfigUriBase(Uri messageUri)
         {
             AgentSettings settings = HostContext.GetService<IConfigurationStore>().GetSettings();

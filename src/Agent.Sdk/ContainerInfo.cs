@@ -31,7 +31,7 @@ namespace Agent.Sdk
         }
 
         public ContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true)
-        { 
+        {
             this.ContainerName = container.Alias;
 
             string containerImage = container.Properties.Get<string>("image");
@@ -294,7 +294,7 @@ namespace Agent.Sdk
         {
 
         }
-                
+
         public MountVolume(string sourceVolumePath, string targetVolumePath, bool readOnly = false)
         {
             this.SourceVolumePath = sourceVolumePath;
@@ -310,7 +310,7 @@ namespace Agent.Sdk
         private static Regex autoEscapeWindowsDriveRegex = new Regex(@"(^|:)([a-zA-Z]):(\\|/)", RegexOptions.Compiled);
         private string AutoEscapeWindowsDriveInPath(string path)
         {
-            
+
             return autoEscapeWindowsDriveRegex.Replace(path, @"$1$2\:$3");
         }
 
@@ -325,6 +325,14 @@ namespace Agent.Sdk
                 ReadOnly = true;
                 volume = volume.Remove(volume.Length-readonlyToken.Length);
             }
+            // for completeness, in case someone explicitly added :rw in the volume mapping, we should strip it as well
+            string readWriteToken = ":rw";
+            if (volume.ToLower().EndsWith(readWriteToken))
+            {
+                ReadOnly = false;
+                volume = volume.Remove(volume.Length-readWriteToken.Length);
+            }
+
             if (volume.StartsWith(":"))
             {
                 volume = volume.Substring(1);
@@ -354,11 +362,13 @@ namespace Agent.Sdk
                 }
             }
 
-            if (volumes.Count == 2)
+            if (volumes.Count >= 2)
             {
                 // source:target
                 SourceVolumePath = volumes[0];
                 TargetVolumePath = volumes[1];
+                // if volumes.Count > 2 here, we should log something that says we ignored options passed in.
+                // for now, do nothing in order to remain backwards compatable.
             }
             else
             {
@@ -398,7 +408,7 @@ namespace Agent.Sdk
         {
 
         }
-        
+
         public DockerVersion(Version serverVersion, Version clientVersion)
         {
             this.ServerVersion = serverVersion;

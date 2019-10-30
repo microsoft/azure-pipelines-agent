@@ -63,7 +63,7 @@ function acquireExternalTool() {
             #      -S Show error. With -s, make curl show errors when they occur
             #      -L Follow redirects (H)
             #      -o FILE    Write to FILE instead of stdout
-            curl -fkSL -o "$partial_target" "$download_source" 2>"${download_target}_download.log" || checkRC 'curl'
+            curl --retry 10 -fkSL -o "$partial_target" "$download_source" 2>"${download_target}_download.log" || checkRC 'curl'
 
             # Move the partial file to the download target.
             mv "$partial_target" "$download_target" || checkRC 'mv'
@@ -177,5 +177,5 @@ fi
 
 if [[ "$PACKAGERUNTIME" == "linux-arm" ]]; then
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-armv7l.tar.gz" node fix_nested_dir
-    acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-linux-armv7l.tar.gz" node10 fix_nested_dir	
+    acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-linux-armv7l.tar.gz" node10 fix_nested_dir
 fi
