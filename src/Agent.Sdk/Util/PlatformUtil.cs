@@ -71,30 +71,34 @@ namespace Agent.Sdk
 
         private static void DetectRHEL6()
         {
-            if (!RunningOnLinux || !File.Exists("/etc/redhat-release"))
+            lock (detectedRHEL6lock)
             {
-                detectedRHEL6 = false;
-            }
-            else
-            {
-                try
+                if (!RunningOnLinux || !File.Exists("/etc/redhat-release"))
                 {
-                    string redhatVersion = File.ReadAllText("/etc/redhat-release");
-                    if (redhatVersion.StartsWith("CentOS release 6.")
-                        || redhatVersion.StartsWith("Red Hat Enterprise Linux Server release 6."))
-                    {
-                        detectedRHEL6 = true;
-                    }
-                }
-                catch (IOException)
-                {
-                    // IOException indicates we couldn't read that file; probably not RHEL6
                     detectedRHEL6 = false;
+                }
+                else
+                {
+                    try
+                    {
+                        string redhatVersion = File.ReadAllText("/etc/redhat-release");
+                        if (redhatVersion.StartsWith("CentOS release 6.")
+                            || redhatVersion.StartsWith("Red Hat Enterprise Linux Server release 6."))
+                        {
+                            detectedRHEL6 = true;
+                        }
+                    }
+                    catch (IOException)
+                    {
+                        // IOException indicates we couldn't read that file; probably not RHEL6
+                        detectedRHEL6 = false;
+                    }
                 }
             }
         }
 
         private static bool? detectedRHEL6 = null;
+        private static object detectedRHEL6lock = new object();
 
         public static Architecture HostArchitecture
         {
