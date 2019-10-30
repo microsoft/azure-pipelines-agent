@@ -44,27 +44,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
             List<MountVolumeTest> tests = new List<MountVolumeTest>
             {
                 // Unix style paths
-                new MountVolumeTest("/dst/dir", new MountVolume(null, "/dst/dir", false), "Maps anonymous Docker volume into target dir"), 
-                new MountVolumeTest("/src/dir:/dst/dir", new MountVolume("/src/dir", "/dst/dir", false), "Maps source to target dir"), 
-                new MountVolumeTest("/dst/dir:ro", new MountVolume(null, "/dst/dir", true), "Maps anonymous Docker volume read-only into target dir"), 
-                new MountVolumeTest("/src/dir:/dst/dir:ro", new MountVolume("/src/dir", "/dst/dir", true), "Maps source to read-only target dir"), 
-                new MountVolumeTest(":/dst/dir", new MountVolume(null, "/dst/dir", false), "Maps anonymous Docker volume into target dir with leading colon"), 
-                new MountVolumeTest("/c/src/dir:/c/dst/dir", new MountVolume("/c/src/dir", "/c/dst/dir", false), "Maps source to target dir prefixed with /c/"), 
-                new MountVolumeTest("/src/dir\\:with\\:escaped\\:colons:/dst/dir\\:with\\:escaped\\:colons", new MountVolume("/src/dir:with:escaped:colons", "/dst/dir:with:escaped:colons", false), "Maps source to target dir prefixed with escaped colons"), 
+                new MountVolumeTest("/dst/dir", new MountVolume(null, "/dst/dir", false), "Maps anonymous Docker volume into target dir"),
+                new MountVolumeTest("/src/dir:/dst/dir", new MountVolume("/src/dir", "/dst/dir", false), "Maps source to target dir"),
+                new MountVolumeTest("/dst/dir:ro", new MountVolume(null, "/dst/dir", true), "Maps anonymous Docker volume read-only into target dir"),
+                new MountVolumeTest("/dst/dir:rw", new MountVolume(null, "/dst/dir", false), "Maps anonymous Docker volume read-write into target dir"),
+                new MountVolumeTest("/src/dir:/dst/dir:ro", new MountVolume("/src/dir", "/dst/dir", true), "Maps source to read-only target dir"),
+                new MountVolumeTest(":/dst/dir", new MountVolume(null, "/dst/dir", false), "Maps anonymous Docker volume into target dir with leading colon"),
+                new MountVolumeTest("/c/src/dir:/c/dst/dir", new MountVolume("/c/src/dir", "/c/dst/dir", false), "Maps source to target dir prefixed with /c/"),
+                new MountVolumeTest("/src/dir\\:with\\:escaped\\:colons:/dst/dir\\:with\\:escaped\\:colons", new MountVolume("/src/dir:with:escaped:colons", "/dst/dir:with:escaped:colons", false), "Maps source to target dir prefixed with escaped colons"),
+                new MountVolumeTest("/src/dir:/dst/dir:rw", new MountVolume("/src/dir", "/dst/dir", false), "Maps source to explicit read-write target dir"),
+                new MountVolumeTest("/src/dir:/dst/dir:garbage", new MountVolume("/src/dir", "/dst/dir", false), "Maps source to target dir with bad options"),
+
 
                 // Windows style paths
-                new MountVolumeTest("c:\\dst\\dir", new MountVolume(null, "c:\\dst\\dir", false), "Maps anonymous Docker volume into target dir using Windows-style paths"), 
-                new MountVolumeTest("c:\\src\\dir:c:\\dst\\dir", new MountVolume("c:\\src\\dir", "c:\\dst\\dir", false), "Maps source to target dir using Windows-style paths"), 
-                new MountVolumeTest("c:\\dst\\dir:ro", new MountVolume(null, "c:\\dst\\dir", true), "Maps anonymous Docker volume read-only into target dir using Windows-style paths"), 
-                new MountVolumeTest("c:\\src\\dir:c:\\dst\\dir:ro", new MountVolume("c:\\src\\dir", "c:\\dst\\dir", true), "Maps source to read-only target dir using Windows-style paths"), 
-                new MountVolumeTest("c\\:\\src\\dir:c\\:\\dst\\dir:ro", new MountVolume("c:\\src\\dir", "c:\\dst\\dir", true), "Maps source to read-only target dir using Windows-style paths and explicit escape"), 
+                new MountVolumeTest("c:\\dst\\dir", new MountVolume(null, "c:\\dst\\dir", false), "Maps anonymous Docker volume into target dir using Windows-style paths"),
+                new MountVolumeTest("c:\\src\\dir:c:\\dst\\dir", new MountVolume("c:\\src\\dir", "c:\\dst\\dir", false), "Maps source to target dir using Windows-style paths"),
+                new MountVolumeTest("c:\\dst\\dir:ro", new MountVolume(null, "c:\\dst\\dir", true), "Maps anonymous Docker volume read-only into target dir using Windows-style paths"),
+                new MountVolumeTest("c:\\dst\\dir:rw", new MountVolume(null, "c:\\dst\\dir", false), "Maps anonymous Docker volume read-write into target dir using Windows-style paths"),
+                new MountVolumeTest("c:\\src\\dir:c:\\dst\\dir:ro", new MountVolume("c:\\src\\dir", "c:\\dst\\dir", true), "Maps source to read-only target dir using Windows-style paths"),
+                new MountVolumeTest("c\\:\\src\\dir:c\\:\\dst\\dir:ro", new MountVolume("c:\\src\\dir", "c:\\dst\\dir", true), "Maps source to read-only target dir using Windows-style paths and explicit escape"),
+                new MountVolumeTest("c:\\src\\dir:c:\\dst\\dir:rw", new MountVolume("c:\\src\\dir", "c:\\dst\\dir", false), "Maps source to explicit read-write target dir using Windows-style paths"),
+                new MountVolumeTest("c:\\src\\dir:c:\\dst\\dir:garbage", new MountVolume("c:\\src\\dir", "c:\\dst\\dir", false), "Maps source to target dir using Windows-style paths with bad options"),
+
             };
 
             foreach (var test in tests)
             {
                 test.run();
             }
-        
+
         }
 
         [Fact]

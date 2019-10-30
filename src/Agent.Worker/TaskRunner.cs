@@ -59,7 +59,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var handlerFactory = HostContext.GetService<IHandlerFactory>();
 
             // Set the task id and display name variable.
-            using (var scope =  ExecutionContext.Variables.CreateScope()) 
+            using (var scope =  ExecutionContext.Variables.CreateScope())
             {
                 scope.Set(Constants.Variables.Task.DisplayName, DisplayName);
                 scope.Set(WellKnownDistributedTaskVariables.TaskInstanceId, Task.Id.ToString("D"));
@@ -97,16 +97,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     legacyPShandler.Platforms = null;
                 }
 
+                var targetOs = PlatformUtil.HostOS;
+                if (ExecutionContext.Container != null)
+                {
+                    targetOs = ExecutionContext.Container.ImageOS;
+                }
+                Trace.Info($"Get handler data for target platform {targetOs.ToString()}");
+
                 HandlerData handlerData =
                     currentExecution?.All
-                    .OrderBy(x => !x.PreferredOnCurrentPlatform()) // Sort true to false.
+                    .OrderBy(x => !x.PreferredOnPlatform(targetOs)) // Sort true to false.
                     .ThenBy(x => x.Priority)
                     .FirstOrDefault();
                 if (handlerData == null)
                 {
                     if (PlatformUtil.RunningOnWindows)
                     {
-                        throw new Exception(StringUtil.Loc("SupportedTaskHandlerNotFoundWindows", $"{PlatformUtil.RunningOnOS}({PlatformUtil.RunningOnArchitecture})"));
+                        throw new Exception(StringUtil.Loc("SupportedTaskHandlerNotFoundWindows", $"{PlatformUtil.HostOS}({PlatformUtil.HostArchitecture})"));
                     }
 
                     throw new Exception(StringUtil.Loc("SupportedTaskHandlerNotFoundLinux"));
@@ -138,7 +145,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                     else if (handlerData is NodeHandlerData || handlerData is Node10HandlerData || handlerData is PowerShell3HandlerData)
                     {
-                        // Only the node, node10, and powershell3 handlers support running inside container. 
+                        // Only the node, node10, and powershell3 handlers support running inside container.
                         // Make sure required container is already created.
                         ArgUtil.NotNullOrEmpty(ExecutionContext.Container.ContainerId, nameof(ExecutionContext.Container.ContainerId));
                         var containerStepHost = HostContext.CreateService<IContainerStepHost>();
@@ -313,6 +320,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                 }
 
+                if (ExecutionContext.Container != null && targetOs != PlatformUtil.HostOS )
+                {
+                    // translate inputs
+                    Dictionary<string,string> newInputs = new Dictionary<string, string>();
+                    foreach (var entry in inputs)
+                    {
+                        newInputs[entry.Key] = ExecutionContext.Container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, entry.Value);
+                    }
+                    inputs = newInputs;
+                }
+
                 // Create the handler.
                 IHandler handler = handlerFactory.Create(
                     ExecutionContext,
@@ -328,7 +346,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 // Run the task.
                 await handler.RunAsync();
-
             }
         }
 

@@ -129,6 +129,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 foreach (string argName in new string[] {
                     nameof(ServiceLocatorAttribute.Default),
                     nameof(ServiceLocatorAttribute.PreferredOnWindows),
+                    nameof(ServiceLocatorAttribute.PreferredOnMacOS),
+                    nameof(ServiceLocatorAttribute.PreferredOnLinux),
                 })
                 {
                     CustomAttributeNamedArgument arg =

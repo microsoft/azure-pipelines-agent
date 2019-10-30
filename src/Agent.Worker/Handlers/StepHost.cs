@@ -13,7 +13,6 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.WebApi;
 using Newtonsoft.Json;
-using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
@@ -106,9 +105,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             StringComparison sc = (PlatformUtil.RunningOnWindows)
                                 ? StringComparison.OrdinalIgnoreCase
                                 : StringComparison.Ordinal;
-            if (Container.MountVolumes.Exists(x => path.StartsWith(x.SourceVolumePath, sc)))
+            if (Container.MountVolumes.Exists(x => {
+                if (!string.IsNullOrEmpty(x.SourceVolumePath))
+                {
+                    return path.StartsWith(x.SourceVolumePath, sc);
+                }
+                if (!string.IsNullOrEmpty(x.TargetVolumePath))
+                {
+                    return path.StartsWith(x.TargetVolumePath, sc);
+                }
+                return false; // this should not happen, but just in case bad data got into MountVolumes, we do not want to throw an exception here
+            }))
             {
-                return Container.TranslateToContainerPath(path);
+                return Container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, Container.TranslateToContainerPath(path));
             }
             else
             {
@@ -151,7 +160,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             //    We use this intermediate script to read everything from STDIN, then launch the task execution engine (node/powershell) and redirect STDOUT/STDERR
 
             string tempDir = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), Constants.Path.TempDirectory);
-            File.Copy(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), "containerHandlerInvoker.js.template"), Path.Combine(tempDir, "containerHandlerInvoker.js"), true);
+            string targetEntryScript = Path.Combine(tempDir, "containerHandlerInvoker.js");
+            HostContext.GetTrace(nameof(ContainerStepHost)).Info($"Copying containerHandlerInvoker.js to {tempDir}");
+            try
+            {
+                File.Copy(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), "containerHandlerInvoker.js"), targetEntryScript, true);
+            }
+            catch (Exception copyError)
+            {
+                HostContext.GetTrace(nameof(ContainerStepHost)).Error(copyError.Message);
+            }
 
             string node;
             if (!string.IsNullOrEmpty(Container.ContainerBringNodePath))
@@ -163,17 +181,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 node = Container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "node", "bin", $"node{IOUtil.ExeExtension}"));
             }
 
-            string entryScript = Container.TranslateToContainerPath(Path.Combine(tempDir, "containerHandlerInvoker.js"));
+            string entryScript = Container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, Container.TranslateToContainerPath(targetEntryScript));
 
-            string containerExecutionArgs;
-            if (PlatformUtil.RunningOnWindows)
+            string userArgs = "";
+            if (!PlatformUtil.RunningOnWindows)
             {
-                containerExecutionArgs = $"exec -i {Container.ContainerId} {node} {entryScript}";
+                userArgs = $"-u {Container.CurrentUserId}";
             }
-            else
-            {
-                containerExecutionArgs = $"exec -i -u {Container.CurrentUserId} {Container.ContainerId} {node} {entryScript}";
-            }
+            string containerExecutionArgs = $"exec -i {userArgs} {Container.ContainerId} {node} {entryScript}";
 
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
             {
@@ -189,8 +204,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 }
 
                 var redirectStandardIn = new InputQueue<string>();
-                redirectStandardIn.Enqueue(JsonUtility.ToString(payload));
-
+                var payloadJson = JsonUtility.ToString(payload);
+                redirectStandardIn.Enqueue(payloadJson);
+                HostContext.GetTrace(nameof(ContainerStepHost)).Info($"Payload: {payloadJson}");
                 return await processInvoker.ExecuteAsync(workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
                                                          fileName: containerEnginePath,
                                                          arguments: containerExecutionArgs,

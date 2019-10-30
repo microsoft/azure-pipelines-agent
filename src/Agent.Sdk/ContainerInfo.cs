@@ -17,21 +17,29 @@ namespace Agent.Sdk
         private List<MountVolume> _mountVolumes;
         private IDictionary<string, string> _userPortMappings;
         private List<PortMapping> _portMappings;
-        private IDictionary<string, string> _environmentVariables;
+        private Dictionary<string, string> _environmentVariables;
+        private Dictionary<string, string> _pathMappings;
+        private PlatformUtil.OS _imageOS;
 
-#if OS_WINDOWS
-        private Dictionary<string, string> _pathMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-#else
-        private Dictionary<string, string> _pathMappings = new Dictionary<string, string>();
-#endif
+        public delegate void ImageOSChangedHandler(ContainerInfo container, PlatformUtil.OS oldOS);
+
+        public event ImageOSChangedHandler ImageOSChanged;
 
         public ContainerInfo()
         {
             this.IsJobContainer = true;
+            if (PlatformUtil.RunningOnWindows)
+            {
+                _pathMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            }
+            else
+            {
+                _pathMappings = new Dictionary<string, string>();
+            }
         }
 
         public ContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true)
-        { 
+        {
             this.ContainerName = container.Alias;
 
             string containerImage = container.Properties.Get<string>("image");
@@ -42,9 +50,11 @@ namespace Agent.Sdk
             this.ContainerRegistryEndpoint = container.Endpoint?.Id ?? Guid.Empty;
             this.ContainerCreateOptions = container.Properties.Get<string>("options");
             this.SkipContainerImagePull = container.Properties.Get<bool>("localimage");
-            _environmentVariables = container.Environment;
+            _environmentVariables = container.Environment != null ? new Dictionary<string, string>(container.Environment) : new Dictionary<string, string>();
             this.ContainerCommand = container.Properties.Get<string>("command", defaultValue: "");
             this.IsJobContainer = isJobContainer;
+            this._imageOS = PlatformUtil.HostOS;
+           _pathMappings = new Dictionary<string, string>( PlatformUtil.RunningOnWindows ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
 
             if (container.Ports?.Count > 0)
             {
@@ -76,8 +86,41 @@ namespace Agent.Sdk
         public string CurrentUserName { get; set; }
         public string CurrentUserId { get; set; }
         public bool IsJobContainer { get; set; }
+        public PlatformUtil.OS ImageOS {
+            get
+            {
+                return _imageOS;
+            }
+            set
+            {
+                var previousImageOS = _imageOS;
+                _imageOS = value;
+                if (_pathMappings != null)
+                {
+                    var newMappings = new Dictionary<string, string>( _pathMappings.Comparer);
+                    foreach (var mapping in _pathMappings)
+                    {
+                        newMappings[mapping.Key] = TranslateContainerPathForImageOS(previousImageOS, mapping.Value);
+                    }
+                    _pathMappings = newMappings;
+                }
+                if (_environmentVariables != null)
+                {
+                    var newEnvVars = new Dictionary<string, string>(_environmentVariables.Comparer);
+                    foreach (var env in _environmentVariables)
+                    {
+                        newEnvVars[env.Key] = TranslateContainerPathForImageOS(previousImageOS, env.Value);
+                    }
+                    _environmentVariables = newEnvVars;
+                }
+                if (ImageOSChanged != null)
+                {
+                    ImageOSChanged(this, previousImageOS);
+                }
+            }
+        }
 
-        public IDictionary<string, string> ContainerEnvironmentVariables
+        public Dictionary<string, string> ContainerEnvironmentVariables
         {
             get
             {
@@ -158,30 +201,21 @@ namespace Agent.Sdk
         {
             if (!string.IsNullOrEmpty(path))
             {
+                var comparison = PlatformUtil.RunningOnWindows
+                    ? StringComparison.OrdinalIgnoreCase
+                    : StringComparison.Ordinal;
                 foreach (var mapping in _pathMappings)
                 {
-#if OS_WINDOWS
-                    if (string.Equals(path, mapping.Key, StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(path, mapping.Key, comparison))
                     {
                         return mapping.Value;
                     }
 
-                    if (path.StartsWith(mapping.Key + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
-                        path.StartsWith(mapping.Key + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                    if (path.StartsWith(mapping.Key + Path.DirectorySeparatorChar, comparison) ||
+                        path.StartsWith(mapping.Key + Path.AltDirectorySeparatorChar, comparison))
                     {
                         return mapping.Value + path.Remove(0, mapping.Key.Length);
                     }
-#else
-                    if (string.Equals(path, mapping.Key))
-                    {
-                        return mapping.Value;
-                    }
-
-                    if (path.StartsWith(mapping.Key + Path.DirectorySeparatorChar))
-                    {
-                        return mapping.Value + path.Remove(0, mapping.Key.Length);
-                    }
-#endif
                 }
             }
 
@@ -192,33 +226,50 @@ namespace Agent.Sdk
         {
             if (!string.IsNullOrEmpty(path))
             {
+                var comparison = PlatformUtil.RunningOnWindows
+                    ? StringComparison.OrdinalIgnoreCase
+                    : StringComparison.Ordinal;
                 foreach (var mapping in _pathMappings)
                 {
-#if OS_WINDOWS
-                    if (string.Equals(path, mapping.Value, StringComparison.OrdinalIgnoreCase))
+                    string retval = null;
+
+                    if (string.Equals(path, mapping.Value, comparison))
                     {
-                        return mapping.Key;
+                        retval = mapping.Key;
+                    }
+                    else if (path.StartsWith(mapping.Value + Path.DirectorySeparatorChar, comparison) ||
+                             path.StartsWith(mapping.Value + Path.AltDirectorySeparatorChar, comparison))
+                    {
+                        retval = mapping.Key + path.Remove(0, mapping.Value.Length);
                     }
 
-                    if (path.StartsWith(mapping.Value + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
-                        path.StartsWith(mapping.Value + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                    if (retval != null)
                     {
-                        return mapping.Key + path.Remove(0, mapping.Value.Length);
+                        if (PlatformUtil.RunningOnWindows)
+                        {
+                            retval = retval.Replace("/", "\\");
+                        }
+                        else
+                        {
+                            retval = retval.Replace("\\","/");
+                        }
+                        return retval;
                     }
-#else
-                    if (string.Equals(path, mapping.Value))
-                    {
-                        return mapping.Key;
-                    }
-
-                    if (path.StartsWith(mapping.Value + Path.DirectorySeparatorChar))
-                    {
-                        return mapping.Key + path.Remove(0, mapping.Value.Length);
-                    }
-#endif
                 }
             }
 
+            return path;
+        }
+
+        public string TranslateContainerPathForImageOS(PlatformUtil.OS runningOs, string path)
+        {
+            if (!string.IsNullOrEmpty(path))
+            {
+                if (runningOs == PlatformUtil.OS.Windows && ImageOS == PlatformUtil.OS.Linux)
+                {
+                    return path.Replace("C:\\","/").Replace("\\", "/");
+                }
+            }
             return path;
         }
 
@@ -245,7 +296,7 @@ namespace Agent.Sdk
         {
 
         }
-                
+
         public MountVolume(string sourceVolumePath, string targetVolumePath, bool readOnly = false)
         {
             this.SourceVolumePath = sourceVolumePath;
@@ -261,7 +312,7 @@ namespace Agent.Sdk
         private static Regex autoEscapeWindowsDriveRegex = new Regex(@"(^|:)([a-zA-Z]):(\\|/)", RegexOptions.Compiled);
         private string AutoEscapeWindowsDriveInPath(string path)
         {
-            
+
             return autoEscapeWindowsDriveRegex.Replace(path, @"$1$2\:$3");
         }
 
@@ -276,6 +327,14 @@ namespace Agent.Sdk
                 ReadOnly = true;
                 volume = volume.Remove(volume.Length-readonlyToken.Length);
             }
+            // for completeness, in case someone explicitly added :rw in the volume mapping, we should strip it as well
+            string readWriteToken = ":rw";
+            if (volume.ToLower().EndsWith(readWriteToken))
+            {
+                ReadOnly = false;
+                volume = volume.Remove(volume.Length-readWriteToken.Length);
+            }
+
             if (volume.StartsWith(":"))
             {
                 volume = volume.Substring(1);
@@ -305,11 +364,13 @@ namespace Agent.Sdk
                 }
             }
 
-            if (volumes.Count == 2)
+            if (volumes.Count >= 2)
             {
                 // source:target
                 SourceVolumePath = volumes[0];
                 TargetVolumePath = volumes[1];
+                // if volumes.Count > 2 here, we should log something that says we ignored options passed in.
+                // for now, do nothing in order to remain backwards compatable.
             }
             else
             {
@@ -349,7 +410,7 @@ namespace Agent.Sdk
         {
 
         }
-        
+
         public DockerVersion(Version serverVersion, Version clientVersion)
         {
             this.ServerVersion = serverVersion;

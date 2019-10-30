@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
@@ -343,15 +344,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             {
                 // Arrange.
                 Setup();
-#if !OS_WINDOWS
-                const string Platform = "windows";
-#else
-                const string Platform = "nosuch"; // TODO: What to do here?
-#endif
-                HandlerData data = new NodeHandlerData() { Platforms = new string[] { Platform } };
-
+                HandlerData data = new NodeHandlerData() { Platforms = new string[] { "nosuch" } };
                 // Act/Assert.
-                Assert.False(data.PreferredOnCurrentPlatform());
+                Assert.False(data.PreferredOnPlatform(PlatformUtil.OS.Windows));
+                Assert.False(data.PreferredOnPlatform(PlatformUtil.OS.Linux));
+                Assert.False(data.PreferredOnPlatform(PlatformUtil.OS.OSX));
             }
             finally
             {
@@ -482,20 +479,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             {
                 // Arrange.
                 Setup();
-#if OS_WINDOWS
-                const string Platform = "WiNdOwS";
-#else
-                // TODO: What to do here?
-                const string Platform = "";
-                if (string.IsNullOrEmpty(Platform))
-                {
-                    return;
-                }
-#endif
-                HandlerData data = new NodeHandlerData() { Platforms = new[] { Platform } };
-
+                HandlerData data = new NodeHandlerData() { Platforms = new[] { "WiNdOwS" } };
                 // Act/Assert.
-                Assert.True(data.PreferredOnCurrentPlatform());
+                Assert.True(data.PreferredOnPlatform(PlatformUtil.OS.Windows));
+                Assert.False(data.PreferredOnPlatform(PlatformUtil.OS.Linux));
+                Assert.False(data.PreferredOnPlatform(PlatformUtil.OS.OSX));
             }
             finally
             {

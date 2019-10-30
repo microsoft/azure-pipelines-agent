@@ -278,14 +278,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
 
             // Prepend path.
-            string prepend = string.Join(Path.PathSeparator.ToString(), ExecutionContext.PrependPath.Reverse<string>());
+            
             var containerStepHost = StepHost as ContainerStepHost;
             if (containerStepHost != null)
             {
-                containerStepHost.PrependPath = prepend;
+                List<string> prepend = new List<string>();
+                foreach (var path in ExecutionContext.PrependPath)
+                {
+                    prepend.Add(ExecutionContext.Container.TranslateToContainerPath(path));
+                }
+                containerStepHost.PrependPath = string.Join(Path.PathSeparator.ToString(), prepend.Reverse<string>());
             }
             else
             {
+                string prepend = string.Join(Path.PathSeparator.ToString(), ExecutionContext.PrependPath.Reverse<string>());
                 string taskEnvPATH;
                 Environment.TryGetValue(Constants.PathVariable, out taskEnvPATH);
                 string originalPath = RuntimeVariables.Get(Constants.PathVariable) ?? // Prefer a job variable.

@@ -1,17 +1,24 @@
 ## Features
-- Support configuring the VM against environment (#2471)
-- Add Container structure test JSON output result reader for publishing the container structure test results (#2447)
-- Consume PublishTestResults library in TestResults Publish command (#2430)
+- Add retry handler for the CreateArtifactAsync function (#2495)
+- Throw appropriate exception in case Git or Git LFS could not be found (#1825)
+- Log when a process is exited abnormally (#2501)
+- Add Dotnet Core capability detection (#1845)
+- Moving ContainerInfo to Agent.Sdk (#2476)
+- add a welcome banner at config time (#2531)
+- Add an option to reduce checkout verbosity (#2547)
+- Make tarring default for Pipeline Caching and modifying Display to Info from Warning for Save Cache (#2535)
 
 ## Bugs
-- Fix long path issues for Pipeline Artifacts/Pipeline Caching (#2467)
-- Fix tar download issue in Linux (#2452)
+- Use DirectorySeparatorChar in git path (#2492)
+- Ignore fileshare artifacts in the DPA V1 task (#2518)
+- Fix to remove hardcoded instanceId (#2524)
+- Fix null ref with new env var (#2526)
+- fix retrieval of ImageVersion environment variable (#2539)
+- Fixed to not error out on null source volume path (#2551)
 
 ## Misc
-  - Added logging on associating a pipeline artifact (#2436)
-  - Add more agent info to Initialize job logs (#2462)
-  - Detect newer .NET Framework versions (#2461)
-  - Add Telemetry for FileShare(UNC Path) (#2442)
+- future-proof AZP_CACHING_CONTENT_FORMAT (#2400)
+- Support for multi-repo scenarios (#2485)
 
 ## Agent Downloads  
 

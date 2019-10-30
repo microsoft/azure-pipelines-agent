@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -28,7 +29,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         private const int _defaultFileStreamBufferSize = 4096;
 
-        //81920 is the default used by System.IO.Stream.CopyTo and is under the large object heap threshold (85k). 
+        //81920 is the default used by System.IO.Stream.CopyTo and is under the large object heap threshold (85k).
         private const int _defaultCopyBufferSize = 81920;
 
         public async Task DownloadAsync(IExecutionContext executionContext, IEnumerable<Pipelines.JobStep> steps)
@@ -147,7 +148,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Directory.CreateDirectory(tempDirectory);
                 int retryCount = 0;
 
-                // Allow up to 20 * 60s for any task to be downloaded from service. 
+                // Allow up to 20 * 60s for any task to be downloaded from service.
                 // Base on Kusto, the longest we have on the service today is over 850 seconds.
                 // Timeout limit can be overwrite by environment variable
                 if (!int.TryParse(Environment.GetEnvironmentVariable("VSTS_TASK_DOWNLOAD_TIMEOUT") ?? string.Empty, out int timeoutSeconds))
@@ -290,9 +291,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         [JsonIgnore]
         public List<HandlerData> All => _all;
 
-#if !OS_WINDOWS || X86
-        [JsonIgnore]
-#endif
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public AzurePowerShellHandlerData AzurePowerShell
         {
             get
@@ -302,8 +301,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             set
             {
-                _azurePowerShell = value;
-                Add(value);
+                if (PlatformUtil.RunningOnWindows && !PlatformUtil.IsX86)
+                {
+                    _azurePowerShell = value;
+                    Add(value);
+                }
             }
         }
 
@@ -335,9 +337,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-#if !OS_WINDOWS || X86
-        [JsonIgnore]
-#endif
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public PowerShellHandlerData PowerShell
         {
             get
@@ -347,14 +347,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             set
             {
-                _powerShell = value;
-                Add(value);
+                if (PlatformUtil.RunningOnWindows && !PlatformUtil.IsX86)
+                {
+                    _powerShell = value;
+                    Add(value);
+                }
             }
         }
 
-#if !OS_WINDOWS
-        [JsonIgnore]
-#endif
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public PowerShell3HandlerData PowerShell3
         {
             get
@@ -364,14 +365,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             set
             {
-                _powerShell3 = value;
-                Add(value);
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    _powerShell3 = value;
+                    Add(value);
+                }
             }
         }
 
-#if !OS_WINDOWS
-        [JsonIgnore]
-#endif
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public PowerShellExeHandlerData PowerShellExe
         {
             get
@@ -381,14 +383,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             set
             {
-                _powerShellExe = value;
-                Add(value);
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    _powerShellExe = value;
+                    Add(value);
+                }
             }
         }
 
-#if !OS_WINDOWS
-        [JsonIgnore]
-#endif
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public ProcessHandlerData Process
         {
             get
@@ -398,8 +401,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             set
             {
-                _process = value;
-                Add(value);
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    _process = value;
+                    Add(value);
+                }
             }
         }
 
@@ -453,14 +459,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Inputs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         }
 
-        public bool PreferredOnCurrentPlatform()
+        public bool PreferredOnPlatform(PlatformUtil.OS os)
         {
-#if OS_WINDOWS
-            const string CurrentPlatform = "windows";
-            return Platforms?.Any(x => string.Equals(x, CurrentPlatform, StringComparison.OrdinalIgnoreCase)) ?? false;
-#else
+            if (os == PlatformUtil.OS.Windows)
+            {
+                return Platforms?.Any(x => string.Equals(x, os.ToString(), StringComparison.OrdinalIgnoreCase)) ?? false;
+            }
             return false;
-#endif
         }
 
         public void ReplaceMacros(IHostContext context, Definition definition)

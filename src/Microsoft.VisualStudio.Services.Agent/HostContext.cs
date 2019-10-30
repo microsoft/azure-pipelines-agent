@@ -381,7 +381,18 @@ namespace Microsoft.VisualStudio.Services.Agent
                             defaultTarget = arg.TypedValue.Value as Type;
                         }
 
-                        if (PlatformUtil.RunningOnWindows && string.Equals(arg.MemberName, nameof(ServiceLocatorAttribute.PreferredOnWindows), StringComparison.Ordinal))
+                        if (PlatformUtil.RunningOnWindows
+                            && string.Equals(arg.MemberName, nameof(ServiceLocatorAttribute.PreferredOnWindows), StringComparison.Ordinal))
+                        {
+                            platformTarget = arg.TypedValue.Value as Type;
+                        }
+                        else if (PlatformUtil.RunningOnMacOS
+                            && string.Equals(arg.MemberName, nameof(ServiceLocatorAttribute.PreferredOnMacOS), StringComparison.Ordinal))
+                        {
+                            platformTarget = arg.TypedValue.Value as Type;
+                        }
+                        else if (PlatformUtil.RunningOnLinux
+                            && string.Equals(arg.MemberName, nameof(ServiceLocatorAttribute.PreferredOnLinux), StringComparison.Ordinal))
                         {
                             platformTarget = arg.TypedValue.Value as Type;
                         }
@@ -445,20 +456,24 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             ContainerInfo containerInfo = new ContainerInfo(container, isJobContainer);
             Dictionary<string, string> pathMappings = new Dictionary<string, string>();
-#if OS_WINDOWS
-            pathMappings[this.GetDirectory(WellKnownDirectory.Tools)] = "C:\\__t"; // Tool cache folder may come from ENV, so we need a unique folder to avoid collision
-            pathMappings[this.GetDirectory(WellKnownDirectory.Work)] = "C:\\__w";
-            pathMappings[this.GetDirectory(WellKnownDirectory.Root)] = "C:\\__a";
-            // add -v '\\.\pipe\docker_engine:\\.\pipe\docker_engine' when they are available (17.09)
-#else
-            pathMappings[this.GetDirectory(WellKnownDirectory.Tools)] = "/__t"; // Tool cache folder may come from ENV, so we need a unique folder to avoid collision
-            pathMappings[this.GetDirectory(WellKnownDirectory.Work)] = "/__w";
-            pathMappings[this.GetDirectory(WellKnownDirectory.Root)] = "/__a";
-            if (containerInfo.IsJobContainer)
+            if (PlatformUtil.RunningOnWindows)
             {
-                containerInfo.MountVolumes.Add(new MountVolume("/var/run/docker.sock", "/var/run/docker.sock"));
+                pathMappings[this.GetDirectory(WellKnownDirectory.Tools)] = "C:\\__t"; // Tool cache folder may come from ENV, so we need a unique folder to avoid collision
+                pathMappings[this.GetDirectory(WellKnownDirectory.Work)] = "C:\\__w";
+                pathMappings[this.GetDirectory(WellKnownDirectory.Root)] = "C:\\__a";
+                // add -v '\\.\pipe\docker_engine:\\.\pipe\docker_engine' when they are available (17.09)
             }
-#endif      
+            else
+            {
+                pathMappings[this.GetDirectory(WellKnownDirectory.Tools)] = "/__t"; // Tool cache folder may come from ENV, so we need a unique folder to avoid collision
+                pathMappings[this.GetDirectory(WellKnownDirectory.Work)] = "/__w";
+                pathMappings[this.GetDirectory(WellKnownDirectory.Root)] = "/__a";
+                if (containerInfo.IsJobContainer)
+                {
+                    containerInfo.MountVolumes.Add(new MountVolume("/var/run/docker.sock", "/var/run/docker.sock"));
+                }
+            }
+
             containerInfo.AddPathMappings(pathMappings);
             return containerInfo;
         }

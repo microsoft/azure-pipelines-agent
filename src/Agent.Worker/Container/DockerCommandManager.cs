@@ -11,7 +11,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.Framework.Common;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 {
@@ -143,15 +142,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             {
                 // replace `"` with `\"` and add `"{0}"` to all path.
                 String volumeArg;
+                String targetVolume = container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, volume.TargetVolumePath).Replace("\"", "\\\"");
+
                 if (String.IsNullOrEmpty(volume.SourceVolumePath))
                 {
                     // Anonymous docker volume
-                    volumeArg = $"-v \"{volume.TargetVolumePath.Replace("\"", "\\\"")}\"";
+                    volumeArg = $"-v \"{targetVolume}\"";
                 }
                 else
                 {
                     // Named Docker volume / host bind mount
-                    volumeArg = $"-v \"{volume.SourceVolumePath.Replace("\"", "\\\"")}\":\"{volume.TargetVolumePath.Replace("\"", "\\\"")}\"";
+                    volumeArg = $"-v \"{volume.SourceVolumePath.Replace("\"", "\\\"")}\":\"{targetVolume}\"";
                 }
                 if (volume.ReadOnly)
                 {
@@ -192,11 +193,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 
         public async Task<int> DockerNetworkCreate(IExecutionContext context, string network)
         {
-            if (PlatformUtil.RunningOnWindows)
+            if (context.Container.ImageOS == PlatformUtil.OS.Windows)
             {
                 return await ExecuteDockerCommandAsync(context, "network", $"create --label {DockerInstanceLabel} {network} --driver nat", context.CancellationToken);
             }
-            
             return await ExecuteDockerCommandAsync(context, "network", $"create --label {DockerInstanceLabel} {network}", context.CancellationToken);
         }
 

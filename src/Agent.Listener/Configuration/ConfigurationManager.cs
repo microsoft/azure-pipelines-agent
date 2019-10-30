@@ -144,7 +144,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             AgentSettings agentSettings = new AgentSettings();
             // TEE EULA
             agentSettings.AcceptTeeEula = false;
-            switch (PlatformUtil.RunningOnOS)
+            switch (PlatformUtil.HostOS)
             {
                 case PlatformUtil.OS.OSX:
                 case PlatformUtil.OS.Linux:
@@ -377,7 +377,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
             else
             {
-                switch (PlatformUtil.RunningOnOS)
+                switch (PlatformUtil.HostOS)
                 {
                     case PlatformUtil.OS.OSX:
                     case PlatformUtil.OS.Linux:

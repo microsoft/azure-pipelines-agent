@@ -118,25 +118,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         taskConditionMap[task.Id] = condition;
                     }
 
-#if OS_WINDOWS
-                    // This is for internal testing and is not publicly supported. This will be removed from the agent at a later time.
-                    var prepareScript = Environment.GetEnvironmentVariable("VSTS_AGENT_INIT_INTERNAL_TEMP_HACK");
-                    ServiceEndpoint systemConnection = context.Endpoints.Single(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
-                    if (!string.IsNullOrEmpty(prepareScript) && context.Container == null)
+                    if (PlatformUtil.RunningOnWindows)
                     {
-                        var prepareStep = new ManagementScriptStep(
-                            scriptPath: prepareScript,
-                            condition: ExpressionManager.Succeeded,
-                            displayName: "Agent Initialization");
+                        // This is for internal testing and is not publicly supported. This will be removed from the agent at a later time.
+                        var prepareScript = Environment.GetEnvironmentVariable("VSTS_AGENT_INIT_INTERNAL_TEMP_HACK");
+                        ServiceEndpoint systemConnection = context.Endpoints.Single(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
+                        if (!string.IsNullOrEmpty(prepareScript) && context.Container == null)
+                        {
+                            var prepareStep = new ManagementScriptStep(
+                                scriptPath: prepareScript,
+                                condition: ExpressionManager.Succeeded,
+                                displayName: "Agent Initialization");
 
-                        Trace.Verbose($"Adding agent init script step.");
-                        prepareStep.Initialize(HostContext);
-                        prepareStep.ExecutionContext = jobContext.CreateChild(Guid.NewGuid(), prepareStep.DisplayName, nameof(ManagementScriptStep));
-                        prepareStep.AccessToken = systemConnection.Authorization.Parameters["AccessToken"];
-                        prepareStep.Condition = ExpressionManager.Succeeded;
-                        preJobSteps.Add(prepareStep);
+                            Trace.Verbose($"Adding agent init script step.");
+                            prepareStep.Initialize(HostContext);
+                            prepareStep.ExecutionContext = jobContext.CreateChild(Guid.NewGuid(), prepareStep.DisplayName, nameof(ManagementScriptStep));
+                            prepareStep.AccessToken = systemConnection.Authorization.Parameters["AccessToken"];
+                            prepareStep.Condition = ExpressionManager.Succeeded;
+                            preJobSteps.Add(prepareStep);
+                        }
                     }
-#endif
 
                     // build up 3 lists of steps, pre-job, job, post-job
                     Stack<IStep> postJobStepsBuilder = new Stack<IStep>();
@@ -222,12 +223,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     // create execution context for all pre-job steps
                     foreach (var step in preJobSteps)
                     {
-#if OS_WINDOWS
-                        if (step is ManagementScriptStep)
+                        if (PlatformUtil.RunningOnWindows && step is ManagementScriptStep)
                         {
                             continue;
                         }
-#endif
+
                         if (step is JobExtensionRunner)
                         {
                             JobExtensionRunner extensionStep = step as JobExtensionRunner;
@@ -276,25 +276,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
 
-#if OS_WINDOWS
-                    // Add script post steps.
-                    // This is for internal testing and is not publicly supported. This will be removed from the agent at a later time.
-                    var finallyScript = Environment.GetEnvironmentVariable("VSTS_AGENT_CLEANUP_INTERNAL_TEMP_HACK");
-                    if (!string.IsNullOrEmpty(finallyScript) && context.Container == null)
+                    if (PlatformUtil.RunningOnWindows)
                     {
-                        var finallyStep = new ManagementScriptStep(
-                            scriptPath: finallyScript,
-                            condition: ExpressionManager.Always,
-                            displayName: "Agent Cleanup");
+                        // Add script post steps.
+                        // This is for internal testing and is not publicly supported. This will be removed from the agent at a later time.
+                        var finallyScript = Environment.GetEnvironmentVariable("VSTS_AGENT_CLEANUP_INTERNAL_TEMP_HACK");
+                        if (!string.IsNullOrEmpty(finallyScript) && context.Container == null)
+                        {
+                            var finallyStep = new ManagementScriptStep(
+                                scriptPath: finallyScript,
+                                condition: ExpressionManager.Always,
+                                displayName: "Agent Cleanup");
 
-                        Trace.Verbose($"Adding agent cleanup script step.");
-                        finallyStep.Initialize(HostContext);
-                        finallyStep.ExecutionContext = jobContext.CreateChild(Guid.NewGuid(), finallyStep.DisplayName, nameof(ManagementScriptStep));
-                        finallyStep.Condition = ExpressionManager.Always;
-                        finallyStep.AccessToken = systemConnection.Authorization.Parameters["AccessToken"];
-                        postJobSteps.Add(finallyStep);
+                            Trace.Verbose($"Adding agent cleanup script step.");
+                            finallyStep.Initialize(HostContext);
+                            finallyStep.ExecutionContext = jobContext.CreateChild(Guid.NewGuid(), finallyStep.DisplayName, nameof(ManagementScriptStep));
+                            finallyStep.Condition = ExpressionManager.Always;
+                            ServiceEndpoint systemConnection = context.Endpoints.Single(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
+                            finallyStep.AccessToken = systemConnection.Authorization.Parameters["AccessToken"];
+                            postJobSteps.Add(finallyStep);
+                        }
                     }
-#endif
+
                     List<IStep> steps = new List<IStep>();
                     steps.AddRange(preJobSteps);
                     steps.AddRange(jobSteps);

@@ -33,7 +33,7 @@ namespace Agent.Plugins.PipelineCache
 
             if (!successSoFar)
             {
-                context.Warning($"Skipping because the job status was not 'Succeeded'.");
+                context.Info($"Skipping because the job status was not 'Succeeded'.");
                 return;
             }
 
@@ -48,7 +48,7 @@ namespace Agent.Plugins.PipelineCache
 
             if (!restoreStepRan)
             {
-                context.Warning($"Skipping because restore step did not run.");
+                context.Info($"Skipping because restore step did not run.");
                 return;
             }
 
@@ -67,7 +67,7 @@ namespace Agent.Plugins.PipelineCache
             ContentFormat contentFormat;
             if (string.IsNullOrWhiteSpace(contentFormatValue))
             {
-                contentFormat = ContentFormat.Files;
+                contentFormat = ContentFormat.SingleTar;
             }
             else
             {

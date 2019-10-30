@@ -32,7 +32,7 @@ namespace Agent.Plugins.Repository
         Task WorkfoldUnmapAsync(string serverPath);
         Task WorkfoldMapAsync(string serverPath, string localPath);
         Task WorkfoldCloakAsync(string serverPath);
-        Task GetAsync(string localPath);
+        Task GetAsync(string localPath, bool quiet = false);
         Task AddAsync(string localPath);
         Task ShelveAsync(string shelveset, string commentFile, bool move);
         Task<ITfsVCShelveset> ShelvesetsAsync(string shelveset);
