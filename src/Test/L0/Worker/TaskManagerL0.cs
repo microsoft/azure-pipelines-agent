@@ -256,11 +256,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Assert.NotNull(definition.Data);
                 Assert.NotNull(definition.Data.Execution);
                 Assert.NotNull(definition.Data.Execution.Node);
-#if OS_WINDOWS
-                Assert.NotNull(definition.Data.Execution.Process);
-#else
-                Assert.Null(definition.Data.Execution.Process);
-#endif
+                if (TestUtil.IsWindows())
+                {
+                    Assert.NotNull(definition.Data.Execution.Process);
+                }
+                else
+                {
+                    Assert.Null(definition.Data.Execution.Process);    
+                }
             }
             finally
             {
@@ -434,13 +437,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Assert.Equal("Some default string", definition.Data.Inputs[1].DefaultValue);
                 Assert.NotNull(definition.Data.Execution); // execution
 
-#if OS_WINDOWS
-                // Process handler should only be deserialized on Windows.
-                Assert.Equal(3, definition.Data.Execution.All.Count);
-#else
-                // Only the Node and Node10 handlers should be deserialized on non-Windows.
-                Assert.Equal(2, definition.Data.Execution.All.Count);
-#endif
+                if (TestUtil.IsWindows())
+                {
+                    // Process handler should only be deserialized on Windows.
+                    Assert.Equal(3, definition.Data.Execution.All.Count);
+                }
+                else
+                {
+                    // Only the Node and Node10 handlers should be deserialized on non-Windows.
+                    Assert.Equal(2, definition.Data.Execution.All.Count);
+                }
 
                 // Node handler should always be deserialized.
                 Assert.NotNull(definition.Data.Execution.Node); // execution.Node
@@ -452,17 +458,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Assert.Equal(definition.Data.Execution.Node10, definition.Data.Execution.All[1]);
                 Assert.Equal("Some Node10 target", definition.Data.Execution.Node10.Target);
 
-#if OS_WINDOWS
-                // Process handler should only be deserialized on Windows.
-                Assert.NotNull(definition.Data.Execution.Process); // execution.Process
-                Assert.Equal(definition.Data.Execution.Process, definition.Data.Execution.All[2]);
-                Assert.Equal("Some process argument format", definition.Data.Execution.Process.ArgumentFormat);
-                Assert.NotNull(definition.Data.Execution.Process.Platforms);
-                Assert.Equal(1, definition.Data.Execution.Process.Platforms.Length);
-                Assert.Equal("windows", definition.Data.Execution.Process.Platforms[0]);
-                Assert.Equal("Some process target", definition.Data.Execution.Process.Target);
-                Assert.Equal("Some process working directory", definition.Data.Execution.Process.WorkingDirectory);
-#endif
+                if (TestUtil.IsWindows())
+                {
+                    // Process handler should only be deserialized on Windows.
+                    Assert.NotNull(definition.Data.Execution.Process); // execution.Process
+                    Assert.Equal(definition.Data.Execution.Process, definition.Data.Execution.All[2]);
+                    Assert.Equal("Some process argument format", definition.Data.Execution.Process.ArgumentFormat);
+                    Assert.NotNull(definition.Data.Execution.Process.Platforms);
+                    Assert.Equal(1, definition.Data.Execution.Process.Platforms.Length);
+                    Assert.Equal("windows", definition.Data.Execution.Process.Platforms[0]);
+                    Assert.Equal("Some process target", definition.Data.Execution.Process.Target);
+                    Assert.Equal("Some process working directory", definition.Data.Execution.Process.WorkingDirectory);
+                }
             }
             finally
             {
@@ -473,6 +480,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
         public void MatchesPlatform()
         {
             try

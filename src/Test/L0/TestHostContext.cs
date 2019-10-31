@@ -74,12 +74,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             SetSingleton<ITerminal>(_term);
             EnqueueInstance<ITerminal>(_term);
 
-#if !OS_WINDOWS
-            string eulaFile = Path.Combine(GetDirectory(WellKnownDirectory.Externals), Constants.Path.TeeDirectory, "license.html");
-            Directory.CreateDirectory(GetDirectory(WellKnownDirectory.Externals));
-            Directory.CreateDirectory(Path.Combine(GetDirectory(WellKnownDirectory.Externals), Constants.Path.TeeDirectory));
-            File.WriteAllText(eulaFile, "testeulafile");
-#endif
+            if (!TestUtil.IsWindows())
+            {
+                string eulaFile = Path.Combine(GetDirectory(WellKnownDirectory.Externals), Constants.Path.TeeDirectory, "license.html");
+                Directory.CreateDirectory(GetDirectory(WellKnownDirectory.Externals));
+                Directory.CreateDirectory(Path.Combine(GetDirectory(WellKnownDirectory.Externals), Constants.Path.TeeDirectory));
+                File.WriteAllText(eulaFile, "testeulafile");
+            }
         }
 
         public CultureInfo DefaultCulture { get; private set; }
@@ -292,15 +293,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     break;
 
                 case WellKnownConfigFile.CredentialStore:
-#if OS_OSX
-                    path = Path.Combine(
-                        GetDirectory(WellKnownDirectory.Root),
-                        ".credential_store.keychain");
-#else
-                    path = Path.Combine(
-                        GetDirectory(WellKnownDirectory.Root),
-                        ".credential_store");
-#endif
+                    path = (TestUtil.IsMacOS())
+                        ? Path.Combine(
+                            GetDirectory(WellKnownDirectory.Root),
+                            ".credential_store.keychain")
+                        : Path.Combine(
+                            GetDirectory(WellKnownDirectory.Root),
+                            ".credential_store");
                     break;
 
                 case WellKnownConfigFile.Certificates:
@@ -362,20 +361,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         public ContainerInfo CreateContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true)
         {
             ContainerInfo containerInfo = new ContainerInfo(container, isJobContainer);
-#if OS_WINDOWS
-            containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Tools)] = "C:\\__t"; // Tool cache folder may come from ENV, so we need a unique folder to avoid collision
-            containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Work)] = "C:\\__w";
-            containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Root)] = "C:\\__a";
-            // add -v '\\.\pipe\docker_engine:\\.\pipe\docker_engine' when they are available (17.09)
-#else
-            containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Tools)] = "/__t"; // Tool cache folder may come from ENV, so we need a unique folder to avoid collision
-            containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Work)] = "/__w";
-            containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Root)] = "/__a";
-            if (containerInfo.IsJobContainer)
+            if (TestUtil.IsWindows())
             {
-                containerInfo.MountVolumes.Add(new MountVolume("/var/run/docker.sock", "/var/run/docker.sock"));
+                // Tool cache folder may come from ENV, so we need a unique folder to avoid collision
+                containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Tools)] = "C:\\__t";
+                containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Work)] = "C:\\__w";
+                containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Root)] = "C:\\__a";
+                // add -v '\\.\pipe\docker_engine:\\.\pipe\docker_engine' when they are available (17.09)
             }
-#endif          
+            else
+            {
+                // Tool cache folder may come from ENV, so we need a unique folder to avoid collision
+                containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Tools)] = "/__t";
+                containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Work)] = "/__w";
+                containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Root)] = "/__a";
+                if (containerInfo.IsJobContainer)
+                {
+                    containerInfo.MountVolumes.Add(new MountVolume("/var/run/docker.sock", "/var/run/docker.sock"));
+                }
+            }
             return containerInfo;
         }
 

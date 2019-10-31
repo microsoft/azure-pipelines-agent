@@ -3,7 +3,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
@@ -69,6 +72,34 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
 
             return repositories.FirstOrDefault(r => string.Equals(r.Alias, repoAlias, StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// We can fairly easily determine a cloud provider like GitHub, Azure DevOps, or BitBucket.
+        /// Other providers are not easily guessed, So we return Azure Repos (aka Git)
+        /// </summary>
+        public static string GuessRepositoryType(string repositoryUrl)
+        {
+            if (repositoryUrl?.IndexOf("github.com", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return RepositoryTypes.GitHub;
+            }
+            else if (repositoryUrl?.IndexOf(".visualstudio.com", StringComparison.OrdinalIgnoreCase) >= 0 || repositoryUrl?.IndexOf("dev.azure.com", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                if (repositoryUrl.IndexOf("/_git/", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return RepositoryTypes.Git;
+                }
+
+                return RepositoryTypes.Tfvc;
+            }
+            else if (repositoryUrl.IndexOf("bitbucket.org", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return RepositoryTypes.Bitbucket;
+            }
+
+            // Don't assume anything
+            return string.Empty;
         }
 
         /// <summary>

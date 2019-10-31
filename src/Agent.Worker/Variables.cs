@@ -15,6 +15,32 @@ using Newtonsoft.Json.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
+    public sealed class VariableScope : IDisposable
+    {
+        private Variables Data;
+        private HashSet<string> Names;
+
+        public VariableScope(Variables data) 
+        {
+            Data = data;
+            Names = new HashSet<string>();
+        }
+
+        public void Set(string name, string val, bool secret = false)
+        {
+            Names.Add(name);
+            Data.Set(name, val, secret);
+        }
+
+        public void Dispose()
+        {
+            foreach (string name in Names)
+            {
+                Data.Unset(name);
+            }
+        }
+    }
+
     public sealed class Variables
     {
         private readonly IHostContext _hostContext;
@@ -320,6 +346,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             return null;
+        }
+
+        public VariableScope CreateScope()
+        {
+            return new VariableScope(this);
+        }
+
+        public void Unset(string name)
+        {
+            // Validate the args.
+            ArgUtil.NotNullOrEmpty(name, nameof(name));
+
+            // Remove the variable.
+            lock (_setLock)
+            {
+                Variable dummy;
+                 _expanded.Remove(name, out dummy);
+                _nonexpanded.Remove(name, out dummy);
+                _trace.Verbose($"Unset '{name}'");
+            }
         }
 
         public void Set(string name, string val, bool secret = false)
