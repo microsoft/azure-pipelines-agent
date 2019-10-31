@@ -65,7 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             TestDataProvider runDataProvider = reader.ParseTestResultFiles(_ec.Object, runContext, new List<string> { _resultFile });
             List<TestRunData> runData = runDataProvider.GetTestRunData();
 
-            
+
             Assert.Equal(runData[0].TestResults.Count, 3);
             Assert.Equal(runData[0].TestResults[0].Outcome, "NotExecuted");
             Assert.Equal(runData[0].TestResults[0].TestCaseTitle, "TestMethod2");
@@ -402,6 +402,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             List<string> warnings;
             var variables = new Variables(hc, new Dictionary<string, VariableValue>(), out warnings);
             _ec.Setup(x => x.Variables).Returns(variables);
+            _ec.Setup(x => x.Write(It.IsAny<string>(), It.IsAny<string>()))
+                .Callback<string, string>
+                ((tag, message) =>
+                {
+                  Console.Error.WriteLine(tag + ": " + message);
+                });
+
         }
     }
 }
