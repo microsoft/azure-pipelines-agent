@@ -44,5 +44,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             Assert.True(Directory.Exists(testDataDir));
             return testDataDir;
         }
+
+        public static string WriteAllTextToTempFile(string content, string extension=null)
+        {
+            string file = Path.GetTempFileName();
+            if (!string.IsNullOrEmpty(extension))
+            {
+                file = Path.ChangeExtension(file, extension);
+            }
+            File.WriteAllText(file, content);
+            return file;
+        }
     }
 }
