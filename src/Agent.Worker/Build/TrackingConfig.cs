@@ -106,9 +106,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         [JsonIgnore]
         public string FileLocation { get; set; }
 
-        [JsonIgnore]
-        public bool WasConvertedFromOldFormat { get; set; }
-
         [JsonProperty("build_artifactstagingdirectory")]
         public string ArtifactsDirectory { get; set; }
 
