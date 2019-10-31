@@ -35,17 +35,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
         private Mock<IVstsAgentWebProxy> _vstsAgentWebProxy;
         private Mock<IAgentCertificateManager> _cert;
 
-#if OS_WINDOWS
-        private Mock<IWindowsServiceControlManager> _serviceControlManager;
-#endif
-
-#if OS_LINUX
-        private Mock<ILinuxServiceControlManager> _serviceControlManager;
-#endif
-
-#if OS_OSX
-        private Mock<IMacOSServiceControlManager> _serviceControlManager;
-#endif
+        private Mock<IWindowsServiceControlManager> _windowsServiceControlManager;
+        private Mock<ILinuxServiceControlManager> _linuxServiceControlManager;
+        private Mock<IMacOSServiceControlManager> _macServiceControlManager;
 
         private Mock<IRSAKeyManager> _rsaKeyManager;
         private ICapabilitiesManager _capabilitiesManager;
@@ -81,17 +73,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             _vstsAgentWebProxy = new Mock<IVstsAgentWebProxy>();
             _cert = new Mock<IAgentCertificateManager>();
 
-#if OS_WINDOWS
-            _serviceControlManager = new Mock<IWindowsServiceControlManager>();
-#endif
-
-#if OS_LINUX
-            _serviceControlManager = new Mock<ILinuxServiceControlManager>();
-#endif
-
-#if OS_OSX
-            _serviceControlManager = new Mock<IMacOSServiceControlManager>();
-#endif
+            _windowsServiceControlManager = new Mock<IWindowsServiceControlManager>();
+            _linuxServiceControlManager = new Mock<ILinuxServiceControlManager>();
+            _macServiceControlManager = new Mock<IMacOSServiceControlManager>();
             _capabilitiesManager = new CapabilitiesManager();
 
             var expectedAgent = new TaskAgent(_expectedAgentName) { Id = 1 };
@@ -130,9 +114,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
 
             _credMgr.Setup(x => x.GetCredentialProvider(It.IsAny<string>())).Returns(new TestAgentCredential());
 
-#if !OS_WINDOWS
-            _serviceControlManager.Setup(x => x.GenerateScripts(It.IsAny<AgentSettings>()));
-#endif
+            _linuxServiceControlManager.Setup(x => x.GenerateScripts(It.IsAny<AgentSettings>()));
+            _macServiceControlManager.Setup(x => x.GenerateScripts(It.IsAny<AgentSettings>()));
 
             var expectedPools = new List<TaskAgentPool>() { new TaskAgentPool(_expectedPoolName) { Id = _expectedPoolId } };
             _agentServer.Setup(x => x.GetAgentPoolsAsync(It.IsAny<string>(), It.IsAny<TaskAgentPoolType>())).Returns(Task.FromResult(expectedPools));
@@ -163,13 +146,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             tc.SetSingleton<IVstsAgentWebProxy>(_vstsAgentWebProxy.Object);
             tc.SetSingleton<IAgentCertificateManager>(_cert.Object);
 
-#if OS_WINDOWS
-            tc.SetSingleton<IWindowsServiceControlManager>(_serviceControlManager.Object);
-#elif OS_LINUX
-            tc.SetSingleton<ILinuxServiceControlManager>(_serviceControlManager.Object);
-#elif OS_OSX
-            tc.SetSingleton<IMacOSServiceControlManager>(_serviceControlManager.Object);
-#endif
+            tc.SetSingleton<IWindowsServiceControlManager>(_windowsServiceControlManager.Object);
+            tc.SetSingleton<ILinuxServiceControlManager>(_linuxServiceControlManager.Object);
+            tc.SetSingleton<IMacOSServiceControlManager>(_macServiceControlManager.Object);
 
             tc.SetSingleton<IRSAKeyManager>(_rsaKeyManager.Object);
 
@@ -195,9 +174,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
                     new[]
                     {
                        "configure",
-#if !OS_WINDOWS
                        "--acceptteeeula", 
-#endif                       
                        "--url", _expectedServerUrl,
                        "--agent", _expectedAgentName,
                        "--pool", _expectedPoolName,
@@ -255,9 +232,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
                     new[]
                     {
                        "configure",
-#if !OS_WINDOWS
                        "--acceptteeeula", 
-#endif                       
                        "--url", _expectedServerUrl,
                        "--agent", _expectedAgentName,
                        "--deploymentpoolname", _expectedPoolName,
@@ -321,9 +296,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
                     new[]
                     {
                         "configure",
-#if !OS_WINDOWS
                        "--acceptteeeula",
-#endif
                         "--machinegroup",
                         "--url", _expectedVSTSServerUrl,
                         "--agent", _expectedAgentName,
@@ -389,9 +362,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
                     new[]
                     {
                         "configure",
-#if !OS_WINDOWS
                        "--acceptteeeula",
-#endif
                         "--deploymentgroup",
                         "--url", onPremTfsUrl,
                         "--agent", _expectedAgentName,
@@ -476,9 +447,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
                     new[]
                     {
                         "configure",
-#if !OS_WINDOWS
                        "--acceptteeeula",
-#endif
                         "--machinegroup",
                         "--adddeploymentgrouptags",
                         "--url", _expectedVSTSServerUrl,
@@ -554,9 +523,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
                     new[]
                     {
                         "configure",
-#if !OS_WINDOWS
                        "--acceptteeeula",
-#endif
                         "--environment",
                         "--url", _expectedVSTSServerUrl,
                         "--agent", "environmentVMResourceName",

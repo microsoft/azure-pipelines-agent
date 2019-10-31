@@ -1,3 +1,11 @@
+pr:
+  branches:
+    include:
+    - '*'
+  paths:
+    exclude:
+    - 'docs/*'
+
 resources:
   containers:
   - container: dotnetcore_arm
