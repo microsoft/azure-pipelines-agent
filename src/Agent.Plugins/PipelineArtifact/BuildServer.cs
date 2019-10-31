@@ -84,5 +84,13 @@ namespace Agent.Plugins.PipelineArtifact
         {
             return _buildHttpClient.GetArtifactsAsync(project, pipelineId, userState: null, cancellationToken: cancellationToken);
         }
+
+        public Task<List<BuildDefinition>> GetDefinitionsAsync(
+            Guid project,
+            string definitionName,
+            CancellationToken cancellationToken)
+        {
+            return _buildHttpClient.GetFullDefinitionsAsync(project, definitionName, cancellationToken: cancellationToken);
+        }
     }
 }

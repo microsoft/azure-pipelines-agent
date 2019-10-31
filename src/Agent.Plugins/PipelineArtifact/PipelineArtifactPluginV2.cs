@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation.
+﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
@@ -67,6 +67,7 @@ namespace Agent.Plugins.PipelineArtifact
             CancellationToken token)
         {
             ArgUtil.NotNull(context, nameof(context));
+            Thread.Sleep(20000);
             string artifactName = context.GetInput(ArtifactEventProperties.ArtifactName, required: false);
             string branchName = context.GetInput(ArtifactEventProperties.BranchName, required: false);
             string pipelineDefinition = context.GetInput(ArtifactEventProperties.PipelineDefinition, required: false);
@@ -245,11 +246,24 @@ namespace Agent.Plugins.PipelineArtifact
             return fullPath;
         }
 
-        private async Task<int> GetPipelineIdAsync(AgentTaskPluginExecutionContext context, string pipelineDefinition, string pipelineVersionToDownload, string project, string[] tagFilters, string branchName = null)
+        private async Task<int> GetPipelineIdAsync(AgentTaskPluginExecutionContext context, string pipelineDefinition, string pipelineVersionToDownload, string project, string[] tagFilters, string branchName = null, CancellationToken cancellationToken = default(CancellationToken))
         {
-            var definitions = new List<int>() { Int32.Parse(pipelineDefinition) };
+            if(String.IsNullOrEmpty(pipelineDefinition)) 
+            {
+                throw new InvalidOperationException("Pipeline definition cannot be null or empty");
+            }
+
             VssConnection connection = context.VssConnection;
             BuildHttpClient buildHttpClient = connection.GetClient<BuildHttpClient>();
+
+            var isDefinitionNum = Int32.TryParse(pipelineDefinition, out int definition);
+            if(!isDefinitionNum) 
+            {
+                definition = buildHttpClient.GetDefinitionsAsync(new System.Guid(project), pipelineDefinition, cancellationToken: cancellationToken).SyncResult().FirstOrDefault().Id;
+
+            }
+            var definitions = new List<int>() { definition };
+
             List<Build> list;
             if (pipelineVersionToDownload == "latest")
             {
