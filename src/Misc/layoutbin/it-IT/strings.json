@@ -36,7 +36,6 @@
     "AutoLogonPolicies_ShutdownReason":  "Motivo dell\u0027arresto",
     "AutoLogonPoliciesInspection":  "Verifica dei criteri che possono impedire il corretto funzionamento dell\u0027accesso automatico.",
     "AutoLogonPoliciesWarningsHeader":  "I seguenti criteri possono influire sull\u0027accesso automatico:",
-    "BuildCommandNotFound":  "##vso[build.{0}] non è un comando riconosciuto per l\u0027estensione del comando build. Vedere la documentazione (http://go.microsoft.com/fwlink/?LinkId=817296)",
     "BuildDirLastUseTIme":  "Data dell\u0027ultimo utilizzo della directory di compilazione \u0027{0}\u0027: {1}",
     "BuildIdIsNotAvailable":  "Si sta provando a scaricare l\u0027artefatto della pipeline nell\u0027ambiente \u0027{0}\u0027, ma l\u0027ID compilazione non è presente. È possibile scaricare un artefatto della pipeline nell\u0027ambiente \u0027{1}\u0027 solo se l\u0027artefatto è una compilazione.",
     "BuildIdIsNotValid":  "L\u0027ID compilazione non è valido: {0}",

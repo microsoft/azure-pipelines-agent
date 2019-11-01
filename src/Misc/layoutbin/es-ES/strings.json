@@ -36,7 +36,6 @@
     "AutoLogonPolicies_ShutdownReason":  "Motivo del apagado",
     "AutoLogonPoliciesInspection":  "Comprobando si hay directivas que puedan impedir que el inicio de sesión automático funcione correctamente.",
     "AutoLogonPoliciesWarningsHeader":  "Las siguientes directivas pueden afectar al inicio de sesión automático:",
-    "BuildCommandNotFound":  "##vso[build.{0}] no es un comando reconocido para la extensión de comando Build. Consulte la documentación de referencia (http://go.microsoft.com/fwlink/?LinkId=817296).",
     "BuildDirLastUseTIme":  "La última vez que el directorio de compilación \"{0}\" se usó fue: {1}",
     "BuildIdIsNotAvailable":  "Se está intentando descargar un artefacto de canalización en el entorno \"{0}\", pero no hay ningún id. de compilación. Solo se puede descargar un artefacto de canalización en el entorno \"{1}\" si el artefacto es una compilación.",
     "BuildIdIsNotValid":  "Identificador de compilación no válido: {0}",

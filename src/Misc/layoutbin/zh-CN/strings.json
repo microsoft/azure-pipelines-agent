@@ -36,7 +36,6 @@
     "AutoLogonPolicies_ShutdownReason":  "关闭原因",
     "AutoLogonPoliciesInspection":  "正在检查可能导致自动登录无法正常工作的策略。",
     "AutoLogonPoliciesWarningsHeader":  "以下策略可能会影响自动登录:",
-    "BuildCommandNotFound":  "##vso[build.{0}] 不是生成命令扩展的已识别命令。请参考文档(http://go.microsoft.com/fwlink/?LinkId=817296)",
     "BuildDirLastUseTIme":  "上次使用生成目录“{0}”的时间为: {1}",
     "BuildIdIsNotAvailable":  "尝试下载“{0}”环境中的管道项目，但生成 ID 不存在。如果项目是生成，只能下载“{1}”环境中的管道项目。",
     "BuildIdIsNotValid":  "生成 ID 无效: {0}",

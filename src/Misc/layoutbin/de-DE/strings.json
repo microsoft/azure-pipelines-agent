@@ -36,7 +36,6 @@
     "AutoLogonPolicies_ShutdownReason":  "Grund für das Herunterfahren",
     "AutoLogonPoliciesInspection":  "Es wird nach Richtlinien gesucht, aufgrund derer die automatische Anmeldung möglicherweise nicht korrekt funktioniert.",
     "AutoLogonPoliciesWarningsHeader":  "Die folgenden Richtlinien können sich auf die automatische Anmeldung auswirken:",
-    "BuildCommandNotFound":  "##vso[build.{0}] ist kein erkannter Befehl für die Buildbefehlserweiterung. Weitere Informationen finden Sie in der Dokumentation (http://go.microsoft.com/fwlink/?LinkId=817296).",
     "BuildDirLastUseTIme":  "Das Buildverzeichnis \"{0}\" wurde zuletzt verwendet am: {1}",
     "BuildIdIsNotAvailable":  "Es wird versucht, das Pipelineartefakt in der \u0027{0}\u0027-Umgebung herunterzuladen, jedoch ist die Build-ID nicht vorhanden. Ein Pipelineartefakt kann nur in der \u0027{1}\u0027-Umgebung heruntergeladen werden, wenn das Artefakt ein Build ist.",
     "BuildIdIsNotValid":  "Build-ID ist ungültig: {0}",

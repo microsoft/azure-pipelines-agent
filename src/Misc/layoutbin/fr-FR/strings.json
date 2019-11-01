@@ -36,7 +36,6 @@
     "AutoLogonPolicies_ShutdownReason":  "Raison de l\u0027arrêt",
     "AutoLogonPoliciesInspection":  "Recherche des stratégies qui peuvent empêcher le bon fonctionnement de l\u0027ouverture de session automatique.",
     "AutoLogonPoliciesWarningsHeader":  "Les stratégies suivantes peuvent affecter l\u0027ouverture de session automatique :",
-    "BuildCommandNotFound":  "##vso[build.{0}] n\u0027est pas une commande reconnue pour l\u0027extension de commande de build. Consultez la documentation de référence (http://go.microsoft.com/fwlink/?LinkId=817296)",
     "BuildDirLastUseTIme":  "Dernière utilisation du répertoire de build \u0027{0}\u0027 : {1}",
     "BuildIdIsNotAvailable":  "Tentative de téléchargement d\u0027un artefact de pipeline dans l\u0027environnement \u0027{0}\u0027 mais l\u0027ID de build n\u0027est pas présent. Impossible de télécharger un artefact de pipeline dans l\u0027environnement \u0027{1}\u0027 si l\u0027artefact n\u0027est pas une build.",
     "BuildIdIsNotValid":  "L\u0027ID de build est non valide : {0}",

@@ -36,7 +36,6 @@
     "AutoLogonPolicies_ShutdownReason":  "종료 이유",
     "AutoLogonPoliciesInspection":  "자동 로그온이 올바르게 작동하지 않도록 하는 정책을 확인 중입니다.",
     "AutoLogonPoliciesWarningsHeader":  "자동 로그온에 영향을 줄 수 있는 정책은 다음과 같습니다.",
-    "BuildCommandNotFound":  "##vso[build.{0}]는 빌드 명령 확장에 대해 인식되는 명령이 아닙니다. 설명서(http://go.microsoft.com/fwlink/?LinkId=817296)를 참조하세요.",
     "BuildDirLastUseTIme":  "빌드 디렉터리 \u0027{0}\u0027이(가) 마지막으로 사용된 시간: {1}",
     "BuildIdIsNotAvailable":  "\u0027{0}\u0027 환경에서 파이프라인 아티팩트의 다운로드를 시도하지만 빌드 ID가 존재하지 않습니다. 아티팩트가 빌드인 경우 \u0027{1}\u0027 환경에서만 파이프라인 아티팩트를 다운로드할 수 있습니다.",
     "BuildIdIsNotValid":  "다음 빌드 ID가 잘못되었습니다. {0}",

@@ -36,7 +36,6 @@
     "AutoLogonPolicies_ShutdownReason":  "關機原因",
     "AutoLogonPoliciesInspection":  "正在檢查是否有原則會讓自動登入無法正常運作。",
     "AutoLogonPoliciesWarningsHeader":  "下列原則可能會影響自動登入:",
-    "BuildCommandNotFound":  "##vso[build.{0}] 對 Build 命令延伸模組而言，不是可辨識的命令。請參考文件 (http://go.microsoft.com/fwlink/?LinkId=817296)",
     "BuildDirLastUseTIme":  "上次使用的組建目錄 \u0027{0}\u0027: {1}",
     "BuildIdIsNotAvailable":  "嘗試在 \u0027{0}\u0027 環境中下載管線成品，但組建識別碼不存在。若成品為組建，只可在 \u0027{1}\u0027 環境中下載管線成品。",
     "BuildIdIsNotValid":  "組建識別碼無效: {0}",

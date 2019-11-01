@@ -36,7 +36,6 @@
     "AutoLogonPolicies_ShutdownReason":  "シャットダウンの理由",
     "AutoLogonPoliciesInspection":  "自動ログオンの正常な動作を妨げる可能性のあるポリシーがないか確認しています。",
     "AutoLogonPoliciesWarningsHeader":  "次のポリシーは自動ログオンに影響を与える可能性があります。",
-    "BuildCommandNotFound":  "##vso[build.{0}] は、Build コマンド拡張の認識されたコマンドではありません。ドキュメント (http://go.microsoft.com/fwlink/?LinkId=817296) をご覧ください",
     "BuildDirLastUseTIme":  "ビルド ディレクトリ \u0027{0}\u0027 が前回使用されたのは {1} です",
     "BuildIdIsNotAvailable":  "\u0027{0}\u0027 環境でパイプライン成果物をダウンロードしようとしましたが、ビルド ID が存在しません。成果物がビルドの場合にのみ、\u0027{1}\u0027 環境でパイプライン成果物をダウンロードできます。",
     "BuildIdIsNotValid":  "ビルド ID が無効です: {0}",
