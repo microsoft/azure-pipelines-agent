@@ -85,12 +85,12 @@ namespace Agent.Plugins.PipelineArtifact
             return await _buildHttpClient.GetArtifactsAsync(project, pipelineId, userState: null, cancellationToken: cancellationToken);
         }
 
-        public async Task<List<BuildDefinition>> GetDefinitionsAsync(
+        public async Task<List<BuildDefinitionReference>> GetDefinitionsAsync(
             Guid project,
             string definitionName,
             CancellationToken cancellationToken)
         {
-            return await _buildHttpClient.GetFullDefinitionsAsync(project, definitionName, cancellationToken: cancellationToken);
+            return await _buildHttpClient.GetDefinitionsAsync(project, definitionName, cancellationToken: cancellationToken);
         }
     }
 }
