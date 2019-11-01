@@ -177,7 +177,7 @@ namespace Agent.Plugins.PipelineArtifact
                 {
                     if (pipelineVersionToDownload == pipelineVersionToDownloadLatest)
                     {
-                        pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectName, tagsInput);
+                        pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectName, tagsInput, null, cancellationToken: token);
                     }
                     else if (pipelineVersionToDownload == pipelineVersionToDownloadSpecific)
                     {
@@ -185,7 +185,7 @@ namespace Agent.Plugins.PipelineArtifact
                     }
                     else if (pipelineVersionToDownload == pipelineVersionToDownloadLatestFromBranch)
                     {
-                        pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectName, tagsInput, branchName);
+                        pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectName, tagsInput, branchName, cancellationToken: token);
                     }
                     else
                     {
@@ -258,7 +258,7 @@ namespace Agent.Plugins.PipelineArtifact
             var isDefinitionNum = Int32.TryParse(pipelineDefinition, out int definition);
             if(!isDefinitionNum) 
             {
-                definition = buildHttpClient.GetDefinitionsAsync(new System.Guid(project), pipelineDefinition, cancellationToken: cancellationToken).SyncResult().FirstOrDefault().Id;
+                definition = (await buildHttpClient.GetDefinitionsAsync(new System.Guid(project), pipelineDefinition, cancellationToken: cancellationToken)).FirstOrDefault().Id;
             }
             var definitions = new List<int>() { definition };
 

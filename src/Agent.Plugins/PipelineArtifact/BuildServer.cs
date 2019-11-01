@@ -59,12 +59,12 @@ namespace Agent.Plugins.PipelineArtifact
             return await _buildHttpClient.GetArtifactAsync(projectId, pipelineId, name, cancellationToken: cancellationToken);
         }
 
-        public Task<List<BuildArtifact>> GetArtifactsAsync(
+        public async Task<List<BuildArtifact>> GetArtifactsAsync(
             Guid project,
             int pipelineId,
             CancellationToken cancellationToken)
         {
-            return _buildHttpClient.GetArtifactsAsync(project, pipelineId, userState: null, cancellationToken: cancellationToken);
+            return await _buildHttpClient.GetArtifactsAsync(project, pipelineId, userState: null, cancellationToken: cancellationToken);
         }
 
         //Get artifact with project name.
@@ -77,20 +77,20 @@ namespace Agent.Plugins.PipelineArtifact
             return await _buildHttpClient.GetArtifactAsync(project, pipelineId, name, cancellationToken: cancellationToken);
         }
 
-        public Task<List<BuildArtifact>> GetArtifactsWithProjectNameAsync(
+        public async Task<List<BuildArtifact>> GetArtifactsWithProjectNameAsync(
             string project,
             int pipelineId,
             CancellationToken cancellationToken)
         {
-            return _buildHttpClient.GetArtifactsAsync(project, pipelineId, userState: null, cancellationToken: cancellationToken);
+            return await _buildHttpClient.GetArtifactsAsync(project, pipelineId, userState: null, cancellationToken: cancellationToken);
         }
 
-        public Task<List<BuildDefinition>> GetDefinitionsAsync(
+        public async Task<List<BuildDefinition>> GetDefinitionsAsync(
             Guid project,
             string definitionName,
             CancellationToken cancellationToken)
         {
-            return _buildHttpClient.GetFullDefinitionsAsync(project, definitionName, cancellationToken: cancellationToken);
+            return await _buildHttpClient.GetFullDefinitionsAsync(project, definitionName, cancellationToken: cancellationToken);
         }
     }
 }
