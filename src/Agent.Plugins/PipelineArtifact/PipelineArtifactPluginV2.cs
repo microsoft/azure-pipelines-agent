@@ -259,7 +259,6 @@ namespace Agent.Plugins.PipelineArtifact
             if(!isDefinitionNum) 
             {
                 definition = buildHttpClient.GetDefinitionsAsync(new System.Guid(project), pipelineDefinition, cancellationToken: cancellationToken).SyncResult().FirstOrDefault().Id;
-
             }
             var definitions = new List<int>() { definition };
 
