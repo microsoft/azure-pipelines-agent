@@ -247,7 +247,7 @@ namespace Agent.Plugins.PipelineArtifact
 
         private async Task<int> GetPipelineIdAsync(AgentTaskPluginExecutionContext context, string pipelineDefinition, string pipelineVersionToDownload, string project, string[] tagFilters, string branchName = null, CancellationToken cancellationToken = default(CancellationToken))
         {
-            if(String.IsNullOrEmpty(pipelineDefinition)) 
+            if(String.IsNullOrWhiteSpace(pipelineDefinition)) 
             {
                 throw new InvalidOperationException("Pipeline definition cannot be null or empty");
             }
