@@ -536,7 +536,6 @@
     "Telemetry":  "テレメトリ",
     "TelemetryCommandDataError":  "テレメトリ データ {0} を解析できません。エラー: {1}",
     "TelemetryCommandFailed":  "テレメトリ データを公開できませんでした。エラー {0}",
-    "TelemetryCommandNotFound":  "##vso[telemetry.{0}] は、Task コマンド拡張の認識されたコマンドではありません。",
     "TestAgentConnection":  "エージェントの接続をテストしています。",
     "TestAttachmentNotExists":  "ディスク {0} では使用できないため、添付ファイルをスキップしています",
     "TestResultsRemaining":  "テスト結果の残り: {0}。テストの実行 ID: {1}",

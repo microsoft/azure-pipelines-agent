@@ -16,7 +16,7 @@ using Agent.Worker.Release;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 {
-    public sealed class ReleaseCommandExtension : BaseWorkerCommandExtension
+    public sealed class ReleaseCommandExtension: BaseWorkerCommandExtension
     {
         public ReleaseCommandExtension()
         {
@@ -38,7 +38,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 
                 Guid projectId = context.Variables.System_TeamProjectId ?? Guid.Empty;
                 ArgUtil.NotEmpty(projectId, nameof(projectId));
-                
+
                 string releaseId = context.Variables.Release_ReleaseId;
                 ArgUtil.NotNull(releaseId, nameof(releaseId));
 
@@ -78,6 +78,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                 context.Variables.Set("release.releaseName", release.Name);
             }
         }
-    }    
+    }
 
 }

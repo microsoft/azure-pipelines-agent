@@ -536,7 +536,6 @@
     "Telemetry":  "遥测",
     "TelemetryCommandDataError":  "无法分析遥测数据 {0}。错误: {1}",
     "TelemetryCommandFailed":  "无法发布遥测数据。错误 {0}",
-    "TelemetryCommandNotFound":  "##vso[telemetry.{0}] 不是任务命令扩展的已识别命令。",
     "TestAgentConnection":  "正在测试代理连接。",
     "TestAttachmentNotExists":  "正在跳过附件，因为它在磁盘上不可用: {0}",
     "TestResultsRemaining":  "剩余测试结果: {0}。测试运行 ID: {1}",

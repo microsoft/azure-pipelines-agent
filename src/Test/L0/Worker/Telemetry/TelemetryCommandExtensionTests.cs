@@ -202,6 +202,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Telemetry
                     _errors.Add(issue.Message);
                 }
             });
+            _ec.Setup(x => x.GetHostContext()).Returns(_hc);
         }
 
         private bool VerifyEvent(CustomerIntelligenceEvent[] ciEvent, Dictionary<string, object> eventData)

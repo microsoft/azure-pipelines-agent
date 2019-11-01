@@ -536,7 +536,6 @@
     "Telemetry":  "원격 분석",
     "TelemetryCommandDataError":  "원격 분석 데이터 {0}을(를) 구문 분석할 수 없습니다. 오류: {1}",
     "TelemetryCommandFailed":  "원격 분석 데이터를 게시하지 못했습니다. 오류 {0}",
-    "TelemetryCommandNotFound":  "##vso[telemetry.{0}]는 작업 명령 확장에서 인식되는 명령이 아닙니다.",
     "TestAgentConnection":  "에이전트 연결을 테스트 중입니다.",
     "TestAttachmentNotExists":  "첨부 파일을 디스크에서 사용할 수 없으므로 첨부 파일을 건너뜁니다. {0}",
     "TestResultsRemaining":  "남은 테스트 결과: {0}. 테스트 실행 ID: {1}",
