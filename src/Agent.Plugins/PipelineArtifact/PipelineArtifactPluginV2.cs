@@ -46,7 +46,8 @@ namespace Agent.Plugins.PipelineArtifact
             public static readonly string PipelineVersionToDownload = "runVersion";
             public static readonly string BranchName = "runBranch";
             public static readonly string Tags = "tags";
-            public static readonly string MinimumBuildStatus = "minimumBuildStatus";
+            public static readonly string AllowPartiallySucceededBuilds = "allowPartiallySucceededBuilds";
+            public static readonly string AllowFailedBuilds = "allowFailedBuilds";
             public static readonly string ArtifactName = "artifact";
             public static readonly string ItemPattern = "patterns";
         }
@@ -79,7 +80,8 @@ namespace Agent.Plugins.PipelineArtifact
             string itemPattern = context.GetInput(ArtifactEventProperties.ItemPattern, required: false);
             string projectName = context.GetInput(ArtifactEventProperties.Project, required: false);
             string tags = context.GetInput(ArtifactEventProperties.Tags, required: false);
-            string minimumBuildStatus = context.GetInput(ArtifactEventProperties.MinimumBuildStatus, required: false);
+            string allowPartiallySucceededBuilds = context.GetInput(ArtifactEventProperties.AllowPartiallySucceededBuilds, required: false);
+            string allowFailedBuilds = context.GetInput(ArtifactEventProperties.AllowFailedBuilds, required: false);
             string userSpecifiedpipelineId = context.GetInput(pipelineRunId, required: false);
             string defaultWorkingDirectory = context.Variables.GetValueOrDefault("system.defaultworkingdirectory").Value;
 
@@ -105,6 +107,15 @@ namespace Agent.Plugins.PipelineArtifact
                 new[] { "," },
                 StringSplitOptions.None
             );
+
+            if (!bool.TryParse(allowPartiallySucceededBuilds, out var allowPartiallySucceededBuildsBool))
+            {
+                allowPartiallySucceededBuildsBool = false;
+            }
+            if (!bool.TryParse(allowFailedBuilds, out var allowFailedBuildsBool))
+            {
+                allowFailedBuildsBool = false;
+            }
 
             PipelineArtifactServer server = new PipelineArtifactServer(tracer);
             PipelineArtifactDownloadParameters downloadParameters;
@@ -179,7 +190,7 @@ namespace Agent.Plugins.PipelineArtifact
                 {
                     if (pipelineVersionToDownload == pipelineVersionToDownloadLatest)
                     {
-                        pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectName, tagsInput, minimumBuildStatus);
+                        pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectName, tagsInput, allowPartiallySucceededBuildsBool, allowFailedBuildsBool);
                     }
                     else if (pipelineVersionToDownload == pipelineVersionToDownloadSpecific)
                     {
@@ -187,7 +198,7 @@ namespace Agent.Plugins.PipelineArtifact
                     }
                     else if (pipelineVersionToDownload == pipelineVersionToDownloadLatestFromBranch)
                     {
-                        pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectName, tagsInput, minimumBuildStatus, branchName);
+                        pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectName, tagsInput, allowPartiallySucceededBuildsBool, allowFailedBuildsBool, branchName);
                     }
                     else
                     {
@@ -247,10 +258,10 @@ namespace Agent.Plugins.PipelineArtifact
             return fullPath;
         }
 
-        private async Task<int> GetPipelineIdAsync(AgentTaskPluginExecutionContext context, string pipelineDefinition, string pipelineVersionToDownload, string project, string[] tagFilters, string minimumBuildStatus, string branchName = null)
+        private async Task<int> GetPipelineIdAsync(AgentTaskPluginExecutionContext context, string pipelineDefinition, string pipelineVersionToDownload, string project, string[] tagFilters, bool allowPartiallySucceededBuilds, bool allowFailedBuilds, string branchName = null)
         {
             var definitions = new List<int>() { Int32.Parse(pipelineDefinition) };
-            var resultFilter = GetResultFilter(minimumBuildStatus);
+            var resultFilter = GetResultFilter(allowPartiallySucceededBuilds, allowFailedBuilds);
             VssConnection connection = context.VssConnection;
             BuildHttpClient buildHttpClient = connection.GetClient<BuildHttpClient>();
             List<Build> list;
@@ -277,17 +288,21 @@ namespace Agent.Plugins.PipelineArtifact
             }
         }
 
-        private BuildResult GetResultFilter(string minimumBuildStatus)
+        private BuildResult GetResultFilter(bool allowPartiallySucceededBuilds, bool allowFailedBuilds)
         {
-            switch (minimumBuildStatus)
+            var result = BuildResult.Succeeded;
+
+            if (allowPartiallySucceededBuilds)
             {
-                case "partiallySucceeded":
-                    return BuildResult.Succeeded | BuildResult.PartiallySucceeded;
-                case "failed":
-                    return BuildResult.Succeeded | BuildResult.PartiallySucceeded | BuildResult.Failed;
-                default:
-                    return BuildResult.Succeeded;
+                result |= BuildResult.PartiallySucceeded;
             }
+
+            if (allowFailedBuilds)
+            {
+                result |= BuildResult.Failed;
+            }
+
+            return result;
         }
     }
 }
