@@ -116,6 +116,7 @@ namespace Agent.Plugins.PipelineArtifact
             {
                 allowFailedBuildsBool = false;
             }
+            var resultFilter = GetResultFilter(allowPartiallySucceededBuildsBool, allowFailedBuildsBool);
 
             PipelineArtifactServer server = new PipelineArtifactServer(tracer);
             PipelineArtifactDownloadParameters downloadParameters;
@@ -190,7 +191,7 @@ namespace Agent.Plugins.PipelineArtifact
                 {
                     if (pipelineVersionToDownload == pipelineVersionToDownloadLatest)
                     {
-                        pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectName, tagsInput, allowPartiallySucceededBuildsBool, allowFailedBuildsBool, null, cancellationToken: token);
+                        pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectName, tagsInput, resultFilter, null, cancellationToken: token);
                     }
                     else if (pipelineVersionToDownload == pipelineVersionToDownloadSpecific)
                     {
@@ -198,7 +199,7 @@ namespace Agent.Plugins.PipelineArtifact
                     }
                     else if (pipelineVersionToDownload == pipelineVersionToDownloadLatestFromBranch)
                     {
-                        pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectName, tagsInput, allowPartiallySucceededBuildsBool, allowFailedBuildsBool, branchName, cancellationToken: token);
+                        pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectName, tagsInput, resultFilter, branchName, cancellationToken: token);
                     }
                     else
                     {
@@ -258,7 +259,7 @@ namespace Agent.Plugins.PipelineArtifact
             return fullPath;
         }
 
-        private async Task<int> GetPipelineIdAsync(AgentTaskPluginExecutionContext context, string pipelineDefinition, string pipelineVersionToDownload, string project, string[] tagFilters, bool allowPartiallySucceededBuilds, bool allowFailedBuilds, string branchName = null, CancellationToken cancellationToken = default(CancellationToken))
+        private async Task<int> GetPipelineIdAsync(AgentTaskPluginExecutionContext context, string pipelineDefinition, string pipelineVersionToDownload, string project, string[] tagFilters, BuildResult resultFilter = BuildResult.Succeeded, string branchName = null, CancellationToken cancellationToken = default(CancellationToken))
         {
             if(String.IsNullOrWhiteSpace(pipelineDefinition)) 
             {
@@ -274,8 +275,6 @@ namespace Agent.Plugins.PipelineArtifact
                 definition = (await buildHttpClient.GetDefinitionsAsync(new System.Guid(project), pipelineDefinition, cancellationToken: cancellationToken)).FirstOrDefault().Id;
             }
             var definitions = new List<int>() { definition };
-
-            var resultFilter = GetResultFilter(allowPartiallySucceededBuilds, allowFailedBuilds);
 
             List<Build> list;
             if (pipelineVersionToDownload == "latest")
