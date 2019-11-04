@@ -18,7 +18,6 @@
     "AgentWithSameNameAlreadyExistInPool":  "集區 {0} 已包含名為 {1} 的代理程式。",
     "AlreadyConfiguredError":  "代理程式已設定，因此無法加以設定。若要重新設定代理程式，請先執行 \u0027config.cmd remove\u0027 或 \u0027./config.sh remove\u0027。",
     "ArgumentNeeded":  "必須指定 \u0027{0}\u0027。",
-    "ArtifactCommandNotFound":  "##vso[artifact.{0}] 對 Artifact 命令延伸模組而言，不是可辨識的命令。請參考文件 (http://go.microsoft.com/fwlink/?LinkId=817296)",
     "ArtifactDownloadFailed":  "無法從 {0} 下載成品。",
     "ArtifactLocationRequired":  "需要成品位置。",
     "ArtifactNameRequired":  "需要成品名稱。",

@@ -18,7 +18,6 @@
     "AgentWithSameNameAlreadyExistInPool":  "Il pool {0} contiene già un agente denominato {1}.",
     "AlreadyConfiguredError":  "Non è possibile configurare l\u0027agente perché è già configurato. Per riconfigurarlo, eseguire prima \u0027config.cmd remove\u0027 oppure \u0027./config.sh remove\u0027.",
     "ArgumentNeeded":  "È necessario specificare \u0027{0}\u0027.",
-    "ArtifactCommandNotFound":  "##vso[artifact.{0}] non è un comando riconosciuto per l\u0027estensione del comando artifact. Vedere la documentazione (http://go.microsoft.com/fwlink/?LinkId=817296)",
     "ArtifactDownloadFailed":  "Non è stato possibile scaricare l\u0027artefatto da {0}.",
     "ArtifactLocationRequired":  "Il percorso dell\u0027artefatto è obbligatorio.",
     "ArtifactNameRequired":  "Il nome dell\u0027artefatto è obbligatorio.",

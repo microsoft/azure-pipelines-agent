@@ -15,34 +15,28 @@ using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
-    public sealed class ArtifactCommandExtension : AgentService, IWorkerCommandExtension
+    public sealed class ArtifactCommandExtension: BaseWorkerCommandExtension
     {
-        public Type ExtensionType => typeof(IWorkerCommandExtension);
-
-        public string CommandArea => "artifact";
-
-        public HostTypes SupportedHostTypes => HostTypes.Build | HostTypes.Release;
-
-        public void ProcessCommand(IExecutionContext context, Command command)
+        public ArtifactCommandExtension()
         {
-            if (string.Equals(command.Event, WellKnownArtifactCommand.Associate, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessArtifactAssociateCommand(context, command.Properties, command.Data);
-            }
-            else if (string.Equals(command.Event, WellKnownArtifactCommand.Upload, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessArtifactUploadCommand(context, command.Properties, command.Data);
-            }
-            else
-            {
-                throw new Exception(StringUtil.Loc("ArtifactCommandNotFound", command.Event));
-            }
+            CommandArea = "artifact";
+            SupportedHostTypes = HostTypes.Build | HostTypes.Release;
+            InstallWorkerCommand(new ProcessArtifactAssociateCommand());
+            InstallWorkerCommand(new ProcessArtifactUploadCommand());
         }
+    }
 
-        private void ProcessArtifactAssociateCommand(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
+    public class ProcessArtifactAssociateCommand: IWorkerCommand
+    {
+        public string Name => "associate";
+        public List<string> Aliases => null;
+        public void Execute(IExecutionContext context, Command command)
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(context.Endpoints, nameof(context.Endpoints));
+
+            var eventProperties = command.Properties;
+            var data = command.Data;
 
             ServiceEndpoint systemConnection = context.Endpoints.FirstOrDefault(e => string.Equals(e.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
             ArgUtil.NotNull(systemConnection, nameof(systemConnection));
@@ -67,7 +61,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string artifactType;
             if (!eventProperties.TryGetValue(ArtifactAssociateEventProperties.ArtifactType, out artifactType))
             {
-                artifactType = InferArtifactResourceType(context, data);
+                artifactType = ArtifactCommandExtensionUtil.InferArtifactResourceType(context, data);
             }
 
             if (string.IsNullOrEmpty(artifactType))
@@ -77,7 +71,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             else if ((artifactType.Equals(ArtifactResourceTypes.Container, StringComparison.OrdinalIgnoreCase) ||
                       artifactType.Equals(ArtifactResourceTypes.FilePath, StringComparison.OrdinalIgnoreCase) ||
                       artifactType.Equals(ArtifactResourceTypes.VersionControl, StringComparison.OrdinalIgnoreCase)) &&
-                     string.IsNullOrEmpty(data))
+                      string.IsNullOrEmpty(data))
             {
                 throw new Exception(StringUtil.Loc("ArtifactLocationRequired"));
             }
@@ -88,16 +82,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 throw new Exception(StringUtil.Loc("AssociateArtifactCommandNotSupported", context.Variables.System_HostType));
             }
 
-            var propertyDictionary = ExtractArtifactProperties(eventProperties);
+            var propertyDictionary = ArtifactCommandExtensionUtil.ExtractArtifactProperties(eventProperties);
 
             string artifactData = "";
-            if (IsContainerPath(data) ||
-                IsValidServerPath(data))
+            if (ArtifactCommandExtensionUtil.IsContainerPath(data) ||
+                ArtifactCommandExtensionUtil.IsValidServerPath(data))
             {
                 //if data is a file container path or a tfvc server path
                 artifactData = data;
             }
-            else if (IsUncSharePath(context, data))
+            else if (ArtifactCommandExtensionUtil.IsUncSharePath(context, data))
             {
                 //if data is a UNC share path
                 artifactData = new Uri(data).LocalPath;
@@ -109,9 +103,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             // queue async command task to associate artifact.
             context.Debug($"Associate artifact: {artifactName} with build: {buildId.Value} at backend.");
-            var commandContext = HostContext.CreateService<IAsyncCommandContext>();
+            var commandContext = context.GetHostContext().CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("AssociateArtifact"));
-            commandContext.Task = AssociateArtifactAsync(commandContext,
+            commandContext.Task = ArtifactCommandExtensionUtil.AssociateArtifactAsync(commandContext,
                                                          WorkerUtilities.GetVssConnection(context),
                                                          projectId,
                                                          buildId.Value,
@@ -123,11 +117,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                                                          context.CancellationToken);
             context.AsyncCommands.Add(commandContext);
         }
+    }
 
-        private void ProcessArtifactUploadCommand(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
+    public class ProcessArtifactUploadCommand: IWorkerCommand
+    {
+        public string Name => "upload";
+        public List<string> Aliases => null;
+        public void Execute(IExecutionContext context, Command command)
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(context.Endpoints, nameof(context.Endpoints));
+
+            var eventProperties = command.Properties;
+            var data = command.Data;
 
             Guid projectId = context.Variables.System_TeamProjectId ?? Guid.Empty;
             ArgUtil.NotEmpty(projectId, nameof(projectId));
@@ -152,7 +154,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 containerFolder = artifactName;
             }
 
-            var propertyDictionary = ExtractArtifactProperties(eventProperties);
+            var propertyDictionary = ArtifactCommandExtensionUtil.ExtractArtifactProperties(eventProperties);
 
             string localPath = data;
             if (context.Container != null)
@@ -166,7 +168,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 throw new Exception(StringUtil.Loc("ArtifactLocationRequired"));
             }
 
-            if (!IsUncSharePath(context, localPath) && (context.Variables.System_HostType != HostTypes.Build))
+            if (!ArtifactCommandExtensionUtil.IsUncSharePath(context, localPath) && (context.Variables.System_HostType != HostTypes.Build))
             {
                 throw new Exception(StringUtil.Loc("UploadArtifactCommandNotSupported", context.Variables.System_HostType));
             }
@@ -186,9 +188,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             // queue async command task to associate artifact.
             context.Debug($"Upload artifact: {fullPath} to server for build: {buildId.Value} at backend.");
-            var commandContext = HostContext.CreateService<IAsyncCommandContext>();
+            var commandContext = context.GetHostContext().CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("UploadArtifact"));
-            commandContext.Task = UploadArtifactAsync(commandContext,
+            commandContext.Task = ArtifactCommandExtensionUtil.UploadArtifactAsync(commandContext,
                                                       WorkerUtilities.GetVssConnection(context),
                                                       projectId,
                                                       containerId.Value,
@@ -201,8 +203,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                                                       context.CancellationToken);
             context.AsyncCommands.Add(commandContext);
         }
+    }
 
-        private async Task AssociateArtifactAsync(
+
+    internal static class ArtifactCommandExtensionUtil
+    {
+        public static async Task AssociateArtifactAsync(
             IAsyncCommandContext context,
             VssConnection connection,
             Guid projectId,
@@ -219,7 +225,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             context.Output(StringUtil.Loc("AssociateArtifactWithBuild", artifact.Id, buildId));
         }
 
-        private async Task UploadArtifactAsync(
+        public static async Task UploadArtifactAsync(
             IAsyncCommandContext context,
             VssConnection connection,
             Guid projectId,
@@ -244,13 +250,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             context.Output(StringUtil.Loc("AssociateArtifactWithBuild", artifact.Id, buildId));
         }
 
-        private Boolean IsContainerPath(string path)
+        public static Boolean IsContainerPath(string path)
         {
             return !string.IsNullOrEmpty(path) &&
                     path.StartsWith("#", StringComparison.OrdinalIgnoreCase);
         }
 
-        private Boolean IsValidServerPath(string path)
+        public static Boolean IsValidServerPath(string path)
         {
             return !string.IsNullOrEmpty(path) &&
                     path.Length >= 2 &&
@@ -258,7 +264,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     (path[1] == '/' || path[1] == '\\');
         }
 
-        private Boolean IsUncSharePath(IExecutionContext context, string path)
+        public static Boolean IsUncSharePath(IExecutionContext context, string path)
         {
             if (string.IsNullOrEmpty(path))
             {
@@ -287,7 +293,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return false;
         }
 
-        private string InferArtifactResourceType(IExecutionContext context, string artifactLocation)
+        public static string InferArtifactResourceType(IExecutionContext context, string artifactLocation)
         {
             string type = "";
             if (!string.IsNullOrEmpty(artifactLocation))
@@ -317,18 +323,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return type;
         }
 
-        private Dictionary<string, string> ExtractArtifactProperties(Dictionary<string, string> eventProperties)
+        public static Dictionary<string, string> ExtractArtifactProperties(Dictionary<string, string> eventProperties)
         {
             return eventProperties.Where(pair => !(string.Compare(pair.Key, ArtifactUploadEventProperties.ContainerFolder, StringComparison.OrdinalIgnoreCase) == 0 ||
                                                   string.Compare(pair.Key, ArtifactUploadEventProperties.ArtifactName, StringComparison.OrdinalIgnoreCase) == 0 ||
                                                   string.Compare(pair.Key, ArtifactUploadEventProperties.ArtifactType, StringComparison.OrdinalIgnoreCase) == 0)).ToDictionary(pair => pair.Key, pair => pair.Value);
         }
-    }
-
-    internal static class WellKnownArtifactCommand
-    {
-        public static readonly string Associate = "associate";
-        public static readonly string Upload = "upload";
     }
 
     internal static class ArtifactAssociateEventProperties
