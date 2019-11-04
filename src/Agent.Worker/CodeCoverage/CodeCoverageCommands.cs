@@ -326,22 +326,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
         internal static class WellKnownResultsCommand
         {
             internal static readonly string PublishCodeCoverage = "publish";
-            internal static readonly string EnableCodeCoverage = "enable";
-        }
-
-        internal static class EnableCodeCoverageEventProperties
-        {
-            internal static readonly string BuildTool = "buildtool";
-            internal static readonly string BuildFile = "buildfile";
-            internal static readonly string CodeCoverageTool = "codecoveragetool";
-            internal static readonly string ClassFilesDirectories = "classfilesdirectories";
-            internal static readonly string ClassFilter = "classfilter";
-            internal static readonly string SourceDirectories = "sourcedirectories";
-            internal static readonly string SummaryFile = "summaryfile";
-            internal static readonly string ReportDirectory = "reportdirectory";
-            internal static readonly string CCReportTask = "ccreporttask";
-            internal static readonly string ReportBuildFile = "reportbuildfile";
-            internal static readonly string IsMultiModule = "ismultimodule";
         }
 
         internal static class PublishCodeCoverageEventProperties
