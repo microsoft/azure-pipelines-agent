@@ -1,17 +1,16 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-﻿using Microsoft.TeamFoundation.TestClient.PublishTestResults;
+using Microsoft.TeamFoundation.TestClient.PublishTestResults;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
     public interface IParser : IExtension
     {
         string Name { get; }
-    
+
         TestDataProvider ParseTestResultFiles(IExecutionContext executionContext, TestRunContext testRunContext, List<string> testResultsFiles);
     }
 

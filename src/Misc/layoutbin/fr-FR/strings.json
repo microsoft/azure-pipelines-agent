@@ -536,7 +536,6 @@
     "Telemetry":  "Télémétrie",
     "TelemetryCommandDataError":  "Impossible d\u0027analyser les données de télémétrie {0}. Erreur : {1}",
     "TelemetryCommandFailed":  "Échec de la publication des données de télémétrie. Erreur {0}",
-    "TelemetryCommandNotFound":  "##vso[telemetry.{0}] n\u0027est pas une commande reconnue pour l\u0027extension de commande de tâche.",
     "TestAgentConnection":  "Test de connexion de l\u0027agent.",
     "TestAttachmentNotExists":  "La pièce jointe est ignorée, car elle n\u0027est pas disponible sur le disque : {0}",
     "TestResultsRemaining":  "Résultats des tests restants : {0}. ID de série de tests : {1}",

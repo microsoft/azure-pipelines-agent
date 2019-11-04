@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-﻿using Microsoft.TeamFoundation.TestManagement.WebApi;
+using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
@@ -19,7 +19,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
     public sealed class ResultsCommandExtension : AgentService, IWorkerCommandExtension
     {
         private IExecutionContext _executionContext;
-        
+
         //publish test results inputs
         private List<string> _testResultFiles;
         private string _testRunner;
@@ -43,7 +43,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         public string CommandArea => "results";
 
         public HostTypes SupportedHostTypes => HostTypes.All;
-        
+
         public void ProcessCommand(IExecutionContext context, Command command)
         {
             if (string.Equals(command.Event, WellKnownResultsCommand.PublishTestResults, StringComparison.OrdinalIgnoreCase))
@@ -75,7 +75,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
             commandContext.Task = PublishTestRunDataAsync(connection, teamProject, runContext);
             _executionContext.AsyncCommands.Add(commandContext);
-            
+
         }
 
         private void LoadPublishTestResultsInputs(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
@@ -281,7 +281,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             featureFlagService.InitializeFeatureService(_executionContext, connection);
             var publishTestResultsLibFeatureState = featureFlagService.GetFeatureFlagState(TestResultsConstants.UsePublishTestResultsLibFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
             _telemetryProperties.Add("UsePublishTestResultsLib", publishTestResultsLibFeatureState);
-            
+
             //This check is to determine to use "Microsoft.TeamFoundation.PublishTestResults" Library or the agent code to parse and publish the test results.
             if (publishTestResultsLibFeatureState){
                 var publisher = HostContext.GetService<ITestDataPublisher>();

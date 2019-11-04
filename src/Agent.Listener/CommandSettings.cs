@@ -7,7 +7,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using Microsoft.TeamFoundation.DistributedTask.Logging;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -229,7 +228,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                            name: Constants.Agent.CommandLine.Flags.AddDeploymentGroupTags,
                            description: StringUtil.Loc("AddDeploymentGroupTagsFlagDescription"),
                            defaultValue: false);
-        }        
+        }
 
         public bool GetAutoLaunchBrowser()
         {
@@ -391,7 +390,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                            description: StringUtil.Loc("AddEnvironmentVMResourceTags"),
                            defaultValue: false);
         }
-        
+
         public string GetEnvironmentVirtualMachineResourceTags()
         {
             var result = GetArg(Constants.Agent.CommandLine.Args.EnvironmentVMResourceTags);
@@ -560,7 +559,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             if (!string.IsNullOrEmpty(result))
             {
                 // After read the arg from input commandline args, remove it from Arg dictionary,
-                // This will help if bad arg value passed through CommandLine arg, when ConfigurationManager ask CommandSetting the second time, 
+                // This will help if bad arg value passed through CommandLine arg, when ConfigurationManager ask CommandSetting the second time,
                 // It will prompt for input instead of continue use the bad input.
                 _trace.Info($"Remove {name} from Arg dictionary.");
                 RemoveArg(name);

@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Microsoft.VisualStudio.Services.Agent.Util;
 using Moq;
 using System;
 using System.IO;
@@ -96,7 +95,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             }
         }
 
-        //Try to ship empty log        
+        //Try to ship empty log
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
@@ -121,7 +120,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     pagingLogger.End();
 
                     //Assert
-                    _jobServerQueue.Verify(x => x.QueueFileUpload(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), true), Times.Exactly(0));                    
+                    _jobServerQueue.Verify(x => x.QueueFileUpload(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), true), Times.Exactly(0));
                 }
             }
             finally

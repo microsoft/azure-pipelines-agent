@@ -670,14 +670,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public void GetRelativePath()
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
+        public void GetRelativePathWindows()
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
                 Tracing trace = hc.GetTrace();
 
                 string relativePath;
-#if OS_WINDOWS
                 /// MakeRelative(@"d:\src\project\foo.cpp", @"d:\src") -> @"project\foo.cpp"
                 // Act.
                 relativePath = IOUtil.MakeRelative(@"d:\src\project\foo.cpp", @"d:\src");
@@ -731,7 +732,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                 relativePath = IOUtil.MakeRelative(@"d:\src\project", @"d:/src/project");
                 // Assert.
                 Assert.True(string.Equals(relativePath, string.Empty, StringComparison.OrdinalIgnoreCase), $"RelativePath does not expected: {relativePath}");
-#else
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        [Trait("SkipOn", "windows")]
+        public void GetRelativePathNonWindows()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+
+                string relativePath;
                 /// MakeRelative(@"/user/src/project/foo.cpp", @"/user/src") -> @"project/foo.cpp"
                 // Act.
                 relativePath = IOUtil.MakeRelative(@"/user/src/project/foo.cpp", @"/user/src");
@@ -761,21 +775,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                 relativePath = IOUtil.MakeRelative(@"/user/src/project", @"/user/src/project");
                 // Assert.
                 Assert.True(string.Equals(relativePath, string.Empty, StringComparison.OrdinalIgnoreCase), $"RelativePath does not expected: {relativePath}");
-#endif
             }
         }
-
+        
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public void ResolvePath()
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
+        public void ResolvePathWindows()
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
                 Tracing trace = hc.GetTrace();
 
                 string resolvePath;
-#if OS_WINDOWS
                 // Act.
                 resolvePath = IOUtil.ResolvePath(@"d:\src\project\", @"foo");
                 // Assert.
@@ -820,7 +834,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                 resolvePath = IOUtil.ResolvePath(@"d:\", @".");
                 // Assert.
                 Assert.True(string.Equals(resolvePath, @"d:\", StringComparison.OrdinalIgnoreCase), $"resolvePath does not expected: {resolvePath}");
-#else
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        [Trait("SkipOn", "windows")]
+        public void ResolvePathNonWindows()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+
+                string resolvePath;
                 // Act.
                 resolvePath = IOUtil.ResolvePath(@"/user/src/project", @"foo");
                 // Assert.
@@ -860,10 +887,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                 resolvePath = IOUtil.ResolvePath(@"/", @"./");
                 // Assert.
                 Assert.True(string.Equals(resolvePath, @"/", StringComparison.OrdinalIgnoreCase), $"RelativePath does not expected: {resolvePath}");
-#endif
             }
         }
-
+        
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
@@ -935,13 +961,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
 
         private static async Task CreateDirectoryReparsePoint(IHostContext context, string link, string target)
         {
-#if OS_WINDOWS
-            string fileName = Environment.GetEnvironmentVariable("ComSpec");
-            string arguments = $@"/c ""mklink /J ""{link}"" {target}""""";
-#else
-            string fileName = "/bin/ln";
-            string arguments = $@"-s ""{target}"" ""{link}""";
-#endif
+            string fileName = (TestUtil.IsWindows())
+                ? Environment.GetEnvironmentVariable("ComSpec")
+                : "/bin/ln";
+            string arguments = (TestUtil.IsWindows())
+                ? $@"/c ""mklink /J ""{link}"" {target}"""""
+                : $@"-s ""{target}"" ""{link}""";
+
             ArgUtil.File(fileName, nameof(fileName));
             using (var processInvoker = new ProcessInvokerWrapper())
             {

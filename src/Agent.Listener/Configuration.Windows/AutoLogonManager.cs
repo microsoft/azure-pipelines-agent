@@ -2,14 +2,11 @@
 // Licensed under the MIT License.
 
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
-using Microsoft.VisualStudio.Services.Agent;
 using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
@@ -105,7 +102,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             string workFolder = HostContext.GetDirectory(WellKnownDirectory.Work);
             Directory.CreateDirectory(workFolder);
             _windowsServiceHelper.GrantDirectoryPermissionForAccount(logonAccount, new[] { agentRoot, workFolder });
-            
+
             _autoLogonRegManager.UpdateRegistrySettings(command, domainName, userName, logonPassword);
             _windowsServiceHelper.SetAutoLogonPassword(logonPassword);
 

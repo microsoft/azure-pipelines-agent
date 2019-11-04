@@ -4,11 +4,8 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,8 +16,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 {
 
     // The implementation of the process invoker does not hook up DataReceivedEvent and ErrorReceivedEvent of Process,
-    // instead, we read both STDOUT and STDERR stream manually on separate thread. 
-    // The reason is we find a huge perf issue about process STDOUT/STDERR with those events. 
+    // instead, we read both STDOUT and STDERR stream manually on separate thread.
+    // The reason is we find a huge perf issue about process STDOUT/STDERR with those events.
     public sealed partial class ProcessInvoker : IDisposable
     {
         private Process _proc;
@@ -235,7 +232,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             _proc.StartInfo.RedirectStandardError = true;
             _proc.StartInfo.RedirectStandardOutput = true;
 
-            // Ensure we process STDERR even the process exit event happen before we start read STDERR stream. 
+            // Ensure we process STDERR even the process exit event happen before we start read STDERR stream.
             if (_proc.StartInfo.RedirectStandardError)
             {
                 Interlocked.Increment(ref _asyncStreamReaderCount);

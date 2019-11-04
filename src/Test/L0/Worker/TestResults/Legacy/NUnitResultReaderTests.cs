@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-﻿using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults;
 using TestRunContext = Microsoft.TeamFoundation.TestClient.PublishTestResults.TestRunContext;
@@ -494,7 +494,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
                 var testCase2StartDate = _testRunData.Results[1].StartedDate;
                 Assert.True(testCase1CompletedDate <= testCase2StartDate, "first test case end should be before second test case start time");
 
-                //Verify test case run duration 
+                //Verify test case run duration
                 _nunitResultsToBeRead = _nUnitSimpleResultsXml;
                 ReadResults(new TestRunContext("owner", "platform", "configuration", 1, "buildUri", "releaseUri", "releaseEnvironment"));
                 DateTime testStartDate, testCompleteDate;

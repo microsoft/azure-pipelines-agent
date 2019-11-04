@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-#if OS_WINDOWS
 using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.Agent.Listener;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -16,6 +15,8 @@ using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
 {
+    [Trait("SkipOn", "darwin")]
+    [Trait("SkipOn", "linux")]
     public sealed class AgentAutoLogonTestL0
     {
         private Mock<INativeWindowsServiceHelper> _windowsServiceHelper;
@@ -338,4 +339,3 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         }
     }
 }
-#endif

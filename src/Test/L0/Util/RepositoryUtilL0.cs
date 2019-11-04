@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -12,6 +13,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
 {
     public sealed class RepositoryUtilL0
     {
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void TrimStandardBranchPrefix_should_return_correct_values()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+
+                Assert.Equal(null, RepositoryUtil.TrimStandardBranchPrefix(null));
+                Assert.Equal("", RepositoryUtil.TrimStandardBranchPrefix(""));
+                Assert.Equal("refs/branchName", RepositoryUtil.TrimStandardBranchPrefix("refs/branchName"));
+                Assert.Equal("branchName", RepositoryUtil.TrimStandardBranchPrefix("refs/heads/branchName"));
+            }
+        }
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
@@ -80,6 +97,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
+        public void IsPrimaryRepositoryName_should_work_correctly()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Assert.Equal(false, RepositoryUtil.IsPrimaryRepositoryName(null));
+                Assert.Equal(false, RepositoryUtil.IsPrimaryRepositoryName(""));
+                Assert.Equal(false, RepositoryUtil.IsPrimaryRepositoryName("none"));
+                Assert.Equal(false, RepositoryUtil.IsPrimaryRepositoryName("some random string"));
+                Assert.Equal(true, RepositoryUtil.IsPrimaryRepositoryName("self"));
+                Assert.Equal(true, RepositoryUtil.IsPrimaryRepositoryName("SELF"));
+                Assert.Equal(true, RepositoryUtil.IsPrimaryRepositoryName("Self"));
+                Assert.Equal(true, RepositoryUtil.IsPrimaryRepositoryName("sELF"));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
         public void GetPrimaryRepository_should_return_correct_value_when_called()
         {
             using (TestHostContext hc = new TestHostContext(this))
@@ -121,6 +156,63 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
+        public void GetRepositoryForLocalPath_should_return_correct_values()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+
+                var repo1 = new RepositoryResource
+                {
+                    Alias = "repo1",
+                    Id = "repo1",
+                    Type = "git",
+                };
+                repo1.Properties.Set(RepositoryPropertyNames.Path, Path.Combine("root", "1", "s", "repo1"));
+
+                var repo2 = new RepositoryResource
+                {
+                    Alias = "repo2",
+                    Id = "repo2",
+                    Type = "git",
+                };
+                repo2.Properties.Set(RepositoryPropertyNames.Path, Path.Combine("root", "1", "s", "repo2"));
+
+                var repo3 = new RepositoryResource
+                {
+                    Alias = "repo3",
+                    Id = "repo3",
+                    Type = "git",
+                };
+                // repo3 has no path
+
+                // Make sure null is returned if nothing matches or inputs are invalid
+                Assert.Equal(null, RepositoryUtil.GetRepositoryForLocalPath(null, null));
+                Assert.Equal(null, RepositoryUtil.GetRepositoryForLocalPath(null, Path.Combine("root", "1", "s", "not_a_repo")));
+                Assert.Equal(null, RepositoryUtil.GetRepositoryForLocalPath(new[] { repo1, repo2, repo3 }, null));
+                Assert.Equal(null, RepositoryUtil.GetRepositoryForLocalPath(new[] { repo1, repo2, repo3 }, "not a path"));
+                Assert.Equal(null, RepositoryUtil.GetRepositoryForLocalPath(new[] { repo1, repo2, repo3 }, Path.Combine("root", "1", "s", "not_a_repo")));
+                Assert.Equal(null, RepositoryUtil.GetRepositoryForLocalPath(new[] { repo1, repo2, repo3 }, Path.Combine("root", "1", "s")));
+                Assert.Equal(null, RepositoryUtil.GetRepositoryForLocalPath(new[] { repo1, repo2, repo3 }, Path.Combine("root", "1", "s", "repo3")));
+
+                // Make sure the first repo is returned if there is only one
+                Assert.Equal(repo1, RepositoryUtil.GetRepositoryForLocalPath(new[] { repo1 }, Path.Combine("root", "1", "s", "not_a_repo")));
+                Assert.Equal(repo2, RepositoryUtil.GetRepositoryForLocalPath(new[] { repo2 }, "not a path"));
+                Assert.Equal(repo3, RepositoryUtil.GetRepositoryForLocalPath(new[] { repo3 }, "not a path"));
+
+                // Make sure the matching repo is returned if there is more than one
+                Assert.Equal(repo1, RepositoryUtil.GetRepositoryForLocalPath(new[] { repo1, repo2, repo3 }, Path.Combine("root", "1", "s", "repo1")));
+                Assert.Equal(repo1, RepositoryUtil.GetRepositoryForLocalPath(new[] { repo1, repo2, repo3 }, Path.Combine("root", "1", "s", "repo1", "sub", "path", "file.txt")));
+                Assert.Equal(repo2, RepositoryUtil.GetRepositoryForLocalPath(new[] { repo1, repo2, repo3 }, Path.Combine("root", "1", "s", "repo2")));
+                Assert.Equal(repo2, RepositoryUtil.GetRepositoryForLocalPath(new[] { repo1, repo2, repo3 }, Path.Combine("root", "1", "s", "repo2", "sub", "path", "file.txt")));
+                Assert.Equal(repo2, RepositoryUtil.GetRepositoryForLocalPath(new[] { repo3, repo1, repo2 }, Path.Combine("root", "1", "s", "repo2")));
+                Assert.Equal(repo2, RepositoryUtil.GetRepositoryForLocalPath(new[] { repo3, repo1, repo2 }, Path.Combine("root", "1", "s", "repo2", "sub", "path", "file.txt")));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
         public void GetRepository_should_return_correct_value_when_called()
         {
             using (TestHostContext hc = new TestHostContext(this))
@@ -148,12 +240,42 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                     Type = "git",
                 };
 
+                Assert.Equal(null, RepositoryUtil.GetRepository(null, null));
+                Assert.Equal(null, RepositoryUtil.GetRepository(null, "repo1"));
+                Assert.Equal(null, RepositoryUtil.GetRepository(new[] { repoSelf, repo1, repo2 }, null));
+                Assert.Equal(null, RepositoryUtil.GetRepository(new[] { repoSelf, repo1, repo2 }, "unknown"));
                 Assert.Equal(repo1, RepositoryUtil.GetRepository(new[] { repo1, repo2 }, "repo1"));
                 Assert.Equal(repo2, RepositoryUtil.GetRepository(new[] { repo1, repo2 }, "repo2"));
                 Assert.Equal(repo1, RepositoryUtil.GetRepository(new[] { repoSelf, repo1, repo2 }, "repo1"));
                 Assert.Equal(repo2, RepositoryUtil.GetRepository(new[] { repoSelf, repo1, repo2 }, "repo2"));
                 Assert.Equal(repoSelf, RepositoryUtil.GetRepository(new[] { repoSelf, repo1, repo2 }, "self"));
-                Assert.Equal(null, RepositoryUtil.GetRepository(new[] { repoSelf, repo1, repo2 }, "unknown"));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void GuessRepositoryType_should_return_correct_values_when_called()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+
+                Assert.Equal(string.Empty, RepositoryUtil.GuessRepositoryType(null));
+                Assert.Equal(string.Empty, RepositoryUtil.GuessRepositoryType(""));
+                Assert.Equal(string.Empty, RepositoryUtil.GuessRepositoryType("garbage"));
+                Assert.Equal(string.Empty, RepositoryUtil.GuessRepositoryType("github"));
+                Assert.Equal(string.Empty, RepositoryUtil.GuessRepositoryType("azuredevops"));
+                Assert.Equal(string.Empty, RepositoryUtil.GuessRepositoryType("https://githubenterprise.com/microsoft/somerepo.git"));
+                Assert.Equal(string.Empty, RepositoryUtil.GuessRepositoryType("https://almost.visual.studio.com/microsoft/somerepo.git"));
+                Assert.Equal(string.Empty, RepositoryUtil.GuessRepositoryType("https://almost.dev2.azure.com/microsoft/somerepo.git"));
+                Assert.Equal(RepositoryTypes.GitHub, RepositoryUtil.GuessRepositoryType("https://github.com/microsoft/somerepo.git"));
+                Assert.Equal(RepositoryTypes.Git, RepositoryUtil.GuessRepositoryType("https://user1@dev.azure.com/org/project/_git/reponame"));
+                Assert.Equal(RepositoryTypes.Git, RepositoryUtil.GuessRepositoryType("https://user1@myorg.visualstudio.com/project/_git/reponame"));
+                Assert.Equal(RepositoryTypes.Tfvc, RepositoryUtil.GuessRepositoryType("https://user1@myorg.visualstudio.com/project"));
+                Assert.Equal(RepositoryTypes.Tfvc, RepositoryUtil.GuessRepositoryType("https://user1@dev.azure.com/org/project"));
+                Assert.Equal(RepositoryTypes.Bitbucket, RepositoryUtil.GuessRepositoryType("https://user1@bitbucket.org/user1/mybucket.git"));
+
             }
         }
 

@@ -10,11 +10,9 @@ using Microsoft.VisualStudio.Services.OAuth;
 using Microsoft.VisualStudio.Services.WebApi;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
-using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
@@ -406,7 +404,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 // there are two exception messages server send that indicate clock skew.
                 // 1. The bearer token expired on {jwt.ValidTo}. Current server time is {DateTime.UtcNow}.
-                // 2. The bearer token is not valid until {jwt.ValidFrom}. Current server time is {DateTime.UtcNow}.                
+                // 2. The bearer token is not valid until {jwt.ValidFrom}. Current server time is {DateTime.UtcNow}.
                 Trace.Error("Catch exception during test agent connection.");
                 Trace.Error(ex);
                 throw new Exception(StringUtil.Loc("LocalClockSkewed"));
@@ -517,7 +515,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 {
                     if (PlatformUtil.RunningOnWindows)
                     {
-                        //running as process, unconfigure autologon if it was configured                    
+                        //running as process, unconfigure autologon if it was configured
                         if (_store.IsAutoLogonConfigured())
                         {
                             currentAction = StringUtil.Loc("UnconfigAutologon");
@@ -559,8 +557,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                     string agentType = isDeploymentGroup
                    ? Constants.Agent.AgentConfigurationProvider.DeploymentAgentConfiguration
-                   : isEnvironmentVMResource 
-                   ? Constants.Agent.AgentConfigurationProvider.EnvironmentVMResourceConfiguration 
+                   : isEnvironmentVMResource
+                   ? Constants.Agent.AgentConfigurationProvider.EnvironmentVMResourceConfiguration
                    : Constants.Agent.AgentConfigurationProvider.BuildReleasesAgentConfiguration;
 
                     var extensionManager = HostContext.GetService<IExtensionManager>();
@@ -587,7 +585,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     _term.WriteLine(StringUtil.Loc("MissingConfig"));
                 }
 
-                //delete credential config files               
+                //delete credential config files
                 currentAction = StringUtil.Loc("DeletingCredentials");
                 _term.WriteLine(currentAction);
                 if (hasCredentials)
@@ -602,7 +600,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     _term.WriteLine(StringUtil.Loc("Skipping") + currentAction);
                 }
 
-                //delete settings config file                
+                //delete settings config file
                 currentAction = StringUtil.Loc("DeletingSettings");
                 _term.WriteLine(currentAction);
                 if (isConfigured)
@@ -636,7 +634,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Trace.Info(nameof(GetCredentialProvider));
 
             var credentialManager = HostContext.GetService<ICredentialManager>();
-            // Get the default auth type. 
+            // Get the default auth type.
             // Use PAT as long as the server uri scheme is Https and looks like a FQDN
             // Otherwise windows use Integrated, linux/mac use negotiate.
             string defaultAuth = string.Empty;

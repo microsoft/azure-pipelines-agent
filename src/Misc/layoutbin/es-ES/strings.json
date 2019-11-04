@@ -546,7 +546,6 @@
     "Telemetry":  "Telemetría",
     "TelemetryCommandDataError":  "No se pueden analizar los datos de telemetría {0}. Error: {1}",
     "TelemetryCommandFailed":  "No se pudieron publicar datos de telemetría. Error {0}",
-    "TelemetryCommandNotFound":  "##vso[telemetry.{0}] no es un comando reconocido para la extensión de comando Task.",
     "TestAgentConnection":  "Probando conexión del agente.",
     "TestAttachmentNotExists":  "Se omitirán los datos adjuntos porque no están disponibles en el disco: {0}",
     "TestResultsRemaining":  "Resultados de prueba restantes: {0}. Id. de ejecución de prueba: {1}",

@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation.
+﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
@@ -59,12 +59,12 @@ namespace Agent.Plugins.PipelineArtifact
             return await _buildHttpClient.GetArtifactAsync(projectId, pipelineId, name, cancellationToken: cancellationToken);
         }
 
-        public Task<List<BuildArtifact>> GetArtifactsAsync(
+        public async Task<List<BuildArtifact>> GetArtifactsAsync(
             Guid project,
             int pipelineId,
             CancellationToken cancellationToken)
         {
-            return _buildHttpClient.GetArtifactsAsync(project, pipelineId, userState: null, cancellationToken: cancellationToken);
+            return await _buildHttpClient.GetArtifactsAsync(project, pipelineId, userState: null, cancellationToken: cancellationToken);
         }
 
         //Get artifact with project name.
@@ -77,12 +77,20 @@ namespace Agent.Plugins.PipelineArtifact
             return await _buildHttpClient.GetArtifactAsync(project, pipelineId, name, cancellationToken: cancellationToken);
         }
 
-        public Task<List<BuildArtifact>> GetArtifactsWithProjectNameAsync(
+        public async Task<List<BuildArtifact>> GetArtifactsWithProjectNameAsync(
             string project,
             int pipelineId,
             CancellationToken cancellationToken)
         {
-            return _buildHttpClient.GetArtifactsAsync(project, pipelineId, userState: null, cancellationToken: cancellationToken);
+            return await _buildHttpClient.GetArtifactsAsync(project, pipelineId, userState: null, cancellationToken: cancellationToken);
+        }
+
+        public async Task<List<BuildDefinitionReference>> GetDefinitionsAsync(
+            Guid project,
+            string definitionName,
+            CancellationToken cancellationToken)
+        {
+            return await _buildHttpClient.GetDefinitionsAsync(project, definitionName, cancellationToken: cancellationToken);
         }
     }
 }

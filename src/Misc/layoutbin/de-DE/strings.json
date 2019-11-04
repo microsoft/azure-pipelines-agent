@@ -535,7 +535,6 @@
     "Telemetry":  "Telemetrie",
     "TelemetryCommandDataError":  "Analysieren der Telemetriedaten {0} nicht möglich. Fehler: {1}",
     "TelemetryCommandFailed":  "Fehler beim Veröffentlichen von Telemetriedaten. Fehler {0}",
-    "TelemetryCommandNotFound":  "##vso[telemetry.{0}] ist kein erkannter Befehl für die Aufgabenbefehlserweiterung.",
     "TestAgentConnection":  "Die Agent-Verbindung wird getestet.",
     "TestAttachmentNotExists":  "Die Anlage wird übersprungen, weil sie auf dem Datenträger nicht vorhanden ist: {0}.",
     "TestResultsRemaining":  "Verbleibende Testergebnisse: {0}. Testlauf-ID: {1}",

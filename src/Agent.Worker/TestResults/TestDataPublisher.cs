@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-﻿using Microsoft.TeamFoundation.TestClient.PublishTestResults;
+using Microsoft.TeamFoundation.TestClient.PublishTestResults;
 using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.Core.WebApi;
@@ -40,7 +40,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             _connection = connection;
             _testRunPublisher = new TestRunPublisher(connection, new CommandTraceListener(context));
             _testLogStore = new TestLogStore(connection, new CommandTraceListener(context));
-            
+
             var extensionManager = HostContext.GetService<IExtensionManager>();
             _parser = (extensionManager.GetExtensions<IParser>()).FirstOrDefault(x => testRunner.Equals(x.Name, StringComparison.OrdinalIgnoreCase));
             Trace.Leaving();
@@ -64,7 +64,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     await Task.WhenAll(publishTasks);
                     return GetTestRunOutcome(testRunData);
                 }
-                
+
                 return false;
             }
             catch (Exception ex)

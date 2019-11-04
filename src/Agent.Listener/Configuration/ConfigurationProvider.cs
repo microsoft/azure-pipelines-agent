@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Microsoft.TeamFoundation.Common;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
 
@@ -221,7 +220,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             var url = agentSettings.ServerUrl;  // Ensure not to update back the url with agentSettings !!!
             _term.WriteLine(StringUtil.Loc("ConnectingToServer"));
 
-            // Create the connection for deployment group 
+            // Create the connection for deployment group
             Trace.Info("Test connection with deployment group");
             if (!isHosted && !string.IsNullOrWhiteSpace(agentSettings.CollectionName)) // For on-prm validate the collection by making the connection
             {
@@ -409,10 +408,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Trace.Info("vm resource will be configured against the environment '{0}'", environmentName);
 
             var environmentInstance = await GetEnvironmentAsync(_projectName, environmentName);
-           
+
             agentSettings.EnvironmentId = environmentInstance.Id;
             agentSettings.ProjectName = environmentInstance.Project.Name;
-            agentSettings.ProjectId = environmentInstance.Project.Id.ToString();            
+            agentSettings.ProjectId = environmentInstance.Project.Id.ToString();
             Trace.Info("vm resource configuration: environment id: '{0}', project name: '{1}', project id: '{2}'", agentSettings.EnvironmentId, agentSettings.ProjectName, agentSettings.ProjectId);
         }
 
@@ -457,12 +456,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                         tagString.Split(',').Where(s => !string.IsNullOrWhiteSpace(s))
                             .Select(s => s.Trim())
                             .Distinct(StringComparer.CurrentCultureIgnoreCase).ToList();
-                    
+
                     result.AddRange(tagsList);
                 }
             }
             return result;
-        } 
+        }
 
         public override async Task DeleteAgentAsync(AgentSettings agentSettings)
         {
@@ -505,7 +504,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             var pool =  await _environmentsServer.GetEnvironmentPoolAsync(new Guid(agentSettings.ProjectId), agentSettings.EnvironmentId);
 
             agentSettings.AgentName = vmResource.Name;
-            agentSettings.EnvironmentVMResourceId = vmResource.Id;    
+            agentSettings.EnvironmentVMResourceId = vmResource.Id;
             agentSettings.PoolId = pool.Id;
 
             return vmResource.Agent;

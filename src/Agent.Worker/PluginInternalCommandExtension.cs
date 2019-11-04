@@ -59,6 +59,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 var directoryManager = HostContext.GetService<IBuildDirectoryManager>();
                 string _workDirectory = HostContext.GetDirectory(WellKnownDirectory.Work);
 
+                var trackingConfig = directoryManager.UpdateDirectory(context, repository);
                 if (RepositoryUtil.HasMultipleCheckouts(context.JobSettings))
                 {
                     // In Multi-checkout, we don't want to reset sources dir or default working dir.
@@ -70,9 +71,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 else
                 {
                     // If we only have a single repository, then update all the paths to point to it.
-                    var trackingConfig = directoryManager.UpdateDirectory(context, repository);
-
-                    // Set the directory variables.
                     context.SetVariable(Constants.Variables.Build.SourcesDirectory, Path.Combine(_workDirectory, trackingConfig.SourcesDirectory), isFilePath: true);
                     context.SetVariable(Constants.Variables.Build.RepoLocalPath, Path.Combine(_workDirectory, trackingConfig.SourcesDirectory), isFilePath: true);
                     context.SetVariable(Constants.Variables.System.DefaultWorkingDirectory, Path.Combine(_workDirectory, trackingConfig.SourcesDirectory), isFilePath: true);

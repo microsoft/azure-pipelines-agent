@@ -1,20 +1,12 @@
-using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Worker;
-using Moq;
-using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 using Xunit;
-using Microsoft.TeamFoundation.DistributedTask.Expressions;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 {
     public sealed class WorkerCommandManagerL0
     {
-     
+
         public sealed class TestWorkerCommandExtensionL0 : BaseWorkerCommandExtension
         {
             public TestWorkerCommandExtensionL0()
@@ -62,7 +54,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public void SimpleTests()
         {
-            var commandExt = new TestWorkerCommandExtensionL0();  
+            var commandExt = new TestWorkerCommandExtensionL0();
             IWorkerCommand command = commandExt.GetWorkerCommand("foo");
             Assert.Equal("foo", command.Name);
             Assert.IsType<FooCommand>(command);

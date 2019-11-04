@@ -536,7 +536,6 @@
     "Telemetry":  "遙測",
     "TelemetryCommandDataError":  "無法剖析遙測資料 {0}。錯誤: {1}",
     "TelemetryCommandFailed":  "無法發佈遙測資料。錯誤 {0}",
-    "TelemetryCommandNotFound":  "##vso[telemetry.{0}] 對 Task 命令延伸模組而言，不是可辨識的命令。",
     "TestAgentConnection":  "正在測試代理程式連線。",
     "TestAttachmentNotExists":  "因為附件無法在磁碟上使用，所以將會跳過: {0}",
     "TestResultsRemaining":  "測試結果剩餘: {0}。測試回合識別碼: {1}",

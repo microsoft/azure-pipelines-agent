@@ -4,6 +4,7 @@
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
@@ -44,5 +45,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             Assert.True(Directory.Exists(testDataDir));
             return testDataDir;
         }
+
+        public static string WriteAllTextToTempFile(string content, string extension=null)
+        {
+            string file = Path.GetTempFileName();
+            if (!string.IsNullOrEmpty(extension))
+            {
+                file = Path.ChangeExtension(file, extension);
+            }
+            File.WriteAllText(file, content);
+            return file;
+        }
+
+        public static bool IsLinux() => RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
+        public static bool IsMacOS() => RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
+        public static bool IsWindows() => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
     }
 }

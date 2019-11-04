@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
-using Microsoft.VisualStudio.Services.Agent;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -180,7 +179,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 var startupTypeAsString = command.GetStartupType();
                 if (string.IsNullOrEmpty(startupTypeAsString) && configuredAsService)
                 {
-                    // We need try our best to make the startup type accurate 
+                    // We need try our best to make the startup type accurate
                     // The problem is coming from agent autoupgrade, which result an old version service host binary but a newer version agent binary
                     // At that time the servicehost won't pass --startuptype to agent.listener while the agent is actually running as service.
                     // We will guess the startup type only when the agent is configured as service and the guess will based on whether STDOUT/STDERR/STDIN been redirect or not
@@ -514,13 +513,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         }
 
         private static string _banner = string.Format(@"
-  ___                      ______ _            _ _                 
- / _ \                     | ___ (_)          | (_)                
-/ /_\ \_____   _ _ __ ___  | |_/ /_ _ __   ___| |_ _ __   ___  ___ 
+  ___                      ______ _            _ _
+ / _ \                     | ___ (_)          | (_)
+/ /_\ \_____   _ _ __ ___  | |_/ /_ _ __   ___| |_ _ __   ___  ___
 |  _  |_  / | | | '__/ _ \ |  __/| | '_ \ / _ \ | | '_ \ / _ \/ __|
 | | | |/ /| |_| | | |  __/ | |   | | |_) |  __/ | | | | |  __/\__ \
 \_| |_/___|\__,_|_|  \___| \_|   |_| .__/ \___|_|_|_| |_|\___||___/
-                                   | |                             
+                                   | |
         agent v{0,-10}          |_|          (commit {1})
 ", BuildConstants.AgentPackage.Version, BuildConstants.Source.CommitHash.Substring(0, 7));
     }
