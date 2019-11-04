@@ -404,7 +404,6 @@
   "Password": "password",
   "PathNotExist": "Path not exist: {0}",
   "PersonalAccessToken": "personal access token",
-  "PluginInternalCommandNotFound": "##vso[plugininternal.{0}] is not a recognized command for PluginInternal command extension.",
   "PoolNotFound": "Agent pool not found: '{0}'",
   "PostJob": "Post-job: {0}",
   "PowerOptionsConfigError": "Error occurred while configuring power options. Please refer logs for more details.",

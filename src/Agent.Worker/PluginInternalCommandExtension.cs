@@ -11,28 +11,25 @@ using System.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
-    public sealed class PluginInternalCommandExtension : AgentService, IWorkerCommandExtension
+    public class PluginInternalCommandExtension: BaseWorkerCommandExtension
     {
-        public Type ExtensionType => typeof(IWorkerCommandExtension);
-
-        public string CommandArea => "plugininternal";
-
-        public HostTypes SupportedHostTypes => HostTypes.Build;
-
-        public void ProcessCommand(IExecutionContext context, Command command)
+        public PluginInternalCommandExtension()
         {
-            if (String.Equals(command.Event, WellKnownPluginInternalCommand.UpdateRepositoryPath, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessPluginInternalUpdateRepositoryPathCommand(context, command.Properties, command.Data);
-            }
-            else
-            {
-                throw new Exception(StringUtil.Loc("PluginInternalCommandNotFound", command.Event));
-            }
+            CommandArea = "plugininternal";
+            SupportedHostTypes = HostTypes.Build;
+            InstallWorkerCommand(new ProcessPluginInternalUpdateRepositoryPathCommand());
         }
+    }
 
-        private void ProcessPluginInternalUpdateRepositoryPathCommand(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
+    public class ProcessPluginInternalUpdateRepositoryPathCommand: IWorkerCommand
+    {
+        public string Name => "updaterepositorypath";
+        public List<string> Aliases => null;
+        public void Execute(IExecutionContext context, Command command)
         {
+            var eventProperties = command.Properties;
+            var data = command.Data;
+
             String alias;
             if (!eventProperties.TryGetValue(PluginInternalUpdateRepositoryEventProperties.Alias, out alias) || String.IsNullOrEmpty(alias))
             {
@@ -56,8 +53,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 string repositoryPath = data.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 repository.Properties.Set<string>(RepositoryPropertyNames.Path, repositoryPath);
 
-                var directoryManager = HostContext.GetService<IBuildDirectoryManager>();
-                string _workDirectory = HostContext.GetDirectory(WellKnownDirectory.Work);
+                var directoryManager = context.GetHostContext().GetService<IBuildDirectoryManager>();
+                string _workDirectory = context.GetHostContext().GetDirectory(WellKnownDirectory.Work);
 
                 var trackingConfig = directoryManager.UpdateDirectory(context, repository);
                 if (RepositoryUtil.HasMultipleCheckouts(context.JobSettings))
@@ -79,11 +76,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             repository.Properties.Set("__AZP_READY", bool.TrueString);
         }
-    }
-
-    internal static class WellKnownPluginInternalCommand
-    {
-        public static readonly String UpdateRepositoryPath = "updaterepositorypath";
     }
 
     internal static class PluginInternalUpdateRepositoryEventProperties
