@@ -525,7 +525,6 @@
     "SvnMappingIgnored":  "已忽略整个映射集。使用完整分支映射继续操作。",
     "SvnNotInstalled":  "找不到已安装的 svn 命令行实用工具",
     "SvnSyncingRepo":  "正在同步存储库: {0} (Svn)",
-    "TaskCommandNotFound":  "##vso[task.{0}] 不是任务命令扩展的已识别命令。请参考文档(http://go.microsoft.com/fwlink/?LinkId=817296)",
     "TeeEula":  [
                     "从 TFVC 存储库生成源要求接受 Team Explorer Everywhere 最终用户许可协议。本步骤不是从 Git 存储库生成源所必需的。",
                     "",

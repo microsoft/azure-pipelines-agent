@@ -535,7 +535,6 @@
     "SvnMappingIgnored":  "Se ignoró el conjunto de asignación completo. Continuando con la asignación total de ramas.",
     "SvnNotInstalled":  "No se puede encontrar la utilidad de línea de comandos svn.",
     "SvnSyncingRepo":  "Sincronizando repositorio: {0} (Svn)",
-    "TaskCommandNotFound":  "##vso[task.{0}] no es un comando reconocido para la extensión de comando Task. Consulte la documentación de referencia (http://go.microsoft.com/fwlink/?LinkId=817296).",
     "TeeEula":  [
                     "La compilación de orígenes desde un repositorio TFVC requiere la aceptación del Contrato de licencia de usuario final de Team Explorer Everywhere. Este paso no se necesita para compilar orígenes desde repositorios Git.",
                     "",

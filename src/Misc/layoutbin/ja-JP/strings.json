@@ -525,7 +525,6 @@
     "SvnMappingIgnored":  "マッピング設定全体が無視されます。完全な分岐マッピングを続行しています。",
     "SvnNotInstalled":  "インストール済みの svn コマンド ライン ユーティリティが見つかりません",
     "SvnSyncingRepo":  "リポジトリを同期しています: {0} (Svn)",
-    "TaskCommandNotFound":  "##vso[task.{0}] は、Task コマンド拡張の認識されたコマンドではありません。ドキュメント (http://go.microsoft.com/fwlink/?LinkId=817296) をご覧ください",
     "TeeEula":  [
                     "TFVC リポジトリからソースを構築するには、Team Explorer Everywhere の使用許諾契約書に同意する必要があります。この手順は、Git リポジトリからソースを構築する場合は必要ありません。",
                     "",

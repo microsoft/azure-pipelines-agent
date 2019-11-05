@@ -65,6 +65,7 @@
   "CodeCoverageDataIsNull": "No coverage data found. Check the build errors/warnings for more details.",
   "CodeCoveragePublishIsValidOnlyForBuild": "Publishing code coverage works only for 'build'.",
   "CollectionName": "Collection Name",
+  "CommandDuplicateDetected": "Command {0} already installed for area {1}",
   "CommandKeywordDetected": "'{0}' contains logging command keyword '##vso', but it's not a legal command. Please see the list of accepted commands: https://go.microsoft.com/fwlink/?LinkId=817296",
   "CommandLineHelp": [
     "CLI-WIDTH-TOTAL-(105-CHARS)------------------------------------------------------------------------------",
@@ -569,7 +570,6 @@
   "SvnMappingIgnored": "The entire mapping set is ignored. Proceeding with the full branch mapping.",
   "SvnNotInstalled": "Can't find installed svn command line utility",
   "SvnSyncingRepo": "Syncing repository: {0} (Svn)",
-  "TaskCommandNotFound": "##vso[task.{0}] is not a recognized command for Task command extension. Please reference documentation (http://go.microsoft.com/fwlink/?LinkId=817296)",
   "TaskDownloadFailed": "Failed to download task '{0}'. Error {1}",
   "TaskDownloadTimeout": "Task '{0}' didn't finish download within {1} seconds.",
   "TeeEula": [

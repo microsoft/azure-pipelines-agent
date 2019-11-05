@@ -35,7 +35,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
             Assert.Equal(_endpoint.Authorization.Parameters["test"], "blah");
         }
-        
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
@@ -179,6 +179,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             };
 
             _ec.Setup(x => x.Endpoints).Returns(new List<ServiceEndpoint> { _endpoint });
+            _ec.Setup(x => x.GetHostContext()).Returns(_hc);
         }
     }
 }

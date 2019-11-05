@@ -525,7 +525,6 @@
     "SvnMappingIgnored":  "L\u0027ensemble du jeu de mappages est ignoré. Poursuite du mappage de branche complet.",
     "SvnNotInstalled":  "L\u0027utilitaire en ligne de commande svn installé est introuvable",
     "SvnSyncingRepo":  "Synchronisation du dépôt : {0} (Svn)",
-    "TaskCommandNotFound":  "##vso[task.{0}] n\u0027est pas une commande reconnue pour l\u0027extension de commande de tâche. Consultez la documentation de référence (http://go.microsoft.com/fwlink/?LinkId=817296)",
     "TeeEula":  [
                     "La génération de sources à partir d\u0027un dépôt TFVC nécessite l\u0027acceptation du Contrat de Licence Utilisateur Final de Team Explorer Everywhere. Cette étape n\u0027est pas nécessaire pour la génération de sources à partir de dépôts Git.",
                     "",

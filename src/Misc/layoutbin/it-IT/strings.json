@@ -525,7 +525,6 @@
     "SvnMappingIgnored":  "L\u0027intero set di mapping viene ignorato. Si procederà con il mapping completo dei rami.",
     "SvnNotInstalled":  "Non è stata trovata l\u0027utilità da riga di comando svn installata",
     "SvnSyncingRepo":  "Sincronizzazione del repository: {0} (SVN)",
-    "TaskCommandNotFound":  "##vso[task.{0}] non è un comando riconosciuto per l\u0027estensione del comando task. Vedere la documentazione (http://go.microsoft.com/fwlink/?LinkId=817296)",
     "TeeEula":  [
                     "Per la compilazione di origini da un repository del controllo della versione di Team Foundation è necessario accettare il contratto di licenza con l\u0027utente finale di Team Explorer Everywhere. Questo passaggio non è obbligatorio per la compilazione di origini da repository GIT.",
                     "",

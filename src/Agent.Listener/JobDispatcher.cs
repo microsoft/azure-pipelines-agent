@@ -27,10 +27,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         Task ShutdownAsync();
     }
 
-    // This implementation of IDobDispatcher is not thread safe.
+    // This implementation of IJobDispatcher is not thread safe.
     // It is base on the fact that the current design of agent is dequeue
     // and process one message from message queue everytime.
-    // In addition, it only execute one job every time, 
+    // In addition, it only execute one job every time,
     // and server will not send another job while this one is still running.
     public sealed class JobDispatcher : AgentService, IJobDispatcher
     {
@@ -580,7 +580,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             }
                         }
 
-                        // wait worker to exit 
+                        // wait worker to exit
                         // if worker doesn't exit within timeout, then kill worker.
                         completedTask = await Task.WhenAny(workerProcessTask, Task.Delay(-1, workerCancelTimeoutKillToken));
 

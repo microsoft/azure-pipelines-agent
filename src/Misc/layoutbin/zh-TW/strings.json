@@ -525,7 +525,6 @@
     "SvnMappingIgnored":  "已略過整個對應集合。繼續執行完整分支對應。",
     "SvnNotInstalled":  "找不到安裝的 svn 命令列公用程式",
     "SvnSyncingRepo":  "正在同步存放庫: {0} (Svn)",
-    "TaskCommandNotFound":  "##vso[task.{0}] 對 Task 命令延伸模組而言，不是可辨識的命令。請參考文件 (http://go.microsoft.com/fwlink/?LinkId=817296)",
     "TeeEula":  [
                     "需要接受 Team Explorer Everywhere 終端使用者授權合約，才能從 TFVC 存放庫建立來源。從 GIT 存放庫建立來源則不需要此步驟。",
                     "",

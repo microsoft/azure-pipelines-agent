@@ -524,7 +524,6 @@
     "SvnMappingIgnored":  "Die gesamte Zuordnungsgruppe wird ignoriert. Der Vorgang wird mit der vollständigen Branchzuordnung fortgesetzt.",
     "SvnNotInstalled":  "Ein installiertes svn-Befehlszeilenprogramm wurde nicht gefunden.",
     "SvnSyncingRepo":  "Das Repository wird synchronisiert: {0} (Svn)",
-    "TaskCommandNotFound":  "##vso[task.{0}] ist kein erkannter Befehl für die Aufgabenbefehlserweiterung. Weitere Informationen finden Sie in der Dokumentation (http://go.microsoft.com/fwlink/?LinkId=817296).",
     "TeeEula":  [
                     "Für das Erstellen von Quellen aus einem TFVC-Repository muss die Zustimmung zu den Team Explorer Everywhere-Endbenutzer-Lizenzbestimmungen erfolgen. Dieser Schritt ist für das Erstellen von Quellen aus Git-Repositorys nicht erforderlich.",
                     "",

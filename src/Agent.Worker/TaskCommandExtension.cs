@@ -11,81 +11,40 @@ using System.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
-    public sealed class TaskCommandExtension : AgentService, IWorkerCommandExtension
+    public sealed class TaskCommandExtension: BaseWorkerCommandExtension
     {
+        public TaskCommandExtension()
+        {
+            CommandArea = "task";
+            SupportedHostTypes = HostTypes.All;
+            InstallWorkerCommand(new ProcessTaskIssueCommand());
+            InstallWorkerCommand(new ProcessTaskProgressCommand());
+            InstallWorkerCommand(new ProcessTaskDetailCommand());
+            InstallWorkerCommand(new ProcessTaskCompleteCommand());
+            InstallWorkerCommand(new ProcessTaskSetSecretCommand());
+            InstallWorkerCommand(new ProcessTaskSetVariableCommand());
+            InstallWorkerCommand(new ProcessTaskAddAttachmentCommand());
+            InstallWorkerCommand(new ProcessTaskDebugCommand());
+            InstallWorkerCommand(new ProcessTaskUploadSummaryCommand());
+            InstallWorkerCommand(new ProcessTaskUploadFileCommand());
+            InstallWorkerCommand(new ProcessTaskSetTaskVariableCommand());
+            InstallWorkerCommand(new ProcessTaskSetEndpointCommand());
+            InstallWorkerCommand(new ProcessTaskPrepandPathCommand());
+        }
+    }
+
+    public class ProcessTaskDetailCommand: IWorkerCommand
+    {
+        public string Name => "logdetail";
+        public List<string> Aliases => null;
+
         // Since we process all logging command in serialized order, everthing should be thread safe.
         private readonly Dictionary<Guid, TimelineRecord> _timelineRecordsTracker = new Dictionary<Guid, TimelineRecord>();
-
-        public Type ExtensionType => typeof(IWorkerCommandExtension);
-
-        public string CommandArea => "task";
-
-        public HostTypes SupportedHostTypes => HostTypes.All;
-
-        public void ProcessCommand(IExecutionContext context, Command command)
+        public void Execute(IExecutionContext context, Command command)
         {
-            // TODO: update tasklib alway product ##vso[task.logissue]
-            if (String.Equals(command.Event, WellKnownTaskCommand.LogIssue, StringComparison.OrdinalIgnoreCase) ||
-                String.Equals(command.Event, WellKnownTaskCommand.LogIssue_xplatCompat, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessTaskIssueCommand(context, command.Properties, command.Data);
-            }
-            else if (String.Equals(command.Event, WellKnownTaskCommand.SetProgress, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessTaskProgressCommand(context, command.Properties, command.Data);
-            }
-            else if (String.Equals(command.Event, WellKnownTaskCommand.LogDetail, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessTaskDetailCommand(context, command.Properties, command.Data);
-            }
-            else if (String.Equals(command.Event, WellKnownTaskCommand.Complete, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessTaskCompleteCommand(context, command.Properties, command.Data);
-            }
-            else if (String.Equals(command.Event, WellKnownTaskCommand.SetSecret, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessTaskSetSecretCommand(context, command.Data);
-            }
-            else if (String.Equals(command.Event, WellKnownTaskCommand.SetVariable, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessTaskSetVariableCommand(context, command.Properties, command.Data);
-            }
-            else if (String.Equals(command.Event, WellKnownTaskCommand.AddAttachment, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessTaskAddAttachmentCommand(context, command.Properties, command.Data);
-            }
-            else if (String.Equals(command.Event, WellKnownTaskCommand.Debug, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessTaskDebugCommand(context, command.Data);
-            }
-            else if (String.Equals(command.Event, WellKnownTaskCommand.UploadSummary, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessTaskUploadSummaryCommand(context, command.Data);
-            }
-            else if (String.Equals(command.Event, WellKnownTaskCommand.UploadFile, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessTaskUploadFileCommand(context, command.Data);
-            }
-            else if (String.Equals(command.Event, WellKnownTaskCommand.SetTaskVariable, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessTaskSetTaskVariableCommand(context, command.Properties, command.Data);
-            }
-            else if (String.Equals(command.Event, WellKnownTaskCommand.SetEndpoint, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessTaskSetEndpointCommand(context, command.Properties, command.Data);
-            }
-            else if (String.Equals(command.Event, WellKnownTaskCommand.PrependPath, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessTaskPrepandPathCommand(context, command.Data);
-            }
-            else
-            {
-                throw new Exception(StringUtil.Loc("TaskCommandNotFound", command.Event));
-            }
-        }
+            var eventProperties = command.Properties;
+            var data = command.Data;
 
-        private void ProcessTaskDetailCommand(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
-        {
             TimelineRecord record = new TimelineRecord();
 
             String timelineRecord;
@@ -239,8 +198,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             _timelineRecordsTracker[record.Id] = record;
         }
 
-        private void ProcessTaskUploadSummaryCommand(IExecutionContext context, string data)
+        private DateTime ParseDateTime(String dateTimeText, DateTime defaultValue)
         {
+            DateTime dateTime;
+            if (!DateTime.TryParse(dateTimeText, CultureInfo.CurrentCulture, DateTimeStyles.AdjustToUniversal, out dateTime))
+            {
+                dateTime = defaultValue;
+            }
+
+            return dateTime;
+        }
+
+        private TimelineRecordState ParseTimelineRecordState(String timelineRecordStateText, TimelineRecordState defaultValue)
+        {
+            TimelineRecordState state;
+            if (!Enum.TryParse<TimelineRecordState>(timelineRecordStateText, out state))
+            {
+                state = defaultValue;
+            }
+
+            return state;
+        }
+    }
+
+    public class ProcessTaskUploadSummaryCommand: IWorkerCommand
+    {
+        public string Name => "uploadsummary";
+        public List<string> Aliases => null;
+
+        public void Execute(IExecutionContext context, Command command)
+        {
+            var data = command.Data;
             if (!string.IsNullOrEmpty(data))
             {
                 var uploadSummaryProperties = new Dictionary<string, string>();
@@ -248,16 +236,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 var fileName = Path.GetFileName(data);
                 uploadSummaryProperties.Add(TaskAddAttachmentEventProperties.Name, fileName);
 
-                ProcessTaskAddAttachmentCommand(context, uploadSummaryProperties, data);
+                ProcessTaskAddAttachmentCommand.AddAttachment(context, uploadSummaryProperties, data);
             }
             else
             {
                 throw new Exception(StringUtil.Loc("CannotUploadSummary"));
             }
         }
+    }
 
-        private void ProcessTaskUploadFileCommand(IExecutionContext context, string data)
+    public class ProcessTaskUploadFileCommand: IWorkerCommand
+    {
+        public string Name => "uploadfile";
+        public List<string> Aliases => null;
+
+        public void Execute(IExecutionContext context, Command command)
         {
+            var data = command.Data;
+
             if (!string.IsNullOrEmpty(data))
             {
                 var uploadFileProperties = new Dictionary<string, string>();
@@ -265,15 +261,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 var fileName = Path.GetFileName(data);
                 uploadFileProperties.Add(TaskAddAttachmentEventProperties.Name, fileName);
 
-                ProcessTaskAddAttachmentCommand(context, uploadFileProperties, data);
+                ProcessTaskAddAttachmentCommand.AddAttachment(context, uploadFileProperties, data);
             }
             else
             {
                 throw new Exception(StringUtil.Loc("CannotUploadFile"));
             }
         }
+    }
 
-        private void ProcessTaskAddAttachmentCommand(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
+    public class ProcessTaskAddAttachmentCommand: IWorkerCommand
+    {
+        public string Name => "addattachment";
+        public List<string> Aliases => null;
+
+        public void Execute(IExecutionContext context, Command command)
+        {
+            AddAttachment(context, command.Properties, command.Data);
+        }
+
+        public static void AddAttachment(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
         {
             String type;
             if (!eventProperties.TryGetValue(TaskAddAttachmentEventProperties.Type, out type) || String.IsNullOrEmpty(type))
@@ -300,7 +307,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Translate file path back from container path
             string filePath = context.TranslateToHostPath(data);
-            
+
             if (!String.IsNullOrEmpty(filePath) && File.Exists(filePath))
             {
                 // Upload attachment
@@ -311,9 +318,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 throw new Exception(StringUtil.Loc("MissingAttachmentFile"));
             }
         }
+    }
 
-        private void ProcessTaskIssueCommand(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
+    public class ProcessTaskIssueCommand: IWorkerCommand
+    {
+        public string Name => "logissue";
+        public List<string> Aliases => new List<string>(){"issue"};
+
+        public void Execute(IExecutionContext context, Command command)
         {
+            var eventProperties = command.Properties;
+            var data = command.Data;
+
             Issue taskIssue = null;
 
             String issueType;
@@ -356,7 +372,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 issue.Category = "Code";
 
-                var extensionManager = HostContext.GetService<IExtensionManager>();
+                var extensionManager = context.GetHostContext().GetService<IExtensionManager>();
                 var hostType = context.Variables.System_HostType;
                 IJobExtension extension =
                     (extensionManager.GetExtensions<IJobExtension>() ?? new List<IJobExtension>())
@@ -420,9 +436,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             return issue;
         }
+    }
 
-        private void ProcessTaskCompleteCommand(IExecutionContext context, Dictionary<string, string> eventProperties, String data)
+    public class ProcessTaskCompleteCommand: IWorkerCommand
+    {
+        public string Name => "complete";
+        public List<string> Aliases => null;
+
+        public void Execute(IExecutionContext context, Command command)
         {
+            var eventProperties = command.Properties;
+            var data = command.Data;
+
             string resultText;
             TaskResult result;
             if (!eventProperties.TryGetValue(TaskCompleteEventProperties.Result, out resultText) ||
@@ -442,9 +467,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 context.ForceTaskComplete();
             }
         }
+    }
 
-        private void ProcessTaskProgressCommand(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
+    public class ProcessTaskProgressCommand: IWorkerCommand
+    {
+        public string Name => "setprogress";
+        public List<string> Aliases => null;
+
+        public void Execute(IExecutionContext context, Command command)
         {
+            var eventProperties = command.Properties;
+            var data = command.Data;
+
             Int32 percentComplete = 0;
             String processValue;
             if (eventProperties.TryGetValue("value", out processValue))
@@ -458,17 +492,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             context.Progress(percentComplete, data);
         }
+    }
 
-        private void ProcessTaskSetSecretCommand(IExecutionContext context, string data)
+    public class ProcessTaskSetSecretCommand: IWorkerCommand
+    {
+        public string Name => "setsecret";
+        public List<string> Aliases => null;
+
+        public void Execute(IExecutionContext context, Command command)
         {
+            var data = command.Data;
             if (!string.IsNullOrEmpty(data))
             {
-                HostContext.SecretMasker.AddValue(data);
+                context.GetHostContext().SecretMasker.AddValue(data);
             }
         }
+    }
 
-        private void ProcessTaskSetVariableCommand(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
+    public class ProcessTaskSetVariableCommand: IWorkerCommand
+    {
+        public string Name => "setvariable";
+        public List<string> Aliases => null;
+
+        public void Execute(IExecutionContext context, Command command)
         {
+            var eventProperties = command.Properties;
+            var data = command.Data;
+
             String name;
             if (!eventProperties.TryGetValue(TaskSetVariableEventProperties.Variable, out name) || String.IsNullOrEmpty(name))
             {
@@ -507,14 +557,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             context.SetVariable(name, data, isSecret, isOutput);
         }
+    }
 
-        private void ProcessTaskDebugCommand(IExecutionContext context, String data)
+    public class ProcessTaskDebugCommand: IWorkerCommand
+    {
+        public string Name => "debug";
+        public List<string> Aliases => null;
+
+        public void Execute(IExecutionContext context, Command command)
         {
+            var data = command.Data;
             context.Debug(data);
         }
+    }
 
-        private void ProcessTaskSetTaskVariableCommand(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
+    public class ProcessTaskSetTaskVariableCommand: IWorkerCommand
+    {
+        public string Name => "settaskvariable";
+        public List<string> Aliases => null;
+
+        public void Execute(IExecutionContext context, Command command)
         {
+            var eventProperties = command.Properties;
+            var data = command.Data;
+
             String name;
             if (!eventProperties.TryGetValue(TaskSetTaskVariableEventProperties.Variable, out name) || String.IsNullOrEmpty(name))
             {
@@ -546,9 +612,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             context.TaskVariables.Set(name, data, isSecret);
         }
+    }
 
-        private void ProcessTaskSetEndpointCommand(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
+    public class ProcessTaskSetEndpointCommand: IWorkerCommand
+    {
+        public string Name => "setendpoint";
+        public List<string> Aliases => null;
+
+        public void Execute(IExecutionContext context, Command command)
         {
+            var eventProperties = command.Properties;
+            var data = command.Data;
+
             if (string.IsNullOrEmpty(data))
             {
                 throw new Exception(StringUtil.Loc("EnterValidValueFor0", "setendpoint"));
@@ -563,7 +638,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Mask auth parameter data upfront to avoid accidental secret exposure by invalid endpoint/key/data
             if (String.Equals(field, "authParameter", StringComparison.OrdinalIgnoreCase))
             {
-                HostContext.SecretMasker.AddValue(data);
+                context.GetHostContext().SecretMasker.AddValue(data);
             }
 
             String endpointIdInput;
@@ -615,54 +690,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 throw new Exception(StringUtil.Loc("InvalidEndpointField"));
             }
         }
+    }
 
-        private void ProcessTaskPrepandPathCommand(IExecutionContext context, string data)
+    public class ProcessTaskPrepandPathCommand: IWorkerCommand
+    {
+        public string Name => "prependpath";
+        public List<string> Aliases => null;
+
+        public void Execute(IExecutionContext context, Command command)
         {
-            ArgUtil.NotNullOrEmpty(data, nameof(WellKnownTaskCommand.PrependPath));
+            var data = command.Data;
+
+            ArgUtil.NotNullOrEmpty(data, this.Name);
             context.PrependPath.RemoveAll(x => string.Equals(x, data, StringComparison.CurrentCulture));
             context.PrependPath.Add(data);
         }
-
-        private DateTime ParseDateTime(String dateTimeText, DateTime defaultValue)
-        {
-            DateTime dateTime;
-            if (!DateTime.TryParse(dateTimeText, CultureInfo.CurrentCulture, DateTimeStyles.AdjustToUniversal, out dateTime))
-            {
-                dateTime = defaultValue;
-            }
-
-            return dateTime;
-        }
-
-        private TimelineRecordState ParseTimelineRecordState(String timelineRecordStateText, TimelineRecordState defaultValue)
-        {
-            TimelineRecordState state;
-            if (!Enum.TryParse<TimelineRecordState>(timelineRecordStateText, out state))
-            {
-                state = defaultValue;
-            }
-
-            return state;
-        }
     }
 
-    internal static class WellKnownTaskCommand
-    {
-        public static readonly String AddAttachment = "addattachment";
-        public static readonly String Complete = "complete";
-        public static readonly String Debug = "debug";
-        public static readonly String LogDetail = "logdetail";
-        public static readonly String LogIssue = "logissue";
-        public static readonly String LogIssue_xplatCompat = "issue";
-        public static readonly String PrependPath = "prependpath";
-        public static readonly String SetProgress = "setprogress";
-        public static readonly String SetSecret = "setsecret";
-        public static readonly String SetVariable = "setvariable";
-        public static readonly String SetTaskVariable = "settaskvariable";
-        public static readonly String SetEndpoint = "setendpoint";
-        public static readonly String UploadFile = "uploadfile";
-        public static readonly String UploadSummary = "uploadsummary";
-    }
 
     internal static class TaskSetVariableEventProperties
     {

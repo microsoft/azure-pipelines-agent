@@ -136,7 +136,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         void ProcessCommand(IExecutionContext context, Command command);
     }
 
-    public interface IWorkerCommand 
+    public interface IWorkerCommand
     {
         string Name { get; }
 
@@ -160,8 +160,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             if (_commands.ContainsKey(commandExecutor.Name))
             {
-                //TODO: Add some logging (or throw exception)
-                return;
+                throw new Exception(StringUtil.Loc("CommandDuplicateDetected", commandExecutor.Name, CommandArea.ToLowerInvariant()));
             }
             _commands[commandExecutor.Name] = commandExecutor;
             var aliasList = commandExecutor.Aliases;
@@ -169,11 +168,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 foreach (var alias in commandExecutor.Aliases)
                 {
-                    if (!_commands.ContainsKey(alias))
+                    if (_commands.ContainsKey(alias))
                     {
-                        _commands[alias] = commandExecutor;
+                        throw new Exception(StringUtil.Loc("CommandDuplicateDetected", alias, CommandArea.ToLowerInvariant()));
                     }
-                    // TODO: else add some logging (or throw exception)
+                    _commands[alias] = commandExecutor;
                 }
             }
         }
