@@ -21,6 +21,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     public sealed class Worker : AgentService, IWorker
     {
         private readonly TimeSpan _workerStartTimeout = TimeSpan.FromSeconds(30);
+        private static readonly char[] _quoteLikeChars = new char[] {'\'', '"'};
+
 
         public async Task<int> RunAsync(string pipeIn, string pipeOut)
         {
@@ -109,13 +111,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Trace.Entering();
             ArgUtil.NotNull(message, nameof(message));
             ArgUtil.NotNull(message.Resources, nameof(message.Resources));
-
             // Add mask hints for secret variables
             foreach (var variable in (message.Variables ?? new Dictionary<string, VariableValue>()))
             {
                 if (variable.Value.IsSecret)
                 {
                     HostContext.SecretMasker.AddValue(variable.Value.Value);
+                    // for variables, it is possible that they are used inside a shell which would strip off surrounding quotes
+                    // so, if the value is surrounded by quotes, add a quote-timmed version of the secret to our masker as well
+                    // This addresses issue #2525
+                    foreach (var quoteChar in _quoteLikeChars)
+                    {
+                        if (variable.Value.Value.StartsWith(quoteChar) && variable.Value.Value.EndsWith(quoteChar))
+                        {
+                            HostContext.SecretMasker.AddValue(variable.Value.Value.Trim(quoteChar));
+                        }
+                    }
                 }
             }
 
