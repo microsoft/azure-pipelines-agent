@@ -20,7 +20,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
             public void InstallFoo2Command()
             {
-                InstallWorkerCommand(new FooCommand());
+                InstallWorkerCommand(new Foo2Command());
             }
         }
 
