@@ -13,6 +13,8 @@ using Microsoft.VisualStudio.Services.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using System.Linq;
 using Microsoft.VisualStudio.Services.Common;
+using System.Diagnostics;
+
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -27,10 +29,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         Task ShutdownAsync();
     }
 
-    // This implementation of IDobDispatcher is not thread safe.
+    // This implementation of IJobDispatcher is not thread safe.
     // It is base on the fact that the current design of agent is dequeue
     // and process one message from message queue everytime.
-    // In addition, it only execute one job every time, 
+    // In addition, it only execute one job every time,
     // and server will not send another job while this one is still running.
     public sealed class JobDispatcher : AgentService, IJobDispatcher
     {
@@ -423,28 +425,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                 keepStandardInOpen: false,
                                 highPriorityProcess: true,
                                 cancellationToken: workerProcessCancelTokenSource.Token);
-                        });
+                        }
+                    );
 
                     // Send the job request message.
                     // Kill the worker process if sending the job message times out. The worker
                     // process may have successfully received the job message.
                     try
                     {
-                        Trace.Info($"Send job request message to worker for job {message.JobId}.");
+                        var body = JsonUtility.ToString(message);
+                        var numBytes = System.Text.ASCIIEncoding.Unicode.GetByteCount(body) / 1024;
+                        string numBytesString = numBytes > 0 ? $"{numBytes} KB" : " < 1 KB";
+                        Trace.Info($"Send job request message to worker for job {message.JobId} ({numBytesString}).");
                         HostContext.WritePerfCounter($"AgentSendingJobToWorker_{message.JobId}");
+                        var stopWatch = Stopwatch.StartNew();
                         using (var csSendJobRequest = new CancellationTokenSource(_channelTimeout))
                         {
                             await processChannel.SendAsync(
                                 messageType: MessageType.NewJobRequest,
-                                body: JsonUtility.ToString(message),
+                                body: body,
                                 cancellationToken: csSendJobRequest.Token);
                         }
+                        stopWatch.Stop();
+                        Trace.Info($"Took {stopWatch.ElapsedMilliseconds} ms to send job message to worker");
                     }
                     catch (OperationCanceledException)
                     {
                         // message send been cancelled.
                         // timeout 30 sec. kill worker.
-                        Trace.Info($"Job request message sending for job {message.JobId} been cancelled, kill running worker.");
+                        Trace.Info($"Job request message sending for job {message.JobId} been cancelled after waiting for {_channelTimeout.TotalSeconds} seconds, kill running worker.");
                         workerProcessCancelTokenSource.Cancel();
                         try
                         {
@@ -580,7 +589,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             }
                         }
 
-                        // wait worker to exit 
+                        // wait worker to exit
                         // if worker doesn't exit within timeout, then kill worker.
                         completedTask = await Task.WhenAny(workerProcessTask, Task.Delay(-1, workerCancelTimeoutKillToken));
 
