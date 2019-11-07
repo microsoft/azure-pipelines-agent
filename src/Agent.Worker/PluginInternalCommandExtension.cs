@@ -11,7 +11,7 @@ using System.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
-    public class PluginInternalCommandExtension: BaseWorkerCommandExtension
+    public sealed class PluginInternalCommandExtension: BaseWorkerCommandExtension
     {
         public PluginInternalCommandExtension()
         {
