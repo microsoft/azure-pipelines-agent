@@ -2,10 +2,11 @@
 
 ## Overview
 
-The cross platform build and release agent for Azure Pipelines and Team Foundation Server 2015 and beyond.  This replaced the deprecated closed source windows build agent and the existing [xplat agent](https://github.com/Microsoft/vso-agent)
+The cross platform build and release agent for Azure Pipelines and Team Foundation Server 2015 and beyond.
+This replaced the deprecated closed source windows build agent and the previous [cross-platform agent](https://github.com/Microsoft/vso-agent).
 
-Supported on Windows, OSX, Ubuntu and Red Hat.  Written for the .NET Core CLR as one code base in C#.
-
+Supported on Windows, macOS, and several Linux flavors.
+Written for .NET Core in C#.
 
 ## Status
 
@@ -26,40 +27,21 @@ Supported on Windows, OSX, Ubuntu and Red Hat.  Written for the .NET Core CLR as
 [rhel6-x64-build-badge]: https://mseng.visualstudio.com/pipelinetools/_apis/build/status/VSTS.Agent/azure-pipelines-agent.ci?branchName=master&jobname=RHEL6%20Agent%20(x64)
 [build]: https://mseng.visualstudio.com/PipelineTools/_build?_a=completed&definitionId=7502
 
-## System Pre-Requisites
-
-First, ensure you have the necessary system pre-requisites
-
-![win](docs/res/win_sm.png) [Windows](docs/start/envwin.md)    
-
-![macOS](docs/res/apple_sm.png) [macOS](docs/start/envosx.md)    
-
-![linux](docs/res/linux_sm.png) [Linux and RHEL6](docs/start/envlinux.md)
-
 ## Get the Agent
 
-Next, download and configure the agent
-
-![win](docs/res/win_sm.png)  [Start Windows](https://www.visualstudio.com/en-us/docs/build/admin/agents/v2-windows)  
-
-![macOS](docs/res/apple_sm.png)  [Start macOS](https://www.visualstudio.com/en-us/docs/build/admin/agents/v2-osx)  
-
-![linux](docs/res/linux_sm.png)  [Start Linux](https://www.visualstudio.com/en-us/docs/build/admin/agents/v2-linux)  
+[Get started with the agent](https://docs.microsoft.com/azure/devops/pipelines/agents/agents?view=azure-devops#install).
 
 ## Supported Usage
 
-This agent can be used for Azure Pipelines and it replaces the node agent for TFS2015 On-Prem.
+This agent can be used for Azure Pipelines, Azure DevOps Server 2019+, and TFS 2017+.
+It also replaces the Node-based agent for TFS 2015.
 
-| Scenario | OSX/Unix | Windows | Comment |
+| Scenario | Mac/Linux | Windows | Comment |
 |:-------------:|:-----:|:-----:|:-----:|
 | Azure Pipelines      |  Yes  | Yes   |
 | TFS2015 (onprem)   |  Yes  | No    | Windows use agent with 2015 |
 | TFS2017 (onprem)   |  Yes  | Yes    |  |
 | TFS2018 (onprem)   |  Yes  | Yes    |  |
-
-## More Documentation
-
-[Documentation Here](https://aka.ms/tfbuild)
 
 ## Troubleshooting
 
