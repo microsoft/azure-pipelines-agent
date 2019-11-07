@@ -33,6 +33,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         public List<string> Aliases => null;
         public void Execute(IExecutionContext context, Command command)
         {
+            var data = command.Data;
             // Translate file path back from container path
             data = context.TranslateToHostPath(data);
             if (!string.IsNullOrEmpty(data) && File.Exists(data))
@@ -54,6 +55,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         public List<string> Aliases => null;
         public void Execute(IExecutionContext context, Command command)
         {
+            var data = command.Data;
             // Translate file path back from container path
             data = context.TranslateToHostPath(data);
             if (!string.IsNullOrEmpty(data) && File.Exists(data))
