@@ -43,7 +43,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         HashSet<string> OutputVariables { get; }
         List<IAsyncCommandContext> AsyncCommands { get; }
         List<string> PrependPath { get; }
-        ContainerInfo Container { get; }
+        List<ContainerInfo> Containers { get; }
         List<ContainerInfo> SidecarContainers { get; }
 
         // Initialize
@@ -67,6 +67,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         // others
         void ForceTaskComplete();
+        string TranslateToHostPath(string path);
+        ContainerInfo StepTarget();
+        string TranslatePathForStepTarget(string val);
         IHostContext GetHostContext();
     }
 
@@ -79,12 +82,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private readonly object _loggerLock = new object();
         private readonly List<IAsyncCommandContext> _asyncCommands = new List<IAsyncCommandContext>();
         private readonly HashSet<string> _outputvariables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
         private IAgentLogPlugin _logPlugin;
         private IPagingLogger _logger;
         private IJobServerQueue _jobServerQueue;
         private IExecutionContext _parentExecutionContext;
-
         private bool _outputForward = false;
         private Guid _mainTimelineId;
         private Guid _detailTimelineId;
@@ -108,9 +109,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public HashSet<string> OutputVariables => _outputvariables;
         public bool WriteDebug { get; private set; }
         public List<string> PrependPath { get; private set; }
-        public ContainerInfo Container { get; private set; }
+        public List<ContainerInfo> Containers { get; private set; }
         public List<ContainerInfo> SidecarContainers { get; private set; }
-
+        public ContainerInfo DefaultStepTarget { get; private set; } // TODO: maybe keep this private
+        public ContainerInfo CurrentStepTarget { get; private set; } // TODO: maybe keep this private
         public List<IAsyncCommandContext> AsyncCommands => _asyncCommands;
 
         public TaskResult? Result
@@ -187,9 +189,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             child.WriteDebug = WriteDebug;
             child._parentExecutionContext = this;
             child.PrependPath = PrependPath;
-            child.Container = Container;
+            child.Containers = Containers;
             child.SidecarContainers = SidecarContainers;
             child._outputForward = outputForward;
+            child.DefaultStepTarget = DefaultStepTarget;
+            child.CurrentStepTarget = CurrentStepTarget;
 
             child.InitializeTimelineRecord(_mainTimelineId, recordId, _record.Id, ExecutionContextType.Task, displayName, refName, ++_childTimelineRecordOrder);
 
@@ -254,11 +258,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public void SetVariable(string name, string value, bool isSecret = false, bool isOutput = false, bool isFilePath = false)
         {
             ArgUtil.NotNullOrEmpty(name, nameof(name));
-
-            if (isFilePath && Container != null)
-            {
-                value = Container.TranslateToContainerPath(value);
-            }
 
             if (isOutput || OutputVariables.Contains(name))
             {
@@ -415,6 +414,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Variables (constructor performs initial recursive expansion)
             List<string> warnings;
             Variables = new Variables(HostContext, message.Variables, out warnings);
+            Variables.StringTranslator = TranslatePathForStepTarget;
 
             // Prepend Path
             PrependPath = new List<string>();
@@ -426,6 +426,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 imageName = Environment.GetEnvironmentVariable("_PREVIEW_VSTS_DOCKER_IMAGE");
             }
 
+            Containers = new List<ContainerInfo>();
+            DefaultStepTarget = null;
+            CurrentStepTarget = null;
             if (!string.IsNullOrEmpty(imageName) &&
                 string.IsNullOrEmpty(message.JobContainer))
             {
@@ -434,20 +437,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     Alias = "vsts_container_preview"
                 };
                 dockerContainer.Properties.Set("image", imageName);
-                Container = HostContext.CreateContainerInfo(dockerContainer);
+                DefaultStepTarget = HostContext.CreateContainerInfo(dockerContainer);
+                Containers.Add(DefaultStepTarget);
             }
             else if (!string.IsNullOrEmpty(message.JobContainer))
             {
-                Container = HostContext.CreateContainerInfo(message.Resources.Containers.Single(x => string.Equals(x.Alias, message.JobContainer, StringComparison.OrdinalIgnoreCase)));
-            }
-            else
-            {
-                Container = null;
-            }
-
-            if (Container != null)
-            {
-                Container.ImageOSChanged += HandleContainerImageOSChange;
+                DefaultStepTarget = HostContext.CreateContainerInfo(message.Resources.Containers.Single(x => string.Equals(x.Alias, message.JobContainer, StringComparison.OrdinalIgnoreCase)));
+                Containers.Add(DefaultStepTarget);
+                foreach (var container in message.Resources.Containers.FindAll(x => !string.Equals(x.Alias, message.JobContainer, StringComparison.OrdinalIgnoreCase)))
+                {
+                    Containers.Add(HostContext.CreateContainerInfo(container));
+                }
             }
 
             // Docker (Sidecar Containers)
@@ -545,12 +545,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Hook up JobServerQueueThrottling event, we will log warning on server tarpit.
             _jobServerQueue.JobServerQueueThrottling += JobServerQueueThrottling_EventReceived;
-        }
-
-        private void HandleContainerImageOSChange(ContainerInfo container, PlatformUtil.OS oldOs)
-        {
-            // if the Image OS Changed, we need to retranslate all the variables we have that may contain paths
-            Variables.Transform( (x) => container.TranslateContainerPathForImageOS(oldOs, x));
         }
 
         // Do not add a format string overload. In general, execution context messages are user facing and
@@ -671,6 +665,36 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 _throttlingReported = true;
             }
+        }
+
+        public string TranslateToHostPath(string path)
+        {
+            var stepTarget = StepTarget();
+            if (stepTarget != null)
+            {
+                return stepTarget.TranslateToHostPath(path);
+            }
+            return path;
+        }
+
+        public string TranslatePathForStepTarget(string val)
+        {
+            var stepTarget = StepTarget();
+            if (stepTarget != null)
+            {
+                return stepTarget.TranslateContainerPathForImageOS(PlatformUtil.HostOS, stepTarget.TranslateToContainerPath(val));
+            }
+            return val;
+        }
+
+        public ContainerInfo StepTarget()
+        {
+            if (CurrentStepTarget != null)
+            {
+                return CurrentStepTarget;
+            }
+
+            return DefaultStepTarget;
         }
     }
 

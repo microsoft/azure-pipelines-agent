@@ -18,7 +18,6 @@
     "AgentWithSameNameAlreadyExistInPool":  "Пул {0} уже содержит агент с именем {1}.",
     "AlreadyConfiguredError":  "Не удается настроить агент, так как он уже настроен. Чтобы перенастроить агент, сначала выполните команду config.cmd remove или ./config.sh remove.",
     "ArgumentNeeded":  "Требуется указать \"{0}\".",
-    "ArtifactCommandNotFound":  "##vso[artifact.{0}] не распознается в качестве команды для расширения команды Artifact. Ознакомьтесь с документацией (http://go.microsoft.com/fwlink/?LinkId=817296)",
     "ArtifactDownloadFailed":  "Не удалось скачать артефакт из \"{0}\".",
     "ArtifactLocationRequired":  "Требуется указать расположение артефакта.",
     "ArtifactNameRequired":  "Требуется указать имя артефакта.",

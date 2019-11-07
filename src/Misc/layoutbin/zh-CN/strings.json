@@ -18,7 +18,6 @@
     "AgentWithSameNameAlreadyExistInPool":  "池 {0} 已包含名为 {1} 的代理。",
     "AlreadyConfiguredError":  "无法配置此代理，因为已配置。要重新配置此代理，请首先运行 \"config.cmd remove\" 或 \"./config.sh remove\"。",
     "ArgumentNeeded":  "必须指定“{0}”。",
-    "ArtifactCommandNotFound":  "##vso[artifact.{0}] 不是项目命令扩展的已识别命令。请参考文档(http://go.microsoft.com/fwlink/?LinkId=817296)",
     "ArtifactDownloadFailed":  "未能从 {0} 下载项目。",
     "ArtifactLocationRequired":  "项目位置必填。",
     "ArtifactNameRequired":  "项目名称必填。",

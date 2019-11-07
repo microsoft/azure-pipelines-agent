@@ -278,14 +278,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
 
             // Prepend path.
-            
             var containerStepHost = StepHost as ContainerStepHost;
             if (containerStepHost != null)
             {
                 List<string> prepend = new List<string>();
                 foreach (var path in ExecutionContext.PrependPath)
                 {
-                    prepend.Add(ExecutionContext.Container.TranslateToContainerPath(path));
+                    prepend.Add(ExecutionContext.TranslatePathForStepTarget(path));
                 }
                 containerStepHost.PrependPath = string.Join(Path.PathSeparator.ToString(), prepend.Reverse<string>());
             }

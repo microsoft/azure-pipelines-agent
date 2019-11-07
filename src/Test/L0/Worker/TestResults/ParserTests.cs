@@ -15,9 +15,8 @@ using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
 {
-    public class ParserTests : IDisposable
+    public class ParserTests
     {
-        private string _resultFile;
         private Mock<IExecutionContext> _ec;
 
         [Fact]
@@ -57,12 +56,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
                  "<ResultSummary outcome=\"Failed\"><Counters total = \"3\" executed = \"3\" passed=\"2\" failed=\"1\" error=\"0\" timeout=\"0\" aborted=\"0\" inconclusive=\"0\" passedButRunAborted=\"0\" notRunnable=\"0\" notExecuted=\"0\" disconnected=\"0\" warning=\"0\" completed=\"0\" inProgress=\"0\" pending=\"0\" />" +
                  "</ResultSummary>" +
                "</TestRun>";
-
-            _resultFile = "resultsWithoutTestNames.trx";
-            File.WriteAllText(_resultFile, trxContents);
+            string resultFile = TestUtil.WriteAllTextToTempFile(trxContents, "trx");
             TrxParser reader = new TrxParser();
             TestRunContext runContext = new TestRunContext();
-            TestDataProvider runDataProvider = reader.ParseTestResultFiles(_ec.Object, runContext, new List<string> { _resultFile });
+            TestDataProvider runDataProvider = reader.ParseTestResultFiles(_ec.Object, runContext, new List<string> { resultFile });
             List<TestRunData> runData = runDataProvider.GetTestRunData();
 
 
@@ -73,6 +70,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             Assert.Equal(runData[0].TestResults[1].TestCaseTitle, "PSD_Startseite");
             Assert.Equal(runData[0].TestResults[2].Outcome, "Passed");
             Assert.Equal(runData[0].TestResults[2].TestCaseTitle, "OrderedTest1");
+            CleanupTempFile(resultFile);
         }
 
         [Fact]
@@ -113,11 +111,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             "  </test-suite>" +
             "</test-results>";
 
-             _resultFile = "nunitresults.xml";
-            File.WriteAllText(_resultFile, nUnitBasicResultsXml);
+            string resultFile = TestUtil.WriteAllTextToTempFile(nUnitBasicResultsXml, "xml");
             NUnitParser reader = new NUnitParser();
             TestRunContext runContext = new TestRunContext();
-            TestDataProvider runDataProvider = reader.ParseTestResultFiles(_ec.Object, runContext, new List<string> { _resultFile });
+            TestDataProvider runDataProvider = reader.ParseTestResultFiles(_ec.Object, runContext, new List<string> { resultFile });
             List<TestRunData> runData = runDataProvider.GetTestRunData();
 
             Assert.NotNull(runData[0].TestResults);
@@ -129,6 +126,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
 
             Assert.Equal(null, runData[0].TestResults[0].AutomatedTestId);
             Assert.Equal(null, runData[0].TestResults[0].AutomatedTestTypeId);
+            CleanupTempFile(resultFile);
         }
 
         [Fact]
@@ -153,11 +151,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             + "</testsuite>"
             + "</testsuites>";
 
-            _resultFile = "junitresults.xml";
-            File.WriteAllText(_resultFile, junitResultsToBeRead);
+            string resultFile = TestUtil.WriteAllTextToTempFile(junitResultsToBeRead, "xml");
             JUnitParser reader = new JUnitParser();
             TestRunContext runContext = new TestRunContext();
-            TestDataProvider runDataProvider = reader.ParseTestResultFiles(_ec.Object, runContext, new List<string> { _resultFile });
+            TestDataProvider runDataProvider = reader.ParseTestResultFiles(_ec.Object, runContext, new List<string> { resultFile });
             List<TestRunData> runData = runDataProvider.GetTestRunData();
 
             Assert.NotNull(runData[0].TestResults);
@@ -167,6 +164,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             Assert.Equal(null, runData[0].TestResults[0].AutomatedTestTypeId);
             Assert.Equal(1, runData[0].TestResults.Count(r => r.Outcome.Equals("Failed")));
             Assert.Equal("com.contoso.billingservice.ConsoleMessageRendererTest", runData[0].RunCreateModel.Name);
+            CleanupTempFile(resultFile);
         }
 
         [Fact]
@@ -185,14 +183,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             "</assembly>" +
             "</assemblies>";
 
-            _resultFile = "xunitresults.xml";
-            File.WriteAllText(_resultFile, xunitResultsToBeRead);
+            string resultFile = TestUtil.WriteAllTextToTempFile(xunitResultsToBeRead, "xml");
             JUnitParser reader = new JUnitParser();
             TestRunContext runContext = new TestRunContext();
-            TestDataProvider runDataProvider = reader.ParseTestResultFiles(_ec.Object, runContext, new List<string> { _resultFile });
+            TestDataProvider runDataProvider = reader.ParseTestResultFiles(_ec.Object, runContext, new List<string> { resultFile });
             List<TestRunData> runData = runDataProvider.GetTestRunData();
 
             Assert.Equal(1, runData[0].AttachmentsFilePathList.Count);
+            CleanupTempFile(resultFile);
         }
 
         [Fact]
@@ -363,11 +361,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             + "</Testing>"
             + "</Site>";
 
-            _resultFile = "xunitresults.xml";
-            File.WriteAllText(_resultFile, cTestResultsToBeRead);
+            string resultFile = TestUtil.WriteAllTextToTempFile(cTestResultsToBeRead, "xml");
             CTestParser reader = new CTestParser();
             TestRunContext runContext = new TestRunContext();
-            TestDataProvider runDataProvider = reader.ParseTestResultFiles(_ec.Object, runContext, new List<string> { _resultFile });
+            TestDataProvider runDataProvider = reader.ParseTestResultFiles(_ec.Object, runContext, new List<string> { resultFile });
             List<TestRunData> runData = runDataProvider.GetTestRunData();
 
             Assert.NotNull(runData[0].TestResults);
@@ -382,13 +379,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             Assert.Equal("LoggingSinkRandomTests.loggingSinkRandomTest_CallLoggingManagerCallback", runData[0].TestResults[0].TestCaseTitle);
             Assert.Equal(null, runData[0].TestResults[0].AutomatedTestId);
             Assert.Equal(null, runData[0].TestResults[0].AutomatedTestTypeId);
+            CleanupTempFile(resultFile);
         }
 
-        public void Dispose()
+        private void CleanupTempFile(string resultFile)
         {
             try
             {
-                File.Delete(_resultFile);
+                File.Delete(resultFile);
             }
             catch
             {
@@ -402,6 +400,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             List<string> warnings;
             var variables = new Variables(hc, new Dictionary<string, VariableValue>(), out warnings);
             _ec.Setup(x => x.Variables).Returns(variables);
+            _ec.Setup(x => x.Write(It.IsAny<string>(), It.IsAny<string>()))
+                .Callback<string, string>
+                ((tag, message) =>
+                {
+                  Console.Error.WriteLine(tag + ": " + message);
+                });
+
         }
     }
 }

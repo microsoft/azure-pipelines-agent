@@ -3,10 +3,8 @@
 
 using System;
 using System.Collections.Generic;
-using System.Globalization;
+using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
 using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
@@ -15,6 +13,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
     public static class RepositoryUtil
     {
         public static readonly string PrimaryRepositoryName = "self";
+        public static readonly string GitStandardBranchPrefix = "refs/heads/";
+
+        public static string TrimStandardBranchPrefix(string branchName)
+        {
+            if (!string.IsNullOrEmpty(branchName) && branchName.StartsWith(GitStandardBranchPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return branchName.Substring(GitStandardBranchPrefix.Length);
+            }
+
+            return branchName;
+        }
 
         /// <summary>
         /// Returns true if the dictionary contains the 'HasMultipleCheckouts' key and the value is set to 'true'.
@@ -61,6 +70,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         }
 
         /// <summary>
+        /// This method returns the repository from the list that has a 'Path' that the localPath is parented to.
+        /// If the localPath is not part of any of the repo paths, null is returned.
+        /// </summary>
+        public static RepositoryResource GetRepositoryForLocalPath(IList<RepositoryResource> repositories, string localPath)
+        {
+            if (repositories == null || !repositories.Any() || String.IsNullOrEmpty(localPath))
+            {
+                return null;
+            }
+
+            if (repositories.Count == 1)
+            {
+                return repositories.First();
+            }
+            else
+            {
+                foreach (var repo in repositories)
+                {
+                    var repoPath = repo.Properties.Get<string>(RepositoryPropertyNames.Path)?.TrimEnd(Path.DirectorySeparatorChar);
+
+                    if (!string.IsNullOrEmpty(repoPath) && 
+                        (localPath.Equals(repoPath, IOUtil.FilePathStringComparison)) ||
+                         localPath.StartsWith(repoPath + Path.DirectorySeparatorChar, IOUtil.FilePathStringComparison))
+                    {
+                        return repo;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
         /// This method returns the repo matching the repo alias passed.
         /// It returns null if that repo can't be found.
         /// </summary>
@@ -80,11 +122,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         /// </summary>
         public static string GuessRepositoryType(string repositoryUrl)
         {
-            if (repositoryUrl?.IndexOf("github.com", StringComparison.OrdinalIgnoreCase) >= 0)
+            if (string.IsNullOrEmpty(repositoryUrl))
+            {
+                return string.Empty;
+            }
+
+            if (repositoryUrl.IndexOf("github.com", StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 return RepositoryTypes.GitHub;
             }
-            else if (repositoryUrl?.IndexOf(".visualstudio.com", StringComparison.OrdinalIgnoreCase) >= 0 || repositoryUrl?.IndexOf("dev.azure.com", StringComparison.OrdinalIgnoreCase) >= 0)
+            else if (repositoryUrl.IndexOf(".visualstudio.com", StringComparison.OrdinalIgnoreCase) >= 0 
+                  || repositoryUrl.IndexOf("dev.azure.com", StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 if (repositoryUrl.IndexOf("/_git/", StringComparison.OrdinalIgnoreCase) >= 0)
                 {

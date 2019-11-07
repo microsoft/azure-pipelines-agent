@@ -46,6 +46,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             return testDataDir;
         }
 
+        public static string WriteAllTextToTempFile(string content, string extension=null)
+        {
+            string file = Path.GetTempFileName();
+            if (!string.IsNullOrEmpty(extension))
+            {
+                file = Path.ChangeExtension(file, extension);
+            }
+            File.WriteAllText(file, content);
+            return file;
+        }
+
         public static bool IsLinux() => RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
         public static bool IsMacOS() => RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
         public static bool IsWindows() => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);

@@ -162,14 +162,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             string tempDir = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), Constants.Path.TempDirectory);
             string targetEntryScript = Path.Combine(tempDir, "containerHandlerInvoker.js");
             HostContext.GetTrace(nameof(ContainerStepHost)).Info($"Copying containerHandlerInvoker.js to {tempDir}");
-            try
-            {
-                File.Copy(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), "containerHandlerInvoker.js"), targetEntryScript, true);
-            }
-            catch (Exception copyError)
-            {
-                HostContext.GetTrace(nameof(ContainerStepHost)).Error(copyError.Message);
-            }
+            File.Copy(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), "containerHandlerInvoker.js"), targetEntryScript, true);
 
             string node;
             if (!string.IsNullOrEmpty(Container.ContainerBringNodePath))
@@ -194,9 +187,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             {
                 processInvoker.OutputDataReceived += OutputDataReceived;
                 processInvoker.ErrorDataReceived += ErrorDataReceived;
+                outputEncoding = null; // Let .NET choose the default.
 
-                // Let .NET choose the default encoding, except on Windows.
-                outputEncoding = null;
                 if (PlatformUtil.RunningOnWindows)
                 {
                     // It appears that node.exe outputs UTF8 when not in TTY mode.

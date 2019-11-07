@@ -96,16 +96,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     legacyPShandler.Platforms = null;
                 }
 
-                var targetOs = PlatformUtil.HostOS;
-                if (ExecutionContext.Container != null)
+                var targetOS = PlatformUtil.HostOS;
+                var stepTarget = ExecutionContext.StepTarget();
+                if (stepTarget != null)
                 {
-                    targetOs = ExecutionContext.Container.ImageOS;
+                    targetOS = stepTarget.ImageOS;
                 }
-                Trace.Info($"Get handler data for target platform {targetOs.ToString()}");
+                Trace.Info($"Get handler data for target platform {targetOS.ToString()}");
 
                 HandlerData handlerData =
                     currentExecution?.All
-                    .OrderBy(x => !x.PreferredOnPlatform(targetOs)) // Sort true to false.
+                    .OrderBy(x => !x.PreferredOnPlatform(targetOS)) // Sort true to false.
                     .ThenBy(x => x.Priority)
                     .FirstOrDefault();
                 if (handlerData == null)
@@ -123,7 +124,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 IStepHost stepHost = HostContext.CreateService<IDefaultStepHost>();
 
                 // Setup container stephost and the right runtime variables for running job inside container.
-                if (ExecutionContext.Container != null)
+                if (stepTarget != null)
                 {
                     if (handlerData is AgentPluginHandlerData)
                     {
@@ -131,11 +132,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         Dictionary<string, VariableValue> variableCopy = new Dictionary<string, VariableValue>(StringComparer.OrdinalIgnoreCase);
                         foreach (var publicVar in ExecutionContext.Variables.Public)
                         {
-                            variableCopy[publicVar.Key] = new VariableValue(ExecutionContext.Container.TranslateToHostPath(publicVar.Value));
+                            variableCopy[publicVar.Key] = new VariableValue(stepTarget.TranslateToHostPath(publicVar.Value));
                         }
                         foreach (var secretVar in ExecutionContext.Variables.Private)
                         {
-                            variableCopy[secretVar.Key] = new VariableValue(ExecutionContext.Container.TranslateToHostPath(secretVar.Value), true);
+                            variableCopy[secretVar.Key] = new VariableValue(stepTarget.TranslateToHostPath(secretVar.Value), true);
                         }
 
                         List<string> expansionWarnings;
@@ -146,9 +147,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     {
                         // Only the node, node10, and powershell3 handlers support running inside container.
                         // Make sure required container is already created.
-                        ArgUtil.NotNullOrEmpty(ExecutionContext.Container.ContainerId, nameof(ExecutionContext.Container.ContainerId));
+                        ArgUtil.NotNullOrEmpty(stepTarget.ContainerId, nameof(stepTarget.ContainerId));
                         var containerStepHost = HostContext.CreateService<IContainerStepHost>();
-                        containerStepHost.Container = ExecutionContext.Container;
+                        containerStepHost.Container = stepTarget;
                         stepHost = containerStepHost;
                     }
                     else
@@ -319,16 +320,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                 }
 
-                if (ExecutionContext.Container != null && targetOs != PlatformUtil.HostOS )
-                {
-                    // translate inputs
-                    Dictionary<string,string> newInputs = new Dictionary<string, string>();
-                    foreach (var entry in inputs)
-                    {
-                        newInputs[entry.Key] = ExecutionContext.Container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, entry.Value);
-                    }
-                    inputs = newInputs;
-                }
+            // translate inputs
+            inputs = inputs.ToDictionary(kvp => kvp.Key, kvp => ExecutionContext.TranslatePathForStepTarget(kvp.Value));
 
                 // Create the handler.
                 IHandler handler = handlerFactory.Create(
@@ -360,7 +353,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Trace.Verbose($"Replace any '{Path.AltDirectorySeparatorChar}' with '{Path.DirectorySeparatorChar}'.");
                 inputValue = inputValue.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
             }
-
             // if inputValue is rooted, return full path.
             string fullPath;
             if (!string.IsNullOrEmpty(inputValue) &&
@@ -399,7 +391,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             // return original inputValue.
-            Trace.Info("Can't root path even by using JobExtension, return original input.");
+            Trace.Info("Cannot root path even by using JobExtension, return original input.");
             return inputValue;
         }
 

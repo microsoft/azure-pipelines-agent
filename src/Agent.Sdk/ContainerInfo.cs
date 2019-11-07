@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -19,10 +20,6 @@ namespace Agent.Sdk
         private Dictionary<string, string> _environmentVariables;
         private Dictionary<string, string> _pathMappings;
         private PlatformUtil.OS _imageOS;
-
-        public delegate void ImageOSChangedHandler(ContainerInfo container, PlatformUtil.OS oldOS);
-
-        public event ImageOSChangedHandler ImageOSChanged;
 
         public ContainerInfo()
         {
@@ -111,10 +108,6 @@ namespace Agent.Sdk
                         newEnvVars[env.Key] = TranslateContainerPathForImageOS(previousImageOS, env.Value);
                     }
                     _environmentVariables = newEnvVars;
-                }
-                if (ImageOSChanged != null)
-                {
-                    ImageOSChanged(this, previousImageOS);
                 }
             }
         }

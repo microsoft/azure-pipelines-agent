@@ -350,7 +350,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         node = container.ContainerBringNodePath;
                     }
                 }
-
                 string sleepCommand = $"\"{node}\" -e \"setInterval(function(){{}}, 24 * 60 * 60 * 1000);\"";
                 container.ContainerCommand = sleepCommand;
             }
@@ -394,7 +393,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             // Get port mappings of running container
-            if (executionContext.Container == null && !container.IsJobContainer)
+            if (executionContext.StepTarget() == null && !container.IsJobContainer)
             {
                 container.AddPortMappings(await _dockerManger.DockerPort(executionContext, container.ContainerId));
                 foreach (var port in container.PortMappings)
@@ -547,7 +546,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 throw new InvalidOperationException($"Docker exec fail with exit code {execDockerGroupaddExitCode}");
                             }
                         }
-
                         // Add the new created user to the docker socket group.
                         int execGroupUsermodExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"usermod -a -G {existingGroupName} {containerUserName}");
                         if (execGroupUsermodExitCode != 0)

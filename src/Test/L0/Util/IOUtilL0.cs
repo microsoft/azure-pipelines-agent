@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.IO;
@@ -979,6 +980,51 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                     environment: null,
                     requireExitCodeZero: true,
                     cancellationToken: CancellationToken.None);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void GetDirectoryName_LinuxStyle()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+                string[,] testcases = new string [,] {
+                    {"/foo/bar", "/foo"},
+                    {"/foo", "/"},
+                    {"/foo\\ bar/blah", "/foo\\ bar"}
+                };
+
+                for (int i=0; i<testcases.GetLength(0); i++)
+                {
+                    var path = IOUtil.GetDirectoryName(testcases[i,0], PlatformUtil.OS.Linux);
+                    var expected = testcases[i,1];
+                    Assert.Equal(expected, path);
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void GetDirectoryName_WindowsStyle()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+                string[,] testcases = new string [,] {
+                    {"c:\\foo\\bar", "c:\\foo"},
+                    {"c:/foo/bar", "c:\\foo"}
+                };
+
+                for (int i=0; i<testcases.GetLength(0); i++)
+                {
+                    var path = IOUtil.GetDirectoryName(testcases[i,0], PlatformUtil.OS.Windows);
+                    var expected = testcases[i,1];
+                    Assert.Equal(expected, path);
+                }
             }
         }
     }

@@ -33,13 +33,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         public List<string> Aliases => null;
         public void Execute(IExecutionContext context, Command command)
         {
-            string data = command.Data;
-            if (context.Container != null)
-            {
-                // Translate file path back from container path
-                data = context.Container.TranslateToHostPath(data);
-            }
-
+            // Translate file path back from container path
+            data = context.TranslateToHostPath(data);
             if (!string.IsNullOrEmpty(data) && File.Exists(data))
             {
                 context.QueueAttachFile(CoreAttachmentType.Log, "CustomToolLog", data);
@@ -59,13 +54,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         public List<string> Aliases => null;
         public void Execute(IExecutionContext context, Command command)
         {
-            string data = command.Data;
-            if (context.Container != null)
-            {
-                // Translate file path back from container path
-                data = context.Container.TranslateToHostPath(data);
-            }
-
+            // Translate file path back from container path
+            data = context.TranslateToHostPath(data);
             if (!string.IsNullOrEmpty(data) && File.Exists(data))
             {
                 var fileName = Path.GetFileName(data);

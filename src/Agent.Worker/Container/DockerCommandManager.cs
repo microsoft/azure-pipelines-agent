@@ -92,7 +92,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                 // Wait for 17.07 to switch using stdin for docker registry password.
                 return await ExecuteDockerCommandAsync(context, "login", $"--username \"{username}\" --password \"{password.Replace("\"", "\\\"")}\" {server}", new List<string>() { password }, context.CancellationToken);
             }
-
             return await ExecuteDockerCommandAsync(context, "login", $"--username \"{username}\" --password-stdin {server}", new List<string>() { password }, context.CancellationToken);
         }
 
@@ -192,7 +191,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 
         public async Task<int> DockerNetworkCreate(IExecutionContext context, string network)
         {
-            if (context.Container.ImageOS == PlatformUtil.OS.Windows)
+            if (context.StepTarget().ImageOS == PlatformUtil.OS.Windows)
             {
                 return await ExecuteDockerCommandAsync(context, "network", $"create --label {DockerInstanceLabel} {network} --driver nat", context.CancellationToken);
             }

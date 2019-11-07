@@ -69,9 +69,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     context.Section(StringUtil.Loc("StepStarting", StringUtil.Loc("InitializeJob")));
 
                     // Set agent version variable.
-                    context.Variables.Set(Constants.Variables.Agent.Version, BuildConstants.AgentPackage.Version);
-
-                    // Log agent properties
+                    context.SetVariable(Constants.Variables.Agent.Version, BuildConstants.AgentPackage.Version);
                     context.Output(StringUtil.Loc("AgentNameLog", context.Variables.Get(Constants.Variables.Agent.Name)));
                     context.Output(StringUtil.Loc("AgentMachineNameLog", context.Variables.Get(Constants.Variables.Agent.MachineName)));
                     context.Output(StringUtil.Loc("AgentVersion", BuildConstants.AgentPackage.Version));
@@ -123,7 +121,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         // This is for internal testing and is not publicly supported. This will be removed from the agent at a later time.
                         var prepareScript = Environment.GetEnvironmentVariable("VSTS_AGENT_INIT_INTERNAL_TEMP_HACK");
                         ServiceEndpoint systemConnection = context.Endpoints.Single(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
-                        if (!string.IsNullOrEmpty(prepareScript) && context.Container == null)
+                        if (!string.IsNullOrEmpty(prepareScript) && context.StepTarget() == null)
                         {
                             var prepareStep = new ManagementScriptStep(
                                 scriptPath: prepareScript,
@@ -143,14 +141,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     Stack<IStep> postJobStepsBuilder = new Stack<IStep>();
                     Dictionary<Guid, Variables> taskVariablesMapping = new Dictionary<Guid, Variables>();
 
-                    if (context.Container != null || context.SidecarContainers.Count > 0)
+                    if (context.Containers.Count > 0 || context.SidecarContainers.Count > 0)
                     {
                         var containerProvider = HostContext.GetService<IContainerOperationProvider>();
                         var containers = new List<ContainerInfo>();
-                        if (context.Container != null)
-                        {
-                            containers.Add(context.Container);
-                        }
+                        containers.AddRange(context.Containers);
                         containers.AddRange(context.SidecarContainers);
 
                         preJobSteps.Add(new JobExtensionRunner(runAsync: containerProvider.StartContainersAsync,
@@ -281,7 +276,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         // Add script post steps.
                         // This is for internal testing and is not publicly supported. This will be removed from the agent at a later time.
                         var finallyScript = Environment.GetEnvironmentVariable("VSTS_AGENT_CLEANUP_INTERNAL_TEMP_HACK");
-                        if (!string.IsNullOrEmpty(finallyScript) && context.Container == null)
+                        if (!string.IsNullOrEmpty(finallyScript) && context.StepTarget() == null)
                         {
                             var finallyStep = new ManagementScriptStep(
                                 scriptPath: finallyScript,

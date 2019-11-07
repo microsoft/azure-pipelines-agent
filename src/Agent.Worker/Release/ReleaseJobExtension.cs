@@ -393,11 +393,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
             Trace.Entering();
 
             // Always set the AgentReleaseDirectory because this is set as the WorkingDirectory of the task.
-            executionContext.Variables.Set(Constants.Variables.Release.AgentReleaseDirectory, artifactsDirectoryPath);
+            executionContext.SetVariable(Constants.Variables.Release.AgentReleaseDirectory, artifactsDirectoryPath);
 
             // Set the ArtifactsDirectory even when artifacts downloaded is skipped. Reason: The task might want to access the old artifact.
-            executionContext.Variables.Set(Constants.Variables.Release.ArtifactsDirectory, artifactsDirectoryPath);
-            executionContext.Variables.Set(Constants.Variables.System.DefaultWorkingDirectory, artifactsDirectoryPath);
+            executionContext.SetVariable(Constants.Variables.Release.ArtifactsDirectory, artifactsDirectoryPath);
+            executionContext.SetVariable(Constants.Variables.System.DefaultWorkingDirectory, artifactsDirectoryPath);
         }
 
         private void LogEnvironmentVariables(IExecutionContext executionContext)

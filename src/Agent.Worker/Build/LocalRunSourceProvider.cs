@@ -50,9 +50,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string localDirectory = endpoint.Data?["localDirectory"];
             ArgUtil.Directory(localDirectory, nameof(localDirectory));
             ArgUtil.Directory(Path.Combine(localDirectory, ".git"), "localDotGitDirectory");
-            executionContext.Variables.Set(Constants.Variables.System.DefaultWorkingDirectory, localDirectory);
-            executionContext.Variables.Set(Constants.Variables.Build.SourcesDirectory, localDirectory);
-            executionContext.Variables.Set(Constants.Variables.Build.RepoLocalPath, localDirectory);
+            executionContext.SetVariable(Constants.Variables.System.DefaultWorkingDirectory, localDirectory);
+            executionContext.SetVariable(Constants.Variables.Build.SourcesDirectory, localDirectory);
+            executionContext.SetVariable(Constants.Variables.Build.RepoLocalPath, localDirectory);
 
             // todo: consider support for clean
 

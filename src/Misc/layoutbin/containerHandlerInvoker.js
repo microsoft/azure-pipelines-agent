@@ -53,6 +53,7 @@ process.stdin.on('end', function () {
     }
 
     process.env['TF_BUILD'] = 'True';
+    console.log("##vso[task.debug]Handler Setup Complete");
     var launch = spawn(handler, [handlerArg], options);
     launch.on('exit', function (code) {
         console.log("##vso[task.debug]Handler exit code: " + code);

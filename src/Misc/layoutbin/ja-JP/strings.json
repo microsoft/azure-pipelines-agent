@@ -18,7 +18,6 @@
     "AgentWithSameNameAlreadyExistInPool":  "プール {0} には名前 {1} のエージェントが既に含まれています。",
     "AlreadyConfiguredError":  "エージェントは既に構成済みなので構成できません。エージェントを再構成するには、最初に \u0027config.cmd remove\u0027 か \u0027./config.sh remove\u0027 を実行してください。",
     "ArgumentNeeded":  "\u0027{0}\u0027 を指定する必要があります。",
-    "ArtifactCommandNotFound":  "##vso[artifact.{0}] は、Artifact コマンド拡張の認識されたコマンドではありません。ドキュメント (http://go.microsoft.com/fwlink/?LinkId=817296) をご覧ください",
     "ArtifactDownloadFailed":  "{0} から成果物をダウンロードできませんでした。",
     "ArtifactLocationRequired":  "成果物の場所が必要です。",
     "ArtifactNameRequired":  "成果物の名前が必要です。",

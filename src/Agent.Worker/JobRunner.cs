@@ -132,13 +132,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 // Set agent variables.
                 AgentSettings settings = HostContext.GetService<IConfigurationStore>().GetSettings();
-                jobContext.Variables.Set(Constants.Variables.Agent.Id, settings.AgentId.ToString(CultureInfo.InvariantCulture));
+                jobContext.SetVariable(Constants.Variables.Agent.Id, settings.AgentId.ToString(CultureInfo.InvariantCulture));
                 jobContext.SetVariable(Constants.Variables.Agent.HomeDirectory, HostContext.GetDirectory(WellKnownDirectory.Root), isFilePath: true);
-                jobContext.Variables.Set(Constants.Variables.Agent.JobName, message.JobDisplayName);
-                jobContext.Variables.Set(Constants.Variables.Agent.MachineName, Environment.MachineName);
-                jobContext.Variables.Set(Constants.Variables.Agent.Name, settings.AgentName);
-                jobContext.Variables.Set(Constants.Variables.Agent.OS, VarUtil.OS);
-                jobContext.Variables.Set(Constants.Variables.Agent.OSArchitecture, VarUtil.OSArchitecture);
+                jobContext.SetVariable(Constants.Variables.Agent.JobName, message.JobDisplayName);
+                jobContext.SetVariable(Constants.Variables.Agent.MachineName, Environment.MachineName);
+                jobContext.SetVariable(Constants.Variables.Agent.Name, settings.AgentName);
+                jobContext.SetVariable(Constants.Variables.Agent.OS, VarUtil.OS);
+                jobContext.SetVariable(Constants.Variables.Agent.OSArchitecture, VarUtil.OSArchitecture);
                 jobContext.SetVariable(Constants.Variables.Agent.RootDirectory, HostContext.GetDirectory(WellKnownDirectory.Work), isFilePath: true);
                 if (PlatformUtil.RunningOnWindows)
                 {
@@ -146,7 +146,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 if (!PlatformUtil.RunningOnWindows)
                 {
-                    jobContext.Variables.Set(Constants.Variables.Agent.AcceptTeeEula, settings.AcceptTeeEula.ToString());
+                    jobContext.SetVariable(Constants.Variables.Agent.AcceptTeeEula, settings.AcceptTeeEula.ToString());
                 }
                 jobContext.SetVariable(Constants.Variables.Agent.WorkFolder, HostContext.GetDirectory(WellKnownDirectory.Work), isFilePath: true);
                 jobContext.SetVariable(Constants.Variables.System.WorkFolder, HostContext.GetDirectory(WellKnownDirectory.Work), isFilePath: true);
@@ -229,9 +229,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
 
                 // Expand container properties
-                if (jobContext.Container != null)
+                foreach (var container in jobContext.Containers)
                 {
-                    this.ExpandProperties(jobContext.Container, jobContext.Variables);
+                    this.ExpandProperties(container, jobContext.Variables);
                 }
                 foreach (var sidecar in jobContext.SidecarContainers)
                 {

@@ -298,13 +298,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 throw new Exception($"Name contain invalid characters. ({String.Join(", ", s_invalidFileChars)})");
             }
 
-            string filePath = data;
-            if (context.Container != null)
-            {
-                // Translate file path back from container path
-                filePath = context.Container.TranslateToHostPath(filePath);
-            }
-
+            // Translate file path back from container path
+            string filePath = context.TranslateToHostPath(data);
+            
             if (!String.IsNullOrEmpty(filePath) && File.Exists(filePath))
             {
                 // Upload attachment
@@ -369,12 +365,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 if (extension != null)
                 {
-                    if (context.Container != null)
-                    {
-                        // Translate file path back from container path
-                        sourcePath = context.Container.TranslateToHostPath(sourcePath);
-                        properties[ProjectIssueProperties.SourcePath] = sourcePath;
-                    }
+                    // Translate file path back from container path
+                    sourcePath = context.TranslateToHostPath(sourcePath);
+                    properties[ProjectIssueProperties.SourcePath] = sourcePath;
 
                     // Get the values that represent the server path given a local path
                     string repoName;
@@ -567,7 +560,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 throw new Exception(StringUtil.Loc("MissingEndpointField"));
             }
 
-            // Mask auth parameter data upfront to avoid accidental secret exposure by invalid endpoint/key/data 
+            // Mask auth parameter data upfront to avoid accidental secret exposure by invalid endpoint/key/data
             if (String.Equals(field, "authParameter", StringComparison.OrdinalIgnoreCase))
             {
                 HostContext.SecretMasker.AddValue(data);
@@ -671,11 +664,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public static readonly String UploadSummary = "uploadsummary";
     }
 
-    internal static class TaskProgressEventProperties
-    {
-        public static readonly String Value = "value";
-    }
-
     internal static class TaskSetVariableEventProperties
     {
         public static readonly String Variable = "variable";
@@ -700,7 +688,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public static readonly String ColumNumber = "columnnumber";
         public static readonly String SourcePath = "sourcepath";
         public static readonly String LineNumber = "linenumber";
-        public static readonly String ProjectId = "id";
     }
 
     internal static class TaskAddAttachmentEventProperties

@@ -18,7 +18,6 @@
     "AgentWithSameNameAlreadyExistInPool":  "{0} 풀에 이미 이름이 {1}인 에이전트가 포함되어 있습니다.",
     "AlreadyConfiguredError":  "에이전트가 이미 구성되어 있으므로 구성할 수 없습니다. 에이전트를 다시 구성하려면 먼저 \u0027config.cmd remove\u0027 또는 \u0027./config.sh remove\u0027를 실행하세요.",
     "ArgumentNeeded":  "\u0027{0}\u0027을(를) 지정해야 합니다.",
-    "ArtifactCommandNotFound":  "##vso[artifact.{0}]는 아티팩트 명령 확장에 대해 인식되는 명령이 아닙니다. 설명서(http://go.microsoft.com/fwlink/?LinkId=817296)를 참조하세요.",
     "ArtifactDownloadFailed":  "{0}에서 아티팩트를 다운로드하지 못했습니다.",
     "ArtifactLocationRequired":  "아티팩트 위치가 필요합니다.",
     "ArtifactNameRequired":  "아티팩트 이름이 필요합니다.",
