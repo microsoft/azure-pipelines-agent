@@ -54,7 +54,6 @@
     "CannotUploadFromCurrentEnvironment":  "Impossible d\u0027effectuer le chargement vers un artefact de pipeline à partir de l\u0027environnement {0}.",
     "CannotUploadSummary":  "Impossible de charger le fichier de résumé, car son emplacement n\u0027est pas spécifié.",
     "ClockSkewStopRetry":  "Arrêt des nouvelles tentatives de demande de jeton OAuth après {0} secondes, en raison d\u0027une exception.",
-    "CodeCoverageCommandNotFound":  "##vso[codecoverage.{0}] n\u0027est pas une commande reconnue pour l\u0027extension de commande de tâche. Consultez la documentation de référence (http://go.microsoft.com/fwlink/?LinkId=817296)",
     "CodeCoverageDataIsNull":  "Données de couverture introuvables. Pour plus d\u0027informations, consultez les erreurs/avertissements de build.",
     "CodeCoveragePublishIsValidOnlyForBuild":  "La publication de la couverture du code fonctionne uniquement pour \u0027build\u0027.",
     "CollectionName":  "Nom de la collection",

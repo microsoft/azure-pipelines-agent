@@ -54,7 +54,6 @@
     "CannotUploadFromCurrentEnvironment":  "{0} 環境からパイプライン成果物にアップロードできません。",
     "CannotUploadSummary":  "概要ファイルをアップロードできません。概要ファイルの場所が指定されていません。",
     "ClockSkewStopRetry":  "OAuth トークン要求例外の再試行は {0} 秒後に停止しました。",
-    "CodeCoverageCommandNotFound":  "##vso[codecoverage.{0}] は、Task コマンド拡張の認識されたコマンドではありません。ドキュメント (http://go.microsoft.com/fwlink/?LinkId=817296) をご覧ください",
     "CodeCoverageDataIsNull":  "カバレッジ データが見つかりません。詳細については、ビルド エラー/警告を確認してください。",
     "CodeCoveragePublishIsValidOnlyForBuild":  "コード カバレッジの発行は \u0027build\u0027 でのみ機能します。",
     "CollectionName":  "コレクション名",

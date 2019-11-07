@@ -349,6 +349,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
             _ec.Setup(x => x.TranslateToHostPath(It.IsAny<string>())).Returns( (string x) => x );
             var asyncCommands = new List<IAsyncCommandContext>();
             _ec.Setup(x => x.AsyncCommands).Returns(asyncCommands);
+            _ec.Setup(x => x.GetHostContext()).Returns(_hc);
             _ec.Setup(x => x.AddIssue(It.IsAny<Issue>()))
             .Callback<Issue>
             ((issue) =>

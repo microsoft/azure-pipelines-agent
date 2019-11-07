@@ -54,7 +54,6 @@
     "CannotUploadFromCurrentEnvironment":  "Das Hochladen aus der {0}-Umgebung in ein Pipelineartefakt ist nicht möglich.",
     "CannotUploadSummary":  "Die Zusammenfassungsdatei kann nicht hochgeladen werden. Der Speicherort der Zusammenfassungsdatei wurde nicht angegeben.",
     "ClockSkewStopRetry":  "Die Wiederholungsversuche der OAuth-Tokenanforderung wurden beendet. Ausnahme nach {0} Sekunden.",
-    "CodeCoverageCommandNotFound":  "##vso[codecoverage.{0}] ist kein erkannter Befehl für die Aufgabenbefehlserweiterung. Weitere Informationen finden Sie in der Dokumentation (http://go.microsoft.com/fwlink/?LinkId=817296).",
     "CodeCoverageDataIsNull":  "Es wurden keine Code Coverage-Daten gefunden. Überprüfen Sie die Buildfehler/-warnungen, um weitere Details abzurufen.",
     "CodeCoveragePublishIsValidOnlyForBuild":  "Das Veröffentlichen von Code Coverage funktioniert nur für \"build\".",
     "CollectionName":  "Sammlungsname",

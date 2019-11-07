@@ -54,7 +54,6 @@
     "CannotUploadFromCurrentEnvironment":  "Non è possibile eseguire l\u0027upload in un artefatto della pipeline dall\u0027ambiente {0}.",
     "CannotUploadSummary":  "Non è possibile caricare il file di riepilogo perché non ne è stato specificato il percorso.",
     "ClockSkewStopRetry":  "I tentativi di eccezione per la richiesta del token OAuth sono stati arrestati dopo {0} secondi.",
-    "CodeCoverageCommandNotFound":  "##vso[codecoverage.{0}] non è un comando riconosciuto per l\u0027estensione del comando task. Vedere la documentazione (http://go.microsoft.com/fwlink/?LinkId=817296)",
     "CodeCoverageDataIsNull":  "Non sono stati trovati dati di code coverage. Per altre informazioni, verificare gli errori o gli avvisi di compilazione.",
     "CodeCoveragePublishIsValidOnlyForBuild":  "La pubblicazione del code coverage funziona solo per \u0027build\u0027.",
     "CollectionName":  "Nome della raccolta",

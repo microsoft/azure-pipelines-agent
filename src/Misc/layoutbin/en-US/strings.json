@@ -61,7 +61,6 @@
   "CannotUploadSummary": "Cannot upload summary file, summary file location is not specified.",
   "CheckoutTaskDisplayNameFormat": "Checkout {0}@{1} to {2}",
   "ClockSkewStopRetry": "Stopped retrying OAuth token request exception after {0} seconds.",
-  "CodeCoverageCommandNotFound": "##vso[codecoverage.{0}] is not a recognized command for Task command extension. Please reference documentation (http://go.microsoft.com/fwlink/?LinkId=817296)",
   "CodeCoverageDataIsNull": "No coverage data found. Check the build errors/warnings for more details.",
   "CodeCoveragePublishIsValidOnlyForBuild": "Publishing code coverage works only for 'build'.",
   "CollectionName": "Collection Name",

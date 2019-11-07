@@ -54,7 +54,6 @@
     "CannotUploadFromCurrentEnvironment":  "{0} 환경에서 파이프라인 아티팩트로 업로드할 수 없습니다.",
     "CannotUploadSummary":  "요약 파일을 업로드할 수 없습니다. 요약 파일 위치가 지정되지 않았습니다.",
     "ClockSkewStopRetry":  "{0}초 후에 OAuth 토큰 요청 예외 다시 시도를 중지했습니다.",
-    "CodeCoverageCommandNotFound":  "##vso[codecoverage.{0}]는 작업 명령 확장에 대해 인식되는 명령이 아닙니다. 설명서(http://go.microsoft.com/fwlink/?LinkId=817296)를 참조하세요.",
     "CodeCoverageDataIsNull":  "검사 데이터가 없습니다. 자세한 내용은 빌드 오류/경고를 확인하세요.",
     "CodeCoveragePublishIsValidOnlyForBuild":  "코드 검사 게시는 \u0027빌드\u0027에 대해서만 작동합니다.",
     "CollectionName":  "컬렉션 이름",

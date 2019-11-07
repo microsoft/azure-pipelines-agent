@@ -54,7 +54,6 @@
     "CannotUploadFromCurrentEnvironment":  "No se puede cargar en un artefacto de canalización desde el entorno {0}.",
     "CannotUploadSummary":  "No se puede cargar el archivo de resumen. No se ha especificado la ubicación del archivo de resumen.",
     "ClockSkewStopRetry":  "Se detuvo el reintento de la excepción de solicitud del token de OAuth después de {0} segundos.",
-    "CodeCoverageCommandNotFound":  "##vso[codecoverage.{0}] no es un comando reconocido para la extensión de comando Task. Consulte la documentación de referencia (http://go.microsoft.com/fwlink/?LinkId=817296).",
     "CodeCoverageDataIsNull":  "No se encontraron datos de cobertura. Compruebe los errores o advertencias de compilación para más información.",
     "CodeCoveragePublishIsValidOnlyForBuild":  "La cobertura de código de publicación solo funciona para \u0027compilación\u0027.",
     "CollectionName":  "Nombre de la colección",

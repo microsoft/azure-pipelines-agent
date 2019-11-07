@@ -54,7 +54,6 @@
     "CannotUploadFromCurrentEnvironment":  "無法從 {0} 環境上傳至管線成品。",
     "CannotUploadSummary":  "未指定摘要檔位置，所以無法上傳摘要檔。",
     "ClockSkewStopRetry":  "已在 {0} 秒後停止重試 OAuth 權杖要求例外狀況。",
-    "CodeCoverageCommandNotFound":  "##vso[codecoverage.{0}] 對 Task 命令延伸模組而言，不是可辨識的命令。請參考文件 (http://go.microsoft.com/fwlink/?LinkId=817296)",
     "CodeCoverageDataIsNull":  "找不到任何涵蓋範圍資料。請檢查組建錯誤/警告取得詳細資料。",
     "CodeCoveragePublishIsValidOnlyForBuild":  "僅為 \u0027build\u0027 發行程式碼涵蓋範圍工作。",
     "CollectionName":  "集合名稱",

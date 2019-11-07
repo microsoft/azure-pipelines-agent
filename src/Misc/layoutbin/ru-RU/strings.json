@@ -54,7 +54,6 @@
     "CannotUploadFromCurrentEnvironment":  "Не удается отправить артефакт конвейера из среды {0}.",
     "CannotUploadSummary":  "Не удается отправить файл сводки, так как расположение файла сводки не указано.",
     "ClockSkewStopRetry":  "Исключение \"Повторные попытки запроса маркера OAuth прекращены\" по истечении {0} с.",
-    "CodeCoverageCommandNotFound":  "##vso[codecoverage.{0}] не распознается в качестве команды для расширения команды Task. Ознакомьтесь с документацией (http://go.microsoft.com/fwlink/?LinkId=817296)",
     "CodeCoverageDataIsNull":  "Данные об объеме протестированного кода не найдены. Подробности см. в сообщениях об ошибках и предупреждениях сборки.",
     "CodeCoveragePublishIsValidOnlyForBuild":  "Публикация информации об объеме протестированного кода работает только для \"build\".",
     "CollectionName":  "Название коллекции",

@@ -54,7 +54,6 @@
     "CannotUploadFromCurrentEnvironment":  "无法从 {0} 环境上传到管道项目。",
     "CannotUploadSummary":  "无法上传摘要文件，因为未指定摘要文件位置。",
     "ClockSkewStopRetry":  "{0} 秒后，停止重试 OAuth 令牌请求异常。",
-    "CodeCoverageCommandNotFound":  "##vso[codecoverage.{0}] 不是任务命令扩展的已识别命令。请参考文档(http://go.microsoft.com/fwlink/?LinkId=817296)",
     "CodeCoverageDataIsNull":  "未找到覆盖率数据。有关详细信息，请查看生成错误/警告。",
     "CodeCoveragePublishIsValidOnlyForBuild":  "发布代码覆盖率仅适用于“生成”。",
     "CollectionName":  "集合名称",
