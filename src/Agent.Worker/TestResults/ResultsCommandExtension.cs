@@ -16,8 +16,21 @@ using Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
-    public sealed class ResultsCommandExtension : AgentService, IWorkerCommandExtension
+    public sealed class ResultsCommandExtension: BaseWorkerCommandExtension
     {
+        public ResultsCommandExtension()
+        {
+            CommandArea = "results";
+            SupportedHostTypes = HostTypes.All;
+            InstallWorkerCommand(new PublishTestResultsCommand());
+        }
+    }
+
+    public sealed class PublishTestResultsCommand: IWorkerCommand
+    {
+        public string Name => "publish";
+        public List<string> Aliases => null;
+
         private IExecutionContext _executionContext;
 
         //publish test results inputs
@@ -38,27 +51,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private const string _telemetryArea = "TestResults";
         private Dictionary<string, object> _telemetryProperties;
 
-        public Type ExtensionType => typeof(IWorkerCommandExtension);
-
-        public string CommandArea => "results";
-
-        public HostTypes SupportedHostTypes => HostTypes.All;
-
-        public void ProcessCommand(IExecutionContext context, Command command)
-        {
-            if (string.Equals(command.Event, WellKnownResultsCommand.PublishTestResults, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessPublishTestResultsCommand(context, command.Properties, command.Data);
-            }
-            else
-            {
-                throw new Exception(StringUtil.Loc("ResultsCommandNotFound", command.Event));
-            }
-        }
-
-        private void ProcessPublishTestResultsCommand(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
+        public void Execute(IExecutionContext context, Command command)
         {
             ArgUtil.NotNull(context, nameof(context));
+
+            var data = command.Data;
+            var eventProperties = command.Properties;
+
             _executionContext = context;
 
             _telemetryProperties = new Dictionary<string, object>();
@@ -71,7 +70,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
             VssConnection connection = WorkerUtilities.GetVssConnection(_executionContext);
 
-            var commandContext = HostContext.CreateService<IAsyncCommandContext>();
+            var commandContext = context.GetHostContext().CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
             commandContext.Task = PublishTestRunDataAsync(connection, teamProject, runContext);
             _executionContext.AsyncCommands.Add(commandContext);
@@ -86,7 +85,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             // To support compat we parse data first. If data is empty parse 'TestResults' parameter
             if (!string.IsNullOrWhiteSpace(data) && data.Split(',').Count() != 0)
             {
-                _testResultFiles = data.Split(',').Select(x => context.TranslateToHostPath(x)).ToList();                
+                _testResultFiles = data.Split(',').Select(x => context.TranslateToHostPath(x)).ToList();
             }
             else
             {
@@ -95,7 +94,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     throw new ArgumentException(StringUtil.Loc("ArgumentNeeded", "TestResults"));
                 }
 
-                _testResultFiles = resultFilesInput.Split(',').Select(x => context.TranslateToHostPath(x)).ToList();                
+                _testResultFiles = resultFilesInput.Split(',').Select(x => context.TranslateToHostPath(x)).ToList();
             }
 
             //validate testrunner input
@@ -263,20 +262,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         {
             bool isTestRunOutcomeFailed = false;
 
-            var featureFlagService = HostContext.GetService<IFeatureFlagService>();
+            var featureFlagService = _executionContext.GetHostContext().GetService<IFeatureFlagService>();
             featureFlagService.InitializeFeatureService(_executionContext, connection);
             var publishTestResultsLibFeatureState = featureFlagService.GetFeatureFlagState(TestResultsConstants.UsePublishTestResultsLibFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
             _telemetryProperties.Add("UsePublishTestResultsLib", publishTestResultsLibFeatureState);
 
             //This check is to determine to use "Microsoft.TeamFoundation.PublishTestResults" Library or the agent code to parse and publish the test results.
             if (publishTestResultsLibFeatureState){
-                var publisher = HostContext.GetService<ITestDataPublisher>();
+                var publisher = _executionContext.GetHostContext().GetService<ITestDataPublisher>();
                 publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner);
 
                 isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, GetPublishOptions(), _executionContext.CancellationToken);
             }
             else {
-                var publisher = HostContext.GetService<ILegacyTestRunDataPublisher>();
+                var publisher = _executionContext.GetHostContext().GetService<ILegacyTestRunDataPublisher>();
                 publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner, _publishRunLevelAttachments);
 
                 isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, _runTitle, _executionContext.Variables.Build_BuildId, _mergeResults);
@@ -302,7 +301,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     Properties = _telemetryProperties
                 };
 
-                var ciService = HostContext.GetService<ICustomerIntelligenceServer>();
+                var ciService = _executionContext.GetHostContext().GetService<ICustomerIntelligenceServer>();
                 ciService.Initialize(connection);
                 await ciService.PublishEventsAsync(new CustomerIntelligenceEvent[] { ciEvent });
             }
@@ -327,11 +326,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 _telemetryProperties.Add("ReleaseId", _executionContext.Variables.Release_ReleaseId);
             }
         }
-    }
-
-    internal static class WellKnownResultsCommand
-    {
-        public static readonly string PublishTestResults = "publish";
     }
 
     internal static class PublishTestResultsEventProperties

@@ -399,7 +399,6 @@
     "Replace":  "Ersetzen? (J/N)",
     "RestartIn15SecMessage":  "Der Computer wird in 15 Sekunden neu gestartet...",
     "RestartMessage":  "Führen Sie einen Neustart des Computers durch, damit der Agent gestartet wird und die Einstellungen für die automatische Anmeldung gültig werden.",
-    "ResultsCommandNotFound":  "##vso[results.{0}] ist kein erkannter Befehl für die Taskbefehlserweiterung. TODO: DOC aka link",
     "RMApiFailure":  "Fehler bei der API {0} mit dem Fehlercode {1}.",
     "RMArtifactContainerDetailsInvalidError":  "Das Artefakt weist keine gültigen Containerdetails auf: {0}",
     "RMArtifactContainerDetailsNotFoundError":  "Das Artefakt enthält keine Containerdetails: {0}",

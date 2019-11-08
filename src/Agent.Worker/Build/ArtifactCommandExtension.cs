@@ -21,12 +21,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             CommandArea = "artifact";
             SupportedHostTypes = HostTypes.Build | HostTypes.Release;
-            InstallWorkerCommand(new ProcessArtifactAssociateCommand());
-            InstallWorkerCommand(new ProcessArtifactUploadCommand());
+            InstallWorkerCommand(new ArtifactAssociateCommand());
+            InstallWorkerCommand(new ArtifactUploadCommand());
         }
     }
 
-    public class ProcessArtifactAssociateCommand: IWorkerCommand
+    public sealed class ArtifactAssociateCommand: IWorkerCommand
     {
         public string Name => "associate";
         public List<string> Aliases => null;
@@ -119,7 +119,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         }
     }
 
-    public class ProcessArtifactUploadCommand: IWorkerCommand
+    public sealed class ArtifactUploadCommand: IWorkerCommand
     {
         public string Name => "upload";
         public List<string> Aliases => null;

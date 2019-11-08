@@ -17,11 +17,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             CommandArea = "plugininternal";
             SupportedHostTypes = HostTypes.Build;
-            InstallWorkerCommand(new ProcessPluginInternalUpdateRepositoryPathCommand());
+            InstallWorkerCommand(new PluginInternalUpdateRepositoryPathCommand());
         }
     }
 
-    public class ProcessPluginInternalUpdateRepositoryPathCommand: IWorkerCommand
+    public sealed class PluginInternalUpdateRepositoryPathCommand: IWorkerCommand
     {
         public string Name => "updaterepositorypath";
         public List<string> Aliases => null;

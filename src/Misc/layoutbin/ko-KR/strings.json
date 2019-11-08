@@ -400,7 +400,6 @@
     "Replace":  "바꾸시겠습니까? (Y/N)",
     "RestartIn15SecMessage":  "15초 후에 컴퓨터를 다시 시작합니다.",
     "RestartMessage":  "에이전트를 시작하고 자동 로그온 설정을 적용하려면 컴퓨터를 다시 시작하세요.",
-    "ResultsCommandNotFound":  "##vso[results.{0}]는 작업 명령 확장에 대해 인식되는 명령이 아닙니다. TODO: DOC aka link",
     "RMApiFailure":  "API {0}이(가) 실패했습니다(오류 코드 {1}).",
     "RMArtifactContainerDetailsInvalidError":  "아티팩트에 유효한 컨테이너 세부 정보가 없습니다. {0}",
     "RMArtifactContainerDetailsNotFoundError":  "아티팩트에 컨테이너 세부 정보가 없습니다. {0}",

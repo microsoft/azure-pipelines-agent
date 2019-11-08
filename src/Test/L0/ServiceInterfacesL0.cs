@@ -93,7 +93,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 typeof(IParser),
                 typeof(IResultReader),
                 typeof(INUnitResultsXmlReader),
-                typeof(IWorkerCommand)
+                typeof(IWorkerCommand),
+                typeof(IWorkerCommandRestrictionPolicy)
             };
             Validate(
                 assembly: typeof(IStepsRunner).GetTypeInfo().Assembly,

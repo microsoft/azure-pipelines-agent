@@ -400,7 +400,6 @@
     "Replace":  "sostituire? (S/N)",
     "RestartIn15SecMessage":  "Riavvio del computer tra 15 secondi...",
     "RestartMessage":  "Riavviare il computer per avviare l\u0027agente e per rendere effettive le impostazioni di accesso automatico.",
-    "ResultsCommandNotFound":  "##vso[results.{0}] non è un comando riconosciuto per l\u0027estensione del comando task. TODO: DOC aka link",
     "RMApiFailure":  "L\u0027API {0} non è riuscita con codice errore {1}",
     "RMArtifactContainerDetailsInvalidError":  "L\u0027artefatto non contiene dettagli validi sui contenitori: {0}",
     "RMArtifactContainerDetailsNotFoundError":  "L\u0027artefatto non contiene dettagli sui contenitori: {0}",

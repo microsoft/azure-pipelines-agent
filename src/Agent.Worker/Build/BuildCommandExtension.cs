@@ -20,14 +20,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             CommandArea = "build";
             SupportedHostTypes = HostTypes.All;
-            InstallWorkerCommand(new ProcessBuildUploadLogCommand());
-            InstallWorkerCommand(new ProcessBuildUploadSummaryCommand());
-            InstallWorkerCommand(new ProcessBuildUpdateBuildNumberCommand());
-            InstallWorkerCommand(new ProcessBuildAddBuildTagCommand());
+            InstallWorkerCommand(new BuildUploadLogCommand());
+            InstallWorkerCommand(new BuildUploadSummaryCommand());
+            InstallWorkerCommand(new BuildUpdateBuildNumberCommand());
+            InstallWorkerCommand(new BuildAddBuildTagCommand());
         }
     }
 
-    public class ProcessBuildUploadLogCommand: IWorkerCommand
+    public sealed class BuildUploadLogCommand: IWorkerCommand
     {
         public string Name => "uploadlog";
         public List<string> Aliases => null;
@@ -49,7 +49,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
     // ##VSO[build.uploadsummary] command has been deprecated
     // Leave the implementation on agent for back compat
-    public class ProcessBuildUploadSummaryCommand: IWorkerCommand
+    public sealed class BuildUploadSummaryCommand: IWorkerCommand
     {
         public string Name => "uploadsummary";
         public List<string> Aliases => null;
@@ -70,7 +70,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         }
     }
 
-    public class ProcessBuildUpdateBuildNumberCommand: IWorkerCommand
+    public sealed class BuildUpdateBuildNumberCommand: IWorkerCommand
     {
         public string Name => "updatebuildnumber";
         public List<string> Aliases => null;
@@ -125,7 +125,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         }
     }
 
-    public class ProcessBuildAddBuildTagCommand: IWorkerCommand
+    public sealed class BuildAddBuildTagCommand: IWorkerCommand
     {
         public string Name => "addbuildtag";
         public List<string> Aliases => null;

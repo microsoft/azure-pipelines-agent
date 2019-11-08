@@ -17,10 +17,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
         {
             CommandArea = "telemetry";
             SupportedHostTypes = HostTypes.All;
-            InstallWorkerCommand(new ProcessPublishTelemetryCommand());
+            InstallWorkerCommand(new PublishTelemetryCommand());
         }
     }
-    public class ProcessPublishTelemetryCommand: IWorkerCommand
+    public sealed class PublishTelemetryCommand: IWorkerCommand
     {
         public string Name => "publish";
         public List<string> Aliases => null;

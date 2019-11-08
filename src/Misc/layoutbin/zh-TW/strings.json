@@ -400,7 +400,6 @@
     "Replace":  "取代嗎? (是/否)",
     "RestartIn15SecMessage":  "將於 15 秒內重新啟動電腦...",
     "RestartMessage":  "重新啟動電腦，以啟動代理程式並讓自動登入設定生效。",
-    "ResultsCommandNotFound":  "##vso[results.{0}] 對 Task 命令擴充功能而言不是已辨識的命令。TODO: DOC aka link",
     "RMApiFailure":  "API {0} 失敗，錯誤碼為 {1}",
     "RMArtifactContainerDetailsInvalidError":  "成品沒有有效的容器詳細資料: {0}",
     "RMArtifactContainerDetailsNotFoundError":  "成品未包含容器詳細資料: {0}",

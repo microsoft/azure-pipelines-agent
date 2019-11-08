@@ -20,12 +20,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
         {
             CommandArea = "codecoverage";
             SupportedHostTypes = HostTypes.Build;
-            InstallWorkerCommand(new ProcessPublishCodeCoverageCommand());
+            InstallWorkerCommand(new PublishCodeCoverageCommand());
         }
     }
 
     #region publish code coverage helper methods
-    public class ProcessPublishCodeCoverageCommand: IWorkerCommand
+    public sealed class PublishCodeCoverageCommand: IWorkerCommand
     {
         public string Name => "publish";
         public List<string> Aliases => null;

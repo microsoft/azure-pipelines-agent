@@ -400,7 +400,6 @@
     "Replace":  "置き換えますか? (Y/N)",
     "RestartIn15SecMessage":  "15 秒後にマシンを再起動します...",
     "RestartMessage":  "マシンを再起動すると、エージェントが起動し、自動ログオンの設定が有効になります。",
-    "ResultsCommandNotFound":  "##vso[results.{0}] は、Task コマンド拡張の認識されたコマンドではありません。TODO: DOC (リンク)",
     "RMApiFailure":  "API {0} がエラー コード {1} で失敗しました",
     "RMArtifactContainerDetailsInvalidError":  "成果物に有効なコンテナーの詳細情報がありません: {0}",
     "RMArtifactContainerDetailsNotFoundError":  "成果物にコンテナーの詳細情報が含まれていません: {0}",

@@ -25,6 +25,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private bool _invokePluginInternalCommand = false;
 
+        private IWorkerCommandRestrictionPolicy restrictionPolicy = new UnrestricedWorkerCommandRestrictionPolicy();
+
         public override void Initialize(IHostContext hostContext)
         {
             base.Initialize(hostContext);
@@ -99,7 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     try
                     {
-                        extension.ProcessCommand(context, command);
+                        extension.ProcessCommand(context, command, restrictionPolicy);
                     }
                     catch (Exception ex)
                     {
@@ -125,6 +127,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             return true;
         }
+
+        public void SetCommandRestrictionPolicy(IWorkerCommandRestrictionPolicy policy)
+        {
+            ArgUtil.NotNull(policy, nameof(policy));
+            restrictionPolicy = policy;
+        }
     }
 
     public interface IWorkerCommandExtension : IExtension
@@ -133,7 +141,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         HostTypes SupportedHostTypes { get; }
 
-        void ProcessCommand(IExecutionContext context, Command command);
+        void ProcessCommand(IExecutionContext context, Command command, IWorkerCommandRestrictionPolicy policy);
     }
 
     public interface IWorkerCommand
@@ -143,6 +151,42 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         List<string> Aliases { get; }
 
         void Execute(IExecutionContext context, Command command);
+    }
+
+    public interface IWorkerCommandRestrictionPolicy
+    {
+        bool isCommandAllowed(IWorkerCommand command);
+    }
+
+    public class UnrestricedWorkerCommandRestrictionPolicy: IWorkerCommandRestrictionPolicy
+    {
+        public bool isCommandAllowed(IWorkerCommand command)
+        {
+            return true;
+        }
+    }
+
+    [ AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
+    public sealed class CommandRestrictionAttribute : Attribute
+    {
+        public bool AllowedInRestrictedMode { get; set; }
+    }
+
+    public class AttributeBasedWorkerCommandRestrictionPolicy: IWorkerCommandRestrictionPolicy
+    {
+        public bool isCommandAllowed(IWorkerCommand command)
+        {
+
+            foreach (var attr in command.GetType().GetCustomAttributes(typeof(CommandRestrictionAttribute), false))
+            {
+                var cra = attr as CommandRestrictionAttribute;
+                if (cra.AllowedInRestrictedMode)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 
     public abstract class BaseWorkerCommandExtension: AgentService, IWorkerCommandExtension
@@ -183,14 +227,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return commandExecutor;
         }
 
-        public void ProcessCommand(IExecutionContext context, Command command)
+        public void ProcessCommand(IExecutionContext context, Command command, IWorkerCommandRestrictionPolicy restrictionPolicy)
         {
             var commandExecutor = GetWorkerCommand(command.Event);
             if (commandExecutor == null)
             {
                 throw new Exception(StringUtil.Loc("CommandNotFound2", CommandArea.ToLowerInvariant(), command.Event, CommandArea));
             }
-            commandExecutor.Execute(context, command);
+            if (restrictionPolicy.isCommandAllowed(commandExecutor))
+            {
+                commandExecutor.Execute(context, command);
+            }
+            else
+            {
+                context.Warning(StringUtil.Loc("CommandNotAllowed", command.Area, command.Event));
+            }
         }
     }
 

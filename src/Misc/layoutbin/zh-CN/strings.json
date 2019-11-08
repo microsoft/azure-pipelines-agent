@@ -400,7 +400,6 @@
     "Replace":  "替换? (是/否)",
     "RestartIn15SecMessage":  "在 15 秒后重启计算机...",
     "RestartMessage":  "重启计算机以启动代理并使自动登录设置生效。",
-    "ResultsCommandNotFound":  "##vso[results.{0}] 不属于任务命令扩展的识别命令。TODO: DOC aka link",
     "RMApiFailure":  "Api {0} 失败，错误代码为 {1}",
     "RMArtifactContainerDetailsInvalidError":  "该项目没有有效的容器详细信息: {0}",
     "RMArtifactContainerDetailsNotFoundError":  "该项目不包含容器详细信息: {0}",

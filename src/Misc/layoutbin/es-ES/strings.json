@@ -410,7 +410,6 @@
     "Replace":  "¿Reemplazar? (S/N)",
     "RestartIn15SecMessage":  "La máquina se va a reiniciar en 15 segundos...",
     "RestartMessage":  "Reinicie la máquina para iniciar el agente y para que surta efecto la configuración de inicio de sesión automático.",
-    "ResultsCommandNotFound":  "##vso[results.{0}] no es un comando reconocido para la extensión del comando Task. TODO: DOC aka link",
     "RMApiFailure":  "No se pudo ejecutar la API {0}. Código de error: {1}",
     "RMArtifactContainerDetailsInvalidError":  "El artefacto no tiene detalles de contenedor válidos: {0}",
     "RMArtifactContainerDetailsNotFoundError":  "El artefacto no contiene detalles de contenedor: {0}",

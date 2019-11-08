@@ -17,23 +17,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             CommandArea = "task";
             SupportedHostTypes = HostTypes.All;
-            InstallWorkerCommand(new ProcessTaskIssueCommand());
-            InstallWorkerCommand(new ProcessTaskProgressCommand());
-            InstallWorkerCommand(new ProcessTaskDetailCommand());
-            InstallWorkerCommand(new ProcessTaskCompleteCommand());
-            InstallWorkerCommand(new ProcessTaskSetSecretCommand());
-            InstallWorkerCommand(new ProcessTaskSetVariableCommand());
-            InstallWorkerCommand(new ProcessTaskAddAttachmentCommand());
-            InstallWorkerCommand(new ProcessTaskDebugCommand());
-            InstallWorkerCommand(new ProcessTaskUploadSummaryCommand());
-            InstallWorkerCommand(new ProcessTaskUploadFileCommand());
-            InstallWorkerCommand(new ProcessTaskSetTaskVariableCommand());
-            InstallWorkerCommand(new ProcessTaskSetEndpointCommand());
-            InstallWorkerCommand(new ProcessTaskPrepandPathCommand());
+            InstallWorkerCommand(new TaskIssueCommand());
+            InstallWorkerCommand(new TaskProgressCommand());
+            InstallWorkerCommand(new TaskDetailCommand());
+            InstallWorkerCommand(new TaskCompleteCommand());
+            InstallWorkerCommand(new TaskSetSecretCommand());
+            InstallWorkerCommand(new TaskSetVariableCommand());
+            InstallWorkerCommand(new TaskAddAttachmentCommand());
+            InstallWorkerCommand(new TaskDebugCommand());
+            InstallWorkerCommand(new TaskUploadSummaryCommand());
+            InstallWorkerCommand(new TaskUploadFileCommand());
+            InstallWorkerCommand(new TaskSetTaskVariableCommand());
+            InstallWorkerCommand(new TaskSetEndpointCommand());
+            InstallWorkerCommand(new TaskPrepandPathCommand());
         }
     }
 
-    public class ProcessTaskDetailCommand: IWorkerCommand
+    public sealed class TaskDetailCommand: IWorkerCommand
     {
         public string Name => "logdetail";
         public List<string> Aliases => null;
@@ -221,7 +221,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    public class ProcessTaskUploadSummaryCommand: IWorkerCommand
+    public sealed class TaskUploadSummaryCommand: IWorkerCommand
     {
         public string Name => "uploadsummary";
         public List<string> Aliases => null;
@@ -236,7 +236,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 var fileName = Path.GetFileName(data);
                 uploadSummaryProperties.Add(TaskAddAttachmentEventProperties.Name, fileName);
 
-                ProcessTaskAddAttachmentCommand.AddAttachment(context, uploadSummaryProperties, data);
+                TaskAddAttachmentCommand.AddAttachment(context, uploadSummaryProperties, data);
             }
             else
             {
@@ -245,7 +245,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    public class ProcessTaskUploadFileCommand: IWorkerCommand
+    public sealed class TaskUploadFileCommand: IWorkerCommand
     {
         public string Name => "uploadfile";
         public List<string> Aliases => null;
@@ -261,7 +261,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 var fileName = Path.GetFileName(data);
                 uploadFileProperties.Add(TaskAddAttachmentEventProperties.Name, fileName);
 
-                ProcessTaskAddAttachmentCommand.AddAttachment(context, uploadFileProperties, data);
+                TaskAddAttachmentCommand.AddAttachment(context, uploadFileProperties, data);
             }
             else
             {
@@ -270,7 +270,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    public class ProcessTaskAddAttachmentCommand: IWorkerCommand
+    public sealed class TaskAddAttachmentCommand: IWorkerCommand
     {
         public string Name => "addattachment";
         public List<string> Aliases => null;
@@ -320,7 +320,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    public class ProcessTaskIssueCommand: IWorkerCommand
+    public sealed class TaskIssueCommand: IWorkerCommand
     {
         public string Name => "logissue";
         public List<string> Aliases => new List<string>(){"issue"};
@@ -438,7 +438,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    public class ProcessTaskCompleteCommand: IWorkerCommand
+    public sealed class TaskCompleteCommand: IWorkerCommand
     {
         public string Name => "complete";
         public List<string> Aliases => null;
@@ -469,7 +469,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    public class ProcessTaskProgressCommand: IWorkerCommand
+    public sealed class TaskProgressCommand: IWorkerCommand
     {
         public string Name => "setprogress";
         public List<string> Aliases => null;
@@ -494,7 +494,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    public class ProcessTaskSetSecretCommand: IWorkerCommand
+    public sealed class TaskSetSecretCommand: IWorkerCommand
     {
         public string Name => "setsecret";
         public List<string> Aliases => null;
@@ -509,7 +509,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    public class ProcessTaskSetVariableCommand: IWorkerCommand
+    public sealed class TaskSetVariableCommand: IWorkerCommand
     {
         public string Name => "setvariable";
         public List<string> Aliases => null;
@@ -559,7 +559,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    public class ProcessTaskDebugCommand: IWorkerCommand
+    [CommandRestriction(AllowedInRestrictedMode=true)]
+    public sealed class TaskDebugCommand: IWorkerCommand
     {
         public string Name => "debug";
         public List<string> Aliases => null;
@@ -571,7 +572,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    public class ProcessTaskSetTaskVariableCommand: IWorkerCommand
+    public sealed class TaskSetTaskVariableCommand: IWorkerCommand
     {
         public string Name => "settaskvariable";
         public List<string> Aliases => null;
@@ -614,7 +615,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    public class ProcessTaskSetEndpointCommand: IWorkerCommand
+    public sealed class TaskSetEndpointCommand: IWorkerCommand
     {
         public string Name => "setendpoint";
         public List<string> Aliases => null;
@@ -692,7 +693,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    public class ProcessTaskPrepandPathCommand: IWorkerCommand
+    public sealed class TaskPrepandPathCommand: IWorkerCommand
     {
         public string Name => "prependpath";
         public List<string> Aliases => null;

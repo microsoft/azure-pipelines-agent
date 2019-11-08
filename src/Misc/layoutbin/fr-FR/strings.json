@@ -400,7 +400,6 @@
     "Replace":  "remplacer ? (O/N)",
     "RestartIn15SecMessage":  "Redémarrage de la machine dans 15 secondes...",
     "RestartMessage":  "Redémarrez la machine pour lancer l\u0027agent et permettre la prise en compte des paramètres d\u0027ouverture de session automatique.",
-    "ResultsCommandNotFound":  "##vso[results.{0}] n\u0027est pas une commande reconnue pour l\u0027extension de commande de tâche. TODO: DOC aka link",
     "RMApiFailure":  "Échec de l\u0027API {0}. Code d\u0027erreur : {1}",
     "RMArtifactContainerDetailsInvalidError":  "L\u0027artefact n\u0027a pas de détails valides concernant le conteneur : {0}",
     "RMArtifactContainerDetailsNotFoundError":  "L\u0027artefact ne dispose pas des détails concernant le conteneur : {0}",

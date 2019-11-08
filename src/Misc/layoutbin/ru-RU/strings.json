@@ -400,7 +400,6 @@
     "Replace":  "заменить? ([Д]а/[Н]ет)",
     "RestartIn15SecMessage":  "Компьютер будет перезагружен через 15 секунд...",
     "RestartMessage":  "Перезагрузите компьютер, чтобы запустить агент и применить параметры автоматического входа.",
-    "ResultsCommandNotFound":  "##vso[results.{0}] не распознается в качестве команды для расширения команды Task. TODO: DOC aka link",
     "RMApiFailure":  "Произошел сбой API {0} с кодом ошибки {1}",
     "RMArtifactContainerDetailsInvalidError":  "Для артефакта отсутствуют допустимые сведения о контейнере: {0}",
     "RMArtifactContainerDetailsNotFoundError":  "Для артефакта отсутствуют данные о контейнере: {0}",

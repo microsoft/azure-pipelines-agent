@@ -33,6 +33,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
 
         private TestHostContext _hc;
         private Variables _variables;
+        private IWorkerCommandRestrictionPolicy _policy = new UnrestricedWorkerCommandRestrictionPolicy();
 
         public ResultsCommandTests()
         {
@@ -62,7 +63,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             var command = new Command("results", "publish");
             command.Properties.Add("resultFiles", "ResultFile.txt");
 
-            Assert.Throws<ArgumentException>(() => resultCommand.ProcessCommand(_ec.Object, command));
+            Assert.Throws<ArgumentException>(() => resultCommand.ProcessCommand(_ec.Object, command, _policy));
         }
 
         [Fact]
@@ -74,7 +75,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             var resultCommand = new ResultsCommandExtension();
             resultCommand.Initialize(_hc);
             var command = new Command("results", "publish");
-            Assert.Throws<ArgumentException>(() => resultCommand.ProcessCommand(_ec.Object, command));
+            Assert.Throws<ArgumentException>(() => resultCommand.ProcessCommand(_ec.Object, command, _policy));
         }
 
         [Fact]
@@ -89,7 +90,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             var command = new Command("results", "publish");
             command.Properties.Add("type", "mockResults");
             command.Data = "testfile1,testfile2";
-            resultCommand.ProcessCommand(_ec.Object, command);
+            resultCommand.ProcessCommand(_ec.Object, command, _policy);
 
             Assert.Equal(0, _errors.Count());
         }
@@ -189,6 +190,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
                     _errors.Add(issue.Message);
                 }
             });
+            _ec.Setup(x => x.GetHostContext()).Returns(_hc);
         }
     }
 }
