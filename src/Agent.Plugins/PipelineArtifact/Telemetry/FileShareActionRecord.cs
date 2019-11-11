@@ -16,7 +16,6 @@ namespace Agent.Plugins.PipelineArtifact.Telemetry
         public int TotalFile { get; private set; }
         public long TotalContentSize { get; private set; }
         public long TimeLapse { get; private set; }
-        public string Command { get; private set; }
         public int ExitCode { get; private set; }
         public IList<ArtifactRecord> ArtifactRecords { get; private set; }
 
@@ -30,7 +29,6 @@ namespace Agent.Plugins.PipelineArtifact.Telemetry
             if (value is FileSharePublishResult)
             {
                 FileSharePublishResult result = value as FileSharePublishResult;
-                Command = result.Command;
                 ExitCode = result.ExitCode;
             }
 
@@ -46,12 +44,10 @@ namespace Agent.Plugins.PipelineArtifact.Telemetry
  
     public sealed class FileSharePublishResult
     {
-        public string Command { get; private set; }
         public int ExitCode { get; private set; }
 
-        public FileSharePublishResult(string command, int exitCode)
+        public FileSharePublishResult(int exitCode)
         {
-            this.Command = command;
             this.ExitCode = exitCode;
         }
     }
