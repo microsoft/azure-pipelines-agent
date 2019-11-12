@@ -3,6 +3,8 @@ pr:
     include:
     - '*'
   paths:
+    include:
+    - '*'
     exclude:
     - 'docs/*'
 
