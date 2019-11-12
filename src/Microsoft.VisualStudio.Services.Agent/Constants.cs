@@ -272,6 +272,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 //
                 public static readonly string AcceptTeeEula = "agent.acceptteeeula";
                 public static readonly string AllowAllEndpoints = "agent.allowAllEndpoints"; // remove after sprint 120 or so.
+                public static readonly string AllowLegacyPowershell = "agent.allowLegacyPowershell";
                 public static readonly string AllowAllSecureFiles = "agent.allowAllSecureFiles"; // remove after sprint 121 or so.
                 public static readonly string BuildDirectory = "agent.builddirectory";
                 public static readonly string ContainerId = "agent.containerid";

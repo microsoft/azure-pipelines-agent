@@ -181,7 +181,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             ArgUtil.Directory(TaskDirectory, nameof(TaskDirectory));
 
             // Warn about legacy handler.
-            ExecutionContext.Warning($"Task '{this.Task.Name}' ({this.Task.Version}) is using deprecated task execution handler. The task should use the supported task-lib: https://aka.ms/tasklib");
+            if (!ExecutionContext.Variables.Allow_Legacy_Powershell)
+            {
+                ExecutionContext.Result = TaskResult.Failed;
+                ExecutionContext.Error($"Task '{this.Task.Name}' ({this.Task.Version}) is using deprecated task execution handler. The task should use the supported task-lib: https://aka.ms/tasklib");
+                return;
+            }
+            else
+            {
+                ExecutionContext.Warning($"Task '{this.Task.Name}' ({this.Task.Version}) is using deprecated task execution handler. The task should use the supported task-lib: https://aka.ms/tasklib");
+            }
+            
 
             // Resolve the target script.
             string target = GetTarget();

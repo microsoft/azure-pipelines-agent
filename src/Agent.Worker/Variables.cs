@@ -132,6 +132,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public string Agent_ProxyPassword => Get(Constants.Variables.Agent.ProxyPassword);
 
+        public bool Allow_Legacy_Powershell => GetBoolean(Constants.Variables.Agent.AllowLegacyPowershell) ?? false;
+
         public int? Build_BuildId => GetInt(BuildWebApi.BuildVariables.BuildId);
 
         public string Build_BuildUri => Get(BuildWebApi.BuildVariables.BuildUri);
