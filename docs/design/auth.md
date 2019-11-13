@@ -61,7 +61,3 @@ NOTE: The point is to make the token not *readily* available to developer contri
 The token is meant for tasks and scripts that are trusted by the build admin by (1) installing the task or (2) directing a build definition to run that script.  
 The goal is to avoid having the token accidentally leak in scripts.  
 Even then, the token will expire at the end of the job which helps mitigate any accidental exposure.
-
-## Relevant Planned Work
-  - Run tasks in docker image.  Agent runs in host OS, agent and tasks mapped in read only, tasks run in container
-  - Composition of Rights.  The ability to designate scopes up to per definition on what resources can be used with the per build token.
