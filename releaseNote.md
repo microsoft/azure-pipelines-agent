@@ -15,6 +15,7 @@
 - Fix null ref with new env var (#2526)
 - fix retrieval of ImageVersion environment variable (#2539)
 - Fixed to not error out on null source volume path (#2551)
+- Fixed null ref getting relative paths (#2603)
 
 ## Misc
 - future-proof AZP_CACHING_CONTENT_FORMAT (#2400)
