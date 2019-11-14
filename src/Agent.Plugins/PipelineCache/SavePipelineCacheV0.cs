@@ -62,12 +62,14 @@ namespace Agent.Plugins.PipelineCache
             string path,
             CancellationToken token)
         {
-            string contentFormatValue  = context.TaskVariables.GetValueOrDefault(ContentFormatVariableName)?.Value ?? string.Empty;
-            string calculatedFingerPrint = context.TaskVariables.GetValueOrDefault(CalculatedFingerPrintVariableName)?.Value ?? string.Empty;
+            string contentFormatValue  = context.Variables.GetValueOrDefault(ContentFormatVariableName)?.Value ?? string.Empty;
+            string calculatedFingerPrint = context.TaskVariables.GetValueOrDefault(ResolvedFingerPrintVariableName)?.Value ?? string.Empty;
 
             if(!string.IsNullOrWhiteSpace(calculatedFingerPrint) && !fingerprint.ToString().Equals(calculatedFingerPrint, StringComparison.Ordinal))
             {
-                context.Warning($"Fingerprint has been modified; original fp: {calculatedFingerPrint}, modified fingerprint {fingerprint}");
+                context.Warning($"The given cache key has changed in it's resolved value between restore and save steps;\n"+
+                                $"original key: {calculatedFingerPrint}\n"+
+                                $"modified key: {fingerprint}\n");
             } 
 
             ContentFormat contentFormat;

@@ -29,7 +29,7 @@ namespace Agent.Plugins.PipelineCache
         protected const string ContentFormatVariableName = "AZP_CACHING_CONTENT_FORMAT";
         public Guid Id => PipelineCachePluginConstants.CacheTaskId;
         public abstract String Stage { get; }
-        public const string CalculatedFingerPrintVariableName = "CALCULATED_FINGER_PRINT";
+        public const string ResolvedFingerPrintVariableName = "RESTORE_STEP_RESOLVED_FINGERPRINT";
 
         internal static (bool isOldFormat, string[] keySegments,IEnumerable<string[]> restoreKeys) ParseIntoSegments(string salt, string key, string restoreKeysBlock)
         {

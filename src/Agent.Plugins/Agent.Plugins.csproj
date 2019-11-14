@@ -1,16 +1,15 @@
-﻿<Project Sdk="Microsoft.NET.Sdk" ToolsVersion="15.0">
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
   <Import Project="..\Common.props" />
+
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <FileUpgradeFlags>
-    </FileUpgradeFlags>
-    <UpgradeBackupLocation>
-    </UpgradeBackupLocation>
-    <OldToolsVersion>2.0</OldToolsVersion>
   </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Agent.Sdk\Agent.Sdk.csproj" />
   </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="azuredevops-testresultparser" Version="1.0.2" />
     <PackageReference Include="vss-api-netcore" Version="$(VssApiVersion)" />
