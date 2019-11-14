@@ -62,7 +62,13 @@ namespace Agent.Plugins.PipelineCache
             string path,
             CancellationToken token)
         {
-            string contentFormatValue  = context.Variables.GetValueOrDefault(ContentFormatVariableName)?.Value ?? string.Empty;
+            string contentFormatValue  = context.TaskVariables.GetValueOrDefault(ContentFormatVariableName)?.Value ?? string.Empty;
+            string calculatedFingerPrint = context.TaskVariables.GetValueOrDefault(CalculatedFingerPrintVariableName)?.Value ?? string.Empty;
+
+            if(!string.IsNullOrWhiteSpace(calculatedFingerPrint) && !fingerprint.ToString().Equals(calculatedFingerPrint, StringComparison.Ordinal))
+            {
+                context.Warning($"Fingerprint has been modified; original fp: {calculatedFingerPrint}, modified fingerprint {fingerprint}");
+            } 
 
             ContentFormat contentFormat;
             if (string.IsNullOrWhiteSpace(contentFormatValue))
