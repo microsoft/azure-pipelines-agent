@@ -113,7 +113,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 // If we found a repo, calculate the relative path to the file
                 repoName = repoInfo.Repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Name);
                 var repoPath = repoInfo.Repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
-                sourcePath = IOUtil.MakeRelative(localPath, repoPath);
+                if (!string.IsNullOrEmpty(repoPath))
+                {
+                    sourcePath = IOUtil.MakeRelative(localPath, repoPath);
+                }
             }
         }
 
