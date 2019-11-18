@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <TargetFramework>netcoreapp2.1</TargetFramework>
-    <RuntimeFrameworkVersion>2.1.5</RuntimeFrameworkVersion>
+    <RuntimeFrameworkVersion>2.1.13</RuntimeFrameworkVersion>
     <RuntimeIdentifiers>win-x64;win-x86;linux-x64;linux-arm;rhel.6-x64;osx-x64</RuntimeIdentifiers>
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
     <AssetTargetFallback>portable-net45+win8</AssetTargetFallback>
