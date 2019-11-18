@@ -48,6 +48,9 @@
   <PropertyGroup Condition="'$(OSPlatform)' == 'OS_LINUX' AND '$(PackageRuntime)' == 'linux-arm'">
     <OSArchitecture>ARM</OSArchitecture>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(OSPlatform)' == 'OS_LINUX' AND '$(PackageRuntime)' == 'linux-arm64'">
+    <OSArchitecture>ARM64</OSArchitecture>
+  </PropertyGroup>
 
   <PropertyGroup>
     <DefineConstants>$(OSPlatform);$(OSArchitecture);$(DebugConstant);TRACE</DefineConstants>
