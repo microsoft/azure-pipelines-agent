@@ -1,25 +1,20 @@
 ## Features
-- Add retry handler for the CreateArtifactAsync function (#2495)
-- Throw appropriate exception in case Git or Git LFS could not be found (#1825)
-- Log when a process is exited abnormally (#2501)
-- Add Dotnet Core capability detection (#1845)
-- Moving ContainerInfo to Agent.Sdk (#2476)
-- add a welcome banner at config time (#2531)
-- Add an option to reduce checkout verbosity (#2547)
-- Make tarring default for Pipeline Caching and modifying Display to Info from Warning for Save Cache (#2535)
+- Add a warning in the post job cache task when the fingerprint is different (#2606)
+- Time to first console logs perf improvements (#2264)
+- [PipelineArtifactPluginV2] Add support of minimumBuildStatus property (#2560)
+- Updated to remove task level variables (#2516)
+- Updated to better support running Linux Docker Containers on Mac OS X and Windows Hosts (#2502)
+- Strip off :rw if user specifies that instead of :ro (#2554)
 
 ## Bugs
-- Use DirectorySeparatorChar in git path (#2492)
-- Ignore fileshare artifacts in the DPA V1 task (#2518)
-- Fix to remove hardcoded instanceId (#2524)
-- Fix null ref with new env var (#2526)
-- fix retrieval of ImageVersion environment variable (#2539)
-- Fixed to not error out on null source volume path (#2551)
-- Fixed null ref getting relative paths (#2603)
+- Avoiding a null ref thrown by MakeRelative. (#2603)
+- Fix the issue with parsing definition name (#2563)
 
 ## Misc
-- future-proof AZP_CACHING_CONTENT_FORMAT (#2400)
-- Support for multi-repo scenarios (#2485)
+- run as serviceaccount fix for environment vm scenario (#2607)
+- Updated to add a quote-trimmed version of a secret to the masker (#2577)
+- Updated mock ExecutionContext to output warnings to console (#2561) 
+- Converted command extensions to new format (#2566, #2568, #2572, #2573, #2579, #2584, #2587) 
 
 ## Agent Downloads  
 
