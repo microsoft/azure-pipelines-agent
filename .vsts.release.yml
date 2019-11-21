@@ -249,7 +249,7 @@ stages:
           $versionDir = $versionDir.SubString($versionDir.LastIndexOf('-') + 1)
           Write-Host "##vso[task.setvariable variable=ReleaseAgentVersion;]$versionDir"
           Write-Host "Uploading $executable to BlobStorage vstsagentpackage/agent/$versionDir"
-          Set-AzureStorageBlobContent -Context $storage.Context -Container agent -File "$(System.ArtifactsDirectory)/agent/$executable" -Blob "$versionDir/$executable" -Force
+          Set-AzureStorageBlobContent -Context $storage.Context -Container agent -File "$(System.ArtifactsDirectory)/agent/$_/$executable" -Blob "$versionDir/$executable" -Force
           $uploadFiles.Add("/agent/$versionDir/$executable")
         }
         Write-Host "Purge Azure CDN Cache"
