@@ -244,7 +244,7 @@ stages:
         Select-AzureRmSubscription -SubscriptionId $(SubscriptionId)
         $storage = Get-AzureRmStorageAccount -ResourceGroupName vstsagentpackage -AccountName vstsagentpackage
         Get-ChildItem -LiteralPath "$(System.ArtifactsDirectory)/agent" | ForEach-Object {
-          $versionDir = $_.Name.Trim('.zip').Trim('.tar.gz')
+          $versionDir = (Get-ChildItem $_)[0].Name.Trim('.zip').Trim('.tar.gz')
           $versionDir = $versionDir.SubString($versionDir.LastIndexOf('-') + 1)
           Write-Host "##vso[task.setvariable variable=ReleaseAgentVersion;]$versionDir"
           Write-Host "Uploading $_ to BlobStorage vstsagentpackage/agent/$versionDir"
