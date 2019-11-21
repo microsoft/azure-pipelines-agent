@@ -123,10 +123,10 @@ namespace Agent.Plugins.PipelineCache
                     context.Debug($"Starting '{process.StartInfo.FileName}' with arguments '{process.StartInfo.Arguments}'...");
                     process.Start();
                 }
-                catch (Exception)
+                catch (Exception e)
                 {
                     // couldn't start the process, so throw a slightly nicer message about required dependencies:
-                    throw new InvalidOperationException($"Failed to start the required dependency '{process.StartInfo.FileName}'.  Please verify it is installed, available on the path and is the correct version.");
+                    throw new InvalidOperationException($"Failed to start the required dependency '{process.StartInfo.FileName}'.  Please verify the correct version is installed and available on the path.", e);
                 }
 
                 // Our goal is to always have the process ended or killed by the time we exit the function.
