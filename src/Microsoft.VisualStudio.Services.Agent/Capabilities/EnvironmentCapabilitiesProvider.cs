@@ -26,7 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
             "TERM_PROGRAM",
             "TERM_PROGRAM_VERSION",
             "SHLVL",
-            // the agent won't have set this, but we have seen instances in the wild where
+            // the agent doesn't set this, but we have seen instances in the wild where
             // a customer has pre-configured this somehow. it's almost certain to contain
             // secrets that shouldn't be exposed as capabilities, so for defense in depth,
             // add it to the exclude list.
