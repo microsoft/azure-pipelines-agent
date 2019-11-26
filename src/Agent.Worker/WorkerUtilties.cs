@@ -65,8 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         Pipelines.RepositoryPropertyNames.VersionInfo,
                         new Pipelines.VersionInfo()
                         {
-                            Author = "[PII]",
-                            Message = versionInfo.Message
+                            Author = "[PII]"
                         });
                 }
 

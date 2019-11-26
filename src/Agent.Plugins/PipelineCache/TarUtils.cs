@@ -2,13 +2,11 @@
 // Licensed under the MIT License.
 
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
@@ -108,7 +106,7 @@ namespace Agent.Plugins.PipelineCache
                 cancellationToken);
         }
 
-        private static async Task RunProcessAsync(
+        internal static async Task RunProcessAsync(
             AgentTaskPluginExecutionContext context,
             ProcessStartInfo processStartInfo,
             Func<Process, CancellationToken, Task> additionalTaskToExecuteWhilstRunningProcess,
@@ -127,7 +125,8 @@ namespace Agent.Plugins.PipelineCache
                 }
                 catch (Exception e)
                 {
-                    ExceptionDispatchInfo.Capture(e).Throw();
+                    // couldn't start the process, so throw a slightly nicer message about required dependencies:
+                    throw new InvalidOperationException($"Failed to start the required dependency '{process.StartInfo.FileName}'.  Please verify the correct version is installed and available on the path.", e);
                 }
 
                 // Our goal is to always have the process ended or killed by the time we exit the function.

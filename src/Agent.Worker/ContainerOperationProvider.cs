@@ -293,7 +293,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 executionContext.Debug($"Default Working Directory {defaultWorkingDirectory}");
                 executionContext.Debug($"Working Directory {workingDirectory}");
                 executionContext.Debug($"Mount Working Directory {mountWorkingDirectory}");
-                container.MountVolumes.Add(new MountVolume(mountWorkingDirectory, workingDirectory));
+                if (!string.IsNullOrEmpty(workingDirectory))
+                {
+                    container.MountVolumes.Add(new MountVolume(mountWorkingDirectory, workingDirectory));
+                }
+
                 container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Temp), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Temp))));
                 container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tasks), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tasks))));
 

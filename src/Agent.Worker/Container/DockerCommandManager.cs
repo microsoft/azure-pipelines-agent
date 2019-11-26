@@ -191,7 +191,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 
         public async Task<int> DockerNetworkCreate(IExecutionContext context, string network)
         {
-            if (context.StepTarget().ImageOS == PlatformUtil.OS.Windows)
+            PlatformUtil.OS containerHostOS = PlatformUtil.HostOS;
+            if (context.StepTarget() != null)
+            {
+                containerHostOS = context.StepTarget().ImageOS;
+            }
+
+            var networkDrivers = await ExecuteDockerCommandAsync(context, "info", "-f \"{{range .Plugins.Network}}{{println .}}{{end}}\"");
+            if (containerHostOS == PlatformUtil.OS.Windows && networkDrivers.Contains("nat"))
             {
                 return await ExecuteDockerCommandAsync(context, "network", $"create --label {DockerInstanceLabel} {network} --driver nat", context.CancellationToken);
             }

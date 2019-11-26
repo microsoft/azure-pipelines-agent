@@ -199,8 +199,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Pipelines.RepositoryPropertyNames.VersionInfo,
                 new Pipelines.VersionInfo()
                 {
-                    Author = "MyAuthor",
-                    Message = "MyMessage"
+                    Author = "MyAuthor"
                 });
 
             message.Resources.Repositories.Add(repository);
@@ -223,7 +222,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Assert.Equal("[PII]", value.Value);
             }
 
-            Pipelines.RepositoryResource scrubbedRepo = scrubbedMessage.Resources.Repositories[0];     
+            Pipelines.RepositoryResource scrubbedRepo = scrubbedMessage.Resources.Repositories[0];
             Pipelines.VersionInfo scrubbedInfo = scrubbedRepo.Properties.Get<Pipelines.VersionInfo>(Pipelines.RepositoryPropertyNames.VersionInfo);
 
             Assert.Equal("[PII]", scrubbedInfo.Author);
