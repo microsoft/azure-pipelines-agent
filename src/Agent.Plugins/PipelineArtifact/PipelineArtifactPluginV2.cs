@@ -9,12 +9,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
 using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.TeamFoundation.Core.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
-using Microsoft.TeamFoundation.Core.WebApi;
 
 namespace Agent.Plugins.PipelineArtifact
 {
@@ -130,8 +130,8 @@ namespace Agent.Plugins.PipelineArtifact
                 {
                     throw new ArgumentNullException("Project ID cannot be null.");
                 }
+                
                 Guid projectId = Guid.Parse(projectIdStr);
-
                 ArgUtil.NotEmpty(projectId, nameof(projectId));
 
                 int pipelineId = 0;
