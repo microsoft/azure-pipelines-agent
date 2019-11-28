@@ -177,9 +177,9 @@ namespace Agent.Plugins.PipelineArtifact
                 }
                 Guid projectId; 
                 bool isProjGuid = Guid.TryParse(projectName, out projectId);
-                if(!isProjGuid) 
+                if (!isProjGuid) 
                 {
-                    projectId = await GetProjectId(context, projectName);
+                    projectId = await GetProjectIdAsync(context, projectName);
                 }
                 int? pipelineId = null;
 
@@ -324,7 +324,7 @@ namespace Agent.Plugins.PipelineArtifact
             return result;
         }
       
-        private async Task<Guid> GetProjectId(AgentTaskPluginExecutionContext context, string projectName)
+        private async Task<Guid> GetProjectIdAsync(AgentTaskPluginExecutionContext context, string projectName)
         {
             VssConnection connection = context.VssConnection;
             var projectClient = connection.GetClient<ProjectHttpClient>();
@@ -337,7 +337,7 @@ namespace Agent.Plugins.PipelineArtifact
             }
             catch (Exception ex)
             {
-                throw new ArgumentException("Get project failed" + projectName + " , exception: " + ex);
+                throw new ArgumentException("Get project failed " + projectName + " , exception: " + ex);
             }
 
             return proj.Id;
