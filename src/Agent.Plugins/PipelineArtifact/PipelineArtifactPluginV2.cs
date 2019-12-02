@@ -137,6 +137,7 @@ namespace Agent.Plugins.PipelineArtifact
                 int pipelineId = 0;
                 if (int.TryParse(environmentBuildId, out pipelineId) && pipelineId != 0)
                 {
+                    OutputBuildInfo(context, pipelineId);
                     context.Output(StringUtil.Loc("DownloadingFromBuild", pipelineId));
                 }
                 else
@@ -214,7 +215,7 @@ namespace Agent.Plugins.PipelineArtifact
                     }
                 }
 
-                context.Output(StringUtil.Loc("DownloadingFromBuild", pipelineId));
+                OutputBuildInfo(context, pipelineId);
 
                 downloadParameters = new PipelineArtifactDownloadParameters
                 {
@@ -341,6 +342,12 @@ namespace Agent.Plugins.PipelineArtifact
             }
 
             return proj.Id;
+        }
+
+        private void OutputBuildInfo(AgentTaskPluginExecutionContext context, int? pipelineId){
+            context.Output(StringUtil.Loc("DownloadingFromBuild", pipelineId));
+            // populate output variable 'BuildNumber' with buildId
+            context.SetVariable("BuildNumber", pipelineId.ToString());
         }
     }
 }
