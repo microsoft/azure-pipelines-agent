@@ -618,7 +618,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
             }
 
-            context.TaskVariables.Set(name, data, isSecret);
+            // TODO
+            context.TaskVariables.Set(name, data, isSecret, false);
         }
     }
 

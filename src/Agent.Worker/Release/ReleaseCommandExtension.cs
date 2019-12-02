@@ -75,7 +75,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                 ReleaseServer releaseServer = new ReleaseServer(connection, projectId);
                 var release = await releaseServer.UpdateReleaseName(releaseId, releaseName, cancellationToken);
                 commandContext.Output(StringUtil.Loc("RMUpdateReleaseNameForRelease", release.Name, release.Id));
-                context.Variables.Set("release.releaseName", release.Name);
+                context.Variables.Set("release.releaseName", release.Name, secret: false, readOnly: true);
             }
         }
     }

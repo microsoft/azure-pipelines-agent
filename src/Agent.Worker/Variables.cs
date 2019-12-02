@@ -26,10 +26,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Names = new HashSet<string>();
         }
 
-        public void Set(string name, string val, bool secret = false)
+        public void Set(string name, string val, bool secret = false, bool readOnly = false)
         {
             Names.Add(name);
-            Data.Set(name, val, secret);
+            Data.Set(name, val, secret, readOnly);
         }
 
         public void Dispose()
@@ -95,7 +95,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 if (!string.IsNullOrWhiteSpace(variable.Key))
                 {
-                    variables.Add(new Variable(variable.Key, variable.Value.Value, variable.Value.IsSecret));
+                    variables.Add(new Variable(variable.Key, variable.Value.Value, variable.Value.IsSecret, variable.Value.IsReadOnly));
                 }
             }
 
@@ -122,7 +122,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             set
             {
-                Set(Constants.Variables.Agent.JobStatus, $"{value}");
+                Set(Constants.Variables.Agent.JobStatus, $"{value}", false, true);
             }
         }
 
@@ -373,7 +373,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public void Set(string name, string val, bool secret = false)
+        public void Set(string name, string val, bool secret = false, bool readOnly = false)
         {
             // Validate the args.
             ArgUtil.NotNullOrEmpty(name, nameof(name));
@@ -402,7 +402,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Store the value as-is to the expanded dictionary and the non-expanded dictionary.
                 // It is not expected that the caller needs to store an non-expanded value and then
                 // retrieve the expanded value in the same context.
-                var variable = new Variable(name, val, secret);
+                var variable = new Variable(name, val, secret, readOnly);
                 _expanded[name] = variable;
                 _nonexpanded[name] = variable;
                 _trace.Verbose($"Set '{name}' = '{val}'");
@@ -420,7 +420,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     var newVal = function.Invoke(variable.Value);
                     if (string.CompareOrdinal(newVal, variable.Value) != 0)
                     {
-                        modified.Add(entry.Key, new Variable(entry.Key, newVal, variable.Secret));
+                        modified.Add(entry.Key, new Variable(entry.Key, newVal, variable.Secret, variable.ReadOnly));
                     }
                 }
                 foreach (var entry in modified)
@@ -467,6 +467,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 foreach (string name in _nonexpanded.Keys)
                 {
                     bool secret = _nonexpanded[name].Secret;
+                    bool readOnly = _nonexpanded[name].ReadOnly;
                     _trace.Verbose($"Processing expansion for variable: '{name}'");
 
                     // This algorithm handles recursive replacement using a stack.
@@ -568,7 +569,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 }
 
                                 // Set the expanded value.
-                                expanded[state.Name] = new Variable(state.Name, state.Value, secret);
+                                expanded[state.Name] = new Variable(state.Name, state.Value, secret, readOnly);
                                 _trace.Verbose($"Set '{state.Name}' = '{state.Value}'");
                             }
 
@@ -633,13 +634,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public string Name { get; private set; }
         public bool Secret { get; private set; }
         public string Value { get; private set; }
+        public bool ReadOnly { get; private set; }
 
-        public Variable(string name, string value, bool secret)
+        public Variable(string name, string value, bool secret, bool readOnly)
         {
             ArgUtil.NotNullOrEmpty(name, nameof(name));
             Name = name;
             Value = value ?? string.Empty;
             Secret = secret;
+            ReadOnly = readOnly;
         }
     }
 }

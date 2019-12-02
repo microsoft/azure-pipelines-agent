@@ -127,7 +127,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string buildDirectory = executionContext.Variables.Get(Constants.Variables.Agent.BuildDirectory);
             ArgUtil.NotNullOrEmpty(buildDirectory, nameof(buildDirectory));
             string workspaceName = $"ws_{Path.GetFileName(buildDirectory)}_{settings.AgentId}";
-            executionContext.Variables.Set(Constants.Variables.Build.RepoTfvcWorkspace, workspaceName);
+            executionContext.Variables.Set(Constants.Variables.Build.RepoTfvcWorkspace, workspaceName, secret: false, readOnly: true);
 
             // Get the definition mappings.
             DefinitionWorkspaceMapping[] definitionMappings =

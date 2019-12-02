@@ -62,10 +62,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Set the task id and display name variable.
             using (var scope =  ExecutionContext.Variables.CreateScope())
             {
-                scope.Set(Constants.Variables.Task.DisplayName, DisplayName);
-                scope.Set(WellKnownDistributedTaskVariables.TaskInstanceId, Task.Id.ToString("D"));
-                scope.Set(WellKnownDistributedTaskVariables.TaskDisplayName, DisplayName);
-                scope.Set(WellKnownDistributedTaskVariables.TaskInstanceName, Task.Name);
+                scope.Set(Constants.Variables.Task.DisplayName, DisplayName, secret: false, readOnly: true);
+                scope.Set(WellKnownDistributedTaskVariables.TaskInstanceId, Task.Id.ToString("D"), secret: false, readOnly: true);
+                scope.Set(WellKnownDistributedTaskVariables.TaskDisplayName, DisplayName, secret: false, readOnly: true);
+                scope.Set(WellKnownDistributedTaskVariables.TaskInstanceName, Task.Name, secret: false, readOnly: true);
 
                 // Load the task definition and choose the handler.
                 // TODO: Add a try catch here to give a better error message.
