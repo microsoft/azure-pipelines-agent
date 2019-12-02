@@ -138,7 +138,6 @@ namespace Agent.Plugins.PipelineArtifact
                 if (int.TryParse(environmentBuildId, out pipelineId) && pipelineId != 0)
                 {
                     OutputBuildInfo(context, pipelineId);
-                    context.Output(StringUtil.Loc("DownloadingFromBuild", pipelineId));
                 }
                 else
                 {
