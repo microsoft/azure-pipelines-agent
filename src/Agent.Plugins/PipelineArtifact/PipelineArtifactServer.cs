@@ -265,8 +265,8 @@ namespace Agent.Plugins.PipelineArtifact
                     throw new InvalidOperationException($"Invalid {nameof(downloadParameters.ProjectRetrievalOptions)}!");
                 }
 
-                IEnumerable<BuildArtifact> buildArtifacts = artifacts.Where(a => string.Equals(a.Resource.Type == PipelineArtifactConstants.Container, StringComparison.OrdinalIgnoreCase));
-                IEnumerable<BuildArtifact> pipelineArtifacts = artifacts.Where(a => string.Equals(a.Resource.Type == PipelineArtifactConstants.PipelineArtifact, StringComparison.OrdinalIgnoreCase));
+                IEnumerable<BuildArtifact> buildArtifacts = artifacts.Where(a => string.Equals(a.Resource.Type, PipelineArtifactConstants.Container, StringComparison.OrdinalIgnoreCase));
+                IEnumerable<BuildArtifact> pipelineArtifacts = artifacts.Where(a => string.Equals(a.Resource.Type, PipelineArtifactConstants.PipelineArtifact, StringComparison.OrdinalIgnoreCase));
                 IEnumerable<BuildArtifact> fileShareArtifacts = artifacts.Where(a => string.Equals(a.Resource.Type, PipelineArtifactConstants.FileShareArtifact, StringComparison.OrdinalIgnoreCase));
 
                 if (buildArtifacts.Any())
