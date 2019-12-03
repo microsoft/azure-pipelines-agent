@@ -12,6 +12,7 @@ using System.Linq;
 using BuildWebApi = Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.Logging;
 using Newtonsoft.Json.Linq;
+using System.Diagnostics;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -397,6 +398,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 if (secret && !string.IsNullOrEmpty(val))
                 {
                     _secretMasker.AddValue(val);
+                }
+
+                Variable existingVariable = null;
+                if (!_expanded.TryGetValue(name, out existingVariable)) {
+                    _nonexpanded.TryGetValue(name, out existingVariable);
+                }
+                if (existingVariable != null && existingVariable.ReadOnly)
+                {
+                    throw new Exception($"Overwriting readonly variable '{name}'. This behavior will be disabled in the future.");
                 }
 
                 // Store the value as-is to the expanded dictionary and the non-expanded dictionary.

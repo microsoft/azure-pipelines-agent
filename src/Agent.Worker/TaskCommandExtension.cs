@@ -545,6 +545,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Boolean.TryParse(isOutputValue, out isOutput);
             }
 
+            String isReadOnlyValue;
+            Boolean isReadOnly = false;
+            if (eventProperties.TryGetValue(TaskSetVariableEventProperties.IsReadOnly, out isReadOnlyValue))
+            {
+                Boolean.TryParse(isReadOnlyValue, out isReadOnly);
+            }
+
             if (isSecret)
             {
                 bool? allowMultilineSecret = context.Variables.GetBoolean("SYSTEM_UNSAFEALLOWMULTILINESECRET");
@@ -561,7 +568,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
             }
 
-            context.SetVariable(name, data, isSecret, isOutput);
+            try
+            {
+                context.SetVariable(name, data, isSecret: isSecret, isOutput: isOutput, isReadOnly: isReadOnly);
+            }
+            catch(Exception ex)
+            {
+                context.Warning(ex.ToString());
+            }
         }
     }
 
@@ -723,6 +737,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public static readonly String Variable = "variable";
         public static readonly String IsSecret = "issecret";
         public static readonly String IsOutput = "isoutput";
+        public static readonly String IsReadOnly = "isreadonly";
     }
 
     internal static class TaskCompleteEventProperties
