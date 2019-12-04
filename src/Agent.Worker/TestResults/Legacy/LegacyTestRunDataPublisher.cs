@@ -50,7 +50,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
             _testRunPublisher = HostContext.GetService<ITestRunPublisher>();
             _featureFlagService = HostContext.GetService<IFeatureFlagService>();
             _testRunPublisher.InitializePublisher(_executionContext, connection, projectName, _resultReader);
-            _calculateTestRunSummary = _featureFlagService.GetFeatureFlagState("TestManagaement.PTR.GetTestRunSummary", new Guid("00025394-6065-48CA-87D9-7F5672854EF7"));
+            _calculateTestRunSummary = _featureFlagService.GetFeatureFlagState(TestResultsConstants.CalculateTestRunSummaryFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
             Trace.Leaving();
         }
 
@@ -178,7 +178,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                     minStartDate = DateTime.Equals(minStartDate, DateTime.MaxValue) ? presentTime : minStartDate;
                     maxCompleteDate = dateFormatError || DateTime.Equals(maxCompleteDate, DateTime.MinValue) ? minStartDate.Add(totalTestCaseDuration) : maxCompleteDate;
 
-                    //creat test run
+                    // create test run
                     TestRunData testRunData = new TestRunData(
                         name: runName,
                         startedDate: minStartDate.ToString("o"),
@@ -201,11 +201,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                     await publisher.EndTestRunAsync(testRunData, testRun.Id, true, _executionContext.CancellationToken);
                 }
 
-                // Storing testrun summary in enviromnent variable, which will be read by PublishPipelineMetadtaTask and publsih to evidence store.
-                if(_calculateTestRunSummary)
-                {
-                    TestResultUtils.StoreTestRunSummaryInEnvVar(_executionContext, testRunSummary, _testRunner, "PublishTestResults");
-                }
+                StoreTestRunSummaryInEnvVar(testRunSummary);
             }
             catch (Exception ex) when (!(ex is OperationCanceledException))
             {
@@ -213,6 +209,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                 LogPublishTestResultsFailureWarning(ex);
             }
             return isTestRunOutcomeFailed;
+        }
+
+        private void StoreTestRunSummaryInEnvVar(TestRunSummary testRunSummary)
+        {
+            // Storing testrun summary in environment variable, which will be read by PublishPipelineMetadataTask and publish to evidence store.
+            if(_calculateTestRunSummary)
+            {
+                TestResultUtils.StoreTestRunSummaryInEnvVar(_executionContext, testRunSummary, _testRunner, "PublishTestResults");
+            }
         }
 
         /// <summary>
@@ -281,7 +286,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                     });
                     await Task.WhenAll(publishTasks);
                 }
-                TestResultUtils.StoreTestRunSummaryInEnvVar(_executionContext, testRunSummary,_testRunner, "PublishTestResults");
+
+                StoreTestRunSummaryInEnvVar(testRunSummary);
             }
             catch (Exception ex) when (!(ex is OperationCanceledException))
             {
@@ -336,7 +342,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         /// <returns></returns>
         private bool GetTestRunOutcome(TestRunData testRunData, TestRunSummary testRunSummary)
         {
-            bool testRunStatus = false;
+            bool anyFailedTests = false;
             foreach(var testCaseResultData in testRunData.Results)
             {
                 testRunSummary.Total += 1;
@@ -346,7 +352,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                     case TestOutcome.Failed:
                     case TestOutcome.Aborted:
                         testRunSummary.Failed += 1;
-                        testRunStatus = true;
+                        anyFailedTests = true;
                         break;
                     case TestOutcome.Passed:
                         testRunSummary.Passed += 1;
@@ -359,10 +365,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 
                 if(!_calculateTestRunSummary)
                 {
-                    return testRunStatus;
+                    return anyFailedTests;
                 }
             }
-            return false;
+            return anyFailedTests;
         }
     }
 }

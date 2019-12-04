@@ -68,11 +68,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     publishTasks.Add(Task.Run(() => UploadBuildDataAttachment(runContext, testDataProvider.GetBuildData(), cancellationToken)));
 
                     await Task.WhenAll(publishTasks);
-                    _calculateTestRunSummary = _featureFlagService.GetFeatureFlagState("TestManagaement.PTR.GetTestRunSummary", new Guid("00025394-6065-48CA-87D9-7F5672854EF7"));
+                    _calculateTestRunSummary = _featureFlagService.GetFeatureFlagState(TestResultsConstants.CalculateTestRunSummaryFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
 
                     var runOutcome = GetTestRunOutcome(_executionContext, testRunData, out TestRunSummary testRunSummary);
 
-                    // Storing testrun summary in enviromnent variable, which will be read by PublishPipelineMetadtaTask and publsih to evidence store.
+                    // Storing testrun summary in environment variable, which will be read by PublishPipelineMetadataTask and publish to evidence store.
                     if(_calculateTestRunSummary)
                     {
                         TestResultUtils.StoreTestRunSummaryInEnvVar(_executionContext, testRunSummary, _testRunner, "PublishTestResults");
@@ -101,7 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
         private bool GetTestRunOutcome(IExecutionContext executionContext, IList<TestRunData> testRunDataList, out TestRunSummary testRunSummary)
         {
-            bool testRunStatus = false;
+            bool anyFailedTests = false;
             testRunSummary = new TestRunSummary();
             foreach (var testRunData in testRunDataList)
             {
@@ -114,7 +114,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                         case TestOutcome.Failed:
                         case TestOutcome.Aborted:
                             testRunSummary.Failed += 1;
-                            testRunStatus = true;
+                            anyFailedTests = true;
                             break;
                         case TestOutcome.Passed:
                             testRunSummary.Passed += 1;
@@ -127,11 +127,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
                     if(!_calculateTestRunSummary)
                     {
-                        return testRunStatus;
+                        return anyFailedTests;
                     }
                 }
             }
-            return false;
+            return anyFailedTests;
         }
 
         private async Task UploadRunDataAttachment(TestRunContext runContext, List<TestRunData> testRunData, PublishOptions publishOptions, CancellationToken cancellationToken = default(CancellationToken))

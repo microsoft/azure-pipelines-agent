@@ -67,12 +67,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
             string[] resourceUris = {};
             try
             {
-                var resoruceUrisEnvVar = System.Environment.GetEnvironmentVariable("RESOURCE_URIS");
-                executionContext.Debug("RESOURCE_URIS:" + resoruceUrisEnvVar);
+                var resourceUrisEnvVar = System.Environment.GetEnvironmentVariable("RESOURCE_URIS");
+                executionContext.Debug("RESOURCE_URIS:" + resourceUrisEnvVar);
 
-                if (!string.IsNullOrEmpty(resoruceUrisEnvVar))
+                if (!string.IsNullOrEmpty(resourceUrisEnvVar))
                 {
-                    resourceUris = resoruceUrisEnvVar.Split(',');
+                    resourceUris = resourceUrisEnvVar.Split(',');
                 }
             }
             catch (Exception ex)
@@ -107,14 +107,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
         public TestRunSummary TestResultAttestation;
         public double TestDurationSeconds;
         public string TestPassPercentage;
-        public RelatedUrl[] RelagedUrls;
+        public RelatedUrl[] RelatedUrls;
 
         public TestAttestation(string testId, string testTool, TestRunSummary testRunSummary)
         {
             this.TestId = testId;
             this.TestTool = testTool;
             this.TestResultAttestation = testRunSummary;
-            this.TestPassPercentage = (testRunSummary.Total > 0 && testRunSummary.Total - testRunSummary.Skipped > 0 ? (testRunSummary.Passed/testRunSummary.Total-testRunSummary.Skipped) * 100 : 0).ToString();
+            this.TestPassPercentage = (testRunSummary.Total > 0 && testRunSummary.Total - testRunSummary.Skipped > 0 ? ((double)testRunSummary.Passed/(testRunSummary.Total-testRunSummary.Skipped)) * 100 : 0).ToString();
         }
     }
 
