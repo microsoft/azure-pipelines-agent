@@ -22,7 +22,7 @@ namespace Agent.Plugins.PipelineArtifact
     {
         public abstract Guid Id { get; }
         protected virtual string DownloadPath => "path";
-        protected virtual string pipelineRunId => "runId";
+        protected virtual string RunId => "runId";
         protected CallbackAppTraceSource tracer;
 
         public string Stage => "main";
@@ -83,7 +83,7 @@ namespace Agent.Plugins.PipelineArtifact
             string tags = context.GetInput(ArtifactEventProperties.Tags, required: false);
             string allowPartiallySucceededBuilds = context.GetInput(ArtifactEventProperties.AllowPartiallySucceededBuilds, required: false);
             string allowFailedBuilds = context.GetInput(ArtifactEventProperties.AllowFailedBuilds, required: false);
-            string userSpecifiedpipelineId = context.GetInput(pipelineRunId, required: false);
+            string userSpecifiedpipelineId = context.GetInput(RunId, required: false);
             string defaultWorkingDirectory = context.Variables.GetValueOrDefault("system.defaultworkingdirectory").Value;
 
             targetPath = Path.IsPathFullyQualified(targetPath) ? targetPath : Path.GetFullPath(Path.Combine(defaultWorkingDirectory, targetPath));
@@ -181,7 +181,8 @@ namespace Agent.Plugins.PipelineArtifact
                 {
                     projectId = await GetProjectIdAsync(context, projectName);
                 }
-                int? pipelineId = null;
+                // Set the default pipelineId to -1, which is an invalid build id and it has to be reassigned to a valid build id.
+                int pipelineId = -1;
 
                 bool pipelineTriggeringBool = false;
                 if (bool.TryParse(pipelineTriggering, out pipelineTriggeringBool) && pipelineTriggeringBool)
@@ -194,7 +195,7 @@ namespace Agent.Plugins.PipelineArtifact
                     }
                 }
 
-                if (!pipelineId.HasValue)
+                if (pipelineId == -1)
                 {
                     if (pipelineVersionToDownload == pipelineVersionToDownloadLatest)
                     {
@@ -202,7 +203,11 @@ namespace Agent.Plugins.PipelineArtifact
                     }
                     else if (pipelineVersionToDownload == pipelineVersionToDownloadSpecific)
                     {
-                        pipelineId = Int32.Parse(userSpecifiedpipelineId);
+                        bool isPipelineIdNum = Int32.TryParse(userSpecifiedpipelineId, out pipelineId);
+                        if(!isPipelineIdNum)
+                        {
+                            throw new ArgumentException("RunId/PipelineId is not a valid number.");
+                        }
                     }
                     else if (pipelineVersionToDownload == pipelineVersionToDownloadLatestFromBranch)
                     {
@@ -221,7 +226,7 @@ namespace Agent.Plugins.PipelineArtifact
                     ProjectRetrievalOptions = BuildArtifactRetrievalOptions.RetrieveByProjectName,
                     ProjectName = projectName,
                     ProjectId = projectId,
-                    PipelineId = pipelineId.Value,
+                    PipelineId = pipelineId,
                     ArtifactName = artifactName,
                     TargetDirectory = targetPath,
                     MinimatchFilters = minimatchPatterns,
