@@ -15,6 +15,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
     {
         private async Task<bool> SendCtrlSignal(ConsoleCtrlEvent signal, TimeSpan timeout)
         {
+            if (_proc == null)
+            {
+                Trace.Info($"Process already exited, no need to send {signal}.");
+                return true;
+            }
+
             Trace.Info($"Sending {signal} to process {_proc.Id}.");
             ConsoleCtrlDelegate ctrlEventHandler = new ConsoleCtrlDelegate(ConsoleCtrlHandler);
             try
@@ -39,12 +45,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                     throw new Win32Exception(Marshal.GetLastWin32Error());
                 }
 
-                Trace.Info($"Successfully send {signal} to process {_proc.Id}.");
+                Trace.Info($"Successfully sent {signal} to process {_proc.Id}.");
                 Trace.Info($"Waiting for process exit or {timeout.TotalSeconds} seconds after {signal} signal fired.");
                 var completedTask = await Task.WhenAny(Task.Delay(timeout), _processExitedCompletionSource.Task);
                 if (completedTask == _processExitedCompletionSource.Task)
                 {
-                    Trace.Info("Process exit successfully.");
+                    Trace.Info("Process exited successfully.");
                     return true;
                 }
                 else
@@ -55,8 +61,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
             catch (Exception ex)
             {
-                Trace.Info($"{signal} signal doesn't fire successfully.");
-                Trace.Verbose($"Catch exception during send {signal} event to process {_proc.Id}");
+                Trace.Info($"{signal} signal did not fire successfully.");
+                Trace.Verbose($"Caught exception during send {signal} event to process {_proc.Id}");
                 Trace.Verbose(ex.ToString());
                 return false;
             }
@@ -81,7 +87,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                     return true;
             }
 
-            // If the function handles the control signal, it should return TRUE. 
+            // If the function handles the control signal, it should return TRUE.
             // If it returns FALSE, the next handler function in the list of handlers for this process is used.
             return false;
         }
