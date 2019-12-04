@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-﻿using Microsoft.TeamFoundation.TestManagement.WebApi;
+using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
@@ -14,6 +14,7 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.VisualStudio.Services.WebPlatform;
 using TestRunContext = Microsoft.TeamFoundation.TestClient.PublishTestResults.TestRunContext;
+using Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 {
@@ -35,15 +36,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         private const string _testRunSystemCustomFieldName = "TestRunSystem";
         private readonly object _sync = new object();
         private int _runCounter = 0;
+        private IFeatureFlagService _featureFlagService;
+        private bool _calculateTestRunSummary;
+        private string _testRunner;
 
         public void InitializePublisher(IExecutionContext context, string projectName, VssConnection connection, string testRunner, bool publishRunLevelAttachments)
         {
             Trace.Entering();
             _executionContext = context;
             _projectName = projectName;
-            _resultReader = GetTestResultReader(testRunner, publishRunLevelAttachments);
+            _testRunner = testRunner;
+            _resultReader = GetTestResultReader(_testRunner, publishRunLevelAttachments);
             _testRunPublisher = HostContext.GetService<ITestRunPublisher>();
+            _featureFlagService = HostContext.GetService<IFeatureFlagService>();
             _testRunPublisher.InitializePublisher(_executionContext, connection, projectName, _resultReader);
+            _calculateTestRunSummary = _featureFlagService.GetFeatureFlagState("TestManagaement.PTR.GetTestRunSummary", new Guid("00025394-6065-48CA-87D9-7F5672854EF7"));
             Trace.Leaving();
         }
 
@@ -89,7 +96,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                 TimeSpan totalTestCaseDuration = TimeSpan.Zero;
                 List<string> runAttachments = new List<string>();
                 List<TestCaseResultData> runResults = new List<TestCaseResultData>();
-                
+                TestRunSummary testRunSummary = new TestRunSummary();
                 //read results from each file
                 foreach (string resultFile in resultFiles)
                 {
@@ -97,8 +104,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                     //test case results
                     _executionContext.Debug(StringUtil.Format("Reading test results from file '{0}'", resultFile));
                     TestRunData resultFileRunData = publisher.ReadResultsFromFile(runContext, resultFile);
-
-                    isTestRunOutcomeFailed = isTestRunOutcomeFailed || GetTestRunOutcome(resultFileRunData);
+                    isTestRunOutcomeFailed = isTestRunOutcomeFailed || GetTestRunOutcome(resultFileRunData, testRunSummary);
                     
                     if (resultFileRunData != null)
                     {
@@ -194,6 +200,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                     await publisher.AddResultsAsync(testRun, runResults.ToArray(), _executionContext.CancellationToken);
                     await publisher.EndTestRunAsync(testRunData, testRun.Id, true, _executionContext.CancellationToken);
                 }
+
+                // Storing testrun summary in enviromnent variable, which will be read by PublishPipelineMetadtaTask and publsih to evidence store.
+                if(_calculateTestRunSummary)
+                {
+                    TestResultUtils.StoreTestRunSummaryInEnvVar(_executionContext, testRunSummary, _testRunner, "PublishTestResults");
+                }
             }
             catch (Exception ex) when (!(ex is OperationCanceledException))
             {
@@ -224,6 +236,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                     .ToList();
 
                 bool changeTestRunTitle = resultFiles.Count > 1;
+                TestRunSummary testRunSummary = new TestRunSummary();
 
                 foreach (var files in groupedFiles)
                 {
@@ -242,7 +255,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                         TestRunData testRunData = publisher.ReadResultsFromFile(runContext, resultFile, runName);
                         testRunData.PipelineReference = runContext.PipelineReference;
 
-                        isTestRunOutcomeFailed = isTestRunOutcomeFailed || GetTestRunOutcome(testRunData);
+                        isTestRunOutcomeFailed = isTestRunOutcomeFailed || GetTestRunOutcome(testRunData, testRunSummary);
 
                         cancellationToken.ThrowIfCancellationRequested();
 
@@ -268,6 +281,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                     });
                     await Task.WhenAll(publishTasks);
                 }
+                TestResultUtils.StoreTestRunSummaryInEnvVar(_executionContext, testRunSummary,_testRunner, "PublishTestResults");
             }
             catch (Exception ex) when (!(ex is OperationCanceledException))
             {
@@ -320,13 +334,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         /// </summary>
         /// <param name="testRunDataList"></param>
         /// <returns></returns>
-        private bool GetTestRunOutcome(TestRunData testRunData)
+        private bool GetTestRunOutcome(TestRunData testRunData, TestRunSummary testRunSummary)
         {
+            bool testRunStatus = false;
             foreach(var testCaseResultData in testRunData.Results)
             {
-                if(testCaseResultData.Outcome == TestOutcome.Failed.ToString() || testCaseResultData.Outcome == TestOutcome.Aborted.ToString())
+                testRunSummary.Total += 1;
+                Enum.TryParse(testCaseResultData.Outcome, out TestOutcome outcome);
+                switch(outcome)
                 {
-                    return true;
+                    case TestOutcome.Failed:
+                    case TestOutcome.Aborted:
+                        testRunSummary.Failed += 1;
+                        testRunStatus = true;
+                        break;
+                    case TestOutcome.Passed:
+                        testRunSummary.Passed += 1;
+                        break;
+                    case TestOutcome.Inconclusive:
+                        testRunSummary.Skipped += 1;
+                        break;
+                    default: break;
+                }
+
+                if(!_calculateTestRunSummary)
+                {
+                    return testRunStatus;
                 }
             }
             return false;
