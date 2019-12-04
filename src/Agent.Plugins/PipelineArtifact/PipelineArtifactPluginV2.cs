@@ -182,8 +182,8 @@ namespace Agent.Plugins.PipelineArtifact
                 {
                     projectId = await GetProjectIdAsync(context, projectName);
                 }
-                // Set the default pipelineId to -1, which is an invalid build id and it has to be reassigned to a valid build id.
-                int pipelineId = -1;
+                // Set the default pipelineId to 0, which is an invalid build id and it has to be reassigned to a valid build id.
+                int pipelineId = 0;
 
                 bool pipelineTriggeringBool = false;
                 if (bool.TryParse(pipelineTriggering, out pipelineTriggeringBool) && pipelineTriggeringBool)
@@ -196,7 +196,7 @@ namespace Agent.Plugins.PipelineArtifact
                     }
                 }
 
-                if (pipelineId == -1)
+                if (pipelineId == 0)
                 {
                     if (pipelineVersionToDownload == pipelineVersionToDownloadLatest)
                     {
