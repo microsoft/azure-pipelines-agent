@@ -129,7 +129,7 @@ rem restart interactive agent if needed
 if %restartinteractiveagent% equ 1 (
   echo [%date% %time%] Restart interactive agent >> "%logfile%.succeed" 2>&1
   endlocal
-  start "Vsts Agent" cmd.exe /k "_ROOT_FOLDER_\run.cmd"
+  start "Vsts Agent" cmd.exe /k "%rootfolder%\run.cmd"
 ) else (
   endlocal
 )

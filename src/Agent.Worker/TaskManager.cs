@@ -23,6 +23,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         Task DownloadAsync(IExecutionContext executionContext, IEnumerable<Pipelines.JobStep> steps);
 
         Definition Load(Pipelines.TaskStep task);
+
+        /// <summary>
+        /// Extract a task that has already been downloaded.
+        /// </summary>
+        /// <param name="executionContext">Current execution context.</param>
+        /// <param name="task">The task to be extracted.</param>
+        void Extract(IExecutionContext executionContext, Pipelines.TaskStep task);
     }
 
     public sealed class TaskManager : AgentService, ITaskManager
@@ -96,7 +103,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             // Initialize the definition wrapper object.
-            var definition = new Definition() { Directory = GetDirectory(task.Reference) };
+            var definition = new Definition() { Directory = GetDirectory(task.Reference), ZipPath = GetTaskZipPath(task.Reference) };
 
             // Deserialize the JSON.
             string file = Path.Combine(definition.Directory, Constants.Path.TaskJsonFile);
@@ -113,6 +120,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return definition;
         }
 
+        public void Extract(IExecutionContext executionContext, Pipelines.TaskStep task)
+        {
+            String zipFile = GetTaskZipPath(task.Reference);
+            String destinationDirectory = GetDirectory(task.Reference);
+            
+            executionContext.Debug($"Extracting task {task.Name} from {zipFile} to {destinationDirectory}.");
+            
+            Trace.Verbose("Deleting task destination folder: {0}", destinationDirectory);
+            IOUtil.DeleteDirectory(destinationDirectory, executionContext.CancellationToken);
+
+            Directory.CreateDirectory(destinationDirectory);
+            ZipFile.ExtractToDirectory(zipFile, destinationDirectory);
+            Trace.Verbose("Creating watermark file to indicate the task extracted successfully.");
+            File.WriteAllText(destinationDirectory + ".completed", DateTime.UtcNow.ToString());
+        }
+
         private async Task DownloadAsync(IExecutionContext executionContext, Pipelines.TaskStepDefinitionReference task)
         {
             Trace.Entering();
@@ -124,9 +147,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // first check to see if we already have the task
             string destDirectory = GetDirectory(task);
             Trace.Info($"Ensuring task exists: ID '{task.Id}', version '{task.Version}', name '{task.Name}', directory '{destDirectory}'.");
-            if (File.Exists(destDirectory + ".completed"))
+
+            var configurationStore = HostContext.GetService<IConfigurationStore>();
+            AgentSettings settings = configurationStore.GetSettings();
+            Boolean signingEnabled = !String.IsNullOrEmpty(settings.Fingerprint);
+
+            if (File.Exists(destDirectory + ".completed") && !signingEnabled)
             {
                 executionContext.Debug($"Task '{task.Name}' already downloaded at '{destDirectory}'.");
+                return;
+            }
+
+            String taskZipPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.TaskZips), $"{task.Name}_{task.Id}_{task.Version}.zip");
+            if (signingEnabled && File.Exists(taskZipPath))
+            {
+                executionContext.Debug($"Task '{task.Name}' already downloaded at '{taskZipPath}'.");
+
+                // We need to extract the zip now because the task.json metadata for the task is used in JobExtension.InitializeJob.
+                // This is fine because we overwrite the contents at task run time.
+                if (!File.Exists(destDirectory + ".completed"))
+                {
+                    // The zip exists but it hasn't been extracted yet.
+                    IOUtil.DeleteDirectory(destDirectory, executionContext.CancellationToken);
+                    ExtractZip(taskZipPath, destDirectory);
+                }
+
                 return;
             }
 
@@ -209,13 +254,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                 }
 
+                if (signingEnabled)
+                {
+                    Directory.CreateDirectory(HostContext.GetDirectory(WellKnownDirectory.TaskZips));
+
+                    // Copy downloaded zip to the cache on disk for future extraction.
+                    executionContext.Debug($"Copying from {zipFile} to {taskZipPath}");
+                    File.Copy(zipFile, taskZipPath);
+                }
+
+                // We need to extract the zip regardless of whether or not signing is enabled because the task.json metadata for the task is used in JobExtension.InitializeJob.
+                // This is fine because we overwrite the contents at task run time.
                 Directory.CreateDirectory(destDirectory);
-                ZipFile.ExtractToDirectory(zipFile, destDirectory);
+                ExtractZip(zipFile, destDirectory);
 
-                Trace.Verbose("Create watermark file indicate task download succeed.");
-                File.WriteAllText(destDirectory + ".completed", DateTime.UtcNow.ToString());
-
-                executionContext.Debug($"Task '{task.Name}' has been downloaded into '{destDirectory}'.");
+                executionContext.Debug($"Task '{task.Name}' has been downloaded into '{(signingEnabled ? taskZipPath : destDirectory)}'.");
                 Trace.Info("Finished getting task.");
             }
             finally
@@ -238,6 +291,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
+        private void ExtractZip(String zipFile, String destinationDirectory)
+        {
+            ZipFile.ExtractToDirectory(zipFile, destinationDirectory);
+            Trace.Verbose("Create watermark file to indicate task download succeed.");
+            File.WriteAllText(destinationDirectory + ".completed", DateTime.UtcNow.ToString());
+        }
+
         private string GetDirectory(Pipelines.TaskStepDefinitionReference task)
         {
             ArgUtil.NotEmpty(task.Id, nameof(task.Id));
@@ -248,12 +308,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 $"{task.Name}_{task.Id}",
                 task.Version);
         }
+
+        private string GetTaskZipPath(Pipelines.TaskStepDefinitionReference task)
+        {
+            ArgUtil.NotEmpty(task.Id, nameof(task.Id));
+            ArgUtil.NotNull(task.Name, nameof(task.Name));
+            ArgUtil.NotNullOrEmpty(task.Version, nameof(task.Version));
+            return Path.Combine(
+                HostContext.GetDirectory(WellKnownDirectory.TaskZips),
+                $"{task.Name}_{task.Id}_{task.Version}.zip"); // TODO: Move to shared string.
+        }
     }
 
     public sealed class Definition
     {
         public DefinitionData Data { get; set; }
         public string Directory { get; set; }
+        public string ZipPath {get;set;}
     }
 
     public sealed class DefinitionData

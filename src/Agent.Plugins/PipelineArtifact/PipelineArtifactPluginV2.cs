@@ -138,7 +138,7 @@ namespace Agent.Plugins.PipelineArtifact
                 int pipelineId = 0;
                 if (int.TryParse(environmentBuildId, out pipelineId) && pipelineId != 0)
                 {
-                    context.Output(StringUtil.Loc("DownloadingFromBuild", pipelineId));
+                    OutputBuildInfo(context, pipelineId);
                 }
                 else
                 {
@@ -207,7 +207,7 @@ namespace Agent.Plugins.PipelineArtifact
                         bool isPipelineIdNum = Int32.TryParse(userSpecifiedRunId, out pipelineId);
                         if(!isPipelineIdNum)
                         {
-                            throw new ArgumentException("RunId/PipelineId is not a valid number.");
+                            throw new ArgumentException(StringUtil.Loc("RunIDNotValid", userSpecifiedRunId));
                         }
                     }
                     else if (pipelineVersionToDownload == pipelineVersionToDownloadLatestFromBranch)
@@ -220,7 +220,7 @@ namespace Agent.Plugins.PipelineArtifact
                     }
                 }
 
-                context.Output(StringUtil.Loc("DownloadingFromBuild", pipelineId));
+                OutputBuildInfo(context, pipelineId);
 
                 downloadParameters = new PipelineArtifactDownloadParameters
                 {
@@ -276,7 +276,7 @@ namespace Agent.Plugins.PipelineArtifact
         {
             if(String.IsNullOrWhiteSpace(pipelineDefinition)) 
             {
-                throw new InvalidOperationException(StringUtil.Loc("CannotBeNullOrEmpty", "Pipeline Dedinition"));
+                throw new InvalidOperationException(StringUtil.Loc("CannotBeNullOrEmpty", "Pipeline Definition"));
             }
 
             VssConnection connection = context.VssConnection;
@@ -347,6 +347,12 @@ namespace Agent.Plugins.PipelineArtifact
             }
 
             return proj.Id;
+        }
+
+        private void OutputBuildInfo(AgentTaskPluginExecutionContext context, int? pipelineId){
+            context.Output(StringUtil.Loc("DownloadingFromBuild", pipelineId));
+            // populate output variable 'BuildNumber' with buildId
+            context.SetVariable("BuildNumber", pipelineId.ToString());
         }
     }
 }

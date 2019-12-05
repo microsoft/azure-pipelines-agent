@@ -522,6 +522,7 @@
   "RSAKeyFileNotFound": "RSA key file {0} was not found",
   "RunAgentAsServiceDescription": "run agent as service? (Y/N)",
   "RunAsAutoLogonDescription": "configure autologon and run agent on startup? (Y/N)",
+  "RunIDNotValid": "Run Id is not valid: {0}",
   "RunningJob": "{0:u}: Running job: {1}",
   "SavedSettings": "{0:u}: Settings Saved.",
   "ScanToolCapabilities": "Scanning for tool capabilities.",

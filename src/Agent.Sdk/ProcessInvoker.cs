@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
@@ -58,12 +59,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
+        public bool DisableWorkerCommands {get; set; }
+
         public event EventHandler<ProcessDataReceivedEventArgs> OutputDataReceived;
         public event EventHandler<ProcessDataReceivedEventArgs> ErrorDataReceived;
 
-        public ProcessInvoker(ITraceWriter trace)
+        public ProcessInvoker(ITraceWriter trace, bool disableWorkerCommands = false)
         {
             this.Trace = trace;
+            this.DisableWorkerCommands = disableWorkerCommands;
         }
 
         public Task<int> ExecuteAsync(
@@ -485,6 +489,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                     string line = reader.ReadLine();
                     if (line != null)
                     {
+                        if (DisableWorkerCommands)
+                        {
+                            line = Regex.Replace(line, "##vso", "**vso", RegexOptions.IgnoreCase);
+                        }
                         dataBuffer.Enqueue(line);
                         _outputProcessEvent.Set();
                     }
