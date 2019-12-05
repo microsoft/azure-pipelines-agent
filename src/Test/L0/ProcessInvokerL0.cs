@@ -337,5 +337,64 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 }
             }
         }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public async Task DisableWorkerCommands()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+
+                Int32 exitCode = -1;
+                List<string> stdout = new List<string>();
+
+                var processInvoker = new ProcessInvokerWrapper();
+                processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
+                 {
+                     stdout.Add(e.Data);
+                 };
+                processInvoker.DisableWorkerCommands = true;
+                processInvoker.Initialize(hc);
+                exitCode = (TestUtil.IsWindows())
+                    ? await processInvoker.ExecuteAsync("", "powershell.exe",  $@"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command ""Write-Host '##vso somecommand'""", null, CancellationToken.None)
+                    : await processInvoker.ExecuteAsync("", "bash", "-c \"echo '##vso somecommand'\"", null, CancellationToken.None);
+
+                trace.Info("Exit Code: {0}", exitCode);
+                Assert.Equal(0, exitCode);
+
+                Assert.False(stdout.Contains("##vso somecommand"), $"##vso commands should be escaped.");
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public async Task EnableWorkerCommandsByDefault()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+
+                Int32 exitCode = -1;
+                List<string> stdout = new List<string>();
+
+                var processInvoker = new ProcessInvokerWrapper();
+                processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
+                 {
+                     stdout.Add(e.Data);
+                 };
+                processInvoker.Initialize(hc);
+                exitCode = (TestUtil.IsWindows())
+                    ? await processInvoker.ExecuteAsync("", "powershell.exe",  $@"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command ""Write-Host '##vso somecommand'""", null, CancellationToken.None)
+                    : await processInvoker.ExecuteAsync("", "bash", "-c \"echo '##vso somecommand'\"", null, CancellationToken.None);
+
+                trace.Info("Exit Code: {0}", exitCode);
+                Assert.Equal(0, exitCode);
+
+                Assert.True(stdout.Contains("##vso somecommand"), "##vso commands should not be escaped.");
+            }
+        }
     }
 }

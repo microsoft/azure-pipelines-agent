@@ -256,7 +256,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var source = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (Variable variable in _expanded.Values)
             {
-                source[variable.Name] = variable.Value;
+                var value = StringTranslator(variable.Value);
+                source[variable.Name] = value;
             }
 
             VarUtil.ExpandValues(_hostContext, source, target);
@@ -268,7 +269,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var source = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (Variable variable in _expanded.Values)
             {
-                source[variable.Name] = variable.Value;
+                source[variable.Name] = StringTranslator(variable.Value);
             }
             var target = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
@@ -284,7 +285,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var source = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (Variable variable in _expanded.Values)
             {
-                source[variable.Name] = variable.Value;
+                source[variable.Name] = StringTranslator(variable.Value);
             }
 
             return VarUtil.ExpandValues(_hostContext, source, target);
@@ -406,30 +407,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 _expanded[name] = variable;
                 _nonexpanded[name] = variable;
                 _trace.Verbose($"Set '{name}' = '{val}'");
-            }
-        }
-
-        public void Transform(Func<string, string> function)
-        {
-            lock (_setLock)
-            {
-                Dictionary<string, Variable> modified = new Dictionary<string, Variable>();
-                foreach (var entry in _expanded)
-                {
-                    var variable = entry.Value;
-                    var newVal = function.Invoke(variable.Value);
-                    if (string.CompareOrdinal(newVal, variable.Value) != 0)
-                    {
-                        modified.Add(entry.Key, new Variable(entry.Key, newVal, variable.Secret));
-                    }
-                }
-                foreach (var entry in modified)
-                {
-                    var name = entry.Key;
-                    var variable = entry.Value;
-                    _expanded[name] = variable;
-                    _nonexpanded[name] = variable;
-                }
             }
         }
 

@@ -788,7 +788,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 }
                 catch (Exception ex)
                 {
-                    Trace.Error($"Catch exception during complete agent jobrequest {message.RequestId}.");
+                    Trace.Error($"Caught exception during complete agent jobrequest {message.RequestId}.");
                     Trace.Error(ex);
                     exceptions.Add(ex);
                 }
