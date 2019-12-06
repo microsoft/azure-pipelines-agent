@@ -570,7 +570,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             try
             {
-                context.SetVariable(name, data, isSecret: isSecret, isOutput: isOutput, isReadOnly: isReadOnly);
+                context.SetVariable(name, data, isSecret: isSecret, isOutput: isOutput, isReadOnly: isReadOnly, checkReadOnly: true);
             }
             catch(Exception ex)
             {
