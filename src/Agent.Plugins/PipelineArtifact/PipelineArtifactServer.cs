@@ -61,7 +61,7 @@ namespace Agent.Plugins.PipelineArtifact
                 context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: uploadRecord);
 
                 // 2) associate the pipeline artifact with an build artifact
-                BuildServer buildHelper = new BuildServer(connection);
+                BuildServer buildServer = new BuildServer(connection);
                 Dictionary<string, string> propertiesDictionary = new Dictionary<string, string>();
                 propertiesDictionary.Add(PipelineArtifactConstants.RootId, result.RootId.ValueString);
                 propertiesDictionary.Add(PipelineArtifactConstants.ProofNodes, StringUtil.ConvertToJson(result.ProofNodes.ToArray()));
@@ -70,7 +70,7 @@ namespace Agent.Plugins.PipelineArtifact
                 BuildArtifact buildArtifact = await AsyncHttpRetryHelper.InvokeAsync(
                     async () => 
                     {
-                        return await buildHelper.AssociateArtifactAsync(projectId, 
+                        return await buildServer.AssociateArtifactAsync(projectId, 
                                                                         pipelineId, 
                                                                         name, 
                                                                         context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.JobId)?.Value?? string.Empty, 
@@ -122,7 +122,7 @@ namespace Agent.Plugins.PipelineArtifact
             VssConnection connection = context.VssConnection;
             BlobStoreClientTelemetry clientTelemetry;
             DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClient(context, connection, cancellationToken, out clientTelemetry);
-            BuildServer buildHelper = new BuildServer(connection);
+            BuildServer buildServer = new BuildServer(connection);
 
             using (clientTelemetry)
             {
@@ -132,7 +132,7 @@ namespace Agent.Plugins.PipelineArtifact
                     List<BuildArtifact> artifacts;
                     if (downloadParameters.ProjectRetrievalOptions == BuildArtifactRetrievalOptions.RetrieveByProjectId)
                     {
-                        artifacts = await buildHelper.GetArtifactsAsync(downloadParameters.ProjectId, downloadParameters.PipelineId, cancellationToken);
+                        artifacts = await buildServer.GetArtifactsAsync(downloadParameters.ProjectId, downloadParameters.PipelineId, cancellationToken);
                     }
                     else if (downloadParameters.ProjectRetrievalOptions == BuildArtifactRetrievalOptions.RetrieveByProjectName)
                     {
@@ -142,7 +142,7 @@ namespace Agent.Plugins.PipelineArtifact
                         }
                         else
                         {
-                            artifacts = await buildHelper.GetArtifactsWithProjectNameAsync(downloadParameters.ProjectName, downloadParameters.PipelineId, cancellationToken);
+                            artifacts = await buildServer.GetArtifactsWithProjectNameAsync(downloadParameters.ProjectName, downloadParameters.PipelineId, cancellationToken);
                         }
                     }
                     else
@@ -188,7 +188,7 @@ namespace Agent.Plugins.PipelineArtifact
                     BuildArtifact buildArtifact;
                     if (downloadParameters.ProjectRetrievalOptions == BuildArtifactRetrievalOptions.RetrieveByProjectId)
                     {
-                        buildArtifact = await buildHelper.GetArtifact(downloadParameters.ProjectId, downloadParameters.PipelineId, downloadParameters.ArtifactName, cancellationToken);
+                        buildArtifact = await buildServer.GetArtifact(downloadParameters.ProjectId, downloadParameters.PipelineId, downloadParameters.ArtifactName, cancellationToken);
                     }
                     else if (downloadParameters.ProjectRetrievalOptions == BuildArtifactRetrievalOptions.RetrieveByProjectName)
                     {
@@ -198,7 +198,7 @@ namespace Agent.Plugins.PipelineArtifact
                         }
                         else
                         {
-                            buildArtifact = await buildHelper.GetArtifactWithProjectNameAsync(downloadParameters.ProjectName, downloadParameters.PipelineId, downloadParameters.ArtifactName, cancellationToken);
+                            buildArtifact = await buildServer.GetArtifactWithProjectNameAsync(downloadParameters.ProjectName, downloadParameters.PipelineId, downloadParameters.ArtifactName, cancellationToken);
                         }
                     }
                     else
