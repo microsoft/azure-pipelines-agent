@@ -29,6 +29,8 @@ namespace Agent.Plugins.PipelineArtifact
 
         public FileContainerProvider(VssConnection connection, IAppTraceSource tracer)
         {
+            BuildHttpClient buildHttpClient = connection.GetClient<BuildHttpClient>();
+            connection = new VssConnection(buildHttpClient.BaseAddress, connection.Credentials);
             containerClient = connection.GetClient<FileContainerHttpClient>();
             this.tracer = tracer;
         }
