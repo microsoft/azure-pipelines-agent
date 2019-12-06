@@ -41,15 +41,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
                 TestMetadata testMetadata = new TestMetadata()
                 {
                     Description = description,
-                    HumanReadableName = "Test Results from Publish Test Results utility",
-                    SerializedPayload = JsonConvert.SerializeObject(testAttestation)
+                    HumanReadableName = "Test Results from Publish Test Results utility"
                 };
+
+                string pipelinesUrl = GetPipelinesUrl(executionContext);
+                if (!string.IsNullOrEmpty(pipelinesUrl))
+                {
+                    var relatedUrls = new[] { new RelatedUrl() { Label="pipeline-url", Url=pipelinesUrl} };
+                    testMetadata.RelatedUrls = relatedUrls;
+                    testAttestation.RelatedUrls = relatedUrls;
+                }
+
+                testMetadata.SerializedPayload = JsonConvert.SerializeObject(testAttestation);
+
                 EvidenceStoreMetadata evidenceStoreMetadata = new EvidenceStoreMetadata()
                 {
                     Name = Guid.NewGuid().ToString(),
                     ResourceUris = GetResourceUris(executionContext),
                     Metadata = testMetadata
-
                 };
 
                 evidenceStoreMetadataString = JsonConvert.SerializeObject(evidenceStoreMetadata);
@@ -81,6 +90,50 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
             }
 
             return resourceUris;
+        }
+
+        private static string GetPipelinesUrl(IExecutionContext executionContext)
+        {
+            try
+            {
+                string hostType = executionContext.Variables.System_HostType.ToString();
+                if (string.IsNullOrEmpty(hostType)) 
+                {
+                    return string.Empty;
+                }
+
+                bool isBuild = string.Equals(hostType, "build", StringComparison.OrdinalIgnoreCase);
+                string pipeLineId = isBuild ? executionContext.Variables.Build_BuildId.Value.ToString() : executionContext.Variables.Release_ReleaseId;
+                if(string.IsNullOrEmpty(pipeLineId))
+                {
+                    return string.Empty;
+                }
+
+                string baseUri = executionContext.Variables.System_TFCollectionUrl;
+                string project = executionContext.Variables.System_TeamProject;
+
+                if(string.IsNullOrEmpty(baseUri) || string.IsNullOrEmpty(project))
+                {
+                    return string.Empty;
+                }
+
+                string pipelineUri;
+                if(isBuild)
+                {
+                    pipelineUri =  $"{baseUri.TrimEnd('/')}/{project}/_build/results?buildId={pipeLineId}";
+                }
+                else
+                {
+                    pipelineUri = $"{baseUri.TrimEnd('/')}/{project}/_releaseProgress?releaseId={pipeLineId}";
+                }
+                return pipelineUri;
+            }
+            catch (Exception ex)
+            {
+                executionContext.Debug($"Unable to get pipelines url, error details: {ex}");
+            }
+
+            return string.Empty;
         }
     }
 
@@ -115,6 +168,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
             this.TestTool = testTool;
             this.TestResultAttestation = testRunSummary;
             this.TestPassPercentage = (testRunSummary.Total > 0 && testRunSummary.Total - testRunSummary.Skipped > 0 ? ((double)testRunSummary.Passed/(testRunSummary.Total-testRunSummary.Skipped)) * 100 : 0).ToString();
+            // Will populate this in separate PR. As it required change in logic at client side.
+            this.TestDurationSeconds = 0.0;
         }
     }
 
