@@ -21,17 +21,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
         public void Execute(IExecutionContext context, Command command)
         {
-            ArgUtil.NotNull(context, nameof(context));
+            try
+            {
+                ArgUtil.NotNull(context, nameof(context));
 
-            var eventProperties = command.Properties;
+                var eventProperties = command.Properties;
 
-            _executionContext = context;
-            ParseInputParameters(context, eventProperties);
+                _executionContext = context;
+                ParseInputParameters(context, eventProperties);
 
-            var commandContext = context.GetHostContext().CreateService<IAsyncCommandContext>();
-            commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResultsToEvidenceStore"));
-            commandContext.Task = PublishTestResultsDataToEvidenceStore(context);
-            _executionContext.AsyncCommands.Add(commandContext);
+                var commandContext = context.GetHostContext().CreateService<IAsyncCommandContext>();
+                commandContext.InitializeCommandContext(context, "PublishTestResultsToEvidenceStore");
+                commandContext.Task = PublishTestResultsDataToEvidenceStore(context);
+                _executionContext.AsyncCommands.Add(commandContext);
+            }
+            catch (System.Exception ex)
+            {
+                _executionContext.Debug($"Error in executing the command, Error Details {ex}");
+            }
         }
 
         private Task PublishTestResultsDataToEvidenceStore(IExecutionContext context)
@@ -48,7 +55,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             eventProperties.TryGetValue("testRunSummary", out string testRunSummaryString);
             if(string.IsNullOrEmpty(testRunSummaryString)) 
             {
-                throw new ArgumentException(StringUtil.Loc("ArgumentNeeded", "TestRunSummary"));
+                throw new ArgumentException($"ArgumentNeeded : TestRunSummary");
             }
             testRunSummary = JsonConvert.DeserializeObject<TestRunSummary>(testRunSummaryString);
             eventProperties.TryGetValue("description", out description);
