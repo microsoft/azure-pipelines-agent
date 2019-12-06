@@ -232,6 +232,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                         Constants.Path.TasksDirectory);
                     break;
 
+                case WellKnownDirectory.TaskZips:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Work),
+                        Constants.Path.TaskZipsDirectory);
+                    break;
+
                 case WellKnownDirectory.Tools:
                     path = Environment.GetEnvironmentVariable("AGENT_TOOLSDIRECTORY") ?? Environment.GetEnvironmentVariable(Constants.Variables.Agent.ToolsDirectory);
                     if (string.IsNullOrEmpty(path))

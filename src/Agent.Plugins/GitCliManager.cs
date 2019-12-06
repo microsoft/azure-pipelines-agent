@@ -80,7 +80,7 @@ namespace Agent.Plugins.Repository
         {
             // There is no built-in git for OSX/Linux
             gitPath = null;
-            
+
             // Resolve the location of git.
             if (useBuiltInGit && PlatformUtil.RunningOnWindows)
             {
@@ -100,7 +100,7 @@ namespace Agent.Plugins.Repository
 
             ArgUtil.File(gitPath, nameof(gitPath));
 
-            // Get the Git version.    
+            // Get the Git version.
             gitVersion = await GitVersion(context);
             ArgUtil.NotNull(gitVersion, nameof(gitVersion));
             context.Debug($"Detect git version: {gitVersion.ToString()}.");
@@ -132,7 +132,7 @@ namespace Agent.Plugins.Repository
             // See https://github.com/git-lfs/git-lfs/issues/3571
             bool gitLfsSupport = StringUtil.ConvertToBoolean(context.GetInput(Pipelines.PipelineConstants.CheckoutTaskInputs.Lfs));
             Version recommendedGitLfsVersion = new Version(2, 7, 2);
-            
+
             if (gitLfsSupport && gitLfsVersion == new Version(2, 7, 1))
             {
                 context.Output(StringUtil.Loc("UnsupportedGitLfsVersion", gitLfsVersion, recommendedGitLfsVersion));
@@ -201,7 +201,7 @@ namespace Agent.Plugins.Repository
                 watch.Start();
 
                 fetchExitCode = await ExecuteGitCommandAsync(context, repositoryPath, "fetch", options, additionalCommandLine, cancellationToken);
-                
+
                 watch.Stop();
 
                 // Publish some fetch statistics
@@ -565,7 +565,7 @@ namespace Agent.Plugins.Repository
             string arg = StringUtil.Format($"{command} {options}").Trim();
             context.Command($"git {arg}");
 
-            var processInvoker = new ProcessInvoker(context);
+            var processInvoker = new ProcessInvoker(context, disableWorkerCommands: true);
             processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
             {
                 context.Output(message.Data);
@@ -596,7 +596,7 @@ namespace Agent.Plugins.Repository
                 output = new List<string>();
             }
 
-            var processInvoker = new ProcessInvoker(context);
+            var processInvoker = new ProcessInvoker(context, disableWorkerCommands: true);
             processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
             {
                 output.Add(message.Data);
@@ -622,7 +622,7 @@ namespace Agent.Plugins.Repository
             string arg = StringUtil.Format($"{additionalCommandLine} {command} {options}").Trim();
             context.Command($"git {arg}");
 
-            var processInvoker = new ProcessInvoker(context);
+            var processInvoker = new ProcessInvoker(context, disableWorkerCommands: true);
             processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
             {
                 context.Output(message.Data);

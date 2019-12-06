@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
 using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.TeamFoundation.Core.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -129,6 +130,7 @@ namespace Agent.Plugins.PipelineArtifact
                 {
                     throw new ArgumentNullException("Project ID cannot be null.");
                 }
+                
                 Guid projectId = Guid.Parse(projectIdStr);
                 ArgUtil.NotEmpty(projectId, nameof(projectId));
 
@@ -173,7 +175,12 @@ namespace Agent.Plugins.PipelineArtifact
                 {
                     throw new ArgumentNullException("Project Name cannot be null.");
                 }
-                Guid projectId = Guid.Parse(projectName);
+                Guid projectId; 
+                bool isProjGuid = Guid.TryParse(projectName, out projectId);
+                if (!isProjGuid) 
+                {
+                    projectId = await GetProjectIdAsync(context, projectName);
+                }
                 int? pipelineId = null;
 
                 bool pipelineTriggeringBool = false;
@@ -191,7 +198,7 @@ namespace Agent.Plugins.PipelineArtifact
                 {
                     if (pipelineVersionToDownload == pipelineVersionToDownloadLatest)
                     {
-                        pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectName, tagsInput, resultFilter, null, cancellationToken: token);
+                        pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectId.ToString(), tagsInput, resultFilter, null, cancellationToken: token);
                     }
                     else if (pipelineVersionToDownload == pipelineVersionToDownloadSpecific)
                     {
@@ -199,7 +206,7 @@ namespace Agent.Plugins.PipelineArtifact
                     }
                     else if (pipelineVersionToDownload == pipelineVersionToDownloadLatestFromBranch)
                     {
-                        pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectName, tagsInput, resultFilter, branchName, cancellationToken: token);
+                        pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectId.ToString(), tagsInput, resultFilter, branchName, cancellationToken: token);
                     }
                     else
                     {
@@ -315,6 +322,25 @@ namespace Agent.Plugins.PipelineArtifact
             }
 
             return result;
+        }
+      
+        private async Task<Guid> GetProjectIdAsync(AgentTaskPluginExecutionContext context, string projectName)
+        {
+            VssConnection connection = context.VssConnection;
+            var projectClient = connection.GetClient<ProjectHttpClient>();
+
+            TeamProject proj = null;
+
+            try
+            {
+                proj = await projectClient.GetProject(projectName);
+            }
+            catch (Exception ex)
+            {
+                throw new ArgumentException("Get project failed " + projectName + " , exception: " + ex);
+            }
+
+            return proj.Id;
         }
     }
 }

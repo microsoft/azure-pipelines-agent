@@ -28,6 +28,9 @@ namespace Microsoft.VisualStudio.Services.Agent
         public bool IsHosted => !string.IsNullOrEmpty(NotificationPipeName) || !string.IsNullOrEmpty(NotificationSocketAddress);
 
         [DataMember(EmitDefaultValue = false)]
+        public string Fingerprint { get; set; }
+
+        [DataMember(EmitDefaultValue = false)]
         public string NotificationPipeName { get; set; }
 
         [DataMember(EmitDefaultValue = false)]

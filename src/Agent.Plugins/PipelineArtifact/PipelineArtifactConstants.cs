@@ -14,6 +14,6 @@ namespace Agent.Plugins.PipelineArtifact
         public const string RestoreCache = "RestoreCache";
         public const string RootId = "RootId";
         public const string SaveCache = "SaveCache";
-        public const string FileShareArtifact = "FilePath";
+        public const string FileShareArtifact = "filepath";
     }
 }
