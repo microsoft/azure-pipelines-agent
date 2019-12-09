@@ -332,7 +332,7 @@ get_machine_architecture() {
     if command -v uname > /dev/null; then
         CPUName=$(uname -m)
         case $CPUName in
-        armv7l)
+        armv*l)
             echo "arm"
             return 0
             ;;
