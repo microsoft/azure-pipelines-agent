@@ -47,7 +47,7 @@ function detect_platform_and_runtime_id ()
         if command -v uname > /dev/null; then
             local CPU_NAME=$(uname -m)
             case $CPU_NAME in
-                armv7l) DETECTED_RUNTIME_ID="linux-arm";;
+                armv*l) DETECTED_RUNTIME_ID="linux-arm";;
                 aarch64) DETECTED_RUNTIME_ID="linux-arm";;
             esac
         fi
