@@ -50,6 +50,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private readonly Tracing _trace;
         private ConcurrentDictionary<string, Variable> _expanded;
 
+        private List<String> _wellKnownSystemVariables;
+
         public delegate string TranslationMethod(string val);
         public TranslationMethod StringTranslator = val => val ;
 
@@ -641,45 +643,49 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 return true;
             }
 
-            // If variable is not marked as readOnly, return whether its in the set of reserved system variables (which are always readOnly)
-            List<String> readOnlyPrefixes = new List<String>()
+            if (_wellKnownSystemVariables == null)
             {
-                "system.",
-                "build.",
-                "agent."
-            };
-            // These are all classes which have system variables defined in them. See https://github.com/microsoft/azure-pipelines-agent/blob/master/src/Microsoft.VisualStudio.Services.Agent/Constants.cs
-            List<System.Type> wellKnownSystemVariableClasses = new List<System.Type>()
-            {
-                typeof(Constants.Variables.Agent),
-                typeof(Constants.Variables.Build),
-                typeof(Constants.Variables.Features),
-                typeof(Constants.Variables.Pipeline),
-                typeof(Constants.Variables.Release),
-                typeof(Constants.Variables.System),
-                typeof(Constants.Variables.Task),
-                typeof(WellKnownDistributedTaskVariables)
-            };
-            List<String> wellKnownSystemVariables = new List<String>();
+                _wellKnownSystemVariables = new List<String>();
 
-            // Iterate through members of each class and add any system variables (aka prefixed with our readOnlyPrefixes)
-            foreach (System.Type systemVariableClass in wellKnownSystemVariableClasses)
-            {
-                var wellKnownDistributedTaskFields = systemVariableClass.GetFields();
-                foreach(var field in wellKnownDistributedTaskFields)
+                // If variable is not marked as readOnly, return whether its in the set of reserved system variables (which are always readOnly)
+                List<String> readOnlyPrefixes = new List<String>()
                 {
-                    String value = field.GetValue(systemVariableClass).ToString().ToLower();
-                    foreach(String prefix in readOnlyPrefixes)
+                    "system.",
+                    "build.",
+                    "agent."
+                };
+                // These are all classes which have system variables defined in them. See https://github.com/microsoft/azure-pipelines-agent/blob/master/src/Microsoft.VisualStudio.Services.Agent/Constants.cs
+                List<System.Type> wellKnownSystemVariableClasses = new List<System.Type>()
+                {
+                    typeof(Constants.Variables.Agent),
+                    typeof(Constants.Variables.Build),
+                    typeof(Constants.Variables.Features),
+                    typeof(Constants.Variables.Pipeline),
+                    typeof(Constants.Variables.Release),
+                    typeof(Constants.Variables.System),
+                    typeof(Constants.Variables.Task),
+                    typeof(WellKnownDistributedTaskVariables)
+                };
+
+                // Iterate through members of each class and add any system variables (aka prefixed with our readOnlyPrefixes)
+                foreach (System.Type systemVariableClass in wellKnownSystemVariableClasses)
+                {
+                    var wellKnownDistributedTaskFields = systemVariableClass.GetFields();
+                    foreach(var field in wellKnownDistributedTaskFields)
                     {
-                        if (value.StartsWith(prefix))
+                        String value = field.GetValue(systemVariableClass).ToString().ToLower();
+                        foreach(String prefix in readOnlyPrefixes)
                         {
-                            wellKnownSystemVariables.Add(value);
+                            if (value.StartsWith(prefix))
+                            {
+                                _wellKnownSystemVariables.Add(value);
+                            }
                         }
                     }
                 }
             }
 
-            return wellKnownSystemVariables.Contains(variable.Name.ToLower());
+            return _wellKnownSystemVariables.Contains(variable.Name.ToLower());
         }
 
         private sealed class RecursionState
