@@ -187,6 +187,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
+        public bool Read_Only_Variables
+        {
+            get
+            {
+                return GetBoolean(Constants.Variables.Agent.ReadOnlyVariables) ?? false;
+            }
+        }
+
         public string System_CollectionId => Get(Constants.Variables.System.CollectionId);
 
         public bool? System_Debug => GetBoolean(Constants.Variables.System.Debug);
@@ -412,6 +420,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public bool IsReadOnly(string name)
         {
+            if (!Read_Only_Variables)
+            {
+                return false;
+            }
             Variable existingVariable = null;
             if (!_expanded.TryGetValue(name, out existingVariable)) {
                 _nonexpanded.TryGetValue(name, out existingVariable);
