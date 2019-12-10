@@ -573,7 +573,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
             }
 
-            context.SetVariable(name, data, isSecret: isSecret, isOutput: isOutput, isReadOnly: isReadOnly, checkReadOnly: true);
+            context.SetVariable(name, data, isSecret: isSecret, isOutput: isOutput, isReadOnly: isReadOnly);
         }
     }
 

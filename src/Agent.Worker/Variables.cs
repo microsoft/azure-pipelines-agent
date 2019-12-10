@@ -26,10 +26,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Names = new HashSet<string>();
         }
 
-        public void Set(string name, string val, bool secret = false, bool readOnly = false)
+        public void Set(string name, string val, bool secret = false)
         {
             Names.Add(name);
-            Data.Set(name, val, secret, readOnly);
+            Data.Set(name, val, secret);
         }
 
         public void Dispose()
@@ -122,7 +122,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             set
             {
-                Set(Constants.Variables.Agent.JobStatus, $"{value}", false, true);
+                Set(Constants.Variables.Agent.JobStatus, $"{value}");
             }
         }
 
