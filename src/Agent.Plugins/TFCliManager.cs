@@ -275,7 +275,17 @@ namespace Agent.Plugins.Repository
 
         public async Task WorkspaceNewAsync()
         {
-            await RunCommandAsync("vc", "workspace", "/new", "/location:local", "/permission:Public", WorkspaceName);
+            var useServerWorkspace = StringUtil.ConvertToBoolean(ExecutionContext.Variables.GetValueOrDefault("build.useserverworkspaces")?.Value ?? "false");
+            ExecutionContext.Debug($"useServerWorkspace is set to : '{useServerWorkspace}'");
+
+            if (useServerWorkspace)
+            {
+                await RunCommandAsync("vc", "workspace", "/new", "/location:server", "/permission:Public", WorkspaceName);
+            }
+            else
+            {
+                await RunCommandAsync("vc", "workspace", "/new", "/location:local", "/permission:Public", WorkspaceName);
+            }
         }
 
         public async Task<ITfsVCWorkspace[]> WorkspacesAsync(bool matchWorkspaceNameOnAnyComputer = false)

@@ -274,7 +274,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public async Task WorkspaceNewAsync()
         {
-            await RunCommandAsync("vc", "workspace", "/new", "/location:local", "/permission:Public", WorkspaceName);
+            var useServerWorkspace = ExecutionContext.Variables.Build_UseServerWorkspaces ?? false;
+            ExecutionContext.Debug($"useServerWorkspace is set to : '{useServerWorkspace}'");
+
+            if (useServerWorkspace)
+            {
+                await RunCommandAsync("vc", "workspace", "/new", "/location:server", "/permission:Public", WorkspaceName);
+            }
+            else
+            {
+                await RunCommandAsync("vc", "workspace", "/new", "/location:local", "/permission:Public", WorkspaceName);
+            }
         }
 
         public async Task<ITfsVCWorkspace[]> WorkspacesAsync(bool matchWorkspaceNameOnAnyComputer = false)

@@ -337,6 +337,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string SourcesDirectory = "build.sourcesdirectory";
                 public static readonly string StagingDirectory = "build.stagingdirectory";
                 public static readonly string SyncSources = "build.syncSources";
+                public static readonly string UseServerWorkspaces = "build.useserverworkspaces";
             }
 
             public static class Common

@@ -160,6 +160,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public bool? Build_SyncSources => GetBoolean(Constants.Variables.Build.SyncSources);
 
+        public bool? Build_UseServerWorkspaces => GetBoolean(Constants.Variables.Build.UseServerWorkspaces);
+
         public string Release_ArtifactsDirectory => Get(Constants.Variables.Release.ArtifactsDirectory);
 
         public string Release_ReleaseEnvironmentUri => Get(Constants.Variables.Release.ReleaseEnvironmentUri);
