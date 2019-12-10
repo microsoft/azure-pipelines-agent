@@ -374,7 +374,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public void Set(string name, string val, bool secret = false, bool readOnly = false, bool checkReadOnly = false)
+        public void Set(string name, string val, bool secret = false, bool readOnly = false)
         {
             // Validate the args.
             ArgUtil.NotNullOrEmpty(name, nameof(name));
@@ -400,15 +400,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     _secretMasker.AddValue(val);
                 }
 
-                Variable existingVariable = null;
-                if (!_expanded.TryGetValue(name, out existingVariable)) {
-                    _nonexpanded.TryGetValue(name, out existingVariable);
-                }
-                if (checkReadOnly && existingVariable != null && IsReadOnly(existingVariable))
-                {
-                    throw new Exception($"Overwriting readonly variable '{name}'. This behavior will be disabled in the future.");
-                }
-
                 // Store the value as-is to the expanded dictionary and the non-expanded dictionary.
                 // It is not expected that the caller needs to store an non-expanded value and then
                 // retrieve the expanded value in the same context.
@@ -417,6 +408,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 _nonexpanded[name] = variable;
                 _trace.Verbose($"Set '{name}' = '{val}'");
             }
+        }
+
+        public bool IsReadOnly(string name)
+        {
+            Variable existingVariable = null;
+            if (!_expanded.TryGetValue(name, out existingVariable)) {
+                _nonexpanded.TryGetValue(name, out existingVariable);
+            }
+            return (existingVariable != null && IsReadOnly(existingVariable));
         }
 
         public void Transform(Func<string, string> function)

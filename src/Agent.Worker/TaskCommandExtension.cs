@@ -5,6 +5,7 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -550,6 +551,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             if (eventProperties.TryGetValue(TaskSetVariableEventProperties.IsReadOnly, out isReadOnlyValue))
             {
                 Boolean.TryParse(isReadOnlyValue, out isReadOnly);
+                
+            }
+
+            if (context.Variables.IsReadOnly(name))
+            {
+                context.Warning($"Overwriting readonly variable '{name}'. This behavior will be disabled in the future.");
             }
 
             if (isSecret)
@@ -616,6 +623,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Boolean.TryParse(isSecretValue, out isSecret);
             }
 
+            String isReadOnlyValue;
+            Boolean isReadOnly = false;
+            if (eventProperties.TryGetValue(TaskSetVariableEventProperties.IsReadOnly, out isReadOnlyValue))
+            {
+                Boolean.TryParse(isReadOnlyValue, out isReadOnly);
+            }
+
+            if (context.TaskVariables.IsReadOnly(name))
+            {
+                context.Warning($"Overwriting readonly variable '{name}'. This behavior will be disabled in the future.");
+            }
+
             if (isSecret)
             {
                 bool? allowMultilineSecret = context.Variables.GetBoolean("SYSTEM_UNSAFEALLOWMULTILINESECRET");
@@ -632,8 +651,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
             }
 
-            // TODO
-            context.TaskVariables.Set(name, data, isSecret, false);
+            context.TaskVariables.Set(name, data, isSecret, isReadOnly);
         }
     }
 

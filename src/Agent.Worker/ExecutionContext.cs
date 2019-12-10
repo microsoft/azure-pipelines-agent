@@ -274,7 +274,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
             else
             {
-                Variables.Set(name, value, secret: isSecret, readOnly: isReadOnly, checkReadOnly: checkReadOnly);
+                Variables.Set(name, value, secret: isSecret, readOnly: isReadOnly);
             }
         }
 
