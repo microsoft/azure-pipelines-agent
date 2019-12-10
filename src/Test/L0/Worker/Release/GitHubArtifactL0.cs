@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -83,42 +86,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
                 // verify github endpoint is set correctly
                 _sourceProvider.Verify(
                     x => x.GetSourceAsync(
-                        It.IsAny<IExecutionContext>(), 
+                        It.IsAny<IExecutionContext>(),
                         It.Is<ServiceEndpoint>(y => y.Url.Equals(new Uri(_expectedGitHubUrl)) && y.Authorization.Scheme.Equals(EndpointAuthorizationSchemes.OAuth)
                         && y.Data.ContainsKey(Constants.EndpointData.SourcesDirectory) && y.Data.ContainsKey(Constants.EndpointData.SourceBranch)
-                        && y.Data.ContainsKey(Constants.EndpointData.SourceVersion) && y.Data.ContainsKey("fetchDepth") && y.Data.ContainsKey("GitLfsSupport") && y.Data.ContainsKey(WellKnownEndpointData.CheckoutSubmodules)), 
+                        && y.Data.ContainsKey(Constants.EndpointData.SourceVersion) && y.Data.ContainsKey("fetchDepth") && y.Data.ContainsKey("GitLfsSupport") && y.Data.ContainsKey(EndpointData.CheckoutSubmodules)),
                         It.IsAny<CancellationToken>()));
-            }
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Worker")]
-        public void GitHubArtifactShouldMapSourceProviderInvalidOperationExceptionToArtifactDownloadException()
-        {
-            using (TestHostContext tc = Setup())
-            {
-                var gitHubArtifact = new GitHubArtifact();
-                gitHubArtifact.Initialize(tc);
-
-                _ec.Setup(x => x.Endpoints)
-                    .Returns(
-                        new List<ServiceEndpoint>
-                        {
-                            new ServiceEndpoint
-                            {
-                                Name = _githubConnectionName,
-                                Url = new Uri("http://contoso.visualstudio.com"),
-                                Authorization = new EndpointAuthorization()
-                            }
-                        });
-
-                _sourceProvider.Setup(
-                    x => x.GetSourceAsync(It.IsAny<IExecutionContext>(), It.IsAny<ServiceEndpoint>(), It.IsAny<CancellationToken>()))
-                    .Returns(() => { throw new InvalidOperationException("InvalidOperationException"); });
-
-                Assert.Throws<ArtifactDownloadException>(
-                    () => gitHubArtifact.DownloadAsync(_ec.Object, _artifactDefinition, "localFolderPath").SyncResult());
             }
         }
 
@@ -128,27 +100,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
             _ec = new Mock<IExecutionContext>();
 
             _artifactDefinition = new ArtifactDefinition
-                                      {
-                                          Version = _expectedVersion,
-                                          Details = new GitHubArtifactDetails
-                                          {
-                                              ConnectionName = _githubConnectionName,
-                                              CloneUrl = new Uri(_expectedGitHubUrl),
-                                              Branch = _expectedBranchName
-                                          }
-                                      };
+            {
+                Version = _expectedVersion,
+                Details = new GitHubArtifactDetails
+                {
+                    ConnectionName = _githubConnectionName,
+                    CloneUrl = new Uri(_expectedGitHubUrl),
+                    Branch = _expectedBranchName
+                }
+            };
 
             _extensionManager = new Mock<IExtensionManager>();
             _sourceProvider = new Mock<ISourceProvider>();
 
             List<string> warnings;
-            _variables = new Variables(hc, new Dictionary<string, string>(), new List<MaskHint>(), out warnings);
+            _variables = new Variables(hc, new Dictionary<string, VariableValue>(), out warnings);
 
             hc.SetSingleton<IExtensionManager>(_extensionManager.Object);
             _ec.Setup(x => x.Variables).Returns(_variables);
             _extensionManager.Setup(x => x.GetExtensions<ISourceProvider>())
                 .Returns(new List<ISourceProvider> { _sourceProvider.Object });
-            _sourceProvider.Setup(x => x.RepositoryType).Returns(WellKnownRepositoryTypes.GitHub);
+            _sourceProvider.Setup(x => x.RepositoryType).Returns(Microsoft.TeamFoundation.DistributedTask.Pipelines.RepositoryTypes.GitHub);
 
             return hc;
         }

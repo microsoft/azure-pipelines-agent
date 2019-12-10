@@ -1,4 +1,9 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Newtonsoft.Json;
 using System;
@@ -8,34 +13,48 @@ using System.IO.Compression;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.VisualStudio.Services.Common;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
     [ServiceLocator(Default = typeof(TaskManager))]
     public interface ITaskManager : IAgentService
     {
-        Task DownloadAsync(IExecutionContext executionContext, IEnumerable<TaskInstance> tasks);
+        Task DownloadAsync(IExecutionContext executionContext, IEnumerable<Pipelines.JobStep> steps);
 
-        Definition Load(TaskReference task);
+        Definition Load(Pipelines.TaskStep task);
+
+        /// <summary>
+        /// Extract a task that has already been downloaded.
+        /// </summary>
+        /// <param name="executionContext">Current execution context.</param>
+        /// <param name="task">The task to be extracted.</param>
+        void Extract(IExecutionContext executionContext, Pipelines.TaskStep task);
     }
 
     public sealed class TaskManager : AgentService, ITaskManager
     {
-        public async Task DownloadAsync(IExecutionContext executionContext, IEnumerable<TaskInstance> tasks)
+        private const int _defaultFileStreamBufferSize = 4096;
+
+        //81920 is the default used by System.IO.Stream.CopyTo and is under the large object heap threshold (85k).
+        private const int _defaultCopyBufferSize = 81920;
+
+        public async Task DownloadAsync(IExecutionContext executionContext, IEnumerable<Pipelines.JobStep> steps)
         {
             ArgUtil.NotNull(executionContext, nameof(executionContext));
-            ArgUtil.NotNull(tasks, nameof(tasks));
+            ArgUtil.NotNull(steps, nameof(steps));
 
             executionContext.Output(StringUtil.Loc("EnsureTasksExist"));
 
-            //remove duplicate and disabled tasks
-            IEnumerable<TaskInstance> uniqueTasks =
+            IEnumerable<Pipelines.TaskStep> tasks = steps.OfType<Pipelines.TaskStep>();
+
+            //remove duplicate, disabled and built-in tasks
+            IEnumerable<Pipelines.TaskStep> uniqueTasks =
                 from task in tasks
-                where task.Enabled
                 group task by new
                 {
-                    task.Id,
-                    task.Version
+                    task.Reference.Id,
+                    task.Reference.Version
                 }
                 into taskGrouping
                 select taskGrouping.First();
@@ -46,20 +65,45 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 return;
             }
 
-            foreach (TaskInstance task in uniqueTasks)
+            foreach (var task in uniqueTasks.Select(x => x.Reference))
             {
+                if (task.Id == Pipelines.PipelineConstants.CheckoutTask.Id && task.Version == Pipelines.PipelineConstants.CheckoutTask.Version)
+                {
+                    Trace.Info("Skip download checkout task.");
+                    continue;
+                }
                 await DownloadAsync(executionContext, task);
             }
         }
 
-        public Definition Load(TaskReference task)
+        public Definition Load(Pipelines.TaskStep task)
         {
             // Validate args.
             Trace.Entering();
             ArgUtil.NotNull(task, nameof(task));
 
+            if (task.Reference.Id == Pipelines.PipelineConstants.CheckoutTask.Id && task.Reference.Version == Pipelines.PipelineConstants.CheckoutTask.Version)
+            {
+                var checkoutTask = new Definition()
+                {
+                    Directory = HostContext.GetDirectory(WellKnownDirectory.Tasks),
+                    Data = new DefinitionData()
+                    {
+                        Author = Pipelines.PipelineConstants.CheckoutTask.Author,
+                        Description = Pipelines.PipelineConstants.CheckoutTask.Description,
+                        FriendlyName = Pipelines.PipelineConstants.CheckoutTask.FriendlyName,
+                        HelpMarkDown = Pipelines.PipelineConstants.CheckoutTask.HelpMarkDown,
+                        Inputs = Pipelines.PipelineConstants.CheckoutTask.Inputs.ToArray(),
+                        Execution = StringUtil.ConvertFromJson<ExecutionData>(StringUtil.ConvertToJson(Pipelines.PipelineConstants.CheckoutTask.Execution)),
+                        PostJobExecution = StringUtil.ConvertFromJson<ExecutionData>(StringUtil.ConvertToJson(Pipelines.PipelineConstants.CheckoutTask.PostJobExecution))
+                    }
+                };
+
+                return checkoutTask;
+            }
+
             // Initialize the definition wrapper object.
-            var definition = new Definition() { Directory = GetDirectory(task) };
+            var definition = new Definition() { Directory = GetDirectory(task.Reference), ZipPath = GetTaskZipPath(task.Reference) };
 
             // Deserialize the JSON.
             string file = Path.Combine(definition.Directory, Constants.Path.TaskJsonFile);
@@ -76,7 +120,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return definition;
         }
 
-        private async Task DownloadAsync(IExecutionContext executionContext, TaskInstance task)
+        public void Extract(IExecutionContext executionContext, Pipelines.TaskStep task)
+        {
+            String zipFile = GetTaskZipPath(task.Reference);
+            String destinationDirectory = GetDirectory(task.Reference);
+            
+            executionContext.Debug($"Extracting task {task.Name} from {zipFile} to {destinationDirectory}.");
+            
+            Trace.Verbose("Deleting task destination folder: {0}", destinationDirectory);
+            IOUtil.DeleteDirectory(destinationDirectory, executionContext.CancellationToken);
+
+            Directory.CreateDirectory(destinationDirectory);
+            ZipFile.ExtractToDirectory(zipFile, destinationDirectory);
+            Trace.Verbose("Creating watermark file to indicate the task extracted successfully.");
+            File.WriteAllText(destinationDirectory + ".completed", DateTime.UtcNow.ToString());
+        }
+
+        private async Task DownloadAsync(IExecutionContext executionContext, Pipelines.TaskStepDefinitionReference task)
         {
             Trace.Entering();
             ArgUtil.NotNull(executionContext, nameof(executionContext));
@@ -87,9 +147,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // first check to see if we already have the task
             string destDirectory = GetDirectory(task);
             Trace.Info($"Ensuring task exists: ID '{task.Id}', version '{task.Version}', name '{task.Name}', directory '{destDirectory}'.");
-            if (File.Exists(destDirectory + ".completed"))
+
+            var configurationStore = HostContext.GetService<IConfigurationStore>();
+            AgentSettings settings = configurationStore.GetSettings();
+            Boolean signingEnabled = !String.IsNullOrEmpty(settings.Fingerprint);
+
+            if (File.Exists(destDirectory + ".completed") && !signingEnabled)
             {
                 executionContext.Debug($"Task '{task.Name}' already downloaded at '{destDirectory}'.");
+                return;
+            }
+
+            String taskZipPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.TaskZips), $"{task.Name}_{task.Id}_{task.Version}.zip");
+            if (signingEnabled && File.Exists(taskZipPath))
+            {
+                executionContext.Debug($"Task '{task.Name}' already downloaded at '{taskZipPath}'.");
+
+                // We need to extract the zip now because the task.json metadata for the task is used in JobExtension.InitializeJob.
+                // This is fine because we overwrite the contents at task run time.
+                if (!File.Exists(destDirectory + ".completed"))
+                {
+                    // The zip exists but it hasn't been extracted yet.
+                    IOUtil.DeleteDirectory(destDirectory, executionContext.CancellationToken);
+                    ExtractZip(taskZipPath, destDirectory);
+                }
+
                 return;
             }
 
@@ -100,34 +182,93 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Inform the user that a download is taking place. The download could take a while if
             // the task zip is large. It would be nice to print the localized name, but it is not
             // available from the reference included in the job message.
-            executionContext.Output(StringUtil.Loc("DownloadingTask0", task.Name));
-            string zipFile;
+            executionContext.Output(StringUtil.Loc("DownloadingTask0", task.Name, task.Version));
+            string zipFile = string.Empty;
             var version = new TaskVersion(task.Version);
 
             //download and extract task in a temp folder and rename it on success
-            string tempDirectory = Path.Combine(IOUtil.GetTasksPath(HostContext), "_temp_" + Guid.NewGuid());
+            string tempDirectory = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Tasks), "_temp_" + Guid.NewGuid());
             try
             {
                 Directory.CreateDirectory(tempDirectory);
-                zipFile = Path.Combine(tempDirectory, string.Format("{0}.zip", Guid.NewGuid()));
-                //open zip stream in async mode
-                using (FileStream fs = new FileStream(zipFile, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true))
+                int retryCount = 0;
+
+                // Allow up to 20 * 60s for any task to be downloaded from service.
+                // Base on Kusto, the longest we have on the service today is over 850 seconds.
+                // Timeout limit can be overwrite by environment variable
+                if (!int.TryParse(Environment.GetEnvironmentVariable("VSTS_TASK_DOWNLOAD_TIMEOUT") ?? string.Empty, out int timeoutSeconds))
                 {
-                    using (Stream result = await taskServer.GetTaskContentZipAsync(task.Id, version, executionContext.CancellationToken))
+                    timeoutSeconds = 20 * 60;
+                }
+
+                while (retryCount < 3)
+                {
+                    using (var taskDownloadTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds)))
+                    using (var taskDownloadCancellation = CancellationTokenSource.CreateLinkedTokenSource(taskDownloadTimeout.Token, executionContext.CancellationToken))
                     {
-                        //81920 is the default used by System.IO.Stream.CopyTo and is under the large object heap threshold (85k). 
-                        await result.CopyToAsync(fs, 81920, executionContext.CancellationToken);
-                        await fs.FlushAsync(executionContext.CancellationToken);
+                        try
+                        {
+                            zipFile = Path.Combine(tempDirectory, string.Format("{0}.zip", Guid.NewGuid()));
+
+                            //open zip stream in async mode
+                            using (FileStream fs = new FileStream(zipFile, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: _defaultFileStreamBufferSize, useAsync: true))
+                            using (Stream result = await taskServer.GetTaskContentZipAsync(task.Id, version, taskDownloadCancellation.Token))
+                            {
+                                await result.CopyToAsync(fs, _defaultCopyBufferSize, taskDownloadCancellation.Token);
+                                await fs.FlushAsync(taskDownloadCancellation.Token);
+
+                                // download succeed, break out the retry loop.
+                                break;
+                            }
+                        }
+                        catch (OperationCanceledException) when (executionContext.CancellationToken.IsCancellationRequested)
+                        {
+                            Trace.Info($"Task download has been cancelled.");
+                            throw;
+                        }
+                        catch (Exception ex) when (retryCount < 2)
+                        {
+                            retryCount++;
+                            Trace.Error($"Fail to download task '{task.Id} ({task.Name}/{task.Version})' -- Attempt: {retryCount}");
+                            Trace.Error(ex);
+                            if (taskDownloadTimeout.Token.IsCancellationRequested)
+                            {
+                                // task download didn't finish within timeout
+                                executionContext.Warning(StringUtil.Loc("TaskDownloadTimeout", task.Name, timeoutSeconds));
+                            }
+                            else
+                            {
+                                executionContext.Warning(StringUtil.Loc("TaskDownloadFailed", task.Name, ex.Message));
+                                if (ex.InnerException != null) {
+                                    executionContext.Warning("Inner Exception: {ex.InnerException.Message}");
+                                }
+                            }
+                        }
+                    }
+
+                    if (String.IsNullOrEmpty(Environment.GetEnvironmentVariable("VSTS_TASK_DOWNLOAD_NO_BACKOFF")))
+                    {
+                        var backOff = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(30));
+                        executionContext.Warning($"Back off {backOff.TotalSeconds} seconds before retry.");
+                        await Task.Delay(backOff);
                     }
                 }
 
+                if (signingEnabled)
+                {
+                    Directory.CreateDirectory(HostContext.GetDirectory(WellKnownDirectory.TaskZips));
+
+                    // Copy downloaded zip to the cache on disk for future extraction.
+                    executionContext.Debug($"Copying from {zipFile} to {taskZipPath}");
+                    File.Copy(zipFile, taskZipPath);
+                }
+
+                // We need to extract the zip regardless of whether or not signing is enabled because the task.json metadata for the task is used in JobExtension.InitializeJob.
+                // This is fine because we overwrite the contents at task run time.
                 Directory.CreateDirectory(destDirectory);
-                ZipFile.ExtractToDirectory(zipFile, destDirectory);
+                ExtractZip(zipFile, destDirectory);
 
-                Trace.Verbose("Create watermark file indicate task download succeed.");
-                File.WriteAllText(destDirectory + ".completed", DateTime.UtcNow.ToString());
-
-                executionContext.Debug($"Task '{task.Name}' has been downloaded into '{destDirectory}'.");
+                executionContext.Debug($"Task '{task.Name}' has been downloaded into '{(signingEnabled ? taskZipPath : destDirectory)}'.");
                 Trace.Info("Finished getting task.");
             }
             finally
@@ -150,15 +291,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        private string GetDirectory(TaskReference task)
+        private void ExtractZip(String zipFile, String destinationDirectory)
+        {
+            ZipFile.ExtractToDirectory(zipFile, destinationDirectory);
+            Trace.Verbose("Create watermark file to indicate task download succeed.");
+            File.WriteAllText(destinationDirectory + ".completed", DateTime.UtcNow.ToString());
+        }
+
+        private string GetDirectory(Pipelines.TaskStepDefinitionReference task)
         {
             ArgUtil.NotEmpty(task.Id, nameof(task.Id));
             ArgUtil.NotNull(task.Name, nameof(task.Name));
             ArgUtil.NotNullOrEmpty(task.Version, nameof(task.Version));
             return Path.Combine(
-                IOUtil.GetTasksPath(HostContext),
+                HostContext.GetDirectory(WellKnownDirectory.Tasks),
                 $"{task.Name}_{task.Id}",
                 task.Version);
+        }
+
+        private string GetTaskZipPath(Pipelines.TaskStepDefinitionReference task)
+        {
+            ArgUtil.NotEmpty(task.Id, nameof(task.Id));
+            ArgUtil.NotNull(task.Name, nameof(task.Name));
+            ArgUtil.NotNullOrEmpty(task.Version, nameof(task.Version));
+            return Path.Combine(
+                HostContext.GetDirectory(WellKnownDirectory.TaskZips),
+                $"{task.Name}_{task.Id}_{task.Version}.zip"); // TODO: Move to shared string.
         }
     }
 
@@ -166,6 +324,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         public DefinitionData Data { get; set; }
         public string Directory { get; set; }
+        public string ZipPath {get;set;}
     }
 
     public sealed class DefinitionData
@@ -173,6 +332,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public string FriendlyName { get; set; }
         public string Description { get; set; }
         public string HelpMarkDown { get; set; }
+        public string HelpUrl { get; set; }
         public string Author { get; set; }
         public OutputVariable[] OutputVariables { get; set; }
         public TaskInputDefinition[] Inputs { get; set; }
@@ -192,17 +352,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private readonly List<HandlerData> _all = new List<HandlerData>();
         private AzurePowerShellHandlerData _azurePowerShell;
         private NodeHandlerData _node;
+        private Node10HandlerData _node10;
         private PowerShellHandlerData _powerShell;
         private PowerShell3HandlerData _powerShell3;
         private PowerShellExeHandlerData _powerShellExe;
         private ProcessHandlerData _process;
+        private AgentPluginHandlerData _agentPlugin;
 
         [JsonIgnore]
         public List<HandlerData> All => _all;
 
-#if !OS_WINDOWS
-        [JsonIgnore]
-#endif
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public AzurePowerShellHandlerData AzurePowerShell
         {
             get
@@ -212,8 +372,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             set
             {
-                _azurePowerShell = value;
-                Add(value);
+                if (PlatformUtil.RunningOnWindows && !PlatformUtil.IsX86)
+                {
+                    _azurePowerShell = value;
+                    Add(value);
+                }
             }
         }
 
@@ -231,9 +394,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-#if !OS_WINDOWS
-        [JsonIgnore]
-#endif
+        public Node10HandlerData Node10
+        {
+            get
+            {
+                return _node10;
+            }
+
+            set
+            {
+                _node10 = value;
+                Add(value);
+            }
+        }
+
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public PowerShellHandlerData PowerShell
         {
             get
@@ -243,14 +418,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             set
             {
-                _powerShell = value;
-                Add(value);
+                if (PlatformUtil.RunningOnWindows && !PlatformUtil.IsX86)
+                {
+                    _powerShell = value;
+                    Add(value);
+                }
             }
         }
 
-#if !OS_WINDOWS
-        [JsonIgnore]
-#endif
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public PowerShell3HandlerData PowerShell3
         {
             get
@@ -260,14 +436,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             set
             {
-                _powerShell3 = value;
-                Add(value);
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    _powerShell3 = value;
+                    Add(value);
+                }
             }
         }
 
-#if !OS_WINDOWS
-        [JsonIgnore]
-#endif
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public PowerShellExeHandlerData PowerShellExe
         {
             get
@@ -277,14 +454,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             set
             {
-                _powerShellExe = value;
-                Add(value);
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    _powerShellExe = value;
+                    Add(value);
+                }
             }
         }
 
-#if !OS_WINDOWS
-        [JsonIgnore]
-#endif
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public ProcessHandlerData Process
         {
             get
@@ -294,7 +472,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             set
             {
-                _process = value;
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    _process = value;
+                    Add(value);
+                }
+            }
+        }
+
+        public AgentPluginHandlerData AgentPlugin
+        {
+            get
+            {
+                return _agentPlugin;
+            }
+
+            set
+            {
+                _agentPlugin = value;
                 Add(value);
             }
         }
@@ -335,14 +530,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Inputs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         }
 
-        public bool PreferredOnCurrentPlatform()
+        public bool PreferredOnPlatform(PlatformUtil.OS os)
         {
-#if OS_WINDOWS
-            const string CurrentPlatform = "windows";
-            return Platforms?.Any(x => string.Equals(x, CurrentPlatform, StringComparison.OrdinalIgnoreCase)) ?? false;
-#else
+            if (os == PlatformUtil.OS.Windows)
+            {
+                return Platforms?.Any(x => string.Equals(x, os.ToString(), StringComparison.OrdinalIgnoreCase)) ?? false;
+            }
             return false;
-#endif
         }
 
         public void ReplaceMacros(IHostContext context, Definition definition)
@@ -369,10 +563,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    public sealed class NodeHandlerData : HandlerData
+    public abstract class BaseNodeHandlerData : HandlerData
     {
-        public override int Priority => 1;
-
         public string WorkingDirectory
         {
             get
@@ -387,9 +579,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    public sealed class PowerShell3HandlerData : HandlerData
+    public sealed class NodeHandlerData : BaseNodeHandlerData
     {
         public override int Priority => 2;
+    }
+
+    public sealed class Node10HandlerData : BaseNodeHandlerData
+    {
+        public override int Priority => 1;
+    }
+
+    public sealed class PowerShell3HandlerData : HandlerData
+    {
+        public override int Priority => 3;
     }
 
     public sealed class PowerShellHandlerData : HandlerData
@@ -407,7 +609,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 3;
+        public override int Priority => 4;
 
         public string WorkingDirectory
         {
@@ -438,7 +640,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 4;
+        public override int Priority => 5;
 
         public string WorkingDirectory
         {
@@ -566,5 +768,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 SetInput(nameof(WorkingDirectory), value);
             }
         }
+    }
+
+    public sealed class AgentPluginHandlerData : HandlerData
+    {
+        public override int Priority => 0;
     }
 }

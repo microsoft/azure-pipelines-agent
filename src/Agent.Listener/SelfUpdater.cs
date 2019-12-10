@@ -1,4 +1,8 @@
-﻿using Microsoft.TeamFoundation.DistributedTask.WebApi;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Diagnostics;
@@ -45,11 +49,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         {
             if (!await UpdateNeeded(updateMessage.TargetVersion, token))
             {
-                Trace.Info($"Can't find availiable update package.");
+                Trace.Info($"Can't find available update package.");
                 return false;
             }
 
-            Trace.Info($"An update is availiable.");
+            Trace.Info($"An update is available.");
 
             // Print console line that warn user not shutdown agent.
             await UpdateAgentUpdateStateAsync(StringUtil.Loc("UpdateInProgress"));
@@ -62,7 +66,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             await UpdateAgentUpdateStateAsync(StringUtil.Loc("EnsureJobFinished"));
 
             await jobDispatcher.WaitAsync(token);
-            Trace.Info($"All running job has exited.");
+            Trace.Info($"All running jobs have exited.");
 
             // delete agent backup
             DeletePreviousVersionAgentBackup(token);
@@ -76,14 +80,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
             // kick off update script
             Process invokeScript = new Process();
-            var whichUtil = HostContext.GetService<IWhichUtil>();
-#if OS_WINDOWS
-            invokeScript.StartInfo.FileName = whichUtil.Which("cmd.exe");
-            invokeScript.StartInfo.Arguments = $"/c \"{updateScript}\"";
-#elif (OS_OSX || OS_LINUX)
-            invokeScript.StartInfo.FileName = whichUtil.Which("bash");
-            invokeScript.StartInfo.Arguments = $"\"{updateScript}\"";
-#endif
+            if (PlatformUtil.RunningOnWindows)
+            {
+                invokeScript.StartInfo.FileName = WhichUtil.Which("cmd.exe", trace: Trace);
+                invokeScript.StartInfo.Arguments = $"/c \"{updateScript}\"";
+            }
+            else
+            {
+                invokeScript.StartInfo.FileName = WhichUtil.Which("bash", trace: Trace);
+                invokeScript.StartInfo.Arguments = $"\"{updateScript}\"";
+            }
             invokeScript.Start();
             Trace.Info($"Update script start running");
 
@@ -117,10 +123,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 }
             }
 
-            Trace.Info($"Version '{_targetPackage.Version}' of '{_targetPackage.Type}' package availiable in server.");
+            Trace.Info($"Version '{_targetPackage.Version}' of '{_targetPackage.Type}' package available in server.");
             PackageVersion serverVersion = new PackageVersion(_targetPackage.Version);
-            Trace.Info($"Current running agent version is {Constants.Agent.Version}");
-            PackageVersion agentVersion = new PackageVersion(Constants.Agent.Version);
+            Trace.Info($"Current running agent version is {BuildConstants.AgentPackage.Version}");
+            PackageVersion agentVersion = new PackageVersion(BuildConstants.AgentPackage.Version);
 
             return serverVersion.CompareTo(agentVersion) > 0;
         }
@@ -138,45 +144,110 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         /// <returns></returns>
         private async Task DownloadLatestAgent(CancellationToken token)
         {
-            string latestAgentDirectory = IOUtil.GetUpdatePath(HostContext);
+            string latestAgentDirectory = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), Constants.Path.UpdateDirectory);
             IOUtil.DeleteDirectory(latestAgentDirectory, token);
             Directory.CreateDirectory(latestAgentDirectory);
 
-            string archiveFile;
-            if (_targetPackage.Platform.StartsWith("win"))
-            {
-                archiveFile = Path.Combine(latestAgentDirectory, "agent.zip");
-            }
-            else
-            {
-                archiveFile = Path.Combine(latestAgentDirectory, "agent.tar.gz");
-            }
+            int agentSuffix = 1;
+            string archiveFile = null;
+            bool downloadSucceeded = false;
 
-            Trace.Info($"Save latest agent into {archiveFile}.");
             try
             {
-                using (var httpClient = new HttpClient(HostContext.CreateHttpClientHandler()))
+                // Download the agent, using multiple attempts in order to be resilient against any networking/CDN issues
+                for (int attempt = 1; attempt <= Constants.AgentDownloadRetryMaxAttempts; attempt++)
                 {
-                    //open zip stream in async mode
-                    using (FileStream fs = new FileStream(archiveFile, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true))
+                    // Generate an available package name, and do our best effort to clean up stale local zip files
+                    while (true)
                     {
-                        using (Stream result = await httpClient.GetStreamAsync(_targetPackage.DownloadUrl))
+                        if (_targetPackage.Platform.StartsWith("win"))
                         {
-                            //81920 is the default used by System.IO.Stream.CopyTo and is under the large object heap threshold (85k). 
-                            await result.CopyToAsync(fs, 81920, token);
-                            await fs.FlushAsync(token);
+                            archiveFile = Path.Combine(latestAgentDirectory, $"agent{agentSuffix}.zip");
+                        }
+                        else
+                        {
+                            archiveFile = Path.Combine(latestAgentDirectory, $"agent{agentSuffix}.tar.gz");
+                        }
+
+                        try
+                        {
+                            // delete .zip file
+                            if (!string.IsNullOrEmpty(archiveFile) && File.Exists(archiveFile))
+                            {
+                                Trace.Verbose("Deleting latest agent package zip '{0}'", archiveFile);
+                                IOUtil.DeleteFile(archiveFile);
+                            }
+
+                            break;
+                        }
+                        catch (Exception ex)
+                        {
+                            // couldn't delete the file for whatever reason, so generate another name
+                            Trace.Warning("Failed to delete agent package zip '{0}'. Exception: {1}", archiveFile, ex);
+                            agentSuffix++;
+                        }
+                    }
+
+                    // Allow a 15-minute package download timeout, which is good enough to update the agent from a 1 Mbit/s ADSL connection.
+                    if (!int.TryParse(Environment.GetEnvironmentVariable("AZP_AGENT_DOWNLOAD_TIMEOUT") ?? string.Empty, out int timeoutSeconds))
+                    {
+                        timeoutSeconds = 15 * 60;
+                    }
+
+                    Trace.Info($"Attempt {attempt}: save latest agent into {archiveFile}.");
+
+                    using (var downloadTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds)))
+                    using (var downloadCts = CancellationTokenSource.CreateLinkedTokenSource(downloadTimeout.Token, token))
+                    {
+                        try
+                        {
+                            Trace.Info($"Download agent: begin download");
+
+                            //open zip stream in async mode
+                            using (HttpClient httpClient = new HttpClient(HostContext.CreateHttpClientHandler()))
+                            using (FileStream fs = new FileStream(archiveFile, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true))
+                            using (Stream result = await httpClient.GetStreamAsync(_targetPackage.DownloadUrl))
+                            {
+                                //81920 is the default used by System.IO.Stream.CopyTo and is under the large object heap threshold (85k). 
+                                await result.CopyToAsync(fs, 81920, downloadCts.Token);
+                                await fs.FlushAsync(downloadCts.Token);
+                            }
+
+                            Trace.Info($"Download agent: finished download");
+                            downloadSucceeded = true;
+                            break;
+                        }
+                        catch (OperationCanceledException) when (token.IsCancellationRequested)
+                        {
+                            Trace.Info($"Agent download has been canceled.");
+                            throw;
+                        }
+                        catch (Exception ex)
+                        {
+                            if (downloadCts.Token.IsCancellationRequested)
+                            {
+                                Trace.Warning($"Agent download has timed out after {timeoutSeconds} seconds");
+                            }
+
+                            Trace.Warning($"Failed to get package '{archiveFile}' from '{_targetPackage.DownloadUrl}'. Exception {ex}");
                         }
                     }
                 }
 
+                if (!downloadSucceeded)
+                {
+                    throw new TaskCanceledException($"Agent package '{archiveFile}' failed after {Constants.AgentDownloadRetryMaxAttempts} download attempts");
+                }
+
+                // If we got this far, we know that we've successfully downloadeded the agent package
                 if (archiveFile.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
                 {
                     ZipFile.ExtractToDirectory(archiveFile, latestAgentDirectory);
                 }
                 else if (archiveFile.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase))
                 {
-                    var whichUtil = HostContext.GetService<IWhichUtil>();
-                    string tar = whichUtil.Which("tar");
+                    string tar = WhichUtil.Which("tar", trace: Trace);
+                    
                     if (string.IsNullOrEmpty(tar))
                     {
                         throw new NotSupportedException($"tar -xzf");
@@ -228,7 +299,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 }
                 catch (Exception ex)
                 {
-                    //it is not critical if we fail to delete the temp folder
+                    //it is not critical if we fail to delete the .zip file
                     Trace.Warning("Failed to delete agent package zip '{0}'. Exception: {1}", archiveFile, ex);
                 }
             }
@@ -256,29 +327,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
             // for windows service back compat with old windows agent, we need make sure the servicehost.exe is still the old name
             // if the current bin folder has VsoAgentService.exe, then the new agent bin folder needs VsoAgentService.exe as well
-#if OS_WINDOWS
-            if (File.Exists(Path.Combine(IOUtil.GetBinPath(), "VsoAgentService.exe")))
+            if (PlatformUtil.RunningOnWindows)
             {
-                Trace.Info($"Make a copy of AgentService.exe, name it VsoAgentService.exe");
-                File.Copy(Path.Combine(binVersionDir, "AgentService.exe"), Path.Combine(binVersionDir, "VsoAgentService.exe"), true);
-                File.Copy(Path.Combine(binVersionDir, "AgentService.exe.config"), Path.Combine(binVersionDir, "VsoAgentService.exe.config"), true);
-
-                Trace.Info($"Make a copy of Agent.Listener.exe, name it VsoAgent.exe");
-                File.Copy(Path.Combine(binVersionDir, "Agent.Listener.exe"), Path.Combine(binVersionDir, "VsoAgent.exe"), true);
-                File.Copy(Path.Combine(binVersionDir, "Agent.Listener.dll"), Path.Combine(binVersionDir, "VsoAgent.dll"), true);
-
-                // in case of we remove all pdb file from agent package.
-                if (File.Exists(Path.Combine(binVersionDir, "AgentService.pdb")))
+                if (File.Exists(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), "VsoAgentService.exe")))
                 {
-                    File.Copy(Path.Combine(binVersionDir, "AgentService.pdb"), Path.Combine(binVersionDir, "VsoAgentService.pdb"), true);
-                }
+                    Trace.Info($"Make a copy of AgentService.exe, name it VsoAgentService.exe");
+                    File.Copy(Path.Combine(binVersionDir, "AgentService.exe"), Path.Combine(binVersionDir, "VsoAgentService.exe"), true);
+                    File.Copy(Path.Combine(binVersionDir, "AgentService.exe.config"), Path.Combine(binVersionDir, "VsoAgentService.exe.config"), true);
 
-                if (File.Exists(Path.Combine(binVersionDir, "Agent.Listener.pdb")))
-                {
-                    File.Copy(Path.Combine(binVersionDir, "Agent.Listener.pdb"), Path.Combine(binVersionDir, "VsoAgent.pdb"), true);
+                    Trace.Info($"Make a copy of Agent.Listener.exe, name it VsoAgent.exe");
+                    File.Copy(Path.Combine(binVersionDir, "Agent.Listener.exe"), Path.Combine(binVersionDir, "VsoAgent.exe"), true);
+                    File.Copy(Path.Combine(binVersionDir, "Agent.Listener.dll"), Path.Combine(binVersionDir, "VsoAgent.dll"), true);
+
+                    // in case of we remove all pdb file from agent package.
+                    if (File.Exists(Path.Combine(binVersionDir, "AgentService.pdb")))
+                    {
+                        File.Copy(Path.Combine(binVersionDir, "AgentService.pdb"), Path.Combine(binVersionDir, "VsoAgentService.pdb"), true);
+                    }
+
+                    if (File.Exists(Path.Combine(binVersionDir, "Agent.Listener.pdb")))
+                    {
+                        File.Copy(Path.Combine(binVersionDir, "Agent.Listener.pdb"), Path.Combine(binVersionDir, "VsoAgent.pdb"), true);
+                    }
                 }
             }
-#endif
         }
 
         private void DeletePreviousVersionAgentBackup(CancellationToken token)
@@ -309,7 +381,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 foreach (var oldBinDir in allBinDirs)
                 {
                     if (string.Equals(oldBinDir, Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), $"bin"), StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(oldBinDir, Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), $"bin.{Constants.Agent.Version}"), StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(oldBinDir, Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), $"bin.{BuildConstants.AgentPackage.Version}"), StringComparison.OrdinalIgnoreCase) ||
                         string.Equals(oldBinDir, Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), $"bin.{_targetPackage.Version}"), StringComparison.OrdinalIgnoreCase))
                     {
                         // skip for current agent version
@@ -338,7 +410,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 foreach (var oldExternalDir in allExternalsDirs)
                 {
                     if (string.Equals(oldExternalDir, Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), $"externals"), StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(oldExternalDir, Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), $"externals.{Constants.Agent.Version}"), StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(oldExternalDir, Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), $"externals.{BuildConstants.AgentPackage.Version}"), StringComparison.OrdinalIgnoreCase) ||
                         string.Equals(oldExternalDir, Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), $"externals.{_targetPackage.Version}"), StringComparison.OrdinalIgnoreCase))
                     {
                         // skip for current agent version
@@ -365,11 +437,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             string updateLog = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Diag), $"SelfUpdate-{DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")}.log");
             string agentRoot = HostContext.GetDirectory(WellKnownDirectory.Root);
 
-#if OS_WINDOWS
-            string templateName = "update.cmd.template";
-#else
             string templateName = "update.sh.template";
-#endif
+            if (PlatformUtil.RunningOnWindows)
+            {
+                templateName = "update.cmd.template";
+            }
 
             string templatePath = Path.Combine(agentRoot, $"bin.{_targetPackage.Version}", templateName);
             string template = File.ReadAllText(templatePath);
@@ -377,18 +449,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             template = template.Replace("_PROCESS_ID_", processId.ToString());
             template = template.Replace("_AGENT_PROCESS_NAME_", $"Agent.Listener{IOUtil.ExeExtension}");
             template = template.Replace("_ROOT_FOLDER_", agentRoot);
-            template = template.Replace("_EXIST_AGENT_VERSION_", Constants.Agent.Version);
+            template = template.Replace("_EXIST_AGENT_VERSION_", BuildConstants.AgentPackage.Version);
             template = template.Replace("_DOWNLOAD_AGENT_VERSION_", _targetPackage.Version);
             template = template.Replace("_UPDATE_LOG_", updateLog);
             template = template.Replace("_RESTART_INTERACTIVE_AGENT_", restartInteractiveAgent ? "1" : "0");
 
-#if OS_WINDOWS
-            string scriptName = "_update.cmd";
-#else
             string scriptName = "_update.sh";
-#endif
+            if (PlatformUtil.RunningOnWindows)
+            {
+                scriptName = "_update.cmd";
+            }
 
-            string updateScript = Path.Combine(IOUtil.GetWorkPath(HostContext), scriptName);
+            string updateScript = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), scriptName);
             if (File.Exists(updateScript))
             {
                 IOUtil.DeleteFile(updateScript);

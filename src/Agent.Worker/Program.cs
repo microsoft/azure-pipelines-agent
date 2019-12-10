@@ -1,4 +1,7 @@
-﻿using Microsoft.VisualStudio.Services.Agent.Util;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Globalization;
 using System.Threading.Tasks;
@@ -9,6 +12,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         public static int Main(string[] args)
         {
+            // We can't use the new SocketsHttpHandler for now for both Windows and Linux
+            // On linux, Negotiate auth is not working if the TFS url is behind Https
+            // On windows, Proxy is not working
+            AppContext.SetSwitch("System.Net.Http.UseSocketsHttpHandler", false);
             using (HostContext context = new HostContext("Worker"))
             {
                 return MainAsync(context, args).GetAwaiter().GetResult();
@@ -23,10 +30,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Tracing trace = context.GetTrace(nameof(Program));
             try
             {
-                trace.Info($"Version: {Constants.Agent.Version}");
+                trace.Info($"Version: {BuildConstants.AgentPackage.Version}");
                 trace.Info($"Commit: {BuildConstants.Source.CommitHash}");
                 trace.Info($"Culture: {CultureInfo.CurrentCulture.Name}");
                 trace.Info($"UI Culture: {CultureInfo.CurrentUICulture.Name}");
+                context.WritePerfCounter("WorkerProcessStarted");
 
                 // Validate args.
                 ArgUtil.NotNull(args, nameof(args));

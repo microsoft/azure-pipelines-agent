@@ -1,3 +1,7 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.IO;
@@ -667,14 +671,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public void GetRelativPath()
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
+        public void GetRelativePathWindows()
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
                 Tracing trace = hc.GetTrace();
 
                 string relativePath;
-#if OS_WINDOWS
                 /// MakeRelative(@"d:\src\project\foo.cpp", @"d:\src") -> @"project\foo.cpp"
                 // Act.
                 relativePath = IOUtil.MakeRelative(@"d:\src\project\foo.cpp", @"d:\src");
@@ -728,7 +733,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                 relativePath = IOUtil.MakeRelative(@"d:\src\project", @"d:/src/project");
                 // Assert.
                 Assert.True(string.Equals(relativePath, string.Empty, StringComparison.OrdinalIgnoreCase), $"RelativePath does not expected: {relativePath}");
-#else
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        [Trait("SkipOn", "windows")]
+        public void GetRelativePathNonWindows()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+
+                string relativePath;
                 /// MakeRelative(@"/user/src/project/foo.cpp", @"/user/src") -> @"project/foo.cpp"
                 // Act.
                 relativePath = IOUtil.MakeRelative(@"/user/src/project/foo.cpp", @"/user/src");
@@ -758,10 +776,121 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                 relativePath = IOUtil.MakeRelative(@"/user/src/project", @"/user/src/project");
                 // Assert.
                 Assert.True(string.Equals(relativePath, string.Empty, StringComparison.OrdinalIgnoreCase), $"RelativePath does not expected: {relativePath}");
-#endif
+            }
+        }
+        
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
+        public void ResolvePathWindows()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+
+                string resolvePath;
+                // Act.
+                resolvePath = IOUtil.ResolvePath(@"d:\src\project\", @"foo");
+                // Assert.
+                Assert.True(string.Equals(resolvePath, @"d:\src\project\foo", StringComparison.OrdinalIgnoreCase), $"resolvePath does not expected: {resolvePath}");
+
+                // Act.
+                resolvePath = IOUtil.ResolvePath(@"d:\", @"specs");
+                // Assert.
+                Assert.True(string.Equals(resolvePath, @"d:\specs", StringComparison.OrdinalIgnoreCase), $"resolvePath does not expected: {resolvePath}");
+
+                // Act.
+                resolvePath = IOUtil.ResolvePath(@"d:\src\project\", @"src\proj");
+                // Assert.
+                Assert.True(string.Equals(resolvePath, @"d:\src\project\src\proj", StringComparison.OrdinalIgnoreCase), $"resolvePath does not expected: {resolvePath}");
+
+                // Act.
+                resolvePath = IOUtil.ResolvePath(@"d:\src\project\foo", @"..");
+                // Assert.
+                Assert.True(string.Equals(resolvePath, @"d:\src\project", StringComparison.OrdinalIgnoreCase), $"resolvePath does not expected: {resolvePath}");
+
+                // Act.
+                resolvePath = IOUtil.ResolvePath(@"d:\src\project", @"..\..\");
+                // Assert.
+                Assert.True(string.Equals(resolvePath, @"d:\", StringComparison.OrdinalIgnoreCase), $"resolvePath does not expected: {resolvePath}");
+
+                // Act.
+                resolvePath = IOUtil.ResolvePath(@"d:/src/project", @"../.");
+                // Assert.
+                Assert.True(string.Equals(resolvePath, @"d:\src", StringComparison.OrdinalIgnoreCase), $"resolvePath does not expected: {resolvePath}");
+
+                // Act.
+                resolvePath = IOUtil.ResolvePath(@"d:/src/project/", @"../../foo");
+                // Assert.
+                Assert.True(string.Equals(resolvePath, @"d:\foo", StringComparison.OrdinalIgnoreCase), $"resolvePath does not expected: {resolvePath}");
+
+                // Act.
+                resolvePath = IOUtil.ResolvePath(@"d:/src/project/foo", @".././bar/.././../foo");
+                // Assert.
+                Assert.True(string.Equals(resolvePath, @"d:\src\foo", StringComparison.OrdinalIgnoreCase), $"resolvePath does not expected: {resolvePath}");
+
+                // Act.
+                resolvePath = IOUtil.ResolvePath(@"d:\", @".");
+                // Assert.
+                Assert.True(string.Equals(resolvePath, @"d:\", StringComparison.OrdinalIgnoreCase), $"resolvePath does not expected: {resolvePath}");
             }
         }
 
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        [Trait("SkipOn", "windows")]
+        public void ResolvePathNonWindows()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+
+                string resolvePath;
+                // Act.
+                resolvePath = IOUtil.ResolvePath(@"/user/src/project", @"foo");
+                // Assert.
+                Assert.True(string.Equals(resolvePath, @"/user/src/project/foo", StringComparison.OrdinalIgnoreCase), $"RelativePath does not expected: {resolvePath}");
+
+                // Act.
+                resolvePath = IOUtil.ResolvePath(@"/root", @"./user/./specs");
+                // Assert.
+                Assert.True(string.Equals(resolvePath, @"/root/user/specs", StringComparison.OrdinalIgnoreCase), $"RelativePath does not expected: {resolvePath}");
+
+                // Act.
+                resolvePath = IOUtil.ResolvePath(@"/", @"user/specs/.");
+                // Assert.
+                Assert.True(string.Equals(resolvePath, @"/user/specs", StringComparison.OrdinalIgnoreCase), $"RelativePath does not expected: {resolvePath}");
+
+                // Act.
+                resolvePath = IOUtil.ResolvePath(@"/user/src/project", @"../");
+                // Assert.
+                Assert.True(string.Equals(resolvePath, @"/user/src", StringComparison.OrdinalIgnoreCase), $"RelativePath does not expected: {resolvePath}");
+
+                // Act.
+                resolvePath = IOUtil.ResolvePath(@"/user/src/project", @"../../");
+                // Assert.
+                Assert.True(string.Equals(resolvePath, @"/user", StringComparison.OrdinalIgnoreCase), $"RelativePath does not expected: {resolvePath}");
+
+                // Act.
+                resolvePath = IOUtil.ResolvePath(@"/user/src/project/foo", @"../../../../user/./src");
+                // Assert.
+                Assert.True(string.Equals(resolvePath, @"/user/src", StringComparison.OrdinalIgnoreCase), $"RelativePath does not expected: {resolvePath}");
+
+                // Act.
+                resolvePath = IOUtil.ResolvePath(@"/user/src", @"../../.");
+                // Assert.
+                Assert.True(string.Equals(resolvePath, @"/", StringComparison.OrdinalIgnoreCase), $"RelativePath does not expected: {resolvePath}");
+
+                // Act.
+                resolvePath = IOUtil.ResolvePath(@"/", @"./");
+                // Assert.
+                Assert.True(string.Equals(resolvePath, @"/", StringComparison.OrdinalIgnoreCase), $"RelativePath does not expected: {resolvePath}");
+            }
+        }
+        
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
@@ -833,15 +962,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
 
         private static async Task CreateDirectoryReparsePoint(IHostContext context, string link, string target)
         {
-#if OS_WINDOWS
-            string fileName = Environment.GetEnvironmentVariable("ComSpec");
-            string arguments = $@"/c ""mklink /J ""{link}"" {target}""""";
-#else
-            string fileName = "/bin/ln";
-            string arguments = $@"-s ""{target}"" ""{link}""";
-#endif
+            string fileName = (TestUtil.IsWindows())
+                ? Environment.GetEnvironmentVariable("ComSpec")
+                : "/bin/ln";
+            string arguments = (TestUtil.IsWindows())
+                ? $@"/c ""mklink /J ""{link}"" {target}"""""
+                : $@"-s ""{target}"" ""{link}""";
+
             ArgUtil.File(fileName, nameof(fileName));
-            using (var processInvoker = new ProcessInvoker())
+            using (var processInvoker = new ProcessInvokerWrapper())
             {
                 processInvoker.Initialize(context);
                 await processInvoker.ExecuteAsync(
@@ -851,6 +980,51 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                     environment: null,
                     requireExitCodeZero: true,
                     cancellationToken: CancellationToken.None);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void GetDirectoryName_LinuxStyle()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+                string[,] testcases = new string [,] {
+                    {"/foo/bar", "/foo"},
+                    {"/foo", "/"},
+                    {"/foo\\ bar/blah", "/foo\\ bar"}
+                };
+
+                for (int i=0; i<testcases.GetLength(0); i++)
+                {
+                    var path = IOUtil.GetDirectoryName(testcases[i,0], PlatformUtil.OS.Linux);
+                    var expected = testcases[i,1];
+                    Assert.Equal(expected, path);
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void GetDirectoryName_WindowsStyle()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+                string[,] testcases = new string [,] {
+                    {"c:\\foo\\bar", "c:\\foo"},
+                    {"c:/foo/bar", "c:\\foo"}
+                };
+
+                for (int i=0; i<testcases.GetLength(0); i++)
+                {
+                    var path = IOUtil.GetDirectoryName(testcases[i,0], PlatformUtil.OS.Windows);
+                    var expected = testcases[i,1];
+                    Assert.Equal(expected, path);
+                }
             }
         }
     }

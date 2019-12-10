@@ -1,4 +1,7 @@
-using Microsoft.VisualStudio.Services.Agent.Listener.Capabilities;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Microsoft.VisualStudio.Services.Agent.Capabilities;
 using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Moq;
 using System;

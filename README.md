@@ -1,61 +1,47 @@
-# Visual Studio Team Services Agent
+# Azure Pipelines Agent
 
 ## Overview
 
-The cross platform build and release agent for Team Services and Team Foundation Server 2015 and beyond.  This replaced the deprecated closed source windows build agent and the existing [xplat agent](https://github.com/Microsoft/vso-agent)
+The cross-platform build and release agent for Azure Pipelines and Team Foundation Server 2015 and beyond.
+This replaced the deprecated closed source windows build agent and the previous [cross-platform agent](https://github.com/Microsoft/vso-agent).
 
-Supported on Windows, OSX, Ubuntu and Red Hat.  Written for the .NET Core CLR as one code base in C#.
-
+Supported on Windows, macOS, and several Linux flavors.
+Written for .NET Core in C#.
 
 ## Status
 
 |   | Build & Test |
 |---|:-----:|
-|![Win](docs/res/win_med.png) **Windows**|![Build & Test](https://mseng.visualstudio.com/_apis/public/build/definitions/b924d696-3eae-4116-8443-9a18392d8544/3531/badge?branch=master)| 
-|![Apple](docs/res/apple_med.png) **OSX**|![Build & Test](https://mseng.visualstudio.com/_apis/public/build/definitions/b924d696-3eae-4116-8443-9a18392d8544/3080/badge?branch=master)| 
-|![Ubuntu14](docs/res/ubuntu_med.png) **Ubuntu 14.04**|![Build & Test](https://mseng.visualstudio.com/_apis/public/build/definitions/b924d696-3eae-4116-8443-9a18392d8544/2853/badge?branch=master)|
-|![Ubuntu16](docs/res/ubuntu_med.png) **Ubuntu 16.04**|![Build & Test](https://mseng.visualstudio.com/_apis/public/build/definitions/b924d696-3eae-4116-8443-9a18392d8544/3742/badge?branch=master)| 
-|![RedHat](docs/res/redhat_med.png) **RedHat**|![Build & Test](https://mseng.visualstudio.com/_apis/public/build/definitions/b924d696-3eae-4116-8443-9a18392d8544/3418/badge?branch=master)| 
+|![Win-x64](docs/res/win_med.png) **Windows x64**|[![Build & Test][win-x64-build-badge]][build]| 
+|![Win-x86](docs/res/win_med.png) **Windows x86**|[![Build & Test][win-x86-build-badge]][build]| 
+|![macOS](docs/res/apple_med.png) **macOS**|[![Build & Test][macOS-build-badge]][build]| 
+|![Linux-x64](docs/res/linux_med.png) **Linux x64**|[![Build & Test][linux-x64-build-badge]][build]|
+|![Linux-arm](docs/res/linux_med.png) **Linux ARM**|[![Build & Test][linux-arm-build-badge]][build]|
+|![RHEL6-x64](docs/res/redhat_med.png) **RHEL 6 x64**|[![Build & Test][rhel6-x64-build-badge]][build]|
 
-
-## System Pre-Requisites
-
-First, ensure you have the necessary system prequisites
-
-![win](docs/res/win_sm.png) [Windows](docs/start/envwin.md)    
-
-![osx](docs/res/apple_sm.png) [OSX](docs/start/envosx.md)    
-
-![ubuntu](docs/res/ubuntu_sm.png) [Ubuntu](docs/start/envubuntu.md)    
-
-![redhat](docs/res/redhat_sm.png) [RedHat & CentOS](docs/start/envredhat.md)  
+[win-x64-build-badge]: https://mseng.visualstudio.com/pipelinetools/_apis/build/status/VSTS.Agent/azure-pipelines-agent.ci?branchName=master&jobname=Windows%20Agent%20(x64)
+[win-x86-build-badge]: https://mseng.visualstudio.com/pipelinetools/_apis/build/status/VSTS.Agent/azure-pipelines-agent.ci?branchName=master&jobname=Windows%20Agent%20(x86)
+[macOS-build-badge]: https://mseng.visualstudio.com/pipelinetools/_apis/build/status/VSTS.Agent/azure-pipelines-agent.ci?branchName=master&jobname=macOS%20Agent%20(x64)
+[linux-x64-build-badge]: https://mseng.visualstudio.com/pipelinetools/_apis/build/status/VSTS.Agent/azure-pipelines-agent.ci?branchName=master&jobname=Linux%20Agent%20(x64)
+[linux-arm-build-badge]: https://mseng.visualstudio.com/pipelinetools/_apis/build/status/VSTS.Agent/azure-pipelines-agent.ci?branchName=master&jobname=Linux%20Agent%20(ARM)
+[rhel6-x64-build-badge]: https://mseng.visualstudio.com/pipelinetools/_apis/build/status/VSTS.Agent/azure-pipelines-agent.ci?branchName=master&jobname=RHEL6%20Agent%20(x64)
+[build]: https://mseng.visualstudio.com/PipelineTools/_build?_a=completed&definitionId=7502
 
 ## Get the Agent
 
-Next, download and configure the agent
-
-![win](docs/res/win_sm.png)  [Start Windows](https://www.visualstudio.com/en-us/docs/build/admin/agents/v2-windows)  
-
-![osx](docs/res/apple_sm.png)  [Start OSX](https://www.visualstudio.com/en-us/docs/build/admin/agents/v2-osx)  
-
-![ubuntu](docs/res/ubuntu_sm.png)  [Start Ubuntu](https://www.visualstudio.com/en-us/docs/build/admin/agents/v2-linux)  
-
-![redhat](docs/res/redhat_sm.png)  [Start RedHat & CentOS](https://www.visualstudio.com/en-us/docs/build/admin/agents/v2-linux)  
+[Get started with the agent](https://docs.microsoft.com/azure/devops/pipelines/agents/agents?view=azure-devops#install).
 
 ## Supported Usage
 
-This agent can be used for the VSTS service and it replaces the node agent for TFS2015 On-Prem.
+This agent can be used for Azure Pipelines, Azure DevOps Server 2019+, and TFS 2017+.
+It also replaces the Node-based agent for TFS 2015.
 
-| Scenario | OSX/Unix | Windows | Comment |
+| Scenario | Mac/Linux | Windows | Comment |
 |:-------------:|:-----:|:-----:|:-----:|
-| VSTS      |  Yes  | Yes   |
+| Azure Pipelines      |  Yes  | Yes   |
 | TFS2015 (onprem)   |  Yes  | No    | Windows use agent with 2015 |
 | TFS2017 (onprem)   |  Yes  | Yes    |  |
-| TFS.vNext (onprem)   |  Yes  | Yes    |  |
-
-## More Documentation
-
-[Documentation Here](https://aka.ms/tfbuild)
+| TFS2018 (onprem)   |  Yes  | Yes    |  |
 
 ## Troubleshooting
 
@@ -64,3 +50,9 @@ Troubleshooting tips are [located here](docs/troubleshooting.md)
 ## Contribute
 
 For developers that want to contribute, [read here](docs/contribute.md) on how to build and test.
+
+## Issues
+
+We accept issue reports both here (file a GitHub issue) and in [Developer Community](https://developercommunity.visualstudio.com/spaces/21/index.html).
+
+Do you think there might be a security issue? Have you been phished or identified a security vulnerability? Please don't report it here - let us know by sending an email to secure@microsoft.com.

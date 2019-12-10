@@ -1,3 +1,7 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -6,7 +10,6 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipelines.Yaml;
@@ -18,6 +21,7 @@ using Microsoft.VisualStudio.Services.WebApi;
 using Newtonsoft.Json;
 using Yaml = Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipelines.Yaml;
 using YamlContracts = Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipelines.Yaml.Contracts;
+using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -180,10 +184,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 // Initialize and store the HTTP client.
                 var credentialManager = HostContext.GetService<ICredentialManager>();
 
-                // Get the auth type. On premise defaults to negotiate (Kerberos with fallback to NTLM).
-                // Hosted defaults to PAT authentication.
-                string defaultAuthType = UrlUtil.IsHosted(url) ? Constants.Configuration.PAT :
-                    (Constants.Agent.Platform == Constants.OSPlatform.Windows ? Constants.Configuration.Integrated : Constants.Configuration.Negotiate);
+                // Defaults to PAT authentication.
+                string defaultAuthType = Constants.Configuration.PAT;
                 string authType = command.GetAuth(defaultValue: defaultAuthType);
                 ICredentialProvider provider = credentialManager.GetCredentialProvider(authType);
                 provider.EnsureCredential(HostContext, command, url);
@@ -200,7 +202,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             {
                 jobDispatcher = HostContext.CreateService<IJobDispatcher>();
                 job.RequestMessage.Environment.Variables[Constants.Variables.Agent.RunMode] = RunMode.Local.ToString();
-                jobDispatcher.Run(job.RequestMessage);
+                jobDispatcher.Run(Pipelines.AgentJobRequestMessageUtil.Convert(job.RequestMessage));
                 Task jobDispatch = jobDispatcher.WaitAsync(token);
                 if (!Task.WaitAll(new[] { jobDispatch }, job.Timeout))
                 {
@@ -415,7 +417,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
       }}
     ],
     ""variables"": {{");
-                        builder.Append($@"
+                    builder.Append($@"
       ""system"": ""build"",
       ""system.collectionId"": ""00000000-0000-0000-0000-000000000000"",
       ""system.culture"": ""en-US"",
@@ -500,13 +502,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             // Resolve the location of git.
             if (_gitPath == null)
             {
-#if OS_WINDOWS
-                _gitPath = Path.Combine(IOUtil.GetExternalsPath(), "git", "cmd", $"git{IOUtil.ExeExtension}");
-                ArgUtil.File(_gitPath, nameof(_gitPath));
-#else
-                var whichUtil = HostContext.GetService<IWhichUtil>();
-                _gitPath = whichUtil.Which("git", require: true);
-#endif
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    _gitPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "git", "cmd", $"git{IOUtil.ExeExtension}");
+                    ArgUtil.File(_gitPath, nameof(_gitPath));
+                }
+                else
+                {
+                    _gitPath = WhichUtil.Which("git", require: true);
+                }
             }
 
             // Prepare the environment variables to overlay.
@@ -514,9 +518,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             overlayEnvironment["GIT_TERMINAL_PROMPT"] = "0";
             // Skip any GIT_TRACE variable since GIT_TRACE will affect ouput from every git command.
             // This will fail the parse logic for detect git version, remote url, etc.
-            // Ex. 
+            // Ex.
             //      SET GIT_TRACE=true
-            //      git version 
+            //      git version
             //      11:39:58.295959 git.c:371               trace: built-in: git 'version'
             //      git version 2.11.1.windows.1
             IDictionary currentEnvironment = Environment.GetEnvironmentVariables();
@@ -545,11 +549,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 output.AppendLine(message.Data);
                 Console.WriteLine(message.Data);
             };
-#if OS_WINDOWS
-            Encoding encoding = Encoding.UTF8;
-#else
             Encoding encoding = null;
-#endif
+            if (PlatformUtil.RunningOnWindows)
+            {
+                encoding = Encoding.UTF8;
+            }
             await processInvoker.ExecuteAsync(
                 workingDirectory: Directory.GetCurrentDirectory(),
                 fileName: _gitPath,
@@ -687,7 +691,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 // Inform the user that a download is taking place. The download could take a while if
                 // the task zip is large. It would be nice to print the localized name, but it is not
                 // available from the reference included in the job message.
-                _term.WriteLine(StringUtil.Loc("DownloadingTask0", task.Name));
+                _term.WriteLine(StringUtil.Loc("DownloadingTask0", task.Name, task.Version));
                 string zipFile;
                 var version = new TaskVersion(task.Version);
 
@@ -702,7 +706,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     {
                         using (Stream result = await HttpClient.GetTaskContentZipAsync(task.Id, version, token))
                         {
-                            //81920 is the default used by System.IO.Stream.CopyTo and is under the large object heap threshold (85k). 
+                            //81920 is the default used by System.IO.Stream.CopyTo and is under the large object heap threshold (85k).
                             await result.CopyToAsync(fs, 81920, token);
                             await fs.FlushAsync(token);
                         }

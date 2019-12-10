@@ -1,35 +1,41 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Threading.Tasks;
-using Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Expressions;
+using Microsoft.TeamFoundation.DistributedTask.Expressions;
+using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
     public sealed class JobExtensionRunner : IStep
     {
-        private readonly Func<IExecutionContext, Task> _runAsync;
+        private readonly object _data;
+        private readonly Func<IExecutionContext, object, Task> _runAsync;
 
         public JobExtensionRunner(
-            IExecutionContext context,
-            Func<IExecutionContext, Task> runAsync,
-            INode condition,
-            string displayName)
+            Func<IExecutionContext, object, Task> runAsync,
+            IExpressionNode condition,
+            string displayName,
+            object data)
         {
-            ExecutionContext = context;
             _runAsync = runAsync;
             Condition = condition;
             DisplayName = displayName;
+            _data = data;
         }
 
-        public INode Condition { get; set; }
+        public IExpressionNode Condition { get; set; }
         public bool ContinueOnError => false;
         public string DisplayName { get; private set; }
         public bool Enabled => true;
         public IExecutionContext ExecutionContext { get; set; }
         public TimeSpan? Timeout => null;
+        public Pipelines.StepTarget Target => null;
 
         public async Task RunAsync()
         {
-            await _runAsync(ExecutionContext);
+            await _runAsync(ExecutionContext, _data);
         }
     }
 }

@@ -1,7 +1,11 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Generic;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
@@ -10,35 +14,41 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
     {
         IHandler Create(
             IExecutionContext executionContext,
+            Pipelines.TaskStepDefinitionReference task,
+            IStepHost stepHost,
             List<ServiceEndpoint> endpoints,
             List<SecureFile> secureFiles,
             HandlerData data,
             Dictionary<string, string> inputs,
             Dictionary<string, string> environment,
-            string taskDirectory,
-            string filePathInputRootDirectory);
+            Variables runtimeVariables,
+            string taskDirectory);
     }
 
     public sealed class HandlerFactory : AgentService, IHandlerFactory
     {
         public IHandler Create(
             IExecutionContext executionContext,
+            Pipelines.TaskStepDefinitionReference task,
+            IStepHost stepHost,
             List<ServiceEndpoint> endpoints,
             List<SecureFile> secureFiles,
             HandlerData data,
             Dictionary<string, string> inputs,
             Dictionary<string, string> environment,
-            string taskDirectory,
-            string filePathInputRootDirectory)
+            Variables runtimeVariables,
+            string taskDirectory)
         {
             // Validate args.
             Trace.Entering();
             ArgUtil.NotNull(executionContext, nameof(executionContext));
+            ArgUtil.NotNull(stepHost, nameof(stepHost));
             ArgUtil.NotNull(endpoints, nameof(endpoints));
             ArgUtil.NotNull(secureFiles, nameof(secureFiles));
             ArgUtil.NotNull(data, nameof(data));
             ArgUtil.NotNull(inputs, nameof(inputs));
             ArgUtil.NotNull(environment, nameof(environment));
+            ArgUtil.NotNull(runtimeVariables, nameof(runtimeVariables));
             ArgUtil.NotNull(taskDirectory, nameof(taskDirectory));
 
             // Create the handler.
@@ -48,6 +58,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 // Node.
                 handler = HostContext.CreateService<INodeHandler>();
                 (handler as INodeHandler).Data = data as NodeHandlerData;
+            }
+            else if (data is Node10HandlerData)
+            {
+                // Node10.
+                handler = HostContext.CreateService<INodeHandler>();
+                (handler as INodeHandler).Data = data as Node10HandlerData;
             }
             else if (data is PowerShell3HandlerData)
             {
@@ -79,6 +95,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 handler = HostContext.CreateService<IAzurePowerShellHandler>();
                 (handler as IAzurePowerShellHandler).Data = data as AzurePowerShellHandlerData;
             }
+            else if (data is AgentPluginHandlerData)
+            {
+                // Agent plugin
+                handler = HostContext.CreateService<IAgentPluginHandler>();
+                (handler as IAgentPluginHandler).Data = data as AgentPluginHandlerData;
+            }
             else
             {
                 // This should never happen.
@@ -86,9 +108,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
 
             handler.Endpoints = endpoints;
+            handler.Task = task;
             handler.Environment = environment;
+            handler.RuntimeVariables = runtimeVariables;
             handler.ExecutionContext = executionContext;
-            handler.FilePathInputRootDirectory = filePathInputRootDirectory;
+            handler.StepHost = stepHost;
             handler.Inputs = inputs;
             handler.SecureFiles = secureFiles;
             handler.TaskDirectory = taskDirectory;

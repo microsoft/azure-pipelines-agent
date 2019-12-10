@@ -1,7 +1,11 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System.IO;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Xunit;
-using System;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
@@ -20,19 +24,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             return projectDir;
         }
 
+        private static string GetThisFilePath([CallerFilePath] string path = null)
+        {
+            return path;
+        }
+
         public static string GetSrcPath()
         {
-            string srcDir = Environment.GetEnvironmentVariable("VSTS_AGENT_SRC_DIR");
-            if (String.IsNullOrEmpty(srcDir))
-            {
-                srcDir = Path.GetDirectoryName(
-                            Path.GetDirectoryName(
-                                Path.GetDirectoryName(
-                                    Path.GetDirectoryName(
-                                        Path.GetDirectoryName(
-                                            Path.GetDirectoryName(
-                                                IOUtil.GetBinPath()))))));
-            }
+            string L0dir = Path.GetDirectoryName(GetThisFilePath());
+            string testDir = Path.GetDirectoryName(L0dir);
+            string srcDir = Path.GetDirectoryName(testDir);
+            ArgUtil.Directory(srcDir, nameof(srcDir));
             Assert.Equal(Src, Path.GetFileName(srcDir));
             return srcDir;
         }
@@ -43,5 +45,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             Assert.True(Directory.Exists(testDataDir));
             return testDataDir;
         }
+
+        public static string WriteAllTextToTempFile(string content, string extension=null)
+        {
+            string file = Path.GetTempFileName();
+            if (!string.IsNullOrEmpty(extension))
+            {
+                file = Path.ChangeExtension(file, extension);
+            }
+            File.WriteAllText(file, content);
+            return file;
+        }
+
+        public static bool IsLinux() => RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
+        public static bool IsMacOS() => RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
+        public static bool IsWindows() => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
     }
 }

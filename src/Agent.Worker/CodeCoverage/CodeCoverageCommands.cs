@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
@@ -10,94 +13,34 @@ using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
 {
-    public sealed class CodeCoverageCommandExtension : AgentService, IWorkerCommandExtension
+    public sealed class CodeCoverageCommandExtension: BaseWorkerCommandExtension
     {
-        private int _buildId;
+
+        public CodeCoverageCommandExtension()
+        {
+            CommandArea = "codecoverage";
+            SupportedHostTypes = HostTypes.Build;
+            InstallWorkerCommand(new PublishCodeCoverageCommand());
+        }
+    }
+
+    #region publish code coverage helper methods
+    public sealed class PublishCodeCoverageCommand: IWorkerCommand
+    {
+        public string Name => "publish";
+        public List<string> Aliases => null;
 
         // publish code coverage inputs
+        private int _buildId;
         private string _summaryFileLocation;
         private List<string> _additionalCodeCoverageFiles;
         private string _codeCoverageTool;
         private string _reportDirectory;
-
-        public HostTypes SupportedHostTypes => HostTypes.Build;
-
-        public void ProcessCommand(IExecutionContext context, Command command)
-        {
-            if (string.Equals(command.Event, WellKnownResultsCommand.PublishCodeCoverage, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessPublishCodeCoverageCommand(context, command.Properties);
-            }
-            else if (string.Equals(command.Event, WellKnownResultsCommand.EnableCodeCoverage, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessEnableCodeCoverageCommand(context, command.Properties);
-            }
-            else
-            {
-                throw new Exception(StringUtil.Loc("CodeCoverageCommandNotFound", command.Event));
-            }
-        }
-
-        public Type ExtensionType
-        {
-            get
-            {
-                return typeof(IWorkerCommandExtension);
-            }
-        }
-
-        public string CommandArea
-        {
-            get
-            {
-                return "codecoverage";
-            }
-        }
-
-        #region enable code coverage helper methods
-        private void ProcessEnableCodeCoverageCommand(IExecutionContext context, Dictionary<string, string> eventProperties)
-        {
-            string codeCoverageTool;
-            eventProperties.TryGetValue(EnableCodeCoverageEventProperties.CodeCoverageTool, out codeCoverageTool);
-            if (string.IsNullOrWhiteSpace(codeCoverageTool))
-            {
-                // no code coverage tool specified. Dont enable code coverage.
-                return;
-            }
-            codeCoverageTool = codeCoverageTool.Trim();
-
-            string buildTool;
-            eventProperties.TryGetValue(EnableCodeCoverageEventProperties.BuildTool, out buildTool);
-            if (string.IsNullOrEmpty(buildTool))
-            {
-                throw new ArgumentException(StringUtil.Loc("ArgumentNeeded", "BuildTool"));
-            }
-            buildTool = buildTool.Trim();
-
-            var codeCoverageInputs = new CodeCoverageEnablerInputs(context, buildTool, eventProperties);
-            ICodeCoverageEnabler ccEnabler = GetCodeCoverageEnabler(buildTool, codeCoverageTool);
-            ccEnabler.EnableCodeCoverage(context, codeCoverageInputs);
-        }
-
-        private ICodeCoverageEnabler GetCodeCoverageEnabler(string buildTool, string codeCoverageTool)
-        {
-            var extensionManager = HostContext.GetService<IExtensionManager>();
-            ICodeCoverageEnabler codeCoverageEnabler = (extensionManager.GetExtensions<ICodeCoverageEnabler>()).FirstOrDefault(
-                        x => x.Name.Equals(codeCoverageTool + "_" + buildTool, StringComparison.OrdinalIgnoreCase));
-
-            if (codeCoverageEnabler == null)
-            {
-                throw new ArgumentException(StringUtil.Loc("InvalidBuildOrCoverageTool", buildTool, codeCoverageTool));
-            }
-            return codeCoverageEnabler;
-        }
-        #endregion
-
-        #region publish code coverage helper methods
-        private void ProcessPublishCodeCoverageCommand(IExecutionContext context, Dictionary<string, string> eventProperties)
+        public void Execute(IExecutionContext context, Command command)
         {
             ArgUtil.NotNull(context, nameof(context));
 
+            var eventProperties = command.Properties;
             _buildId = context.Variables.Build_BuildId ?? -1;
             if (!IsHostTypeBuild(context) || _buildId < 0)
             {
@@ -106,7 +49,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
                 return;
             }
 
-            LoadPublishCodeCoverageInputs(eventProperties);
+            LoadPublishCodeCoverageInputs(context, eventProperties);
 
             string project = context.Variables.System_TeamProject;
 
@@ -117,7 +60,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
             ArgUtil.NotEmpty(projectId, nameof(projectId));
 
             //step 1: read code coverage summary
-            var reader = GetCodeCoverageSummaryReader(_codeCoverageTool);
+            var reader = GetCodeCoverageSummaryReader(context, _codeCoverageTool);
             context.Output(StringUtil.Loc("ReadingCodeCoverageSummary", _summaryFileLocation));
             var coverageData = reader.GetCodeCoverageSummary(context, _summaryFileLocation);
 
@@ -127,10 +70,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
             }
 
             VssConnection connection = WorkerUtilities.GetVssConnection(context);
-            var codeCoveragePublisher = HostContext.GetService<ICodeCoveragePublisher>();
+            var codeCoveragePublisher = context.GetHostContext().GetService<ICodeCoveragePublisher>();
             codeCoveragePublisher.InitializePublisher(_buildId, connection);
 
-            var commandContext = HostContext.CreateService<IAsyncCommandContext>();
+            var commandContext = context.GetHostContext().CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishCodeCoverage"));
             commandContext.Task = PublishCodeCoverageAsync(context, commandContext, codeCoveragePublisher, coverageData, project, projectId, containerId.Value, context.CancellationToken);
             context.AsyncCommands.Add(commandContext);
@@ -154,7 +97,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
                 {
                     commandContext.Output(StringUtil.Format(" {0}- {1} of {2} covered.", coverage.Label, coverage.Covered, coverage.Total));
                 }
-                await codeCoveragePublisher.PublishCodeCoverageSummaryAsync(coverageData, project, cancellationToken);
+                await codeCoveragePublisher.PublishCodeCoverageSummaryAsync(commandContext, coverageData, project, cancellationToken);
             }
 
             // step 3: publish code coverage files as build artifacts
@@ -197,9 +140,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
 
                 ChangeHtmExtensionToHtmlIfRequired(newReportDirectory, executionContext);
 
-                await codeCoveragePublisher.PublishCodeCoverageFilesAsync(commandContext, projectId, containerId, filesToPublish, File.Exists(Path.Combine(newReportDirectory, CodeCoverageConstants.DefaultIndexFile)), cancellationToken);
+                await codeCoveragePublisher.PublishCodeCoverageFilesAsync(commandContext, projectId, executionContext.Variables.System_JobId, containerId, filesToPublish, File.Exists(Path.Combine(newReportDirectory, CodeCoverageConstants.DefaultIndexFile)), cancellationToken);
             }
-            catch (IOException ex)
+            catch (Exception ex)
             {
                 executionContext.Warning(StringUtil.Loc("ErrorOccurredWhilePublishingCCFiles", ex.Message));
             }
@@ -234,9 +177,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
             }
         }
 
-        private ICodeCoverageSummaryReader GetCodeCoverageSummaryReader(string codeCoverageTool)
+        private ICodeCoverageSummaryReader GetCodeCoverageSummaryReader(IExecutionContext executionContext, string codeCoverageTool)
         {
-            var extensionManager = HostContext.GetService<IExtensionManager>();
+            var extensionManager = executionContext.GetHostContext().GetService<IExtensionManager>();
             ICodeCoverageSummaryReader summaryReader = (extensionManager.GetExtensions<ICodeCoverageSummaryReader>()).FirstOrDefault(x => codeCoverageTool.Equals(x.Name, StringComparison.OrdinalIgnoreCase));
 
             if (summaryReader == null)
@@ -257,7 +200,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
             return false;
         }
 
-        private void LoadPublishCodeCoverageInputs(Dictionary<string, string> eventProperties)
+        private void LoadPublishCodeCoverageInputs(IExecutionContext context, Dictionary<string, string> eventProperties)
         {
             //validate codecoverage tool input
             eventProperties.TryGetValue(PublishCodeCoverageEventProperties.CodeCoverageTool, out _codeCoverageTool);
@@ -272,14 +215,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
             {
                 throw new ArgumentException(StringUtil.Loc("ArgumentNeeded", "SummaryFile"));
             }
+            // Translate file path back from container path
+            _summaryFileLocation = context.TranslateToHostPath(_summaryFileLocation);
+
 
             eventProperties.TryGetValue(PublishCodeCoverageEventProperties.ReportDirectory, out _reportDirectory);
+            // Translate file path back from container path
+            _reportDirectory = context.TranslateToHostPath(_reportDirectory);
+
 
             string additionalFilesInput;
             eventProperties.TryGetValue(PublishCodeCoverageEventProperties.AdditionalCodeCoverageFiles, out additionalFilesInput);
             if (!string.IsNullOrEmpty(additionalFilesInput) && additionalFilesInput.Split(',').Count() > 0)
             {
-                _additionalCodeCoverageFiles = additionalFilesInput.Split(',').ToList<string>();
+                _additionalCodeCoverageFiles = additionalFilesInput.Split(',').Select(x => context.TranslateToHostPath(x)).ToList<string>();
             }
         }
 
@@ -306,7 +255,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
         }
 
         /// <summary>
-        /// This method replaces the default index.html generated by cobertura with 
+        /// This method replaces the default index.html generated by cobertura with
         /// the non-framed version
         /// </summary>
         /// <param name="reportDirectory"></param>
@@ -325,7 +274,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
                     // duplicating frame-summary.html to index.html and renaming index.html to newindex.html
                     File.Delete(newIndexHtml);
                     File.Move(indexHtml, newIndexHtml);
-                    File.Copy(nonFrameHtml, indexHtml, overwrite: true);                                       
+                    File.Copy(nonFrameHtml, indexHtml, overwrite: true);
                 }
             }
             catch (Exception ex)
@@ -333,7 +282,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
                 // In the warning text, prefer using ex.InnerException when available, for more-specific details
                 executionContext.Warning(StringUtil.Loc("RenameIndexFileCoberturaFailed", CodeCoverageConstants.DefaultNonFrameFileCobertura, CodeCoverageConstants.DefaultIndexFile, _codeCoverageTool, (ex.InnerException ?? ex).ToString()));
             }
-        }   
+        }
 
         private string GetCoverageDirectory(string buildId, string directoryName)
         {
@@ -345,27 +294,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
             return directoryName + "_" + buildId;
         }
         #endregion
-
-        internal static class WellKnownResultsCommand
-        {
-            internal static readonly string PublishCodeCoverage = "publish";
-            internal static readonly string EnableCodeCoverage = "enable";
-        }
-
-        internal static class EnableCodeCoverageEventProperties
-        {
-            internal static readonly string BuildTool = "buildtool";
-            internal static readonly string BuildFile = "buildfile";
-            internal static readonly string CodeCoverageTool = "codecoveragetool";
-            internal static readonly string ClassFilesDirectories = "classfilesdirectories";
-            internal static readonly string ClassFilter = "classfilter";
-            internal static readonly string SourceDirectories = "sourcedirectories";
-            internal static readonly string SummaryFile = "summaryfile";
-            internal static readonly string ReportDirectory = "reportdirectory";
-            internal static readonly string CCReportTask = "ccreporttask";
-            internal static readonly string ReportBuildFile = "reportbuildfile";
-            internal static readonly string IsMultiModule = "ismultimodule";
-        }
 
         internal static class PublishCodeCoverageEventProperties
         {

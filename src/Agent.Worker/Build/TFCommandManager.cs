@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
@@ -7,6 +10,7 @@ using System.Threading.Tasks;
 using System.Xml.Serialization;
 using System.Text;
 using System.Xml;
+using System.Security.Cryptography.X509Certificates;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -30,11 +34,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         protected override string Switch => "/";
 
-        public string FilePath => Path.Combine(ExecutionContext.Variables.Agent_ServerOMDirectory, "tf.exe");
+        public override string FilePath => Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Tf), "tf.exe");
 
-        private string AppConfigFile => Path.Combine(ExecutionContext.Variables.Agent_ServerOMDirectory, "tf.exe.config");
+        private string AppConfigFile => Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Tf), "tf.exe.config");
 
-        private string AppConfigRestoreFile => Path.Combine(ExecutionContext.Variables.Agent_ServerOMDirectory, "tf.exe.config.restore");
+        private string AppConfigRestoreFile => Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Tf), "tf.exe.config.restore");
 
         // TODO: Remove AddAsync after last-saved-checkin-metadata problem is fixed properly.
         public async Task AddAsync(string localPath)
@@ -145,6 +149,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     AdditionalEnvironmentVariables["TFS_BYPASS_PROXY_ON_LOCAL"] = "0";
                 }
             }
+        }
+
+        public void SetupClientCertificate(string clientCert, string clientCertKey, string clientCertArchive, string clientCertPassword)
+        {
+            ArgUtil.File(clientCert, nameof(clientCert));
+            X509Certificate2 cert = new X509Certificate2(clientCert);
+            ExecutionContext.Debug($"Set VstsClientCertificate={cert.Thumbprint} for Tf.exe to support client certificate.");
+            AdditionalEnvironmentVariables["VstsClientCertificate"] = cert.Thumbprint;
+
+            // Script Tf commands in tasks
+            ExecutionContext.SetVariable("VstsClientCertificate", cert.Thumbprint, false, false);
         }
 
         public async Task ShelveAsync(string shelveset, string commentFile, bool move)
@@ -277,7 +292,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             args.Add("/format:xml");
 
             // Run the command.
-            string xml = await RunPorcelainCommandAsync(args.ToArray()) ?? string.Empty;
+            // Ignore STDERR from TF.exe, tf.exe use STDERR to report warning.
+            string xml = await RunPorcelainCommandAsync(true, args.ToArray()) ?? string.Empty;
 
             // Deserialize the XML.
             var serializer = new XmlSerializer(typeof(TFWorkspaces));

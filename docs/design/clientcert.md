@@ -61,18 +61,20 @@ At this point, you should have all required pieces `ca.pem`, `client-cert.pem`, 
 
 ### No-Windows
 
-As I mentioned before, most Linux backgroud application just expect all certificate related files are on disk, and use `OpenSSL` to deal with cert is quiet common on Liunx, so I assume for customer who wants to setup Build/Release agent on Linux already has `ca.pem`, `client-cert.pem` and `client-cert-key.pem` in place. So the only missing piece should be the client cert archive `.pfx` file.  
+As I mentioned before, most Linux backgroud application just expect all certificate related files are on disk, and use `OpenSSL` to deal with cert is quiet common on Linux, so I assume for customer who wants to setup Build/Release agent on Linux already has `ca.pem`, `client-cert.pem` and `client-cert-key.pem` in place. So the only missing piece should be the client cert archive `.pfx` file.  
 ```
 From Terminal:
 openssl pkcs12 -export -out client-cert-archive.pfx -passout pass:<YOURCERTPASSWORD> -inkey client-cert-key.pem -in client-cert.pem -passin pass:<YOURCERTPASSWORD> -certfile CA.pem
 ```
 
-## Configuration
+## Configuration  
+
+**In order to get directory/file ACL setup correctly, make sure you put all certificates files under agent root directory**
 
 Pass `--sslcacert`, `--sslclientcert`, `--sslclientcertkey`. `--sslclientcertarchive` and `--sslclientcertpassword` during agent configuration.   
 Ex:
 ```batch
-.\config.cmd --sslcacert .\enterprise.pem --sslclientcert .\client.pem --sslclientcertkey .\clientcert-key-pass.pem --sslclientcertarchive .\clientcert-2.pfx --sslclientcertpassword "test123"
+.\config.cmd --sslcacert enterprise.pem --sslclientcert client.pem --sslclientcertkey clientcert-key-pass.pem --sslclientcertarchive clientcert-2.pfx --sslclientcertpassword "test123"
 ```  
 
 We store your client cert private key password securely on each platform.  
@@ -82,10 +84,6 @@ Windows: Windows Credential Store
 OSX: OSX Keychain
 Linux: Encrypted with symmetric key based on machine id
 ```
-
-**Windows service configure limitation**  
-Since we store your client certificate private key password into `Windows Credential Store` and the `Windows Credential Store` is per user, when you configure the agent as Windows service, you need run the configuration as the same user as the service is going to run as.  
-Ex, in order to configure the agent service run as `mydomain\buildadmin`, you need either login the box as `mydomain\buildadmin` and run `config.cmd` or login the box as someone else but use `Run as different user` option when you run `config.cmd` to run as `mydomain\buildadmin`  
 
 ## How agent handle client cert within a Build/Release job
 
@@ -132,7 +130,7 @@ Root CA cert:
 `MakeCert -n "CN=Enterprise_issuer_2" -pe -ss Root -sr LocalMachine -sky exchange -m 6 -a sha1 -len 2048 -r -eku 1.3.6.1.5.5.7.3.2,1.3.6.1.5.5.7.3.1`  
 
 Server cert:  
-`MakeCert -n "CN=TFSAT.mycompany.com" -pe -ss My -sr LocalMachine -sky exchange -m 6 -in Enterprise_issuer_2 -is Root -ir LocalMachine -a sha1 -sku 1.3.6.1.5.5.7.3.1 -len 2048`  
+`MakeCert -n "CN=TFSAT.mycompany.com" -pe -ss My -sr LocalMachine -sky exchange -m 6 -in Enterprise_issuer_2 -is Root -ir LocalMachine -a sha1 -eku 1.3.6.1.5.5.7.3.1 -len 2048`  
 
 Client cert:  
 `MakeCert -n "CN=mycompany\ting" -pe -ss My -sr CurrentUser -sky exchange -m 6 -in Enterprise_issuer_2 -is Root -ir LocalMachine -a sha1 -eku 1.3.6.1.5.5.7.3.2 -len 2048`

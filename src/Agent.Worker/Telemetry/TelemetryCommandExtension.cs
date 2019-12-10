@@ -1,54 +1,36 @@
-using Microsoft.TeamFoundation.TestManagement.WebApi;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.WebPlatform;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net.Http;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
 {
-    public class TelemetryCommandExtension : AgentService, IWorkerCommandExtension
+    public class TelemetryCommandExtension: BaseWorkerCommandExtension
     {
-        public HostTypes SupportedHostTypes => HostTypes.All;
-
-        public void ProcessCommand(IExecutionContext context, Command command)
+        public TelemetryCommandExtension()
         {
-            if (string.Equals(command.Event, WellKnownEventTrackCommand.Publish, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessPublishTelemetryCommand(context, command.Properties, command.Data);
-            }
-            else
-            {
-                throw new Exception(StringUtil.Loc("TelemetryCommandNotFound", command.Event));
-            }
+            CommandArea = "telemetry";
+            SupportedHostTypes = HostTypes.All;
+            InstallWorkerCommand(new PublishTelemetryCommand());
         }
+    }
 
-        public Type ExtensionType
-        {
-            get
-            {
-                return typeof(IWorkerCommandExtension);
-            }
-        }
-
-        public string CommandArea
-        {
-            get
-            {
-                return "telemetry";
-            }
-        }
-
-        private void ProcessPublishTelemetryCommand(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
+    [CommandRestriction(AllowedInRestrictedMode=true)]
+    public sealed class PublishTelemetryCommand: IWorkerCommand
+    {
+        public string Name => "publish";
+        public List<string> Aliases => null;
+        public void Execute(IExecutionContext context, Command command)
         {
             ArgUtil.NotNull(context, nameof(context));
-
+            Dictionary<string, string> eventProperties = command.Properties;
+            string data = command.Data;
             string area;
             if (!eventProperties.TryGetValue(WellKnownEventTrackProperties.Area, out area) || string.IsNullOrEmpty(area))
             {
@@ -82,20 +64,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
                 throw new ArgumentException(StringUtil.Loc("TelemetryCommandDataError", data, ex.Message));
             }
 
-            var ciService = HostContext.GetService<ICustomerIntelligenceServer>();
-            var vssConnection = WorkerUtilities.GetVssConnection(context);
-            ciService.Initialize(vssConnection);
+            ICustomerIntelligenceServer ciService;
+            VssConnection vssConnection;
+            try
+            {
+                ciService = context.GetHostContext().GetService<ICustomerIntelligenceServer>();
+                vssConnection = WorkerUtilities.GetVssConnection(context);
+                ciService.Initialize(vssConnection);
+            }
+            catch (Exception ex)
+            {
+                context.Warning(StringUtil.Loc("TelemetryCommandFailed", ex.Message));
+                return;
+            }
 
-            var commandContext = HostContext.CreateService<IAsyncCommandContext>();
+            var commandContext = context.GetHostContext().CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("Telemetry"));
-            commandContext.Task = ciService.PublishEventsAsync(new CustomerIntelligenceEvent[] { ciEvent });
-            context.AsyncCommands.Add(commandContext);
+            commandContext.Task = PublishEventsAsync(context, ciService, ciEvent);
         }
 
-        internal static class WellKnownEventTrackCommand
+        private async Task PublishEventsAsync(IExecutionContext context, ICustomerIntelligenceServer ciService, CustomerIntelligenceEvent ciEvent)
         {
-            internal static readonly string Publish = "publish";
+            try
+            {
+                await ciService.PublishEventsAsync(new CustomerIntelligenceEvent[] { ciEvent });
+            }
+            catch (Exception ex)
+            {
+                context.Warning(StringUtil.Loc("TelemetryCommandFailed", ex.Message));
+            }
         }
+
 
         internal static class WellKnownEventTrackProperties
         {

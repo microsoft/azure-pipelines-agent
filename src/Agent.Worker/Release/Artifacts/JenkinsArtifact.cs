@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -441,7 +444,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             var buildUrl =
                     string.Format(
                         CultureInfo.InvariantCulture,
-                        "{0}/job/{1}/{2}",
+                        "{0}/job/{1}/{2}/",
                         jenkinsDetails.Url,
                         jenkinsDetails.JobName,
                         jenkinsDetails.BuildId);

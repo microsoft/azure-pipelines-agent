@@ -1,4 +1,7 @@
-﻿namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
 {
     public class CodeCoverageTestConstants
     {
@@ -243,7 +246,7 @@
                     <exclude name='my.com.*.*' />
                   </fileset>
                   <fileset dir = 'class2' >
-                    <include name='com.*.*' />        
+                    <include name='com.*.*' />
                     <exclude name = 'a.b.*' />
                     <exclude name='my.com.*.*' />
                   </fileset>
@@ -510,10 +513,10 @@
                 <pluginManagement>
                   <plugins>
                     <plugin>
-          
+
                     </plugin>
                   </plugins>
-                </pluginManagement>  
+                </pluginManagement>
             </build>
               <dependencies>
                 <dependency>
@@ -682,7 +685,7 @@
                     <version>2.15</version>
                     <configuration>
                       <argLine>${surefireArgLine
-                }</argLine>          
+                }</argLine>
                     </configuration>
                   </plugin>
                   <plugin>
@@ -708,7 +711,7 @@
                         </goals>
                       </execution>
                     </executions>
-                  </plugin>      
+                  </plugin>
                 </plugins>
               </build>
               <reporting>
@@ -944,7 +947,7 @@
               <packaging>jar</packaging>
               <version>1.0-SNAPSHOT</version>
               <name>my-app</name>
-              <url>http://maven.apache.org</url>  
+              <url>http://maven.apache.org</url>
               <build>
                 <pluginManagement>
                   <plugins>
@@ -1029,14 +1032,14 @@
 
         public static readonly string PomWithMultiModuleWithCCJacocoXml =
             @"<?xml version='1.0' encoding='utf-8'?>
-            <project xmlns = 'http://maven.apache.org/POM/4.0.0' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd'>  
+            <project xmlns = 'http://maven.apache.org/POM/4.0.0' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd'>
               <parent>
                 <modelVersion>2.0.0</modelVersion>
                 <groupId>com.mycompany.app</groupId>
                 <artifactId>my-app</artifactId>
                 <version>1.0-SNAPSHOT</version>
               </parent>
-  
+
               <packaging>pom</packaging>
               <name>my-app</name>
               <url>http://maven.apache.org</url>

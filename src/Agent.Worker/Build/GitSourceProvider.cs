@@ -1,3 +1,7 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -8,12 +12,13 @@ using System.Threading.Tasks;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Text;
+using System.Diagnostics;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
     public class ExternalGitSourceProvider : GitSourceProvider
     {
-        public override string RepositoryType => WellKnownRepositoryTypes.Git;
+        public override string RepositoryType => TeamFoundation.DistributedTask.Pipelines.RepositoryTypes.ExternalGit;
 
         // external git repository won't use auth header cmdline arg, since we don't know the auth scheme.
         public override bool GitUseAuthHeaderCmdlineArg => false;
@@ -21,12 +26,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public override void RequirementCheck(IExecutionContext executionContext, ServiceEndpoint endpoint)
         {
-            // no-opt for external git repo, there is no additional requirements.
+            if (PlatformUtil.RunningOnWindows)
+            {
+                // check git version for SChannel SSLBackend (Windows Only)
+                bool schannelSslBackend = HostContext.GetService<IConfigurationStore>().GetAgentRuntimeOptions()?.GitUseSecureChannel ?? false;
+                if (schannelSslBackend)
+                {
+                    _gitCommandManager.EnsureGitVersion(_minGitVersionSupportSSLBackendOverride, throwOnNotMatch: true);
+                }
+            }
         }
 
         public override string GenerateAuthHeader(string username, string password)
         {
-            // can't generate auth header for external git. 
+            // can't generate auth header for external git.
             throw new NotSupportedException(nameof(ExternalGitSourceProvider.GenerateAuthHeader));
         }
     }
@@ -55,42 +68,47 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public override void RequirementCheck(IExecutionContext executionContext, ServiceEndpoint endpoint)
         {
-            // no-opt, there is no additional requirements.
+            if (PlatformUtil.RunningOnWindows)
+            {
+                // check git version for SChannel SSLBackend (Windows Only)
+                bool schannelSslBackend = HostContext.GetService<IConfigurationStore>().GetAgentRuntimeOptions()?.GitUseSecureChannel ?? false;
+                if (schannelSslBackend)
+                {
+                    _gitCommandManager.EnsureGitVersion(_minGitVersionSupportSSLBackendOverride, throwOnNotMatch: true);
+                }
+            }
         }
 
         public override string GenerateAuthHeader(string username, string password)
         {
-            // use basic auth header with username:password in base64encoding. 
+            // use basic auth header with username:password in base64encoding.
             string authHeader = $"{username ?? string.Empty}:{password ?? string.Empty}";
             string base64encodedAuthHeader = Convert.ToBase64String(Encoding.UTF8.GetBytes(authHeader));
 
             // add base64 encoding auth header into secretMasker.
-            var secretMasker = HostContext.GetService<ISecretMasker>();
-            secretMasker.AddValue(base64encodedAuthHeader);
+            HostContext.SecretMasker.AddValue(base64encodedAuthHeader);
             return $"basic {base64encodedAuthHeader}";
         }
     }
 
     public sealed class GitHubSourceProvider : AuthenticatedGitSourceProvider
     {
-        public override string RepositoryType => WellKnownRepositoryTypes.GitHub;
+        public override string RepositoryType => TeamFoundation.DistributedTask.Pipelines.RepositoryTypes.GitHub;
     }
 
     public sealed class GitHubEnterpriseSourceProvider : AuthenticatedGitSourceProvider
     {
-        // TODO: Update this when the vss-api-netcore dependency has been updated and WellKnownRepositoryTypes includes GitHubEnterprise
-        public override string RepositoryType => "GitHubEnterprise"; //WellKnownRepositoryTypes.GitHubEnterprise;
+        public override string RepositoryType => TeamFoundation.DistributedTask.Pipelines.RepositoryTypes.GitHubEnterprise;
     }
 
     public sealed class BitbucketSourceProvider : AuthenticatedGitSourceProvider
     {
-        // TODO: Update this when the vss-api-netcore dependency has been updated and WellKnownRepositoryTypes includes Bitbucket
-        public override string RepositoryType => "Bitbucket"; //WellKnownRepositoryTypes.Bitbucket;
+        public override string RepositoryType => TeamFoundation.DistributedTask.Pipelines.RepositoryTypes.Bitbucket;
     }
 
     public sealed class TfsGitSourceProvider : GitSourceProvider
     {
-        public override string RepositoryType => WellKnownRepositoryTypes.TfsGit;
+        public override string RepositoryType => TeamFoundation.DistributedTask.Pipelines.RepositoryTypes.Git;
 
         public override bool GitUseAuthHeaderCmdlineArg
         {
@@ -129,12 +147,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // Old TFS AT will not send this variable to build agent, and VSTS will always send it to build agent.
             bool? onPremTfsGit = true;
             string onPremTfsGitString;
-            if (endpoint.Data.TryGetValue(WellKnownEndpointData.OnPremTfsGit, out onPremTfsGitString))
+            if (endpoint.Data.TryGetValue(EndpointData.OnPremTfsGit, out onPremTfsGitString))
             {
                 onPremTfsGit = StringUtil.ConvertToBoolean(onPremTfsGitString);
             }
 
-            // only ensure git version and git-lfs version for on-prem tfsgit.
+            // ensure git version and git-lfs version for on-prem tfsgit.
             if (onPremTfsGit.Value)
             {
                 _gitCommandManager.EnsureGitVersion(_minGitVersionSupportAuthHeader, throwOnNotMatch: true);
@@ -150,6 +168,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 if (gitLfsSupport)
                 {
                     _gitCommandManager.EnsureGitLFSVersion(_minGitLfsVersionSupportAuthHeader, throwOnNotMatch: true);
+                }
+            }
+
+            if (PlatformUtil.RunningOnWindows)
+            {
+                // check git version for SChannel SSLBackend (Windows Only)
+                bool schannelSslBackend = HostContext.GetService<IConfigurationStore>().GetAgentRuntimeOptions()?.GitUseSecureChannel ?? false;
+                if (schannelSslBackend)
+                {
+                    _gitCommandManager.EnsureGitVersion(_minGitVersionSupportSSLBackendOverride, throwOnNotMatch: true);
                 }
             }
         }
@@ -176,13 +204,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         private Uri _proxyUrlWithCred = null;
         private string _proxyUrlWithCredString = null;
         private Uri _gitLfsUrlWithCred = null;
+        private bool _useSelfSignedCACert = false;
+        private bool _useClientCert = false;
+        private string _clientCertPrivateKeyAskPassFile = null;
 
         protected IGitCommandManager _gitCommandManager;
 
-        // min git version that support add extra auth header.
+        // Minimum Git version that supports adding the extra auth header
         protected Version _minGitVersionSupportAuthHeader = new Version(2, 9);
 
-        // min git-lfs version that support add extra auth header.
+        // Minimum Git for Windows version that supports overriding the sslBackend setting
+        protected Version _minGitVersionSupportSSLBackendOverride = new Version(2, 14, 2);
+
+        // Minimum git-lfs version that supports adding the extra auth header
         protected Version _minGitLfsVersionSupportAuthHeader = new Version(2, 1);
 
         public abstract bool GitUseAuthHeaderCmdlineArg { get; }
@@ -207,31 +241,41 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 throw new InvalidOperationException("Repository url need to be an absolute uri.");
             }
 
+            var agentCert = HostContext.GetService<IAgentCertificateManager>();
+
             string targetPath = GetEndpointData(endpoint, Constants.EndpointData.SourcesDirectory);
             string sourceBranch = GetEndpointData(endpoint, Constants.EndpointData.SourceBranch);
             string sourceVersion = GetEndpointData(endpoint, Constants.EndpointData.SourceVersion);
 
             bool clean = false;
-            if (endpoint.Data.ContainsKey(WellKnownEndpointData.Clean))
+            if (endpoint.Data.ContainsKey(EndpointData.Clean))
             {
-                clean = StringUtil.ConvertToBoolean(endpoint.Data[WellKnownEndpointData.Clean]);
+                clean = StringUtil.ConvertToBoolean(endpoint.Data[EndpointData.Clean]);
             }
 
             bool checkoutSubmodules = false;
-            if (endpoint.Data.ContainsKey(WellKnownEndpointData.CheckoutSubmodules))
+            if (endpoint.Data.ContainsKey(EndpointData.CheckoutSubmodules))
             {
-                checkoutSubmodules = StringUtil.ConvertToBoolean(endpoint.Data[WellKnownEndpointData.CheckoutSubmodules]);
+                checkoutSubmodules = StringUtil.ConvertToBoolean(endpoint.Data[EndpointData.CheckoutSubmodules]);
             }
 
             bool checkoutNestedSubmodules = false;
-            if (endpoint.Data.ContainsKey(WellKnownEndpointData.CheckoutNestedSubmodules))
+            if (endpoint.Data.ContainsKey(EndpointData.CheckoutNestedSubmodules))
             {
-                checkoutNestedSubmodules = StringUtil.ConvertToBoolean(endpoint.Data[WellKnownEndpointData.CheckoutNestedSubmodules]);
+                checkoutNestedSubmodules = StringUtil.ConvertToBoolean(endpoint.Data[EndpointData.CheckoutNestedSubmodules]);
             }
 
+            bool acceptUntrustedCerts = false;
+            if (endpoint.Data.ContainsKey(EndpointData.AcceptUntrustedCertificates))
+            {
+                acceptUntrustedCerts = StringUtil.ConvertToBoolean(endpoint.Data[EndpointData.AcceptUntrustedCertificates]);
+            }
+
+            acceptUntrustedCerts = acceptUntrustedCerts || agentCert.SkipServerCertificateValidation;
+
             int fetchDepth = 0;
-            if (endpoint.Data.ContainsKey("fetchDepth") &&
-                (!int.TryParse(endpoint.Data["fetchDepth"], out fetchDepth) || fetchDepth < 0))
+            if (endpoint.Data.ContainsKey(EndpointData.FetchDepth) &&
+                (!int.TryParse(endpoint.Data[EndpointData.FetchDepth], out fetchDepth) || fetchDepth < 0))
             {
                 fetchDepth = 0;
             }
@@ -239,9 +283,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             fetchDepth = executionContext.Variables.GetInt(Constants.Variables.Features.GitShallowDepth) ?? fetchDepth;
 
             bool gitLfsSupport = false;
-            if (endpoint.Data.ContainsKey("GitLfsSupport"))
+            if (endpoint.Data.ContainsKey(EndpointData.GitLfsSupport))
             {
-                gitLfsSupport = StringUtil.ConvertToBoolean(endpoint.Data["GitLfsSupport"]);
+                gitLfsSupport = StringUtil.ConvertToBoolean(endpoint.Data[EndpointData.GitLfsSupport]);
             }
             // prefer feature variable over endpoint data
             gitLfsSupport = executionContext.Variables.GetBoolean(Constants.Variables.Features.GitLfsSupport) ?? gitLfsSupport;
@@ -258,16 +302,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             Trace.Info($"exposeCred={exposeCred}");
             Trace.Info($"fetchDepth={fetchDepth}");
             Trace.Info($"gitLfsSupport={gitLfsSupport}");
+            Trace.Info($"acceptUntrustedCerts={acceptUntrustedCerts}");
 
-            // Determine which git will be use
-            // On windows, we prefer the built-in portable git within the agent's externals folder, set system.prefergitfrompath=true can change the behavior, 
-            // agent will find git.exe from %PATH%
-            // On Linux, we will always use git find in %PATH% regardless of system.prefergitfrompath
-            bool preferGitFromPath = executionContext.Variables.GetBoolean(Constants.Variables.System.PreferGitFromPath) ?? false;
-#if !OS_WINDOWS
-            // On linux/OSX, we will always find git from %PATH%
-            preferGitFromPath = true;
-#endif
+            bool preferGitFromPath = true;
+            bool schannelSslBackend = false;
+            
+            if (PlatformUtil.RunningOnWindows)
+            {
+                // on Windows, we must check for SChannel and PreferGitFromPath
+                schannelSslBackend = HostContext.GetService<IConfigurationStore>().GetAgentRuntimeOptions()?.GitUseSecureChannel ?? false;
+                Trace.Info($"schannelSslBackend={schannelSslBackend}");
+
+                // Determine which git will be use
+                // On windows, we prefer the built-in portable git within the agent's externals folder, 
+                // set system.prefergitfrompath=true can change the behavior, agent will find git.exe from %PATH%
+                var definitionSetting = executionContext.Variables.GetBoolean(Constants.Variables.System.PreferGitFromPath);
+                if (definitionSetting != null)
+                {
+                    preferGitFromPath = definitionSetting.Value;
+                }
+                else
+                {
+                    bool.TryParse(Environment.GetEnvironmentVariable(Constants.Variables.System.PreferGitFromPath), out preferGitFromPath);
+                }
+            }
 
             // Determine do we need to provide creds to git operation
             _selfManageGitCreds = executionContext.Variables.GetBoolean(Constants.Variables.System.SelfManageGitCreds) ?? false;
@@ -282,7 +340,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             await _gitCommandManager.LoadGitExecutionInfo(executionContext, useBuiltInGit: !preferGitFromPath);
 
             // Make sure the build machine met all requirements for the git repository
-            // For now, the requirement we have is git version greater than 2.9  and git-lfs version greater than 2.1 for on-prem tfsgit
+            // For now, the requirement we have are:
+            // 1. git version greater than 2.9  and git-lfs version greater than 2.1 for on-prem tfsgit
+            // 2. git version greater than 2.14.2 if use SChannel for SSL backend (Windows only)
             RequirementCheck(executionContext, endpoint);
 
             // retrieve credential from endpoint.
@@ -297,6 +357,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         if (!endpoint.Authorization.Parameters.TryGetValue(EndpointAuthorizationParameters.AccessToken, out password))
                         {
                             password = string.Empty;
+                        }
+                        break;
+                    case EndpointAuthorizationSchemes.PersonalAccessToken:
+                        username = EndpointAuthorizationSchemes.PersonalAccessToken;
+                        if (!endpoint.Authorization.Parameters.TryGetValue(EndpointAuthorizationParameters.AccessToken, out password))
+                        {
+                            password = string.Empty;
+                        }
+                        break;
+                    case EndpointAuthorizationSchemes.Token:
+                        username = "x-access-token";
+                        if (!endpoint.Authorization.Parameters.TryGetValue(EndpointAuthorizationParameters.AccessToken, out password))
+                        {
+                            username = EndpointAuthorizationSchemes.Token;
+                            if (!endpoint.Authorization.Parameters.TryGetValue(EndpointAuthorizationParameters.ApiToken, out password))
+                            {
+                                password = string.Empty;
+                            }
                         }
                         break;
                     case EndpointAuthorizationSchemes.UsernamePassword:
@@ -320,7 +398,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // prepare credentail embedded urls
             _repositoryUrlWithCred = UrlUtil.GetCredentialEmbeddedUrl(repositoryUrl, username, password);
             var agentProxy = HostContext.GetService<IVstsAgentWebProxy>();
-            if (!string.IsNullOrEmpty(executionContext.Variables.Agent_ProxyUrl) && !agentProxy.IsBypassed(repositoryUrl))
+            if (!string.IsNullOrEmpty(executionContext.Variables.Agent_ProxyUrl) && !agentProxy.WebProxy.IsBypassed(repositoryUrl))
             {
                 _proxyUrlWithCred = UrlUtil.GetCredentialEmbeddedUrl(new Uri(executionContext.Variables.Agent_ProxyUrl), executionContext.Variables.Agent_ProxyUsername, executionContext.Variables.Agent_ProxyPassword);
 
@@ -334,6 +412,57 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 else
                 {
                     _proxyUrlWithCredString = _proxyUrlWithCred.OriginalString;
+                }
+            }
+
+            // prepare askpass for client cert private key
+            var configUrl = new Uri(HostContext.GetService<IConfigurationStore>().GetSettings().ServerUrl);
+            if (Uri.Compare(repositoryUrl, configUrl, UriComponents.SchemeAndServer, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase) == 0)
+            {
+                if (!string.IsNullOrEmpty(agentCert.CACertificateFile))
+                {
+                    _useSelfSignedCACert = true;
+                }
+
+                if (!string.IsNullOrEmpty(agentCert.ClientCertificateFile) &&
+                    !string.IsNullOrEmpty(agentCert.ClientCertificatePrivateKeyFile))
+                {
+                    _useClientCert = true;
+
+                    // prepare askpass for client cert password
+                    if (!string.IsNullOrEmpty(agentCert.ClientCertificatePassword))
+                    {
+                        _clientCertPrivateKeyAskPassFile = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Temp), $"{Guid.NewGuid()}.sh");
+                        List<string> askPass = new List<string>();
+                        askPass.Add("#!/bin/sh");
+                        askPass.Add($"echo \"{agentCert.ClientCertificatePassword}\"");
+                        File.WriteAllLines(_clientCertPrivateKeyAskPassFile, askPass);
+
+                        if (!PlatformUtil.RunningOnWindows)
+                        {
+                            string toolPath = WhichUtil.Which("chmod", true);
+                            string argLine = $"775 {_clientCertPrivateKeyAskPassFile}";
+                            executionContext.Command($"chmod {argLine}");
+
+                            var processInvoker = HostContext.CreateService<IProcessInvoker>();
+                            processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+                            {
+                                if (!string.IsNullOrEmpty(args.Data))
+                                {
+                                    executionContext.Output(args.Data);
+                                }
+                            };
+                            processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+                            {
+                                if (!string.IsNullOrEmpty(args.Data))
+                                {
+                                    executionContext.Output(args.Data);
+                                }
+                            };
+
+                            await processInvoker.ExecuteAsync(HostContext.GetDirectory(WellKnownDirectory.Work), toolPath, argLine, null, true, CancellationToken.None);
+                        }
+                    }
                 }
             }
 
@@ -364,7 +493,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             else
             {
                 // delete the index.lock file left by previous canceled build or any operation cause git.exe crash last time.
-                string lockFile = Path.Combine(targetPath, ".git\\index.lock");
+                string lockFile = Path.Combine(targetPath, ".git", "index.lock");
                 if (File.Exists(lockFile))
                 {
                     try
@@ -378,18 +507,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     }
                 }
 
-                // When repo.clean is selected for a git repo, execute git clean -fdx and git reset --hard HEAD on the current repo.
+                // delete the shallow.lock file left by previous canceled build or any operation cause git.exe crash last time.
+                string shallowLockFile = Path.Combine(targetPath, ".git", "shallow.lock");
+                if (File.Exists(shallowLockFile))
+                {
+                    try
+                    {
+                        File.Delete(shallowLockFile);
+                    }
+                    catch (Exception ex)
+                    {
+                        executionContext.Debug($"Unable to delete the shallow.lock file: {shallowLockFile}");
+                        executionContext.Debug(ex.ToString());
+                    }
+                }
+
+                // When repo.clean is selected for a git repo, execute git clean -ffdx and git reset --hard HEAD on the current repo.
                 // This will help us save the time to reclone the entire repo.
                 // If any git commands exit with non-zero return code or any exception happened during git.exe invoke, fall back to delete the repo folder.
                 if (clean)
                 {
                     Boolean softCleanSucceed = true;
 
-                    // git clean -fdx
+                    // git clean -ffdx
                     int exitCode_clean = await _gitCommandManager.GitClean(executionContext, targetPath);
                     if (exitCode_clean != 0)
                     {
-                        executionContext.Debug($"'git clean -fdx' failed with exit code {exitCode_clean}, this normally caused by:\n    1) Path too long\n    2) Permission issue\n    3) File in use\nFor futher investigation, manually run 'git clean -fdx' on repo root: {targetPath} after each build.");
+                        executionContext.Debug($"'git clean -ffdx' failed with exit code {exitCode_clean}, this normally caused by:\n    1) Path too long\n    2) Permission issue\n    3) File in use\nFor futher investigation, manually run 'git clean -ffdx' on repo root: {targetPath} after each build.");
                         softCleanSucceed = false;
                     }
 
@@ -404,7 +548,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         }
                     }
 
-                    // git clean -fdx and git reset --hard HEAD for each submodule
+                    // git clean -ffdx and git reset --hard HEAD for each submodule
                     if (checkoutSubmodules)
                     {
                         if (softCleanSucceed)
@@ -412,7 +556,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                             int exitCode_submoduleclean = await _gitCommandManager.GitSubmoduleClean(executionContext, targetPath);
                             if (exitCode_submoduleclean != 0)
                             {
-                                executionContext.Debug($"'git submodule foreach git clean -fdx' failed with exit code {exitCode_submoduleclean}\nFor futher investigation, manually run 'git submodule foreach git clean -fdx' on repo root: {targetPath} after each build.");
+                                executionContext.Debug($"'git submodule foreach --recursve \"git clean -ffdx\"' failed with exit code {exitCode_submoduleclean}\nFor futher investigation, manually run 'git submodule foreach --recursive \"git clean -ffdx\"' on repo root: {targetPath} after each build.");
                                 softCleanSucceed = false;
                             }
                         }
@@ -422,7 +566,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                             int exitCode_submodulereset = await _gitCommandManager.GitSubmoduleReset(executionContext, targetPath);
                             if (exitCode_submodulereset != 0)
                             {
-                                executionContext.Debug($"'git submodule foreach git reset --hard HEAD' failed with exit code {exitCode_submodulereset}\nFor futher investigation, manually run 'git submodule foreach git reset --hard HEAD' on repo root: {targetPath} after each build.");
+                                executionContext.Debug($"'git submodule foreach --recursive \"git reset --hard HEAD\"' failed with exit code {exitCode_submodulereset}\nFor futher investigation, manually run 'git submodule foreach --recursive \"git reset --hard HEAD\"' on repo root: {targetPath} after each build.");
                                 softCleanSucceed = false;
                             }
                         }
@@ -431,7 +575,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     if (!softCleanSucceed)
                     {
                         //fall back
-                        executionContext.Warning("Unable to run \"git clean -fdx\" and \"git reset --hard HEAD\" successfully, delete source folder instead.");
+                        executionContext.Warning("Unable to run \"git clean -ffdx\" and \"git reset --hard HEAD\" successfully, delete source folder instead.");
                         IOUtil.DeleteDirectory(targetPath, cancellationToken);
                     }
                 }
@@ -489,8 +633,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             List<string> additionalLfsFetchArgs = new List<string>();
             if (!_selfManageGitCreds)
             {
-                // v2.9 git support provide auth header as cmdline arg. 
-                // as long 2.9 git exist, VSTS repo, TFS repo and Github repo will use this to handle auth challenge. 
+                // v2.9 git support provide auth header as cmdline arg.
+                // as long 2.9 git exist, VSTS repo, TFS repo and Github repo will use this to handle auth challenge.
                 if (GitUseAuthHeaderCmdlineArg)
                 {
                     additionalFetchArgs.Add($"-c http.extraheader=\"AUTHORIZATION: {GenerateAuthHeader(username, password)}\"");
@@ -520,12 +664,51 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 }
 
                 // Prepare proxy config for fetch.
-                if (!string.IsNullOrEmpty(executionContext.Variables.Agent_ProxyUrl) && !agentProxy.IsBypassed(repositoryUrl))
+                if (!string.IsNullOrEmpty(executionContext.Variables.Agent_ProxyUrl) && !agentProxy.WebProxy.IsBypassed(repositoryUrl))
                 {
                     executionContext.Debug($"Config proxy server '{executionContext.Variables.Agent_ProxyUrl}' for git fetch.");
                     ArgUtil.NotNullOrEmpty(_proxyUrlWithCredString, nameof(_proxyUrlWithCredString));
                     additionalFetchArgs.Add($"-c http.proxy=\"{_proxyUrlWithCredString}\"");
                     additionalLfsFetchArgs.Add($"-c http.proxy=\"{_proxyUrlWithCredString}\"");
+                }
+
+                // Prepare ignore ssl cert error config for fetch.
+                if (acceptUntrustedCerts)
+                {
+                    additionalFetchArgs.Add($"-c http.sslVerify=false");
+                    additionalLfsFetchArgs.Add($"-c http.sslVerify=false");
+                }
+
+                // Prepare self-signed CA cert config for fetch from TFS.
+                if (_useSelfSignedCACert)
+                {
+                    executionContext.Debug($"Use self-signed certificate '{agentCert.CACertificateFile}' for git fetch.");
+                    additionalFetchArgs.Add($"-c http.sslcainfo=\"{agentCert.CACertificateFile}\"");
+                    additionalLfsFetchArgs.Add($"-c http.sslcainfo=\"{agentCert.CACertificateFile}\"");
+                }
+
+                // Prepare client cert config for fetch from TFS.
+                if (_useClientCert)
+                {
+                    executionContext.Debug($"Use client certificate '{agentCert.ClientCertificateFile}' for git fetch.");
+
+                    if (!string.IsNullOrEmpty(_clientCertPrivateKeyAskPassFile))
+                    {
+                        additionalFetchArgs.Add($"-c http.sslcert=\"{agentCert.ClientCertificateFile}\" -c http.sslkey=\"{agentCert.ClientCertificatePrivateKeyFile}\" -c http.sslCertPasswordProtected=true -c core.askpass=\"{_clientCertPrivateKeyAskPassFile}\"");
+                        additionalLfsFetchArgs.Add($"-c http.sslcert=\"{agentCert.ClientCertificateFile}\" -c http.sslkey=\"{agentCert.ClientCertificatePrivateKeyFile}\" -c http.sslCertPasswordProtected=true -c core.askpass=\"{_clientCertPrivateKeyAskPassFile}\"");
+                    }
+                    else
+                    {
+                        additionalFetchArgs.Add($"-c http.sslcert=\"{agentCert.ClientCertificateFile}\" -c http.sslkey=\"{agentCert.ClientCertificatePrivateKeyFile}\"");
+                        additionalLfsFetchArgs.Add($"-c http.sslcert=\"{agentCert.ClientCertificateFile}\" -c http.sslkey=\"{agentCert.ClientCertificatePrivateKeyFile}\"");
+                    }
+                }
+
+                if (PlatformUtil.RunningOnWindows && schannelSslBackend)
+                {
+                    executionContext.Debug("Use SChannel SslBackend for git fetch.");
+                    additionalFetchArgs.Add("-c http.sslbackend=\"schannel\"");
+                    additionalLfsFetchArgs.Add("-c http.sslbackend=\"schannel\"");
                 }
 
                 // Prepare gitlfs url for fetch and checkout
@@ -541,7 +724,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
                     if (GitLfsUseAuthHeaderCmdlineArg)
                     {
-                        additionalLfsFetchArgs.Add($"-c http.extraheader=\"AUTHORIZATION: {GenerateAuthHeader(username, password)}\"");
+                        string authorityUrl = repositoryUrl.AbsoluteUri.Replace(repositoryUrl.PathAndQuery, string.Empty);
+                        additionalLfsFetchArgs.Add($"-c http.{authorityUrl}.extraheader=\"AUTHORIZATION: {GenerateAuthHeader(username, password)}\"");
                     }
                     else
                     {
@@ -587,7 +771,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             // Checkout
             // sourceToBuild is used for checkout
-            // if sourceBranch is a PR branch or sourceVersion is null, make sure branch name is a remote branch. we need checkout to detached head. 
+            // if sourceBranch is a PR branch or sourceVersion is null, make sure branch name is a remote branch. we need checkout to detached head.
             // (change refs/heads to refs/remotes/origin, refs/pull to refs/remotes/pull, or leave it as it when the branch name doesn't contain refs/...)
             // if sourceVersion provide, just use that for checkout, since when you checkout a commit, it will end up in detached head.
             cancellationToken.ThrowIfCancellationRequested();
@@ -651,15 +835,51 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     }
 
                     // Prepare proxy config for submodule update.
-                    if (!string.IsNullOrEmpty(executionContext.Variables.Agent_ProxyUrl) && !agentProxy.IsBypassed(repositoryUrl))
+                    if (!string.IsNullOrEmpty(executionContext.Variables.Agent_ProxyUrl) && !agentProxy.WebProxy.IsBypassed(repositoryUrl))
                     {
                         executionContext.Debug($"Config proxy server '{executionContext.Variables.Agent_ProxyUrl}' for git submodule update.");
                         ArgUtil.NotNullOrEmpty(_proxyUrlWithCredString, nameof(_proxyUrlWithCredString));
                         additionalSubmoduleUpdateArgs.Add($"-c http.proxy=\"{_proxyUrlWithCredString}\"");
                     }
+
+                    // Prepare ignore ssl cert error config for fetch.
+                    if (acceptUntrustedCerts)
+                    {
+                        additionalSubmoduleUpdateArgs.Add($"-c http.sslVerify=false");
+                    }
+
+                    // Prepare self-signed CA cert config for submodule update.
+                    if (_useSelfSignedCACert)
+                    {
+                        executionContext.Debug($"Use self-signed CA certificate '{agentCert.CACertificateFile}' for git submodule update.");
+                        string authorityUrl = repositoryUrl.AbsoluteUri.Replace(repositoryUrl.PathAndQuery, string.Empty);
+                        additionalSubmoduleUpdateArgs.Add($"-c http.{authorityUrl}.sslcainfo=\"{agentCert.CACertificateFile}\"");
+                    }
+
+                    // Prepare client cert config for submodule update.
+                    if (_useClientCert)
+                    {
+                        executionContext.Debug($"Use client certificate '{agentCert.ClientCertificateFile}' for git submodule update.");
+                        string authorityUrl = repositoryUrl.AbsoluteUri.Replace(repositoryUrl.PathAndQuery, string.Empty);
+
+                        if (!string.IsNullOrEmpty(_clientCertPrivateKeyAskPassFile))
+                        {
+                            additionalSubmoduleUpdateArgs.Add($"-c http.{authorityUrl}.sslcert=\"{agentCert.ClientCertificateFile}\" -c http.{authorityUrl}.sslkey=\"{agentCert.ClientCertificatePrivateKeyFile}\" -c http.{authorityUrl}.sslCertPasswordProtected=true -c core.askpass=\"{_clientCertPrivateKeyAskPassFile}\"");
+                        }
+                        else
+                        {
+                            additionalSubmoduleUpdateArgs.Add($"-c http.{authorityUrl}.sslcert=\"{agentCert.ClientCertificateFile}\" -c http.{authorityUrl}.sslkey=\"{agentCert.ClientCertificatePrivateKeyFile}\"");
+                        }
+                    }
+
+                    if (PlatformUtil.RunningOnWindows && schannelSslBackend)
+                    {
+                        executionContext.Debug("Use SChannel SslBackend for git submodule update.");
+                        additionalSubmoduleUpdateArgs.Add("-c http.sslbackend=\"schannel\"");
+                    }
                 }
 
-                int exitCode_submoduleUpdate = await _gitCommandManager.GitSubmoduleUpdate(executionContext, targetPath, string.Join(" ", additionalSubmoduleUpdateArgs), checkoutNestedSubmodules, cancellationToken);
+                int exitCode_submoduleUpdate = await _gitCommandManager.GitSubmoduleUpdate(executionContext, targetPath, fetchDepth, string.Join(" ", additionalSubmoduleUpdateArgs), checkoutNestedSubmodules, cancellationToken);
                 if (exitCode_submoduleUpdate != 0)
                 {
                     throw new InvalidOperationException($"Git submodule update failed with exit code: {exitCode_submoduleUpdate}");
@@ -690,7 +910,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 if (exposeCred)
                 {
                     // save proxy setting to git config.
-                    if (!string.IsNullOrEmpty(executionContext.Variables.Agent_ProxyUrl) && !agentProxy.IsBypassed(repositoryUrl))
+                    if (!string.IsNullOrEmpty(executionContext.Variables.Agent_ProxyUrl) && !agentProxy.WebProxy.IsBypassed(repositoryUrl))
                     {
                         executionContext.Debug($"Save proxy config for proxy server '{executionContext.Variables.Agent_ProxyUrl}' into git config.");
                         ArgUtil.NotNullOrEmpty(_proxyUrlWithCredString, nameof(_proxyUrlWithCredString));
@@ -703,6 +923,83 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         if (exitCode_proxyconfig != 0)
                         {
                             throw new InvalidOperationException($"Git config failed with exit code: {exitCode_proxyconfig}");
+                        }
+                    }
+
+                    // save ignore ssl cert error setting to git config.
+                    if (acceptUntrustedCerts)
+                    {
+                        executionContext.Debug($"Save ignore ssl cert error config into git config.");
+                        string sslVerifyConfigKey = "http.sslVerify";
+                        string sslVerifyConfigValue = "\"false\"";
+                        _configModifications[sslVerifyConfigKey] = sslVerifyConfigValue.Trim('\"');
+
+                        int exitCode_sslconfig = await _gitCommandManager.GitConfig(executionContext, targetPath, sslVerifyConfigKey, sslVerifyConfigValue);
+                        if (exitCode_sslconfig != 0)
+                        {
+                            throw new InvalidOperationException($"Git config failed with exit code: {exitCode_sslconfig}");
+                        }
+                    }
+
+                    // save CA cert setting to git config.
+                    if (_useSelfSignedCACert)
+                    {
+                        executionContext.Debug($"Save CA cert config into git config.");
+                        string sslCaInfoConfigKey = "http.sslcainfo";
+                        string sslCaInfoConfigValue = $"\"{agentCert.CACertificateFile}\"";
+                        _configModifications[sslCaInfoConfigKey] = sslCaInfoConfigValue.Trim('\"');
+
+                        int exitCode_sslconfig = await _gitCommandManager.GitConfig(executionContext, targetPath, sslCaInfoConfigKey, sslCaInfoConfigValue);
+                        if (exitCode_sslconfig != 0)
+                        {
+                            throw new InvalidOperationException($"Git config failed with exit code: {exitCode_sslconfig}");
+                        }
+                    }
+
+                    // save client cert setting to git config.
+                    if (_useClientCert)
+                    {
+                        executionContext.Debug($"Save client cert config into git config.");
+                        string sslCertConfigKey = "http.sslcert";
+                        string sslCertConfigValue = $"\"{agentCert.ClientCertificateFile}\"";
+                        string sslKeyConfigKey = "http.sslkey";
+                        string sslKeyConfigValue = $"\"{agentCert.CACertificateFile}\"";
+                        _configModifications[sslCertConfigKey] = sslCertConfigValue.Trim('\"');
+                        _configModifications[sslKeyConfigKey] = sslKeyConfigValue.Trim('\"');
+
+                        int exitCode_sslconfig = await _gitCommandManager.GitConfig(executionContext, targetPath, sslCertConfigKey, sslCertConfigValue);
+                        if (exitCode_sslconfig != 0)
+                        {
+                            throw new InvalidOperationException($"Git config failed with exit code: {exitCode_sslconfig}");
+                        }
+
+                        exitCode_sslconfig = await _gitCommandManager.GitConfig(executionContext, targetPath, sslKeyConfigKey, sslKeyConfigValue);
+                        if (exitCode_sslconfig != 0)
+                        {
+                            throw new InvalidOperationException($"Git config failed with exit code: {exitCode_sslconfig}");
+                        }
+
+                        // the client private key has a password
+                        if (!string.IsNullOrEmpty(_clientCertPrivateKeyAskPassFile))
+                        {
+                            string sslCertPasswordProtectedConfigKey = "http.sslcertpasswordprotected";
+                            string sslCertPasswordProtectedConfigValue = "true";
+                            string askPassConfigKey = "core.askpass";
+                            string askPassConfigValue = $"\"{_clientCertPrivateKeyAskPassFile}\"";
+                            _configModifications[sslCertPasswordProtectedConfigKey] = sslCertPasswordProtectedConfigValue.Trim('\"');
+                            _configModifications[askPassConfigKey] = askPassConfigValue.Trim('\"');
+
+                            exitCode_sslconfig = await _gitCommandManager.GitConfig(executionContext, targetPath, sslCertPasswordProtectedConfigKey, sslCertPasswordProtectedConfigValue);
+                            if (exitCode_sslconfig != 0)
+                            {
+                                throw new InvalidOperationException($"Git config failed with exit code: {exitCode_sslconfig}");
+                            }
+
+                            exitCode_sslconfig = await _gitCommandManager.GitConfig(executionContext, targetPath, askPassConfigKey, askPassConfigValue);
+                            if (exitCode_sslconfig != 0)
+                            {
+                                throw new InvalidOperationException($"Git config failed with exit code: {exitCode_sslconfig}");
+                            }
                         }
                     }
                 }
@@ -731,6 +1028,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         _configModifications.Remove("remote.origin.lfspushurl");
                     }
                 }
+
+                if (_useClientCert && !string.IsNullOrEmpty(_clientCertPrivateKeyAskPassFile) && !exposeCred)
+                {
+                    executionContext.Debug("Remove git.sslkey askpass file.");
+                    IOUtil.DeleteFile(_clientCertPrivateKeyAskPassFile);
+                }
             }
         }
 
@@ -749,7 +1052,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             if (!_selfManageGitCreds)
             {
-                executionContext.Debug("Remove any extraheader and proxy setting from git config.");
+                executionContext.Debug("Remove any extraheader, proxy and client cert setting from git config.");
                 foreach (var config in _configModifications)
                 {
                     await RemoveGitConfig(executionContext, targetPath, config.Key, config.Value);
@@ -757,12 +1060,85 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
                 await RemoveCachedCredential(executionContext, targetPath, repositoryUrl, "origin");
             }
+
+            // delete client cert askpass file.
+            if (_useClientCert && !string.IsNullOrEmpty(_clientCertPrivateKeyAskPassFile))
+            {
+                IOUtil.DeleteFile(_clientCertPrivateKeyAskPassFile);
+            }
+        }
+
+        public override async Task RunMaintenanceOperations(IExecutionContext executionContext, string repositoryPath)
+        {
+            Trace.Entering();
+            // Validate args.
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+            ArgUtil.NotNullOrEmpty(repositoryPath, nameof(repositoryPath));
+            executionContext.Output($"Run maintenance operation on repository: {repositoryPath}");
+
+            // Initialize git command manager
+            _gitCommandManager = HostContext.GetService<IGitCommandManager>();
+
+            // On Windows, always find Git from externals
+            // On Linux/macOS, always find Git from the path
+            bool useBuiltInGit = PlatformUtil.RunningOnWindows;
+            await _gitCommandManager.LoadGitExecutionInfo(executionContext, useBuiltInGit);
+
+            // if the folder is missing, skip it
+            if (!Directory.Exists(repositoryPath) || !Directory.Exists(Path.Combine(repositoryPath, ".git")))
+            {
+                return;
+            }
+
+            // add a timer to track how much time we used for git-repack
+            Stopwatch timer = Stopwatch.StartNew();
+            try
+            {
+                // git count-objects before git repack
+                executionContext.Output("Repository status before executing 'git repack'");
+                int exitCode_countobjectsbefore = await _gitCommandManager.GitCountObjects(executionContext, repositoryPath);
+                if (exitCode_countobjectsbefore != 0)
+                {
+                    Trace.Warning($"Git count-objects failed with exit code: {exitCode_countobjectsbefore}");
+                    Trace.Warning($"Repository is most likely in a corrupt state; delete the sources directory");
+
+                    IOUtil.DeleteDirectory(repositoryPath, executionContext.CancellationToken);
+                    return;
+                }
+
+                // git repack
+                int exitCode_repack = await _gitCommandManager.GitRepack(executionContext, repositoryPath);
+                if (exitCode_repack != 0)
+                {
+                    throw new InvalidOperationException($"Git repack failed with exit code: {exitCode_repack}");
+                }
+
+                // git prune
+                int exitCode_prune = await _gitCommandManager.GitPrune(executionContext, repositoryPath);
+                if (exitCode_prune != 0)
+                {
+                    throw new InvalidOperationException($"Git prune failed with exit code: {exitCode_prune}");
+                }
+
+                // git count-objects after git repack
+                executionContext.Output("Repository status after executing 'git repack'");
+                int exitCode_countobjectsafter = await _gitCommandManager.GitCountObjects(executionContext, repositoryPath);
+                if (exitCode_countobjectsafter != 0)
+                {
+                    throw new InvalidOperationException($"Git count-objects failed with exit code: {exitCode_countobjectsafter}");
+                }
+            }
+            finally
+            {
+                timer.Stop();
+                executionContext.Output($"Total time for executing maintenance for repository '{repositoryPath}': {timer.Elapsed.TotalSeconds} seconds.");
+            }
         }
 
         public override void SetVariablesInEndpoint(IExecutionContext executionContext, ServiceEndpoint endpoint)
         {
             base.SetVariablesInEndpoint(executionContext, endpoint);
-            endpoint.Data.Add(Constants.EndpointData.SourceBranch, executionContext.Variables.Get(Constants.Variables.Build.SourceBranch));
+            endpoint.Data.Add(Constants.EndpointData.SourceBranch, executionContext.Variables.Build_SourceBranch);
         }
 
         private async Task<bool> IsRepositoryOriginUrlMatch(IExecutionContext context, string repositoryPath, Uri expectedRepositoryOriginUrl)
@@ -804,7 +1180,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             int exitCode_configUnset = await _gitCommandManager.GitConfigUnset(executionContext, targetPath, configKey);
             if (exitCode_configUnset != 0)
             {
-                // if unable to use git.exe unset http.extraheader or http.proxy, modify git config file on disk. make sure we don't left credential.
+                // if unable to use git.exe unset http.extraheader, http.proxy or core.askpass, modify git config file on disk. make sure we don't left credential.
                 if (!string.IsNullOrEmpty(configValue))
                 {
                     executionContext.Warning(StringUtil.Loc("AttemptRemoveCredFromConfig"));
@@ -818,6 +1194,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                             gitConfigContent = Regex.Replace(gitConfigContent, setting, string.Empty, RegexOptions.IgnoreCase);
 
                             setting = $"proxy = {configValue}";
+                            gitConfigContent = Regex.Replace(gitConfigContent, setting, string.Empty, RegexOptions.IgnoreCase);
+
+                            setting = $"askpass = {configValue}";
                             gitConfigContent = Regex.Replace(gitConfigContent, setting, string.Empty, RegexOptions.IgnoreCase);
 
                             File.WriteAllText(gitConfig, gitConfigContent);

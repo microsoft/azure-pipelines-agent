@@ -1,4 +1,7 @@
-﻿namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
 {
     public static class CodeCoverageConstants
     {
@@ -89,6 +92,10 @@
         public const string EnablingEditingTemplate = "Enabling '{0}' code coverage for '{1}' by editing '{2}'.";
         public const string InvalidXMLTemplate = "Invalid build xml '{0}'. Error '{1}' occurred while parsing the file. ";
         public const string MavenMultiModule = "This is a multi module project. Generating code coverage reports using ant task.";
+        #endregion
+
+        #region FeatureFlags
+        public const string EnablePublishToTcmServiceDirectlyFromTaskFF = "TestManagement.Server.EnablePublishToTcmServiceDirectlyFromTask";
         #endregion
     }
 }

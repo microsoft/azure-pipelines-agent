@@ -1,5 +1,7 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.IO;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using Microsoft.VisualStudio.Services.Agent;
 using Microsoft.VisualStudio.Services.Agent.Tests;
@@ -112,15 +114,13 @@ namespace Test.L0.Worker.Release
 
         private TestHostContext Initialize([CallerMemberName] string name = "", bool createWorkDirectory = true)
         {
-            this.stubWorkFolder = Path.Combine(
-                Path.GetDirectoryName(Assembly.GetEntryAssembly().Location),
-                $"_work_{Path.GetRandomFileName()}");
+            var hostContext =  new TestHostContext(this, name);
+            this.stubWorkFolder = hostContext.GetDirectory(WellKnownDirectory.Work);
             if (createWorkDirectory)
             {
                 Directory.CreateDirectory(this.stubWorkFolder);
             }
 
-            var hostContext =  new TestHostContext(this, name);
             this.releaseDirectoryManager = new ReleaseDirectoryManager();
             this.releaseDirectoryManager.Initialize(hostContext);
 

@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Build;
 using System;
@@ -42,9 +45,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 manager.Initialize(tc);
 
                 // Act/Assert.
-                AssertContains<Microsoft.VisualStudio.Services.Agent.Listener.Capabilities.ICapabilitiesProvider>(
+                AssertContains<Microsoft.VisualStudio.Services.Agent.Capabilities.ICapabilitiesProvider>(
                     manager,
-                    concreteType: typeof(Microsoft.VisualStudio.Services.Agent.Listener.Capabilities.AgentCapabilitiesProvider));
+                    concreteType: typeof(Microsoft.VisualStudio.Services.Agent.Capabilities.AgentCapabilitiesProvider));
                 AssertContains<Microsoft.VisualStudio.Services.Agent.Worker.IJobExtension>(
                     manager,
                     concreteType: typeof(Microsoft.VisualStudio.Services.Agent.Worker.Build.BuildJobExtension));
@@ -57,9 +60,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 AssertContains<Microsoft.VisualStudio.Services.Agent.Worker.Release.IArtifactExtension>(
                     manager,
                     concreteType: typeof(Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts.BuildArtifact));
-                AssertContains<Microsoft.VisualStudio.Services.Agent.Worker.TestResults.IResultReader>(
+                AssertContains<Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults.IResultReader>(
                     manager,
-                    concreteType: typeof(Microsoft.VisualStudio.Services.Agent.Worker.TestResults.JUnitResultReader));
+                    concreteType: typeof(Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults.JUnitResultReader));
             }
         }
 

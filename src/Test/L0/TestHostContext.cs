@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Concurrent;
@@ -8,7 +11,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.Loader;
 using System.Reflection;
-using System.Collections.Generic;
+using Microsoft.TeamFoundation.DistributedTask.Logging;
+using System.Net.Http.Headers;
+using Agent.Sdk;
+using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
@@ -24,11 +30,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         private string _testName;
         private Tracing _trace;
         private AssemblyLoadContext _loadContext;
-        private List<string> _tempDirectorys = new List<string>();
+        private string _tempDirectoryRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("D"));
         private StartupType _startupType;
         public event EventHandler Unloading;
         public CancellationToken AgentShutdownToken => _agentShutdownTokenSource.Token;
         public ShutdownReason AgentShutdownReason { get; private set; }
+        public ISecretMasker SecretMasker => _secretMasker;
         public TestHostContext(object testClass, [CallerMemberName] string testName = "")
         {
             ArgUtil.NotNull(testClass, nameof(testClass));
@@ -43,8 +50,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             _suiteName = _suiteName.Replace(".", "_");
 
             // Setup the trace manager.
-            TraceFileName = Path.Combine( 
-                Path.Combine(TestUtil.GetSrcPath(), "Test", "TestLogs"), 
+            TraceFileName = Path.Combine(
+                Path.Combine(TestUtil.GetSrcPath(), "Test", "TestLogs"),
                 $"trace_{_suiteName}_{_testName}.log");
             if (File.Exists(TraceFileName))
             {
@@ -52,10 +59,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
 
             var traceListener = new HostTraceListener(TraceFileName);
+            traceListener.DisableConsoleReporting = true;
             _secretMasker = new SecretMasker();
+            _secretMasker.AddValueEncoder(ValueEncoders.JsonStringEscape);
+            _secretMasker.AddValueEncoder(ValueEncoders.UriDataEscape);
             _traceManager = new TraceManager(traceListener, _secretMasker);
             _trace = GetTrace(nameof(TestHostContext));
-            SetSingleton<ISecretMasker>(_secretMasker);
 
             // inject a terminal in silent mode so all console output
             // goes to the test trace file
@@ -63,6 +72,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             _term.Silent = true;
             SetSingleton<ITerminal>(_term);
             EnqueueInstance<ITerminal>(_term);
+
+            if (!TestUtil.IsWindows())
+            {
+                string eulaFile = Path.Combine(GetDirectory(WellKnownDirectory.Externals), Constants.Path.TeeDirectory, "license.html");
+                Directory.CreateDirectory(GetDirectory(WellKnownDirectory.Externals));
+                Directory.CreateDirectory(Path.Combine(GetDirectory(WellKnownDirectory.Externals), Constants.Path.TeeDirectory));
+                File.WriteAllText(eulaFile, "testeulafile");
+            }
         }
 
         public CultureInfo DefaultCulture { get; private set; }
@@ -72,16 +89,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         public string TraceFileName { get; private set; }
 
         public StartupType StartupType
-        { 
-            get 
+        {
+            get
             {
                 return _startupType;
             }
             set
             {
                 _startupType = value;
-            } 
+            }
         }
+
+        public ProductInfoHeaderValue UserAgent => new ProductInfoHeaderValue("L0Test", "0.0");
 
         public async Task Delay(TimeSpan delay, CancellationToken token)
         {
@@ -154,10 +173,181 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
         public string GetDirectory(WellKnownDirectory directory)
         {
-            // TODO: Not sure if we should always return GetTempPath here.
-            string tempDir = Path.Combine(Path.GetTempPath(), directory.ToString());
-            _tempDirectorys.Add(tempDir);
-            return tempDir;
+            string path;
+            switch (directory)
+            {
+                case WellKnownDirectory.Bin:
+                    path = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
+                    break;
+
+                case WellKnownDirectory.Diag:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        Constants.Path.DiagDirectory);
+                    break;
+
+                case WellKnownDirectory.Externals:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        Constants.Path.ExternalsDirectory);
+                    break;
+
+                case WellKnownDirectory.LegacyPSHost:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Externals),
+                        Constants.Path.LegacyPSHostDirectory);
+                    break;
+
+                case WellKnownDirectory.Root:
+                    path = new DirectoryInfo(GetDirectory(WellKnownDirectory.Bin)).Parent.FullName;
+                    break;
+
+                case WellKnownDirectory.ServerOM:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Externals),
+                        Constants.Path.ServerOMDirectory);
+                    break;
+
+                case WellKnownDirectory.Tf:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Externals),
+                        Constants.Path.TfDirectory);
+                    break;
+
+                case WellKnownDirectory.Tee:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Externals),
+                        Constants.Path.TeeDirectory);
+                    break;
+
+                case WellKnownDirectory.Temp:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Work),
+                        Constants.Path.TempDirectory);
+                    break;
+
+                case WellKnownDirectory.Tasks:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Work),
+                        Constants.Path.TasksDirectory);
+                    break;
+
+                case WellKnownDirectory.TaskZips:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Work),
+                        Constants.Path.TaskZipsDirectory);
+                    break;
+
+                case WellKnownDirectory.Tools:
+                    path = Environment.GetEnvironmentVariable("AGENT_TOOLSDIRECTORY") ?? Environment.GetEnvironmentVariable(Constants.Variables.Agent.ToolsDirectory);
+                    if (string.IsNullOrEmpty(path))
+                    {
+                        path = Path.Combine(
+                            GetDirectory(WellKnownDirectory.Work),
+                            Constants.Path.ToolDirectory);
+                    }
+                    break;
+
+                case WellKnownDirectory.Update:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Work),
+                        Constants.Path.UpdateDirectory);
+                    break;
+
+                case WellKnownDirectory.Work:
+                    path = Path.Combine(
+                        _tempDirectoryRoot,
+                        WellKnownDirectory.Work.ToString());
+                    break;
+
+                default:
+                    throw new NotSupportedException($"Unexpected well known directory: '{directory}'");
+            }
+
+            _trace.Info($"Well known directory '{directory}': '{path}'");
+            return path;
+        }
+
+        public string GetConfigFile(WellKnownConfigFile configFile)
+        {
+            string path;
+            switch (configFile)
+            {
+                case WellKnownConfigFile.Agent:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        ".agent");
+                    break;
+
+                case WellKnownConfigFile.Credentials:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        ".credentials");
+                    break;
+
+                case WellKnownConfigFile.RSACredentials:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        ".credentials_rsaparams");
+                    break;
+
+                case WellKnownConfigFile.Service:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        ".service");
+                    break;
+
+                case WellKnownConfigFile.CredentialStore:
+                    path = (TestUtil.IsMacOS())
+                        ? Path.Combine(
+                            GetDirectory(WellKnownDirectory.Root),
+                            ".credential_store.keychain")
+                        : Path.Combine(
+                            GetDirectory(WellKnownDirectory.Root),
+                            ".credential_store");
+                    break;
+
+                case WellKnownConfigFile.Certificates:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        ".certificates");
+                    break;
+
+                case WellKnownConfigFile.Proxy:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        ".proxy");
+                    break;
+
+                case WellKnownConfigFile.ProxyCredentials:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        ".proxycredentials");
+                    break;
+
+                case WellKnownConfigFile.ProxyBypass:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        ".proxybypass");
+                    break;
+
+                case WellKnownConfigFile.Autologon:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        ".autologon");
+                    break;
+
+                case WellKnownConfigFile.Options:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        ".options");
+                    break;
+                default:
+                    throw new NotSupportedException($"Unexpected well known config file: '{configFile}'");
+            }
+
+            _trace.Info($"Well known config file '{configFile}': '{path}'");
+            return path;
         }
 
         // simple convenience factory so each suite/test gets a different trace file per run
@@ -173,11 +363,40 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             return _traceManager[name];
         }
 
+        public ContainerInfo CreateContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true)
+        {
+            ContainerInfo containerInfo = new ContainerInfo(container, isJobContainer);
+            if (TestUtil.IsWindows())
+            {
+                // Tool cache folder may come from ENV, so we need a unique folder to avoid collision
+                containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Tools)] = "C:\\__t";
+                containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Work)] = "C:\\__w";
+                containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Root)] = "C:\\__a";
+                // add -v '\\.\pipe\docker_engine:\\.\pipe\docker_engine' when they are available (17.09)
+            }
+            else
+            {
+                // Tool cache folder may come from ENV, so we need a unique folder to avoid collision
+                containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Tools)] = "/__t";
+                containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Work)] = "/__w";
+                containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Root)] = "/__a";
+                if (containerInfo.IsJobContainer)
+                {
+                    containerInfo.MountVolumes.Add(new MountVolume("/var/run/docker.sock", "/var/run/docker.sock"));
+                }
+            }
+            return containerInfo;
+        }
+
         public void ShutdownAgent(ShutdownReason reason)
         {
             ArgUtil.NotNull(reason, nameof(reason));
             AgentShutdownReason = reason;
             _agentShutdownTokenSource.Cancel();
+        }
+
+        public void WritePerfCounter(string counter)
+        {
         }
 
         public void Dispose()
@@ -196,16 +415,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     _loadContext = null;
                 }
                 _traceManager?.Dispose();
-                foreach (var dir in _tempDirectorys)
+                try
                 {
-                    try
-                    {
-                        Directory.Delete(dir);
-                    }
-                    catch (Exception)
-                    {
-                        // eat exception on dispose
-                    }
+                    Directory.Delete(_tempDirectoryRoot);
+                }
+                catch (Exception)
+                {
+                    // eat exception on dispose
                 }
             }
         }

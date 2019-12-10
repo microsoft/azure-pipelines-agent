@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.IO;
 using System.Threading;
@@ -84,11 +87,17 @@ namespace Microsoft.VisualStudio.Services.Agent
             CheckConnection();
             try
             {
-                var definitions = await _taskAgentClient.GetTaskDefinitionsAsync();
+                // D9BAFED4-0B18-4F58-968D-86655B4D2CE9 ->  CommandLine task
+                var definitions = await _taskAgentClient.GetTaskDefinitionsAsync(new Guid("D9BAFED4-0B18-4F58-968D-86655B4D2CE9"));
             }
             catch (VssResourceNotFoundException)
             {
                 return false;
+            }
+            catch (TaskDefinitionNotFoundException)
+            {
+                // ignore task not found exception
+                // this exception means the task definition is not in the DB, but the rest endpoint exists.
             }
 
             return true;

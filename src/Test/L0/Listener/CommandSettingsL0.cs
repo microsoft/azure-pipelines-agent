@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.VisualStudio.Services.Agent.Listener;
 using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -11,7 +14,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
     public sealed class CommandSettingsL0
     {
         private readonly Mock<IPromptManager> _promptManager = new Mock<IPromptManager>();
-        private readonly Mock<ISecretMasker> _secretMasker = new Mock<ISecretMasker>();
 
         // It is sufficient to test one arg only. All individual args are tested by the PromptsFor___ methods.
         // The PromptsFor___ methods suffice to cover the interesting differences between each of the args.
@@ -52,7 +54,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     // Assert.
                     Assert.Equal("some agent", actual);
                     Assert.Equal(string.Empty, Environment.GetEnvironmentVariable("VSTS_AGENT_INPUT_AGENT") ?? string.Empty); // Should remove.
-                    _secretMasker.Verify(x => x.AddValue(It.IsAny<string>()), Times.Never);
+                    Assert.Equal(hc.SecretMasker.MaskSecrets("some agent"), "some agent");
                 }
                 finally
                 {
@@ -80,7 +82,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     // Assert.
                     Assert.Equal("some secret token value", actual);
                     Assert.Equal(string.Empty, Environment.GetEnvironmentVariable("VSTS_AGENT_INPUT_TOKEN") ?? string.Empty); // Should remove.
-                    _secretMasker.Verify(x => x.AddValue("some secret token value"));
+                    Assert.Equal(hc.SecretMasker.MaskSecrets("some secret token value"), "***");
                 }
                 finally
                 {
@@ -270,7 +272,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     // Assert.
                     Assert.Equal(true, actual);
                     Assert.Equal(string.Empty, Environment.GetEnvironmentVariable("VSTS_AGENT_INPUT_UNATTENDED") ?? string.Empty); // Should remove.
-                    _secretMasker.Verify(x => x.AddValue(It.IsAny<string>()), Times.Never);
                 }
                 finally
                 {
@@ -913,6 +914,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", nameof(CommandSettings))]
+        public void PromptsForDeploymentPoolName()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            {
+                // Arrange.
+                var command = new CommandSettings(hc, args: new string[0]);
+                _promptManager
+                    .Setup(x => x.ReadValue(
+                        Constants.Agent.CommandLine.Args.DeploymentPoolName, // argName
+                        StringUtil.Loc("DeploymentPoolName"), // description
+                        false, // secret
+                        string.Empty, // defaultValue
+                        Validators.NonEmptyValidator, // validator
+                        false)) // unattended
+                    .Returns("Test Deployment Pool Name");
+
+                // Act.
+                string actual = command.GetDeploymentPoolName();
+
+                // Assert.
+                Assert.Equal("Test Deployment Pool Name", actual);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", nameof(CommandSettings))]
         public void DeploymentGroupNameBackCompat()
         {
             using (TestHostContext hc = CreateTestContext())
@@ -1080,7 +1108,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         {
             TestHostContext hc = new TestHostContext(this, testName);
             hc.SetSingleton<IPromptManager>(_promptManager.Object);
-            hc.SetSingleton<ISecretMasker>(_secretMasker.Object);
             return hc;
         }
     }

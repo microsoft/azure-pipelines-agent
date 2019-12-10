@@ -1,0 +1,29 @@
+parameters:
+  layoutRoot: ''
+  flavor: ''
+  condition: ''
+
+steps:
+# Guard against missing parameters
+- ${{ if or(eq(parameters.layoutRoot, ''), eq(parameters.flavor, '')) }}:
+  - |
+      Badly configured build; an expected parameter is missing. //
+      layoutRoot: ${{ parameters.layoutRoot }} //
+      flavor: ${{ parameters.flavor }}
+
+# Package .NET Core Windows dependency (VC++ Redistributable)
+- powershell: |
+    Write-Host "Downloading 'VC++ Redistributable' package."
+    $outDir = Join-Path -Path $env:TMP -ChildPath ([Guid]::NewGuid())
+    New-Item -Path $outDir -ItemType directory 
+    $outFile = Join-Path -Path $outDir -ChildPath "ucrt.zip"
+    Invoke-WebRequest -Uri https://vstsagenttools.blob.core.windows.net/tools/ucrt/ucrt_${{ parameters.flavor }}.zip -OutFile $outFile
+    Write-Host "Unzipping 'VC++ Redistributable' package to agent layout."
+    $unzipDir = Join-Path -Path $outDir -ChildPath "unzip"
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($outFile, $unzipDir)
+    $agentLayoutBin = Join-Path -Path $(Build.SourcesDirectory) -ChildPath "${{ parameters.layoutRoot }}\bin"
+    Copy-Item -Path $unzipDir -Destination $agentLayoutBin -Force
+  displayName: Package UCRT
+  ${{ if ne(parameters.condition, '') }}:
+    condition: ${{ parameters.condition }}

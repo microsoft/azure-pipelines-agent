@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Linq;
@@ -5,51 +8,36 @@ using System.Net;
 using System.IO;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
     [ServiceLocator(Default = typeof(VstsAgentWebProxy))]
-    public interface IVstsAgentWebProxy : IAgentService, IWebProxy
+    public interface IVstsAgentWebProxy : IAgentService
     {
         string ProxyAddress { get; }
         string ProxyUsername { get; }
         string ProxyPassword { get; }
         List<string> ProxyBypassList { get; }
+        IWebProxy WebProxy { get; }
     }
 
-    public class VstsAgentWebProxy : AgentService, IVstsAgentWebProxy, IWebProxy
+    public class VstsAgentWebProxy : AgentService, IVstsAgentWebProxy
     {
         private readonly List<Regex> _regExBypassList = new List<Regex>();
         private readonly List<string> _bypassList = new List<string>();
+        private AgentWebProxy _agentWebProxy = new AgentWebProxy();
 
         public string ProxyAddress { get; private set; }
         public string ProxyUsername { get; private set; }
         public string ProxyPassword { get; private set; }
         public List<string> ProxyBypassList => _bypassList;
-
-        public ICredentials Credentials { get; set; }
+        public IWebProxy WebProxy => _agentWebProxy;
 
         public override void Initialize(IHostContext context)
         {
             base.Initialize(context);
             LoadProxySetting();
-        }
-
-        public Uri GetProxy(Uri destination)
-        {
-            if (IsBypassed(destination))
-            {
-                return destination;
-            }
-            else
-            {
-                return new Uri(ProxyAddress);
-            }
-        }
-
-        public bool IsBypassed(Uri uri)
-        {
-            return string.IsNullOrEmpty(ProxyAddress) || uri.IsLoopback || IsMatchInBypassList(uri);
         }
 
         // This should only be called from config
@@ -63,12 +51,17 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             if (string.IsNullOrEmpty(ProxyUsername) || string.IsNullOrEmpty(ProxyPassword))
             {
-                Credentials = CredentialCache.DefaultNetworkCredentials;
+                Trace.Info($"Config proxy use DefaultNetworkCredentials.");
             }
             else
             {
-                Credentials = new NetworkCredential(ProxyUsername, ProxyPassword);
+                Trace.Info($"Config authentication proxy as: {ProxyUsername}.");
             }
+
+            // Ensure proxy bypass list is loaded during the agent config
+            LoadProxyBypassList();
+
+            _agentWebProxy.Update(ProxyAddress, ProxyUsername, ProxyPassword, ProxyBypassList);
         }
 
         // This should only be called from config
@@ -76,13 +69,13 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             if (!string.IsNullOrEmpty(ProxyAddress))
             {
-                string proxyConfigFile = IOUtil.GetProxyConfigFilePath();
+                string proxyConfigFile = HostContext.GetConfigFile(WellKnownConfigFile.Proxy);
                 IOUtil.DeleteFile(proxyConfigFile);
                 Trace.Info($"Store proxy configuration to '{proxyConfigFile}' for proxy '{ProxyAddress}'");
                 File.WriteAllText(proxyConfigFile, ProxyAddress);
                 File.SetAttributes(proxyConfigFile, File.GetAttributes(proxyConfigFile) | FileAttributes.Hidden);
 
-                string proxyCredFile = IOUtil.GetProxyCredentialsFilePath();
+                string proxyCredFile = HostContext.GetConfigFile(WellKnownConfigFile.ProxyCredentials);
                 IOUtil.DeleteFile(proxyCredFile);
                 if (!string.IsNullOrEmpty(ProxyUsername) && !string.IsNullOrEmpty(ProxyPassword))
                 {
@@ -104,7 +97,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         // This should only be called from unconfig
         public void DeleteProxySetting()
         {
-            string proxyCredFile = IOUtil.GetProxyCredentialsFilePath();
+            string proxyCredFile = HostContext.GetConfigFile(WellKnownConfigFile.ProxyCredentials);
             if (File.Exists(proxyCredFile))
             {
                 Trace.Info("Delete proxy credential from credential store.");
@@ -119,14 +112,41 @@ namespace Microsoft.VisualStudio.Services.Agent
                 IOUtil.DeleteFile(proxyCredFile);
             }
 
-            string proxyConfigFile = IOUtil.GetProxyConfigFilePath();
+            string proxyBypassFile = HostContext.GetConfigFile(WellKnownConfigFile.ProxyBypass);
+            if (File.Exists(proxyBypassFile))
+            {
+                Trace.Info($"Delete .proxybypass file: {proxyBypassFile}");
+                IOUtil.DeleteFile(proxyBypassFile);
+            }
+
+            string proxyConfigFile = HostContext.GetConfigFile(WellKnownConfigFile.Proxy);
             Trace.Info($"Delete .proxy file: {proxyConfigFile}");
             IOUtil.DeleteFile(proxyConfigFile);
         }
 
+        public void LoadProxyBypassList()
+        {
+            string proxyBypassFile = HostContext.GetConfigFile(WellKnownConfigFile.ProxyBypass);
+            if (File.Exists(proxyBypassFile))
+            {
+                Trace.Verbose($"Try read proxy bypass list from file: {proxyBypassFile}.");
+                foreach (string bypass in File.ReadAllLines(proxyBypassFile))
+                {
+                    if (string.IsNullOrWhiteSpace(bypass))
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        Trace.Info($"Bypass proxy for: {bypass}.");
+                        ProxyBypassList.Add(bypass.Trim());
+                    }
+                }
+            }
+        }
         private void LoadProxySetting()
         {
-            string proxyConfigFile = IOUtil.GetProxyConfigFilePath();
+            string proxyConfigFile = HostContext.GetConfigFile(WellKnownConfigFile.Proxy);
             if (File.Exists(proxyConfigFile))
             {
                 // we expect the first line of the file is the proxy url
@@ -146,7 +166,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             if (!string.IsNullOrEmpty(ProxyAddress) && !Uri.IsWellFormedUriString(ProxyAddress, UriKind.Absolute))
             {
-                Trace.Info($"The proxy url is not a well formed absolute uri string: {ProxyAddress}.");
+                Trace.Error($"The proxy url is not a well formed absolute uri string: {ProxyAddress}.");
                 ProxyAddress = string.Empty;
             }
 
@@ -154,7 +174,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             {
                 Trace.Info($"Config proxy at: {ProxyAddress}.");
 
-                string proxyCredFile = IOUtil.GetProxyCredentialsFilePath();
+                string proxyCredFile = HostContext.GetConfigFile(WellKnownConfigFile.ProxyCredentials);
                 if (File.Exists(proxyCredFile))
                 {
                     string lookupKey = File.ReadAllLines(proxyCredFile).FirstOrDefault();
@@ -179,70 +199,26 @@ namespace Microsoft.VisualStudio.Services.Agent
 
                 if (!string.IsNullOrEmpty(ProxyPassword))
                 {
-                    var secretMasker = HostContext.GetService<ISecretMasker>();
-                    secretMasker.AddValue(ProxyPassword);
+                    HostContext.SecretMasker.AddValue(ProxyPassword);
                 }
 
                 if (string.IsNullOrEmpty(ProxyUsername) || string.IsNullOrEmpty(ProxyPassword))
                 {
                     Trace.Info($"Config proxy use DefaultNetworkCredentials.");
-                    Credentials = CredentialCache.DefaultNetworkCredentials;
                 }
                 else
                 {
                     Trace.Info($"Config authentication proxy as: {ProxyUsername}.");
-                    Credentials = new NetworkCredential(ProxyUsername, ProxyPassword);
                 }
 
-                string proxyBypassFile = IOUtil.GetProxyBypassFilePath();
-                if (File.Exists(proxyBypassFile))
-                {
-                    Trace.Verbose($"Try read proxy bypass list from file: {proxyBypassFile}.");
-                    foreach (string bypass in File.ReadAllLines(proxyBypassFile))
-                    {
-                        if (string.IsNullOrWhiteSpace(bypass))
-                        {
-                            continue;
-                        }
-                        else
-                        {
-                            Trace.Info($"Bypass proxy for: {bypass}.");
-                            try
-                            {
-                                Regex bypassRegex = new Regex(bypass.Trim(), RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.ECMAScript);
-                                _regExBypassList.Add(bypassRegex);
-                                ProxyBypassList.Add(bypass.Trim());
-                            }
-                            catch (Exception ex)
-                            {
-                                Trace.Error($"{bypass} is not a valid Regex, won't bypass proxy for {bypass}.");
-                                Trace.Error(ex);
-                            }
-                        }
-                    }
-                }
+                LoadProxyBypassList();
+
+                _agentWebProxy.Update(ProxyAddress, ProxyUsername, ProxyPassword, ProxyBypassList);
             }
             else
             {
                 Trace.Info($"No proxy setting found.");
             }
-        }
-
-        private bool IsMatchInBypassList(Uri input)
-        {
-            string matchUriString = input.IsDefaultPort ?
-                input.Scheme + "://" + input.Host :
-                input.Scheme + "://" + input.Host + ":" + input.Port.ToString();
-
-            foreach (Regex r in _regExBypassList)
-            {
-                if (r.IsMatch(matchUriString))
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
     }
 }

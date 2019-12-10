@@ -1,4 +1,7 @@
-﻿namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEngine
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEngine
 {
     [ServiceLocator(Default = typeof(NullExecutionLogger))]
     // NOTE: FetchEngine specific interface shouldn't take dependency on Agent code.

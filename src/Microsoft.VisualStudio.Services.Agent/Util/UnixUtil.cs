@@ -1,6 +1,10 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Util
 {
@@ -38,8 +42,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         {
             Trace.Entering();
 
-            var whichUtil = HostContext.GetService<IWhichUtil>();
-            string toolPath = whichUtil.Which(toolName);
+            string toolPath = WhichUtil.Which(toolName, trace: Trace);
             Trace.Info($"Running {toolPath} {argLine}");
 
             var processInvoker = HostContext.CreateService<IProcessInvoker>();

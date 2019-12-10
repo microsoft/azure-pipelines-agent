@@ -1,4 +1,6 @@
-﻿#if OS_LINUX || OS_OSX
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.IO;
 using System.Security.Cryptography;
@@ -12,29 +14,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         private string _keyFile;
         private IHostContext _context;
 
-        public RSA CreateKey()
+        public RSACryptoServiceProvider CreateKey()
         {
-            RSA rsa = null;
+            RSACryptoServiceProvider rsa = null;
             if (!File.Exists(_keyFile))
             {
                 Trace.Info("Creating new RSA key using 2048-bit key length");
 
-                rsa = RSA.Create();
-                rsa.KeySize = 2048;
+                rsa = new RSACryptoServiceProvider(2048);
 
                 // Now write the parameters to disk
-                IOUtil.SaveObject(rsa.ExportParameters(true), _keyFile);
+                IOUtil.SaveObject(new RSAParametersSerializable(rsa.ExportParameters(true)), _keyFile);
                 Trace.Info("Successfully saved RSA key parameters to file {0}", _keyFile);
 
                 // Try to lock down the credentials_key file to the owner/group
-                var whichUtil = _context.GetService<IWhichUtil>();
-                var chmodPath = whichUtil.Which("chmod");
+                var chmodPath = WhichUtil.Which("chmod", trace: Trace);
                 if (!String.IsNullOrEmpty(chmodPath))
                 {
                     var arguments = $"600 {new FileInfo(_keyFile).FullName}";
                     using (var invoker = _context.CreateService<IProcessInvoker>())
                     {
-                        var exitCode = invoker.ExecuteAsync(IOUtil.GetRootPath(), chmodPath, arguments, null, default(CancellationToken)).GetAwaiter().GetResult();
+                        var exitCode = invoker.ExecuteAsync(HostContext.GetDirectory(WellKnownDirectory.Root), chmodPath, arguments, null, default(CancellationToken)).GetAwaiter().GetResult();
                         if (exitCode == 0)
                         {
                             Trace.Info("Successfully set permissions for RSA key parameters file {0}", _keyFile);
@@ -54,8 +54,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 Trace.Info("Found existing RSA key parameters file {0}", _keyFile);
 
-                rsa = RSA.Create();
-                rsa.ImportParameters(IOUtil.LoadObject<RSAParameters>(_keyFile));
+                rsa = new RSACryptoServiceProvider();
+                rsa.ImportParameters(IOUtil.LoadObject<RSAParametersSerializable>(_keyFile).RSAParameters);
             }
 
             return rsa;
@@ -70,7 +70,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
-        public RSA GetKey()
+        public RSACryptoServiceProvider GetKey()
         {
             if (!File.Exists(_keyFile))
             {
@@ -79,8 +79,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             Trace.Info("Loading RSA key parameters from file {0}", _keyFile);
 
-            var parameters = IOUtil.LoadObject<RSAParameters>(_keyFile);
-            var rsa = RSA.Create();
+            var parameters = IOUtil.LoadObject<RSAParametersSerializable>(_keyFile).RSAParameters;
+            var rsa = new RSACryptoServiceProvider();
             rsa.ImportParameters(parameters);
             return rsa;
         }
@@ -90,8 +90,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             base.Initialize(context);
 
             _context = context;
-            _keyFile = IOUtil.GetRSACredFilePath();
+            _keyFile = context.GetConfigFile(WellKnownConfigFile.RSACredentials);
         }
     }
 }
-#endif

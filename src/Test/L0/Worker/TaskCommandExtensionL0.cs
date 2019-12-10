@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -13,6 +16,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         private TestHostContext _hc;
         private Mock<IExecutionContext> _ec;
         private ServiceEndpoint _endpoint;
+        private IWorkerCommandRestrictionPolicy _policy = new UnrestricedWorkerCommandRestrictionPolicy();
 
         [Fact]
         [Trait("Level", "L0")]
@@ -28,11 +32,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             cmd.Properties.Add("id", Guid.Empty.ToString());
             cmd.Properties.Add("key", "test");
 
-            commandExtension.ProcessCommand(_ec.Object, cmd);
+            commandExtension.ProcessCommand(_ec.Object, cmd, _policy);
 
             Assert.Equal(_endpoint.Authorization.Parameters["test"], "blah");
         }
-        
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
@@ -46,7 +50,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             cmd.Properties.Add("id", Guid.Empty.ToString());
             cmd.Properties.Add("key", "test");
 
-            commandExtension.ProcessCommand(_ec.Object, cmd);
+            commandExtension.ProcessCommand(_ec.Object, cmd, _policy);
 
             Assert.Equal(_endpoint.Data["test"], "blah");
         }
@@ -63,7 +67,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             cmd.Properties.Add("field", "url");
             cmd.Properties.Add("id", Guid.Empty.ToString());
 
-            commandExtension.ProcessCommand(_ec.Object, cmd);
+            commandExtension.ProcessCommand(_ec.Object, cmd, _policy);
 
             Assert.Equal(_endpoint.Url.ToString(), cmd.Data);
         }
@@ -76,7 +80,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             SetupMocks();
             TaskCommandExtension commandExtension = new TaskCommandExtension();
             var cmd = new Command("task", "setEndpoint");
-            Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+            Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
         }
 
         [Fact]
@@ -88,7 +92,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             TaskCommandExtension commandExtension = new TaskCommandExtension();
             var cmd = new Command("task", "setEndpoint");
 
-            Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+            Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
         }
 
         [Fact]
@@ -101,7 +105,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             var cmd = new Command("task", "setEndpoint");
             cmd.Properties.Add("field", "blah");
 
-            Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+            Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
         }
 
         [Fact]
@@ -114,7 +118,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             var cmd = new Command("task", "setEndpoint");
             cmd.Properties.Add("field", "url");
 
-            Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+            Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
         }
 
         [Fact]
@@ -128,7 +132,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             cmd.Properties.Add("field", "url");
             cmd.Properties.Add("id", "blah");
 
-            Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+            Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
         }
 
         [Fact]
@@ -142,7 +146,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             cmd.Properties.Add("field", "authParameter");
             cmd.Properties.Add("id", Guid.Empty.ToString());
 
-            Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+            Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
         }
 
         [Fact]
@@ -157,7 +161,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             cmd.Properties.Add("field", "url");
             cmd.Properties.Add("id", Guid.Empty.ToString());
 
-            Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+            Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
         }
 
         private void SetupMocks([CallerMemberName] string name = "")
@@ -176,6 +180,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             };
 
             _ec.Setup(x => x.Endpoints).Returns(new List<ServiceEndpoint> { _endpoint });
+            _ec.Setup(x => x.GetHostContext()).Returns(_hc);
         }
     }
 }

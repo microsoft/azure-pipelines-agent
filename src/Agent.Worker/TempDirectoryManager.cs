@@ -1,3 +1,7 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.IO;
@@ -14,26 +18,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
     public sealed class TempDirectoryManager : AgentService, ITempDirectoryManager
     {
-        private bool _overwriteTemp;
         private string _tempDirectory;
 
         public override void Initialize(IHostContext hostContext)
         {
             base.Initialize(hostContext);
-
-            if (!bool.TryParse(Environment.GetEnvironmentVariable("VSTS_OVERWRITE_TEMP") ?? "true", out _overwriteTemp))
-            {
-                _overwriteTemp = true;
-            }
-
-            _tempDirectory = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), Constants.Path.TempDirectory);
+            _tempDirectory = HostContext.GetDirectory(WellKnownDirectory.Temp);
         }
 
         public void InitializeTempDirectory(IExecutionContext jobContext)
         {
             ArgUtil.NotNull(jobContext, nameof(jobContext));
             ArgUtil.NotNullOrEmpty(_tempDirectory, nameof(_tempDirectory));
-            jobContext.Variables.Set(Constants.Variables.Agent.TempDirectory, _tempDirectory);
+            jobContext.SetVariable(Constants.Variables.Agent.TempDirectory, _tempDirectory, isFilePath: true);
             jobContext.Debug($"Cleaning agent temp folder: {_tempDirectory}");
             try
             {
@@ -49,23 +46,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Directory.CreateDirectory(_tempDirectory);
             }
 
+            bool overwriteTemp = jobContext.Variables.GetBoolean("VSTS_OVERWRITE_TEMP") ?? StringUtil.ConvertToBoolean(Environment.GetEnvironmentVariable("VSTS_OVERWRITE_TEMP"));
+
             // TEMP and TMP on Windows
             // TMPDIR on Linux
-            if (!_overwriteTemp)
+            if (!overwriteTemp)
             {
                 jobContext.Debug($"Skipping overwrite %TEMP% environment variable");
             }
             else
             {
-#if OS_WINDOWS
-                jobContext.Debug($"SET TMP={_tempDirectory}");
-                jobContext.Debug($"SET TEMP={_tempDirectory}");                
-                Environment.SetEnvironmentVariable("TMP", _tempDirectory);
-                Environment.SetEnvironmentVariable("TEMP", _tempDirectory);
-#else
-                jobContext.Debug($"SET TMPDIR={_tempDirectory}");
-                Environment.SetEnvironmentVariable("TMPDIR", _tempDirectory);
-#endif
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    jobContext.Debug($"SET TMP={_tempDirectory}");
+                    jobContext.Debug($"SET TEMP={_tempDirectory}");
+                    jobContext.SetVariable("TMP", _tempDirectory, isFilePath: true);
+                    jobContext.SetVariable("TEMP", _tempDirectory, isFilePath: true);
+                }
+                else
+                {
+                    jobContext.Debug($"SET TMPDIR={_tempDirectory}");
+                    jobContext.SetVariable("TMPDIR", _tempDirectory, isFilePath:true);
+                }
             }
         }
 

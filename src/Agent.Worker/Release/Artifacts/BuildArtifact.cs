@@ -1,3 +1,7 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -53,7 +57,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             // Get the list of available artifacts from build. 
             executionContext.Output(StringUtil.Loc("RMPreparingToGetBuildArtifactList"));
 
-            var vssConnection = ApiUtil.CreateConnection(buildArtifactDetails.TfsUrl, buildArtifactDetails.Credentials);
+            var vssConnection = VssUtil.CreateConnection(buildArtifactDetails.TfsUrl, buildArtifactDetails.Credentials);
             var buildClient = vssConnection.GetClient<BuildHttpClient>();
             var xamlBuildClient = vssConnection.GetClient<XamlBuildHttpClient>();
             List<ServerBuildArtifact> buildArtifacts = null;
@@ -96,12 +100,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
         {
             Trace.Entering();
 
-            ServiceEndpoint vssEndpoint = context.Endpoints.FirstOrDefault(e => string.Equals(e.Name, ServiceEndpoints.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
+            ServiceEndpoint vssEndpoint = context.Endpoints.FirstOrDefault(e => string.Equals(e.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
             ArgUtil.NotNull(vssEndpoint, nameof(vssEndpoint));
             ArgUtil.NotNull(vssEndpoint.Url, nameof(vssEndpoint.Url));
 
             var artifactDetails = JsonConvert.DeserializeObject<Dictionary<string, string>>(agentArtifactDefinition.Details);
-            VssCredentials vssCredentials = ApiUtil.GetVssCredential(vssEndpoint);
+            VssCredentials vssCredentials = VssUtil.GetVssCredential(vssEndpoint);
             var tfsUrl = context.Variables.Get(WellKnownDistributedTaskVariables.TFCollectionUrl);
 
             Guid projectId = context.Variables.System_TeamProjectId ?? Guid.Empty;
@@ -171,12 +175,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             var buildArtifactDetails = artifactDefinition.Details as BuildArtifactDetails;
 
             if ((buildArtifact.Resource.Type == null && buildArtifact.Id == 0) // bug on build API Bug 378900
-                || string.Equals(buildArtifact.Resource.Type, WellKnownArtifactResourceTypes.FilePath, StringComparison.OrdinalIgnoreCase))
+                || string.Equals(buildArtifact.Resource.Type, ArtifactResourceTypes.FilePath, StringComparison.OrdinalIgnoreCase))
             {
                 executionContext.Output(StringUtil.Loc("RMArtifactTypeFileShare"));
-#if !OS_WINDOWS
-                throw new NotSupportedException(StringUtil.Loc("RMFileShareArtifactErrorOnNonWindowsAgent"));
-#else
+                if (!PlatformUtil.RunningOnWindows)
+                {
+                    throw new NotSupportedException(StringUtil.Loc("RMFileShareArtifactErrorOnNonWindowsAgent"));
+                }
                 string fileShare;
                 if (buildArtifact.Id == 0)
                 {
@@ -204,10 +209,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
 
                 var fileShareArtifact = new FileShareArtifact();
                 await fileShareArtifact.DownloadArtifactAsync(executionContext, HostContext, artifactDefinition, fileShare, downloadFolderPath);
-#endif
             }
             else if (buildArtifactDetails != null
-                     && string.Equals(buildArtifact.Resource.Type, WellKnownArtifactResourceTypes.Container, StringComparison.OrdinalIgnoreCase))
+                     && string.Equals(buildArtifact.Resource.Type, ArtifactResourceTypes.Container, StringComparison.OrdinalIgnoreCase))
             {
                 executionContext.Output(StringUtil.Loc("RMArtifactTypeServerDrop"));
 
@@ -241,7 +245,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
 
                 IContainerProvider containerProvider =
                     new ContainerProviderFactory(buildArtifactDetails, rootLocation, containerId, executionContext).GetContainerProvider(
-                        WellKnownArtifactResourceTypes.Container);
+                        ArtifactResourceTypes.Container);
 
                 using (var engine = new ContainerFetchEngine.ContainerFetchEngine(containerProvider, rootLocation, rootDestinationDir))
                 {

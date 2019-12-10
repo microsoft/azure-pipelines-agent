@@ -1,7 +1,11 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using Microsoft.TeamFoundation.DistributedTask.Logging;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {

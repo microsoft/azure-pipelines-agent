@@ -1,11 +1,13 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
@@ -19,6 +21,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     public sealed class Worker : AgentService, IWorker
     {
         private readonly TimeSpan _workerStartTimeout = TimeSpan.FromSeconds(30);
+        private static readonly char[] _quoteLikeChars = new char[] {'\'', '"'};
+
 
         public async Task<int> RunAsync(string pipeIn, string pipeOut)
         {
@@ -26,7 +30,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNullOrEmpty(pipeIn, nameof(pipeIn));
             ArgUtil.NotNullOrEmpty(pipeOut, nameof(pipeOut));
             var agentWebProxy = HostContext.GetService<IVstsAgentWebProxy>();
-            VssHttpMessageHandler.DefaultWebProxy = agentWebProxy;
+            var agentCertManager = HostContext.GetService<IAgentCertificateManager>();
+            VssUtil.InitializeVssClientSettings(HostContext.UserAgent, agentWebProxy.WebProxy, agentCertManager.VssClientCertificateManager);
 
             var jobRunner = HostContext.CreateService<IJobRunner>();
 
@@ -38,6 +43,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 channel.StartClient(pipeIn, pipeOut);
 
                 // Wait for up to 30 seconds for a message from the channel.
+                HostContext.WritePerfCounter("WorkerWaitingForJobMessage");
                 Trace.Info("Waiting to receive the job message from the channel.");
                 WorkerMessage channelMessage;
                 using (var csChannelMessage = new CancellationTokenSource(_workerStartTimeout))
@@ -49,15 +55,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Trace.Info("Message received.");
                 ArgUtil.Equal(MessageType.NewJobRequest, channelMessage.MessageType, nameof(channelMessage.MessageType));
                 ArgUtil.NotNullOrEmpty(channelMessage.Body, nameof(channelMessage.Body));
-                var jobMessage = JsonUtility.FromString<AgentJobRequestMessage>(channelMessage.Body);
+                var jobMessage = JsonUtility.FromString<Pipelines.AgentJobRequestMessage>(channelMessage.Body);
                 ArgUtil.NotNull(jobMessage, nameof(jobMessage));
+                HostContext.WritePerfCounter($"WorkerJobMessageReceived_{jobMessage.RequestId.ToString()}");
 
                 // Initialize the secret masker and set the thread culture.
                 InitializeSecretMasker(jobMessage);
                 SetCulture(jobMessage);
 
                 // Start the job.
-                Trace.Info($"Job message:{Environment.NewLine} {StringUtil.ConvertToJson(jobMessage)}");
+                Trace.Info($"Job message:{Environment.NewLine} {StringUtil.ConvertToJson(WorkerUtilities.ScrubPiiData(jobMessage))}");
                 Task<TaskResult> jobRunnerTask = jobRunner.RunAsync(jobMessage, jobRequestCancellationToken.Token);
 
                 // Start listening for a cancel message from the channel.
@@ -99,35 +106,40 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        private void InitializeSecretMasker(JobRequestMessage message)
+        private void InitializeSecretMasker(Pipelines.AgentJobRequestMessage message)
         {
             Trace.Entering();
             ArgUtil.NotNull(message, nameof(message));
-            ArgUtil.NotNull(message.Environment, nameof(message.Environment));
-            var secretMasker = HostContext.GetService<ISecretMasker>();
+            ArgUtil.NotNull(message.Resources, nameof(message.Resources));
+            // Add mask hints for secret variables
+            foreach (var variable in (message.Variables ?? new Dictionary<string, VariableValue>()))
+            {
+                if (variable.Value.IsSecret && !string.IsNullOrEmpty(variable.Value.Value))
+                {
+                    HostContext.SecretMasker.AddValue(variable.Value.Value);
+                    // for variables, it is possible that they are used inside a shell which would strip off surrounding quotes
+                    // so, if the value is surrounded by quotes, add a quote-timmed version of the secret to our masker as well
+                    // This addresses issue #2525
+                    foreach (var quoteChar in _quoteLikeChars)
+                    {
+                        if (variable.Value.Value.StartsWith(quoteChar) && variable.Value.Value.EndsWith(quoteChar))
+                        {
+                            HostContext.SecretMasker.AddValue(variable.Value.Value.Trim(quoteChar));
+                        }
+                    }
+                }
+            }
 
             // Add mask hints
-            var variables = message?.Environment?.Variables ?? new Dictionary<string, string>();
-            foreach (MaskHint maskHint in (message.Environment.MaskHints ?? new List<MaskHint>()))
+            foreach (MaskHint maskHint in (message.MaskHints ?? new List<MaskHint>()))
             {
                 if (maskHint.Type == MaskType.Regex)
                 {
-                    secretMasker.AddRegex(maskHint.Value);
+                    HostContext.SecretMasker.AddRegex(maskHint.Value);
 
-                    // Also add the JSON escaped string since the job message is traced in the diag log.
-                    secretMasker.AddValue(JsonConvert.ToString(maskHint.Value ?? string.Empty));
-                }
-                else if (maskHint.Type == MaskType.Variable)
-                {
-                    string value;
-                    if (variables.TryGetValue(maskHint.Value, out value) &&
-                        !string.IsNullOrEmpty(value))
-                    {
-                        secretMasker.AddValue(value);
-
-                        // Also add the JSON escaped string since the job message is traced in the diag log.
-                        secretMasker.AddValue(JsonConvert.ToString(value));
-                    }
+                    // We need this because the worker will print out the job message JSON to diag log
+                    // and SecretMasker has JsonEscapeEncoder hook up
+                    HostContext.SecretMasker.AddValue(maskHint.Value);
                 }
                 else
                 {
@@ -139,38 +151,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // TODO: Avoid adding redundant secrets. If the endpoint auth matches the system connection, then it's added as a value secret and as a regex secret. Once as a value secret b/c of the following code that iterates over each endpoint. Once as a regex secret due to the hint sent down in the job message.
 
             // Add masks for service endpoints
-            foreach (ServiceEndpoint endpoint in message.Environment.Endpoints ?? new List<ServiceEndpoint>())
+            foreach (ServiceEndpoint endpoint in message.Resources.Endpoints ?? new List<ServiceEndpoint>())
             {
                 foreach (string value in endpoint.Authorization?.Parameters?.Values ?? new string[0])
                 {
                     if (!string.IsNullOrEmpty(value))
                     {
-                        secretMasker.AddValue(value);
-
-                        // This is precautionary if the secret is used in an URL. For example, if "allow scripts
-                        // access to OAuth token" is checked, then the repository auth key is injected into the
-                        // URL for a Git repository's remote configuration.
-                        if (!Uri.EscapeDataString(value).Equals(value, StringComparison.OrdinalIgnoreCase))
-                        {
-                            secretMasker.AddValue(Uri.EscapeDataString(value));
-                        }
+                        HostContext.SecretMasker.AddValue(value);
                     }
+                }
+            }
+
+            // Add masks for secure file download tickets
+            foreach (SecureFile file in message.Resources.SecureFiles ?? new List<SecureFile>())
+            {
+                if (!string.IsNullOrEmpty(file.Ticket))
+                {
+                    HostContext.SecretMasker.AddValue(file.Ticket);
                 }
             }
         }
 
-        private void SetCulture(JobRequestMessage message)
+        private void SetCulture(Pipelines.AgentJobRequestMessage message)
         {
             // Extract the culture name from the job's variable dictionary.
             // The variable does not exist for TFS 2015 RTM and Update 1.
             // It was introduced in Update 2.
-            string culture;
-            ArgUtil.NotNull(message.Environment, nameof(message.Environment));
-            ArgUtil.NotNull(message.Environment.Variables, nameof(message.Environment.Variables));
-            if (message.Environment.Variables.TryGetValue(Constants.Variables.System.Culture, out culture))
+            VariableValue culture;
+            ArgUtil.NotNull(message, nameof(message));
+            ArgUtil.NotNull(message.Variables, nameof(message.Variables));
+            if (message.Variables.TryGetValue(Constants.Variables.System.Culture, out culture))
             {
                 // Set the default thread culture.
-                HostContext.SetDefaultCulture(culture);
+                HostContext.SetDefaultCulture(culture.Value);
             }
         }
     }

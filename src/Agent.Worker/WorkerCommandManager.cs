@@ -1,4 +1,7 @@
-﻿using Microsoft.TeamFoundation.DistributedTask.WebApi;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
@@ -8,13 +11,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     [ServiceLocator(Default = typeof(WorkerCommandManager))]
     public interface IWorkerCommandManager : IAgentService
     {
+        void EnablePluginInternalCommand(bool enable);
         bool TryProcessCommand(IExecutionContext context, string input);
+        void SetCommandRestrictionPolicy(IWorkerCommandRestrictionPolicy policy);
     }
 
     public sealed class WorkerCommandManager : AgentService, IWorkerCommandManager
     {
         private readonly Dictionary<string, IWorkerCommandExtension> _commandExtensions = new Dictionary<string, IWorkerCommandExtension>(StringComparer.OrdinalIgnoreCase);
+
+        private IWorkerCommandExtension _pluginInternalCommandExtensions;
+
         private readonly object _commandSerializeLock = new object();
+
+        private bool _invokePluginInternalCommand = false;
+
+        private IWorkerCommandRestrictionPolicy restrictionPolicy = new UnrestricedWorkerCommandRestrictionPolicy();
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -25,7 +37,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             foreach (var commandExt in extensionManager.GetExtensions<IWorkerCommandExtension>() ?? new List<IWorkerCommandExtension>())
             {
                 Trace.Info($"Register command extension for area {commandExt.CommandArea}");
-                _commandExtensions[commandExt.CommandArea] = commandExt;
+                if (!string.Equals(commandExt.CommandArea, "plugininternal", StringComparison.OrdinalIgnoreCase))
+                {
+                    _commandExtensions[commandExt.CommandArea] = commandExt;
+                }
+                else
+                {
+                    _pluginInternalCommandExtensions = commandExt;
+                }
+            }
+        }
+
+        public void EnablePluginInternalCommand(bool enable)
+        {
+            if (enable)
+            {
+                Trace.Info($"Enable plugin internal command extension.");
+                _invokePluginInternalCommand = true;
+            }
+            else
+            {
+                Trace.Info($"Disable plugin internal command extension.");
+                _invokePluginInternalCommand = false;
             }
         }
 
@@ -49,8 +82,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 return false;
             }
 
-            IWorkerCommandExtension extension;
-            if (_commandExtensions.TryGetValue(command.Area, out extension))
+            IWorkerCommandExtension extension = null;
+            if (_invokePluginInternalCommand && string.Equals(command.Area, _pluginInternalCommandExtensions.CommandArea, StringComparison.OrdinalIgnoreCase))
+            {
+                extension = _pluginInternalCommandExtensions;
+            }
+
+            if (extension != null || _commandExtensions.TryGetValue(command.Area, out extension))
             {
                 if (!extension.SupportedHostTypes.HasFlag(context.Variables.System_HostType))
                 {
@@ -64,7 +102,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     try
                     {
-                        extension.ProcessCommand(context, command);
+                        extension.ProcessCommand(context, command, restrictionPolicy);
                     }
                     catch (Exception ex)
                     {
@@ -90,6 +128,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             return true;
         }
+
+        public void SetCommandRestrictionPolicy(IWorkerCommandRestrictionPolicy policy)
+        {
+            ArgUtil.NotNull(policy, nameof(policy));
+            restrictionPolicy = policy;
+        }
     }
 
     public interface IWorkerCommandExtension : IExtension
@@ -98,7 +142,108 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         HostTypes SupportedHostTypes { get; }
 
-        void ProcessCommand(IExecutionContext context, Command command);
+        void ProcessCommand(IExecutionContext context, Command command, IWorkerCommandRestrictionPolicy policy);
+    }
+
+    public interface IWorkerCommand
+    {
+        string Name { get; }
+
+        List<string> Aliases { get; }
+
+        void Execute(IExecutionContext context, Command command);
+    }
+
+    public interface IWorkerCommandRestrictionPolicy
+    {
+        bool isCommandAllowed(IWorkerCommand command);
+    }
+
+    public class UnrestricedWorkerCommandRestrictionPolicy: IWorkerCommandRestrictionPolicy
+    {
+        public bool isCommandAllowed(IWorkerCommand command)
+        {
+            return true;
+        }
+    }
+
+    [ AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
+    public sealed class CommandRestrictionAttribute : Attribute
+    {
+        public bool AllowedInRestrictedMode { get; set; }
+    }
+
+    public class AttributeBasedWorkerCommandRestrictionPolicy: IWorkerCommandRestrictionPolicy
+    {
+        public bool isCommandAllowed(IWorkerCommand command)
+        {
+
+            foreach (var attr in command.GetType().GetCustomAttributes(typeof(CommandRestrictionAttribute), false))
+            {
+                var cra = attr as CommandRestrictionAttribute;
+                if (cra.AllowedInRestrictedMode)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    public abstract class BaseWorkerCommandExtension: AgentService, IWorkerCommandExtension
+    {
+
+        public string CommandArea { get; protected set; }
+
+        public HostTypes SupportedHostTypes { get; protected set; }
+
+        public Type ExtensionType => typeof(IWorkerCommandExtension);
+
+        private Dictionary<string, IWorkerCommand> _commands = new Dictionary<string, IWorkerCommand>(StringComparer.OrdinalIgnoreCase);
+
+        protected void InstallWorkerCommand(IWorkerCommand commandExecutor)
+        {
+            if (_commands.ContainsKey(commandExecutor.Name))
+            {
+                throw new Exception(StringUtil.Loc("CommandDuplicateDetected", commandExecutor.Name, CommandArea.ToLowerInvariant()));
+            }
+            _commands[commandExecutor.Name] = commandExecutor;
+            var aliasList = commandExecutor.Aliases;
+            if (aliasList != null)
+            {
+                foreach (var alias in commandExecutor.Aliases)
+                {
+                    if (_commands.ContainsKey(alias))
+                    {
+                        throw new Exception(StringUtil.Loc("CommandDuplicateDetected", alias, CommandArea.ToLowerInvariant()));
+                    }
+                    _commands[alias] = commandExecutor;
+                }
+            }
+        }
+
+        public IWorkerCommand GetWorkerCommand(String name)
+        {
+            _commands.TryGetValue(name, out var commandExecutor);
+            return commandExecutor;
+        }
+
+        public void ProcessCommand(IExecutionContext context, Command command, IWorkerCommandRestrictionPolicy restrictionPolicy)
+        {
+            var commandExecutor = GetWorkerCommand(command.Event);
+            if (commandExecutor == null)
+            {
+                throw new Exception(StringUtil.Loc("CommandNotFound2", CommandArea.ToLowerInvariant(), command.Event, CommandArea));
+            }
+            if (restrictionPolicy.isCommandAllowed(commandExecutor))
+            {
+                commandExecutor.Execute(context, command);
+            }
+            else
+            {
+                context.Warning(StringUtil.Loc("CommandNotAllowed", command.Area, command.Event));
+            }
+        }
     }
 
     [Flags]

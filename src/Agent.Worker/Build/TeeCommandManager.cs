@@ -1,9 +1,14 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
 
@@ -15,7 +20,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         protected override string Switch => "-";
 
-        public string FilePath => Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), Constants.Path.TeeDirectory, "tf");
+        public override string FilePath => Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), Constants.Path.TeeDirectory, "tf");
 
         // TODO: Remove AddAsync after last-saved-checkin-metadata problem is fixed properly.
         public async Task AddAsync(string localPath)
@@ -43,7 +48,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         public string ResolvePath(string serverPath)
         {
             ArgUtil.NotNullOrEmpty(serverPath, nameof(serverPath));
-            string localPath = RunPorcelainCommandAsync("resolvePath", $"-workspace:{WorkspaceName}", serverPath).GetAwaiter().GetResult();
+            string localPath = RunPorcelainCommandAsync(true, "resolvePath", $"-workspace:{WorkspaceName}", serverPath).GetAwaiter().GetResult();
             localPath = localPath?.Trim();
 
             // Paths outside of the root mapping return empty.
@@ -68,6 +73,53 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             {
                 Uri proxy = UrlUtil.GetCredentialEmbeddedUrl(new Uri(proxyUrl), proxyUsername, proxyPassword);
                 AdditionalEnvironmentVariables["http_proxy"] = proxy.AbsoluteUri;
+            }
+        }
+
+        public void SetupClientCertificate(string clientCert, string clientCertKey, string clientCertArchive, string clientCertPassword)
+        {
+            ExecutionContext.Debug("Convert client certificate from 'pkcs' format to 'jks' format.");
+            string toolPath = WhichUtil.Which("keytool", true, Trace);
+            string jksFile = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Temp), $"{Guid.NewGuid()}.jks");
+            string argLine;
+            if (!string.IsNullOrEmpty(clientCertPassword))
+            {
+                argLine = $"-importkeystore -srckeystore \"{clientCertArchive}\" -srcstoretype pkcs12 -destkeystore \"{jksFile}\" -deststoretype JKS -srcstorepass \"{clientCertPassword}\" -deststorepass \"{clientCertPassword}\"";
+            }
+            else
+            {
+                argLine = $"-importkeystore -srckeystore \"{clientCertArchive}\" -srcstoretype pkcs12 -destkeystore \"{jksFile}\" -deststoretype JKS";
+            }
+
+            ExecutionContext.Command($"{toolPath} {argLine}");
+
+            var processInvoker = HostContext.CreateService<IProcessInvoker>();
+            processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+            {
+                if (!string.IsNullOrEmpty(args.Data))
+                {
+                    ExecutionContext.Output(args.Data);
+                }
+            };
+            processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+            {
+                if (!string.IsNullOrEmpty(args.Data))
+                {
+                    ExecutionContext.Output(args.Data);
+                }
+            };
+
+            processInvoker.ExecuteAsync(ExecutionContext.Variables.Get(Constants.Variables.System.DefaultWorkingDirectory), toolPath, argLine, null, true, CancellationToken.None).GetAwaiter().GetResult();
+
+            if (!string.IsNullOrEmpty(clientCertPassword))
+            {
+                ExecutionContext.Debug($"Set TF_ADDITIONAL_JAVA_ARGS=-Djavax.net.ssl.keyStore={jksFile} -Djavax.net.ssl.keyStorePassword={clientCertPassword}");
+                AdditionalEnvironmentVariables["TF_ADDITIONAL_JAVA_ARGS"] = $"-Djavax.net.ssl.keyStore={jksFile} -Djavax.net.ssl.keyStorePassword={clientCertPassword}";
+            }
+            else
+            {
+                ExecutionContext.Debug($"Set TF_ADDITIONAL_JAVA_ARGS=-Djavax.net.ssl.keyStore={jksFile}");
+                AdditionalEnvironmentVariables["TF_ADDITIONAL_JAVA_ARGS"] = $"-Djavax.net.ssl.keyStore={jksFile}";
             }
         }
 
@@ -127,27 +179,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string homeDirectory = Environment.GetEnvironmentVariable("HOME");
             if (!string.IsNullOrEmpty(homeDirectory) && Directory.Exists(homeDirectory))
             {
-#if OS_OSX
+                string tfDataDirectory = (PlatformUtil.RunningOnMacOS)
+                    ? Path.Combine("Library", "Application Support", "Microsoft")
+                    : ".microsoft";
+
                 string xmlFile = Path.Combine(
                     homeDirectory,
-                    "Library",
-                    "Application Support",
-                    "Microsoft",
+                    tfDataDirectory,
                     "Team Foundation",
                     "4.0",
                     "Configuration",
                     "TEE-Mementos",
                     "com.microsoft.tfs.client.productid.xml");
-#else
-                string xmlFile = Path.Combine(
-                    homeDirectory,
-                    ".microsoft",
-                    "Team Foundation",
-                    "4.0",
-                    "Configuration",
-                    "TEE-Mementos",
-                    "com.microsoft.tfs.client.productid.xml");
-#endif
+
                 if (File.Exists(xmlFile))
                 {
                     // Load and deserialize the XML.
@@ -234,7 +278,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             args.Add("-format:xml");
 
             // Run the command.
-            TfsVCPorcelainCommandResult result = await TryRunPorcelainCommandAsync(FormatFlags.None, args.ToArray());
+            TfsVCPorcelainCommandResult result = await TryRunPorcelainCommandAsync(FormatFlags.None, false, args.ToArray());
             ArgUtil.NotNull(result, nameof(result));
             if (result.Exception != null)
             {
@@ -281,7 +325,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // may preceed the XML content.
             output = output ?? string.Empty;
             int xmlIndex = output.IndexOf("<?xml");
-            if (xmlIndex > 0) {
+            if (xmlIndex > 0)
+            {
                 return output.Substring(xmlIndex);
             }
 

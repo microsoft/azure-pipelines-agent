@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -8,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
 using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 
@@ -25,6 +29,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         void Init(
             IExecutionContext context,
             ServiceEndpoint endpoint,
+            CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Initializes svn command path and execution environment
+        /// </summary>
+        /// <param name="context">The build commands' execution context</param>
+        /// <param name="repository">The Subversion repository resource providing URL, referenced service endpoint information</param>
+        /// <param name="cancellationToken">The cancellation token used to stop svn command execution</param>
+        void Init(
+            IExecutionContext context,
+            RepositoryResource repository,
             CancellationToken cancellationToken);
 
         /// <summary>
@@ -96,8 +111,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             _cancellationToken = cancellationToken;
 
             // Find svn in %Path%
-            IWhichUtil whichTool = HostContext.GetService<IWhichUtil>();
-            string svnPath = whichTool.Which("svn");
+            string svnPath = WhichUtil.Which("svn", trace: Trace);
 
             if (string.IsNullOrEmpty(svnPath))
             {
@@ -113,13 +127,58 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             endpoint.Authorization.Parameters.TryGetValue(EndpointAuthorizationParameters.Username, out _username);
             endpoint.Authorization.Parameters.TryGetValue(EndpointAuthorizationParameters.Password, out _password);
 
-            // TODO: replace explicit string literals with WellKnownEndpointData constants 
-            // as soon as the latters are available thru the Microsoft.TeamFoundation.Build.WebApi package
-
-            _acceptUntrusted = endpoint.Data.ContainsKey(/* WellKnownEndpointData.SvnAcceptUntrustedCertificates */ "acceptUntrustedCerts") &&
-            StringUtil.ConvertToBoolean(endpoint.Data[/* WellKnownEndpointData.SvnAcceptUntrustedCertificates */ "acceptUntrustedCerts"], defaultValue: false);
+            _acceptUntrusted = endpoint.Data.ContainsKey(EndpointData.SvnAcceptUntrustedCertificates) &&
+            StringUtil.ConvertToBoolean(endpoint.Data[EndpointData.SvnAcceptUntrustedCertificates], defaultValue: false);
         }
 
+        public void Init(
+            IExecutionContext context,
+            RepositoryResource repository,
+            CancellationToken cancellationToken)
+        {
+            // Validation.
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(repository, nameof(repository));
+            ArgUtil.NotNull(cancellationToken, nameof(cancellationToken));
+
+            ArgUtil.NotNull(repository.Url, nameof(repository.Url));
+            ArgUtil.Equal(true, repository.Url.IsAbsoluteUri, nameof(repository.Url.IsAbsoluteUri));
+
+            ArgUtil.NotNull(repository.Endpoint, nameof(repository.Endpoint));
+            ServiceEndpoint endpoint = context.Endpoints.Single(
+                x => (repository.Endpoint.Id != Guid.Empty && x.Id == repository.Endpoint.Id) ||
+                (repository.Endpoint.Id == Guid.Empty && string.Equals(x.Name, repository.Endpoint.Name.ToString(), StringComparison.OrdinalIgnoreCase)));
+
+            ArgUtil.NotNull(endpoint.Data, nameof(endpoint.Data));
+            ArgUtil.NotNull(endpoint.Authorization, nameof(endpoint.Authorization));
+            ArgUtil.NotNull(endpoint.Authorization.Parameters, nameof(endpoint.Authorization.Parameters));
+            ArgUtil.Equal(EndpointAuthorizationSchemes.UsernamePassword, endpoint.Authorization.Scheme, nameof(endpoint.Authorization.Scheme));
+
+            _context = context;
+            _repository = repository;
+            _endpoint = endpoint;
+            _cancellationToken = cancellationToken;
+
+            // Find svn in %Path%
+            string svnPath = WhichUtil.Which("svn", trace: Trace);
+
+            if (string.IsNullOrEmpty(svnPath))
+            {
+                throw new Exception(StringUtil.Loc("SvnNotInstalled"));
+            }
+            else
+            {
+                _context.Debug($"Found svn installation path: {svnPath}.");
+                _svn = svnPath;
+            }
+
+            // External providers may need basic auth or tokens
+            endpoint.Authorization.Parameters.TryGetValue(EndpointAuthorizationParameters.Username, out _username);
+            endpoint.Authorization.Parameters.TryGetValue(EndpointAuthorizationParameters.Password, out _password);
+
+            _acceptUntrusted = endpoint.Data.ContainsKey(EndpointData.SvnAcceptUntrustedCertificates) &&
+            StringUtil.ConvertToBoolean(endpoint.Data[EndpointData.SvnAcceptUntrustedCertificates], defaultValue: false);
+        }
         public async Task<string> UpdateWorkspace(
             string rootPath,
             Dictionary<string, SvnMappingDetails> distinctMappings,
@@ -254,7 +313,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public async Task<long> GetLatestRevisionAsync(string serverPath, string sourceRevision)
         {
-            Trace.Verbose($@"Get latest revision of: '{_endpoint.Url.AbsoluteUri}' at or before: '{sourceRevision}'.");
+            Trace.Verbose($@"Get latest revision of: '{_repository?.Url?.AbsoluteUri ?? _endpoint.Url.AbsoluteUri}' at or before: '{sourceRevision}'.");
             string xml = await RunPorcelainCommandAsync(
                 "info",
                 BuildSvnUri(serverPath),
@@ -496,7 +555,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         private string BuildSvnUri(string serverPath)
         {
-            StringBuilder sb = new StringBuilder(_endpoint.Url.ToString());
+            StringBuilder sb = new StringBuilder((_repository?.Url ?? _endpoint.Url).ToString());
 
             if (!string.IsNullOrEmpty(serverPath))
             {
@@ -552,7 +611,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             // Add proxy setting parameters
             var agentProxy = HostContext.GetService<IVstsAgentWebProxy>();
-            if (!string.IsNullOrEmpty(_context.Variables.Agent_ProxyUrl) && !agentProxy.IsBypassed(_endpoint.Url))
+            if (!string.IsNullOrEmpty(_context.Variables.Agent_ProxyUrl) && !agentProxy.WebProxy.IsBypassed(_repository?.Url ?? _endpoint.Url))
             {
                 _context.Debug($"Add proxy setting parameters to '{_svn}' for proxy server '{_context.Variables.Agent_ProxyUrl}'.");
 
@@ -634,7 +693,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 string arguments = FormatArgumentsWithDefaults(args);
                 _context.Command($@"{_svn} {arguments}");
                 await processInvoker.ExecuteAsync(
-                    workingDirectory: IOUtil.GetWorkPath(HostContext),
+                    workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
                     fileName: _svn,
                     arguments: arguments,
                     environment: null,
@@ -676,7 +735,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 try
                 {
                     await processInvoker.ExecuteAsync(
-                        workingDirectory: IOUtil.GetWorkPath(HostContext),
+                        workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
                         fileName: _svn,
                         arguments: arguments,
                         environment: null,
@@ -761,6 +820,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         // The Subversion server endpoint providing URL, username/password, and untrasted certs acceptace information
         private ServiceEndpoint _endpoint;
+
+        // The Subversion repository resource providing URL, referenced service endpoint information
+        private RepositoryResource _repository;
 
         // The build commands' execution context
         private IExecutionContext _context;

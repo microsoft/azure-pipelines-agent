@@ -1,4 +1,7 @@
-﻿using System;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System;
 using System.Collections.Concurrent;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -33,7 +36,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider
                     retryOnTimeoutMessageHandler
                 };
 
-                connection = ApiUtil.CreateConnection(uri, cred, handlers);
+                connection = VssUtil.CreateConnection(uri, cred, handlers);
                 connection.Settings.SendTimeout = TimeSpan.FromSeconds(Math.Max(_minTimeout.TotalSeconds, connection.Settings.SendTimeout.TotalSeconds));
                 await connection.ConnectAsync().ConfigureAwait(false);
 

@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="..\Common.props" />
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Agent.Sdk\Agent.Sdk.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="azuredevops-testresultparser" Version="1.0.2" />
+    <PackageReference Include="vss-api-netcore" Version="$(VssApiVersion)" />
+  </ItemGroup>
+</Project>

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SVC_NAME="{{SvcNameVar}}"
+SVC_NAME=`systemd-escape --path "{{SvcNameVar}}"`
 SVC_DESCRIPTION="{{SvcDescription}}"
 
 SVC_CMD=$1
@@ -64,10 +64,10 @@ function install()
     mv "${TEMP_PATH}" "${UNIT_PATH}" || failed "failed to copy unit file"
     
     # unit file should not be executable and world writable
-    chmod 664 ${UNIT_PATH} || failed "failed to set permissions on ${UNIT_PATH}"
+    chmod 664 "${UNIT_PATH}" || failed "failed to set permissions on ${UNIT_PATH}"
     systemctl daemon-reload || failed "failed to reload daemons"
     
-	# Since we started with sudo, runsvc.sh will be owned by root. Change this to current login user.    
+    # Since we started with sudo, runsvc.sh will be owned by root. Change this to current login user.    
     cp ./bin/runsvc.sh ./runsvc.sh || failed "failed to copy runsvc.sh"
     chown ${run_as_uid}:${run_as_gid} ./runsvc.sh || failed "failed to set owner for runsvc.sh"
     chmod 755 ./runsvc.sh || failed "failed to set permission for runsvc.sh"
@@ -93,7 +93,7 @@ function stop()
 function uninstall()
 {
     stop
-    systemctl disable ${SVC_NAME} || failed "failed to enable ${SVC_NAME}"
+    systemctl disable ${SVC_NAME} || failed "failed to disable  ${SVC_NAME}"
     rm "${UNIT_PATH}" || failed "failed to delete ${UNIT_PATH}"
     if [ -f "${CONFIG_PATH}" ]; then
       rm "${CONFIG_PATH}" || failed "failed to delete ${CONFIG_PATH}"
@@ -113,7 +113,7 @@ function status()
         return
     fi
 
-    systemctl status ${SVC_NAME}
+    systemctl --no-pager status ${SVC_NAME}
 }
 
 function usage()
@@ -121,6 +121,12 @@ function usage()
     echo
     echo Usage:
     echo "./svc.sh [install, start, stop, status, uninstall]"
+    echo "Commands:"
+    echo "   install [user]: Install agent service as Root or specified user."
+    echo "   start: Manually start the agent service."
+    echo "   stop: Manually stop the agent service."
+    echo "   status: Display status of agent service."
+    echo "   uninstall: Uninstall agent service."
     echo
 }
 

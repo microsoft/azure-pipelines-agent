@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -5,7 +8,7 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Moq;
 using Xunit;
-using Expressions = Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Expressions;
+using Microsoft.TeamFoundation.DistributedTask.Expressions;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 {
@@ -35,10 +38,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 {
                     InitializeExecutionContext(hc);
                     _ec.Object.Variables.Agent_JobStatus = variableSet.JobStatus;
-                    Expressions.INode condition = _expressionManager.Parse(_ec.Object, "always()");
+                    IExpressionNode condition = _expressionManager.Parse(_ec.Object, "always()");
 
                     // Act.
-                    bool actual = _expressionManager.Evaluate(_ec.Object, condition);
+                    bool actual = _expressionManager.Evaluate(_ec.Object, condition).Value;
 
                     // Assert.
                     Assert.Equal(variableSet.Expected, actual);
@@ -66,10 +69,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 {
                     InitializeExecutionContext(hc);
                     _ec.Object.Variables.Agent_JobStatus = variableSet.JobStatus;
-                    Expressions.INode condition = _expressionManager.Parse(_ec.Object, "canceled()");
+                    IExpressionNode condition = _expressionManager.Parse(_ec.Object, "canceled()");
 
                     // Act.
-                    bool actual = _expressionManager.Evaluate(_ec.Object, condition);
+                    bool actual = _expressionManager.Evaluate(_ec.Object, condition).Value;
 
                     // Assert.
                     Assert.Equal(variableSet.Expected, actual);
@@ -97,10 +100,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 {
                     InitializeExecutionContext(hc);
                     _ec.Object.Variables.Agent_JobStatus = variableSet.JobStatus;
-                    Expressions.INode condition = _expressionManager.Parse(_ec.Object, "failed()");
+                    IExpressionNode condition = _expressionManager.Parse(_ec.Object, "failed()");
 
                     // Act.
-                    bool actual = _expressionManager.Evaluate(_ec.Object, condition);
+                    bool actual = _expressionManager.Evaluate(_ec.Object, condition).Value;
 
                     // Assert.
                     Assert.Equal(variableSet.Expected, actual);
@@ -128,10 +131,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 {
                     InitializeExecutionContext(hc);
                     _ec.Object.Variables.Agent_JobStatus = variableSet.JobStatus;
-                    Expressions.INode condition = _expressionManager.Parse(_ec.Object, "succeeded()");
+                    IExpressionNode condition = _expressionManager.Parse(_ec.Object, "succeeded()");
 
                     // Act.
-                    bool actual = _expressionManager.Evaluate(_ec.Object, condition);
+                    bool actual = _expressionManager.Evaluate(_ec.Object, condition).Value;
 
                     // Assert.
                     Assert.Equal(variableSet.Expected, actual);
@@ -159,10 +162,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 {
                     InitializeExecutionContext(hc);
                     _ec.Object.Variables.Agent_JobStatus = variableSet.JobStatus;
-                    Expressions.INode condition = _expressionManager.Parse(_ec.Object, "succeededOrFailed()");
+                    IExpressionNode condition = _expressionManager.Parse(_ec.Object, "succeededOrFailed()");
 
                     // Act.
-                    bool actual = _expressionManager.Evaluate(_ec.Object, condition);
+                    bool actual = _expressionManager.Evaluate(_ec.Object, condition).Value;
 
                     // Assert.
                     Assert.Equal(variableSet.Expected, actual);
@@ -190,10 +193,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 {
                     InitializeExecutionContext(hc);
                     _ec.Object.Variables.Set(variableSet.VariableName, variableSet.VariableValue);
-                    Expressions.INode condition = _expressionManager.Parse(_ec.Object, variableSet.Condition);
+                    IExpressionNode condition = _expressionManager.Parse(_ec.Object, variableSet.Condition);
 
                     // Act.
-                    bool actual = _expressionManager.Evaluate(_ec.Object, condition);
+                    bool actual = _expressionManager.Evaluate(_ec.Object, condition).Value;
 
                     // Assert.
                     Assert.Equal(variableSet.Expected, actual);
@@ -214,8 +217,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             List<string> warnings;
             _variables = new Variables(
                 hostContext: hc,
-                copy: new Dictionary<string, string>(),
-                maskHints: new List<MaskHint>(),
+                copy: new Dictionary<string, VariableValue>(),
                 warnings: out warnings);
             _ec = new Mock<IExecutionContext>();
             _ec.SetupAllProperties();

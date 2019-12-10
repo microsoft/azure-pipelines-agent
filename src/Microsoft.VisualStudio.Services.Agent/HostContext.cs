@@ -1,3 +1,7 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Concurrent;
@@ -12,23 +16,31 @@ using System.Threading.Tasks;
 using System.Diagnostics;
 using System.Net.Http;
 using System.Diagnostics.Tracing;
+using Microsoft.TeamFoundation.DistributedTask.Logging;
+using System.Net.Http.Headers;
+using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
     public interface IHostContext : IDisposable
     {
         RunMode RunMode { get; set; }
+        StartupType StartupType { get; set; }
+        CancellationToken AgentShutdownToken { get; }
+        ShutdownReason AgentShutdownReason { get; }
+        ISecretMasker SecretMasker { get; }
+        ProductInfoHeaderValue UserAgent { get; }
         string GetDirectory(WellKnownDirectory directory);
+        string GetConfigFile(WellKnownConfigFile configFile);
         Tracing GetTrace(string name);
         Task Delay(TimeSpan delay, CancellationToken cancellationToken);
         T CreateService<T>() where T : class, IAgentService;
         T GetService<T>() where T : class, IAgentService;
         void SetDefaultCulture(string name);
         event EventHandler Unloading;
-        StartupType StartupType {get; set;}
-        CancellationToken AgentShutdownToken { get; }
-        ShutdownReason AgentShutdownReason { get; }
         void ShutdownAgent(ShutdownReason reason);
+        void WritePerfCounter(string counter);
+        ContainerInfo CreateContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true);
     }
 
     public enum StartupType
@@ -46,7 +58,11 @@ namespace Microsoft.VisualStudio.Services.Agent
         private static int[] _vssHttpCredentialEventIds = new int[] { 11, 13, 14, 15, 16, 17, 18, 20, 21, 22, 27, 29 };
         private readonly ConcurrentDictionary<Type, object> _serviceInstances = new ConcurrentDictionary<Type, object>();
         private readonly ConcurrentDictionary<Type, Type> _serviceTypes = new ConcurrentDictionary<Type, Type>();
+        private readonly ISecretMasker _secretMasker = new SecretMasker();
+        private readonly ProductInfoHeaderValue _userAgent = new ProductInfoHeaderValue($"VstsAgentCore-{BuildConstants.AgentPackage.PackageName}", BuildConstants.AgentPackage.Version);
         private CancellationTokenSource _agentShutdownTokenSource = new CancellationTokenSource();
+        private object _perfLock = new object();
+
         private RunMode _runMode = RunMode.Normal;
         private Tracing _trace;
         private Tracing _vssTrace;
@@ -55,12 +71,14 @@ namespace Microsoft.VisualStudio.Services.Agent
         private AssemblyLoadContext _loadContext;
         private IDisposable _httpTraceSubscription;
         private IDisposable _diagListenerSubscription;
-
         private StartupType _startupType;
+        private string _perfFile;
 
         public event EventHandler Unloading;
         public CancellationToken AgentShutdownToken => _agentShutdownTokenSource.Token;
         public ShutdownReason AgentShutdownReason { get; private set; }
+        public ISecretMasker SecretMasker => _secretMasker;
+        public ProductInfoHeaderValue UserAgent => _userAgent;
         public HostContext(string hostType, string logFile = null)
         {
             // Validate args.
@@ -68,6 +86,9 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             _loadContext = AssemblyLoadContext.GetLoadContext(typeof(HostContext).GetTypeInfo().Assembly);
             _loadContext.Unloading += LoadContext_Unloading;
+
+            this.SecretMasker.AddValueEncoder(ValueEncoders.JsonStringEscape);
+            this.SecretMasker.AddValueEncoder(ValueEncoders.UriDataEscape);
 
             // Create the trace manager.
             if (string.IsNullOrEmpty(logFile))
@@ -86,11 +107,13 @@ namespace Microsoft.VisualStudio.Services.Agent
                     logRetentionDays = _defaultLogRetentionDays;
                 }
 
-                _traceManager = new TraceManager(new HostTraceListener(hostType, logPageSize, logRetentionDays), GetService<ISecretMasker>());
+                // this should give us _diag folder under agent root directory
+                string diagLogDirectory = Path.Combine(new DirectoryInfo(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location)).Parent.FullName, Constants.Path.DiagDirectory);
+                _traceManager = new TraceManager(new HostTraceListener(diagLogDirectory, hostType, logPageSize, logRetentionDays), this.SecretMasker);
             }
             else
             {
-                _traceManager = new TraceManager(new HostTraceListener(logFile), GetService<ISecretMasker>());
+                _traceManager = new TraceManager(new HostTraceListener(logFile), this.SecretMasker);
             }
 
             _trace = GetTrace(nameof(HostContext));
@@ -109,6 +132,21 @@ namespace Microsoft.VisualStudio.Services.Agent
 
                 _httpTrace = GetTrace("HttpTrace");
                 _diagListenerSubscription = DiagnosticListener.AllListeners.Subscribe(this);
+            }
+
+            // Enable perf counter trace
+            string perfCounterLocation = Environment.GetEnvironmentVariable("VSTS_AGENT_PERFLOG");
+            if (!string.IsNullOrEmpty(perfCounterLocation))
+            {
+                try
+                {
+                    Directory.CreateDirectory(perfCounterLocation);
+                    _perfFile = Path.Combine(perfCounterLocation, $"{hostType}.perf");
+                }
+                catch (Exception ex)
+                {
+                    _trace.Error(ex);
+                }
             }
         }
 
@@ -162,17 +200,45 @@ namespace Microsoft.VisualStudio.Services.Agent
                         GetDirectory(WellKnownDirectory.Externals),
                         Constants.Path.ServerOMDirectory);
                     break;
-
+                
+                case WellKnownDirectory.Tf:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Externals),
+                        Constants.Path.TfDirectory);
+                    break;
+                
                 case WellKnownDirectory.Tee:
                     path = Path.Combine(
                         GetDirectory(WellKnownDirectory.Externals),
                         Constants.Path.TeeDirectory);
                     break;
 
+                case WellKnownDirectory.Temp:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Work),
+                        Constants.Path.TempDirectory);
+                    break;
+
                 case WellKnownDirectory.Tasks:
                     path = Path.Combine(
                         GetDirectory(WellKnownDirectory.Work),
                         Constants.Path.TasksDirectory);
+                    break;
+
+                case WellKnownDirectory.TaskZips:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Work),
+                        Constants.Path.TaskZipsDirectory);
+                    break;
+
+                case WellKnownDirectory.Tools:
+                    path = Environment.GetEnvironmentVariable("AGENT_TOOLSDIRECTORY") ?? Environment.GetEnvironmentVariable(Constants.Variables.Agent.ToolsDirectory);
+                    if (string.IsNullOrEmpty(path))
+                    {
+                        path = Path.Combine(
+                            GetDirectory(WellKnownDirectory.Work),
+                            Constants.Path.ToolDirectory);
+                    }
                     break;
 
                 case WellKnownDirectory.Update:
@@ -186,9 +252,9 @@ namespace Microsoft.VisualStudio.Services.Agent
                     AgentSettings settings = configurationStore.GetSettings();
                     ArgUtil.NotNull(settings, nameof(settings));
                     ArgUtil.NotNullOrEmpty(settings.WorkFolder, nameof(settings.WorkFolder));
-                    path = Path.Combine(
+                    path = Path.GetFullPath(Path.Combine(
                         GetDirectory(WellKnownDirectory.Root),
-                        settings.WorkFolder);
+                        settings.WorkFolder));
                     break;
 
                 default:
@@ -196,6 +262,93 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
 
             _trace.Info($"Well known directory '{directory}': '{path}'");
+            return path;
+        }
+
+        public string GetConfigFile(WellKnownConfigFile configFile)
+        {
+            string path;
+            switch (configFile)
+            {
+                case WellKnownConfigFile.Agent:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        ".agent");
+                    break;
+
+                case WellKnownConfigFile.Credentials:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        ".credentials");
+                    break;
+
+                case WellKnownConfigFile.RSACredentials:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        ".credentials_rsaparams");
+                    break;
+
+                case WellKnownConfigFile.Service:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        ".service");
+                    break;
+
+                case WellKnownConfigFile.CredentialStore:
+                    if (PlatformUtil.RunningOnMacOS)
+                    {
+                        path = Path.Combine(
+                            GetDirectory(WellKnownDirectory.Root),
+                            ".credential_store.keychain");
+                    }
+                    else
+                    {
+                        path = Path.Combine(
+                            GetDirectory(WellKnownDirectory.Root),
+                            ".credential_store");
+                    }
+                    break;
+
+                case WellKnownConfigFile.Certificates:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        ".certificates");
+                    break;
+
+                case WellKnownConfigFile.Proxy:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        ".proxy");
+                    break;
+
+                case WellKnownConfigFile.ProxyCredentials:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        ".proxycredentials");
+                    break;
+
+                case WellKnownConfigFile.ProxyBypass:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        ".proxybypass");
+                    break;
+
+                case WellKnownConfigFile.Autologon:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        ".autologon");
+                    break;
+
+                case WellKnownConfigFile.Options:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        ".options");
+                    break;
+                default:
+                    throw new NotSupportedException($"Unexpected well known config file: '{configFile}'");
+            }
+
+            _trace.Info($"Well known config file '{configFile}': '{path}'");
             return path;
         }
 
@@ -214,7 +367,10 @@ namespace Microsoft.VisualStudio.Services.Agent
         /// </summary>
         public T CreateService<T>() where T : class, IAgentService
         {
-            Type target;
+            Type target = null;
+            Type defaultTarget = null;
+            Type platformTarget = null;
+
             if (!_serviceTypes.TryGetValue(typeof(T), out target))
             {
                 // Infer the concrete type from the ServiceLocatorAttribute.
@@ -222,18 +378,36 @@ namespace Microsoft.VisualStudio.Services.Agent
                     .GetTypeInfo()
                     .CustomAttributes
                     .FirstOrDefault(x => x.AttributeType == typeof(ServiceLocatorAttribute));
-                if (attribute != null)
+                if (!(attribute is null))
                 {
                     foreach (CustomAttributeNamedArgument arg in attribute.NamedArguments)
                     {
-                        if (string.Equals(arg.MemberName, ServiceLocatorAttribute.DefaultPropertyName, StringComparison.Ordinal))
+                        if (string.Equals(arg.MemberName, nameof(ServiceLocatorAttribute.Default), StringComparison.Ordinal))
                         {
-                            target = arg.TypedValue.Value as Type;
+                            defaultTarget = arg.TypedValue.Value as Type;
+                        }
+
+                        if (PlatformUtil.RunningOnWindows
+                            && string.Equals(arg.MemberName, nameof(ServiceLocatorAttribute.PreferredOnWindows), StringComparison.Ordinal))
+                        {
+                            platformTarget = arg.TypedValue.Value as Type;
+                        }
+                        else if (PlatformUtil.RunningOnMacOS
+                            && string.Equals(arg.MemberName, nameof(ServiceLocatorAttribute.PreferredOnMacOS), StringComparison.Ordinal))
+                        {
+                            platformTarget = arg.TypedValue.Value as Type;
+                        }
+                        else if (PlatformUtil.RunningOnLinux
+                            && string.Equals(arg.MemberName, nameof(ServiceLocatorAttribute.PreferredOnLinux), StringComparison.Ordinal))
+                        {
+                            platformTarget = arg.TypedValue.Value as Type;
                         }
                     }
                 }
 
-                if (target == null)
+                target = platformTarget ?? defaultTarget;
+
+                if (target is null)
                 {
                     throw new KeyNotFoundException(string.Format(CultureInfo.InvariantCulture, "Service mapping not found for key '{0}'.", typeof(T).FullName));
                 }
@@ -283,6 +457,32 @@ namespace Microsoft.VisualStudio.Services.Agent
             AgentShutdownReason = reason;
             _agentShutdownTokenSource.Cancel();
         }
+ 
+        public ContainerInfo CreateContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true)
+        {
+            ContainerInfo containerInfo = new ContainerInfo(container, isJobContainer);
+            Dictionary<string, string> pathMappings = new Dictionary<string, string>();
+            if (PlatformUtil.RunningOnWindows)
+            {
+                pathMappings[this.GetDirectory(WellKnownDirectory.Tools)] = "C:\\__t"; // Tool cache folder may come from ENV, so we need a unique folder to avoid collision
+                pathMappings[this.GetDirectory(WellKnownDirectory.Work)] = "C:\\__w";
+                pathMappings[this.GetDirectory(WellKnownDirectory.Root)] = "C:\\__a";
+                // add -v '\\.\pipe\docker_engine:\\.\pipe\docker_engine' when they are available (17.09)
+            }
+            else
+            {
+                pathMappings[this.GetDirectory(WellKnownDirectory.Tools)] = "/__t"; // Tool cache folder may come from ENV, so we need a unique folder to avoid collision
+                pathMappings[this.GetDirectory(WellKnownDirectory.Work)] = "/__w";
+                pathMappings[this.GetDirectory(WellKnownDirectory.Root)] = "/__a";
+                if (containerInfo.IsJobContainer)
+                {
+                    containerInfo.MountVolumes.Add(new MountVolume("/var/run/docker.sock", "/var/run/docker.sock"));
+                }
+            }
+
+            containerInfo.AddPathMappings(pathMappings);
+            return containerInfo;
+        }
 
         public override void Dispose()
         {
@@ -299,6 +499,25 @@ namespace Microsoft.VisualStudio.Services.Agent
             set
             {
                 _startupType = value;
+            }
+        }
+
+        public void WritePerfCounter(string counter)
+        {
+            if (!string.IsNullOrEmpty(_perfFile))
+            {
+                string normalizedCounter = counter.Replace(':', '_');
+                lock (_perfLock)
+                {
+                    try
+                    {
+                        File.AppendAllLines(_perfFile, new[] { $"{normalizedCounter}:{DateTime.UtcNow.ToString("O")}" });
+                    }
+                    catch (Exception ex)
+                    {
+                        _trace.Error(ex);
+                    }
+                }
             }
         }
 
@@ -448,7 +667,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             HttpClientHandler clientHandler = new HttpClientHandler();
             var agentWebProxy = context.GetService<IVstsAgentWebProxy>();
-            clientHandler.Proxy = agentWebProxy;
+            clientHandler.Proxy = agentWebProxy.WebProxy;
             return clientHandler;
         }
     }

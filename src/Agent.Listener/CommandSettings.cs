@@ -1,4 +1,7 @@
-﻿using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections;
@@ -9,11 +12,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
     public sealed class CommandSettings
     {
-        private readonly IHostContext _context;
         private readonly Dictionary<string, string> _envArgs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly CommandLineParser _parser;
         private readonly IPromptManager _promptManager;
-        private ISecretMasker _secretMasker;
         private readonly Tracing _trace;
 
         private readonly string[] validCommands =
@@ -22,6 +23,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Constants.Agent.CommandLine.Commands.LocalRun,
             Constants.Agent.CommandLine.Commands.Remove,
             Constants.Agent.CommandLine.Commands.Run,
+            Constants.Agent.CommandLine.Commands.Warmup,
         };
 
         private readonly string[] validFlags =
@@ -31,6 +33,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Constants.Agent.CommandLine.Flags.AddDeploymentGroupTags,
             Constants.Agent.CommandLine.Flags.Commit,
             Constants.Agent.CommandLine.Flags.DeploymentGroup,
+            Constants.Agent.CommandLine.Flags.DeploymentPool,
+            Constants.Agent.CommandLine.Flags.Environment,
+            // SChannel is Windows-only
+            Constants.Agent.CommandLine.Flags.GitUseSChannel,
             Constants.Agent.CommandLine.Flags.Help,
             Constants.Agent.CommandLine.Flags.MachineGroup,
             Constants.Agent.CommandLine.Flags.NoRestart,
@@ -38,6 +44,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Constants.Agent.CommandLine.Flags.Replace,
             Constants.Agent.CommandLine.Flags.RunAsAutoLogon,
             Constants.Agent.CommandLine.Flags.RunAsService,
+            Constants.Agent.CommandLine.Flags.Once,
+            Constants.Agent.CommandLine.Flags.SslSkipCertValidation,
             Constants.Agent.CommandLine.Flags.Unattended,
             Constants.Agent.CommandLine.Flags.Version,
             Constants.Agent.CommandLine.Flags.WhatIf
@@ -49,10 +57,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Constants.Agent.CommandLine.Args.Auth,
             Constants.Agent.CommandLine.Args.CollectionName,
             Constants.Agent.CommandLine.Args.DeploymentGroupName,
+            Constants.Agent.CommandLine.Args.DeploymentPoolName,
             Constants.Agent.CommandLine.Args.DeploymentGroupTags,
+            Constants.Agent.CommandLine.Args.EnvironmentName,
+            Constants.Agent.CommandLine.Args.EnvironmentVMResourceTags,
             Constants.Agent.CommandLine.Args.MachineGroupName,
             Constants.Agent.CommandLine.Args.MachineGroupTags,
             Constants.Agent.CommandLine.Args.Matrix,
+            Constants.Agent.CommandLine.Args.MonitorSocketAddress,
             Constants.Agent.CommandLine.Args.NotificationPipeName,
             Constants.Agent.CommandLine.Args.Password,
             Constants.Agent.CommandLine.Args.Phase,
@@ -61,6 +73,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Constants.Agent.CommandLine.Args.ProxyPassword,
             Constants.Agent.CommandLine.Args.ProxyUrl,
             Constants.Agent.CommandLine.Args.ProxyUserName,
+            Constants.Agent.CommandLine.Args.SslCACert,
+            Constants.Agent.CommandLine.Args.SslClientCert,
+            Constants.Agent.CommandLine.Args.SslClientCertKey,
+            Constants.Agent.CommandLine.Args.SslClientCertArchive,
+            Constants.Agent.CommandLine.Args.SslClientCertPassword,
             Constants.Agent.CommandLine.Args.StartupType,
             Constants.Agent.CommandLine.Args.Token,
             Constants.Agent.CommandLine.Args.Url,
@@ -76,6 +93,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         public bool LocalRun => TestCommand(Constants.Agent.CommandLine.Commands.LocalRun);
         public bool Remove => TestCommand(Constants.Agent.CommandLine.Commands.Remove);
         public bool Run => TestCommand(Constants.Agent.CommandLine.Commands.Run);
+        public bool Warmup => TestCommand(Constants.Agent.CommandLine.Commands.Warmup);
 
         // Flags.
         public bool Commit => TestFlag(Constants.Agent.CommandLine.Flags.Commit);
@@ -83,15 +101,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         public bool Unattended => TestFlag(Constants.Agent.CommandLine.Flags.Unattended);
         public bool Version => TestFlag(Constants.Agent.CommandLine.Flags.Version);
         public bool DeploymentGroup => TestFlag(Constants.Agent.CommandLine.Flags.MachineGroup) || TestFlag(Constants.Agent.CommandLine.Flags.DeploymentGroup);
+        public bool DeploymentPool => TestFlag(Constants.Agent.CommandLine.Flags.DeploymentPool);
+        public bool EnvironmentVMResource => TestFlag(Constants.Agent.CommandLine.Flags.Environment);
         public bool WhatIf => TestFlag(Constants.Agent.CommandLine.Flags.WhatIf);
+        public bool GitUseSChannel => TestFlag(Constants.Agent.CommandLine.Flags.GitUseSChannel);
+        public bool RunOnce => TestFlag(Constants.Agent.CommandLine.Flags.Once);
 
         // Constructor.
         public CommandSettings(IHostContext context, string[] args)
         {
             ArgUtil.NotNull(context, nameof(context));
-            _context = context;
             _promptManager = context.GetService<IPromptManager>();
-            _secretMasker = context.GetService<ISecretMasker>();
             _trace = context.GetTrace(nameof(CommandSettings));
 
             // Parse the command line args.
@@ -119,7 +139,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         bool secret = Constants.Agent.CommandLine.Args.Secrets.Any(x => string.Equals(x, name, StringComparison.OrdinalIgnoreCase));
                         if (secret)
                         {
-                            _secretMasker.AddValue(val);
+                            context.SecretMasker.AddValue(val);
                         }
 
                         // Store the value.
@@ -210,6 +230,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                            defaultValue: false);
         }
 
+        public bool GetAutoLaunchBrowser()
+        {
+            return TestFlagOrPrompt(
+                name: Constants.Agent.CommandLine.Flags.LaunchBrowser,
+                description: StringUtil.Loc("LaunchBrowser"),
+                defaultValue: true);
+        }
         //
         // Args.
         //
@@ -298,6 +325,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             return result;
         }
 
+        public string GetDeploymentPoolName()
+        {
+            return GetArgOrPrompt(
+                name: Constants.Agent.CommandLine.Args.DeploymentPoolName,
+                description: StringUtil.Loc("DeploymentPoolName"),
+                defaultValue: string.Empty,
+                validator: Validators.NonEmptyValidator);
+        }
+
         public string GetProjectName(string defaultValue)
         {
             return GetArgOrPrompt(
@@ -324,6 +360,45 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 return GetArgOrPrompt(
                     name: Constants.Agent.CommandLine.Args.DeploymentGroupTags,
                     description: StringUtil.Loc("DeploymentGroupTags"),
+                    defaultValue: string.Empty,
+                    validator: Validators.NonEmptyValidator);
+            }
+            return result;
+        }
+
+        // Environments
+
+        public string GetEnvironmentName()
+        {
+            var result = GetArg(Constants.Agent.CommandLine.Args.EnvironmentName);
+            if (string.IsNullOrEmpty(result))
+            {
+                return GetArgOrPrompt(
+                    name: Constants.Agent.CommandLine.Args.EnvironmentName,
+                    description: StringUtil.Loc("EnvironmentName"),
+                    defaultValue: string.Empty,
+                    validator: Validators.NonEmptyValidator);
+            }
+            return result;
+        }
+
+        public bool GetEnvironmentVirtualMachineResourceTagsRequired()
+        {
+            return TestFlag(Constants.Agent.CommandLine.Flags.AddEnvironmentVirtualMachineResourceTags)
+                   || TestFlagOrPrompt(
+                           name: Constants.Agent.CommandLine.Flags.AddEnvironmentVirtualMachineResourceTags,
+                           description: StringUtil.Loc("AddEnvironmentVMResourceTags"),
+                           defaultValue: false);
+        }
+
+        public string GetEnvironmentVirtualMachineResourceTags()
+        {
+            var result = GetArg(Constants.Agent.CommandLine.Args.EnvironmentVMResourceTags);
+            if (string.IsNullOrEmpty(result))
+            {
+                return GetArgOrPrompt(
+                    name: Constants.Agent.CommandLine.Args.EnvironmentVMResourceTags,
+                    description: StringUtil.Loc("EnvironmentVMResourceTags"),
                     defaultValue: string.Empty,
                     validator: Validators.NonEmptyValidator);
             }
@@ -366,6 +441,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 validator: Validators.NonEmptyValidator);
         }
 
+        public string GetMonitorSocketAddress()
+        {
+            return GetArg(Constants.Agent.CommandLine.Args.MonitorSocketAddress);
+        }
+
         public string GetNotificationPipeName()
         {
             return GetArg(Constants.Agent.CommandLine.Args.NotificationPipeName);
@@ -400,6 +480,36 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         public string GetProxyPassword()
         {
             return GetArg(Constants.Agent.CommandLine.Args.ProxyPassword);
+        }
+
+        public bool GetSkipCertificateValidation()
+        {
+            return TestFlag(Constants.Agent.CommandLine.Flags.SslSkipCertValidation);
+        }
+
+        public string GetCACertificate()
+        {
+            return GetArg(Constants.Agent.CommandLine.Args.SslCACert);
+        }
+
+        public string GetClientCertificate()
+        {
+            return GetArg(Constants.Agent.CommandLine.Args.SslClientCert);
+        }
+
+        public string GetClientCertificatePrivateKey()
+        {
+            return GetArg(Constants.Agent.CommandLine.Args.SslClientCertKey);
+        }
+
+        public string GetClientCertificateArchrive()
+        {
+            return GetArg(Constants.Agent.CommandLine.Args.SslClientCertArchive);
+        }
+
+        public string GetClientCertificatePassword()
+        {
+            return GetArg(Constants.Agent.CommandLine.Args.SslClientCertPassword);
         }
 
         public void SetUnattended()
@@ -449,7 +559,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             if (!string.IsNullOrEmpty(result))
             {
                 // After read the arg from input commandline args, remove it from Arg dictionary,
-                // This will help if bad arg value passed through CommandLine arg, when ConfigurationManager ask CommandSetting the second time, 
+                // This will help if bad arg value passed through CommandLine arg, when ConfigurationManager ask CommandSetting the second time,
                 // It will prompt for input instead of continue use the bad input.
                 _trace.Info($"Remove {name} from Arg dictionary.");
                 RemoveArg(name);

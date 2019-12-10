@@ -1,12 +1,12 @@
 @echo off
 
 rem agent will replace key words in the template and generate a batch script to run.
-rem Keywords: 
+rem Keywords:
 rem  PROCESSID = pid
 rem  AGENTPROCESSNAME = agent.listener[.exe]
 rem  ROOTFOLDER = ./
 rem  EXISTAGENTVERSION = 2.100.0
-rem  DOWNLOADAGENTVERSION = 2.101.0 
+rem  DOWNLOADAGENTVERSION = 2.101.0
 rem  UPDATELOG = _diag/SelfUpdate-UTC.log
 rem  RESTARTINTERACTIVEAGENT = 0/1
 
@@ -50,9 +50,9 @@ rem ./bin.2.100.0
 rem ./externals.2.100.0
 rem ./bin.2.99.0
 rem ./externals.2.99.0
-rem by using the juction folder we can avoid file in use problem.
+rem by using the junction folder we can avoid file in use problem.
 
-rem if the bin/externals junction point already exist, we just need to delete the juction point then re-create to point to new bin/externals folder.
+rem if the bin/externals junction point already exist, we just need to delete the junction point then re-create to point to new bin/externals folder.
 rem if the bin/externals still are real folders, we need to rename the existing folder to bin.version format then create junction point to new bin/externals folder.
 
 rem check bin folder
@@ -60,22 +60,22 @@ rem we do findstr /C:" bin" since in migration mode, we create a junction folder
 rem as result, dir /AL | findstr "bin" will return the agent folder. output looks like (07/27/2016  05:21 PM    <JUNCTION>     agent [E:\bin])
 dir "%rootfolder%" /AL 2>&1 | findstr /C:" bin" >> "%logfile%" 2>&1
 if ERRORLEVEL 1 (
-  rem return code 1 means it can't find a bin folder that is a junction folder
+  rem return code 1 means it cannot find a bin folder that is a junction folder
   rem so we need to move the current bin folder to bin.2.99.0 folder.
   echo [%date% %time%] move "%rootfolder%\bin" "%rootfolder%\bin.%existagentversion%" >> "%logfile%" 2>&1
   move "%rootfolder%\bin" "%rootfolder%\bin.%existagentversion%" >> "%logfile%" 2>&1
   if ERRORLEVEL 1 (
-    echo [%date% %time%] Can't move "%rootfolder%\bin" to "%rootfolder%\bin.%existagentversion%" >> "%logfile%" 2>&1
+    echo [%date% %time%] Cannot move "%rootfolder%\bin" to "%rootfolder%\bin.%existagentversion%" >> "%logfile%" 2>&1
     goto fail
   )
-  
+
 ) else (
   rem otherwise it find a bin folder that is a junction folder
   rem we just need to delete the junction point.
   echo [%date% %time%] Delete existing junction bin folder >> "%logfile%" 2>&1
   rmdir "%rootfolder%\bin" >> "%logfile%" 2>&1
   if ERRORLEVEL 1 (
-    echo [%date% %time%] Can't delete existing junction bin folder >> "%logfile%" 2>&1
+    echo [%date% %time%] Cannot delete existing junction bin folder >> "%logfile%" 2>&1
     goto fail
   )
 )
@@ -83,21 +83,21 @@ if ERRORLEVEL 1 (
 rem check externals folder
 dir "%rootfolder%" /AL 2>&1 | findstr "externals" >> "%logfile%" 2>&1
 if ERRORLEVEL 1 (
-  rem return code 1 means it can't find a externals folder that is a junction folder
+  rem return code 1 means it cannot find a externals folder that is a junction folder
   rem so we need to move the current externals folder to externals.2.99.0 folder.
   echo [%date% %time%] move "%rootfolder%\externals" "%rootfolder%\externals.%existagentversion%" >> "%logfile%" 2>&1
   move "%rootfolder%\externals" "%rootfolder%\externals.%existagentversion%" >> "%logfile%" 2>&1
   if ERRORLEVEL 1 (
-    echo [%date% %time%] Can't move "%rootfolder%\externals" to "%rootfolder%\externals.%existagentversion%" >> "%logfile%" 2>&1
+    echo [%date% %time%] Cannot move "%rootfolder%\externals" to "%rootfolder%\externals.%existagentversion%" >> "%logfile%" 2>&1
     goto fail
-  )  
+  )
 ) else (
   rem otherwise it find a externals folder that is a junction folder
   rem we just need to delete the junction point.
   echo [%date% %time%] Delete existing junction externals folder >> "%logfile%" 2>&1
   rmdir "%rootfolder%\externals" >> "%logfile%" 2>&1
   if ERRORLEVEL 1 (
-    echo [%date% %time%] Can't delete existing junction externals folder >> "%logfile%" 2>&1
+    echo [%date% %time%] Cannot delete existing junction externals folder >> "%logfile%" 2>&1
     goto fail
   )
 )
@@ -106,7 +106,7 @@ rem create junction bin folder
 echo [%date% %time%] Create junction bin folder >> "%logfile%" 2>&1
 mklink /J "%rootfolder%\bin" "%rootfolder%\bin.%downloadagentversion%" >> "%logfile%" 2>&1
 if ERRORLEVEL 1 (
-  echo [%date% %time%] Can't create junction bin folder >> "%logfile%" 2>&1
+  echo [%date% %time%] Cannot create junction bin folder >> "%logfile%" 2>&1
   goto fail
 )
 
@@ -114,7 +114,7 @@ rem create junction externals folder
 echo [%date% %time%] Create junction externals folder >> "%logfile%" 2>&1
 mklink /J "%rootfolder%\externals" "%rootfolder%\externals.%downloadagentversion%" >> "%logfile%" 2>&1
 if ERRORLEVEL 1 (
-  echo [%date% %time%] Can't create junction externals folder >> "%logfile%" 2>&1
+  echo [%date% %time%] Cannot create junction externals folder >> "%logfile%" 2>&1
   goto fail
 )
 
@@ -129,7 +129,7 @@ rem restart interactive agent if needed
 if %restartinteractiveagent% equ 1 (
   echo [%date% %time%] Restart interactive agent >> "%logfile%.succeed" 2>&1
   endlocal
-  start "Vsts Agent" cmd.exe /k "_ROOT_FOLDER_\run.cmd"
+  start "Vsts Agent" cmd.exe /k "%rootfolder%\run.cmd"
 ) else (
   endlocal
 )

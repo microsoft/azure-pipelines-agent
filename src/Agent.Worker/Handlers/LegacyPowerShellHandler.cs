@@ -1,4 +1,7 @@
-﻿using Microsoft.TeamFoundation.DistributedTask.WebApi;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
@@ -8,6 +11,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.WebApi;
 using System.Xml;
+using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
@@ -176,6 +180,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             ArgUtil.NotNull(Inputs, nameof(Inputs));
             ArgUtil.Directory(TaskDirectory, nameof(TaskDirectory));
 
+            // Warn about legacy handler.
+            ExecutionContext.Warning($"Task '{this.Task.Name}' ({this.Task.Version}) is using deprecated task execution handler. The task should use the supported task-lib: https://aka.ms/tasklib");
+
             // Resolve the target script.
             string target = GetTarget();
             ArgUtil.NotNullOrEmpty(target, nameof(target));
@@ -228,6 +235,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                                        fileName: vstsPSHostExe,
                                                                        arguments: "",
                                                                        environment: Environment,
+                                                                       requireExitCodeZero: false,
+                                                                       outputEncoding: null,
+                                                                       killProcessOnCancel: false,
+                                                                       redirectStandardIn: null,
+                                                                       inheritConsoleHandler: !ExecutionContext.Variables.Retain_Default_Encoding,
                                                                        cancellationToken: ExecutionContext.CancellationToken);
 
                     // the exit code from vstsPSHost.exe indicate how many error record we get during execution
@@ -348,9 +360,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             foreach (ServiceEndpoint endpoint in ExecutionContext.Endpoints)
             {
                 string partialKey = null;
-                if (string.Equals(endpoint.Name, ServiceEndpoints.SystemVssConnection, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(endpoint.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.OrdinalIgnoreCase))
                 {
-                    partialKey = ServiceEndpoints.SystemVssConnection.ToUpperInvariant();
+                    partialKey = WellKnownServiceEndpointNames.SystemVssConnection.ToUpperInvariant();
                     AddEnvironmentVariable("VSTSPSHOSTSYSTEMENDPOINT_URL", endpoint.Url.ToString());
                     AddEnvironmentVariable("VSTSPSHOSTSYSTEMENDPOINT_AUTH", JsonUtility.ToString(endpoint.Authorization));
                 }
@@ -367,10 +379,47 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
                     ids.Add(partialKey);
                     AddEnvironmentVariable("VSTSPSHOSTENDPOINT_URL_" + partialKey, endpoint.Url.ToString());
-                    AddEnvironmentVariable("VSTSPSHOSTENDPOINT_NAME_" + partialKey, endpoint.Name);
+
+                    // We fixed endpoint.name to be the name of the endpoint in yaml, before endpoint.name=endpoint.id is a guid
+                    // However, for source endpoint, the endpoint.id is Guid.Empty and endpoint.name is already the name of the endpoint
+                    // The legacy PSHost use the Guid to retrive endpoint, the legacy PSHost assume `VSTSPSHOSTENDPOINT_NAME_` is the Guid.
+                    if (endpoint.Id == Guid.Empty && endpoint.Data.ContainsKey("repositoryId"))
+                    {
+                        AddEnvironmentVariable("VSTSPSHOSTENDPOINT_NAME_" + partialKey, endpoint.Name);
+                    }
+                    else
+                    {
+                        AddEnvironmentVariable("VSTSPSHOSTENDPOINT_NAME_" + partialKey, endpoint.Id.ToString());
+                    }
+
                     AddEnvironmentVariable("VSTSPSHOSTENDPOINT_TYPE_" + partialKey, endpoint.Type);
                     AddEnvironmentVariable("VSTSPSHOSTENDPOINT_AUTH_" + partialKey, JsonUtility.ToString(endpoint.Authorization));
                     AddEnvironmentVariable("VSTSPSHOSTENDPOINT_DATA_" + partialKey, JsonUtility.ToString(endpoint.Data));
+                }
+            }
+
+            var defaultRepoName = ExecutionContext.Variables.Get(Constants.Variables.Build.RepoName);
+            var defaultRepoType = ExecutionContext.Variables.Get(Constants.Variables.Build.RepoProvider);
+            if (!string.IsNullOrEmpty(defaultRepoName))
+            {
+                // TODO: use alias to find the trigger repo when we have the concept of triggering repo.
+                var defaultRepo = ExecutionContext.Repositories.FirstOrDefault(x => String.Equals(x.Properties.Get<string>(RepositoryPropertyNames.Name), defaultRepoName, StringComparison.OrdinalIgnoreCase));
+                if (defaultRepo != null && !ids.Exists(x => string.Equals(x, defaultRepo.Id, StringComparison.OrdinalIgnoreCase)))
+                {
+                    ids.Add(defaultRepo.Id);
+                    AddEnvironmentVariable("VSTSPSHOSTENDPOINT_URL_" + defaultRepo.Id, defaultRepo.Url.ToString());
+                    AddEnvironmentVariable("VSTSPSHOSTENDPOINT_NAME_" + defaultRepo.Id, defaultRepoName);
+                    AddEnvironmentVariable("VSTSPSHOSTENDPOINT_TYPE_" + defaultRepo.Id, defaultRepoType);
+
+                    if (defaultRepo.Endpoint != null)
+                    {
+                        var endpoint = ExecutionContext.Endpoints.FirstOrDefault(x => x.Id == defaultRepo.Endpoint.Id);
+                        if (endpoint != null)
+                        {
+                            AddEnvironmentVariable("VSTSPSHOSTENDPOINT_AUTH_" + defaultRepo.Id, JsonUtility.ToString(endpoint.Authorization));
+                            AddEnvironmentVariable("VSTSPSHOSTENDPOINT_DATA_" + defaultRepo.Id, JsonUtility.ToString(endpoint.Data));
+                        }
+                    }
                 }
             }
 

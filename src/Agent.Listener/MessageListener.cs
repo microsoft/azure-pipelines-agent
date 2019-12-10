@@ -1,5 +1,8 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
-using Microsoft.VisualStudio.Services.Agent.Listener.Capabilities;
+using Microsoft.VisualStudio.Services.Agent.Capabilities;
 using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Common;
@@ -10,9 +13,9 @@ using System.Threading.Tasks;
 using System.Security.Cryptography;
 using System.IO;
 using System.Text;
-using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.OAuth;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -32,11 +35,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         private ITerminal _term;
         private IAgentServer _agentServer;
         private TaskAgentSession _session;
+        private TimeSpan _getNextMessageRetryInterval;
         private readonly TimeSpan _sessionCreationRetryInterval = TimeSpan.FromSeconds(30);
         private readonly TimeSpan _sessionConflictRetryLimit = TimeSpan.FromMinutes(4);
         private readonly TimeSpan _clockSkewRetryLimit = TimeSpan.FromMinutes(30);
         private readonly Dictionary<string, int> _sessionCreationExceptionTracker = new Dictionary<string, int>();
-        private readonly TimeSpan _getNextMessageRetryInterval = TimeSpan.FromSeconds(15);
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -61,17 +64,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Dictionary<string, string> systemCapabilities = await HostContext.GetService<ICapabilitiesManager>().GetCapabilitiesAsync(_settings, token);
 
             // Create connection.
-            Trace.Verbose("Loading Credentials");
+            Trace.Info("Loading Credentials");
             var credMgr = HostContext.GetService<ICredentialManager>();
             VssCredentials creds = credMgr.LoadCredentials();
-            Uri uri = new Uri(serverUrl);
-            VssConnection conn = ApiUtil.CreateConnection(uri, creds);
 
             var agent = new TaskAgentReference
             {
                 Id = _settings.AgentId,
                 Name = _settings.AgentName,
-                Version = Constants.Agent.Version,
+                Version = BuildConstants.AgentPackage.Version,
+                OSDescription = RuntimeInformation.OSDescription,
             };
             string sessionName = $"{Environment.MachineName ?? "AGENT"}";
             var taskAgentSession = new TaskAgentSession(sessionName, agent, systemCapabilities);
@@ -87,7 +89,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 try
                 {
                     Trace.Info("Connecting to the Agent Server...");
-                    await _agentServer.ConnectAsync(conn);
+                    await _agentServer.ConnectAsync(new Uri(serverUrl), creds);
+                    Trace.Info("VssConnection created");
 
                     _session = await _agentServer.CreateAgentSessionAsync(
                                                         _settings.PoolId,
@@ -107,6 +110,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 catch (OperationCanceledException) when (token.IsCancellationRequested)
                 {
                     Trace.Info("Session creation has been cancelled.");
+                    throw;
+                }
+                catch (TaskAgentAccessTokenExpiredException)
+                {
+                    Trace.Info("Agent OAuth token has been revoked. Session creation failed.");
                     throw;
                 }
                 catch (Exception ex)
@@ -149,6 +157,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             ArgUtil.NotNull(_session, nameof(_session));
             ArgUtil.NotNull(_settings, nameof(_settings));
             bool encounteringError = false;
+            int continuousError = 0;
             string errorMessage = string.Empty;
             Stopwatch heartbeat = new Stopwatch();
             heartbeat.Restart();
@@ -175,6 +184,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     {
                         _term.WriteLine(StringUtil.Loc("QueueConnected", DateTime.UtcNow));
                         encounteringError = false;
+                        continuousError = 0;
                     }
                 }
                 catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -182,14 +192,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     Trace.Info("Get next message has been cancelled.");
                     throw;
                 }
+                catch (TaskAgentAccessTokenExpiredException)
+                {
+                    Trace.Info("Agent OAuth token has been revoked. Unable to pull message.");
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     Trace.Error("Catch exception during get next message.");
                     Trace.Error(ex);
 
-                    if (ex is TaskAgentSessionExpiredException && await CreateSessionAsync(token))
+                    // don't retry if SkipSessionRecover = true, DT service will delete agent session to stop agent from taking more jobs.
+                    if (ex is TaskAgentSessionExpiredException && !_settings.SkipSessionRecover && await CreateSessionAsync(token))
                     {
-                        Trace.Info($"{nameof(TaskAgentSessionExpiredException)} received, recoverd by recreate session.");
+                        Trace.Info($"{nameof(TaskAgentSessionExpiredException)} received, recovered by recreate session.");
                     }
                     else if (!IsGetNextMessageExceptionRetriable(ex))
                     {
@@ -197,13 +213,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     }
                     else
                     {
-                        //retry after a delay
+                        continuousError++;
+                        //retry after a random backoff to avoid service throttling
+                        //in case of there is a service error happened and all agents get kicked off of the long poll and all agent try to reconnect back at the same time.
+                        if (continuousError <= 5)
+                        {
+                            // random backoff [15, 30]
+                            _getNextMessageRetryInterval = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(30), _getNextMessageRetryInterval);
+                        }
+                        else
+                        {
+                            // more aggressive backoff [30, 60]
+                            _getNextMessageRetryInterval = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(60), _getNextMessageRetryInterval);
+                        }
+
                         if (!encounteringError)
                         {
                             //print error only on the first consecutive error
-                            _term.WriteError(StringUtil.Loc("QueueConError", DateTime.UtcNow, ex.Message, _getNextMessageRetryInterval.TotalSeconds));
+                            _term.WriteError(StringUtil.Loc("QueueConError", DateTime.UtcNow, ex.Message));
                             encounteringError = true;
                         }
+
+                        // re-create VssConnection before next retry
+                        await _agentServer.RefreshConnectionAsync(AgentConnectionType.MessageQueue, TimeSpan.FromSeconds(60));
 
                         Trace.Info("Sleeping for {0} seconds before retrying.", _getNextMessageRetryInterval.TotalSeconds);
                         await HostContext.Delay(_getNextMessageRetryInterval, token);

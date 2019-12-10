@@ -1,6 +1,6 @@
 
 
-# ![redhat](../res/redhat_med.png) Red Hat/CentOS System Prerequisites
+# ![redhat](../res/redhat_med.png) Red Hat/CentOS System Prerequisites [2.124.0 or below]
 
 ## Versions
 
@@ -44,5 +44,5 @@ export PATH=$PATH:/usr/local/git/bin
 
 The agent distributes [Team Explorer Everywhere (TEE)](https://www.visualstudio.com/products/team-explorer-everywhere-vs.aspx).
 
-But, if you are using TfsVc, install Oracle Java 1.6+ as TEE uses Java.
+But, if you are using TfsVc, install Oracle Java 1.8+ as TEE uses Java.
 

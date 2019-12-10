@@ -1,4 +1,7 @@
-﻿using Microsoft.VisualStudio.Services.Agent.Util;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Security.Cryptography;
 using System.IO;
@@ -138,12 +141,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 {
                     processInvoker.OutputDataReceived += OnOutputDataReceived;
                     processInvoker.ErrorDataReceived += OnErrorDataReceived;
-                    int exitCode = await processInvoker.ExecuteAsync(
-                        workingDirectory: workingDirectory,
-                        fileName: powerShellExe,
-                        arguments: powerShellExeArgs,
-                        environment: Environment,
-                        cancellationToken: ExecutionContext.CancellationToken);
+                    int exitCode = await processInvoker.ExecuteAsync(workingDirectory: workingDirectory,
+                                                                     fileName: powerShellExe,
+                                                                     arguments: powerShellExeArgs,
+                                                                     environment: Environment,
+                                                                     requireExitCodeZero: false,
+                                                                     outputEncoding: null,
+                                                                     killProcessOnCancel: false,
+                                                                     redirectStandardIn: null,
+                                                                     inheritConsoleHandler: !ExecutionContext.Variables.Retain_Default_Encoding,
+                                                                     cancellationToken: ExecutionContext.CancellationToken);
                     FlushErrorData();
 
                     // Fail on error count.

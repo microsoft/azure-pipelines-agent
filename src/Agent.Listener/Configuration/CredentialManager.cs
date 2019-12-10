@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Generic;
 using Microsoft.VisualStudio.Services.Common;
@@ -16,6 +19,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
     {        
         public static readonly Dictionary<string, Type> CredentialTypes = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase)
         {
+            { Constants.Configuration.AAD, typeof(AadDeviceCodeAccessToken)},
             { Constants.Configuration.PAT, typeof(PersonalAccessToken)},
             { Constants.Configuration.Alternate, typeof(AlternateCredential)},
             { Constants.Configuration.Negotiate, typeof(NegotiateCredential)},

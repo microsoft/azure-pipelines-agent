@@ -1,4 +1,7 @@
-﻿using System;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts.Definition
 {
@@ -11,6 +14,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts.Definit
         public string Branch { get; set; }
 
         public string ConnectionName { get; set; }
+
+        public string CheckoutNestedSubmodules { get; set; }
 
         public string CheckoutSubmodules { get; set; }
 

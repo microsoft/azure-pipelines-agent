@@ -1,4 +1,6 @@
-using Microsoft.VisualStudio.Services.Agent.Util;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.IO;
 
@@ -7,6 +9,7 @@ namespace Microsoft.VisualStudio.Services.Agent
     [ServiceLocator(Default = typeof(PagingLogger))]
     public interface IPagingLogger : IAgentService
     {
+        long TotalLines { get; }
         void Setup(Guid timelineId, Guid timelineRecordId);
 
         void Write(string message);
@@ -28,13 +31,17 @@ namespace Microsoft.VisualStudio.Services.Agent
         private StreamWriter _pageWriter;
         private int _byteCount;
         private int _pageCount;
+        private long _totalLines;
         private string _dataFileName;
         private string _pagesFolder;
         private IJobServerQueue _jobServerQueue;
 
+        public long TotalLines => _totalLines;
+
         public override void Initialize(IHostContext hostContext)
         {
             base.Initialize(hostContext);
+            _totalLines = 0;
             _pageId = Guid.NewGuid().ToString();
             _pagesFolder = Path.Combine(hostContext.GetDirectory(WellKnownDirectory.Diag), PagingFolder);
             _jobServerQueue = HostContext.GetService<IJobServerQueue>();
@@ -63,6 +70,19 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             string line = $"{DateTime.UtcNow.ToString("O")} {message}";
             _pageWriter.WriteLine(line);
+
+            _totalLines++;
+            if (line.IndexOf('\n') != -1)
+            {
+                foreach (char c in line)
+                {
+                    if (c == '\n')
+                    {
+                        _totalLines++;
+                    }
+                }
+            }
+
             _byteCount += System.Text.Encoding.UTF8.GetByteCount(line);
             if (_byteCount >= PageSize)
             {

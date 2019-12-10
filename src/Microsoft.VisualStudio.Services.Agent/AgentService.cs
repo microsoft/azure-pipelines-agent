@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 
 namespace Microsoft.VisualStudio.Services.Agent
@@ -6,9 +9,10 @@ namespace Microsoft.VisualStudio.Services.Agent
     [AttributeUsage(AttributeTargets.Interface, Inherited = false, AllowMultiple = false)]
     public sealed class ServiceLocatorAttribute : Attribute
     {
-        public static readonly string DefaultPropertyName = "Default";
-
         public Type Default { get; set; }
+        public Type PreferredOnWindows { get; set; }
+        public Type PreferredOnMacOS { get; set; }
+        public Type PreferredOnLinux { get; set; }
     }
 
     public interface IAgentService

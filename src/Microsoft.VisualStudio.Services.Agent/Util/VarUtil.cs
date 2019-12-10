@@ -1,34 +1,29 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
+using Microsoft.VisualStudio.Services.WebApi;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Util
 {
-    [ServiceLocator(Default = typeof(VarUtil))]
-    public interface IVarUtil : IAgentService
-    {
-        void PrependPath(string directory);
-        void SetEnvironmentVariable(string name, string value);
-    }
-
-    public sealed class VarUtil : AgentService, IVarUtil
+  public static class VarUtil
     {
         public static StringComparer EnvironmentVariableKeyComparer
         {
             get
             {
-                switch (Constants.Agent.Platform)
+                if (PlatformUtil.RunningOnWindows)
                 {
-                    case Constants.OSPlatform.Linux:
-                    case Constants.OSPlatform.OSX:
-                        return StringComparer.Ordinal;
-                    case Constants.OSPlatform.Windows:
-                        return StringComparer.OrdinalIgnoreCase;
-                    default:
-                        throw new NotSupportedException(); // Should never reach here.
+                    return StringComparer.OrdinalIgnoreCase;
                 }
+
+                return StringComparer.Ordinal;
             }
         }
 
@@ -36,13 +31,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         {
             get
             {
-                switch (Constants.Agent.Platform)
+                switch (PlatformUtil.HostOS)
                 {
-                    case Constants.OSPlatform.Linux:
+                    case PlatformUtil.OS.Linux:
                         return "Linux";
-                    case Constants.OSPlatform.OSX:
+                    case PlatformUtil.OS.OSX:
                         return "Darwin";
-                    case Constants.OSPlatform.Windows:
+                    case PlatformUtil.OS.Windows:
                         return Environment.GetEnvironmentVariable("OS");
                     default:
                         throw new NotSupportedException(); // Should never reach here.
@@ -50,36 +45,46 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
-        public static string PrependPath(string path, string currentPath)
+        public static string OSArchitecture
         {
-            ArgUtil.NotNullOrEmpty(path, nameof(path));
-            if (string.IsNullOrEmpty(currentPath))
+            get
             {
-                // Careful not to add a trailing separator if the PATH is empty.
-                // On OSX/Linux, a trailing separator indicates that "current directory"
-                // is added to the PATH, which is considered a security risk.
-                return path;
+                switch (PlatformUtil.HostArchitecture)
+                {
+                    case Architecture.X86:
+                        return "X86";
+                    case Architecture.X64:
+                        return "X64";
+                    case Architecture.Arm:
+                        return "ARM";
+                    case Architecture.Arm64:
+                        return "ARM64";
+                    default:
+                        throw new NotSupportedException(); // Should never reach here.
+                }
             }
-
-            return path + Path.PathSeparator + currentPath;
         }
 
-        public void PrependPath(string directory)
+        public static JToken ExpandEnvironmentVariables(IHostContext context, JToken target)
         {
-            ArgUtil.Directory(directory, nameof(directory));
+            var mapFuncs = new Dictionary<JTokenType, Func<JToken, JToken>>
+            {
+                {
+                    JTokenType.String,
+                    (t)=> {
+                        var token = new Dictionary<string, string>()
+                        {
+                            {
+                                "token", t.ToString()
+                            }
+                        };
+                        ExpandEnvironmentVariables(context, token);
+                        return token["token"];
+                    }
+                }
+            };
 
-            // Build the new value.
-            string currentPath = Environment.GetEnvironmentVariable(Constants.PathVariable);
-            string path = PrependPath(directory, currentPath);
-
-            // Update the PATH environment variable.
-            Environment.SetEnvironmentVariable(Constants.PathVariable, path);
-        }
-
-        public void SetEnvironmentVariable(string name, string value)
-        {
-            ArgUtil.NotNullOrEmpty(name, nameof(name));
-            Environment.SetEnvironmentVariable(name, value);
+            return target.Map(mapFuncs);
         }
 
         public static void ExpandEnvironmentVariables(IHostContext context, IDictionary<string, string> target)
@@ -100,6 +105,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
             // Expand the target values.
             ExpandValues(context, source, target);
+        }
+
+        public static JToken ExpandValues(IHostContext context, IDictionary<string, string> source, JToken target)
+        {
+            var mapFuncs = new Dictionary<JTokenType, Func<JToken, JToken>>
+            {
+                {
+                    JTokenType.String,
+                    (t)=> {
+                        var token = new Dictionary<string, string>()
+                        {
+                            {
+                                "token", t.ToString()
+                            }
+                        };
+                        ExpandValues(context, source, token);
+                        return token["token"];
+                    }
+                }
+            };
+
+            return target.Map(mapFuncs);
         }
 
         public static void ExpandValues(IHostContext context, IDictionary<string, string> source, IDictionary<string, string> target)
@@ -158,7 +185,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
-        public static bool TryGetValue(Tracing trace, IDictionary<string, string> source, string name, out string val)
+        private static bool TryGetValue(Tracing trace, IDictionary<string, string> source, string name, out string val)
         {
             if (source.TryGetValue(name, out val))
             {

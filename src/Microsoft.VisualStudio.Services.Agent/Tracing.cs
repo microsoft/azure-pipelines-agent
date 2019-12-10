@@ -1,13 +1,18 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Newtonsoft.Json;
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using Microsoft.TeamFoundation.DistributedTask.Logging;
+using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
-    public sealed class Tracing : IDisposable
+    public sealed class Tracing : ITraceWriter, IDisposable
     {
         private ISecretMasker _secretMasker;
         private TraceSource _traceSource;
