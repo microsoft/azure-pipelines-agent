@@ -485,7 +485,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 if (!string.IsNullOrEmpty(agentWebProxy.ProxyPassword))
                 {
-                    Variables.Set(Constants.Variables.Agent.ProxyPassword, agentWebProxy.ProxyPassword, secret: true, readOnly: true);
+                    Variables.Set(Constants.Variables.Agent.ProxyPassword, agentWebProxy.ProxyPassword, true);
                     Environment.SetEnvironmentVariable("VSTS_HTTP_PROXY_PASSWORD", string.Empty);
                 }
 
@@ -517,7 +517,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 if (!string.IsNullOrEmpty(agentCert.ClientCertificatePassword))
                 {
-                    Variables.Set(Constants.Variables.Agent.SslClientCertPassword, agentCert.ClientCertificatePassword);
+                    Variables.Set(Constants.Variables.Agent.SslClientCertPassword, agentCert.ClientCertificatePassword, true);
                 }
             }
 

@@ -5,7 +5,6 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -551,7 +550,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             if (eventProperties.TryGetValue(TaskSetVariableEventProperties.IsReadOnly, out isReadOnlyValue))
             {
                 Boolean.TryParse(isReadOnlyValue, out isReadOnly);
-                
             }
 
             if (context.Variables.IsReadOnly(name))
@@ -575,14 +573,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
             }
 
-            try
-            {
-                context.SetVariable(name, data, isSecret: isSecret, isOutput: isOutput, isReadOnly: isReadOnly, checkReadOnly: true);
-            }
-            catch(Exception ex)
-            {
-                context.Warning(ex.ToString());
-            }
+            context.SetVariable(name, data, isSecret: isSecret, isOutput: isOutput, isReadOnly: isReadOnly, checkReadOnly: true);
         }
     }
 
