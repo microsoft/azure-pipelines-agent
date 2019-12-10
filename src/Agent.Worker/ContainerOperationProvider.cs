@@ -362,7 +362,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNullOrEmpty(container.ContainerId, nameof(container.ContainerId));
             if (container.IsJobContainer)
             {
-                executionContext.Variables.Set(Constants.Variables.Agent.ContainerId, container.ContainerId, secret: false, readOnly: true);
+                executionContext.Variables.Set(Constants.Variables.Agent.ContainerId, container.ContainerId);
             }
 
             // Start container
@@ -404,9 +404,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     executionContext.Variables.Set(
                         $"{Constants.Variables.Agent.ServicePortPrefix}.{container.ContainerNetworkAlias}.ports.{port.ContainerPort}",
-                        $"{port.HostPort}",
-                        secret: false,
-                        readOnly: true);
+                        $"{port.HostPort}");
                 }
             }
 
@@ -657,7 +655,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 throw new InvalidOperationException($"Docker network create failed with exit code {networkExitCode}");
             }
             // Expose docker network to env
-            executionContext.Variables.Set(Constants.Variables.Agent.ContainerNetwork, network, secret: false, readOnly: true);
+            executionContext.Variables.Set(Constants.Variables.Agent.ContainerNetwork, network);
         }
 
         private async Task RemoveContainerNetworkAsync(IExecutionContext executionContext, string network)
@@ -674,7 +672,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 executionContext.Warning($"Docker network rm failed with exit code {removeExitCode}");
             }
             // Remove docker network from env
-            executionContext.Variables.Set(Constants.Variables.Agent.ContainerNetwork, null, secret: false, readOnly: true);
+            executionContext.Variables.Set(Constants.Variables.Agent.ContainerNetwork, null);
         }
 
         private async Task ContainerHealthcheck(IExecutionContext executionContext, ContainerInfo container)

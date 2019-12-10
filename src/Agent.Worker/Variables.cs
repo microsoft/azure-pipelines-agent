@@ -12,7 +12,6 @@ using System.Linq;
 using BuildWebApi = Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.Logging;
 using Newtonsoft.Json.Linq;
-using System.Diagnostics;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -658,7 +657,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 typeof(Constants.Variables.Pipeline),
                 typeof(Constants.Variables.Release),
                 typeof(Constants.Variables.System),
-                typeof(Constants.Variables.Task)
+                typeof(Constants.Variables.Task),
+                typeof(WellKnownDistributedTaskVariables)
             };
             List<String> wellKnownSystemVariables = new List<String>();
 

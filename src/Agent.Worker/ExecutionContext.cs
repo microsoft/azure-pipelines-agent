@@ -474,12 +474,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var agentWebProxy = HostContext.GetService<IVstsAgentWebProxy>();
             if (!string.IsNullOrEmpty(agentWebProxy.ProxyAddress))
             {
-                Variables.Set(Constants.Variables.Agent.ProxyUrl, agentWebProxy.ProxyAddress, secret: false, readOnly: true);
+                Variables.Set(Constants.Variables.Agent.ProxyUrl, agentWebProxy.ProxyAddress);
                 Environment.SetEnvironmentVariable("VSTS_HTTP_PROXY", string.Empty);
 
                 if (!string.IsNullOrEmpty(agentWebProxy.ProxyUsername))
                 {
-                    Variables.Set(Constants.Variables.Agent.ProxyUsername, agentWebProxy.ProxyUsername, secret: false, readOnly: true);
+                    Variables.Set(Constants.Variables.Agent.ProxyUsername, agentWebProxy.ProxyUsername);
                     Environment.SetEnvironmentVariable("VSTS_HTTP_PROXY_USERNAME", string.Empty);
                 }
 
@@ -491,7 +491,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 if (agentWebProxy.ProxyBypassList.Count > 0)
                 {
-                    Variables.Set(Constants.Variables.Agent.ProxyBypassList, JsonUtility.ToString(agentWebProxy.ProxyBypassList), secret: false, readOnly: true);
+                    Variables.Set(Constants.Variables.Agent.ProxyBypassList, JsonUtility.ToString(agentWebProxy.ProxyBypassList));
                 }
             }
 
@@ -499,25 +499,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var agentCert = HostContext.GetService<IAgentCertificateManager>();
             if (agentCert.SkipServerCertificateValidation)
             {
-                Variables.Set(Constants.Variables.Agent.SslSkipCertValidation, bool.TrueString, secret: false, readOnly: true);
+                Variables.Set(Constants.Variables.Agent.SslSkipCertValidation, bool.TrueString);
             }
 
             if (!string.IsNullOrEmpty(agentCert.CACertificateFile))
             {
-                Variables.Set(Constants.Variables.Agent.SslCAInfo, agentCert.CACertificateFile, secret: false, readOnly: true);
+                Variables.Set(Constants.Variables.Agent.SslCAInfo, agentCert.CACertificateFile);
             }
 
             if (!string.IsNullOrEmpty(agentCert.ClientCertificateFile) &&
                 !string.IsNullOrEmpty(agentCert.ClientCertificatePrivateKeyFile) &&
                 !string.IsNullOrEmpty(agentCert.ClientCertificateArchiveFile))
             {
-                Variables.Set(Constants.Variables.Agent.SslClientCert, agentCert.ClientCertificateFile, secret: false, readOnly: true);
-                Variables.Set(Constants.Variables.Agent.SslClientCertKey, agentCert.ClientCertificatePrivateKeyFile, secret: false, readOnly: true);
-                Variables.Set(Constants.Variables.Agent.SslClientCertArchive, agentCert.ClientCertificateArchiveFile, secret: false, readOnly: true);
+                Variables.Set(Constants.Variables.Agent.SslClientCert, agentCert.ClientCertificateFile);
+                Variables.Set(Constants.Variables.Agent.SslClientCertKey, agentCert.ClientCertificatePrivateKeyFile);
+                Variables.Set(Constants.Variables.Agent.SslClientCertArchive, agentCert.ClientCertificateArchiveFile);
 
                 if (!string.IsNullOrEmpty(agentCert.ClientCertificatePassword))
                 {
-                    Variables.Set(Constants.Variables.Agent.SslClientCertPassword, agentCert.ClientCertificatePassword, secret: true, readOnly: true);
+                    Variables.Set(Constants.Variables.Agent.SslClientCertPassword, agentCert.ClientCertificatePassword);
                 }
             }
 
@@ -527,7 +527,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 if (PlatformUtil.RunningOnWindows && runtimeOptions.GitUseSecureChannel)
                 {
-                    Variables.Set(Constants.Variables.Agent.GitUseSChannel, runtimeOptions.GitUseSecureChannel.ToString(), secret: false, readOnly: true);
+                    Variables.Set(Constants.Variables.Agent.GitUseSChannel, runtimeOptions.GitUseSecureChannel.ToString());
                 }
             }
 
