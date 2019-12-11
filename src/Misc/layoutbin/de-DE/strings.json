@@ -42,6 +42,7 @@
     "BuildTagAddFailed":  "Das Buildtag \"{0}\" wurde nicht erfolgreich hinzugefügt.",
     "BuildTagRequired":  "Ein Buildtag ist erforderlich.",
     "BuildTagsForBuild":  "Der Build \"{0}\" weist jetzt die folgenden Tags auf: {1}",
+    "CannotBeNullOrEmpty": "{0} cannot be null or empty",
     "CannotChangeParentTimelineRecord":  "Der übergeordnete Zeitachsendatensatz eines vorhandenen Zeitachsendatensatzes kann nicht geändert werden.",
     "CannotDownloadFromCurrentEnvironment":  "Ein Pipelineartefakt kann aus der {0}-Umgebung nicht heruntergeladen werden.",
     "CannotFindHostName":  "Der Name der VSTS-Organisation aus der Server-URL wurde nicht gefunden: \u0027{0}\u0027",

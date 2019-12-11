@@ -28,13 +28,13 @@ date "+[%F %T-%4N] Waiting for $agentprocessname ($agentpid) to complete" >> "$l
 while [ -e /proc/$agentpid ]
 do
     date "+[%F %T-%4N] Process $agentpid still running" >> "$logfile" 2>&1
-    ping -c 2 127.0.0.1 >nul
+    ping -c 2 127.0.0.1 > /dev/null
 done
 date "+[%F %T-%4N] Process $agentpid finished running" >> "$logfile" 2>&1
 
 # start re-organize folders
 date "+[%F %T-%4N] Sleep 1 more second to make sure process exited" >> "$logfile" 2>&1
-ping -c 2 127.0.0.1 >nul
+ping -c 2 127.0.0.1 > /dev/null
 
 # the folder structure under agent root will be
 # ./bin -> bin.2.100.0 (junction folder)
@@ -53,11 +53,11 @@ if [[ -L "$rootfolder/bin" && -d "$rootfolder/bin" ]]
 then
     # return code 0 means it find a bin folder that is a junction folder
     # we just need to delete the junction point.
-    date "+[%F %T-%4N] Delete existing junction bin folder" >> "$logfile"
-    rm "$rootfolder/bin" >> "$logfile"
+    date "+[%F %T-%4N] Delete existing junction bin folder" >> "$logfile" 2>&1
+    rm "$rootfolder/bin" >> "$logfile" 2>&1
     if [ $? -ne 0 ]
     then
-        date "+[%F %T-%4N] Cannot delete existing junction bin folder" >> "$logfile"
+        date "+[%F %T-%4N] Cannot delete existing junction bin folder" >> "$logfile" 2>&1
         mv -fv "$logfile" "$logfile.failed"
         exit 1
     fi
@@ -78,11 +78,11 @@ if [[ -L "$rootfolder/externals" && -d "$rootfolder/externals" ]]
 then
     # the externals folder is already a junction folder
     # we just need to delete the junction point.
-    date "+[%F %T-%4N] Delete existing junction externals folder" >> "$logfile"
-    rm "$rootfolder/externals" >> "$logfile"
+    date "+[%F %T-%4N] Delete existing junction externals folder" >> "$logfile" 2>&1
+    rm "$rootfolder/externals" >> "$logfile" 2>&1
     if [ $? -ne 0 ]
     then
-        date "+[%F %T-%4N] Cannot delete existing junction externals folder" >> "$logfile"
+        date "+[%F %T-%4N] Cannot delete existing junction externals folder" >> "$logfile" 2>&1
         mv -fv "$logfile" "$logfile.failed"
         exit 1
     fi
@@ -118,12 +118,12 @@ then
     exit 1
 fi
 
-date "+[%F %T-%4N] Update succeed" >> "$logfile"
+date "+[%F %T-%4N] Update succeed" >> "$logfile" 2>&1
 
 # rename the update log file with %logfile%.succeed/.failed/succeedneedrestart
 # agent service host can base on the log file name determin the result of the agent update
 date "+[%F %T-%4N] Rename $logfile to be $logfile.succeed" >> "$logfile" 2>&1
-mv -fv "$logfile" "$logfile.succeed" >> "$logfile" 2>&1
+mv -fv "$logfile" "$logfile.succeed"
 
 # restart interactive agent if needed
 if [ $restartinteractiveagent -ne 0 ]

@@ -10,6 +10,7 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
@@ -31,6 +32,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private IParser _parser;
 
         private VssConnection _connection;
+        private IFeatureFlagService _featureFlagService;
+        private string _testRunner;
+        private bool _calculateTestRunSummary;
 
         public void InitializePublisher(IExecutionContext context, string projectName, VssConnection connection, string testRunner)
         {
@@ -38,11 +42,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             _executionContext = context;
             _projectName = projectName;
             _connection = connection;
+            _testRunner = testRunner;
             _testRunPublisher = new TestRunPublisher(connection, new CommandTraceListener(context));
             _testLogStore = new TestLogStore(connection, new CommandTraceListener(context));
 
             var extensionManager = HostContext.GetService<IExtensionManager>();
-            _parser = (extensionManager.GetExtensions<IParser>()).FirstOrDefault(x => testRunner.Equals(x.Name, StringComparison.OrdinalIgnoreCase));
+            _featureFlagService = HostContext.GetService<IFeatureFlagService>();
+            _parser = (extensionManager.GetExtensions<IParser>()).FirstOrDefault(x => _testRunner.Equals(x.Name, StringComparison.OrdinalIgnoreCase));
             Trace.Leaving();
         }
 
@@ -62,7 +68,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     publishTasks.Add(Task.Run(() => UploadBuildDataAttachment(runContext, testDataProvider.GetBuildData(), cancellationToken)));
 
                     await Task.WhenAll(publishTasks);
-                    return GetTestRunOutcome(testRunData);
+                    _calculateTestRunSummary = _featureFlagService.GetFeatureFlagState(TestResultsConstants.CalculateTestRunSummaryFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
+
+                    var runOutcome = GetTestRunOutcome(_executionContext, testRunData, out TestRunSummary testRunSummary);
+
+                    // Storing testrun summary in environment variable, which will be read by PublishPipelineMetadataTask and publish to evidence store.
+                    if(_calculateTestRunSummary)
+                    {
+                        TestResultUtils.StoreTestRunSummaryInEnvVar(_executionContext, testRunSummary, _testRunner, "PublishTestResults");
+                    }
+
+                    return runOutcome;
                 }
 
                 return false;
@@ -83,21 +99,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             return _parser.ParseTestResultFiles(_executionContext, runContext, testResultFiles);
         }
 
-        private bool GetTestRunOutcome(IList<TestRunData> testRunDataList)
+        private bool GetTestRunOutcome(IExecutionContext executionContext, IList<TestRunData> testRunDataList, out TestRunSummary testRunSummary)
         {
+            bool anyFailedTests = false;
+            testRunSummary = new TestRunSummary();
             foreach (var testRunData in testRunDataList)
             {
                 foreach (var testCaseResult in testRunData.TestResults)
                 {
-                    // Return true if outcome is failed or aborted
-                    if (testCaseResult.Outcome == TestOutcome.Failed.ToString() || testCaseResult.Outcome == TestOutcome.Aborted.ToString())
+                    testRunSummary.Total += 1;
+                    Enum.TryParse(testCaseResult.Outcome, out TestOutcome outcome);
+                    switch(outcome)
                     {
-                        return true;
+                        case TestOutcome.Failed:
+                        case TestOutcome.Aborted:
+                            testRunSummary.Failed += 1;
+                            anyFailedTests = true;
+                            break;
+                        case TestOutcome.Passed:
+                            testRunSummary.Passed += 1;
+                            break;
+                        case TestOutcome.Inconclusive:
+                            testRunSummary.Skipped += 1;
+                            break;
+                        default: break;
+                    }
+
+                    if(!_calculateTestRunSummary)
+                    {
+                        return anyFailedTests;
                     }
                 }
             }
-
-            return false;
+            return anyFailedTests;
         }
 
         private async Task UploadRunDataAttachment(TestRunContext runContext, List<TestRunData> testRunData, PublishOptions publishOptions, CancellationToken cancellationToken = default(CancellationToken))

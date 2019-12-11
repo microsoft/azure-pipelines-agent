@@ -5,8 +5,10 @@ using Agent.Sdk;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
 using Microsoft.TeamFoundation.DistributedTask.Expressions;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
@@ -60,7 +62,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var handlerFactory = HostContext.GetService<IHandlerFactory>();
 
             // Set the task id and display name variable.
-            using (var scope =  ExecutionContext.Variables.CreateScope())
+            using (var scope = ExecutionContext.Variables.CreateScope())
             {
                 scope.Set(Constants.Variables.Task.DisplayName, DisplayName);
                 scope.Set(WellKnownDistributedTaskVariables.TaskInstanceId, Task.Id.ToString("D"));
@@ -71,6 +73,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // TODO: Add a try catch here to give a better error message.
                 Definition definition = taskManager.Load(Task);
                 ArgUtil.NotNull(definition, nameof(definition));
+
+                // Verify task signatures if a fingerprint is configured for the Agent.
+                var configurationStore = HostContext.GetService<IConfigurationStore>();
+                AgentSettings settings = configurationStore.GetSettings();
+                
+                if (!String.IsNullOrEmpty(settings.Fingerprint))
+                {
+                    ISignatureService signatureService = HostContext.CreateService<ISignatureService>();
+                    Boolean verificationSuccessful =  await signatureService.VerifyAsync(definition, ExecutionContext.CancellationToken);
+
+                    if (verificationSuccessful) 
+                    {
+                        ExecutionContext.Output("Task signature verification successful.");
+
+                        // Only extract if it's not the checkout task.
+                        if (!String.IsNullOrEmpty(definition.ZipPath))
+                        {
+                            taskManager.Extract(ExecutionContext, Task);
+                        }
+                    }
+                    else 
+                    {
+                        throw new Exception("Task signature verification failed.");
+                    }
+                }
 
                 // Print out task metadata
                 PrintTaskMetaData(definition);
@@ -130,7 +157,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     if (handlerData is AgentPluginHandlerData)
                     {
-                        // plugin handler always runs on the Host, the rumtime variables needs to the variable works on the Host, ex: file path variable System.DefaultWorkingDirectory
+                        // plugin handler always runs on the Host, the runtime variables needs to the variable works on the Host, ex: file path variable System.DefaultWorkingDirectory
                         Dictionary<string, VariableValue> variableCopy = new Dictionary<string, VariableValue>(StringComparer.OrdinalIgnoreCase);
                         foreach (var publicVar in ExecutionContext.Variables.Public)
                         {

@@ -340,6 +340,124 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        public async void PreservesTaskZipTaskWhenInSignatureVerificationMode()
+        {
+            try
+            {
+                //Arrange
+                Setup(signatureVerificationEnabled: true);
+                var bingGuid = Guid.NewGuid();
+                string bingTaskName = "Bing";
+                string bingVersion = "1.21.2";
+                var tasks = new List<Pipelines.TaskStep>
+                {
+                    new Pipelines.TaskStep()
+                    {
+                        Enabled = true,
+                        Reference = new Pipelines.TaskStepDefinitionReference()
+                        {
+                            Name = bingTaskName,
+                            Version = bingVersion,
+                            Id = bingGuid
+                        }
+                    },
+                    new Pipelines.TaskStep()
+                    {
+                        Enabled = true,
+                        Reference = new Pipelines.TaskStepDefinitionReference()
+                        {
+                            Name = bingTaskName,
+                            Version = bingVersion,
+                            Id = bingGuid
+                        }
+                    }
+                };
+                _taskServer
+                    .Setup(x => x.GetTaskContentZipAsync(
+                        bingGuid,
+                        It.Is<TaskVersion>(y => string.Equals(y.ToString(), bingVersion, StringComparison.Ordinal)),
+                        It.IsAny<CancellationToken>()))
+                    .Returns(Task.FromResult<Stream>(GetZipStream()));
+
+                //Act
+                //first invocation will download and unzip the task from mocked IJobServer
+                await _taskManager.DownloadAsync(_ec.Object, tasks);
+                //second and third invocations should find the task in the cache and do nothing
+                await _taskManager.DownloadAsync(_ec.Object, tasks);
+                await _taskManager.DownloadAsync(_ec.Object, tasks);
+
+                //Assert
+                //see if the task.json was downloaded
+                string destDirectory = Path.Combine(
+                    _hc.GetDirectory(WellKnownDirectory.Tasks),
+                    $"{bingTaskName}_{bingGuid}",
+                    bingVersion);
+                string zipDestDirectory = Path.Combine(_hc.GetDirectory(WellKnownDirectory.TaskZips), $"{bingTaskName}_{bingGuid}_{bingVersion}.zip");
+                // task.json should exist since we need it for JobExtension.InitializeJob
+                Assert.True(File.Exists(Path.Combine(destDirectory, Constants.Path.TaskJsonFile)));
+                // the zip for the task should exist on disk
+                Assert.True(File.Exists(zipDestDirectory));
+                //assert download has happened only once, because disabled, duplicate and cached tasks are not downloaded
+                _taskServer
+                    .Verify(x => x.GetTaskContentZipAsync(It.IsAny<Guid>(), It.IsAny<TaskVersion>(), It.IsAny<CancellationToken>()), Times.Once());
+            }
+            finally
+            {
+                Teardown();
+            }
+        }
+
+        // TODO: Add test for Extract
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ExtractsAnAlreadyDownloadedZipToTheCorrectLocation()
+        {
+            try 
+            {
+                // Arrange
+                Setup(signatureVerificationEnabled: true);
+                var bingGuid = Guid.NewGuid();
+                string bingTaskName = "Bing";
+                string bingVersion = "1.21.2";
+                var taskStep = new Pipelines.TaskStep
+                {
+                    Name = bingTaskName,
+                    Reference = new Pipelines.TaskStepDefinitionReference
+                    {
+                        Id = bingGuid,
+                        Name = bingTaskName,
+                        Version = bingVersion
+                    }
+                };
+                string zipDestDirectory = Path.Combine(_hc.GetDirectory(WellKnownDirectory.TaskZips), $"{bingTaskName}_{bingGuid}_{bingVersion}.zip");
+                Directory.CreateDirectory(_hc.GetDirectory(WellKnownDirectory.TaskZips));
+                // write stream to file
+                using (Stream zipStream = GetZipStream())
+                using (var fileStream = new FileStream(zipDestDirectory, FileMode.Create, FileAccess.Write))
+                {
+                    zipStream.CopyTo(fileStream);
+                }
+
+                // Act
+                _taskManager.Extract(_ec.Object, taskStep);
+
+                // Assert
+                string destDirectory = Path.Combine(
+                    _hc.GetDirectory(WellKnownDirectory.Tasks),
+                    $"{bingTaskName}_{bingGuid}",
+                    bingVersion);
+                Assert.True(File.Exists(Path.Combine(destDirectory, Constants.Path.TaskJsonFile)));
+            }
+            finally
+            {
+                Teardown();
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
         public void DoesNotMatchPlatform()
         {
             try
@@ -631,7 +749,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             return new FileStream(zipFile, FileMode.Open);
         }
 
-        private void Setup([CallerMemberName] string name = "")
+        private void Setup([CallerMemberName] string name = "", bool signatureVerificationEnabled = false)
         {
             _ecTokenSource?.Dispose();
             _ecTokenSource = new CancellationTokenSource();
@@ -651,12 +769,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             _hc.SetSingleton<IJobServer>(_jobServer.Object);
             _hc.SetSingleton<ITaskServer>(_taskServer.Object);
 
+            String fingerprint = String.Empty;
+            if (signatureVerificationEnabled)
+            {
+                fingerprint = "FAKEFINGERPRINT";
+            }
+
             _configurationStore = new Mock<IConfigurationStore>();
             _configurationStore
                 .Setup(x => x.GetSettings())
                 .Returns(
                     new AgentSettings
                     {
+                        Fingerprint = fingerprint,
                         WorkFolder = _workFolder
                     });
             _hc.SetSingleton<IConfigurationStore>(_configurationStore.Object);

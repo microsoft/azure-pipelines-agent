@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ###############################################################################
-#  
+#
 #  ./dev.sh build/layout/test/package [Debug/Release] [optional: runtime ID]
 #
 ###############################################################################
@@ -17,7 +17,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/.helpers.sh"
 
 DOTNETSDK_ROOT="$SCRIPT_DIR/../_dotnetsdk"
-DOTNETSDK_VERSION="2.1.403"
+DOTNETSDK_VERSION="2.1.509"
 DOTNETSDK_INSTALLDIR="$DOTNETSDK_ROOT/$DOTNETSDK_VERSION"
 AGENT_VERSION=$(cat "$SCRIPT_DIR/agentversion")
 
@@ -51,14 +51,14 @@ function detect_platform_and_runtime_id ()
                 aarch64) DETECTED_RUNTIME_ID="linux-arm";;
             esac
         fi
-    
+
         if [ -e /etc/redhat-release ]; then
             local redhatRelease=$(</etc/redhat-release)
             if [[ $redhatRelease == "CentOS release 6."* || $redhatRelease == "Red Hat Enterprise Linux Server release 6."* ]]; then
                 DETECTED_RUNTIME_ID='rhel.6-x64'
             fi
         fi
-    
+
     elif [[ "$CURRENT_PLATFORM" == 'darwin' ]]; then
         DETECTED_RUNTIME_ID='osx-x64'
     fi
@@ -71,6 +71,15 @@ function cmd_build ()
 
     mkdir -p "${LAYOUT_DIR}/bin/en-US"
     grep --invert-match '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > "${LAYOUT_DIR}/bin/en-US/strings.json"
+
+    heading "Generating Integration Files"
+    mkdir -p "${INTEGRATION_DIR}"
+    ${NODE} ./versionify.js ./Misc/InstallAgentPackage.template.xml "${INTEGRATION_DIR}/InstallAgentPackage.xml"
+    AGENT_VERSION_PATH=${AGENT_VERSION//./-}
+    mkdir -p "${INTEGRATION_DIR}/PublishVSTSAgent-${AGENT_VERSION_PATH}"
+    ${NODE} ./versionify.js ./Misc/PublishVSTSAgent.template.ps1 "${INTEGRATION_DIR}/PublishVSTSAgent-${AGENT_VERSION_PATH}/PublishVSTSAgent-${AGENT_VERSION_PATH}.ps1"
+    ${NODE} ./versionify.js ./Misc/UnpublishVSTSAgent.template.ps1 "${INTEGRATION_DIR}/PublishVSTSAgent-${AGENT_VERSION_PATH}/UnpublishVSTSAgent-${AGENT_VERSION_PATH}.ps1"
+
 }
 
 function cmd_layout ()
@@ -101,7 +110,7 @@ function cmd_test ()
         ulimit -n 1024
     fi
 
-    dotnet msbuild -t:test -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:SkipOn="${CURRENT_PLATFORM}" || failed "failed tests" 
+    dotnet msbuild -t:test -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:SkipOn="${CURRENT_PLATFORM}" || failed "failed tests"
 }
 
 function cmd_package ()
@@ -114,7 +123,7 @@ function cmd_package ()
     agent_pkg_name="vsts-agent-${RUNTIME_ID}-${agent_ver}"
 
     # TEMPORARY - need to investigate why Agent.Listener --version is throwing an error on OS X
-    if [ $("${LAYOUT_DIR}/bin/Agent.Listener" --version | wc -l) -gt 1 ]; then 
+    if [ $("${LAYOUT_DIR}/bin/Agent.Listener" --version | wc -l) -gt 1 ]; then
         echo "Error thrown during --version call!"
         log_file=$("${LAYOUT_DIR}/bin/Agent.Listener" --version | head -n 2 | tail -n 1 | cut -d\  -f6)
         cat "${log_file}"
@@ -168,9 +177,11 @@ echo "Building for runtime ID: $RUNTIME_ID"
 LAYOUT_DIR="$SCRIPT_DIR/../_layout/$RUNTIME_ID"
 DOWNLOAD_DIR="$SCRIPT_DIR/../_downloads/$RUNTIME_ID/netcore2x"
 PACKAGE_DIR="$SCRIPT_DIR/../_package/$RUNTIME_ID"
+INTEGRATION_DIR="$SCRIPT_DIR/../_layout/integrations"
+NODE="${LAYOUT_DIR}/externals/node10/bin/node"
 
 if [[ (! -d "${DOTNETSDK_INSTALLDIR}") || (! -e "${DOTNETSDK_INSTALLDIR}/.${DOTNETSDK_VERSION}") || (! -e "${DOTNETSDK_INSTALLDIR}/dotnet") ]]; then
-    
+
     # Download dotnet SDK to ../_dotnetsdk directory
     heading "Install .NET SDK"
 

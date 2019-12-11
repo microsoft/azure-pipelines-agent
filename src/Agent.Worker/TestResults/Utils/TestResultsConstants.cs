@@ -3,7 +3,7 @@
 
 using System;
 
-namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
+namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
 {
     public class TestResultsConstants
     {
@@ -12,5 +12,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         public static readonly Guid TCMServiceInstanceGuid = new Guid("00000054-0000-8888-8000-000000000000");
 
         public const string UsePublishTestResultsLibFeatureFlag = "TestManagement.Server.UsePublishTestResultsLibInAgent";
+
+        public const string CalculateTestRunSummaryFeatureFlag = "TestManagement.PTR.CalculateTestRunSummary";
     }
 }

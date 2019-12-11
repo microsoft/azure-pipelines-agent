@@ -1,20 +1,28 @@
 ## Features
-- Add a warning in the post job cache task when the fingerprint is different (#2606)
-- Time to first console logs perf improvements (#2264)
-- [PipelineArtifactPluginV2] Add support of minimumBuildStatus property (#2560)
-- Updated to remove task level variables (#2516)
-- Updated to better support running Linux Docker Containers on Mac OS X and Windows Hosts (#2502)
-- Strip off :rw if user specifies that instead of :ro (#2554)
+- Add support for step targets (#2604)
+- Add build number output variable (#2642)
+- Optional task signature verification (#2571)
 
 ## Bugs
-- Avoiding a null ref thrown by MakeRelative. (#2603)
-- Fix the issue with parsing definition name (#2563)
+- Remove references to the commit message (#2627)
+- A customer reported an issue of a NPE when initializing secret masker (#2633) 
+- Fix string literal project name in the DPA V2 task (#2635)
+- Fix download fileshare artifacts (#2643)
+- Fix dotnet scripts. (#2650)
+- Fixed variable expansion for container targets #2646 (#2649)
+- Guard against potential null object referenced by issue 11902 in task repo (#2651)
+- Update to guard against potential NPE (#2640)
 
 ## Misc
-- run as serviceaccount fix for environment vm scenario (#2607)
-- Updated to add a quote-trimmed version of a secret to the masker (#2577)
-- Updated mock ExecutionContext to output warnings to console (#2561) 
-- Converted command extensions to new format (#2566, #2568, #2572, #2573, #2579, #2584, #2587) 
+- Allow signing to pass (#2620) 
+- update necore version (#2622) 
+- React to nested artifacts (#2623)
+- Throw a nice error when we can't start the tar process (#2625)
+- never report things called SYSTEM_ACCESSTOKEN as capabilities (#2601)
+- Load proxy bypass list during agent configuration (#2638)
+- Minor tweaks to update scripts to make things consistent (#2631)
+- Updated to not allow processing of worker commands embedded in git comment (#2645)
+- Do not sign debug builds (#2636)
 
 ## Agent Downloads  
 

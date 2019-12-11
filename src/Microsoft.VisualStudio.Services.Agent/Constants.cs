@@ -21,6 +21,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         Root,
         ServerOM,
         Tasks,
+        TaskZips,
         Tee,
         Temp,
         Tf,
@@ -238,6 +239,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static readonly string ToolDirectory = "_tool";
             public static readonly string TaskJsonFile = "task.json";
             public static readonly string TasksDirectory = "_tasks";
+            public static readonly string TaskZipsDirectory = "_taskzips";
             public static readonly string UpdateDirectory = "_update";
             public static readonly string WorkDirectory = "_work";
         }

@@ -13,6 +13,7 @@ using Microsoft.TeamFoundation.TestClient.PublishTestResults;
 using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.VisualStudio.Services.WebPlatform;
 using Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults;
+using Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
@@ -23,6 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             CommandArea = "results";
             SupportedHostTypes = HostTypes.All;
             InstallWorkerCommand(new PublishTestResultsCommand());
+            InstallWorkerCommand(new PublishToEvidenceStoreCommand());
         }
     }
 

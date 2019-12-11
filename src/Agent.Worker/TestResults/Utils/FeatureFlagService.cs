@@ -8,7 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
+namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
 {
     [ServiceLocator(Default = typeof(FeatureFlagService))]
     public interface IFeatureFlagService : IAgentService

@@ -266,7 +266,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var source = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (Variable variable in _expanded.Values)
             {
-                source[variable.Name] = variable.Value;
+                var value = StringTranslator(variable.Value);
+                source[variable.Name] = value;
             }
 
             VarUtil.ExpandValues(_hostContext, source, target);
@@ -278,7 +279,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var source = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (Variable variable in _expanded.Values)
             {
-                source[variable.Name] = variable.Value;
+                source[variable.Name] = StringTranslator(variable.Value);
             }
             var target = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
@@ -294,7 +295,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var source = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (Variable variable in _expanded.Values)
             {
-                source[variable.Name] = variable.Value;
+                source[variable.Name] = StringTranslator(variable.Value);
             }
 
             return VarUtil.ExpandValues(_hostContext, source, target);
