@@ -54,7 +54,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                     (int)install != 1)
                 {
                     Trace.Info("Not installed.");
-                    continue;
+                    // warn only.  install flag doesn't exist on onecore based editions of windows. and, there's really
+                    // no reason to check.  if subsequent keys are missing or the .exe won't run an error will be emitted at that point
                 }
 
                 // Get the engine version.
