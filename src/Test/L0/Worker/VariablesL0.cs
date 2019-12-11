@@ -758,6 +758,51 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        public void IsReadOnly_RespectsSystemVariables()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                // Arrange.
+                List<string> warnings;
+                var variables = new Variables(hc, new Dictionary<string, VariableValue>(), out warnings);
+                variables.Set(Constants.Variables.Agent.ReadOnlyVariables, "true");
+                variables.Set(Constants.Variables.System.AccessToken, "abc");
+                variables.Set(Constants.Variables.Agent.BuildDirectory, "abc");
+                variables.Set(Constants.Variables.Build.RepoClean, "abc");
+                variables.Set(Constants.Variables.Common.TestResultsDirectory, "abc");
+
+                // Assert.
+                Assert.True(variables.IsReadOnly(Constants.Variables.System.AccessToken));
+                Assert.True(variables.IsReadOnly(Constants.Variables.Agent.BuildDirectory));
+                Assert.True(variables.IsReadOnly(Constants.Variables.Build.RepoClean));
+                // Should be false since its not prefixed by system/agent/build
+                Assert.False(variables.IsReadOnly(Constants.Variables.Common.TestResultsDirectory));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void IsReadOnly_RespectsUserReadOnlyVariables()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                // Arrange.
+                List<string> warnings;
+                var variables = new Variables(hc, new Dictionary<string, VariableValue>(), out warnings);
+                variables.Set(Constants.Variables.Agent.ReadOnlyVariables, "true");
+                variables.Set("var1", "abc", false, true);
+                variables.Set("var2", "abc", false, false);
+
+                // Assert.
+                Assert.True(variables.IsReadOnly("var1"));
+                Assert.False(variables.IsReadOnly("var2"));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
         public void Unset()
         {
             using (TestHostContext hc = new TestHostContext(this))
