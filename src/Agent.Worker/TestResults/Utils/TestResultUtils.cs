@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
 {
@@ -20,11 +21,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
         {
             try
             {
-                String evidenceStoreMetadata = JsonConvert.SerializeObject(GetEvidenceStoreMetadata(executionContext, testRunSummary, testRunner, name, description));
-                // This Environment variable will be read by the PublishPipelineMetadatTask and publish to Evidence store.
-                String envVariableName = "METADATA_" + Guid.NewGuid().ToString();
-                Environment.SetEnvironmentVariable("METADATA_" + Guid.NewGuid().ToString(), evidenceStoreMetadata);
-                executionContext.Debug($"Setting env variable {envVariableName}: {evidenceStoreMetadata} ");
+                string metadata = GetEvidenceStoreMetadata(executionContext, testRunSummary, testRunner, name, description);
+                string taskVariableName = "METADATA_" + Guid.NewGuid().ToString();
+
+                // This variable will be read by the PublishPipelineMetadatTask and publish to Evidence store.
+                executionContext.SetVariable(taskVariableName, metadata);
+                executionContext.Debug($"Setting task variable {taskVariableName}: {metadata} ");
             }
             catch (Exception ex)
             {
@@ -37,6 +39,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
             string evidenceStoreMetadataString = string.Empty;
             try
             {
+                var camelCaseJsonSerializerSettings = new JsonSerializerSettings
+                {
+                    ContractResolver = new CamelCasePropertyNamesContractResolver()
+                };
+
                 TestAttestation testAttestation = new TestAttestation(name, testRunner, testRunSummary);
                 TestMetadata testMetadata = new TestMetadata()
                 {
@@ -52,7 +59,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
                     testAttestation.RelatedUrls = relatedUrls;
                 }
 
-                testMetadata.SerializedPayload = JsonConvert.SerializeObject(testAttestation);
+                testMetadata.SerializedPayload = JsonConvert.SerializeObject(testAttestation, camelCaseJsonSerializerSettings);
 
                 EvidenceStoreMetadata evidenceStoreMetadata = new EvidenceStoreMetadata()
                 {
@@ -61,7 +68,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
                     Metadata = testMetadata
                 };
 
-                evidenceStoreMetadataString = JsonConvert.SerializeObject(evidenceStoreMetadata);
+                evidenceStoreMetadataString = JsonConvert.SerializeObject(evidenceStoreMetadata, camelCaseJsonSerializerSettings);
             }
             catch (Exception ex)
             {
