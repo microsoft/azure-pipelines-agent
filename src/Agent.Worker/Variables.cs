@@ -628,6 +628,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 _wellKnownSystemVariables = new List<String>();
 
                 // These are all classes which have system variables defined in them. See https://github.com/microsoft/azure-pipelines-agent/blob/master/src/Microsoft.VisualStudio.Services.Agent/Constants.cs
+                // We pull from these directly rather than using a list so that we don't have to maintain an extra list both here and on the server (for WellKnownDistributedTaskVariables). This should just pick up any contract changes from there.
                 List<System.Type> wellKnownSystemVariableClasses = new List<System.Type>()
                 {
                     typeof(Constants.Variables.Agent),
