@@ -39,6 +39,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
             string evidenceStoreMetadataString = string.Empty;
             try
             {
+                // Need these settings for converting the property name to camelCase, that's what honored in the tasks.
                 var camelCaseJsonSerializerSettings = new JsonSerializerSettings
                 {
                     ContractResolver = new CamelCasePropertyNamesContractResolver()
