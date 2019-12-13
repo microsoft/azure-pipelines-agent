@@ -554,7 +554,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             if (context.Variables.IsReadOnly(name))
             {
-                context.Warning($"Overwriting readonly variable '{name}'. This behavior will be disabled in the future. See https://github.com/microsoft/azure-pipelines-yaml/blob/master/design/readonly-variables.md for details.");
+                context.Warning(StringUtil.Loc("ReadOnlyVariable", name));
             }
 
             if (isSecret)
@@ -623,7 +623,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             if (context.TaskVariables.IsReadOnly(name))
             {
-                context.Warning($"Overwriting readonly variable '{name}'. This behavior will be disabled in the future. See https://github.com/microsoft/azure-pipelines-yaml/blob/master/design/readonly-variables.md for details.");
+                context.Warning(StringUtil.Loc("ReadOnlyTaskVariable", name));
             }
 
             if (isSecret)
@@ -642,7 +642,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
             }
 
-            context.TaskVariables.Set(name, data, isSecret, isReadOnly);
+            context.TaskVariables.Set(name, data, secret: isSecret, readOnly: isReadOnly);
         }
     }
 
