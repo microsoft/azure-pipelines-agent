@@ -426,10 +426,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 return false;
             }
+
             Variable existingVariable = null;
             if (!_expanded.TryGetValue(name, out existingVariable)) {
                 _nonexpanded.TryGetValue(name, out existingVariable);
             }
+
             return (existingVariable != null && IsReadOnly(existingVariable));
         }
 
@@ -620,17 +622,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 return true;
             }
 
+            // If variable is not marked as readOnly, check whether its in the set of reserved system variables (which are always readOnly)
             if (_wellKnownSystemVariables == null)
             {
                 _wellKnownSystemVariables = new List<String>();
 
-                // If variable is not marked as readOnly, return whether its in the set of reserved system variables (which are always readOnly)
-                List<String> readOnlyPrefixes = new List<String>()
-                {
-                    "system.",
-                    "build.",
-                    "agent."
-                };
                 // These are all classes which have system variables defined in them. See https://github.com/microsoft/azure-pipelines-agent/blob/master/src/Microsoft.VisualStudio.Services.Agent/Constants.cs
                 List<System.Type> wellKnownSystemVariableClasses = new List<System.Type>()
                 {
@@ -679,6 +675,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             public int PrefixIndex { get; set; }
             public int SuffixIndex { get; set; }
         }
+        
+        private IReadOnlyList<String> readOnlyPrefixes = new List<String>()
+        {
+            "system.",
+            "build.",
+            "agent."
+        };
     }
 
     public sealed class Variable
