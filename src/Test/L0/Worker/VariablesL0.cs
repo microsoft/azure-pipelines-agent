@@ -791,8 +791,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 List<string> warnings;
                 var variables = new Variables(hc, new Dictionary<string, VariableValue>(), out warnings);
                 variables.Set(Constants.Variables.Agent.ReadOnlyVariables, "true");
-                variables.Set("var1", "abc", false, true);
-                variables.Set("var2", "abc", false, false);
+                variables.Set("var1", "abc", secret: false, readOnly: true);
+                variables.Set("var2", "abc", secret: false, readOnly: false);
 
                 // Assert.
                 Assert.True(variables.IsReadOnly("var1"));
@@ -832,8 +832,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 variables.Set(Constants.Variables.Agent.BuildDirectory, "abc");
                 variables.Set(Constants.Variables.Build.RepoClean, "abc");
                 variables.Set(Constants.Variables.Common.TestResultsDirectory, "abc");
-                variables.Set("var1", "abc", false, true);
-                variables.Set("var2", "abc", false, false);
+                variables.Set("var1", "abc", secret: false, readOnly: true);
+                variables.Set("var2", "abc", secret: false, readOnly: false);
 
                 // Assert.
                 Assert.False(variables.IsReadOnly(Constants.Variables.System.AccessToken));

@@ -647,12 +647,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     var wellKnownDistributedTaskFields = systemVariableClass.GetFields();
                     foreach(var field in wellKnownDistributedTaskFields)
                     {
-                        String value = field.GetValue(systemVariableClass).ToString().ToLower();
-                        foreach(String prefix in readOnlyPrefixes)
+                        var fieldValue = field.GetValue(systemVariableClass);
+                        if (fieldValue != null)
                         {
-                            if (value.StartsWith(prefix))
+                            String value = fieldValue.ToString().ToLower();
+                            foreach(String prefix in readOnlyPrefixes)
                             {
-                                _wellKnownSystemVariables.Add(value);
+                                if (value.StartsWith(prefix))
+                                {
+                                    _wellKnownSystemVariables.Add(value);
+                                }
                             }
                         }
                     }
