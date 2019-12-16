@@ -186,13 +186,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public bool Read_Only_Variables
-        {
-            get
-            {
-                return GetBoolean(Constants.Variables.Agent.ReadOnlyVariables) ?? false;
-            }
-        }
+        public bool Read_Only_Variables => GetBoolean(Constants.Variables.Agent.ReadOnlyVariables) ?? false;
 
         public string System_CollectionId => Get(Constants.Variables.System.CollectionId);
 
