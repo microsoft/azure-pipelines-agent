@@ -775,8 +775,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Assert.True(variables.IsReadOnly(Constants.Variables.System.AccessToken));
                 Assert.True(variables.IsReadOnly(Constants.Variables.Agent.BuildDirectory));
                 Assert.True(variables.IsReadOnly(Constants.Variables.Build.RepoClean));
-                // Should be false since its not prefixed by system/agent/build
-                Assert.False(variables.IsReadOnly(Constants.Variables.Common.TestResultsDirectory));
             }
         }
 
@@ -842,6 +840,49 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Assert.False(variables.IsReadOnly(Constants.Variables.Common.TestResultsDirectory));
                 Assert.False(variables.IsReadOnly("var1"));
                 Assert.False(variables.IsReadOnly("var2"));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void IsReadOnly_ListContainsAllReadOnlyVariables()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                // Arrange.
+                List<string> wellKnownSystemVariables = new List<string>();
+                List<System.Type> wellKnownSystemVariableClasses = new List<System.Type>()
+                {
+                    typeof(Constants.Variables.Agent),
+                    typeof(Constants.Variables.Build),
+                    typeof(Constants.Variables.Features),
+                    typeof(Constants.Variables.Pipeline),
+                    typeof(Constants.Variables.Release),
+                    typeof(Constants.Variables.System),
+                    typeof(Constants.Variables.Task)
+                };
+
+                // Iterate through members of each class and add any system variables (aka prefixed with our readOnlyPrefixes)
+                foreach (System.Type systemVariableClass in wellKnownSystemVariableClasses)
+                {
+                    var wellKnownDistributedTaskFields = systemVariableClass.GetFields();
+                    foreach(var field in wellKnownDistributedTaskFields)
+                    {
+                        var fieldValue = field.GetValue(systemVariableClass);
+                        if (fieldValue != null)
+                        {
+                            string value = fieldValue.ToString();
+                            wellKnownSystemVariables.Add(value);
+                        }
+                    }
+                }
+
+                // Assert.
+                foreach(string systemVariable in wellKnownSystemVariables)
+                {
+                    Assert.True(Constants.Variables.ReadOnlyVariables.Contains(systemVariable), "Constants.Variables.ReadOnlyVariables should contain " + systemVariable);
+                }
             }
         }
 

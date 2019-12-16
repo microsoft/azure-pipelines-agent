@@ -50,8 +50,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private readonly Tracing _trace;
         private ConcurrentDictionary<string, Variable> _expanded;
 
-        private List<String> _wellKnownSystemVariables;
-
         public delegate string TranslationMethod(string val);
         public TranslationMethod StringTranslator = val => val ;
 
@@ -410,6 +408,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     _secretMasker.AddValue(val);
                 }
 
+                // Also keep any variables that are already read only as read only.
+                // This only really matters for server side system variables that get updated by something other than setVariable (e.g. updateBuildNumber).
+                readOnly = readOnly || (_expanded.ContainsKey(name) && _expanded[name].ReadOnly);
+
                 // Store the value as-is to the expanded dictionary and the non-expanded dictionary.
                 // It is not expected that the caller needs to store an non-expanded value and then
                 // retrieve the expanded value in the same context.
@@ -622,48 +624,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 return true;
             }
 
-            // If variable is not marked as readOnly, check whether its in the set of reserved system variables (which are always readOnly)
-            if (_wellKnownSystemVariables == null)
-            {
-                _wellKnownSystemVariables = new List<String>();
-
-                // These are all classes which have system variables defined in them. See https://github.com/microsoft/azure-pipelines-agent/blob/master/src/Microsoft.VisualStudio.Services.Agent/Constants.cs
-                // We pull from these directly rather than using a list so that we don't have to maintain an extra list both here and on the server (for WellKnownDistributedTaskVariables). This should just pick up any contract changes from there.
-                List<System.Type> wellKnownSystemVariableClasses = new List<System.Type>()
-                {
-                    typeof(Constants.Variables.Agent),
-                    typeof(Constants.Variables.Build),
-                    typeof(Constants.Variables.Features),
-                    typeof(Constants.Variables.Pipeline),
-                    typeof(Constants.Variables.Release),
-                    typeof(Constants.Variables.System),
-                    typeof(Constants.Variables.Task),
-                    typeof(WellKnownDistributedTaskVariables)
-                };
-
-                // Iterate through members of each class and add any system variables (aka prefixed with our readOnlyPrefixes)
-                foreach (System.Type systemVariableClass in wellKnownSystemVariableClasses)
-                {
-                    var wellKnownDistributedTaskFields = systemVariableClass.GetFields();
-                    foreach(var field in wellKnownDistributedTaskFields)
-                    {
-                        var fieldValue = field.GetValue(systemVariableClass);
-                        if (fieldValue != null)
-                        {
-                            String value = fieldValue.ToString().ToLower();
-                            foreach(String prefix in readOnlyPrefixes)
-                            {
-                                if (value.StartsWith(prefix))
-                                {
-                                    _wellKnownSystemVariables.Add(value);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            return _wellKnownSystemVariables.Contains(variable.Name.ToLower());
+            return Constants.Variables.ReadOnlyVariables.Contains(variable.Name, StringComparer.OrdinalIgnoreCase);
         }
 
         private sealed class RecursionState
