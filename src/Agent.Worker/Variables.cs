@@ -641,13 +641,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             public int PrefixIndex { get; set; }
             public int SuffixIndex { get; set; }
         }
-        
-        private IReadOnlyList<String> readOnlyPrefixes = new List<String>()
-        {
-            "system.",
-            "build.",
-            "agent."
-        };
     }
 
     public sealed class Variable
