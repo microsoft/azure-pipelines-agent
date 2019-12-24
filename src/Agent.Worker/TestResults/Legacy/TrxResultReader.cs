@@ -45,6 +45,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 
             List<TestCaseResultData> results = new List<TestCaseResultData>();
 
+            Directory.SetCurrentDirectory(executionContext.Variables.Get(Constants.Variables.System.DefaultWorkingDirectory));
             string xmlContents = File.ReadAllText(filePath);
             xmlContents = xmlContents.Replace("xmlns", "ns");
 
