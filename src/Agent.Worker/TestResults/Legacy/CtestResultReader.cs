@@ -41,6 +41,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                 {
                     DtdProcessing = DtdProcessing.Ignore
                 };
+                
                 using (XmlReader reader = XmlReader.Create(filePath, settings))
                 {
                     doc.Load(reader);
