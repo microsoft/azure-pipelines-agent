@@ -147,6 +147,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         public TestRunData ReadResultsFromFile(TestRunContext runContext, string filePath)
         {
             Trace.Entering();
+             if(!(Path.IsPathRooted(filePath)))
+             filePath = Path.Combine(_executionContext.Variables.Get(Constants.Variables.System.DefaultWorkingDirectory), filePath);
             return _resultReader.ReadResults(_executionContext, filePath, runContext);
         }
 
@@ -160,6 +162,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         {
             Trace.Entering();
             runContext.RunName = runName;
+             if(!(Path.IsPathRooted(filePath)))
+             filePath = Path.Combine(_executionContext.Variables.Get(Constants.Variables.System.DefaultWorkingDirectory), filePath);
             return _resultReader.ReadResults(_executionContext, filePath, runContext);
         }
         #endregion

@@ -32,7 +32,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         {
             try
             {
-                Directory.SetCurrentDirectory(executionContext.Variables.Get(Constants.Variables.System.DefaultWorkingDirectory));
                 string jsonTestSummary = File.ReadAllText(filePath);
                 if (string.IsNullOrWhiteSpace(jsonTestSummary)) 
                 {

@@ -41,8 +41,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                 {
                     DtdProcessing = DtdProcessing.Ignore
                 };
-
-                Directory.SetCurrentDirectory(executionContext.Variables.Get(Constants.Variables.System.DefaultWorkingDirectory));
                 using (XmlReader reader = XmlReader.Create(filePath, settings))
                 {
                     doc.Load(reader);
