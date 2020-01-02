@@ -47,22 +47,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 Trace.Info($"Generation: '{generation}'");
                 var info = new PowerShellInfo();
 
-                // Check the install flag.
-                object install = GetHklmValue($@"SOFTWARE\Microsoft\PowerShell\{generation}", "Install");
-                if (object.ReferenceEquals(install, null) ||
-                    install.GetType() != typeof(int) ||
-                    (int)install != 1)
-                {
-                    Trace.Info("Not installed.");
-                    continue;
-                }
-
                 // Get the engine version.
                 string versionString = GetHklmValue($@"SOFTWARE\Microsoft\PowerShell\{generation}\PowerShellEngine", "PowerShellVersion") as string;
                 if (string.IsNullOrEmpty(versionString) ||
                     !Version.TryParse(versionString, out info.Version))
                 {
-                    Trace.Info("Unable to determine engine version.");
+                    Trace.Info("Unable to determine the Powershell engine version.  Possibly Powershell is not installed.");
                     continue;
                 }
 

@@ -79,6 +79,7 @@ namespace Agent.Sdk
                 }
                 else
                 {
+                    detectedRHEL6 = false;
                     try
                     {
                         string redhatVersion = File.ReadAllText("/etc/redhat-release");
@@ -91,7 +92,6 @@ namespace Agent.Sdk
                     catch (IOException)
                     {
                         // IOException indicates we couldn't read that file; probably not RHEL6
-                        detectedRHEL6 = false;
                     }
                 }
             }

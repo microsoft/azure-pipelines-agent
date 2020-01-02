@@ -363,7 +363,7 @@
     "OverwriteAutoLogon":  "Poiché l\u0027accesso automatico è già abilitato per l\u0027utente \u0027{0}\u0027, sovrascriverne le impostazioni esistenti? (S/N)",
     "ParentTimelineNotCreated":  "Non è stato creato il record della sequenza temporale padre per questo nuovo record della sequenza temporale.",
     "Password":  "password",
-    "PathNotExist":  "Il percorso {0} non esiste",
+    "PathDoesNotExist":  "Il percorso {0} non esiste",
     "PersonalAccessToken":  "token di accesso personale",
     "PlatformNotSupport":  "L\u0027esecuzione dell\u0027agente in questa piattaforma non è supportata. La piattaforma corrente è {0} ed è stata compilata per {1}.",
     "PoolNotFound":  "Il pool di agenti non è stato trovato: \u0027{0}\u0027",

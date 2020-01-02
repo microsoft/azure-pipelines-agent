@@ -363,7 +363,7 @@
     "OverwriteAutoLogon":  "사용자 \u0027{0}\u0027에 대해 자동 로그온이 이미 사용하도록 설정되었으므로 기존 자동 로그온 설정을 덮어쓰시겠습니까? (Y/N)",
     "ParentTimelineNotCreated":  "이 새 타임라인 레코드에 대해 부모 타임라인 레코드가 생성되지 않았습니다.",
     "Password":  "암호",
-    "PathNotExist":  "{0} 경로가 없습니다.",
+    "PathDoesNotExist":  "{0} 경로가 없습니다.",
     "PersonalAccessToken":  "개인용 액세스 토큰",
     "PlatformNotSupport":  "이 플랫폼에서 에이전트 실행이 지원되지 않습니다. 현재 플랫폼은 {0}이며 {1}용으로 빌드되었습니다.",
     "PoolNotFound":  "\u0027{0}\u0027 에이전트 풀을 찾을 수 없습니다.",

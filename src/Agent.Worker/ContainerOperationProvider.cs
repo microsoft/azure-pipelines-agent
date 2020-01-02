@@ -438,7 +438,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     // We need to find out whether there is a user with same UID inside the container
                     List<string> userNames = new List<string>();
-                    int execGrepExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"bash -c \"grep {container.CurrentUserId} /etc/passwd | cut -f1 -d:\"", userNames);
+                    int execGrepExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"bash -c \"getent passwd {container.CurrentUserId} | cut -d: -f1 \"", userNames);
                     if (execGrepExitCode != 0)
                     {
                         throw new InvalidOperationException($"Docker exec fail with exit code {execGrepExitCode}");

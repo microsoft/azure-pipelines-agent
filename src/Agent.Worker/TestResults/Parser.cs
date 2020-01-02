@@ -119,4 +119,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         }
 
     }
+
+    public class ContainerStructureTestParser: Parser, IParser
+    {
+        public override string Name => "ContainerStructure";
+
+        protected override ITestResultParser GetTestResultParser(IExecutionContext executionContext)
+        {
+            var traceListener = new CommandTraceListener(executionContext);
+            return new ContainerStructureTestResultParser(traceListener);
+        }
+    }
 }

@@ -106,6 +106,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
+        private void AddUserSuppliedSecret(String secret)
+        {
+            ArgUtil.NotNull(secret, nameof(secret));
+            HostContext.SecretMasker.AddValue(secret);
+            // for variables, it is possible that they are used inside a shell which would strip off surrounding quotes
+            // so, if the value is surrounded by quotes, add a quote-timmed version of the secret to our masker as well
+            // This addresses issue #2525
+            foreach (var quoteChar in _quoteLikeChars)
+            {
+                if (secret.StartsWith(quoteChar) && secret.EndsWith(quoteChar))
+                {
+                    HostContext.SecretMasker.AddValue(secret.Trim(quoteChar));
+                }
+            }
+        }
+
         private void InitializeSecretMasker(Pipelines.AgentJobRequestMessage message)
         {
             Trace.Entering();
@@ -116,17 +132,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 if (variable.Value.IsSecret && !string.IsNullOrEmpty(variable.Value.Value))
                 {
-                    HostContext.SecretMasker.AddValue(variable.Value.Value);
-                    // for variables, it is possible that they are used inside a shell which would strip off surrounding quotes
-                    // so, if the value is surrounded by quotes, add a quote-timmed version of the secret to our masker as well
-                    // This addresses issue #2525
-                    foreach (var quoteChar in _quoteLikeChars)
-                    {
-                        if (variable.Value.Value.StartsWith(quoteChar) && variable.Value.Value.EndsWith(quoteChar))
-                        {
-                            HostContext.SecretMasker.AddValue(variable.Value.Value.Trim(quoteChar));
-                        }
-                    }
+                    AddUserSuppliedSecret(variable.Value.Value);
+                    // also, we escape some characters for variables when we print them out in debug mode. We need to
+                    // add the escaped version of these secrets as well
+                    var escapedSecret = variable.Value.Value.Replace("%", "%25")
+                                                            .Replace("\r", "%0D")
+                                                            .Replace("\n", "%0A");
+                    AddUserSuppliedSecret(escapedSecret);
                 }
             }
 

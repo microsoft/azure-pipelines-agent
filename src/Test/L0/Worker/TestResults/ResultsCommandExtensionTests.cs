@@ -7,6 +7,7 @@ using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.VisualStudio.Services.Agent.Worker.TestResults;
+using Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils;
 using Microsoft.VisualStudio.Services.WebPlatform;
 using Moq;
 using System;

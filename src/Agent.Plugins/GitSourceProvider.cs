@@ -48,12 +48,6 @@ namespace Agent.Plugins.Repository
                 gitCommandManager.EnsureGitVersion(_minGitVersionSupportSSLBackendOverride, throwOnNotMatch: true);
             }
         }
-
-        public override string GenerateAuthHeader(AgentTaskPluginExecutionContext executionContext, string username, string password)
-        {
-            // can't generate auth header for external git.
-            throw new NotSupportedException(nameof(ExternalGitSourceProvider.GenerateAuthHeader));
-        }
     }
 
     public abstract class AuthenticatedGitSourceProvider : GitSourceProvider
@@ -78,17 +72,6 @@ namespace Agent.Plugins.Repository
             {
                 gitCommandManager.EnsureGitVersion(_minGitVersionSupportSSLBackendOverride, throwOnNotMatch: true);
             }
-        }
-
-        public override string GenerateAuthHeader(AgentTaskPluginExecutionContext executionContext, string username, string password)
-        {
-            // use basic auth header with username:password in base64encoding.
-            string authHeader = $"{username ?? string.Empty}:{password ?? string.Empty}";
-            string base64encodedAuthHeader = Convert.ToBase64String(Encoding.UTF8.GetBytes(authHeader));
-
-            // add base64 encoding auth header into secretMasker.
-            executionContext.SetSecret(base64encodedAuthHeader);
-            return $"basic {base64encodedAuthHeader}";
         }
     }
 
@@ -177,13 +160,6 @@ namespace Agent.Plugins.Repository
                 gitCommandManager.EnsureGitVersion(_minGitVersionSupportSSLBackendOverride, throwOnNotMatch: true);
             }
         }
-
-        public override string GenerateAuthHeader(AgentTaskPluginExecutionContext executionContext, string username, string password)
-        {
-            // tfsgit use bearer auth header with JWToken from systemconnection.
-            ArgUtil.NotNullOrEmpty(password, nameof(password));
-            return $"bearer {password}";
-        }
     }
 
     public abstract class GitSourceProvider : ISourceProvider
@@ -207,9 +183,28 @@ namespace Agent.Plugins.Repository
         public abstract bool GitSupportUseAuthHeader(AgentTaskPluginExecutionContext executionContext, GitCliManager gitCommandManager);
         public abstract bool GitLfsSupportUseAuthHeader(AgentTaskPluginExecutionContext executionContext, GitCliManager gitCommandManager);
         public abstract void RequirementCheck(AgentTaskPluginExecutionContext executionContext, Pipelines.RepositoryResource repository, GitCliManager gitCommandManager);
-        public abstract string GenerateAuthHeader(AgentTaskPluginExecutionContext executionContext, string username, string password);
 
         public abstract bool GitSupportsFetchingCommitBySha1Hash { get; }
+
+        public string GenerateAuthHeader(AgentTaskPluginExecutionContext executionContext, string username, string password, bool isBearer)
+        {
+            if (isBearer)
+            {
+                // tfsgit use bearer auth header with JWToken from systemconnection.
+                ArgUtil.NotNullOrEmpty(password, nameof(password));
+                return $"bearer {password}";
+            }
+            else
+            {
+                // use basic auth header with username:password in base64encoding.
+                string authHeader = $"{username ?? string.Empty}:{password ?? string.Empty}";
+                string base64encodedAuthHeader = Convert.ToBase64String(Encoding.UTF8.GetBytes(authHeader));
+
+                // add base64 encoding auth header into secretMasker.
+                executionContext.SetSecret(base64encodedAuthHeader);
+                return $"basic {base64encodedAuthHeader}";
+            }
+        }
 
         public async Task GetSourceAsync(
             AgentTaskPluginExecutionContext executionContext,
@@ -390,12 +385,14 @@ namespace Agent.Plugins.Repository
 
             string username = string.Empty;
             string password = string.Empty;
+            bool useBearerAuthType = false;
             if (!selfManageGitCreds && endpoint != null && endpoint.Authorization != null)
             {
                 switch (endpoint.Authorization.Scheme)
                 {
                     case EndpointAuthorizationSchemes.OAuth:
                         username = EndpointAuthorizationSchemes.OAuth;
+                        useBearerAuthType = true;
                         if (!endpoint.Authorization.Parameters.TryGetValue(EndpointAuthorizationParameters.AccessToken, out password))
                         {
                             password = string.Empty;
@@ -679,7 +676,7 @@ namespace Agent.Plugins.Repository
                 // as long 2.9 git exist, VSTS repo, TFS repo and Github repo will use this to handle auth challenge.
                 if (gitSupportAuthHeader)
                 {
-                    additionalFetchArgs.Add($"-c http.extraheader=\"AUTHORIZATION: {GenerateAuthHeader(executionContext, username, password)}\"");
+                    additionalFetchArgs.Add($"-c http.extraheader=\"AUTHORIZATION: {GenerateAuthHeader(executionContext, username, password, useBearerAuthType)}\"");
                 }
                 else
                 {
@@ -775,7 +772,7 @@ namespace Agent.Plugins.Repository
                     if (lfsSupportAuthHeader)
                     {
                         string authorityUrl = repositoryUrl.AbsoluteUri.Replace(repositoryUrl.PathAndQuery, string.Empty);
-                        additionalLfsFetchArgs.Add($"-c http.{authorityUrl}.extraheader=\"AUTHORIZATION: {GenerateAuthHeader(executionContext, username, password)}\"");
+                        additionalLfsFetchArgs.Add($"-c http.{authorityUrl}.extraheader=\"AUTHORIZATION: {GenerateAuthHeader(executionContext, username, password, useBearerAuthType)}\"");
                     }
                     else
                     {
@@ -806,6 +803,10 @@ namespace Agent.Plugins.Repository
 
             List<string> additionalFetchSpecs = new List<string>();
             string refFetchedByCommit = null;
+
+            executionContext.Debug($"fetchDepth : {fetchDepth}");
+            executionContext.Debug($"fetchByCommit : {fetchByCommit}");
+            executionContext.Debug($"sourceVersion : {sourceVersion}");
 
             if (IsPullRequest(sourceBranch))
             {
@@ -847,12 +848,13 @@ namespace Agent.Plugins.Repository
             cancellationToken.ThrowIfCancellationRequested();
             executionContext.Progress(80, "Starting checkout...");
             string sourcesToBuild;
-
+            executionContext.Debug($"refFetchedByCommit : {refFetchedByCommit}");
+            
             if (refFetchedByCommit != null)
             {
                 sourcesToBuild = refFetchedByCommit;
             }
-            else if (IsPullRequest(sourceBranch) || string.IsNullOrEmpty(sourceVersion))
+            else if (IsPullRequest(sourceBranch) && string.IsNullOrEmpty(sourceVersion))
             {
                 sourcesToBuild = GetRemoteRefName(sourceBranch);
             }
@@ -913,7 +915,7 @@ namespace Agent.Plugins.Repository
                     if (gitSupportAuthHeader)
                     {
                         string authorityUrl = repositoryUrl.AbsoluteUri.Replace(repositoryUrl.PathAndQuery, string.Empty);
-                        additionalSubmoduleUpdateArgs.Add($"-c http.{authorityUrl}.extraheader=\"AUTHORIZATION: {GenerateAuthHeader(executionContext, username, password)}\"");
+                        additionalSubmoduleUpdateArgs.Add($"-c http.{authorityUrl}.extraheader=\"AUTHORIZATION: {GenerateAuthHeader(executionContext, username, password, useBearerAuthType)}\"");
                     }
 
                     // Prepare proxy config for submodule update.
@@ -981,7 +983,7 @@ namespace Agent.Plugins.Repository
                 if (gitSupportAuthHeader && exposeCred)
                 {
                     string configKey = $"http.{repositoryUrl.AbsoluteUri}.extraheader";
-                    string configValue = $"\"AUTHORIZATION: {GenerateAuthHeader(executionContext, username, password)}\"";
+                    string configValue = $"\"AUTHORIZATION: {GenerateAuthHeader(executionContext, username, password, useBearerAuthType)}\"";
                     configModifications[configKey] = configValue.Trim('\"');
                     int exitCode_config = await gitCommandManager.GitConfig(executionContext, targetPath, configKey, configValue);
                     if (exitCode_config != 0)
@@ -1099,7 +1101,7 @@ namespace Agent.Plugins.Repository
                     if (lfsSupportAuthHeader && exposeCred)
                     {
                         string configKey = $"http.{repositoryUrl.AbsoluteUri}.extraheader";
-                        string configValue = $"\"AUTHORIZATION: {GenerateAuthHeader(executionContext, username, password)}\"";
+                        string configValue = $"\"AUTHORIZATION: {GenerateAuthHeader(executionContext, username, password, useBearerAuthType)}\"";
                         configModifications[configKey] = configValue.Trim('\"');
                         int exitCode_config = await gitCommandManager.GitConfig(executionContext, targetPath, configKey, configValue);
                         if (exitCode_config != 0)

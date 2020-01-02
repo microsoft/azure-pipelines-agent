@@ -363,7 +363,7 @@
     "OverwriteAutoLogon":  "Souhaitez-vous remplacer les paramètres existants d\u0027ouverture de session automatique dans la mesure où l\u0027ouverture de session automatique est déjà activée pour l\u0027utilisateur \u0027{0}\u0027 ? (O/N)",
     "ParentTimelineNotCreated":  "L\u0027enregistrement de chronologie parent n\u0027a pas été créé pour ce nouvel enregistrement de chronologie.",
     "Password":  "mot de passe",
-    "PathNotExist":  "Chemin inexistant : {0}",
+    "PathDoesNotExist":  "Chemin inexistant : {0}",
     "PersonalAccessToken":  "jeton d\u0027accès personnel",
     "PlatformNotSupport":  "L\u0027exécution de l\u0027agent sur cette plateforme n\u0027est pas prise en charge. La plateforme actuelle est {0} et a été générée pour {1}.",
     "PoolNotFound":  "Pool d\u0027agents introuvable : \u0027{0}\u0027",

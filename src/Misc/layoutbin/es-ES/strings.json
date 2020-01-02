@@ -373,7 +373,7 @@
     "OverwriteAutoLogon":  "El inicio de sesión automático ya está habilitado para el usuario \"{0}\". ¿Quiere sobrescribir la configuración actual de esta característica? (S/N)",
     "ParentTimelineNotCreated":  "No se creó el registro de escala de tiempo principal para este nuevo registro de escala de tiempo.",
     "Password":  "contraseña",
-    "PathNotExist":  "La ruta de acceso no existe: {0}",
+    "PathDoesNotExist":  "La ruta de acceso no existe: {0}",
     "PersonalAccessToken":  "token de acceso personal",
     "PlatformNotSupport":  "No se admite la ejecución del agente en esta plataforma. La plataforma actual es {0} y se ha compilado para {1}.",
     "PoolNotFound":  "Grupo de agentes no encontrado: \u0027{0}\u0027",

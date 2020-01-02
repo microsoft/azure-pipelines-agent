@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.Expressions;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
@@ -28,6 +29,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private readonly HashSet<string> _existingProcesses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private bool _processCleanup;
         private string _processLookupId = $"vsts_{Guid.NewGuid()}";
+
+        private bool _taskKeyCleanup;
 
         public abstract HostTypes HostType { get; }
 
@@ -318,6 +321,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             _existingProcesses.Add($"{proc.Key}_{proc.Value.ProcessName}");
                         }
                     }
+                    _taskKeyCleanup = jobContext.Variables.GetBoolean("process.cleanTaskKey") ?? true;
 
                     return steps;
                 }
@@ -370,6 +374,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         // Log and ignore the error from log plugin finalization.
                         Trace.Error($"Caught exception from log plugin finalization: {ex}");
                         context.Output(ex.Message);
+                    }
+
+                    if (_taskKeyCleanup)
+                    {
+                        context.Output("Cleaning up task key");
+                        string taskKeyFile = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), ".taskkey");
+                        if (File.Exists(taskKeyFile))
+                        {
+                            try
+                            {
+                                File.Delete(taskKeyFile);
+                            }
+                            catch (Exception ex)
+                            {
+                                Trace.Error($"Caught exception while attempting to delete taskKey file {taskKeyFile}: {ex}");
+                                context.Output(ex.Message);
+                            }
+                        }
                     }
 
                     if (_processCleanup)

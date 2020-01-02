@@ -35,8 +35,8 @@ namespace Agent.Plugins.PipelineArtifact
 
         // Process the command with preprocessed arguments.
         protected abstract Task ProcessCommandInternalAsync(
-            AgentTaskPluginExecutionContext context, 
-            string targetPath, 
+            AgentTaskPluginExecutionContext context,
+            string targetPath,
             CancellationToken token);
 
 
@@ -55,7 +55,7 @@ namespace Agent.Plugins.PipelineArtifact
     }
 
     // Caller: PublishPipelineArtifact task
-    // Can be invoked from a build run or a release run should a build be set as the artifact. 
+    // Can be invoked from a build run or a release run should a build be set as the artifact.
     public class PublishPipelineArtifactTask : PipelineArtifactTaskPluginBase
     {
         // Same as: https://github.com/Microsoft/vsts-tasks/blob/master/Tasks/PublishPipelineArtifactV0/task.json
@@ -65,8 +65,8 @@ namespace Agent.Plugins.PipelineArtifact
         public static readonly Regex jobIdentifierRgx = new Regex("[^a-zA-Z0-9 - .]", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
         protected override async Task ProcessCommandInternalAsync(
-            AgentTaskPluginExecutionContext context, 
-            string targetPath, 
+            AgentTaskPluginExecutionContext context,
+            string targetPath,
             CancellationToken token)
         {
             string artifactName = this.GetArtifactName(context);
@@ -78,7 +78,7 @@ namespace Agent.Plugins.PipelineArtifact
                 artifactName = normalizedJobIdentifier;
             }
 
-            string hostType = context.Variables.GetValueOrDefault("system.hosttype")?.Value; 
+            string hostType = context.Variables.GetValueOrDefault("system.hosttype")?.Value;
             if (!string.Equals(hostType, "Build", StringComparison.OrdinalIgnoreCase)) {
                 throw new InvalidOperationException(
                     StringUtil.Loc("CannotUploadFromCurrentEnvironment", hostType ?? string.Empty));
@@ -102,7 +102,7 @@ namespace Agent.Plugins.PipelineArtifact
             if (!isFile && !isDir)
             {
                 // if local path is neither file nor folder
-                throw new FileNotFoundException(StringUtil.Loc("PathNotExist", targetPath));
+                throw new FileNotFoundException(StringUtil.Loc("PathDoesNotExist", targetPath));
             }
 
             // Upload to VSTS BlobStore, and associate the artifact with the build.
@@ -121,15 +121,15 @@ namespace Agent.Plugins.PipelineArtifact
 
 
     // Caller: DownloadPipelineArtifact task
-    // Can be invoked from a build run or a release run should a build be set as the artifact. 
+    // Can be invoked from a build run or a release run should a build be set as the artifact.
     public class DownloadPipelineArtifactTask : PipelineArtifactTaskPluginBase
     {
         // Same as https://github.com/Microsoft/vsts-tasks/blob/master/Tasks/DownloadPipelineArtifactV0/task.json
         public override Guid Id => PipelineArtifactPluginConstants.DownloadPipelineArtifactTaskId;
 
         protected override async Task ProcessCommandInternalAsync(
-            AgentTaskPluginExecutionContext context, 
-            string targetPath, 
+            AgentTaskPluginExecutionContext context,
+            string targetPath,
             CancellationToken token)
         {
             string artifactName = this.GetArtifactName(context);
@@ -194,7 +194,7 @@ namespace Agent.Plugins.PipelineArtifact
     }
 
     public class PublishPipelineArtifactTaskV0_140_0 : PublishPipelineArtifactTask
-    {        
+    {
         protected override string GetArtifactName(AgentTaskPluginExecutionContext context)
         {
             return context.GetInput(ArtifactEventProperties.ArtifactName, required: false);

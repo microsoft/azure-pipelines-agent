@@ -82,7 +82,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     if (!NetFrameworkUtil.Test(new Version(4, 5), trace))
                     {
                         terminal.WriteError(StringUtil.Loc("MinimumNetFramework"));
-                        return Constants.Agent.ReturnCode.TerminatedError;
+                        // warn only, like configurationmanager.cs does. this enables windows edition with just .netcore to work
                     }
                 }
 

@@ -59,7 +59,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // timeline record update methods
         void Start(string currentOperation = null);
         TaskResult Complete(TaskResult? result = null, string currentOperation = null, string resultCode = null);
-        void SetVariable(string name, string value, bool isSecret = false, bool isOutput = false, bool isFilePath = false);
+        void SetVariable(string name, string value, bool isSecret = false, bool isOutput = false, bool isFilePath = false, bool isReadOnly = false);
         void SetTimeout(TimeSpan? timeout);
         void AddIssue(Issue issue);
         void Progress(int percentage, string currentOperation = null);
@@ -256,7 +256,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return Result.Value;
         }
 
-        public void SetVariable(string name, string value, bool isSecret = false, bool isOutput = false, bool isFilePath = false)
+        public void SetVariable(string name, string value, bool isSecret = false, bool isOutput = false, bool isFilePath = false, bool isReadOnly = false)
         {
             ArgUtil.NotNullOrEmpty(name, nameof(name));
 
@@ -270,11 +270,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
 
                 ArgUtil.NotNullOrEmpty(_record.RefName, nameof(_record.RefName));
-                Variables.Set($"{_record.RefName}.{name}", value, secret: isSecret);
+                Variables.Set($"{_record.RefName}.{name}", value, secret: isSecret, readOnly: (isOutput || isReadOnly));
             }
             else
             {
-                Variables.Set(name, value, secret: isSecret);
+                Variables.Set(name, value, secret: isSecret, readOnly: isReadOnly);
             }
         }
 
@@ -453,7 +453,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 _defaultStepTarget = new HostInfo();
             }
             // Include other step containers
-            foreach (var container in message.Resources.Containers.Where(x => !string.Equals(x.Alias, message.JobContainer, StringComparison.OrdinalIgnoreCase)))
+            var sidecarContainers = new HashSet<string>(message.JobSidecarContainers.Values, StringComparer.OrdinalIgnoreCase);
+            foreach (var container in message.Resources.Containers.Where(x =>
+                !string.Equals(x.Alias, message.JobContainer, StringComparison.OrdinalIgnoreCase) && !sidecarContainers.Contains(x.Alias)))
             {
                 Containers.Add(HostContext.CreateContainerInfo(container));
             }

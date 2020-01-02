@@ -3,6 +3,7 @@
 
 using System;
 using Agent.Sdk;
+using System.Collections.Generic;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -50,7 +51,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         /// <summary>Name of environment variable holding the path.</summary>
         public static string PathVariable
         {
-            get => 
+            get =>
                 PlatformUtil.RunningOnWindows
                 ? "Path"
                 : "PATH";
@@ -270,7 +271,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static class Agent
             {
                 //
-                // Keep alphabetical
+                // Keep alphabetical. If you add or remove a variable here, do the same in ReadOnlyVariables
                 //
                 public static readonly string AcceptTeeEula = "agent.acceptteeeula";
                 public static readonly string AllowAllEndpoints = "agent.allowAllEndpoints"; // remove after sprint 120 or so.
@@ -294,6 +295,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string ProxyPassword = "agent.proxypassword";
                 public static readonly string ProxyBypassList = "agent.proxybypasslist";
                 public static readonly string RetainDefaultEncoding = "agent.retainDefaultEncoding";
+                public static readonly string ReadOnlyVariables = "agent.readOnlyVariables";
                 public static readonly string RootDirectory = "agent.RootDirectory";
                 public static readonly string RunMode = "agent.runmode";
                 public static readonly string ServerOMDirectory = "agent.ServerOMDirectory";
@@ -314,7 +316,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static class Build
             {
                 //
-                // Keep alphabetical
+                // Keep alphabetical. If you add or remove a variable here, do the same in ReadOnlyVariables
                 //
                 public static readonly string ArtifactStagingDirectory = "build.artifactstagingdirectory";
                 public static readonly string BinariesDirectory = "build.binariesdirectory";
@@ -337,17 +339,21 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string SourcesDirectory = "build.sourcesdirectory";
                 public static readonly string StagingDirectory = "build.stagingdirectory";
                 public static readonly string SyncSources = "build.syncSources";
+                public static readonly string UseServerWorkspaces = "build.useserverworkspaces";
             }
 
             public static class Common
             {
+                //
+                // Keep alphabetical. If you add or remove a variable here, do the same in ReadOnlyVariables
+                //
                 public static readonly string TestResultsDirectory = "common.testresultsdirectory";
             }
 
             public static class Features
             {
                 //
-                // Keep alphabetical
+                // Keep alphabetical. If you add or remove a variable here, do the same in ReadOnlyVariables
                 //
                 public static readonly string BuildDirectoryClean = "agent.clean.buildDirectory";
                 public static readonly string GitLfsSupport = "agent.source.git.lfs";
@@ -357,13 +363,16 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             public static class Pipeline
             {
+                //
+                // Keep alphabetical. If you add or remove a variable here, do the same in ReadOnlyVariables
+                //
                 public static readonly string Workspace = "pipeline.workspace";
             }
 
             public static class Release
             {
                 //
-                // Keep alphabetical
+                // Keep alphabetical. If you add or remove a variable here, do the same in ReadOnlyVariables
                 //
                 public static readonly string AgentReleaseDirectory = "agent.releaseDirectory";
                 public static readonly string ArtifactsDirectory = "system.artifactsDirectory";
@@ -389,7 +398,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static class System
             {
                 //
-                // Keep alphabetical
+                // Keep alphabetical. If you add or remove a variable here, do the same in ReadOnlyVariables
                 //
                 public static readonly string AccessToken = "system.accessToken";
                 public static readonly string ArtifactsDirectory = "system.artifactsdirectory";
@@ -420,8 +429,133 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             public static class Task
             {
+                //
+                // Keep alphabetical. If you add or remove a variable here, do the same in ReadOnlyVariables
+                //
                 public static readonly string DisplayName = "task.displayname";
             }
+
+            public static List<string> ReadOnlyVariables = new List<string>(){
+                // Agent variables
+                Agent.AcceptTeeEula,
+                Agent.AllowAllEndpoints,
+                Agent.AllowAllSecureFiles,
+                Agent.BuildDirectory,
+                Agent.ContainerId,
+                Agent.ContainerNetwork,
+                Agent.Diagnostic,
+                Agent.HomeDirectory,
+                Agent.Id,
+                Agent.GitUseSChannel,
+                Agent.JobName,
+                Agent.JobStatus,
+                Agent.MachineName,
+                Agent.Name,
+                Agent.OS,
+                Agent.OSArchitecture,
+                Agent.OSVersion,
+                Agent.ProxyUrl,
+                Agent.ProxyUsername,
+                Agent.ProxyPassword,
+                Agent.ProxyBypassList,
+                Agent.RetainDefaultEncoding,
+                Agent.ReadOnlyVariables,
+                Agent.RootDirectory,
+                Agent.RunMode,
+                Agent.ServerOMDirectory,
+                Agent.ServicePortPrefix,
+                Agent.SslCAInfo,
+                Agent.SslClientCert,
+                Agent.SslClientCertKey,
+                Agent.SslClientCertArchive,
+                Agent.SslClientCertPassword,
+                Agent.SslSkipCertValidation,
+                Agent.TempDirectory,
+                Agent.ToolsDirectory,
+                Agent.Version,
+                Agent.WorkFolder,
+                Agent.WorkingDirectory,
+                // Build variables
+                Build.ArtifactStagingDirectory,
+                Build.BinariesDirectory,
+                Build.Number,
+                Build.Clean,
+                Build.DefinitionName,
+                Build.GatedRunCI,
+                Build.GatedShelvesetName,
+                Build.RepoClean,
+                Build.RepoGitSubmoduleCheckout,
+                Build.RepoId,
+                Build.RepoLocalPath,
+                Build.RepoName,
+                Build.RepoProvider,
+                Build.RepoTfvcWorkspace,
+                Build.RepoUri,
+                Build.SourceBranch,
+                Build.SourceTfvcShelveset,
+                Build.SourceVersion,
+                Build.SourcesDirectory,
+                Build.StagingDirectory,
+                Build.SyncSources,
+                Build.UseServerWorkspaces,
+                // Common variables
+                Common.TestResultsDirectory,
+                // Feature variables
+                Features.BuildDirectoryClean,
+                Features.GitLfsSupport,
+                Features.GitShallowDepth,
+                Features.SkipSyncSource,
+                // Pipeline variables
+                Pipeline.Workspace,
+                // Release variables
+                Release.AgentReleaseDirectory,
+                Release.ArtifactsDirectory,
+                Release.AttemptNumber,
+                Release.DisableRobocopy,
+                Release.ReleaseDefinitionName,
+                Release.ReleaseEnvironmentName,
+                Release.ReleaseEnvironmentUri,
+                Release.ReleaseDefinitionId,
+                Release.ReleaseDescription,
+                Release.ReleaseId,
+                Release.ReleaseName,
+                Release.ReleaseRequestedForId,
+                Release.ReleaseUri,
+                Release.ReleaseDownloadBufferSize,
+                Release.ReleaseParallelDownloadLimit,
+                Release.ReleaseWebUrl,
+                Release.RequestorId,
+                Release.RobocopyMT,
+                Release.SkipArtifactsDownload,
+                // System variables
+                System.AccessToken,
+                System.ArtifactsDirectory,
+                System.CollectionId,
+                System.Culture,
+                System.Debug,
+                System.DefaultWorkingDirectory,
+                System.DefinitionId,
+                System.EnableAccessToken,
+                System.HostType,
+                System.JobAttempt,
+                System.JobId,
+                System.JobName,
+                System.PhaseAttempt,
+                System.PhaseDisplayName,
+                System.PhaseName,
+                System.PreferGitFromPath,
+                System.PullRequestTargetBranchName,
+                System.SelfManageGitCreds,
+                System.ServerType,
+                System.StageAttempt,
+                System.StageName,
+                System.TFServerUrl,
+                System.TeamProject,
+                System.TeamProjectId,
+                System.WorkFolder,
+                // Task variables
+                Task.DisplayName
+            };
         }
     }
 }

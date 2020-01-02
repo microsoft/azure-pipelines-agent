@@ -1,30 +1,10 @@
 ## Features
-- Add support for step targets (#2604)
-- Add build number output variable (#2642)
-- Optional task signature verification (#2571)
 
 ## Bugs
-- Remove references to the commit message (#2627)
-- A customer reported an issue of a NPE when initializing secret masker (#2633) 
-- Fix string literal project name in the DPA V2 task (#2635)
-- Fix download fileshare artifacts (#2643)
-- Fix dotnet scripts. (#2650)
-- Fixed variable expansion for container targets #2646 (#2649)
-- Guard against potential null object referenced by issue 11902 in task repo (#2651)
-- Update to guard against potential NPE (#2640)
 
 ## Misc
-- Allow signing to pass (#2620) 
-- update necore version (#2622) 
-- React to nested artifacts (#2623)
-- Throw a nice error when we can't start the tar process (#2625)
-- never report things called SYSTEM_ACCESSTOKEN as capabilities (#2601)
-- Load proxy bypass list during agent configuration (#2638)
-- Minor tweaks to update scripts to make things consistent (#2631)
-- Updated to not allow processing of worker commands embedded in git comment (#2645)
-- Do not sign debug builds (#2636)
 
-## Agent Downloads  
+## Agent Downloads
 
 |         | Package                                                                                                       |
 | ------- | ----------------------------------------------------------------------------------------------------------- |
@@ -35,7 +15,7 @@
 | Linux ARM  | [vsts-agent-linux-arm-<AGENT_VERSION>.tar.gz](https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-linux-arm-<AGENT_VERSION>.tar.gz) |
 | RHEL 6 x64  | [vsts-agent-rhel.6-x64-<AGENT_VERSION>.tar.gz](https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-rhel.6-x64-<AGENT_VERSION>.tar.gz) |
 
-After Download:  
+After Download:
 
 ## Windows x64
 

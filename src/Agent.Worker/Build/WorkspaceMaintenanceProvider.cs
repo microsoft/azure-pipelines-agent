@@ -7,13 +7,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.VisualStudio.Services.Agent;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Microsoft.VisualStudio.Services.Agent.Worker;
-using Microsoft.VisualStudio.Services.Agent.Worker.Build;
 using Microsoft.VisualStudio.Services.Agent.Worker.Maintenance;
 
-namespace Agent.Worker.Build
+namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
     /// <summary>
     /// This class provides 2 types of maintenance for the agent workspaces (subfolders of _work).

@@ -22,7 +22,7 @@ namespace Agent.Plugins.PipelineArtifact
     {
         public abstract Guid Id { get; }
         protected virtual string DownloadPath => "path";
-        protected virtual string pipelineRunId => "runId";
+        protected virtual string RunId => "runId";
         protected CallbackAppTraceSource tracer;
 
         public string Stage => "main";
@@ -83,12 +83,13 @@ namespace Agent.Plugins.PipelineArtifact
             string tags = context.GetInput(ArtifactEventProperties.Tags, required: false);
             string allowPartiallySucceededBuilds = context.GetInput(ArtifactEventProperties.AllowPartiallySucceededBuilds, required: false);
             string allowFailedBuilds = context.GetInput(ArtifactEventProperties.AllowFailedBuilds, required: false);
-            string userSpecifiedpipelineId = context.GetInput(pipelineRunId, required: false);
+            string userSpecifiedRunId = context.GetInput(RunId, required: false);
             string defaultWorkingDirectory = context.Variables.GetValueOrDefault("system.defaultworkingdirectory").Value;
 
             targetPath = Path.IsPathFullyQualified(targetPath) ? targetPath : Path.GetFullPath(Path.Combine(defaultWorkingDirectory, targetPath));
 
             bool onPrem = !String.Equals(context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.ServerType)?.Value, "Hosted", StringComparison.OrdinalIgnoreCase);
+            
             if (onPrem)
             {
                 throw new InvalidOperationException(StringUtil.Loc("OnPremIsNotSupported"));
@@ -128,7 +129,7 @@ namespace Agent.Plugins.PipelineArtifact
                 string projectIdStr = context.Variables.GetValueOrDefault("system.teamProjectId")?.Value;
                 if (String.IsNullOrEmpty(projectIdStr))
                 {
-                    throw new ArgumentNullException("Project ID cannot be null.");
+                    throw new ArgumentNullException(StringUtil.Loc("CannotBeNullOrEmpty"), "Project ID");
                 }
                 
                 Guid projectId = Guid.Parse(projectIdStr);
@@ -173,7 +174,7 @@ namespace Agent.Plugins.PipelineArtifact
             {
                 if (String.IsNullOrEmpty(projectName))
                 {
-                    throw new ArgumentNullException("Project Name cannot be null.");
+                    throw new ArgumentNullException(StringUtil.Loc("CannotBeNullOrEmpty"), "Project Name");
                 }
                 Guid projectId; 
                 bool isProjGuid = Guid.TryParse(projectName, out projectId);
@@ -181,7 +182,8 @@ namespace Agent.Plugins.PipelineArtifact
                 {
                     projectId = await GetProjectIdAsync(context, projectName);
                 }
-                int? pipelineId = null;
+                // Set the default pipelineId to 0, which is an invalid build id and it has to be reassigned to a valid build id.
+                int pipelineId = 0;
 
                 bool pipelineTriggeringBool = false;
                 if (bool.TryParse(pipelineTriggering, out pipelineTriggeringBool) && pipelineTriggeringBool)
@@ -194,7 +196,7 @@ namespace Agent.Plugins.PipelineArtifact
                     }
                 }
 
-                if (!pipelineId.HasValue)
+                if (pipelineId == 0)
                 {
                     if (pipelineVersionToDownload == pipelineVersionToDownloadLatest)
                     {
@@ -202,7 +204,11 @@ namespace Agent.Plugins.PipelineArtifact
                     }
                     else if (pipelineVersionToDownload == pipelineVersionToDownloadSpecific)
                     {
-                        pipelineId = Int32.Parse(userSpecifiedpipelineId);
+                        bool isPipelineIdNum = Int32.TryParse(userSpecifiedRunId, out pipelineId);
+                        if(!isPipelineIdNum)
+                        {
+                            throw new ArgumentException(StringUtil.Loc("RunIDNotValid", userSpecifiedRunId));
+                        }
                     }
                     else if (pipelineVersionToDownload == pipelineVersionToDownloadLatestFromBranch)
                     {
@@ -221,7 +227,7 @@ namespace Agent.Plugins.PipelineArtifact
                     ProjectRetrievalOptions = BuildArtifactRetrievalOptions.RetrieveByProjectName,
                     ProjectName = projectName,
                     ProjectId = projectId,
-                    PipelineId = pipelineId.Value,
+                    PipelineId = pipelineId,
                     ArtifactName = artifactName,
                     TargetDirectory = targetPath,
                     MinimatchFilters = minimatchPatterns,
@@ -270,7 +276,7 @@ namespace Agent.Plugins.PipelineArtifact
         {
             if(String.IsNullOrWhiteSpace(pipelineDefinition)) 
             {
-                throw new InvalidOperationException("Pipeline definition cannot be null or empty");
+                throw new InvalidOperationException(StringUtil.Loc("CannotBeNullOrEmpty", "Pipeline Definition"));
             }
 
             VssConnection connection = context.VssConnection;
@@ -284,11 +290,11 @@ namespace Agent.Plugins.PipelineArtifact
             var definitions = new List<int>() { definition };
 
             List<Build> list;
-            if (pipelineVersionToDownload == "latest")
+            if (pipelineVersionToDownload == pipelineVersionToDownloadLatest)
             {
                 list = await buildHttpClient.GetBuildsAsync(project, definitions, tagFilters: tagFilters, queryOrder: BuildQueryOrder.FinishTimeDescending, resultFilter: resultFilter);
             }
-            else if (pipelineVersionToDownload == "latestFromBranch")
+            else if (pipelineVersionToDownload == pipelineVersionToDownloadLatestFromBranch)
             {
                 list = await buildHttpClient.GetBuildsAsync(project, definitions, branchName: branchName, tagFilters: tagFilters, queryOrder: BuildQueryOrder.FinishTimeDescending, resultFilter: resultFilter);
             }
@@ -303,7 +309,7 @@ namespace Agent.Plugins.PipelineArtifact
             }
             else
             {
-                throw new ArgumentException("No builds currently exist in the build definition supplied.");
+                throw new ArgumentException(StringUtil.Loc("BuildsDoesNotExist"));
             }
         }
 

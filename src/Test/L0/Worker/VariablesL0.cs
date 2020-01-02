@@ -758,6 +758,137 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        public void IsReadOnly_RespectsSystemVariables()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                // Arrange.
+                List<string> warnings;
+                var variables = new Variables(hc, new Dictionary<string, VariableValue>(), out warnings);
+                variables.Set(Constants.Variables.Agent.ReadOnlyVariables, "true");
+                variables.Set(Constants.Variables.System.AccessToken, "abc");
+                variables.Set(Constants.Variables.Agent.BuildDirectory, "abc");
+                variables.Set(Constants.Variables.Build.RepoClean, "abc");
+                variables.Set(Constants.Variables.Common.TestResultsDirectory, "abc");
+
+                // Assert.
+                Assert.True(variables.IsReadOnly(Constants.Variables.System.AccessToken));
+                Assert.True(variables.IsReadOnly(Constants.Variables.Agent.BuildDirectory));
+                Assert.True(variables.IsReadOnly(Constants.Variables.Build.RepoClean));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void IsReadOnly_RespectsUserReadOnlyVariables()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                // Arrange.
+                List<string> warnings;
+                var variables = new Variables(hc, new Dictionary<string, VariableValue>(), out warnings);
+                variables.Set(Constants.Variables.Agent.ReadOnlyVariables, "true");
+                variables.Set("var1", "abc", secret: false, readOnly: true);
+                variables.Set("var2", "abc", secret: false, readOnly: false);
+
+                // Assert.
+                Assert.True(variables.IsReadOnly("var1"));
+                Assert.False(variables.IsReadOnly("var2"));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void IsReadOnly_ReturnsFalseForUnsetVariables()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                // Arrange.
+                List<string> warnings;
+                var variables = new Variables(hc, new Dictionary<string, VariableValue>(), out warnings);
+                variables.Set(Constants.Variables.Agent.ReadOnlyVariables, "true");
+
+                // Assert.
+                Assert.False(variables.IsReadOnly("var1"));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void IsReadOnly_AlwaysReturnsFalseWhenOff()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                // Arrange.
+                List<string> warnings;
+                var variables = new Variables(hc, new Dictionary<string, VariableValue>(), out warnings);
+                variables.Set(Constants.Variables.Agent.ReadOnlyVariables, "false");
+                variables.Set(Constants.Variables.System.AccessToken, "abc");
+                variables.Set(Constants.Variables.Agent.BuildDirectory, "abc");
+                variables.Set(Constants.Variables.Build.RepoClean, "abc");
+                variables.Set(Constants.Variables.Common.TestResultsDirectory, "abc");
+                variables.Set("var1", "abc", secret: false, readOnly: true);
+                variables.Set("var2", "abc", secret: false, readOnly: false);
+
+                // Assert.
+                Assert.False(variables.IsReadOnly(Constants.Variables.System.AccessToken));
+                Assert.False(variables.IsReadOnly(Constants.Variables.Agent.BuildDirectory));
+                Assert.False(variables.IsReadOnly(Constants.Variables.Build.RepoClean));
+                Assert.False(variables.IsReadOnly(Constants.Variables.Common.TestResultsDirectory));
+                Assert.False(variables.IsReadOnly("var1"));
+                Assert.False(variables.IsReadOnly("var2"));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void IsReadOnly_ListContainsAllReadOnlyVariables()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                // Arrange.
+                List<string> wellKnownSystemVariables = new List<string>();
+                List<System.Type> wellKnownSystemVariableClasses = new List<System.Type>()
+                {
+                    typeof(Constants.Variables.Agent),
+                    typeof(Constants.Variables.Build),
+                    typeof(Constants.Variables.Features),
+                    typeof(Constants.Variables.Pipeline),
+                    typeof(Constants.Variables.Release),
+                    typeof(Constants.Variables.System),
+                    typeof(Constants.Variables.Task)
+                };
+
+                // Iterate through members of each class and add any system variables (aka prefixed with our readOnlyPrefixes)
+                foreach (System.Type systemVariableClass in wellKnownSystemVariableClasses)
+                {
+                    var wellKnownDistributedTaskFields = systemVariableClass.GetFields();
+                    foreach(var field in wellKnownDistributedTaskFields)
+                    {
+                        var fieldValue = field.GetValue(systemVariableClass);
+                        if (fieldValue != null)
+                        {
+                            string value = fieldValue.ToString();
+                            wellKnownSystemVariables.Add(value);
+                        }
+                    }
+                }
+
+                // Assert.
+                foreach(string systemVariable in wellKnownSystemVariables)
+                {
+                    Assert.True(Constants.Variables.ReadOnlyVariables.Contains(systemVariable), "Constants.Variables.ReadOnlyVariables should contain " + systemVariable);
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
         public void Unset()
         {
             using (TestHostContext hc = new TestHostContext(this))
@@ -798,20 +929,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 // Arrange.
                 List<string> warnings;
                 var variables = new Variables(hc, new Dictionary<string, VariableValue>(), out warnings);
-                
-                
+
+
                 Dictionary<string,VariableValue> dict1 = new Dictionary<string, VariableValue>();
-                variables.CopyInto(dict1);
-                
+                variables.CopyInto(dict1, Variables.DefaultStringTranslator);
+
                 Assert.Equal(0, dict1.Count);
 
                 variables.Set("foo", "bar");
-                variables.CopyInto(dict1);
+                variables.CopyInto(dict1, Variables.DefaultStringTranslator);
                 Assert.Equal(1, dict1.Count);
                 Assert.Equal("bar", dict1["foo"]);
 
                 variables.Set("boo", "bah", true);
-                variables.CopyInto(dict1);
+                variables.CopyInto(dict1, Variables.DefaultStringTranslator);
                 Assert.Equal(2, dict1.Count);
                 Assert.Equal("bar", dict1["foo"]);
                 Assert.Equal(new VariableValue("bah", true), dict1["boo"]);

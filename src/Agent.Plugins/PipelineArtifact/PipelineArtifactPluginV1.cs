@@ -55,7 +55,7 @@ namespace Agent.Plugins.PipelineArtifact
     }
 
     // Caller: PublishPipelineArtifact task
-    // Can be invoked from a build run or a release run should a build be set as the artifact. 
+    // Can be invoked from a build run or a release run should a build be set as the artifact.
     public class PublishPipelineArtifactTaskV1 : PipelineArtifactTaskPluginBaseV1
     {
         public override Guid Id => PipelineArtifactPluginConstants.PublishPipelineArtifactTaskId;
@@ -75,7 +75,7 @@ namespace Agent.Plugins.PipelineArtifact
             }
             else
             {
-                context.Output($"Artifact name input: {artifactName}");                
+                context.Output($"Artifact name input: {artifactName}");
             }
             string targetPath = context.GetInput(TargetPath, required: true);
             string artifactType = context.GetInput(ArtifactEventProperties.ArtifactType, required: false);
@@ -84,7 +84,7 @@ namespace Agent.Plugins.PipelineArtifact
             string defaultWorkingDirectory = context.Variables.GetValueOrDefault("system.defaultworkingdirectory").Value;
 
             bool onPrem = !String.Equals(context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.ServerType)?.Value, "Hosted", StringComparison.OrdinalIgnoreCase);
-            if (onPrem) 
+            if (onPrem)
             {
                 throw new InvalidOperationException(StringUtil.Loc("OnPremIsNotSupported"));
             }
@@ -168,7 +168,7 @@ namespace Agent.Plugins.PipelineArtifact
         }
     }
 
-    // Can be invoked from a build run or a release run should a build be set as the artifact. 
+    // Can be invoked from a build run or a release run should a build be set as the artifact.
     public class DownloadPipelineArtifactTaskV1 : PipelineArtifactTaskPluginBaseV1
     {
         // Same as https://github.com/Microsoft/vsts-tasks/blob/master/Tasks/DownloadPipelineArtifactV1/task.json
