@@ -104,7 +104,7 @@ read -n 1 -p "Press any key to continue ... "
 
 # create config change PR
 CONFIG_CHANGE_GIT_URL=https://mseng@dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps.ConfigChange
-CONFIG_CHANGE_PR_URL=https://dev.azure.com/mseng/_git/AzureDevOps.ConfigChange/pullrequests?_a=mine
+CONFIG_CHANGE_PR_URL=https://dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps.ConfigChange/pullrequests?_a=mine
 
 ${GIT} clone --depth 1 ${CONFIG_CHANGE_GIT_URL} ${INTEGRATION_DIR}/AzureDevOps.ConfigChange
 pushd ${INTEGRATION_DIR}/AzureDevOps.ConfigChange
