@@ -121,7 +121,8 @@ MILESTONE_DIR=$(printf "%s\n" "${DIRS[@]}"  | sed -e 's/^\([a-zA-Z]*\)\([0-9]*\)
 cp -r "${INTEGRATION_DIR}/PublishVSTSAgent-${AGENT_VERSION_PATH}" "tfs/${MILESTONE_DIR}"
 NEW_CONFIG_CHANGE_BRANCH="users/${USER}/agent-${NEW_RELEASE}"
 ${GIT} checkout -b ${NEW_CONFIG_CHANGE_BRANCH}
-${GIT} commit -a -m 'Install Agent ${NEW_RELEASE}'
+${GIT} add "tfs/${MILESTONE_DIR}"
+${GIT} commit -m 'Install Agent ${NEW_RELEASE}'
 ${GIT} push --set-upstream origin ${NEW_CONFIG_CHANGE_BRANCH}
 popd
 echo "Create pull-request for this change "
