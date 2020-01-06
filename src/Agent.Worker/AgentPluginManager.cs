@@ -32,7 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             base.Initialize(hostContext);
             foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
-                if (assembly.FullName.StartsWith("Agent.", StringComparison.OrdinalIgnoreCase))
+                if (assembly.FullName.StartsWith("Agent.Plugins", StringComparison.OrdinalIgnoreCase))
                 {
                     foreach (var type in assembly.GetTypes())
                     {

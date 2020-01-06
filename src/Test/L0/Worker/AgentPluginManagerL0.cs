@@ -12,7 +12,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 {
     public sealed class AgentPluginManagerL0
     {
-
         private class AgentPluginTaskTest
         {
             public string Name;
@@ -95,8 +94,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 {
                     test.RunTest(agentPluginManager);
                 }
-
-
             }
         }
 
