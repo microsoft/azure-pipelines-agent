@@ -6,8 +6,11 @@ using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Moq;
 using System;
+using System.Collections.Generic;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using Xunit;
+using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
@@ -35,60 +38,53 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
-        [Fact]
+        [Theory]
         [Trait("Level", "L0")]
         [Trait("Category", nameof(CommandSettings))]
-        public void GetsArgFromEnvVar()
+        [InlineData("agent", "GetAgentName", "some agent")]
+        public void GetsArgFromEnvVar(String arg, String accessor, String expected)
         {
             using (TestHostContext hc = CreateTestContext())
             {
-                try
-                {
-                    // Arrange.
-                    var expected = "some agent";
-                    Environment.SetEnvironmentVariable("VSTS_AGENT_INPUT_AGENT", expected);
-                    var command = new CommandSettings(hc, args: new string[0]);
+                var envVarName = "VSTS_AGENT_INPUT_" + arg.ToUpperInvariant();
+                var environment = new LocalEnvironment();
+                // Arrange.
+                environment.SetEnvironmentVariable(envVarName, expected);
+                var command = new CommandSettings(hc, args: new string[0], environment);
 
-                    // Act.
-                    string actual = command.GetAgentName();
+                // Act.
+                MethodInfo mi = command.GetType().GetMethod(accessor);
+                var actual = (string)mi.Invoke(command, null);
 
-                    // Assert.
-                    Assert.Equal(expected, actual);
-                    Assert.Equal(string.Empty, Environment.GetEnvironmentVariable("VSTS_AGENT_INPUT_AGENT") ?? string.Empty); // Should remove.
-                    Assert.Equal(hc.SecretMasker.MaskSecrets(expected), expected);
-                }
-                finally
-                {
-                    Environment.SetEnvironmentVariable("VSTS_AGENT_INPUT_AGENT", null);
-                }
+                // Assert.
+                Assert.Equal(expected, actual);
+                Assert.Equal(string.Empty, environment.GetEnvironmentVariable(envVarName) ?? string.Empty); // Should remove.
+                Assert.Equal(hc.SecretMasker.MaskSecrets(expected), expected);
             }
         }
 
-        [Fact]
+        [Theory]
         [Trait("Level", "L0")]
         [Trait("Category", nameof(CommandSettings))]
-        public void GetsArgSecretFromEnvVar()
+        [InlineData("token", "GetToken", "some secret token value")]
+        public void GetsArgSecretFromEnvVar(String arg, String accessor, String expected)
         {
             using (TestHostContext hc = CreateTestContext())
             {
-                try
-                {
-                    // Arrange.
-                    Environment.SetEnvironmentVariable("VSTS_AGENT_INPUT_TOKEN", "some secret token value");
-                    var command = new CommandSettings(hc, args: new string[0]);
+                var envVarName = "VSTS_AGENT_INPUT_" + arg.ToUpperInvariant();
+                 var environment = new LocalEnvironment();
+                // Arrange.
+                environment.SetEnvironmentVariable(envVarName, expected);
+                var command = new CommandSettings(hc, args: new string[0], environment);
 
-                    // Act.
-                    string actual = command.GetToken();
+                // Act.
+                MethodInfo mi = command.GetType().GetMethod(accessor);
+                var actual = (string)mi.Invoke(command, null);
 
-                    // Assert.
-                    Assert.Equal("some secret token value", actual);
-                    Assert.Equal(string.Empty, Environment.GetEnvironmentVariable("VSTS_AGENT_INPUT_TOKEN") ?? string.Empty); // Should remove.
-                    Assert.Equal(hc.SecretMasker.MaskSecrets("some secret token value"), "***");
-                }
-                finally
-                {
-                    Environment.SetEnvironmentVariable("VSTS_AGENT_INPUT_TOKEN", null);
-                }
+                // Assert.
+                Assert.Equal(expected, actual);
+                Assert.Equal(string.Empty, environment.GetEnvironmentVariable(envVarName) ?? string.Empty); // Should remove.
+                Assert.Equal(hc.SecretMasker.MaskSecrets(expected), "***");
             }
         }
 
@@ -254,30 +250,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
-        [Fact]
+        [Theory]
         [Trait("Level", "L0")]
         [Trait("Category", nameof(CommandSettings))]
-        public void GetsFlagUnattendedFromEnvVar()
+        [InlineData("Unattended")]
+        public void GetsFlagFromEnvVar(string flag)
         {
             using (TestHostContext hc = CreateTestContext())
             {
-                try
-                {
-                    // Arrange.
-                    Environment.SetEnvironmentVariable("VSTS_AGENT_INPUT_UNATTENDED", "true");
-                    var command = new CommandSettings(hc, args: new string[0]);
+                var envVarName = "VSTS_AGENT_INPUT_" + flag.ToUpperInvariant();
+                var environment = new LocalEnvironment();
+                // Arrange.
+                environment.SetEnvironmentVariable(envVarName, "true");
+                var command = new CommandSettings(hc, args: new string[0], environment);
 
-                    // Act.
-                    bool actual = command.Unattended;
+                // Act.
+                PropertyInfo pi = command.GetType().GetProperty(flag);
+                bool actual = (bool)pi.GetValue(command);
 
-                    // Assert.
-                    Assert.Equal(true, actual);
-                    Assert.Equal(string.Empty, Environment.GetEnvironmentVariable("VSTS_AGENT_INPUT_UNATTENDED") ?? string.Empty); // Should remove.
-                }
-                finally
-                {
-                    Environment.SetEnvironmentVariable("VSTS_AGENT_INPUT_UNATTENDED", null);
-                }
+                // Assert.
+                Assert.Equal(true, actual);
+                Assert.Equal(string.Empty, environment.GetEnvironmentVariable(envVarName) ?? string.Empty); // Should remove.
             }
         }
 

@@ -7,6 +7,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -102,7 +103,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         public bool RunOnce => TestFlag(Constants.Agent.CommandLine.Flags.Once);
 
         // Constructor.
-        public CommandSettings(IHostContext context, string[] args)
+        public CommandSettings(IHostContext context, string[] args, IScopedEnvironment environmentScope=null)
         {
             ArgUtil.NotNull(context, nameof(context));
             _promptManager = context.GetService<IPromptManager>();
@@ -114,8 +115,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 secretArgNames: Constants.Agent.CommandLine.Args.Secrets);
             _parser.Parse(args);
 
+            if (environmentScope == null)
+            {
+                environmentScope = new SystemEnvironment();
+            }
+
             // Store and remove any args passed via environment variables.
-            IDictionary environment = Environment.GetEnvironmentVariables();
+            var environment = environmentScope.GetEnvironmentVariables();
+            
             string envPrefix = "VSTS_AGENT_INPUT_";
             foreach (DictionaryEntry entry in environment)
             {
@@ -142,7 +149,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
                     // Remove from the environment block.
                     _trace.Info($"Removing env var: '{fullKey}'");
-                    Environment.SetEnvironmentVariable(fullKey, null);
+                    environmentScope.SetEnvironmentVariable(fullKey, null);
                 }
             }
         }

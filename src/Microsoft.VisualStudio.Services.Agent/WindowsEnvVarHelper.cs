@@ -17,7 +17,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         public static string GetEnvironmentVariable(Process process, IHostContext hostContext, string variable)
         {
             var trace = hostContext.GetTrace(nameof(WindowsEnvVarHelper));
-            Dictionary<string, string> environmentVariables = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            
             IntPtr processHandle = process.SafeHandle.DangerousGetHandle();
 
             IntPtr environmentBlockAddress;
@@ -85,79 +85,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 throw new ArgumentOutOfRangeException(nameof(ReadProcessMemory));
             }
 
-            string environmentVariableString;
-            Int64 environmentVariableBytesLength = 0;
-            // check env encoding
-            if (envData[0] != 0 && envData[1] == 0)
-            {
-                // Unicode
-                for (Int64 index = 0; index < dataSize; index++)
-                {
-                    // Unicode encoded environment variables block ends up with '\0\0\0\0'.
-                    if (environmentVariableBytesLength == 0 &&
-                        envData[index] == 0 &&
-                        index + 3 < dataSize &&
-                        envData[index + 1] == 0 &&
-                        envData[index + 2] == 0 &&
-                        envData[index + 3] == 0)
-                    {
-                        environmentVariableBytesLength = index + 3;
-                    }
-                    else if (environmentVariableBytesLength != 0)
-                    {
-                        // set it '\0' so we can easily trim it, most array method doesn't take int64
-                        envData[index] = 0;
-                    }
-                }
-
-                if (environmentVariableBytesLength == 0)
-                {
-                    throw new ArgumentException(nameof(environmentVariableBytesLength));
-                }
-
-                environmentVariableString = Encoding.Unicode.GetString(envData);
-            }
-            else if (envData[0] != 0 && envData[1] != 0)
-            {
-                // ANSI
-                for (Int64 index = 0; index < dataSize; index++)
-                {
-                    // Unicode encoded environment variables block ends up with '\0\0'.
-                    if (environmentVariableBytesLength == 0 &&
-                        envData[index] == 0 &&
-                        index + 1 < dataSize &&
-                        envData[index + 1] == 0)
-                    {
-                        environmentVariableBytesLength = index + 1;
-                    }
-                    else if (environmentVariableBytesLength != 0)
-                    {
-                        // set it '\0' so we can easily trim it, most array method doesn't take int64
-                        envData[index] = 0;
-                    }
-                }
-
-                if (environmentVariableBytesLength == 0)
-                {
-                    throw new ArgumentException(nameof(environmentVariableBytesLength));
-                }
-
-                environmentVariableString = Encoding.Default.GetString(envData);
-            }
-            else
-            {
-                throw new ArgumentException(nameof(envData));
-            }
-
-            foreach (var envString in environmentVariableString.Split("\0", StringSplitOptions.RemoveEmptyEntries))
-            {
-                string[] env = envString.Split("=", 2);
-                if (!string.IsNullOrEmpty(env[0]))
-                {
-                    environmentVariables[env[0]] = env[1];
-                    trace.Verbose($"PID:{process.Id} ({env[0]}={env[1]})");
-                }
-            }
+            var environmentVariables = _EnvToDictionary(envData);
 
             if (environmentVariables.TryGetValue(variable, out string envVariable))
             {
@@ -167,6 +95,66 @@ namespace Microsoft.VisualStudio.Services.Agent
             {
                 return null;
             }
+        }
+
+        // Reference: https://github.com/gapotchenko/Gapotchenko.FX/blob/master/Source/Gapotchenko.FX.Diagnostics.Process/ProcessEnvironment.cs
+        static Dictionary<String,String> _EnvToDictionary(byte[] env)
+        {
+            var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            int len = env.Length;
+            if (len < 4)
+                return result;
+
+            int n = len - 3;
+            for (int i = 0; i < n; ++i)
+            {
+                byte c1 = env[i];
+                byte c2 = env[i + 1];
+                byte c3 = env[i + 2];
+                byte c4 = env[i + 3];
+
+                if (c1 == 0 && c2 == 0 && c3 == 0 && c4 == 0)
+                {
+                    len = i + 3;
+                    break;
+                }
+            }
+
+            char[] environmentCharArray = Encoding.Unicode.GetChars(env, 0, len);
+
+            for (int i = 0; i < environmentCharArray.Length; i++)
+            {
+                int startIndex = i;
+                while ((environmentCharArray[i] != '=') && (environmentCharArray[i] != '\0'))
+                {
+                    i++;
+                }
+                if (environmentCharArray[i] != '\0')
+                {
+                    if ((i - startIndex) == 0)
+                    {
+                        while (environmentCharArray[i] != '\0')
+                        {
+                            i++;
+                        }
+                    }
+                    else
+                    {
+                        string str = new string(environmentCharArray, startIndex, i - startIndex);
+                        i++;
+                        int num3 = i;
+                        while (environmentCharArray[i] != '\0')
+                        {
+                            i++;
+                        }
+                        string str2 = new string(environmentCharArray, num3, i - num3);
+                        result[str] = str2;
+                    }
+                }
+            }
+
+            return result;
         }
 
         private static IntPtr ReadIntPtr32(IntPtr hProcess, IntPtr ptr)
