@@ -512,11 +512,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             return GetArg(Constants.Agent.CommandLine.Args.SslClientCertPassword);
         }
 
-        public void SetUnattended()
-        {
-            _parser.Flags.Add(Constants.Agent.CommandLine.Flags.Unattended);
-        }
-
         //
         // Private helpers.
         //

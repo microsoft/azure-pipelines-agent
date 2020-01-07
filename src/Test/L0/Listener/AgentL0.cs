@@ -573,5 +573,122 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 _messageListener.Verify(x => x.DeleteMessageAsync(It.IsAny<TaskAgentMessage>()), Times.Once());
             }
         }
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Agent")]
+        [InlineData("--help")]
+        [InlineData("--version")]
+        [InlineData("--commit")]
+        [InlineData("--bad-argument", Constants.Agent.ReturnCode.TerminatedError)]
+        public async void TestInfoArgumentsCLI(string arg, int expected=Constants.Agent.ReturnCode.Success)
+        {
+            using (var hc = new TestHostContext(this))
+            {
+                hc.SetSingleton<IConfigurationManager>(_configurationManager.Object);
+                hc.SetSingleton<IPromptManager>(_promptManager.Object);
+                hc.SetSingleton<IMessageListener>(_messageListener.Object);
+                hc.SetSingleton<IVstsAgentWebProxy>(_proxy.Object);
+                hc.SetSingleton<IAgentCertificateManager>(_cert.Object);
+                hc.SetSingleton<IConfigurationStore>(_configStore.Object);
+
+                var command = new CommandSettings(hc, new[] { arg });
+
+                _configurationManager.Setup(x => x.IsConfigured()).
+                    Returns(true);
+                _configurationManager.Setup(x => x.LoadSettings())
+                    .Returns(new AgentSettings { });
+
+                _configStore.Setup(x => x.IsServiceConfigured())
+                    .Returns(false);
+
+                var agent = new Agent.Listener.Agent();
+                agent.Initialize(hc);
+                var status = await agent.ExecuteCommand(command);
+                Assert.True(status == expected, $"Expected {arg} to return {expected} exit code. Got: {status}");
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Agent")]
+        public async void TestExitsIfUnconfigured()
+        {
+            using (var hc = new TestHostContext(this))
+            {
+                hc.SetSingleton<IConfigurationManager>(_configurationManager.Object);
+                hc.SetSingleton<IPromptManager>(_promptManager.Object);
+                hc.SetSingleton<IMessageListener>(_messageListener.Object);
+                hc.SetSingleton<IVstsAgentWebProxy>(_proxy.Object);
+                hc.SetSingleton<IAgentCertificateManager>(_cert.Object);
+                hc.SetSingleton<IConfigurationStore>(_configStore.Object);
+
+                var command = new CommandSettings(hc, new[] { "run" });
+
+                _configurationManager.Setup(x => x.IsConfigured()).
+                    Returns(false);
+                _configurationManager.Setup(x => x.LoadSettings())
+                    .Returns(new AgentSettings { });
+
+                _configStore.Setup(x => x.IsServiceConfigured())
+                    .Returns(false);
+
+                var agent = new Agent.Listener.Agent();
+                agent.Initialize(hc);
+                var status = await agent.ExecuteCommand(command);
+                Assert.True(status != Constants.Agent.ReturnCode.Success, $"Expected to return unsuccessful exit code if not configured. Got: {status}");
+            }
+        }
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Agent")]
+        [InlineData("configure", false)]
+        [InlineData("configure", true)] //TODO: this passes. If already configured, probably should error out asked to configure again
+        [InlineData("remove", false)] //TODO: this passes. If already not configured, probably should error out 
+        [InlineData("remove", true)] 
+        public async void TestConfigureCLI(string arg, bool IsConfigured, int expected=Constants.Agent.ReturnCode.Success)
+        {
+            using (var hc = new TestHostContext(this))
+            {
+                hc.SetSingleton<IConfigurationManager>(_configurationManager.Object);
+                hc.SetSingleton<IPromptManager>(_promptManager.Object);
+                hc.SetSingleton<IMessageListener>(_messageListener.Object);
+                hc.SetSingleton<IVstsAgentWebProxy>(_proxy.Object);
+                hc.SetSingleton<IAgentCertificateManager>(_cert.Object);
+                hc.SetSingleton<IConfigurationStore>(_configStore.Object);
+
+                var command = new CommandSettings(hc, new[] { arg });
+
+                _configurationManager.Setup(x => x.IsConfigured()).
+                      Returns(IsConfigured);
+
+                _configurationManager.Setup(x => x.LoadSettings())
+                    .Returns(new AgentSettings { }); 
+                _configurationManager.Setup(x => x.ConfigureAsync(It.IsAny<CommandSettings>()))
+                    .Returns(Task.CompletedTask);
+                _configurationManager.Setup(x => x.UnconfigureAsync(It.IsAny<CommandSettings>()))
+                    .Returns(Task.CompletedTask);
+
+                _configStore.Setup(x => x.IsServiceConfigured())
+                    .Returns(false);
+
+                var agent = new Agent.Listener.Agent();
+                agent.Initialize(hc);
+                var status = await agent.ExecuteCommand(command);
+                Assert.True(status == expected, $"Expected to return {expected} exit code after {arg}. Got: {status}");
+
+                // config/unconfig throw exceptions
+                 _configurationManager.Setup(x => x.ConfigureAsync(It.IsAny<CommandSettings>()))
+                    .Throws(new Exception("Test Exception During Configure"));
+                _configurationManager.Setup(x => x.UnconfigureAsync(It.IsAny<CommandSettings>()))
+                    .Throws(new Exception("Test Exception During Unconfigure"));
+
+                var agent2 = new Agent.Listener.Agent();
+                agent2.Initialize(hc);
+                var status2 = await agent2.ExecuteCommand(command);
+                Assert.True(status2 == Constants.Agent.ReturnCode.TerminatedError, $"Expected to return terminated exit code when handling exception after {arg}. Got: {status2}");
+            }
+        }
     }
 }

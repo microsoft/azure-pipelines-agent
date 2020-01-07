@@ -72,14 +72,6 @@ function cmd_build ()
     mkdir -p "${LAYOUT_DIR}/bin/en-US"
     grep --invert-match '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > "${LAYOUT_DIR}/bin/en-US/strings.json"
 
-    heading "Generating Integration Files"
-    mkdir -p "${INTEGRATION_DIR}"
-    ${NODE} ./versionify.js ./Misc/InstallAgentPackage.template.xml "${INTEGRATION_DIR}/InstallAgentPackage.xml"
-    AGENT_VERSION_PATH=${AGENT_VERSION//./-}
-    mkdir -p "${INTEGRATION_DIR}/PublishVSTSAgent-${AGENT_VERSION_PATH}"
-    ${NODE} ./versionify.js ./Misc/PublishVSTSAgent.template.ps1 "${INTEGRATION_DIR}/PublishVSTSAgent-${AGENT_VERSION_PATH}/PublishVSTSAgent-${AGENT_VERSION_PATH}.ps1"
-    ${NODE} ./versionify.js ./Misc/UnpublishVSTSAgent.template.ps1 "${INTEGRATION_DIR}/PublishVSTSAgent-${AGENT_VERSION_PATH}/UnpublishVSTSAgent-${AGENT_VERSION_PATH}.ps1"
-
 }
 
 function cmd_layout ()
@@ -156,6 +148,47 @@ function cmd_package ()
     popd > /dev/null
 }
 
+function cmd_report ()
+{
+    heading "Generating Reports"
+
+    if [[ ("$CURRENT_PLATFORM" != "windows") ]]; then
+        echo "Coverage reporting only available on Windows"
+        exit -1
+    fi
+
+    if ! command -v reportgenerator.exe > /dev/null; then 
+        echo "reportgenerator not installed."
+        echo "To install: "
+        echo "  % dotnet tool install --global dotnet-reportgenerator-globaltool"
+        exit -1
+    fi
+
+    mkdir -p "$REPORT_DIR"
+    
+    LATEST_COVERAGE_FILE=$(find "${SCRIPT_DIR}/Test/TestResults" -type f -name '*.coverage' -print0 | xargs -r -0 ls -1 -t | head -1)
+
+    if [[ ("$LATEST_COVERAGE_FILE" == "") ]]; then
+        echo "No coverage file found. Skipping coverage report generation."
+    else
+        COVERAGE_REPORT_DIR=$REPORT_DIR/coverage
+        mkdir -p "$COVERAGE_REPORT_DIR"
+        rm -Rf "${COVERAGE_REPORT_DIR:?}"/*
+
+        echo "Found coverage file $LATEST_COVERAGE_FILE"
+        COVERAGE_XML_FILE="$COVERAGE_REPORT_DIR/coverage.xml"
+        echo "Converting to XML file $COVERAGE_XML_FILE"
+
+        # for some reason CodeCoverage.exe will only write the output file in the current directory
+        pushd $COVERAGE_REPORT_DIR > /dev/null
+        "${HOME}/.nuget/packages/microsoft.codecoverage/15.9.2/build/netstandard1.0/CodeCoverage/CodeCoverage.exe" analyze  "/output:coverage.xml" "$LATEST_COVERAGE_FILE"
+        popd > /dev/null
+
+        echo "Generating HTML report"
+        reportgenerator.exe "-reports:$COVERAGE_XML_FILE" "-targetdir:$COVERAGE_REPORT_DIR/coveragereport"
+    fi
+}
+
 detect_platform_and_runtime_id
 echo "Current platform: $CURRENT_PLATFORM"
 echo "Current runtime ID: $DETECTED_RUNTIME_ID"
@@ -177,9 +210,9 @@ echo "Building for runtime ID: $RUNTIME_ID"
 LAYOUT_DIR="$SCRIPT_DIR/../_layout/$RUNTIME_ID"
 DOWNLOAD_DIR="$SCRIPT_DIR/../_downloads/$RUNTIME_ID/netcore2x"
 PACKAGE_DIR="$SCRIPT_DIR/../_package/$RUNTIME_ID"
+REPORT_DIR="$SCRIPT_DIR/../_reports/$RUNTIME_ID"
 INTEGRATION_DIR="$SCRIPT_DIR/../_layout/integrations"
-NODE="${SCRIPT_DIR}/../_layout/${DETECTED_RUNTIME_ID}/externals/node10/bin/node"
-
+NODE="${LAYOUT_DIR}/externals/node10/bin/node"
 
 if [[ (! -d "${DOTNETSDK_INSTALLDIR}") || (! -e "${DOTNETSDK_INSTALLDIR}/.${DOTNETSDK_VERSION}") || (! -e "${DOTNETSDK_INSTALLDIR}/dotnet") ]]; then
 
@@ -243,6 +276,7 @@ case $DEV_CMD in
    "l") cmd_layout;;
    "package") cmd_package;;
    "p") cmd_package;;
+   "report") cmd_report;;
    *) echo "Invalid command. Use (l)ayout, (b)uild, (t)est, or (p)ackage.";;
 esac
 

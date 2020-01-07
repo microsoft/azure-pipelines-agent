@@ -45,16 +45,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 try
                 {
                     // Arrange.
-                    Environment.SetEnvironmentVariable("VSTS_AGENT_INPUT_AGENT", "some agent");
+                    var expected = "some agent";
+                    Environment.SetEnvironmentVariable("VSTS_AGENT_INPUT_AGENT", expected);
                     var command = new CommandSettings(hc, args: new string[0]);
 
                     // Act.
                     string actual = command.GetAgentName();
 
                     // Assert.
-                    Assert.Equal("some agent", actual);
+                    Assert.Equal(expected, actual);
                     Assert.Equal(string.Empty, Environment.GetEnvironmentVariable("VSTS_AGENT_INPUT_AGENT") ?? string.Empty); // Should remove.
-                    Assert.Equal(hc.SecretMasker.MaskSecrets("some agent"), "some agent");
+                    Assert.Equal(hc.SecretMasker.MaskSecrets(expected), expected);
                 }
                 finally
                 {
