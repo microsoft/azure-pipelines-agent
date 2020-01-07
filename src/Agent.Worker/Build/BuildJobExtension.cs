@@ -211,7 +211,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 }
 
                 // Update the checkout task display name if not already set
-                if (string.IsNullOrEmpty(checkoutTask.DisplayName) || string.Equals(checkoutTask.DisplayName, "Checkout", StringComparison.OrdinalIgnoreCase))
+                if (string.IsNullOrEmpty(checkoutTask.DisplayName) ||
+                    string.Equals(checkoutTask.DisplayName, "Checkout", StringComparison.OrdinalIgnoreCase) ||      // this is the default for jobs
+                    string.Equals(checkoutTask.DisplayName, checkoutTask.Name, StringComparison.OrdinalIgnoreCase)) // this is the default for deployment jobs
                 {
                     var repository = RepositoryUtil.GetRepository(executionContext.Repositories, repositoryAlias);
                     if (repository != null)

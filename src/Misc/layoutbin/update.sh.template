@@ -54,7 +54,7 @@ then
     # return code 0 means it find a bin folder that is a junction folder
     # we just need to delete the junction point.
     date "+[%F %T-%4N] Delete existing junction bin folder" >> "$logfile" 2>&1
-    rm "$rootfolder/bin" >> "$logfile" 2>&1
+    rm -f "$rootfolder/bin" >> "$logfile" 2>&1
     if [ $? -ne 0 ]
     then
         date "+[%F %T-%4N] Cannot delete existing junction bin folder" >> "$logfile" 2>&1
@@ -79,7 +79,7 @@ then
     # the externals folder is already a junction folder
     # we just need to delete the junction point.
     date "+[%F %T-%4N] Delete existing junction externals folder" >> "$logfile" 2>&1
-    rm "$rootfolder/externals" >> "$logfile" 2>&1
+    rm -f "$rootfolder/externals" >> "$logfile" 2>&1
     if [ $? -ne 0 ]
     then
         date "+[%F %T-%4N] Cannot delete existing junction externals folder" >> "$logfile" 2>&1

@@ -929,20 +929,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 // Arrange.
                 List<string> warnings;
                 var variables = new Variables(hc, new Dictionary<string, VariableValue>(), out warnings);
-                
-                
+
+
                 Dictionary<string,VariableValue> dict1 = new Dictionary<string, VariableValue>();
-                variables.CopyInto(dict1);
-                
+                variables.CopyInto(dict1, Variables.DefaultStringTranslator);
+
                 Assert.Equal(0, dict1.Count);
 
                 variables.Set("foo", "bar");
-                variables.CopyInto(dict1);
+                variables.CopyInto(dict1, Variables.DefaultStringTranslator);
                 Assert.Equal(1, dict1.Count);
                 Assert.Equal("bar", dict1["foo"]);
 
                 variables.Set("boo", "bah", true);
-                variables.CopyInto(dict1);
+                variables.CopyInto(dict1, Variables.DefaultStringTranslator);
                 Assert.Equal(2, dict1.Count);
                 Assert.Equal("bar", dict1["foo"]);
                 Assert.Equal(new VariableValue("bah", true), dict1["boo"]);

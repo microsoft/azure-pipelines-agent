@@ -363,7 +363,7 @@
     "OverwriteAutoLogon":  "因為使用者 \u0027{0}\u0027 已啟用自動登入，所以想要覆寫現有的自動登入設定嗎? (是/否)",
     "ParentTimelineNotCreated":  "尚未替此新時間軸記錄建立父時間軸記錄。",
     "Password":  "密碼",
-    "PathNotExist":  "路徑不存在: {0}",
+    "PathDoesNotExist":  "路徑不存在: {0}",
     "PersonalAccessToken":  "個人存取權杖",
     "PlatformNotSupport":  "不支援在此平台上執行代理程式。目前平台為 {0}，其為針對 {1} 所建置。",
     "PoolNotFound":  "找不到代理程式集區: \u0027{0}\u0027",

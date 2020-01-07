@@ -25,11 +25,10 @@ namespace Agent.Sdk
             ParseVolumeString(fromString);
         }
 
-        private static Regex autoEscapeWindowsDriveRegex = new Regex(@"(^|:)([a-zA-Z]):(\\|/)", RegexOptions.Compiled);
+        private static Regex _autoEscapeWindowsDriveRegex = new Regex(@"(^|:)([a-zA-Z]):(\\|/)", RegexOptions.Compiled);
         private string AutoEscapeWindowsDriveInPath(string path)
         {
-
-            return autoEscapeWindowsDriveRegex.Replace(path, @"$1$2\:$3");
+            return _autoEscapeWindowsDriveRegex.Replace(path, @"$1$2\:$3");
         }
 
         private void ParseVolumeString(string volume)
@@ -38,19 +37,21 @@ namespace Agent.Sdk
             SourceVolumePath = null;
 
             string readonlyToken = ":ro";
-            if (volume.ToLower().EndsWith(readonlyToken))
+            if (volume.EndsWith(readonlyToken, System.StringComparison.OrdinalIgnoreCase))
             {
                 ReadOnly = true;
                 volume = volume.Remove(volume.Length-readonlyToken.Length);
             }
             // for completeness, in case someone explicitly added :rw in the volume mapping, we should strip it as well
             string readWriteToken = ":rw";
-            if (volume.ToLower().EndsWith(readWriteToken))
+            if (volume.EndsWith(readWriteToken, System.StringComparison.OrdinalIgnoreCase))
             {
                 ReadOnly = false;
                 volume = volume.Remove(volume.Length-readWriteToken.Length);
             }
 
+            // if volume starts with a ":", this is the same as having only a single path
+            // so just strip it so we don't have to deal with an empty source volume path
             if (volume.StartsWith(":"))
             {
                 volume = volume.Substring(1);

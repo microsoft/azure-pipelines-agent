@@ -363,7 +363,7 @@
     "OverwriteAutoLogon":  "由于已为用户“{0}”启用了自动登录，是否要覆盖现有自动登录设置? (是/否)",
     "ParentTimelineNotCreated":  "尚未为此新的时间线记录创建父时间线记录。",
     "Password":  "密码",
-    "PathNotExist":  "路径不存在: {0}",
+    "PathDoesNotExist":  "路径不存在: {0}",
     "PersonalAccessToken":  "个人访问令牌",
     "PlatformNotSupport":  "不支持在此平台运行该代理。当前平台为 {0}，适用于 {1}。",
     "PoolNotFound":  "未找到代理池:“{0}”",

@@ -363,7 +363,7 @@
     "OverwriteAutoLogon":  "Möchten Sie die vorhandenen Einstellungen für die automatische Anmeldung überschreiben, da die automatische Anmeldung für den Benutzer \"{0}\" bereits aktiviert ist? (J/N)",
     "ParentTimelineNotCreated":  "Der übergeordnete Zeitachsendatensatz wurde nicht für diesen neuen Zeitachsendatensatz erstellt.",
     "Password":  "Kennwort",
-    "PathNotExist":  "Der Pfad ist nicht vorhanden: {0}",
+    "PathDoesNotExist":  "Der Pfad ist nicht vorhanden: {0}",
     "PersonalAccessToken":  "Persönliches Zugriffstoken",
     "PlatformNotSupport":  "Das Ausführen des Agents auf dieser Plattform wird nicht unterstützt. Die aktuelle Plattform ist {0}, der Agent wurde für {1} erstellt.",
     "PoolNotFound":  "Agent-Pool nicht gefunden: {0}",

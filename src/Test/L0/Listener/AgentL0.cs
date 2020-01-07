@@ -580,6 +580,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [InlineData("--help")]
         [InlineData("--version")]
         [InlineData("--commit")]
+        [InlineData("--bad-argument", Constants.Agent.ReturnCode.TerminatedError)]
         public async void TestInfoArgumentsCLI(string arg, int expected=Constants.Agent.ReturnCode.Success)
         {
             using (var hc = new TestHostContext(this))

@@ -403,7 +403,7 @@
   "OverwriteAutoLogon": "Want to overwrite the existing autologon settings as autologon is already enabled for the user '{0}'? (Y/N)",
   "ParentTimelineNotCreated": "Parent timeline record has not been created for this new timeline record.",
   "Password": "password",
-  "PathNotExist": "Path not exist: {0}",
+  "PathDoesNotExist": "Path does not exist: {0}",
   "PersonalAccessToken": "personal access token",
   "PoolNotFound": "Agent pool not found: '{0}'",
   "PostJob": "Post-job: {0}",

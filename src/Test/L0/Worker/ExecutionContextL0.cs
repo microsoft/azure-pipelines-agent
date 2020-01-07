@@ -273,6 +273,63 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             }
         }
 
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void SidecarContainers_VerifyNotJobContainers()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            {
+                var ec = new Agent.Worker.ExecutionContext();
+                ec.Initialize(hc);
+
+                var pipeContainer = new Pipelines.ContainerResource {
+                    Alias = "container"
+                };
+                var pipeContainerSidecar = new Pipelines.ContainerResource {
+                    Alias = "sidecar"
+                };
+                var pipeContainerExtra = new Pipelines.ContainerResource {
+                    Alias = "extra"
+                };
+                pipeContainer.Properties.Set<string>("image", "someimage");
+                pipeContainerSidecar.Properties.Set<string>("image", "someimage");
+                pipeContainerExtra.Properties.Set<string>("image", "someimage");
+                // Arrange: Create a job request message.
+                TaskOrchestrationPlanReference plan = new TaskOrchestrationPlanReference();
+                TimelineReference timeline = new TimelineReference();
+                JobEnvironment environment = new JobEnvironment();
+                environment.SystemConnection = new ServiceEndpoint();
+                List<Pipelines.JobStep> steps = new List<Pipelines.JobStep>();
+                steps.Add(new Pipelines.TaskStep
+                {
+                    Reference = new Pipelines.TaskStepDefinitionReference()
+                });
+                var resources = new Pipelines.JobResources();
+                resources.Containers.Add(pipeContainer);
+                resources.Containers.Add(pipeContainerSidecar);
+                resources.Containers.Add(pipeContainerExtra);
+                Guid JobId = Guid.NewGuid();
+                string jobName = "some job name";
+                var sidecarContainers = new Dictionary<string, string>();
+                sidecarContainers.Add("sidecar", "sidecar");
+                var jobRequest = new Pipelines.AgentJobRequestMessage(plan, timeline, JobId, jobName, jobName, null, sidecarContainers,
+                    new Dictionary<string, VariableValue>(), new List<MaskHint>(), resources, new Pipelines.WorkspaceOptions(), steps);
+
+                // Arrange: Setup command manager
+                var pagingLogger = new Mock<IPagingLogger>();
+                hc.EnqueueInstance(pagingLogger.Object);
+
+                // Act.
+                ec.InitializeJob(jobRequest, CancellationToken.None);
+
+                // Assert.
+                Assert.Equal(2, ec.Containers.Count());
+                Assert.Equal(1, ec.SidecarContainers.Count());
+                Assert.False(ec.SidecarContainers.First().IsJobContainer);
+            }
+        }
+
         private TestHostContext CreateTestContext([CallerMemberName] String testName = "")
         {
             var hc = new TestHostContext(this, testName);

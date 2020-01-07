@@ -804,6 +804,10 @@ namespace Agent.Plugins.Repository
             List<string> additionalFetchSpecs = new List<string>();
             string refFetchedByCommit = null;
 
+            executionContext.Debug($"fetchDepth : {fetchDepth}");
+            executionContext.Debug($"fetchByCommit : {fetchByCommit}");
+            executionContext.Debug($"sourceVersion : {sourceVersion}");
+
             if (IsPullRequest(sourceBranch))
             {
                 // Build a 'fetch-by-commit' refspec iff the server allows us to do so in the shallow fetch scenario
@@ -844,12 +848,13 @@ namespace Agent.Plugins.Repository
             cancellationToken.ThrowIfCancellationRequested();
             executionContext.Progress(80, "Starting checkout...");
             string sourcesToBuild;
-
+            executionContext.Debug($"refFetchedByCommit : {refFetchedByCommit}");
+            
             if (refFetchedByCommit != null)
             {
                 sourcesToBuild = refFetchedByCommit;
             }
-            else if (IsPullRequest(sourceBranch) || string.IsNullOrEmpty(sourceVersion))
+            else if (IsPullRequest(sourceBranch) && string.IsNullOrEmpty(sourceVersion))
             {
                 sourcesToBuild = GetRemoteRefName(sourceBranch);
             }

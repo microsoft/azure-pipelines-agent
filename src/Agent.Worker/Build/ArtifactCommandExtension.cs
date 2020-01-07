@@ -173,7 +173,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             if (!File.Exists(fullPath) && !Directory.Exists(fullPath))
             {
                 // if localPath is not a file or folder on disk
-                throw new FileNotFoundException(StringUtil.Loc("PathNotExist", localPath));
+                throw new FileNotFoundException(StringUtil.Loc("PathDoesNotExist", localPath));
             }
             else if (Directory.Exists(fullPath) && Directory.EnumerateFiles(fullPath, "*", SearchOption.AllDirectories).FirstOrDefault() == null)
             {

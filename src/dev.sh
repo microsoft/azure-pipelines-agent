@@ -72,14 +72,6 @@ function cmd_build ()
     mkdir -p "${LAYOUT_DIR}/bin/en-US"
     grep --invert-match '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > "${LAYOUT_DIR}/bin/en-US/strings.json"
 
-    heading "Generating Integration Files"
-    mkdir -p "${INTEGRATION_DIR}"
-    ${NODE} ./versionify.js ./Misc/InstallAgentPackage.template.xml "${INTEGRATION_DIR}/InstallAgentPackage.xml"
-    AGENT_VERSION_PATH=${AGENT_VERSION//./-}
-    mkdir -p "${INTEGRATION_DIR}/PublishVSTSAgent-${AGENT_VERSION_PATH}"
-    ${NODE} ./versionify.js ./Misc/PublishVSTSAgent.template.ps1 "${INTEGRATION_DIR}/PublishVSTSAgent-${AGENT_VERSION_PATH}/PublishVSTSAgent-${AGENT_VERSION_PATH}.ps1"
-    ${NODE} ./versionify.js ./Misc/UnpublishVSTSAgent.template.ps1 "${INTEGRATION_DIR}/PublishVSTSAgent-${AGENT_VERSION_PATH}/UnpublishVSTSAgent-${AGENT_VERSION_PATH}.ps1"
-
 }
 
 function cmd_layout ()
@@ -119,7 +111,7 @@ function cmd_package ()
         echo "You must build first.  Expecting to find ${LAYOUT_DIR}/bin"
     fi
 
-    agent_ver=$("${LAYOUT_DIR}/bin/Agent.Listener" --version | tail -n 1) || failed "version"
+    agent_ver=$(cat "${SCRIPT_DIR}/agentversion" | tail -n 1) || failed "version"
     agent_pkg_name="vsts-agent-${RUNTIME_ID}-${agent_ver}"
 
     # TEMPORARY - need to investigate why Agent.Listener --version is throwing an error on OS X
@@ -142,7 +134,7 @@ function cmd_package ()
 
     if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "darwin") ]]; then
         tar_name="${agent_pkg_name}.tar.gz"
-        echo "Creating $tar_name in ${LAYOUT_DIR}"
+        echo "Creating $tar_name in ${PACKAGE_DIR}"
         tar -czf "${tar_name}" -C "${LAYOUT_DIR}" .
     elif [[ ("$CURRENT_PLATFORM" == "windows") ]]; then
         zip_name="${agent_pkg_name}.zip"

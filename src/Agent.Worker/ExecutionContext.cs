@@ -453,7 +453,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 _defaultStepTarget = new HostInfo();
             }
             // Include other step containers
-            foreach (var container in message.Resources.Containers.Where(x => !string.Equals(x.Alias, message.JobContainer, StringComparison.OrdinalIgnoreCase)))
+            var sidecarContainers = new HashSet<string>(message.JobSidecarContainers.Values, StringComparer.OrdinalIgnoreCase);
+            foreach (var container in message.Resources.Containers.Where(x =>
+                !string.Equals(x.Alias, message.JobContainer, StringComparison.OrdinalIgnoreCase) && !sidecarContainers.Contains(x.Alias)))
             {
                 Containers.Add(HostContext.CreateContainerInfo(container));
             }
