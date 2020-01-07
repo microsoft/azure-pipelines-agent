@@ -28,13 +28,15 @@ date "+[%F %T-%4N] Waiting for $agentprocessname ($agentpid) to complete" >> "$l
 while [ -e /proc/$agentpid ]
 do
     date "+[%F %T-%4N] Process $agentpid still running" >> "$logfile" 2>&1
-    ping -c 2 127.0.0.1 > /dev/null
+    # explicitly setting interval to 1 sec since it is possible for a host to have a different
+    # default interval value
+    ping -c 2 -i 1 127.0.0.1 > /dev/null
 done
 date "+[%F %T-%4N] Process $agentpid finished running" >> "$logfile" 2>&1
 
 # start re-organize folders
 date "+[%F %T-%4N] Sleep 1 more second to make sure process exited" >> "$logfile" 2>&1
-ping -c 2 127.0.0.1 > /dev/null
+ping -c 2 -i 1 127.0.0.1 > /dev/null
 
 # the folder structure under agent root will be
 # ./bin -> bin.2.100.0 (junction folder)

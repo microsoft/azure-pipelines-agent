@@ -53,11 +53,11 @@ LAST_RELEASE_DATE="$(${CURL} --silent ${GIT_HUB_API_URL_ROOT}/releases/latest | 
 echo "Fetching PRs merged since ${LAST_RELEASE_DATE}"
 PRS="$(${CURL} --silent "${GIT_HUB_SEARCH_API_URL_ROOT}/issues?q=type:pr+is:merged+repo:microsoft/azure-pipelines-agent+merged:>=${LAST_RELEASE_DATE}&sort=closed_at&order=asc" | ${NODE} -e "JSON.parse(fs.readFileSync(0)).items.forEach(function (item) { console.log(' - ' + item.title + ' (#' + item.number + ')');});")"
 
-RELEASE_NOTES=$(cat ${SCRIPT_DIR}/../releaseNote.md)
-echo -e "${PRS}\n\n${RELEASE_NOTES}" > ${SCRIPT_DIR}/../releaseNote.md
+echo -e "${PRS}\n\n" | cat - ${SCRIPT_DIR}/../releaseNote.md > ${SCRIPT_DIR}/../releaseNote.${NEW_RELEASE}.md
 
 # edit releaseNotes.md
-${EDITOR} ${SCRIPT_DIR}/../releaseNote.md
+${EDITOR} ${SCRIPT_DIR}/../releaseNote.${NEW_RELEASE}.md
+mv ${SCRIPT_DIR}/../releaseNote.${NEW_RELEASE}.md ${SCRIPT_DIR}/../releaseNote.md
 
 mkdir -p "${INTEGRATION_DIR}"
 rm  -rf "${INTEGRATION_DIR}/*"
@@ -94,7 +94,7 @@ pushd ${INTEGRATION_DIR}/AzureDevOps
 cp ${INTEGRATION_DIR}/InstallAgentPackage.xml DistributedTask/Service/Servicing/Host/Deployment/Groups/InstallAgentPackage.xml
 NEW_ADO_BRANCH="users/${USER}/agent-${NEW_RELEASE}"
 ${GIT} checkout -b ${NEW_ADO_BRANCH}
-${GIT} commit -a -m 'Install Agent ${NEW_RELEASE}'
+${GIT} commit -a -m "Install Agent ${NEW_RELEASE}"
 ${GIT} push --set-upstream origin ${NEW_ADO_BRANCH}
 popd
 echo "Create pull-request for this change "
@@ -122,7 +122,7 @@ cp -r "${INTEGRATION_DIR}/PublishVSTSAgent-${AGENT_VERSION_PATH}" "tfs/${MILESTO
 NEW_CONFIG_CHANGE_BRANCH="users/${USER}/agent-${NEW_RELEASE}"
 ${GIT} checkout -b ${NEW_CONFIG_CHANGE_BRANCH}
 ${GIT} add "tfs/${MILESTONE_DIR}"
-${GIT} commit -m 'Install Agent ${NEW_RELEASE}'
+${GIT} commit -m "Install Agent ${NEW_RELEASE}"
 ${GIT} push --set-upstream origin ${NEW_CONFIG_CHANGE_BRANCH}
 popd
 echo "Create pull-request for this change "
