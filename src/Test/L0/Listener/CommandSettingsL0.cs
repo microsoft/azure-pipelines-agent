@@ -50,7 +50,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 var environment = new LocalEnvironment();
                 // Arrange.
                 environment.SetEnvironmentVariable(envVarName, expected);
-                var command = new CommandSettings(hc, args: new string[0], environment);
+                var command = new CommandSettings(hc, args: new string[0], environmentScope: environment);
 
                 // Act.
                 MethodInfo mi = command.GetType().GetMethod(accessor);
@@ -75,7 +75,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                  var environment = new LocalEnvironment();
                 // Arrange.
                 environment.SetEnvironmentVariable(envVarName, expected);
-                var command = new CommandSettings(hc, args: new string[0], environment);
+                var command = new CommandSettings(hc, args: new string[0], environmentScope: environment);
 
                 // Act.
                 MethodInfo mi = command.GetType().GetMethod(accessor);
@@ -262,7 +262,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 var environment = new LocalEnvironment();
                 // Arrange.
                 environment.SetEnvironmentVariable(envVarName, "true");
-                var command = new CommandSettings(hc, args: new string[0], environment);
+                var command = new CommandSettings(hc, args: new string[0], environmentScope: environment);
 
                 // Act.
                 PropertyInfo pi = command.GetType().GetProperty(flag);
