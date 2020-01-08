@@ -38,23 +38,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
-        [Theory]
+        [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", nameof(CommandSettings))]
-        [InlineData("agent", "GetAgentName", "some agent")]
-        public void GetsArgFromEnvVar(String arg, String accessor, String expected)
+        public void GetsArgFromEnvVar()
         {
             using (TestHostContext hc = CreateTestContext())
             {
-                var envVarName = "VSTS_AGENT_INPUT_" + arg.ToUpperInvariant();
+                var envVarName = "VSTS_AGENT_INPUT_AGENT";
+                var expected = "some agent";
                 var environment = new LocalEnvironment();
                 // Arrange.
                 environment.SetEnvironmentVariable(envVarName, expected);
                 var command = new CommandSettings(hc, args: new string[0], environmentScope: environment);
 
                 // Act.
-                MethodInfo mi = command.GetType().GetMethod(accessor);
-                var actual = (string)mi.Invoke(command, null);
+                var actual = command.GetAgentName();
 
                 // Assert.
                 Assert.Equal(expected, actual);
@@ -63,23 +62,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
-        [Theory]
+        [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", nameof(CommandSettings))]
-        [InlineData("token", "GetToken", "some secret token value")]
-        public void GetsArgSecretFromEnvVar(String arg, String accessor, String expected)
+        public void GetsArgSecretFromEnvVar()
         {
             using (TestHostContext hc = CreateTestContext())
             {
-                var envVarName = "VSTS_AGENT_INPUT_" + arg.ToUpperInvariant();
-                 var environment = new LocalEnvironment();
+                var envVarName = "VSTS_AGENT_INPUT_TOKEN";
+                var expected = "some secret token value";
+                var environment = new LocalEnvironment();
                 // Arrange.
                 environment.SetEnvironmentVariable(envVarName, expected);
                 var command = new CommandSettings(hc, args: new string[0], environmentScope: environment);
 
                 // Act.
-                MethodInfo mi = command.GetType().GetMethod(accessor);
-                var actual = (string)mi.Invoke(command, null);
+                var actual = command.GetToken();
 
                 // Assert.
                 Assert.Equal(expected, actual);
@@ -250,23 +248,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
-        [Theory]
+        [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", nameof(CommandSettings))]
-        [InlineData("Unattended")]
-        public void GetsFlagFromEnvVar(string flag)
+        public void GetsFlagUnattendedFromEnvVar()
         {
             using (TestHostContext hc = CreateTestContext())
             {
-                var envVarName = "VSTS_AGENT_INPUT_" + flag.ToUpperInvariant();
+                var envVarName = "VSTS_AGENT_INPUT_UNATTENDED";
                 var environment = new LocalEnvironment();
                 // Arrange.
                 environment.SetEnvironmentVariable(envVarName, "true");
                 var command = new CommandSettings(hc, args: new string[0], environmentScope: environment);
 
                 // Act.
-                PropertyInfo pi = command.GetType().GetProperty(flag);
-                bool actual = (bool)pi.GetValue(command);
+                bool actual = command.Unattended;
 
                 // Assert.
                 Assert.Equal(true, actual);
