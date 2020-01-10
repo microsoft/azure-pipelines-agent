@@ -137,6 +137,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Execute the process. Exit code 0 should always be returned.
                 // A non-zero exit code indicates infrastructural failure.
                 // Task failure should be communicated over STDOUT using ## commands.
+                
                 // Agent.PluginHost's arguments
                 string arguments = $"task \"{plugin}\"";
                 await processInvoker.ExecuteAsync(workingDirectory: workingDirectory,
