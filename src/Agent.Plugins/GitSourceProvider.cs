@@ -107,6 +107,11 @@ namespace Agent.Plugins.Repository
             }
         }
 
+        public override bool UseBearerAuthenticationForOAuth()
+        {
+            return true;
+        }
+
         public override bool GitSupportUseAuthHeader(AgentTaskPluginExecutionContext executionContext, GitCliManager gitCommandManager)
         {
             // v2.9 git exist use auth header for tfsgit repository.
@@ -185,6 +190,11 @@ namespace Agent.Plugins.Repository
         public abstract void RequirementCheck(AgentTaskPluginExecutionContext executionContext, Pipelines.RepositoryResource repository, GitCliManager gitCommandManager);
 
         public abstract bool GitSupportsFetchingCommitBySha1Hash { get; }
+
+        public virtual bool UseBearerAuthenticationForOAuth() 
+        { 
+            return false; 
+        }
 
         public string GenerateAuthHeader(AgentTaskPluginExecutionContext executionContext, string username, string password, bool isBearer)
         {
@@ -382,7 +392,6 @@ namespace Agent.Plugins.Repository
             // 1. git version greater than 2.9  and git-lfs version greater than 2.1 for on-prem tfsgit
             // 2. git version greater than 2.14.2 if use SChannel for SSL backend (Windows only)
             RequirementCheck(executionContext, repository, gitCommandManager);
-
             string username = string.Empty;
             string password = string.Empty;
             bool useBearerAuthType = false;
@@ -392,7 +401,7 @@ namespace Agent.Plugins.Repository
                 {
                     case EndpointAuthorizationSchemes.OAuth:
                         username = EndpointAuthorizationSchemes.OAuth;
-                        useBearerAuthType = true;
+                        useBearerAuthType = UseBearerAuthenticationForOAuth();
                         if (!endpoint.Authorization.Parameters.TryGetValue(EndpointAuthorizationParameters.AccessToken, out password))
                         {
                             password = string.Empty;
