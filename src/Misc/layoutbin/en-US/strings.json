@@ -219,7 +219,7 @@
   "CopyFileComplete": "Successfully published artifacts to {0}",
   "CopyFileToDestination": "Copy file '{0}' to '{1}'",
   "CouldNotRemoveService": "Could not delete service '{0}'",
-  "CreateUserWithSameUIDInsideContainer": "Try create an user with UID '{0}' inside the container.",
+  "CreateUserWithSameUIDInsideContainer": "Try to create a user with UID '{0}' inside the container.",
   "CurrentUTC": "Current UTC: {0}",
   "CustomLogDoesNotExist": "Log file path is not provided or file doesn't exist: '{0}'",
   "CustomMarkDownSummaryDoesNotExist": "Markdown summary file path is not provided or file doesn't exist: '{0}'",
