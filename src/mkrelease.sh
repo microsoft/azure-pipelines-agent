@@ -60,7 +60,7 @@ ${EDITOR} ${SCRIPT_DIR}/../releaseNote.${NEW_RELEASE}.md
 mv ${SCRIPT_DIR}/../releaseNote.${NEW_RELEASE}.md ${SCRIPT_DIR}/../releaseNote.md
 
 mkdir -p "${INTEGRATION_DIR}"
-rm  -rf "${INTEGRATION_DIR}/*"
+rm  -rf "${INTEGRATION_DIR}/PublishVSTSAgent-"*
 ${NODE} ./versionify.js ./Misc/InstallAgentPackage.template.xml "${INTEGRATION_DIR}/InstallAgentPackage.xml"
 AGENT_VERSION_PATH=${NEW_RELEASE//./-}
 mkdir -p "${INTEGRATION_DIR}/PublishVSTSAgent-${AGENT_VERSION_PATH}"
@@ -83,13 +83,21 @@ ${GIT} push --set-upstream origin ${NEW_BRANCH}
 echo "Create and publish release by kicking off this pipeline. (Use branch ${NEW_BRANCH})"
 echo "     ${AGENT_RELEASE_PIPELINE_URL}"
 echo
-read -n 1 -p "Press any key to continue ... "
 # TODO: auto kick off pipeline
 
 # create ADO L2 tests PR
 ADO_GIT_URL=https://mseng@dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps
 ADO_PR_URL=https://dev.azure.com/mseng/_git/AzureDevOps/pullrequests?_a=mine
-${GIT} clone --depth 1 ${ADO_GIT_URL} ${INTEGRATION_DIR}/AzureDevOps
+
+if [ -d "${INTEGRATION_DIR}/AzureDevOps" ]; then
+  pushd ${INTEGRATION_DIR}/AzureDevOps
+  ${GIT} checkout master
+  ${GIT} pull
+  popd
+else
+  ${GIT} clone --depth 1 ${ADO_GIT_URL} ${INTEGRATION_DIR}/AzureDevOps
+fi
+
 pushd ${INTEGRATION_DIR}/AzureDevOps
 cp ${INTEGRATION_DIR}/InstallAgentPackage.xml DistributedTask/Service/Servicing/Host/Deployment/Groups/InstallAgentPackage.xml
 NEW_ADO_BRANCH="users/${USER}/agent-${NEW_RELEASE}"
@@ -100,13 +108,21 @@ popd
 echo "Create pull-request for this change "
 echo "     ${ADO_PR_URL}"
 echo
-read -n 1 -p "Press any key to continue ... "
 
 # create config change PR
 CONFIG_CHANGE_GIT_URL=https://mseng@dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps.ConfigChange
 CONFIG_CHANGE_PR_URL=https://dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps.ConfigChange/pullrequests?_a=mine
 
-${GIT} clone --depth 1 ${CONFIG_CHANGE_GIT_URL} ${INTEGRATION_DIR}/AzureDevOps.ConfigChange
+
+if [ -d "${INTEGRATION_DIR}/AzureDevOps.ConfigChange" ]; then
+  pushd ${INTEGRATION_DIR}/AzureDevOps.ConfigChange
+  ${GIT} checkout master
+  ${GIT} pull
+  popd
+else
+  ${GIT} clone --depth 1 ${CONFIG_CHANGE_GIT_URL} ${INTEGRATION_DIR}/AzureDevOps.ConfigChange
+fi
+
 pushd ${INTEGRATION_DIR}/AzureDevOps.ConfigChange
 
 # get most recent milestone directory
@@ -128,5 +144,4 @@ popd
 echo "Create pull-request for this change "
 echo "     ${CONFIG_CHANGE_PR_URL}"
 echo
-read -n 1 -p "Press any key to continue ... "
 # TODO: auto create PR
