@@ -1,0 +1,18 @@
+{
+  "name": "agent-release",
+  "version": "1.0.0",
+  "description": "Flow for releasing agent",
+  "main": "mkrelease.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Microsoft Corporation",
+  "license": "MIT",
+  "dependencies": {
+    "child_process": "^1.0.2",
+    "mkpath": "^1.0.0",
+    "natural-sort": "^1.0.0",
+    "node-getopt": "^0.3.2",
+    "request": "^2.88.0"
+  }
+}
