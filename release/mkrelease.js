@@ -17,8 +17,9 @@ const gitHubAPIURLRoot="https://api.github.com/repos/microsoft/azure-pipelines-a
 process.env.EDITOR = process.env.EDITOR === undefined ? 'vi' : process.env.EDITOR;
 
 opt = require('node-getopt').create([
-    [''  , 'dryrun'                , 'Dry run only, do not actually commit new release'],
-    ['h' , 'help'                , 'display this help'],
+    ['',  'dryrun',               'Dry run only, do not actually commit new release'],
+    ['',  'derivedFrom=version',  'Used to get PRs merged since this release was created', 'latest'],
+    ['h', 'help',                 'Display this help'],
   ])              // create Getopt instance
   .setHelp(
     "Usage: node mkrelease.js [OPTION] <version>\n" +
@@ -54,14 +55,32 @@ function verifyNewReleaseTagOk(newRelease, callback)
 function writeAgentVersionFile(newRelease)
 {
     console.log("Writing agent version file")
-    fs.writeFileSync(__dirname + '/../src/agentversion', newRelease  + "\n");
+    if (!opt.options.dryrun)
+    {
+        fs.writeFileSync(__dirname + '/../src/agentversion', newRelease  + "\n");
+    }
     return newRelease;
 }
 
 function fetchPRsSinceLastReleaseAndEditReleaseNotes(newRelease, callback)
 {
-    gitHubRequest(gitHubAPIURLRoot + "/releases/latest", { json: true }, function (err, resp, body) {
+    var derivedFrom = opt.options.derivedFrom;
+    console.log("Derived from %o", derivedFrom);
+    if (derivedFrom !== 'latest')
+    {
+        if (!derivedFrom.startsWith('v'))
+        {
+            derivedFrom = 'v' + derivedFrom;
+        }
+        derivedFrom = 'tags/' + derivedFrom;
+    }
+    gitHubRequest(gitHubAPIURLRoot + "/releases/" + derivedFrom, { json: true }, function (err, resp, body) {
         if (err) throw err;
+        if (body.published_at === undefined)
+        {
+            console.log('Error: Cannot find release ' + opt.options.derivedFrom + '. Aborting.');
+            process.exit(-1);
+        }
         var lastReleaseDate = body.published_at;
         console.log("Fetching PRs merged since " + lastReleaseDate);
         gitHubRequest("https://api.github.com/search/issues?q=type:pr+is:merged+repo:microsoft/azure-pipelines-agent+merged:>=" + lastReleaseDate + "&sort=closed_at&order=asc", { json: true }, function (err, resp, body) {
@@ -79,7 +98,6 @@ function editReleaseNotesFile(body, callback)
         newPRs.push(' - ' + item.title + ' (#' + item.number + ')');
     });
     var newReleaseNotes = newPRs.join("\n") + "\n\n" + existingReleaseNotes;
-    fs.writeFileSync(releaseNotesFile, newReleaseNotes);
     var editorCmd = process.env.EDITOR + ' ' + releaseNotesFile;
     console.log(editorCmd);
     if (opt.options.dryrun)
@@ -88,6 +106,7 @@ function editReleaseNotesFile(body, callback)
     }
     else
     {
+        fs.writeFileSync(releaseNotesFile, newReleaseNotes);
         try
         {
             cp.execSync(process.env.EDITOR + ' ' + releaseNotesFile, {
@@ -262,7 +281,12 @@ function checkGitStatus()
 
 async function main(args)
 {
-    var newRelease = args[0];
+    var newRelease = opt.argv[0];
+    if (newRelease === undefined)
+    {
+        console.log('Error: You must supply a version');
+        process.exit(-1);
+    }
     verifyNewReleaseTagOk(newRelease,
         function() {
             checkGitStatus();
