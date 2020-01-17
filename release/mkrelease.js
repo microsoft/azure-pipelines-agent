@@ -1,26 +1,23 @@
 const fs = require('fs');
-const request = require('request');
 const cp = require('child_process');
-const mkpath = require('mkpath');
 const naturalSort = require('natural-sort');
+const path = require('path');
+const httpm = require('typed-rest-client/HttpClient');
 
-var gitHubRequest = request.defaults({
-    headers: {'User-Agent': 'Request'}
-})
-const integrationDir = __dirname + '/../_layout/integrations';
+const INTEGRATION_DIR = path.join(__dirname, '..', '_layout', 'integrations');
+const GIT = 'git';
+const VALID_RELEASE_RE = /^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/;
+const GIT_HUB_API_URL_ROOT="https://api.github.com/repos/microsoft/azure-pipelines-agent";
 
-const git = 'git';
-
-const release_re = /^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/;
-const gitHubAPIURLRoot="https://api.github.com/repos/microsoft/azure-pipelines-agent";
+var httpc = new httpm.HttpClient('vsts-node-api');
 
 process.env.EDITOR = process.env.EDITOR === undefined ? 'vi' : process.env.EDITOR;
 
-opt = require('node-getopt').create([
+var opt = require('node-getopt').create([
     ['',  'dryrun',               'Dry run only, do not actually commit new release'],
     ['',  'derivedFrom=version',  'Used to get PRs merged since this release was created', 'latest'],
     ['h', 'help',                 'Display this help'],
-  ])              // create Getopt instance
+  ])
   .setHelp(
     "Usage: node mkrelease.js [OPTION] <version>\n" +
     "\n" +
@@ -30,26 +27,24 @@ opt = require('node-getopt').create([
   .parseSystem(); // parse command line
 
 
-function verifyNewReleaseTagOk(newRelease, callback)
+async function verifyNewReleaseTagOk(newRelease)
 {
-    if (newRelease === "" || !newRelease.match(release_re) || newRelease.endsWith('.999.999'))
+    if (newRelease === "" || !newRelease.match(VALID_RELEASE_RE) || newRelease.endsWith('.999.999'))
     {
         console.log("Invalid version '" + newRelease + "'. Version must be in the form of <major>.<minor>.<patch> where each level is 0-999");
         process.exit(-1);
     }
-    gitHubRequest(gitHubAPIURLRoot + "/releases/tags/v" + newRelease, { json: true }, function (err, resp, body) {
-        if (err) throw err;
-        if (body.message !== "Not Found")
-        {
-            console.log("Version " + newRelease + " is already in use");
-            process.exit(-1)
-        }
-        else
-        {
-            console.log("Version " + newRelease + " is available for use");
-        }
-        callback();
-    });
+    var body = await (await httpc.get(GIT_HUB_API_URL_ROOT + "/releases/tags/v" + newRelease)).readBody();
+    body = JSON.parse(body);
+    if (body.message !== "Not Found")
+    {
+        console.log("Version " + newRelease + " is already in use");
+        process.exit(-1)
+    }
+    else
+    {
+        console.log("Version " + newRelease + " is available for use");
+    }
 }
 
 function writeAgentVersionFile(newRelease)
@@ -57,12 +52,12 @@ function writeAgentVersionFile(newRelease)
     console.log("Writing agent version file")
     if (!opt.options.dryrun)
     {
-        fs.writeFileSync(__dirname + '/../src/agentversion', newRelease  + "\n");
+        fs.writeFileSync(path.join(__dirname, '..', 'src', 'agentversion'), newRelease  + "\n");
     }
     return newRelease;
 }
 
-function fetchPRsSinceLastReleaseAndEditReleaseNotes(newRelease, callback)
+async function fetchPRsSinceLastReleaseAndEditReleaseNotes(newRelease, callback)
 {
     var derivedFrom = opt.options.derivedFrom;
     console.log("Derived from %o", derivedFrom);
@@ -74,24 +69,24 @@ function fetchPRsSinceLastReleaseAndEditReleaseNotes(newRelease, callback)
         }
         derivedFrom = 'tags/' + derivedFrom;
     }
-    gitHubRequest(gitHubAPIURLRoot + "/releases/" + derivedFrom, { json: true }, function (err, resp, body) {
-        if (err) throw err;
-        if (body.published_at === undefined)
-        {
-            console.log('Error: Cannot find release ' + opt.options.derivedFrom + '. Aborting.');
-            process.exit(-1);
-        }
-        var lastReleaseDate = body.published_at;
-        console.log("Fetching PRs merged since " + lastReleaseDate);
-        gitHubRequest("https://api.github.com/search/issues?q=type:pr+is:merged+repo:microsoft/azure-pipelines-agent+merged:>=" + lastReleaseDate + "&sort=closed_at&order=asc", { json: true }, function (err, resp, body) {
-            editReleaseNotesFile(body, callback);
-        });
-    });
+
+    var body = await (await httpc.get(GIT_HUB_API_URL_ROOT + "/releases/" + derivedFrom)).readBody();
+    body = JSON.parse(body);
+    if (body.published_at === undefined)
+    {
+        console.log('Error: Cannot find release ' + opt.options.derivedFrom + '. Aborting.');
+        process.exit(-1);
+    }
+    var lastReleaseDate = body.published_at;
+    console.log("Fetching PRs merged since " + lastReleaseDate);
+    body = await (await httpc.get("https://api.github.com/search/issues?q=type:pr+is:merged+repo:microsoft/azure-pipelines-agent+merged:>=" + lastReleaseDate + "&sort=closed_at&order=asc")).readBody();
+    body = JSON.parse(body);
+    editReleaseNotesFile(body);
 }
 
-function editReleaseNotesFile(body, callback)
+function editReleaseNotesFile(body)
 {
-    var releaseNotesFile = __dirname + '/../releaseNote.md';
+    var releaseNotesFile = path.join(__dirname, '..', 'releaseNote.md');
     var existingReleaseNotes = fs.readFileSync(releaseNotesFile);
     var newPRs = [];
     body.items.forEach(function (item) {
@@ -119,7 +114,6 @@ function editReleaseNotesFile(body, callback)
             process.exit(-1);
         }
     }
-    callback();
 }
 
 function versionifySync(template, destination, version)
@@ -139,31 +133,27 @@ function versionifySync(template, destination, version)
 
 function createIntegrationFiles(newRelease, callback)
 {
-    mkpath(integrationDir, function (err) {
-        if (err) throw err;
-        cp.execSync("rm  -rf " + integrationDir + "/PublishVSTSAgent-*");
-        versionifySync(__dirname + "/../src/Misc/InstallAgentPackage.template.xml",
-            integrationDir + "/InstallAgentPackage.xml",
-            newRelease
-        );
-        var agentVersionPath=newRelease.replace('.', '-');
-        var publishDir = integrationDir + "/PublishVSTSAgent-" + agentVersionPath
-            mkpath(publishDir, function (err) {
-                if (err) throw err;
-                versionifySync(__dirname + "/../src/Misc/PublishVSTSAgent.template.ps1",
-                publishDir + "/PublishVSTSAgent-" + agentVersionPath + ".ps1",
-                newRelease
-            );
-            versionifySync(__dirname + "/../src/Misc/UnpublishVSTSAgent.template.ps1",
-                publishDir + "/UnpublishVSTSAgent-" + agentVersionPath + ".ps1",
-                newRelease
-            );
-            callback();
-        });
-    });
+    fs.mkdirSync(INTEGRATION_DIR, { recursive: true });
+    cp.execSync("rm  -rf " + path.join(INTEGRATION_DIR, 'PublishVSTSAgent-*')); //TOOD: make this not exec
+    versionifySync(path.join(__dirname, '..', 'src', 'Misc', 'InstallAgentPackage.template.xml'),
+        path.join(INTEGRATION_DIR, "InstallAgentPackage.xml"),
+        newRelease
+    );
+    var agentVersionPath=newRelease.replace('.', '-');
+    var publishDir = path.join(INTEGRATION_DIR, "PublishVSTSAgent-" + agentVersionPath);
+    fs.mkdirSync(publishDir, { recursive: true });
+
+    versionifySync(path.join(__dirname, '..', 'src', 'Misc', 'PublishVSTSAgent.template.ps1'),
+        path.join(publishDir, "PublishVSTSAgent-" + agentVersionPath + ".ps1"),
+        newRelease
+    );
+    versionifySync(path.join(__dirname, '..', 'src', 'Misc', 'UnpublishVSTSAgent.template.ps1'),
+        path.join(publishDir, "UnpublishVSTSAgent-" + agentVersionPath + ".ps1"),
+        newRelease
+    );
 }
 
-function execInForground(command, directory)
+function execInForeground(command, directory)
 {
     directory = directory === undefined ? "." : directory;
     console.log("% " + command);
@@ -175,16 +165,16 @@ function execInForground(command, directory)
 
 function commitAndPush(directory, release, branch)
 {
-    execInForground(git + " checkout -b " + branch, directory);
-    execInForground(git + " commit -m 'Agent Release " + release + "' ", directory);
-    execInForground(git + " push --set-upstream origin " + branch, directory);
+    execInForeground(GIT + " checkout -b " + branch, directory);
+    execInForeground(GIT + " commit -m 'Agent Release " + release + "' ", directory);
+    execInForeground(GIT + " push --set-upstream origin " + branch, directory);
 }
 
 function commitAgentChanges(directory, release)
 {
     var newBranch = "releases/" + release;
-    execInForground(git + " add src/agentversion", directory);
-    execInForground(git + " add releaseNote.md", directory);
+    execInForeground(GIT + " add " + path.join('src', 'agentversion'), directory);
+    execInForeground(GIT + " add releaseNote.md", directory);
     commitAndPush(directory, release, newBranch);
 
     console.log("Create and publish release by kicking off this pipeline. (Use branch " + newBranch + ")");
@@ -196,12 +186,12 @@ function cloneOrPull(directory, url)
 {
     if (fs.existsSync(directory))
     {
-        execInForground(git + " checkout master", directory);
-        execInForground(git + " pull", directory);
+        execInForeground(GIT + " checkout master", directory);
+        execInForeground(GIT + " pull", directory);
     }
     else
     {
-        execInForground(git + " clone --depth 1 " + url + " " + directory);
+        execInForeground(GIT + " clone --depth 1 " + url + " " + directory);
     }
 }
 
@@ -210,16 +200,18 @@ function commitADOL2Changes(directory, release)
     var gitUrl =  "https://mseng@dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps"
 
     cloneOrPull(directory, gitUrl);
+    var file = path.join(INTEGRATION_DIR, 'InstallAgentPackage.xml');
+    var target = path.join(directory, 'DistributedTask', 'Service', 'Servicing', 'Host', 'Deployment', 'Groups', 'InstallAgentPackage.xml');
     if (opt.options.dryrun)
     {
-        console.log("Copy file from " + integrationDir + "/InstallAgentPackage.xml" + " to " + directory + "/DistributedTask/Service/Servicing/Host/Deployment/Groups/InstallAgentPackage.xml" );
+        console.log("Copy file from " + file + " to " + target );
     }
     else
     {
-        fs.copyFileSync(integrationDir + "/InstallAgentPackage.xml", directory + "/DistributedTask/Service/Servicing/Host/Deployment/Groups/InstallAgentPackage.xml");
+        fs.copyFileSync(file, target);
     }
     var newBranch = "users/" + process.env.USER + "/agent-" + release;
-    execInForground(git + " add DistributedTask", directory);
+    execInForeground(GIT + " add DistributedTask", directory);
     commitAndPush(directory, release, newBranch);
 
     console.log("Create pull-request for this change ");
@@ -233,26 +225,31 @@ function commitADOConfigChange(directory, release)
 
     cloneOrPull(directory, gitUrl);
     var agentVersionPath=release.replace('.', '-');
-    var dirs = fs.readdirSync(directory + "/tfs", { withFileTypes: true })
-     .filter(dirent => dirent.isDirectory() && dirent.name.startsWith("m"))
-     .map(dirent => dirent.name)
-     .sort(naturalSort({direction: 'desc'}))
-    var milestoneDir = dirs[0];
+    var milestoneDir = "mXXX";
+    var tfsDir = path.join(directory + "tfs");
+    if (fs.existsSync(tfsDir))
+    {
+        var dirs = fs.readdirSync(tfsDir, { withFileTypes: true })
+        .filter(dirent => dirent.isDirectory() && dirent.name.startsWith("m"))
+        .map(dirent => dirent.name)
+        .sort(naturalSort({direction: 'desc'}))
+        milestoneDir = dirs[0];
+    }
     var targetDir = "PublishVSTSAgent-" + agentVersionPath;
     if (opt.options.dryrun)
     {
-        console.log("Copy file from " + integrationDir + "/" + targetDir + " to " + directory + "/tfs/" + milestoneDir );
+        console.log("Copy file from " + path.join(INTEGRATION_DIR, targetDir) + " to " + tfsDir + milestoneDir );
     }
     else
     {
-        fs.mkdirSync(directory + "/tfs/" + milestoneDir + "/" + targetDir);
-        fs.readdirSync(integrationDir + "/" + targetDir).forEach( function (file) {
-            fs.copyFileSync(integrationDir + "/" + targetDir + "/" + file, directory + "/tfs/" + milestoneDir + "/" + file);
+        fs.mkdirSync(path.join(tfsDir, milestoneDir, targetDir));
+        fs.readdirSync(path.join(INTEGRATION_DIR, targetDir)).forEach( function (file) {
+            fs.copyFileSync(path.join(INTEGRATION_DIR, targetDir, file), path.join(tfsDir, milestoneDir, file));
         });
     }
 
     var newBranch = "users/" + process.env.USER + "/agent-" + release;
-    execInForground(git + " add tfs/" + milestoneDir, directory);
+    execInForeground(GIT + " add " + path.join('tfs', milestoneDir), directory);
     commitAndPush(directory, release, newBranch);
 
     console.log("Create pull-request for this change ");
@@ -262,7 +259,7 @@ function commitADOConfigChange(directory, release)
 
 function checkGitStatus()
 {
-    var git_status = cp.execSync(git + ' status --untracked-files=no --porcelain', { encoding: 'utf-8'});
+    var git_status = cp.execSync(GIT + ' status --untracked-files=no --porcelain', { encoding: 'utf-8'});
     if (git_status !== "")
     {
         console.log("You have uncommited changes in this clone. Aborting.");
@@ -279,7 +276,7 @@ function checkGitStatus()
     return git_status;
 }
 
-async function main(args)
+async function main()
 {
     var newRelease = opt.argv[0];
     if (newRelease === undefined)
@@ -287,20 +284,15 @@ async function main(args)
         console.log('Error: You must supply a version');
         process.exit(-1);
     }
-    verifyNewReleaseTagOk(newRelease,
-        function() {
-            checkGitStatus();
-            writeAgentVersionFile(newRelease);
-            fetchPRsSinceLastReleaseAndEditReleaseNotes(newRelease, function () {
-                createIntegrationFiles(newRelease, function () {
-                    commitAgentChanges(__dirname + "/../", newRelease);
-                    commitADOL2Changes(integrationDir + "/AzureDevOps", newRelease);
-                    commitADOConfigChange(integrationDir + "/AzureDevOps.ConfigChange", newRelease);
-                    console.log('done.');
-                });
-            });
-        }
-    );
+    await verifyNewReleaseTagOk(newRelease);
+    checkGitStatus();
+    writeAgentVersionFile(newRelease);
+    await fetchPRsSinceLastReleaseAndEditReleaseNotes(newRelease);
+    createIntegrationFiles(newRelease);
+    commitAgentChanges(path.join(__dirname, '..'), newRelease);
+    commitADOL2Changes(path.join(INTEGRATION_DIR, "AzureDevOps"), newRelease);
+    commitADOConfigChange(path.join(INTEGRATION_DIR, "AzureDevOps.ConfigChange"), newRelease);
+    console.log('done.');
 }
 
-main(process.argv.slice(2));
+main();
