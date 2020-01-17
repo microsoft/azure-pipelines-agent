@@ -134,7 +134,20 @@ function versionifySync(template, destination, version)
 function createIntegrationFiles(newRelease, callback)
 {
     fs.mkdirSync(INTEGRATION_DIR, { recursive: true });
-    cp.execSync("rm  -rf " + path.join(INTEGRATION_DIR, 'PublishVSTSAgent-*')); //TOOD: make this not exec
+    fs.readdirSync(INTEGRATION_DIR).forEach( function(entry) {
+        if (entry.startsWith('PublishVSTSAgent-'))
+        {
+            // node 12 has recursive support in rmdirSync
+            // but since most of us are still on node 10
+            // remove the files manually first
+            var dirToDelete = path.join(INTEGRATION_DIR, entry);
+            fs.readdirSync(dirToDelete).forEach( function(file){
+                fs.unlinkSync(path.join(dirToDelete, file));
+            });
+            fs.rmdirSync(dirToDelete, { recursive: true });
+        }
+    });
+
     versionifySync(path.join(__dirname, '..', 'src', 'Misc', 'InstallAgentPackage.template.xml'),
         path.join(INTEGRATION_DIR, "InstallAgentPackage.xml"),
         newRelease
