@@ -29,7 +29,7 @@ var opt = require('node-getopt').create([
 
 async function verifyNewReleaseTagOk(newRelease)
 {
-    if (newRelease === "" || !newRelease.match(VALID_RELEASE_RE) || newRelease.endsWith('.999.999'))
+    if (!newRelease || !newRelease.match(VALID_RELEASE_RE) || newRelease.endsWith('.999.999'))
     {
         console.log("Invalid version '" + newRelease + "'. Version must be in the form of <major>.<minor>.<patch> where each level is 0-999");
         process.exit(-1);
@@ -39,7 +39,7 @@ async function verifyNewReleaseTagOk(newRelease)
     if (body.message !== "Not Found")
     {
         console.log("Version " + newRelease + " is already in use");
-        process.exit(-1)
+        process.exit(-1);
     }
     else
     {
@@ -141,7 +141,7 @@ function createIntegrationFiles(newRelease, callback)
             // but since most of us are still on node 10
             // remove the files manually first
             var dirToDelete = path.join(INTEGRATION_DIR, entry);
-            fs.readdirSync(dirToDelete).forEach( function(file){
+            fs.readdirSync(dirToDelete).forEach( function(file) {
                 fs.unlinkSync(path.join(dirToDelete, file));
             });
             fs.rmdirSync(dirToDelete, { recursive: true });
