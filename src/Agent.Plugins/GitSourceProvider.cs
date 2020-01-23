@@ -863,7 +863,7 @@ namespace Agent.Plugins.Repository
             {
                 sourcesToBuild = refFetchedByCommit;
             }
-            else if (string.IsNullOrEmpty(sourceVersion))
+            else if (IsPullRequest(sourceBranch) || string.IsNullOrEmpty(sourceVersion))
             {
                 sourcesToBuild = GetRemoteRefName(sourceBranch);
             }
