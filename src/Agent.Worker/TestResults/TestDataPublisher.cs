@@ -125,7 +125,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                         default: break;
                     }
 
-                    if(!_calculateTestRunSummary)
+                    if(!_calculateTestRunSummary && anyFailedTests)
                     {
                         return anyFailedTests;
                     }

@@ -363,7 +363,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                     default: break;
                 }
 
-                if(!_calculateTestRunSummary)
+                if(!_calculateTestRunSummary && anyFailedTests)
                 {
                     return anyFailedTests;
                 }
