@@ -179,7 +179,7 @@ function execInForeground(command, directory)
 function commitAndPush(directory, release, branch)
 {
     execInForeground(GIT + " checkout -b " + branch, directory);
-    execInForeground(GIT + " commit -m 'Agent Release " + release + "' ", directory);
+    execInForeground(`${GIT} commit -m "Agent Release ${release}" `, directory);
     execInForeground(GIT + " push --set-upstream origin " + branch, directory);
 }
 
