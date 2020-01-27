@@ -11,13 +11,13 @@ $versionSubKeyNames =
 foreach ($versionSubKeyName in $versionSubKeyNames) {
     # Parse the version.
     $version = $null
-    if (!($versionSubKeyName -clike '*A')) {
-        if (!([System.Version]::TryParse($versionSubKeyName.Substring(1, $versionSubKeyName.Length - 1), [ref]$version))) {
+    if ($versionSubKeyName -clike '*A') {
+        if (!([System.Version]::TryParse($versionSubKeyName.Substring(1, $versionSubKeyName.Length - 2), [ref]$version))) {
             continue
         }
     }
     else {
-        if (!([System.Version]::TryParse($versionSubKeyName.Substring(1, $versionSubKeyName.Length - 2), [ref]$version))) {
+        if (!([System.Version]::TryParse($versionSubKeyName.Substring(1, $versionSubKeyName.Length - 1), [ref]$version))) {
             continue
         }
     }
