@@ -368,6 +368,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 // The config is the new format.
                 Trace.Verbose("Parsing new tracking config format.");
                 result = JsonConvert.DeserializeObject<TrackingConfig>(content);
+                if (result != null)
+                {
+                    // if RepositoryTrackingInfo is empty, then we should create an entry so the rest
+                    // of the logic after this will act correctly
+                    if (result.RepositoryTrackingInfo.Count == 0)
+                    {
+                        result.RepositoryTrackingInfo.Add(new Build.RepositoryTrackingInfo
+                        {
+                            Identifier = RepositoryUtil.PrimaryRepositoryName,
+                            RepositoryType = result.RepositoryType,
+                            RepositoryUrl = result.RepositoryUrl,
+                            SourcesDirectory = result.SourcesDirectory,
+                        });
+                    }
+                }
             }
             else
             {
