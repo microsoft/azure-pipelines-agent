@@ -15,7 +15,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     [ServiceLocator(Default = typeof(Worker))]
     public interface IWorker : IAgentService
     {
-        Task<int> RunAsync(string pipeIn, string pipeOut);
+        Task<int> RunAsync(string host, int port);
     }
 
     public sealed class Worker : AgentService, IWorker
@@ -24,11 +24,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private static readonly char[] _quoteLikeChars = new char[] {'\'', '"'};
 
 
-        public async Task<int> RunAsync(string pipeIn, string pipeOut)
+        public async Task<int> RunAsync(string host, int port)
         {
             // Validate args.
-            ArgUtil.NotNullOrEmpty(pipeIn, nameof(pipeIn));
-            ArgUtil.NotNullOrEmpty(pipeOut, nameof(pipeOut));
+            ArgUtil.NotNullOrEmpty(host, nameof(host));
+            ArgUtil.NotNull(port, nameof(port));
             var agentWebProxy = HostContext.GetService<IVstsAgentWebProxy>();
             var agentCertManager = HostContext.GetService<IAgentCertificateManager>();
             VssUtil.InitializeVssClientSettings(HostContext.UserAgent, agentWebProxy.WebProxy, agentCertManager.VssClientCertificateManager);
@@ -40,7 +40,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             using (var channelTokenSource = new CancellationTokenSource())
             {
                 // Start the channel.
-                channel.StartClient(pipeIn, pipeOut);
+                channel.StartClient(host, port);
 
                 // Wait for up to 30 seconds for a message from the channel.
                 HostContext.WritePerfCounter("WorkerWaitingForJobMessage");

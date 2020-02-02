@@ -369,11 +369,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     // The worker will shutdown after 30 seconds if it hasn't received the job message.
                     processChannel.StartServer(
                         // Delegate to start the child process.
-                        startProcess: (string pipeHandleOut, string pipeHandleIn) =>
+                        startProcess: (string host, int port) =>
                         {
                             // Validate args.
-                            ArgUtil.NotNullOrEmpty(pipeHandleOut, nameof(pipeHandleOut));
-                            ArgUtil.NotNullOrEmpty(pipeHandleIn, nameof(pipeHandleIn));
+                            ArgUtil.NotNullOrEmpty(host, nameof(host));
+                            ArgUtil.NotNull(port, nameof(port));
 
                             // Save STDOUT from worker, worker will use STDOUT report unhandle exception.
                             processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stdout)
@@ -407,7 +407,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             workerProcessTask = processInvoker.ExecuteAsync(
                                 workingDirectory: assemblyDirectory,
                                 fileName: workerFileName,
-                                arguments: "spawnclient " + pipeHandleOut + " " + pipeHandleIn,
+                                arguments: "spawnclient " + host + " " + port,
                                 environment: null,
                                 requireExitCodeZero: false,
                                 outputEncoding: null,

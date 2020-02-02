@@ -47,8 +47,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 // Run the worker.
                 return await worker.RunAsync(
-                    pipeIn: args[1],
-                    pipeOut: args[2]);
+                    host: args[1],
+                    port: int.Parse(args[2]));
             }
             catch (Exception ex)
             {

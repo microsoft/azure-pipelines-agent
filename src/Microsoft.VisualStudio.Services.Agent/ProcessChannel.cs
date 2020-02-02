@@ -2,14 +2,14 @@
 // Licensed under the MIT License.
 
 using System;
-using System.IO;
-using System.IO.Pipes;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Net.Sockets;
+using System.Net;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
-    public delegate void StartProcessDelegate(string pipeHandleOut, string pipeHandleIn);
+    public delegate void StartProcessDelegate(string host,int port);
 
     public enum MessageType
     {
@@ -35,41 +35,31 @@ namespace Microsoft.VisualStudio.Services.Agent
     public interface IProcessChannel : IDisposable, IAgentService
     {
         void StartServer(StartProcessDelegate startProcess, bool disposeClient = true);
-        void StartClient(string pipeNameInput, string pipeNameOutput);
-
+        void StartClient(string host, int port);
         Task SendAsync(MessageType messageType, string body, CancellationToken cancellationToken);
         Task<WorkerMessage> ReceiveAsync(CancellationToken cancellationToken);
     }
 
     public sealed class ProcessChannel : AgentService, IProcessChannel
     {
-        private AnonymousPipeServerStream _inServer;
-        private AnonymousPipeServerStream _outServer;
-        private AnonymousPipeClientStream _inClient;
-        private AnonymousPipeClientStream _outClient;
+        private TcpListener _server;
+        private TcpClient _client;
         private StreamString _writeStream;
         private StreamString _readStream;
 
         public void StartServer(StartProcessDelegate startProcess, bool disposeLocalClientHandle = true)
         {
-            _outServer = new AnonymousPipeServerStream(PipeDirection.Out, HandleInheritability.Inheritable);
-            _inServer = new AnonymousPipeServerStream(PipeDirection.In, HandleInheritability.Inheritable);
-            _readStream = new StreamString(_inServer);
-            _writeStream = new StreamString(_outServer);
-            startProcess(_outServer.GetClientHandleAsString(), _inServer.GetClientHandleAsString());
-            if (disposeLocalClientHandle)
-            {
-                _outServer.DisposeLocalCopyOfClientHandle();
-                _inServer.DisposeLocalCopyOfClientHandle();
-            }
+            _server = new TcpListener(IPAddress.Loopback, 0);
+            _server.Start();
+            startProcess(((IPEndPoint)_server.LocalEndpoint).Address.ToString(), ((IPEndPoint)_server.LocalEndpoint).Port);
+            _client = _server.AcceptTcpClient();
+            _writeStream = new StreamString(_client.GetStream());
         }
 
-        public void StartClient(string pipeNameInput, string pipeNameOutput)
+        public void StartClient(string host, int port)
         {
-            _inClient = new AnonymousPipeClientStream(PipeDirection.In, pipeNameInput);
-            _outClient = new AnonymousPipeClientStream(PipeDirection.Out, pipeNameOutput);
-            _readStream = new StreamString(_inClient);
-            _writeStream = new StreamString(_outClient);
+            _client = new TcpClient(host,port);
+            _readStream = new StreamString(_client.GetStream());
         }
 
         public async Task SendAsync(MessageType messageType, string body, CancellationToken cancellationToken)
@@ -96,10 +86,8 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             if (disposing)
             {
-                _inServer?.Dispose();
-                _outServer?.Dispose();
-                _inClient?.Dispose();
-                _outClient?.Dispose();
+                _server?.Stop();
+                _client?.Close();
             }
         }
     }
