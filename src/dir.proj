@@ -14,10 +14,11 @@
   </PropertyGroup>
 
   <Target Name="GenerateConstant">
-    <Exec Command="git rev-parse HEAD" ConsoleToMSBuild="true">
+    <Exec Command="git rev-parse HEAD" ConsoleToMSBuild="true" IgnoreExitCode="true">
       <Output TaskParameter="ConsoleOutput" PropertyName="GitInfoCommitHash" />
     </Exec>
-    <Message Text="Building $(GitInfoCommitHash) --- $(PackageRuntime)" Importance="high"/>
+    <Message Text="Building $(GitInfoCommitHash) --- $(PackageRuntime)" Importance="high" Condition=" !$(GitInfoCommitHash.Contains('fatal')) "/>
+    <Message Text="Building from non-Git sources --- $(PackageRuntime)" Importance="high" Condition=" $(GitInfoCommitHash.Contains('fatal')) "/>
 
     <ItemGroup>
         <BuildConstants Include="namespace Microsoft.VisualStudio.Services.Agent"/>
@@ -26,7 +27,8 @@
         <BuildConstants Include="%20%20%20%20{"/>
         <BuildConstants Include="%20%20%20%20%20%20%20%20public static class Source"/>
         <BuildConstants Include="%20%20%20%20%20%20%20%20{"/>
-        <BuildConstants Include="%20%20%20%20%20%20%20%20%20%20%20%20public static readonly string CommitHash = %22$(GitInfoCommitHash)%22%3B"/>
+        <BuildConstants Include="%20%20%20%20%20%20%20%20%20%20%20%20public static readonly string CommitHash = %22$(GitInfoCommitHash)%22%3B" Condition=" !$(GitInfoCommitHash.Contains('fatal')) "/>
+        <BuildConstants Include="%20%20%20%20%20%20%20%20%20%20%20%20public static readonly string CommitHash = %220000000000000000000000000000000000000000%22%3B" Condition=" $(GitInfoCommitHash.Contains('fatal')) "/>
         <BuildConstants Include="%20%20%20%20%20%20%20%20}%0A"/>
         <BuildConstants Include="%20%20%20%20%20%20%20%20public static class AgentPackage"/>
         <BuildConstants Include="%20%20%20%20%20%20%20%20{"/>
