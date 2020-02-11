@@ -32,11 +32,6 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public async Task ConnectAsync(VssConnection jobConnection)
         {
-            if (HostContext.RunMode == RunMode.Local)
-            {
-                return;
-            }
-
             _connection = jobConnection;
             int attemptCount = 5;
             while (!_connection.HasAuthenticated && attemptCount-- > 0)
@@ -72,18 +67,12 @@ namespace Microsoft.VisualStudio.Services.Agent
         //-----------------------------------------------------------------
         public Task<Stream> GetTaskContentZipAsync(Guid taskId, TaskVersion taskVersion, CancellationToken token)
         {
-            ArgUtil.Equal(RunMode.Normal, HostContext.RunMode, nameof(HostContext.RunMode));
             CheckConnection();
             return _taskAgentClient.GetTaskContentZipAsync(taskId, taskVersion, cancellationToken: token);
         }
 
         public async Task<bool> TaskDefinitionEndpointExist()
         {
-            if (HostContext.RunMode == RunMode.Local)
-            {
-                return true;
-            }
-
             CheckConnection();
             try
             {

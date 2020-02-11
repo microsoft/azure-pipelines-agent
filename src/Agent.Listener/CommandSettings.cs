@@ -7,6 +7,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -20,7 +21,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         private readonly string[] validCommands =
         {
             Constants.Agent.CommandLine.Commands.Configure,
-            Constants.Agent.CommandLine.Commands.LocalRun,
             Constants.Agent.CommandLine.Commands.Remove,
             Constants.Agent.CommandLine.Commands.Run,
             Constants.Agent.CommandLine.Commands.Warmup,
@@ -47,8 +47,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Constants.Agent.CommandLine.Flags.Once,
             Constants.Agent.CommandLine.Flags.SslSkipCertValidation,
             Constants.Agent.CommandLine.Flags.Unattended,
-            Constants.Agent.CommandLine.Flags.Version,
-            Constants.Agent.CommandLine.Flags.WhatIf
+            Constants.Agent.CommandLine.Flags.Version
         };
 
         private readonly string[] validArgs =
@@ -67,7 +66,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Constants.Agent.CommandLine.Args.MonitorSocketAddress,
             Constants.Agent.CommandLine.Args.NotificationPipeName,
             Constants.Agent.CommandLine.Args.Password,
-            Constants.Agent.CommandLine.Args.Phase,
             Constants.Agent.CommandLine.Args.Pool,
             Constants.Agent.CommandLine.Args.ProjectName,
             Constants.Agent.CommandLine.Args.ProxyPassword,
@@ -84,13 +82,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Constants.Agent.CommandLine.Args.UserName,
             Constants.Agent.CommandLine.Args.WindowsLogonAccount,
             Constants.Agent.CommandLine.Args.WindowsLogonPassword,
-            Constants.Agent.CommandLine.Args.Work,
-            Constants.Agent.CommandLine.Args.Yml
+            Constants.Agent.CommandLine.Args.Work
         };
 
         // Commands.
         public bool Configure => TestCommand(Constants.Agent.CommandLine.Commands.Configure);
-        public bool LocalRun => TestCommand(Constants.Agent.CommandLine.Commands.LocalRun);
         public bool Remove => TestCommand(Constants.Agent.CommandLine.Commands.Remove);
         public bool Run => TestCommand(Constants.Agent.CommandLine.Commands.Run);
         public bool Warmup => TestCommand(Constants.Agent.CommandLine.Commands.Warmup);
@@ -103,12 +99,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         public bool DeploymentGroup => TestFlag(Constants.Agent.CommandLine.Flags.MachineGroup) || TestFlag(Constants.Agent.CommandLine.Flags.DeploymentGroup);
         public bool DeploymentPool => TestFlag(Constants.Agent.CommandLine.Flags.DeploymentPool);
         public bool EnvironmentVMResource => TestFlag(Constants.Agent.CommandLine.Flags.Environment);
-        public bool WhatIf => TestFlag(Constants.Agent.CommandLine.Flags.WhatIf);
         public bool GitUseSChannel => TestFlag(Constants.Agent.CommandLine.Flags.GitUseSChannel);
         public bool RunOnce => TestFlag(Constants.Agent.CommandLine.Flags.Once);
 
         // Constructor.
-        public CommandSettings(IHostContext context, string[] args)
+        public CommandSettings(IHostContext context, string[] args, IScopedEnvironment environmentScope=null)
         {
             ArgUtil.NotNull(context, nameof(context));
             _promptManager = context.GetService<IPromptManager>();
@@ -120,8 +115,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 secretArgNames: Constants.Agent.CommandLine.Args.Secrets);
             _parser.Parse(args);
 
+            if (environmentScope == null)
+            {
+                environmentScope = new SystemEnvironment();
+            }
+
             // Store and remove any args passed via environment variables.
-            IDictionary environment = Environment.GetEnvironmentVariables();
+            var environment = environmentScope.GetEnvironmentVariables();
+            
             string envPrefix = "VSTS_AGENT_INPUT_";
             foreach (DictionaryEntry entry in environment)
             {
@@ -148,7 +149,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
                     // Remove from the environment block.
                     _trace.Info($"Removing env var: '{fullKey}'");
-                    Environment.SetEnvironmentVariable(fullKey, null);
+                    environmentScope.SetEnvironmentVariable(fullKey, null);
                 }
             }
         }
@@ -258,11 +259,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 validator: Validators.AuthSchemeValidator);
         }
 
-        public string GetMatrix()
-        {
-            return GetArg(Constants.Agent.CommandLine.Args.Matrix);
-        }
-
         public string GetPassword()
         {
             return GetArgOrPrompt(
@@ -270,11 +266,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 description: StringUtil.Loc("Password"),
                 defaultValue: string.Empty,
                 validator: Validators.NonEmptyValidator);
-        }
-
-        public string GetPhase()
-        {
-            return GetArg(Constants.Agent.CommandLine.Args.Phase);
         }
 
         public string GetPool()
@@ -462,11 +453,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             return GetArg(Constants.Agent.CommandLine.Args.StartupType);
         }
 
-        public string GetYml()
-        {
-            return GetArg(Constants.Agent.CommandLine.Args.Yml);
-        }
-
         public string GetProxyUrl()
         {
             return GetArg(Constants.Agent.CommandLine.Args.ProxyUrl);
@@ -510,11 +496,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         public string GetClientCertificatePassword()
         {
             return GetArg(Constants.Agent.CommandLine.Args.SslClientCertPassword);
-        }
-
-        public void SetUnattended()
-        {
-            _parser.Flags.Add(Constants.Agent.CommandLine.Flags.Unattended);
         }
 
         //

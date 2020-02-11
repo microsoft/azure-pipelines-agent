@@ -84,8 +84,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
         public CultureInfo DefaultCulture { get; private set; }
 
-        public RunMode RunMode { get; set; }
-
         public string TraceFileName { get; private set; }
 
         public StartupType StartupType

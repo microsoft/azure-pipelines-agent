@@ -633,6 +633,41 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        public void RecalculateExpanded_PathTranslator()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                // Arrange.
+                var copy = new Dictionary<string, VariableValue>
+                {
+                    { "variable1", "run $(variable2)" },
+                    { "variable2", "/path/to/something" },
+                };
+
+                List<string> warnings;
+                var variables = new Variables(hc, copy, out warnings);
+                variables.StringTranslator = (str) => {
+                    if (str.StartsWith("/path/to")) {
+                        return str.Replace("/path/to", "/another/path");
+                    }
+                    return str;
+                };;
+
+                Assert.Equal(0, warnings.Count);
+
+                // Act.
+                variables.RecalculateExpanded(out warnings);
+
+                // Assert.
+                Assert.Equal(0, warnings.Count);
+                Assert.Equal("run /another/path/something", variables.Get("variable1"));
+                Assert.Equal("/another/path/something", variables.Get("variable2"));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
         public void Set_CanConvertAPublicValueIntoASecretValue()
         {
             using (TestHostContext hc = new TestHostContext(this))

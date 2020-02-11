@@ -50,6 +50,8 @@ namespace Agent.Sdk
             _environmentVariables = container.Environment != null ? new Dictionary<string, string>(container.Environment) : new Dictionary<string, string>();
             this.ContainerCommand = container.Properties.Get<string>("command", defaultValue: "");
             this.IsJobContainer = isJobContainer;
+            // Windows has never automatically enabled Docker.Sock, but Linux does. So we need to set the default here based on OS.
+            this.MapDockerSocket = container.Properties.Get<bool>("mapDockerSocket", !PlatformUtil.RunningOnWindows);
             this._imageOS = PlatformUtil.HostOS;
            _pathMappings = new Dictionary<string, string>( PlatformUtil.RunningOnWindows ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
 
@@ -83,6 +85,7 @@ namespace Agent.Sdk
         public string CurrentUserName { get; set; }
         public string CurrentUserId { get; set; }
         public bool IsJobContainer { get; set; }
+        public bool MapDockerSocket { get; set; }
         public PlatformUtil.OS ImageOS {
             get
             {
@@ -254,13 +257,16 @@ namespace Agent.Sdk
             return path;
         }
 
+
+        private static Regex translateWindowsDriveRegex = new Regex(@"^([a-zA-Z]):(\\|/)", RegexOptions.Compiled);
+
         public string TranslateContainerPathForImageOS(PlatformUtil.OS runningOs, string path)
         {
             if (!string.IsNullOrEmpty(path))
             {
                 if (runningOs == PlatformUtil.OS.Windows && ImageOS == PlatformUtil.OS.Linux)
                 {
-                    return path.Replace("C:\\","/").Replace("\\", "/");
+                    return translateWindowsDriveRegex.Replace(path,"/").Replace("\\", "/");
                 }
             }
             return path;
@@ -283,134 +289,5 @@ namespace Agent.Sdk
         }
     }
 
-    public class MountVolume
-    {
-        public MountVolume()
-        {
-
-        }
-
-        public MountVolume(string sourceVolumePath, string targetVolumePath, bool readOnly = false)
-        {
-            this.SourceVolumePath = sourceVolumePath;
-            this.TargetVolumePath = targetVolumePath;
-            this.ReadOnly = readOnly;
-        }
-
-        public MountVolume(string fromString)
-        {
-            ParseVolumeString(fromString);
-        }
-
-        private static Regex autoEscapeWindowsDriveRegex = new Regex(@"(^|:)([a-zA-Z]):(\\|/)", RegexOptions.Compiled);
-        private string AutoEscapeWindowsDriveInPath(string path)
-        {
-
-            return autoEscapeWindowsDriveRegex.Replace(path, @"$1$2\:$3");
-        }
-
-        private void ParseVolumeString(string volume)
-        {
-            ReadOnly = false;
-            SourceVolumePath = null;
-
-            string readonlyToken = ":ro";
-            if (volume.ToLower().EndsWith(readonlyToken))
-            {
-                ReadOnly = true;
-                volume = volume.Remove(volume.Length-readonlyToken.Length);
-            }
-            // for completeness, in case someone explicitly added :rw in the volume mapping, we should strip it as well
-            string readWriteToken = ":rw";
-            if (volume.ToLower().EndsWith(readWriteToken))
-            {
-                ReadOnly = false;
-                volume = volume.Remove(volume.Length-readWriteToken.Length);
-            }
-
-            if (volume.StartsWith(":"))
-            {
-                volume = volume.Substring(1);
-            }
-
-            var volumes = new List<string>();
-            // split by colon, but honor escaping of colons
-            var volumeSplit = AutoEscapeWindowsDriveInPath(volume).Split(':');
-            var appendNextIteration = false;
-            foreach (var fragment in volumeSplit)
-            {
-                if (appendNextIteration)
-                {
-                    var orig = volumes[volumes.Count - 1];
-                    orig = orig.Remove(orig.Length - 1); // remove the trailing backslash
-                    volumes[volumes.Count - 1] = orig + ":" + fragment;
-                    appendNextIteration = false;
-                }
-                else
-                {
-                    volumes.Add(fragment);
-                }
-                // if this fragment ends with backslash, then the : was escaped
-                if (fragment.EndsWith(@"\"))
-                {
-                    appendNextIteration = true;
-                }
-            }
-
-            if (volumes.Count >= 2)
-            {
-                // source:target
-                SourceVolumePath = volumes[0];
-                TargetVolumePath = volumes[1];
-                // if volumes.Count > 2 here, we should log something that says we ignored options passed in.
-                // for now, do nothing in order to remain backwards compatable.
-            }
-            else
-            {
-                // target - or, default to passing straight through
-                TargetVolumePath = volume;
-            }
-        }
-
-        public string SourceVolumePath { get; set; }
-        public string TargetVolumePath { get; set; }
-        public bool ReadOnly { get; set; }
-    }
-
-    public class PortMapping
-    {
-
-        public PortMapping()
-        {
-
-        }
-
-        public PortMapping(string hostPort, string containerPort, string protocol)
-        {
-            this.HostPort = hostPort;
-            this.ContainerPort = containerPort;
-            this.Protocol = protocol;
-        }
-
-        public string HostPort { get; set; }
-        public string ContainerPort { get; set; }
-        public string Protocol { get; set; }
-    }
-
-    public class DockerVersion
-    {
-        public DockerVersion()
-        {
-
-        }
-
-        public DockerVersion(Version serverVersion, Version clientVersion)
-        {
-            this.ServerVersion = serverVersion;
-            this.ClientVersion = clientVersion;
-        }
-
-        public Version ServerVersion { get; set; }
-        public Version ClientVersion { get; set; }
-    }
+    
 }

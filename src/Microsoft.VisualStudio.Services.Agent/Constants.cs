@@ -7,12 +7,6 @@ using System.Collections.Generic;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
-    public enum RunMode
-    {
-        Normal, // Keep "Normal" first (default value).
-        Local,
-    }
-
     public enum WellKnownDirectory
     {
         Bin,
@@ -89,7 +83,6 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public static readonly string MonitorSocketAddress = "monitorsocketaddress";
                     public static readonly string NotificationPipeName = "notificationpipename";
                     public static readonly string NotificationSocketAddress = "notificationsocketaddress";
-                    public static readonly string Phase = "phase";
                     public static readonly string Pool = "pool";
                     public static readonly string ProjectName = "projectname";
                     public static readonly string ProxyUrl = "proxyurl";
@@ -104,7 +97,6 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public static readonly string UserName = "username";
                     public static readonly string WindowsLogonAccount = "windowslogonaccount";
                     public static readonly string Work = "work";
-                    public static readonly string Yml = "yml";
 
                     // Secret args. Must be added to the "Secrets" getter as well.
                     public static readonly string Password = "password";
@@ -124,7 +116,6 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static class Commands
                 {
                     public static readonly string Configure = "configure";
-                    public static readonly string LocalRun = "localRun";
                     public static readonly string Remove = "remove";
                     public static readonly string Run = "run";
                     public static readonly string Warmup = "warmup";
@@ -155,7 +146,6 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public static readonly string SslSkipCertValidation = "sslskipcertvalidation";
                     public static readonly string Unattended = "unattended";
                     public static readonly string Version = "version";
-                    public static readonly string WhatIf = "whatif";
                 }
             }
 
@@ -297,7 +287,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string RetainDefaultEncoding = "agent.retainDefaultEncoding";
                 public static readonly string ReadOnlyVariables = "agent.readOnlyVariables";
                 public static readonly string RootDirectory = "agent.RootDirectory";
-                public static readonly string RunMode = "agent.runmode";
+                public static readonly string RunMode = "agent.runMode";
                 public static readonly string ServerOMDirectory = "agent.ServerOMDirectory";
                 public static readonly string ServicePortPrefix = "agent.services";
                 public static readonly string SslCAInfo = "agent.cainfo";

@@ -5,13 +5,11 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Listener;
 using Microsoft.VisualStudio.Services.Agent.Capabilities;
 using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
-using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.WebApi;
 using Moq;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
@@ -174,7 +172,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
                     new[]
                     {
                        "configure",
-                       "--acceptteeeula", 
+                       "--acceptteeeula",
                        "--url", _expectedServerUrl,
                        "--agent", _expectedAgentName,
                        "--pool", _expectedPoolName,
@@ -232,7 +230,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
                     new[]
                     {
                        "configure",
-                       "--acceptteeeula", 
+                       "--acceptteeeula",
                        "--url", _expectedServerUrl,
                        "--agent", _expectedAgentName,
                        "--deploymentpoolname", _expectedPoolName,
@@ -510,7 +508,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             var projectId = Guid.NewGuid();
 
             using (TestHostContext tc = CreateTestContext())
-            {                
+            {
                 Tracing trace = tc.GetTrace();
 
                 trace.Info("Creating config manager");
@@ -606,7 +604,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
         {
             var environmentJson = "{'id':54, 'project':{'id':'" + projectId + "','name':'" + projectName  +"'},'name':'env1'}";
             var env = JsonConvert.DeserializeObject<EnvironmentInstance>(environmentJson);
-            
+
             return new List<EnvironmentInstance>{ env };
         }
 

@@ -103,7 +103,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 }
 
                 // Parse the command line args.
-                var command = new CommandSettings(context, args);
+                var command = new CommandSettings(context, args, new SystemEnvironment());
                 trace.Info("Arguments parsed");
 
                 // Up front validation, warn for unrecognized commandline args.

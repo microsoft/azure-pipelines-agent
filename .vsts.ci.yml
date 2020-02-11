@@ -10,7 +10,7 @@ resources:
   containers:
   - container: dotnetcore_arm
     image: huangtingluo/azure-pipelines-agent-eng:arm
-  
+
   - container: dotnetcore_centos6
     image: huangtingluo/azure-pipelines-agent-eng:centos6
 
@@ -29,6 +29,19 @@ jobs:
     parameters:
       componentDetection: 'true'
       testLogTitle: 'Windows-x64'
+
+  - script: dotnet tool install --global dotnet-reportgenerator-globaltool
+    displayName: Install Report Generator
+
+  - script: dev.cmd report
+    displayName: Generate Code Coverage report
+    workingDirectory: src
+
+  - task: PublishCodeCoverageResults@1
+    inputs:
+      codeCoverageTool: 'cobertura'
+      summaryFileLocation: _reports/**/Cobertura.xml
+      pathToSources: src
 
   # Package .NET Core Windows dependency (VC++ Redistributable)
   - template: .azure-pipelines/package-vcredist.yml
@@ -153,7 +166,7 @@ jobs:
 ################################################################################
   displayName: RHEL6 Agent (x64)
   pool:
-    vmImage: ubuntu-16.04  
+    vmImage: ubuntu-16.04
   container: dotnetcore_centos6
   steps:
 
@@ -190,7 +203,7 @@ jobs:
     parameters:
       componentDetection: 'true'
       testLogTitle: 'macOS-x64'
-  
+
   # Create agent package zip
   - script: ./dev.sh package Release
     workingDirectory: src

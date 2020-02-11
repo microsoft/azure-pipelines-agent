@@ -25,7 +25,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         void Run(Pipelines.AgentJobRequestMessage message, bool runOnce = false);
         bool Cancel(JobCancelMessage message);
         Task WaitAsync(CancellationToken token);
-        TaskResult GetLocalRunJobResult(AgentJobRequestMessage message);
         Task ShutdownAsync();
     }
 
@@ -83,7 +82,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 Guid dispatchedJobId = _jobDispatchedQueue.Dequeue();
                 if (_jobInfos.TryGetValue(dispatchedJobId, out currentDispatch))
                 {
-                    Trace.Verbose($"Retrive previous WorkerDispather for job {currentDispatch.JobId}.");
+                    Trace.Verbose($"Retrieve previous WorkerDispather for job {currentDispatch.JobId}.");
                 }
             }
 
@@ -91,6 +90,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             if (runOnce)
             {
                 Trace.Info("Start dispatcher for one time used agent.");
+                jobRequestMessage.Variables[Constants.Variables.Agent.RunMode] = new VariableValue(Constants.Agent.CommandLine.Flags.Once);
                 newDispatch.WorkerDispatch = RunOnceAsync(jobRequestMessage, currentDispatch, newDispatch.WorkerCancellationTokenSource.Token, newDispatch.WorkerCancelTimeoutKillTokenSource.Token);
             }
             else
@@ -148,7 +148,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     {
                         Trace.Info($"Waiting WorkerDispather for job {currentDispatch.JobId} run to finish.");
                         await currentDispatch.WorkerDispatch;
-                        Trace.Info($"Job request {currentDispatch.JobId} processed succeed.");
+                        Trace.Info($"Job request {currentDispatch.JobId} processed successfully.");
                     }
                     catch (Exception ex)
                     {
@@ -166,11 +166,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     }
                 }
             }
-        }
-
-        public TaskResult GetLocalRunJobResult(AgentJobRequestMessage message)
-        {
-            return _localRunJobResult.Value[message.RequestId];
         }
 
         public async Task ShutdownAsync()
@@ -328,6 +323,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             {
                 long requestId = message.RequestId;
                 Guid lockToken = Guid.Empty; // lockToken has never been used, keep this here of compat
+                // Because an agent can be idle for a long time between jobs, it is possible that in that time
+                // a firewall has closed the connection. For that reason, forcibly reestablish this connection at the
+                // start of a new job
+                var agentServer = HostContext.GetService<IAgentServer>();
+                await agentServer.RefreshConnectionAsync(AgentConnectionType.JobRequest, TimeSpan.FromSeconds(30));
 
                 // start renew job request
                 Trace.Info($"Start renew job request {requestId} for job {message.JobId}.");
@@ -376,37 +376,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             ArgUtil.NotNullOrEmpty(pipeHandleOut, nameof(pipeHandleOut));
                             ArgUtil.NotNullOrEmpty(pipeHandleIn, nameof(pipeHandleIn));
 
-                            if (HostContext.RunMode == RunMode.Normal)
+                            // Save STDOUT from worker, worker will use STDOUT report unhandle exception.
+                            processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stdout)
                             {
-                                // Save STDOUT from worker, worker will use STDOUT report unhandle exception.
-                                processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stdout)
+                                if (!string.IsNullOrEmpty(stdout.Data))
                                 {
-                                    if (!string.IsNullOrEmpty(stdout.Data))
+                                    lock (_outputLock)
                                     {
-                                        lock (_outputLock)
-                                        {
-                                            workerOutput.Add(stdout.Data);
-                                        }
+                                        workerOutput.Add(stdout.Data);
                                     }
-                                };
+                                }
+                            };
 
-                                // Save STDERR from worker, worker will use STDERR on crash.
-                                processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stderr)
-                                {
-                                    if (!string.IsNullOrEmpty(stderr.Data))
-                                    {
-                                        lock (_outputLock)
-                                        {
-                                            workerOutput.Add(stderr.Data);
-                                        }
-                                    }
-                                };
-                            }
-                            else if (HostContext.RunMode == RunMode.Local)
+                            // Save STDERR from worker, worker will use STDERR on crash.
+                            processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stderr)
                             {
-                                processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) => Console.WriteLine(e.Data);
-                                processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs e) => Console.WriteLine(e.Data);
-                            }
+                                if (!string.IsNullOrEmpty(stderr.Data))
+                                {
+                                    lock (_outputLock)
+                                    {
+                                        workerOutput.Add(stderr.Data);
+                                    }
+                                }
+                            };
+
 
                             // Start the child process.
                             HostContext.WritePerfCounter("StartingWorkerProcess");
@@ -754,11 +747,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         private async Task CompleteJobRequestAsync(int poolId, Pipelines.AgentJobRequestMessage message, Guid lockToken, TaskResult result, string detailInfo = null)
         {
             Trace.Entering();
-            if (HostContext.RunMode == RunMode.Local)
-            {
-                _localRunJobResult.Value[message.RequestId] = result;
-                return;
-            }
 
             if (PlanUtil.GetFeatures(message.Plan).HasFlag(PlanFeatures.JobCompletedPlanEvent))
             {

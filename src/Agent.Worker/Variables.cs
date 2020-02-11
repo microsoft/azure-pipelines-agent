@@ -539,7 +539,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                     }
 
                                     stack.Push(state);
-                                    state = new RecursionState(name: nestedName, value: nestedVariable.Value ?? string.Empty);
+                                    state = new RecursionState(name: nestedName, value: StringTranslator(nestedVariable.Value ?? string.Empty));
                                 }
                             }
                             else

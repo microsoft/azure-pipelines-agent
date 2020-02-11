@@ -158,10 +158,17 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             if (string.IsNullOrEmpty(ProxyAddress))
             {
-                Trace.Verbose("Try read proxy setting from environment variable: 'VSTS_HTTP_PROXY'.");
-                ProxyAddress = Environment.GetEnvironmentVariable("VSTS_HTTP_PROXY") ?? string.Empty;
-                ProxyAddress = ProxyAddress.Trim();
-                Trace.Verbose($"{ProxyAddress}");
+                foreach (var envVar in new string[] {"VSTS_HTTP_PROXY", "http_proxy"})
+                {
+                    Trace.Verbose($"Try reading proxy setting from environment variable: '{envVar}'.");
+                    ProxyAddress = Environment.GetEnvironmentVariable(envVar) ?? string.Empty;
+                    ProxyAddress = ProxyAddress.Trim();
+                    Trace.Verbose($"{ProxyAddress}");
+                    if (!string.IsNullOrEmpty(ProxyAddress))
+                    {
+                        break;
+                    }
+                }
             }
 
             if (!string.IsNullOrEmpty(ProxyAddress) && !Uri.IsWellFormedUriString(ProxyAddress, UriKind.Absolute))

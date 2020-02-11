@@ -24,7 +24,6 @@ namespace Microsoft.VisualStudio.Services.Agent
 {
     public interface IHostContext : IDisposable
     {
-        RunMode RunMode { get; set; }
         StartupType StartupType { get; set; }
         CancellationToken AgentShutdownToken { get; }
         ShutdownReason AgentShutdownReason { get; }
@@ -62,8 +61,6 @@ namespace Microsoft.VisualStudio.Services.Agent
         private readonly ProductInfoHeaderValue _userAgent = new ProductInfoHeaderValue($"VstsAgentCore-{BuildConstants.AgentPackage.PackageName}", BuildConstants.AgentPackage.Version);
         private CancellationTokenSource _agentShutdownTokenSource = new CancellationTokenSource();
         private object _perfLock = new object();
-
-        private RunMode _runMode = RunMode.Normal;
         private Tracing _trace;
         private Tracing _vssTrace;
         private Tracing _httpTrace;
@@ -150,20 +147,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        public RunMode RunMode
-        {
-            get
-            {
-                return _runMode;
-            }
-
-            set
-            {
-                _trace.Info($"Set run mode: {value}");
-                _runMode = value;
-            }
-        }
-
         public string GetDirectory(WellKnownDirectory directory)
         {
             string path;
@@ -200,13 +183,13 @@ namespace Microsoft.VisualStudio.Services.Agent
                         GetDirectory(WellKnownDirectory.Externals),
                         Constants.Path.ServerOMDirectory);
                     break;
-                
+
                 case WellKnownDirectory.Tf:
                     path = Path.Combine(
                         GetDirectory(WellKnownDirectory.Externals),
                         Constants.Path.TfDirectory);
                     break;
-                
+
                 case WellKnownDirectory.Tee:
                     path = Path.Combine(
                         GetDirectory(WellKnownDirectory.Externals),
@@ -457,7 +440,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             AgentShutdownReason = reason;
             _agentShutdownTokenSource.Cancel();
         }
- 
+
         public ContainerInfo CreateContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true)
         {
             ContainerInfo containerInfo = new ContainerInfo(container, isJobContainer);
@@ -474,10 +457,11 @@ namespace Microsoft.VisualStudio.Services.Agent
                 pathMappings[this.GetDirectory(WellKnownDirectory.Tools)] = "/__t"; // Tool cache folder may come from ENV, so we need a unique folder to avoid collision
                 pathMappings[this.GetDirectory(WellKnownDirectory.Work)] = "/__w";
                 pathMappings[this.GetDirectory(WellKnownDirectory.Root)] = "/__a";
-                if (containerInfo.IsJobContainer)
-                {
-                    containerInfo.MountVolumes.Add(new MountVolume("/var/run/docker.sock", "/var/run/docker.sock"));
-                }
+            }
+
+            if (containerInfo.IsJobContainer && containerInfo.MapDockerSocket)
+            {
+                containerInfo.MountVolumes.Add(new MountVolume("/var/run/docker.sock", "/var/run/docker.sock"));
             }
 
             containerInfo.AddPathMappings(pathMappings);

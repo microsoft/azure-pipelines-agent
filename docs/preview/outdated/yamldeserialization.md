@@ -141,21 +141,6 @@ For example, a process template can reference a phases template. A process templ
 
 ### TODO: Discuss overrides and selectors
 
-## Run local
-
-A goal of the agent is to support "run-local" mode for testing YAML configuration. When running local, all agent calls to the VSTS server are stubbed (and server URL is hardcoded to 127.0.0.1).
-
-When running local, the YAML will be converted into a pipeline, and worker processes invoked for each job.
-
-A definition variable `Agent.RunMode`=`Local` is added to each job.
-
-Note, this is not fully implemented yet. Only task steps are supported. Sync-sources and resource-import/export are not supported yet. Each job is run with syncSources=false.
-
-Example:
-```
-~/vsts-agent/_layout/bin/Agent.Listener --whatif --yaml ~/vsts-agent/docs/preview/yaml/cmdline.yaml
-```
-
 ### What-if mode
 
 A "what-if" mode is supported for debugging the YAML static expansion and deserialization process. What-if mode dumps the constructed pipeline to the console, and exits.

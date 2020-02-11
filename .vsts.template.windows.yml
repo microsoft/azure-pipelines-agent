@@ -14,6 +14,15 @@ steps:
 - checkout: self
   clean: true
 
+# Temporary fix because the windows image removed these paths
+- script: |
+    echo Begin Path Setup
+    echo ##vso[task.prependpath]C:\Program Files\Git\mingw64\bin
+    echo ##vso[task.prependpath]C:\Program Files\Git\usr\bin
+    echo ##vso[task.prependpath]C:\Program Files\Git\bin
+    echo End Path Setup
+  displayName: Setup Path
+
 # Build agent layout
 - script: dev.cmd layout Release
   workingDirectory: src

@@ -1,28 +1,23 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-// --------------------------------------------------------------------------------------------------------------------
-// <copyright file="CommitsDownloadException.cs" company="Microsoft Corporation">
-//   2012-2023, All rights reserved.
-// </copyright>
-// <summary>
-//   Defines the CommitsDownloadException type.
-// </summary>
-// --------------------------------------------------------------------------------------------------------------------
-
 using System;
 
-public class CommitsDownloadException : Exception
+namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
 {
-    public CommitsDownloadException()
-    {
-    }
 
-    public CommitsDownloadException(string message) : base(message)
+    public class CommitsDownloadException : Exception
     {
-    }
+        public CommitsDownloadException()
+        {
+        }
 
-    public CommitsDownloadException(string message, Exception innerException) : base(message, innerException)
-    {
+        public CommitsDownloadException(string message) : base(message)
+        {
+        }
+
+        public CommitsDownloadException(string message, Exception innerException) : base(message, innerException)
+        {
+        }
     }
 }

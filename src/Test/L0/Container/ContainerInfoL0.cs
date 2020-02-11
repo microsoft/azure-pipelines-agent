@@ -45,7 +45,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
                 new MountVolumeTest("/dst/dir", new MountVolume(null, "/dst/dir", false), "Maps anonymous Docker volume into target dir"),
                 new MountVolumeTest("/src/dir:/dst/dir", new MountVolume("/src/dir", "/dst/dir", false), "Maps source to target dir"),
                 new MountVolumeTest("/dst/dir:ro", new MountVolume(null, "/dst/dir", true), "Maps anonymous Docker volume read-only into target dir"),
+                new MountVolumeTest("/dst/dir:RO", new MountVolume(null, "/dst/dir", true), "Maps anonymous Docker volume read-only (RO) into target dir"),
                 new MountVolumeTest("/dst/dir:rw", new MountVolume(null, "/dst/dir", false), "Maps anonymous Docker volume read-write into target dir"),
+                new MountVolumeTest("/dst/dir:RW", new MountVolume(null, "/dst/dir", false), "Maps anonymous Docker volume read-write (RW) into target dir"),
                 new MountVolumeTest("/src/dir:/dst/dir:ro", new MountVolume("/src/dir", "/dst/dir", true), "Maps source to read-only target dir"),
                 new MountVolumeTest(":/dst/dir", new MountVolume(null, "/dst/dir", false), "Maps anonymous Docker volume into target dir with leading colon"),
                 new MountVolumeTest("/c/src/dir:/c/dst/dir", new MountVolume("/c/src/dir", "/c/dst/dir", false), "Maps source to target dir prefixed with /c/"),
@@ -92,6 +94,72 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
             }
         }
 
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void TranslateContainerPathForImageOSTestsWindowsToLinux()
+        {
+            var dockerContainer = new Pipelines.ContainerResource()
+                {
+                    Alias = "vsts_container_preview",
+                    Image = "foo"
+                };
+            using (TestHostContext hc = CreateTestContext())
+            {
+                ContainerInfo info = hc.CreateContainerInfo(dockerContainer, isJobContainer: false);
+                info.ImageOS = PlatformUtil.OS.Linux;
+                
+                foreach (var test in new string[][] {
+                    new string [] { "C:\\path\\for\\linux", "/path/for/linux" },
+                    new string [] { "c:\\path\\for\\linux", "/path/for/linux" },
+                    new string [] { "D:\\path\\for\\linux", "/path/for/linux" },
+                    new string [] { "C:\\", "/" },
+                    new string [] { "/path/for/linux", "/path/for/linux" },
+                    new string [] { "", "" },
+                    new string [] { null, null },
+                }) 
+                {
+                    var winPath = test[0];
+                    var linPath = test[1];
+                    var got = info.TranslateContainerPathForImageOS(PlatformUtil.OS.Windows, winPath);
+                    Assert.True(string.Equals(got, linPath), $"Converted {winPath} expected {linPath}, got {got}");
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void TranslateContainerPathForImageOSTestsUnixLikeToLinux()
+        {
+            var dockerContainer = new Pipelines.ContainerResource()
+                {
+                    Alias = "vsts_container_preview",
+                    Image = "foo"
+                };
+            using (TestHostContext hc = CreateTestContext())
+            {
+                ContainerInfo info = hc.CreateContainerInfo(dockerContainer, isJobContainer: false);
+                info.ImageOS = PlatformUtil.OS.Linux;
+                
+                foreach (var os in new PlatformUtil.OS[] { PlatformUtil.OS.Linux, PlatformUtil.OS.OSX})
+                {
+                    foreach (var test in new string[][] {
+                        new string [] { "/path/for/linux", "/path/for/linux" },
+                        new string [] { "/", "/" },
+                        new string [] { "", "" },
+                        new string [] { null, null },
+                    }) 
+                    {
+                        var origPath = test[0];
+                        var linPath = test[1];
+                        var got = info.TranslateContainerPathForImageOS(os, origPath);
+                        Assert.True(string.Equals(got, linPath), $"Converted {origPath} expected {linPath}, got {got}");
+                    }
+                }
+            }
+        }
         private TestHostContext CreateTestContext([CallerMemberName] string testName = "")
         {
             TestHostContext hc = new TestHostContext(this, testName);
