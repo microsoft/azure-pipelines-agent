@@ -30,11 +30,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public void BuiltFromGitNotFromTarball()
+        public void ReleaseBuiltFromGitNotFromTarball()
         {
-            // for local runs, it's OK for this test to fail
-            // but we would not want to ship an agent with an empty commit ID
+#if !DEBUG
+            // don't ship an agent with an empty commit ID
             Assert.True(BuildConstants.Source.CommitHash != new string('0', 40), $"CommitHash should be non-empty");
+#endif
         }
     }
 }
