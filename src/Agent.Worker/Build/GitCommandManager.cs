@@ -331,7 +331,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         public async Task<int> GitSubmoduleClean(IExecutionContext context, string repositoryPath)
         {
             context.Debug($"Delete untracked files/folders for submodules at {repositoryPath}.");
-			
+            
             // Git 2.4 support git clean -ffdx.
             string options;
             if (_gitVersion >= new Version(2, 4))
