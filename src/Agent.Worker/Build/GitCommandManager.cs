@@ -173,7 +173,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             ArgUtil.File(_gitPath, nameof(_gitPath));
 
-            // Get the Git version.
+            // Get the Git version.    
             _gitVersion = await GitVersion(context);
             ArgUtil.NotNull(_gitVersion, nameof(_gitVersion));
             context.Debug($"Detect git version: {_gitVersion.ToString()}.");
@@ -662,9 +662,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
                 // Skip any GIT_TRACE variable since GIT_TRACE will affect ouput from every git command.
                 // This will fail the parse logic for detect git version, remote url, etc.
-                // Ex.
+                // Ex. 
                 //      SET GIT_TRACE=true
-                //      git version
+                //      git version 
                 //      11:39:58.295959 git.c:371               trace: built-in: git 'version'
                 //      git version 2.11.1.windows.1
                 if (formattedKey == "GIT_TRACE" || formattedKey.StartsWith("GIT_TRACE_"))
