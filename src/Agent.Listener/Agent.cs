@@ -80,7 +80,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 if (command.Diagnostics)
                 {
                     PrintBanner();
-                    _term.WriteLine("Running Diagnostics Tests Only...");
+                    _term.WriteLine("Running Diagnostics Only...");
                     _term.WriteLine(string.Empty);
                     DiagnosticTests diagnostics = new DiagnosticTests(_term);
                     diagnostics.Execute();
