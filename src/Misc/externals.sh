@@ -32,13 +32,29 @@ function checkRC() {
 function acquireExternalTool() {
     local download_source=$1 # E.g. https://vstsagenttools.blob.core.windows.net/tools/pdbstr/1/pdbstr.zip
     local target_dir="$LAYOUT_DIR/externals/$2" # E.g. $LAYOUT_DIR/externals/pdbstr
-    local fix_nested_dir=$3 # Flag that indicates whether to move nested contents up one directory. E.g. TEE-CLC-14.0.4.zip
-                            # directly contains only a nested directory TEE-CLC-14.0.4. When this flag is set, the contents
-                            # of the nested TEE-CLC-14.0.4 directory are moved up one directory, and then the empty directory
-                            # TEE-CLC-14.0.4 is removed.
+    local fix_nested_dir # Flag that indicates whether to move nested contents up one directory. E.g. TEE-CLC-14.0.4.zip
+                         # directly contains only a nested directory TEE-CLC-14.0.4. When this flag is set, the contents
+                         # of the nested TEE-CLC-14.0.4 directory are moved up one directory, and then the empty directory
+                         # TEE-CLC-14.0.4 is removed.
+    local download_name  # Override the downloaded file name if not obvious in $download_source
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --fix_nested_dir)
+                fix_nestd_dir="fix_nested_dir"
+                ;;
+            --name)
+                download_name="$2"
+                shift # shift past argument
+        esac
+        shift # shift past parameter
+    done
 
     # Extract the portion of the URL after the protocol. E.g. vstsagenttools.blob.core.windows.net/tools/pdbstr/1/pdbstr.zip
     local relative_url="${download_source#*://}"
+    if [ "$download_name" != "" ]; then
+        relative_url="${relative_url}/${download_name}"
+    fi
 
     # Check if the download already exists.
     local download_target="$DOWNLOAD_DIR/$relative_url"
@@ -137,7 +153,7 @@ if [[ "$PACKAGERUNTIME" == "win-x64" ]]; then
     acquireExternalTool "$CONTAINER_URL/vstshost/m122_887c6659/vstshost.zip" vstshost
     acquireExternalTool "$CONTAINER_URL/vstsom/m122_887c6659/vstsom.zip" vstsom
     acquireExternalTool "$CONTAINER_URL/vstsom/m153_d91bed0b/vstsom.zip" tf
-    acquireExternalTool "$CONTAINER_URL/vswhere/1_0_62/vswhere.zip" vswhere
+    acquireExternalTool "https://www.nuget.org/api/v2/package/vswhere/2.8.4" vswhere --name "vswhere.zip"
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/win-x64/node.exe" node/bin
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/win-x64/node.lib" node/bin
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x64/node.exe" node10/bin
@@ -150,7 +166,7 @@ if [[ "$PACKAGERUNTIME" == "win-x86" ]]; then
     acquireExternalTool "$CONTAINER_URL/mingit/${MINGIT_VERSION}/MinGit-${MINGIT_VERSION}-32-bit.zip" git
     acquireExternalTool "$CONTAINER_URL/symstore/1/symstore.zip" symstore
     acquireExternalTool "$CONTAINER_URL/vstsom/m153_d91bed0b/vstsom.zip" tf
-    acquireExternalTool "$CONTAINER_URL/vswhere/1_0_62/vswhere.zip" vswhere
+    acquireExternalTool "https://www.nuget.org/api/v2/package/vswhere/2.8.4" vswhere --name "vswhere.zip"
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/win-x86/node.exe" node/bin
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/win-x86/node.lib" node/bin
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x86/node.exe" node10/bin
@@ -160,23 +176,23 @@ fi
 
 # Download the external tools only for OSX.
 if [[ "$PACKAGERUNTIME" == "osx-x64" ]]; then
-    acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-darwin-x64.tar.gz" node fix_nested_dir
-    acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-darwin-x64.tar.gz" node10 fix_nested_dir
+    acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-darwin-x64.tar.gz" node --fix_nested_dir
+    acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-darwin-x64.tar.gz" node10 --fix_nested_dir
 fi
 
 # Download the external tools common across OSX and Linux PACKAGERUNTIMEs.
 if [[ "$PACKAGERUNTIME" == "linux-x64" || "$PACKAGERUNTIME" == "linux-arm" || "$PACKAGERUNTIME" == "osx-x64" || "$PACKAGERUNTIME" == "rhel.6-x64" ]]; then
-    acquireExternalTool "$CONTAINER_URL/tee/14_134_0/TEE-CLC-14.134.0.zip" tee fix_nested_dir
+    acquireExternalTool "$CONTAINER_URL/tee/14_134_0/TEE-CLC-14.134.0.zip" tee --fix_nested_dir
     acquireExternalTool "$CONTAINER_URL/vso-task-lib/0.5.5/vso-task-lib.tar.gz" vso-task-lib
 fi
 
 # Download the external tools common across Linux PACKAGERUNTIMEs (excluding OSX).
 if [[ "$PACKAGERUNTIME" == "linux-x64" || "$PACKAGERUNTIME" == "rhel.6-x64" ]]; then
-    acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz" node fix_nested_dir
-    acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-linux-x64.tar.gz" node10 fix_nested_dir
+    acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz" node --fix_nested_dir
+    acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-linux-x64.tar.gz" node10 --fix_nested_dir
 fi
 
 if [[ "$PACKAGERUNTIME" == "linux-arm" ]]; then
-    acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-armv7l.tar.gz" node fix_nested_dir
-    acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-linux-armv7l.tar.gz" node10 fix_nested_dir
+    acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-armv7l.tar.gz" node --fix_nested_dir
+    acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-linux-armv7l.tar.gz" node10 --fix_nested_dir
 fi
