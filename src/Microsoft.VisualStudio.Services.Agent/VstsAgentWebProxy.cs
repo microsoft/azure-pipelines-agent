@@ -24,7 +24,6 @@ namespace Microsoft.VisualStudio.Services.Agent
 
     public class VstsAgentWebProxy : AgentService, IVstsAgentWebProxy
     {
-        private readonly List<Regex> _regExBypassList = new List<Regex>();
         private readonly List<string> _bypassList = new List<string>();
         private AgentWebProxy _agentWebProxy = new AgentWebProxy();
 
