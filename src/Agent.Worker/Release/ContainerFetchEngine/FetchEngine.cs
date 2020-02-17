@@ -37,12 +37,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEng
 
         public void Dispose()
         {
-            if (_downloadedFiles > 0)
-            {
-                ExecutionLogger.Output(StringUtil.Loc("RMDownloadComplete"));
-            }
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
 
-            LogStatistics();
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                if (_downloadedFiles > 0)
+                {
+                    ExecutionLogger.Output(StringUtil.Loc("RMDownloadComplete"));
+                }
+
+                LogStatistics();
+            }
         }
 
         protected async Task FetchItemsAsync(IEnumerable<ContainerItem> containerItems, CancellationToken token)
@@ -363,7 +372,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEng
             if (string.IsNullOrEmpty(localRelativePath) && item.ItemType == ItemType.File)
             {
                 //
-                // This will only happen when item path matches the RootItemPath.  For directory that is fine (it happens for the root directly) but 
+                // This will only happen when item path matches the RootItemPath.  For directory that is fine (it happens for the root directly) but
                 // for a file it is a little misleading.  When the RootItemPath is a directory we want everything under it (but not the directory itself),
                 // but when it is a file, we want the file.
                 localRelativePath = FileSystemManager.GetFileName(item.Path);

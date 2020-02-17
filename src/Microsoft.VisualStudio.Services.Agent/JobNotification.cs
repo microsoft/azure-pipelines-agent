@@ -59,7 +59,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     Trace.Info("Writing JobStarted to pipe");
                     await _writeStream.WriteLineAsync(message);
                     await _writeStream.FlushAsync();
-                    Trace.Info("Finished JobStarted writing to pipe");  
+                    Trace.Info("Finished JobStarted writing to pipe");
                 }
             }
         }
@@ -69,7 +69,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             Trace.Info("Entering JobCompleted Notification");
 
             await EndMonitor();
-            
+
             if (_configured)
             {
                 String message = $"Finished job: {jobId.ToString()}";
@@ -114,7 +114,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public void StartClient(string socketAddress, string monitorSocketAddress)
         {
-            ConnectMonitor(monitorSocketAddress); 
+            ConnectMonitor(monitorSocketAddress);
 
             if (!_configured)
             {
@@ -160,10 +160,10 @@ namespace Microsoft.VisualStudio.Services.Agent
                 }
             }
         }
-        
+
         private void StartMonitor(Guid jobId, string accessToken, Uri serverUri, Guid planId, string identifier, string definitionId, string planType)
         {
-            if(String.IsNullOrEmpty(accessToken)) 
+            if(String.IsNullOrEmpty(accessToken))
             {
                 Trace.Info("No access token could be retrieved to start the monitor.");
                 return;
@@ -205,7 +205,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     _monitorSocket.Send(Encoding.UTF8.GetBytes(message));
                     Trace.Info("Finished EndMonitor writing to socket");
 
-                    await Task.Delay(TimeSpan.FromSeconds(2));                    
+                    await Task.Delay(TimeSpan.FromSeconds(2));
                 }
             }
             catch (SocketException e)
@@ -279,11 +279,12 @@ namespace Microsoft.VisualStudio.Services.Agent
             if (disposing)
             {
                 _outClient?.Dispose();
-
+                _writeStream?.Dispose();
                 if (_socket != null)
                 {
                     _socket.Send(Encoding.UTF8.GetBytes("<EOF>"));
                     _socket.Shutdown(SocketShutdown.Both);
+                    _socket.Dispose();
                     _socket = null;
                 }
 
@@ -291,6 +292,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 {
                     _monitorSocket.Send(Encoding.UTF8.GetBytes("<EOF>"));
                     _monitorSocket.Shutdown(SocketShutdown.Both);
+                    _monitorSocket.Dispose();
                     _monitorSocket = null;
                 }
             }
