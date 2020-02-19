@@ -160,8 +160,7 @@ namespace Agent.Plugins.PipelineCache
             var process = System.Diagnostics.Process.GetCurrentProcess();
             System.Diagnostics.Process.EnterDebugMode();
 
-            Console.WriteLine($"ProcessName: {process.ProcessName}");
-            Console.WriteLine($"ProcessHandle: {process.Handle}");
+            Console.WriteLine($"PID: {process.Id}");
             var timeout = 60;
             for (int i = 0; i < timeout; i++)
             {

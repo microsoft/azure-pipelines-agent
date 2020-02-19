@@ -30,11 +30,11 @@ namespace Agent.Plugins.PipelineCache
         /// <returns>The path to the TAR.</returns>
         public static async Task<string> ArchiveFilesToTarAsync(
             AgentTaskPluginExecutionContext context,
-            string[] pathSegments,
+            Fingerprint pathFingerprint,
             string workspace,
             CancellationToken cancellationToken)
         {
-            foreach (var inputPath in pathSegments)
+            foreach (var inputPath in pathFingerprint.Segments)
             {
                 if (File.Exists(inputPath))
                 {
@@ -45,7 +45,7 @@ namespace Agent.Plugins.PipelineCache
             var archiveFileName = CreateArchiveFileName();
             var archiveFile = Path.Combine(Path.GetTempPath(), archiveFileName);
 
-            ProcessStartInfo processStartInfo = GetCreateTarProcessInfo(context, archiveFile, pathSegments, workspace);
+            ProcessStartInfo processStartInfo = GetCreateTarProcessInfo(context, archiveFile, pathFingerprint, workspace);
 
             Action actionOnFailure = () =>
             {
@@ -171,14 +171,17 @@ namespace Agent.Plugins.PipelineCache
             processStartInfo.WorkingDirectory = processWorkingDirectory;
         }
 
-        private static ProcessStartInfo GetCreateTarProcessInfo(AgentTaskPluginExecutionContext context, string archiveFilePath, string[] inputPaths, string workspace)
+        private static ProcessStartInfo GetCreateTarProcessInfo(AgentTaskPluginExecutionContext context, string archiveFilePath, Fingerprint pathFingerprint, string workspace)
         {
             var processFileName = GetTar(context);
 
             // TODO: Add unit tests for this path expansion
-            inputPaths = inputPaths
-                .Select(i => Path.IsPathFullyQualified(i) ? i : Path.Combine(workspace, i))
-                .Select(i => Path.GetRelativePath(workspace, i))
+            //inputPaths = inputPaths
+            //    .Select(i => Path.IsPathFullyQualified(i) ? i : Path.Combine(workspace, i))
+            //    .Select(i => Path.GetRelativePath(workspace, i))
+            //    .Select(i => $"\"{i.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)}\"")
+            //    .ToArray();
+            var inputPaths = pathFingerprint.Segments
                 .Select(i => $"\"{i.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)}\"")
                 .ToArray();
 

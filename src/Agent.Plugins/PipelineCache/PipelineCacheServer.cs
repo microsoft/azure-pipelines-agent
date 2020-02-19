@@ -50,7 +50,12 @@ namespace Agent.Plugins.PipelineCache
                     return;
                 }
 
-                string uploadPath = await this.GetUploadPathAsync(contentFormat, context, pathSegments, workspace, cancellationToken);
+                context.Output("Resolving path:");
+                Fingerprint pathFp = FingerprintCreator.EvaluatePathToFingerprint(context, workspace, pathSegments);
+                context.Output($"Resolved to: {pathFp}");
+
+                string uploadPath = await this.GetUploadPathAsync(contentFormat, context, pathFp, workspace, cancellationToken);
+
                 //Upload the pipeline artifact.
                 PipelineCacheActionRecord uploadRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
                     new PipelineCacheActionRecord(level, uri, type, nameof(dedupManifestClient.PublishAsync), context));
@@ -178,17 +183,17 @@ namespace Agent.Plugins.PipelineCache
             return pipelineCacheClient;
         }
 
-        private async Task<string> GetUploadPathAsync(ContentFormat contentFormat, AgentTaskPluginExecutionContext context, string[] pathSegments, string workspace, CancellationToken cancellationToken)
+        private async Task<string> GetUploadPathAsync(ContentFormat contentFormat, AgentTaskPluginExecutionContext context, Fingerprint pathFingerprint, string workspace, CancellationToken cancellationToken)
         {
-            if (pathSegments.Length == 1)
+            if (pathFingerprint.Segments.Length == 1)
             {
-                return pathSegments[0];
+                return pathFingerprint.Segments[0];
             }
             string uploadPath = string.Empty;
             // TODO: what to do if not SingleTar?
             if (contentFormat == ContentFormat.SingleTar)
             {
-                uploadPath = await TarUtils.ArchiveFilesToTarAsync(context, pathSegments, workspace, cancellationToken);
+                uploadPath = await TarUtils.ArchiveFilesToTarAsync(context, pathFingerprint, workspace, cancellationToken);
             }
             return uploadPath;
         }
