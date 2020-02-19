@@ -22,11 +22,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         Task RunPluginTaskAsync(IExecutionContext context, string plugin, Dictionary<string, string> inputs, Dictionary<string, string> environment, Variables runtimeVariables, EventHandler<ProcessDataReceivedEventArgs> outputHandler);
     }
 
-    public sealed class AgentPluginManager : AgentService, IAgentPluginManager
+    public class AgentPluginManager : AgentService, IAgentPluginManager
     {
         private readonly Dictionary<Guid, List<string>> _supportedTasks = new Dictionary<Guid, List<string>>();
 
-        private readonly HashSet<string> _taskPlugins = new HashSet<string>()
+        protected readonly HashSet<string> _taskPlugins = new HashSet<string>()
         {
             "Agent.Plugins.Repository.CheckoutTask, Agent.Plugins",
             "Agent.Plugins.Repository.CleanupTask, Agent.Plugins",

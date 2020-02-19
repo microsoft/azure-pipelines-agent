@@ -100,6 +100,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             _mockedServices.Add(context.SetupService<ITaskServer>(typeof(FakeTaskServer)));
             _mockedServices.Add(context.SetupService<IBuildServer>(typeof(FakeBuildServer)));
             _mockedServices.Add(context.SetupService<IReleaseServer>(typeof(FakeReleaseServer)));
+            _mockedServices.Add(context.SetupService<IAgentPluginManager>(typeof(FakeAgentPluginManager)));
+            _mockedServices.Add(context.SetupService<ITaskManager>(typeof(FakeTaskManager)));
             LoadTasks();
         }
 
@@ -229,7 +231,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         'name': 'Checkout',
         'version': '1.0.0'
       },
-      'condition': 'false',
+      'condition': 'true',
       'id': 'af08acd5-c28a-5b03-f5a9-06f9a40627bb',
       'name': 'Checkout',
       'displayName': 'Checkout'
