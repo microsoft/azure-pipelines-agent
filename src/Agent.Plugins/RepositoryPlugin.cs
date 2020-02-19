@@ -45,7 +45,7 @@ namespace Agent.Plugins.Repository
 
         public Guid Id => Pipelines.PipelineConstants.CheckoutTask.Id;
 
-        public ISourceProviderFactory SourceProviderFactory { get; }
+        public ISourceProviderFactory SourceProviderFactory { get; set; }
 
         public abstract string Stage { get; }
 
@@ -214,9 +214,9 @@ namespace Agent.Plugins.Repository
         ISourceProvider GetSourceProvider(string repositoryType);
     }
 
-    public sealed class SourceProviderFactory : ISourceProviderFactory
+    public class SourceProviderFactory : ISourceProviderFactory
     {
-        public ISourceProvider GetSourceProvider(string repositoryType)
+        public virtual ISourceProvider GetSourceProvider(string repositoryType)
         {
             ISourceProvider sourceProvider = null;
 

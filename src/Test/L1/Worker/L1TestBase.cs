@@ -223,7 +223,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
   'steps': [
     {
       'inputs': {
-        'repository': 'none'
+        'repository': 'self'
       },
       'type': 'task',
       'reference': {
