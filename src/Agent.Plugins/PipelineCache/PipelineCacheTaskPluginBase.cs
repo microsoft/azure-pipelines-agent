@@ -87,6 +87,8 @@ namespace Agent.Plugins.PipelineCache
 
         public async virtual Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
+            WaitForDebuggerAttach();
+
             ArgUtil.NotNull(context, nameof(context));
 
             VariableValue saltValue = context.Variables.GetValueOrDefault(SaltVariableName);

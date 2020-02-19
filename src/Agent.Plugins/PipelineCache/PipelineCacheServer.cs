@@ -207,7 +207,7 @@ namespace Agent.Plugins.PipelineCache
                 string manifestPath = Path.Combine(Path.GetTempPath(), $"{nameof(DedupManifestArtifactClient)}.{Path.GetRandomFileName()}.manifest");
                 await dedupManifestClient.DownloadFileToPathAsync(manifestId, manifestPath, proxyUri: null, cancellationToken: cancellationToken);
                 Manifest manifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(manifestPath));
-                await TarUtils.DownloadAndExtractTarAsync(context, manifest, dedupManifestClient, pathSegments, workspace, cancellationToken);
+                await TarUtils.DownloadAndExtractTarAsync(context, manifest, dedupManifestClient, workspace, cancellationToken);
                 try
                 {
                     if (File.Exists(manifestPath))
