@@ -1,6 +1,13 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Agent.Worker;
+using Microsoft.VisualStudio.Services.Agent.Worker.Build;
+using Microsoft.VisualStudio.Services.Agent.Worker.Release;
+using Microsoft.VisualStudio.Services.WebApi;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -10,15 +17,8 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.TeamFoundation.DistributedTask.WebApi;
-using Microsoft.VisualStudio.Services.Agent.Util;
-using Microsoft.VisualStudio.Services.WebApi;
-using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
-using Microsoft.VisualStudio.Services.Agent.Worker;
-using Microsoft.VisualStudio.Services.Agent.Worker.Build;
-using Microsoft.VisualStudio.Services.Agent.Worker.Release;
 using Xunit;
-using Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 {
@@ -31,7 +31,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
     public class L1TestBase
     {
-        private TimeSpan _channelTimeout = TimeSpan.FromSeconds(Math.Min(Math.Max(100, 30), 300));
+        protected TimeSpan _channelTimeout = TimeSpan.FromSeconds(100);
+        protected TimeSpan _jobTimeout = TimeSpan.FromSeconds(100);
 
         private List<IAgentService> _mockedServices = new List<IAgentService>();
 
@@ -117,7 +118,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 await SetupMessage(context, message);
 
                 var cts = new CancellationTokenSource();
-                cts.CancelAfter(120000);
+                cts.CancelAfter(_jobTimeout.Milliseconds);
                 return await RunWorker(context, message, cts.Token);
             }
         }
@@ -199,8 +200,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                     int returnCode = await workerTask;
 
                     TaskResult result = TaskResultUtil.TranslateFromReturnCode(returnCode);
-
-                    // complete job request
                     return new TestResults
                     {
                         ReturnCode = returnCode,

@@ -59,8 +59,8 @@ namespace Microsoft.VisualStudio.Services.Agent
             startProcess(_outServer.GetClientHandleAsString(), _inServer.GetClientHandleAsString());
             if (disposeClient)
             {
-            _outServer.DisposeLocalCopyOfClientHandle();
-            _inServer.DisposeLocalCopyOfClientHandle();
+                _outServer.DisposeLocalCopyOfClientHandle();
+                _inServer.DisposeLocalCopyOfClientHandle();
             }
         }
 
