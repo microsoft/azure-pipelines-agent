@@ -19,6 +19,8 @@ namespace Agent.Plugins.PipelineCache
            Hence we are overriding the RunAsync function to include that logic. */
         public override async Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
+            WaitForDebuggerAttach();
+
             bool successSoFar = false;
             if (context.Variables.TryGetValue("agent.jobstatus", out VariableValue jobStatusVar))
             {

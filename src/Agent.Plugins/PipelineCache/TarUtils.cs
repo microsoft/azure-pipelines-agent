@@ -181,10 +181,13 @@ namespace Agent.Plugins.PipelineCache
         {
             var processFileName = GetTar(context);
 
+            // TODO: Add unit tests for this path expansion
             inputPaths = inputPaths
-                .Select(i => Directory.Exists(i) ? Path.GetRelativePath(workspace, i) : Path.Combine(workspace, i))
-                .Select(i => $"\"{i.TrimEnd(Path.DirectorySeparatorChar).TrimEnd(Path.AltDirectorySeparatorChar)}\"")
+                .Select(i => Path.IsPathFullyQualified(i) ? i : Path.Combine(workspace, i))
+                .Select(i => $"\"{i.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)}\"")
                 .ToArray();
+
+            workspace = workspace.Trim(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
             // If given the absolute path for the '-cf' option, the GNU tar fails. The workaround is to start the tarring process in the temp directory, and simply speficy 'archive.tar' for that option.
             var processArguments = $"-cf \"{archiveFileName}\" -C \"{workspace}\" {string.Join(' ', inputPaths)}";
