@@ -118,7 +118,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 await SetupMessage(context, message);
 
                 var cts = new CancellationTokenSource();
-                cts.CancelAfter(_jobTimeout.Milliseconds);
+                cts.CancelAfter((int)_jobTimeout.TotalMilliseconds);
                 return await RunWorker(context, message, cts.Token);
             }
         }
