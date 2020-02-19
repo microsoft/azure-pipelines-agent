@@ -6,6 +6,7 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using System;
 using Microsoft.VisualStudio.Services.WebApi;
 using System.Linq;
+using Microsoft.VisualStudio.Services.Common;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 {
@@ -13,7 +14,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
     {
         public List<JobEvent> RecordedEvents { get; }
 
-        public Dictionary<int, TaskLog> Logs { get; }
+        public Dictionary<int, TaskLog> LogObjects { get; }
+        public Dictionary<int, IList<string>> LogLines { get; }
         public Dictionary<Guid, Timeline> Timelines { get; }
 
         public List<string> AttachmentsCreated { get; }
@@ -22,7 +24,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         {
             RecordedEvents = new List<JobEvent>();
             Timelines = new Dictionary<Guid, Timeline>();
-            Logs = new Dictionary<int, TaskLog>();
+            LogObjects = new Dictionary<int, TaskLog>();
+            LogLines = new Dictionary<int, IList<string>>();
             AttachmentsCreated = new List<string>();
         }
 
@@ -33,12 +36,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
         public Task<TaskLog> AppendLogContentAsync(Guid scopeIdentifier, string hubName, Guid planId, int logId, Stream uploadStream, CancellationToken cancellationToken)
         {
-            StreamReader reader = new StreamReader(uploadStream);
-            string text = reader.ReadToEnd();
+            var reader = new StreamReader(uploadStream);
+            var text = reader.ReadToEnd();
+            var addedLines = text.Split("\n");
 
-            var taskLog = Logs.GetValueOrDefault(logId);
-            taskLog.Path = text;
-            return Task.FromResult(taskLog);
+            var lines = LogLines.GetValueOrDefault(logId);
+            lines.AddRange(addedLines);
+            return Task.FromResult(LogObjects.GetValueOrDefault(logId));
         }
         public Task AppendTimelineRecordFeedAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, Guid timelineRecordId, Guid stepId, IList<string> lines, long startLine, CancellationToken cancellationToken)
         {
@@ -51,8 +55,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         }
         public Task<TaskLog> CreateLogAsync(Guid scopeIdentifier, string hubName, Guid planId, TaskLog log, CancellationToken cancellationToken)
         {
-            log.Id = Logs.Count + 1;
-            Logs.Add(log.Id, log);
+            log.Id = LogObjects.Count + 1;
+            LogObjects.Add(log.Id, log);
+            LogLines.Add(log.Id, new List<string>());
             return Task.FromResult(log);
         }
         public Task<Timeline> CreateTimelineAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, CancellationToken cancellationToken)

@@ -18,6 +18,7 @@ using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Build;
 using Microsoft.VisualStudio.Services.Agent.Worker.Release;
 using Xunit;
+using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 {
@@ -25,14 +26,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
     {
         public int ReturnCode { get; internal set; }
         public TaskResult Result { get; internal set; }
-        public Exception CaughtException { get; internal set; }
         public bool TimedOut { get; internal set; }
     }
 
     public class L1TestBase
     {
-        private static readonly string _workerProcessName = $"Agent.Worker.dll";
-
         private TimeSpan _channelTimeout = TimeSpan.FromSeconds(Math.Min(Math.Max(100, 30), 300));
 
         private List<IAgentService> _mockedServices = new List<IAgentService>();
@@ -42,19 +40,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             return GetMockedService<FakeJobServer>().Timelines.Values.ToList();
         }
 
-        protected IEnumerable<TimelineRecord> GetSteps()
+        protected IList<TimelineRecord> GetSteps()
         {
             var timeline = GetTimelines()[0];
-            return timeline.Records.Where(x => x.RecordType == "Task");
+            return timeline.Records.Where(x => x.RecordType == "Task").ToList();
         }
 
-        protected Pipelines.AgentJobRequestMessage LoadTemplateMessage()
+        protected T GetMockedService<T>()
         {
-            return LoadJobMessageFromJSON(JobMessageTemplate);
+            return _mockedServices.Where(x => x is T).Cast<T>().Single();
         }
-        protected Pipelines.AgentJobRequestMessage LoadJobMessageFromJSON(string message)
+
+        protected IList<string> GetTimelineLogLines(TimelineRecord record)
         {
-            return JsonUtility.FromString<Pipelines.AgentJobRequestMessage>(message);
+            var jobService = GetMockedService<FakeJobServer>();
+            return jobService.LogLines.GetValueOrDefault(record.Log.Id);
         }
 
         protected void AssertJobCompleted()
@@ -62,20 +62,49 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             Assert.Equal(1, GetMockedService<FakeJobServer>().RecordedEvents.Where(x => x is JobCompletedEvent).Count());
         }
 
-        protected T GetMockedService<T>()
+        protected static Pipelines.AgentJobRequestMessage LoadTemplateMessage()
         {
-            return _mockedServices.Where(x => x is T).Cast<T>().FirstOrDefault();
+            return LoadJobMessageFromJSON(JobMessageTemplate);
+        }
+
+        protected static Pipelines.AgentJobRequestMessage LoadJobMessageFromJSON(string message)
+        {
+            return JsonUtility.FromString<Pipelines.AgentJobRequestMessage>(message);
+        }
+
+        protected static TaskStep CreateScriptTask(string script)
+        {
+            var step = new TaskStep
+            {
+                Reference = new TaskStepDefinitionReference
+                {
+                    Id = Guid.Parse("d9bafed4-0b18-4f58-968d-86655b4d2ce9"),
+                    Name = "CmdLine",
+                    Version = "2.164.0"
+                },
+                Name = "CmdLine",
+                DisplayName = "CmdLine",
+                Id = Guid.NewGuid()
+            };
+            step.Inputs.Add("script", script);
+
+            return step;
         }
 
         protected async Task<TestResults> RunWorker(Pipelines.AgentJobRequestMessage message,
             [CallerMemberName] string testName = "")
         {
             // Clear working directory
-            var path = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "/w";
+            var path = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "/TestRuns/" + testName;
             if (File.Exists(path))
             {
                 File.Delete(path);
             }
+
+            // Fix localization
+            var assemblyLocation = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            var stringFile = Path.Combine(assemblyLocation, "en-US", "strings.json");
+            StringUtil.LoadExternalLocalization(stringFile);
 
             using (L1HostContext context = new L1HostContext("Agent"))
             {
@@ -154,55 +183,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 }, disposeClient: false);
 
                 // Send the job request message to the worker
-                try
+                var body = JsonUtility.ToString(message);
+                using (var csSendJobRequest = new CancellationTokenSource(_channelTimeout))
                 {
-                    var body = JsonUtility.ToString(message);
-                    using (var csSendJobRequest = new CancellationTokenSource(_channelTimeout))
-                    {
-                        await processChannel.SendAsync(
-                            messageType: MessageType.NewJobRequest,
-                            body: body,
-                            cancellationToken: csSendJobRequest.Token);
-                    }
+                    await processChannel.SendAsync(
+                        messageType: MessageType.NewJobRequest,
+                        body: body,
+                        cancellationToken: csSendJobRequest.Token);
                 }
-                catch (Exception e)
+
+                // wait for worker process or cancellation token been fired.
+                var completedTask = await Task.WhenAny(workerTask, Task.Delay(-1, jobRequestCancellationToken));
+                if (completedTask == workerTask)
                 {
+                    int returnCode = await workerTask;
+
+                    TaskResult result = TaskResultUtil.TranslateFromReturnCode(returnCode);
+
+                    // complete job request
                     return new TestResults
                     {
-                        CaughtException = e
+                        ReturnCode = returnCode,
+                        Result = result
                     };
                 }
-
-                try
-                {
-                    // wait for worker process or cancellation token been fired.
-                    var completedTask = await Task.WhenAny(workerTask, Task.Delay(-1, jobRequestCancellationToken));
-                    if (completedTask == workerTask)
-                    {
-                        int returnCode = await workerTask;
-
-                        TaskResult result = TaskResultUtil.TranslateFromReturnCode(returnCode);
-
-                        // complete job request
-                        return new TestResults
-                        {
-                            ReturnCode = returnCode,
-                            Result = result
-                        };
-                    }
-                    else
-                    {
-                        return new TestResults
-                        {
-                            TimedOut = true
-                        };
-                    }
-                }
-                catch (Exception e)
+                else
                 {
                     return new TestResults
                     {
-                        CaughtException = e
+                        TimedOut = true
                     };
                 }
             }
