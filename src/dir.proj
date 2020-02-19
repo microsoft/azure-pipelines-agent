@@ -17,6 +17,11 @@
     <L1Root>$(MSBuildProjectDirectory)/../_l1/bin</L1Root>
   </PropertyGroup>
 
+  <ItemGroup>
+    <LayoutRootFiles Include="$(MSBuildProjectDirectory)/Misc/layoutroot/**"/>
+    <LayoutBinFiles Include="$(MSBuildProjectDirectory)/Misc/layoutbin/**"/>
+  </ItemGroup>
+
   <Target Name="GenerateConstant">
     <Exec Command="git rev-parse HEAD" ConsoleToMSBuild="true">
       <Output TaskParameter="ConsoleOutput" PropertyName="GitInfoCommitHash" />
@@ -41,10 +46,10 @@
         <BuildConstants Include="}"/>
     </ItemGroup>
 
-    <WriteLinesToFile  
+    <WriteLinesToFile
             File="Microsoft.VisualStudio.Services.Agent/BuildConstants.cs"
             Lines="@(BuildConstants)"
-            Overwrite="true"  
+            Overwrite="true"
             Encoding="Unicode"/>
   </Target>
 
@@ -63,18 +68,20 @@
              Properties="Configuration=$(BUILDCONFIG);PackageRuntime=$(PackageRuntime);Version=$(AgentVersion);RuntimeIdentifier=$(PackageRuntime);PublishDir=$(LayoutRoot)/bin" />
     <Exec Command="%22$(DesktopMSBuild)%22 Agent.Service/Windows/AgentService.csproj /p:Configuration=$(BUILDCONFIG) /p:OutputPath=%22$(LayoutRoot)/bin%22" ConsoleToMSBuild="true" Condition="'$(PackageRuntime)' == 'win-x64' Or '$(PackageRuntime)' == 'win-x86'" />
   </Target>
-   
+
   <Target Name="Test" DependsOnTargets="GenerateConstant">
     <Exec Command="dotnet build Test/Test.csproj -c $(BUILDCONFIG) /p:PackageRuntime=$(PackageRuntime)" ConsoleToMSBuild="true" />
     <Exec Command="dotnet test Test/Test.csproj --settings $(MSBuildProjectDirectory)/Test/CodeCoverage.runsettings --no-build --logger:trx --collect:&quot;Code Coverage&quot;  --filter SkipOn!=$(SkipOn)" ConsoleToMSBuild="true" />
   </Target>
-  
+
   <Target Name="TestL0" DependsOnTargets="GenerateConstant">
     <Exec Command="dotnet build Test/Test.csproj -c $(BUILDCONFIG) /p:PackageRuntime=$(PackageRuntime)" ConsoleToMSBuild="true" />
     <Exec Command="dotnet test Test/Test.csproj --settings $(MSBuildProjectDirectory)/Test/L1.runsettings --no-build --logger:trx --collect:&quot;Code Coverage&quot;  --filter &quot;Level=L0&amp;SkipOn!=$(SkipOn)&quot;" ConsoleToMSBuild="true" />
   </Target>
-  
+
   <Target Name="TestL1" DependsOnTargets="CleanL1;GenerateConstant">
+    <Copy SourceFiles="@(LayoutBinFiles)"  DestinationFolder="$(L1Root)/%(RecursiveDir)"/>
+
     <MSBuild Targets="Restore"
              BuildInParallel="false"
              Projects="@(ProjectFiles)"
@@ -93,11 +100,6 @@
   </Target>
 
   <Target Name="Layout" DependsOnTargets="Clean;Build">
-    <ItemGroup>  
-        <LayoutRootFiles Include="$(MSBuildProjectDirectory)/Misc/layoutroot/**"/>
-        <LayoutBinFiles Include="$(MSBuildProjectDirectory)/Misc/layoutbin/**"/>
-    </ItemGroup>  
-
     <Copy SourceFiles="@(LayoutRootFiles)"  DestinationFolder="$(LayoutRoot)/%(RecursiveDir)"/>
     <Copy SourceFiles="@(LayoutBinFiles)"  DestinationFolder="$(LayoutRoot)/bin/%(RecursiveDir)"/>
 

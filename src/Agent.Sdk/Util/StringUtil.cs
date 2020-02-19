@@ -181,6 +181,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
+        // Used for L1 testing
+        public static void LoadExternalLocalization(string stringsPath)
+        {
+            var locStrings = new Dictionary<string, object>();
+            if (File.Exists(stringsPath))
+            {
+                foreach (KeyValuePair<string, object> pair in IOUtil.LoadObject<Dictionary<string, object>>(stringsPath))
+                {
+                    locStrings[pair.Key] = pair.Value;
+                }
+            }
+            s_locStrings = locStrings;
+        }
+
         private static void EnsureLoaded()
         {
             if (s_locStrings == null)
@@ -200,11 +214,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
                 // Initialize the dictionary.
                 var locStrings = new Dictionary<string, object>();
-                foreach (string cultureName in cultureNames)
+                foreach (var cultureName in cultureNames)
                 {
                     // Merge the strings from the file into the instance dictionary.
-                    string assemblyLocation = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
-                    string file = Path.Combine(assemblyLocation, cultureName, "strings.json");
+                    var assemblyLocation = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
+                    var file = Path.Combine(assemblyLocation, cultureName, "strings.json");
                     if (File.Exists(file))
                     {
                         foreach (KeyValuePair<string, object> pair in IOUtil.LoadObject<Dictionary<string, object>>(file))
