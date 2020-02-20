@@ -107,7 +107,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             var stringFile = Path.Combine(assemblyLocation, "en-US", "strings.json");
             StringUtil.LoadExternalLocalization(stringFile);
 
-            using (L1HostContext context = new L1HostContext("Agent"))
+            using (L1HostContext context = new L1HostContext("Agent", GetLogFile(this, testName)))
             {
                 SetupMocks(context);
 
@@ -157,6 +157,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 }
                 ZipFile.CreateFromDirectory(d, zip);
             }
+        }
+
+        private string GetLogFile(object testClass, string testMethod)
+        {
+            // Trim the test assembly's root namespace from the test class's full name.
+            var suiteName = testClass.GetType().FullName.Substring(
+                startIndex: typeof(Tests.TestHostContext).FullName.LastIndexOf(nameof(TestHostContext)));
+            var testName = testMethod.Replace(".", "_");
+
+            return Path.Combine(
+               Path.Combine(TestUtil.GetSrcPath(), "Test", "TestLogs"),
+               $"trace_{suiteName}_{testName}.log");
         }
 
         private async Task SetupMessage(HostContext context, Pipelines.AgentJobRequestMessage message)
