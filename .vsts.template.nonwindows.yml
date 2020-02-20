@@ -27,6 +27,7 @@ steps:
 - script: ./dev.sh testl1
   workingDirectory: src
   displayName: Functional tests
+  condition: ne(${{ parameters.testLogTitle }}, 'Linux-ARM')
 
 # Publish test results
 - task: PublishTestResults@2
