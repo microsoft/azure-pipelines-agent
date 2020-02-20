@@ -196,7 +196,7 @@ if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
     else
         NPM_LOCATION="$LAYOUT_DIR/externals/node10/bin/npm"
         ln -s /usr/bin/node $LAYOUT_DIR/externals/node10/bin/node
-        ln -s /usr/bin/nodejs /usr/bin/node
+        ln -s /usr/bin/nodejs $LAYOUT_DIR/externals/node10/bin/node
     fi
 
     if [[ "$PRECACHE" == "" ]]; then
