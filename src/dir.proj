@@ -15,6 +15,7 @@
 
   <PropertyGroup>
     <L1Root>$(MSBuildProjectDirectory)/../_l1/bin</L1Root>
+    <L1TaskLib>$(MSBuildProjectDirectory)/../_l1/externals/vso-task-lib</L1TaskLib>
   </PropertyGroup>
 
   <ItemGroup>
@@ -94,6 +95,10 @@
              SkipNonExistentProjects="false"
              StopOnFirstFailure="true"
              Properties="Configuration=$(BUILDCONFIG);PackageRuntime=$(PackageRuntime);Version=1.0.0.0;RuntimeIdentifier=$(PackageRuntime);PublishDir=$(L1Root)" />
+    
+    <!--This is needed to satisfy a back compat check on linux. The folder can be empty for our purposes-->
+    <!--https://github.com/microsoft/azure-pipelines-agent/blob/6f8be69f1b0172c8923ccc7821625d6847084691/src/Agent.Worker/Handlers/NodeHandler.cs#L57-->
+    <MakeDir Directories="$(L1TaskLib)"/>
 
     <Exec Command="dotnet build Test/Test.csproj -c $(BUILDCONFIG) /p:PackageRuntime=$(PackageRuntime) -o $(L1Root)" ConsoleToMSBuild="true" />
     <Exec Command="dotnet test Test/Test.csproj -o $(L1Root) --no-build --logger:trx --filter &quot;Level=L1&amp;SkipOn!=$(SkipOn)&quot;" ConsoleToMSBuild="true" />
