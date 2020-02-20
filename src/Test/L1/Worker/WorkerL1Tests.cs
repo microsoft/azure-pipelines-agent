@@ -74,7 +74,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             // Remove all tasks
             message.Steps.Clear();
             // Add variable setting tasks
-            message.Steps.Add(CreateScriptTask("echo ##vso[task.setvariable variable=testVar]b"));
+            message.Steps.Add(CreateScriptTask("echo \"##vso[task.setvariable variable=testVar]b\""));
             message.Steps.Add(CreateScriptTask("echo TestVar=$(testVar)"));
             message.Variables.Add("testVar", "a");
 
@@ -130,7 +130,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             var message = LoadTemplateMessage();
             // Remove all tasks
             message.Steps.Clear();
-            var tagStep = CreateScriptTask("echo ##vso[build.addbuildtag]sometag");
+            var tagStep = CreateScriptTask("echo \"##vso[build.addbuildtag]sometag\"");
             tagStep.Target = new StepTarget
             {
                 Commands = "restricted"

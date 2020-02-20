@@ -294,6 +294,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
       'value': '297a3210-e711-4ddf-857a-1df14915bb29',
       'isReadOnly': true
     },
+    'system.debug': {
+      'value': 'true',
+      'isReadOnly': true
+    },
     'system.collectionUri': {
       'value': 'https://codedev.ms/alpeck/',
       'isReadOnly': true
