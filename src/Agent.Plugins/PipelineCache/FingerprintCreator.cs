@@ -287,7 +287,7 @@ namespace Agent.Plugins.PipelineCache
 
             string defaultWorkingDirectory = context.Variables.GetValueOrDefault(
                 "system.defaultworkingdirectory" // Constants.Variables.System.DefaultWorkingDirectory
-            )?.Value;
+            )?.Value ?? filePathRoot;
 
             var resolvedSegments = new List<string>();
             var exceptions = new List<Exception>();
