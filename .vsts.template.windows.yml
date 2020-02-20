@@ -29,7 +29,7 @@ steps:
   displayName: Build & Layout Release
 
 # Run test
-- script: dev.cmd test
+- script: dev.cmd testl0
   workingDirectory: src
   displayName: Unit tests
 
