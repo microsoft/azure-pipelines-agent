@@ -13,7 +13,6 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.RegularExpressions;
 
 [assembly: InternalsVisibleTo("Test")]
 
@@ -46,14 +45,14 @@ namespace Agent.Plugins.PipelineCache
             return !Path.GetInvalidFileNameChars().Contains(c);
         }
 
-        internal static bool IsPathyKeySegment(string keySegment)
+        internal static bool IsPathySegment(string segment)
         {
-            if (keySegment.First() == ForceStringLiteral && keySegment.Last() == ForceStringLiteral) return false;
-            if (keySegment.Any(c => !IsPathyChar(c))) return false;
-            if (!keySegment.Contains(".") &&
-                !keySegment.Contains(Path.DirectorySeparatorChar) &&
-                !keySegment.Contains(Path.AltDirectorySeparatorChar)) return false;
-            if (keySegment.Last() == '.') return false;
+            if (segment.First() == ForceStringLiteral && segment.Last() == ForceStringLiteral) return false;
+            if (segment.Any(c => !IsPathyChar(c))) return false;
+            if (!segment.Contains(".") &&
+                !segment.Contains(Path.DirectorySeparatorChar) &&
+                !segment.Contains(Path.AltDirectorySeparatorChar)) return false;
+            if (segment.Last() == '.') return false;
             return true;
         }
 
@@ -142,7 +141,9 @@ namespace Agent.Plugins.PipelineCache
         {
             String = 0,
             FilePath = 1,
-            FilePattern = 2
+            FilePattern = 2,
+            Directory = 3,
+            DirectoryPattern = 4
         }
 
         // Given a globby path, figure out where to start enumerating.
@@ -225,6 +226,23 @@ namespace Agent.Plugins.PipelineCache
             {
                 context.Output($" - {formattedSegment} [string]");
             }
+            else if (type == KeySegmentType.Directory)
+            {
+                context.Output($" - {formattedSegment} [directory]");
+            }
+            else if (type == KeySegmentType.DirectoryPattern)
+            {
+                var directories = (details as string[]) ?? new string[0];
+                context.Output($" - {formattedSegment} [directory pattern; matches: {directories.Length}]");
+                if (directories.Any())
+                {
+                    int filePathDisplayLength = Math.Min(directories.Select(d => d.Length).Max(), 70);
+                    foreach (var directory in directories)
+                    {
+                        context.Output($"   - {FormatForDisplay(directory, filePathDisplayLength)}");
+                    }
+                }
+            }
             else
             {
                 var matches = (details as MatchedFile[]) ?? new MatchedFile[0];
@@ -272,7 +290,7 @@ namespace Agent.Plugins.PipelineCache
 
             foreach (string keySegment in segments)
             {
-                if (!IsPathyKeySegment(keySegment))
+                if (!IsPathySegment(keySegment))
                 {
                     LogSegment(context, segments, keySegment, KeySegmentType.String, null);
                     resolvedSegments.Add(keySegment);
@@ -385,16 +403,12 @@ namespace Agent.Plugins.PipelineCache
                 CheckSegment(pathSegment, "path");
             }
 
-            //string defaultWorkingDirectory = context.Variables.GetValueOrDefault(
-            //    "system.defaultworkingdirectory" // Constants.Variables.System.DefaultWorkingDirectory
-            //)?.Value;
-
             var resolvedSegments = new List<string>();
             var exceptions = new List<Exception>();
 
             foreach (string segment in segments)
             {
-                if (!IsPathyKeySegment(segment))
+                if (!IsPathySegment(segment))
                 {
                     LogSegment(context, segments, segment, KeySegmentType.String, null);
                     resolvedSegments.Add(segment);
@@ -462,7 +476,7 @@ namespace Agent.Plugins.PipelineCache
                         context,
                         segments,
                         displayPathSegment,
-                        patternSegment ? KeySegmentType.FilePattern : KeySegmentType.FilePath,
+                        patternSegment ? KeySegmentType.DirectoryPattern : KeySegmentType.Directory,
                         matchedDirectories.Values.ToArray()
                     );
 
