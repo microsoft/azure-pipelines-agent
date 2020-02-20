@@ -189,12 +189,12 @@ if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
     NPM_LOCATION=""
     if [[ "$PACKAGERUNTIME" == "win-x64" ]]; then
         acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-win-x64.zip" npm
-        NPM_LOCATION="$LAYOUT_DIR/externals/npm/node-v6.17.1-win-x64/npm"
+        NPM_LOCATION="$LAYOUT_DIR/externals/npm/node-v${NODE_VERSION}-win-x64/npm"
     elif [[ "$PACKAGERUNTIME" == "win-x86" ]]; then
         acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-win-x86.zip" npm
-        NPM_LOCATION="$LAYOUT_DIR/externals/npm/node-v6.17.1-win-x86/npm"
+        NPM_LOCATION="$LAYOUT_DIR/externals/npm/node-v${NODE_VERSION}-win-x86/npm"
     else
-        NPM_LOCATION="$LAYOUT_DIR/externals/node/bin/npm"
+        NPM_LOCATION="$LAYOUT_DIR/externals/node10/bin/npm"
     fi
 
     if [[ "$PRECACHE" == "" ]]; then
