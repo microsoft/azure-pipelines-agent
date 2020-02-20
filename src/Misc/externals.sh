@@ -193,12 +193,12 @@ if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
     elif [[ "$PACKAGERUNTIME" == "win-x86" ]]; then
         acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-win-x86.zip" npm
         NPM_LOCATION="$LAYOUT_DIR/externals/npm/node-v${NODE10_VERSION}-win-x86/npm"
-    elif [[ "$PACKAGERUNTIME" == "rhel.6-x64" ]];
+    elif [[ "$PACKAGERUNTIME" == "rhel.6-x64" ]]; then
         # Need to special case rhel 6 or else it doesn't link node and npm correctly
         curl --silent --location https://rpm.nodesource.com/setup_6.x | bash -
         yum -y install nodejs
         NPM_LOCATION="npm"
-    elif [[ "$PACKAGERUNTIME" == "rhel.6-x64" ]];
+    else
         NPM_LOCATION="$LAYOUT_DIR/externals/node10/bin/npm"
     fi
 
