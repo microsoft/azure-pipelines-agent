@@ -1,6 +1,7 @@
 #!/bin/bash
 PACKAGERUNTIME=$1
 PRECACHE=$2
+LAYOUT_DIR=$3
 
 CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
 NODE_URL=https://nodejs.org/dist
@@ -13,8 +14,10 @@ get_abs_path() {
   echo "$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 }
 
-LAYOUT_DIR=$(get_abs_path "$(dirname $0)/../../_layout/$PACKAGERUNTIME")
 DOWNLOAD_DIR="$(get_abs_path "$(dirname $0)/../../_downloads")/$PACKAGERUNTIME/netcore2x"
+if [[ "$LAYOUT_DIR" == "" ]]; then
+    $LAYOUT_DIR = $(get_abs_path "$(dirname $0)/../../_layout/$PACKAGERUNTIME")
+fi
 
 function failed() {
    local error=${1:-Undefined error}
