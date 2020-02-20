@@ -172,6 +172,66 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 );
             }
         }
+        
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public void Fingerprint_Path_ExcludeGlobMatches()
+        {
+            using(var hostContext = new TestHostContext(this))
+            {
+                var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
+                var segments = new[]
+                {
+                    $"**/{directory1Name},!**/{directory2Name}",
+                };
+                
+                Fingerprint f = FingerprintCreator.EvaluateToFingerprint(context, directory, segments, FingerprintType.Path);
+                Assert.Equal(
+                    new [] { directory1Name }, 
+                    f.Segments
+                );
+            }
+        }
+        
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public void Fingerprint_Path_NoIncludePatterns()
+        {
+            using(var hostContext = new TestHostContext(this))
+            {
+                var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
+                var segments = new[]
+                {
+                    $"!**/{directory1Name},!**/{directory2Name}",
+                };
+                
+                Assert.Throws<ArgumentException>(
+                    () => FingerprintCreator.EvaluateToFingerprint(context, directory, segments, FingerprintType.Path)
+                );
+            }
+        }
+        
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public void Fingerprint_Path_NoMatches()
+        {
+            using(var hostContext = new TestHostContext(this))
+            {
+                var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
+                var segments = new[]
+                {
+                    $"**/{Guid.NewGuid().ToString()},!**/{directory2Name}",
+                };
+                
+                // TODO: Should this really be throwing an exception?
+                Assert.Throws<AggregateException>(
+                    () => FingerprintCreator.EvaluateToFingerprint(context, directory, segments, FingerprintType.Path)
+                );
+            }
+        }
 
         [Fact]
         [Trait("Level", "L0")]
