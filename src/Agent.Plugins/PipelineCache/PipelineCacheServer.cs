@@ -51,7 +51,7 @@ namespace Agent.Plugins.PipelineCache
                 }
 
                 context.Output("Resolving path:");
-                Fingerprint pathFp = FingerprintCreator.EvaluatePathToFingerprint(context, workspace, pathSegments);
+                Fingerprint pathFp = FingerprintCreator.EvaluateToFingerprint(context, workspace, pathSegments, FingerprintType.Path);
                 context.Output($"Resolved to: {pathFp}");
 
                 string uploadPath = await this.GetUploadPathAsync(contentFormat, context, pathFp, workspace, cancellationToken);

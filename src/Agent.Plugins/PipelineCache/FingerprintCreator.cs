@@ -18,6 +18,12 @@ using System.Text;
 
 namespace Agent.Plugins.PipelineCache
 {
+    public enum FingerprintType
+    {
+        Key,
+        Path
+    }
+    
     public static class FingerprintCreator
     {
         private static readonly bool isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
@@ -203,9 +209,9 @@ namespace Agent.Plugins.PipelineCache
             }
         }
 
-        internal static void LogSegment(
+        private static void LogSegment(
             AgentTaskPluginExecutionContext context,
-            string[] segments,
+            IEnumerable<string> segments,
             string segment,
             KeySegmentType type,
             Object details)
@@ -267,14 +273,12 @@ namespace Agent.Plugins.PipelineCache
             }
         }
 
-        public static Fingerprint EvaluateKeyToFingerprint(
+        public static Fingerprint EvaluateToFingerprint(
             AgentTaskPluginExecutionContext context,
             string filePathRoot,
-            IEnumerable<string> keySegments)
+            IEnumerable<string> segments,
+            FingerprintType fingerprintType)
         {
-            // Avoid multiple enumerations
-            var segments = keySegments.ToArray();
-
             // Quickly validate all segments
             foreach (string segment in segments)
             {
@@ -327,123 +331,6 @@ namespace Agent.Plugins.PipelineCache
                     }).ToArray();
 
                     var matchedFiles = new SortedDictionary<string, MatchedFile>(StringComparer.Ordinal);
-
-                    foreach (var kvp in enumerations)
-                    {
-                        Enumeration enumerate = kvp.Key;
-                        List<string> absoluteIncludeGlobs = kvp.Value;
-                        context.Verbose($"Enumerating starting at root `{enumerate.RootPath}` with pattern `{enumerate.Pattern}` and depth `{enumerate.Depth}`.");
-                        IEnumerable<string> files = Directory.EnumerateFiles(enumerate.RootPath, enumerate.Pattern, enumerate.Depth);
-                        Func<string, bool> filter = CreateFilter(context, absoluteIncludeGlobs, absoluteExcludeRules);
-                        files = files.Where(f => filter(f)).Distinct();
-
-                        foreach (string path in files)
-                        {
-                            using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
-                            {
-                                // Path.GetRelativePath returns 'The relative path, or path if the paths don't share the same root.'
-                                string displayPath = filePathRoot == null ? path : Path.GetRelativePath(filePathRoot, path);
-                                matchedFiles.Add(path, new MatchedFile(displayPath, fs));
-                            }
-                        }
-                    }
-
-                    var patternSegment = keySegment.IndexOfAny(GlobChars) >= 0 || matchedFiles.Count() > 1;
-
-                    var displayKeySegment = keySegment;
-
-                    if (context.Container != null)
-                    {
-                        displayKeySegment = context.Container.TranslateToContainerPath(displayKeySegment);
-                    }
-
-                    LogSegment(
-                        context,
-                        segments,
-                        displayKeySegment,
-                        patternSegment ? KeySegmentType.FilePattern : KeySegmentType.FilePath,
-                        matchedFiles.Values.ToArray()
-                    );
-
-                    if (!matchedFiles.Any())
-                    {
-                        if (patternSegment)
-                        {
-                            exceptions.Add(new FileNotFoundException($"No matching files found for pattern: {displayKeySegment}"));
-                        }
-                        else
-                        {
-                            exceptions.Add(new FileNotFoundException($"File not found: {displayKeySegment}"));
-                        }
-                    }
-
-                    resolvedSegments.Add(MatchedFile.GenerateHash(matchedFiles.Values));
-                }
-            }
-
-            if (exceptions.Any())
-            {
-                throw new AggregateException(exceptions);
-            }
-
-            return new Fingerprint() { Segments = resolvedSegments.ToArray() };
-        }
-
-        public static Fingerprint EvaluatePathToFingerprint(
-            AgentTaskPluginExecutionContext context,
-            string workingDirectory,
-            IEnumerable<string> pathSegments)
-        {
-            // Avoid multiple enumerations
-            var segments = pathSegments.ToArray();
-
-            // Quickly validate all segments
-            foreach (string pathSegment in pathSegments)
-            {
-                CheckSegment(pathSegment, "path");
-            }
-
-            var resolvedSegments = new List<string>();
-            var exceptions = new List<Exception>();
-
-            foreach (string segment in segments)
-            {
-                if (!IsPathySegment(segment))
-                {
-                    LogSegment(context, segments, segment, KeySegmentType.String, null);
-                    resolvedSegments.Add(segment);
-                }
-                else
-                {
-                    string[] pathRules = segment.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToArray();
-                    string[] includeRules = pathRules.Where(p => !p.StartsWith('!')).ToArray();
-
-                    if (!includeRules.Any())
-                    {
-                        throw new ArgumentException("No include rules specified.");
-                    }
-
-                    var enumerations = new Dictionary<Enumeration, List<string>>();
-                    foreach (string includeRule in includeRules)
-                    {
-                        string absoluteRootRule = MakePathCanonical(workingDirectory, includeRule);
-                        context.Verbose($"Expanded include rule is `{absoluteRootRule}`.");
-                        Enumeration enumeration = DetermineFileEnumerationFromGlob(absoluteRootRule);
-                        List<string> globs;
-                        if (!enumerations.TryGetValue(enumeration, out globs))
-                        {
-                            enumerations[enumeration] = globs = new List<string>();
-                        }
-                        globs.Add(absoluteRootRule);
-                    }
-
-                    string[] excludeRules = pathRules.Where(p => p.StartsWith('!')).ToArray();
-                    string[] absoluteExcludeRules = excludeRules.Select(excludeRule =>
-                    {
-                        excludeRule = excludeRule.Substring(1);
-                        return MakePathCanonical(workingDirectory, excludeRule);
-                    }).ToArray();
-
                     var matchedDirectories = new SortedDictionary<string, string>(StringComparer.Ordinal);
 
                     foreach (var kvp in enumerations)
@@ -451,48 +338,74 @@ namespace Agent.Plugins.PipelineCache
                         Enumeration enumerate = kvp.Key;
                         List<string> absoluteIncludeGlobs = kvp.Value;
                         context.Verbose($"Enumerating starting at root `{enumerate.RootPath}` with pattern `{enumerate.Pattern}` and depth `{enumerate.Depth}`.");
-                        IEnumerable<string> directories = Directory.EnumerateDirectories(enumerate.RootPath, enumerate.Pattern, enumerate.Depth);
+                        IEnumerable<string> files = fingerprintType == FingerprintType.Key
+                            ? Directory.EnumerateFiles(enumerate.RootPath, enumerate.Pattern, enumerate.Depth)
+                            : Directory.EnumerateDirectories(enumerate.RootPath, enumerate.Pattern, enumerate.Depth);
+                        
                         Func<string, bool> filter = CreateFilter(context, absoluteIncludeGlobs, absoluteExcludeRules);
-                        directories = directories.Where(f => filter(f)).Distinct();
+                        files = files.Where(f => filter(f)).Distinct();
 
-                        foreach (string path in directories)
+                        foreach (string path in files)
                         {
                             // Path.GetRelativePath returns 'The relative path, or path if the paths don't share the same root.'
-                            string displayPath = Path.GetRelativePath(workingDirectory, path);
-                            matchedDirectories.Add(path, displayPath);
+                            string displayPath = filePathRoot == null ? path : Path.GetRelativePath(filePathRoot, path);
+                        
+                            if (fingerprintType == FingerprintType.Key)
+                            {
+                                using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+                                {
+                                    matchedFiles.Add(path, new MatchedFile(displayPath, fs));
+                                }
+                            }
+                            else
+                            {
+                                matchedDirectories.Add(path, displayPath);
+                            }
                         }
                     }
 
-                    var patternSegment = segment.IndexOfAny(GlobChars) >= 0 || matchedDirectories.Count() > 1;
+                    var patternSegment = keySegment.IndexOfAny(GlobChars) >= 0 || matchedFiles.Count > 1;
 
-                    var displayPathSegment = segment;
+                    var displaySegment = keySegment;
 
                     if (context.Container != null)
                     {
-                        displayPathSegment = context.Container.TranslateToContainerPath(displayPathSegment);
+                        displaySegment = context.Container.TranslateToContainerPath(displaySegment);
                     }
 
+                    KeySegmentType segmentType;
+                    object details;
+                    if (fingerprintType == FingerprintType.Key)
+                    {
+                        segmentType = patternSegment ? KeySegmentType.FilePattern : KeySegmentType.FilePath;
+                        details = matchedFiles.Values.ToArray();
+                        resolvedSegments.Add(MatchedFile.GenerateHash(matchedFiles.Values));
+                        
+                        if (!matchedFiles.Any())
+                        {
+                            var message = patternSegment ? $"No matching files found for pattern: {displaySegment}" : $"File not found: {displaySegment}";
+                            exceptions.Add(new FileNotFoundException(message));
+                        }
+                    }
+                    else
+                    {
+                        segmentType = patternSegment ? KeySegmentType.DirectoryPattern : KeySegmentType.Directory;
+                        details = matchedDirectories.Values.ToArray();
+                        resolvedSegments.AddRange(matchedDirectories.Values);
+                        if (!matchedDirectories.Any())
+                        {
+                            var message = patternSegment ? $"No matching directories found for pattern: {displaySegment}" : $"Directory not found: {displaySegment}"; 
+                            exceptions.Add(new DirectoryNotFoundException(message));
+                        }
+                    }
+                    
                     LogSegment(
                         context,
                         segments,
-                        displayPathSegment,
-                        patternSegment ? KeySegmentType.DirectoryPattern : KeySegmentType.Directory,
-                        matchedDirectories.Values.ToArray()
+                        displaySegment,
+                        segmentType,
+                        details
                     );
-
-                    if (!matchedDirectories.Any())
-                    {
-                        if (patternSegment)
-                        {
-                            exceptions.Add(new DirectoryNotFoundException($"No matching directories found for pattern: {displayPathSegment}"));
-                        }
-                        else
-                        {
-                            exceptions.Add(new DirectoryNotFoundException($"Directory not found: {displayPathSegment}"));
-                        }
-                    }
-
-                    resolvedSegments.AddRange(matchedDirectories.Values);
                 }
             }
 
