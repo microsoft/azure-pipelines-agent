@@ -16,7 +16,7 @@ get_abs_path() {
 
 DOWNLOAD_DIR="$(get_abs_path "$(dirname $0)/../../_downloads")/$PACKAGERUNTIME/netcore2x"
 if [[ "$LAYOUT_DIR" == "" ]]; then
-    $LAYOUT_DIR = $(get_abs_path "$(dirname $0)/../../_layout/$PACKAGERUNTIME")
+    $LAYOUT_DIR=$(get_abs_path "$(dirname $0)/../../_layout/$PACKAGERUNTIME")
 fi
 
 function failed() {
