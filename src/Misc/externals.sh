@@ -198,7 +198,8 @@ if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
     fi
 
     if [[ "$PRECACHE" == "" ]]; then
-        echo "npm install"
+        echo $NPM_LOCATION install
+
         cd Test/L1/Tasks
         for f in $PWD/*; do
             cd $f
