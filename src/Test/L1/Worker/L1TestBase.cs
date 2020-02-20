@@ -7,6 +7,7 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Build;
 using Microsoft.VisualStudio.Services.Agent.Worker.Release;
+using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.VisualStudio.Services.WebApi;
 using System;
 using System.Collections.Generic;
@@ -132,6 +133,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             _mockedServices.Add(context.SetupService<IReleaseServer>(typeof(FakeReleaseServer)));
             _mockedServices.Add(context.SetupService<IAgentPluginManager>(typeof(FakeAgentPluginManager)));
             _mockedServices.Add(context.SetupService<ITaskManager>(typeof(FakeTaskManager)));
+            _mockedServices.Add(context.SetupService<ICustomerIntelligenceServer>(typeof(FakeCustomerIntelligenceServer)));
             LoadTasks();
         }
 
