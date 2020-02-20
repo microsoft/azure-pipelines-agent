@@ -122,7 +122,7 @@ function cmd_test_l1 ()
     dotnet msbuild -t:cleanl1 -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" || failed build
 
     heading "Setup externals folder for $RUNTIME_ID agent's layout"
-    bash ./Misc/externals.sh $RUNTIME_ID "" "$SCRIPT_DIR/../_l1" || checkRC externals.sh
+    bash ./Misc/externals.sh $RUNTIME_ID "" "$SCRIPT_DIR/../_l1" "true" || checkRC externals.sh
 
     heading "Testing L1"
 

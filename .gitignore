@@ -7,7 +7,7 @@
 **/.vscode
 **/*.error
 **/*.json.pretty
-node_modules
+**/node_modules
 _downloads
 _layout
 _l1

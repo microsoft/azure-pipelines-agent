@@ -2,6 +2,7 @@
 PACKAGERUNTIME=$1
 PRECACHE=$2
 LAYOUT_DIR=$3
+L1_MODE=$4
 
 CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
 NODE_URL=https://nodejs.org/dist
@@ -16,7 +17,7 @@ get_abs_path() {
 
 DOWNLOAD_DIR="$(get_abs_path "$(dirname $0)/../../_downloads")/$PACKAGERUNTIME/netcore2x"
 if [[ "$LAYOUT_DIR" == "" ]]; then
-    $LAYOUT_DIR=$(get_abs_path "$(dirname $0)/../../_layout/$PACKAGERUNTIME")
+    LAYOUT_DIR=$(get_abs_path "$(dirname $0)/../../_layout/$PACKAGERUNTIME")
 fi
 
 function failed() {
@@ -182,4 +183,23 @@ fi
 if [[ "$PACKAGERUNTIME" == "linux-arm" ]]; then
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-armv7l.tar.gz" node fix_nested_dir
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-linux-armv7l.tar.gz" node10 fix_nested_dir
+fi
+
+if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
+    NPM_LOCATION=""
+    if [[ "$PACKAGERUNTIME" == "win-x64" ]]; then
+        acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-win-x64.zip" npm
+        NPM_LOCATION="$LAYOUT_DIR/externals/npm/node-v6.17.1-win-x64/npm"
+    elif [[ "$PACKAGERUNTIME" == "win-x86" ]]; then
+        acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-win-x86.zip" npm
+        NPM_LOCATION="$LAYOUT_DIR/externals/npm/node-v6.17.1-win-x86/npm"
+    else
+        NPM_LOCATION="$LAYOUT_DIR/externals/node/bin/npm"
+    fi
+
+    if [[ "$PRECACHE" == "" ]]; then
+        echo "npm install"
+        cd Test/L1/Tasks/d9bafed4-0b18-4f58-968d-86655b4d2ce9
+        $NPM_LOCATION install
+    fi
 fi
