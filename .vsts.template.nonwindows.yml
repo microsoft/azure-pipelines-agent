@@ -22,7 +22,11 @@ steps:
 # Run test
 - script: ./dev.sh test
   workingDirectory: src
-  displayName: Test
+  displayName: Unit tests
+
+- script: ./dev.sh testl1
+  workingDirectory: src
+  displayName: Integration tests
 
 # Publish test results
 - task: PublishTestResults@2
