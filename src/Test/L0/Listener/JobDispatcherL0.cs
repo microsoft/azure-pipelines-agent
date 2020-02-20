@@ -68,7 +68,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     .Returns(Task.FromResult<int>(56));
 
                 _processChannel.Setup(x => x.StartServer(It.IsAny<StartProcessDelegate>(), It.IsAny<bool>()))
-                    .Callback((StartProcessDelegate startDel) => { startDel("1", "2"); });
+                    .Callback((StartProcessDelegate startDel, bool disposeClient) => { startDel("1", "2"); });
                 _processChannel.Setup(x => x.SendAsync(MessageType.NewJobRequest, It.Is<string>(s => s.Equals(strMessage)), It.IsAny<CancellationToken>()))
                     .Returns(Task.CompletedTask);
 
@@ -475,7 +475,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     .Returns(Task.FromResult<int>(56));
 
                 _processChannel.Setup(x => x.StartServer(It.IsAny<StartProcessDelegate>(), It.IsAny<bool>()))
-                    .Callback((StartProcessDelegate startDel) => { startDel("1", "2"); });
+                    .Callback((StartProcessDelegate startDel, bool disposeClient) => { startDel("1", "2"); });
                 _processChannel.Setup(x => x.SendAsync(MessageType.NewJobRequest, It.Is<string>(s => s.Equals(strMessage)), It.IsAny<CancellationToken>()))
                     .Returns(Task.CompletedTask);
 
