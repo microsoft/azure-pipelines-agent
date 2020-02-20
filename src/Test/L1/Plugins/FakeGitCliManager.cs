@@ -12,9 +12,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
     public class FakeGitCliManager : GitCliManager
     {
         public FakeGitCliManager(Dictionary<string, string> envs = null) : base(envs)
-        {
-
-        }
+        { }
         
         public override async Task LoadGitExecutionInfo(AgentTaskPluginExecutionContext context, bool useBuiltInGit)
         {
