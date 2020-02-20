@@ -199,7 +199,11 @@ if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
 
     if [[ "$PRECACHE" == "" ]]; then
         echo "npm install"
-        cd Test/L1/Tasks/d9bafed4-0b18-4f58-968d-86655b4d2ce9
-        $NPM_LOCATION install
+        cd Test/L1/Tasks
+        for f in $PWD/*; do
+            cd $f
+            $NPM_LOCATION install
+            cd ..
+        done;
     fi
 fi
