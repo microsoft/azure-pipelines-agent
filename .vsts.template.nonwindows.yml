@@ -15,7 +15,7 @@ steps:
   clean: true
 
 # Build agent layout
-- script: ./dev.sh layout Release
+- script: sudo ./dev.sh layout Release
   workingDirectory: src
   displayName: Build & Layout Release
 

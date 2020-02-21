@@ -195,7 +195,7 @@ if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
         NPM_LOCATION="$LAYOUT_DIR/externals/npm/node-v${NODE10_VERSION}-win-x86/npm"
     else
         NPM_LOCATION="$LAYOUT_DIR/externals/node10/bin/npm"
-        sudo ln -s $LAYOUT_DIR/externals/node10/bin/node /usr/bin/node
+        ln -s $LAYOUT_DIR/externals/node10/bin/node /usr/bin/node
     fi
 
     if [[ "$PRECACHE" == "" ]]; then
