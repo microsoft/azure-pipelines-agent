@@ -195,7 +195,7 @@ if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
         NPM_LOCATION="$LAYOUT_DIR/externals/npm/node-v${NODE10_VERSION}-win-x86/npm"
     else
         NPM_LOCATION="$LAYOUT_DIR/externals/node10/bin/npm"
-        PATH=~$LAYOUT_DIR/externals/node10/bin:$PATH
+        PATH=$LAYOUT_DIR/externals/node10/bin:$PATH
     fi
 
     if [[ "$PRECACHE" == "" ]]; then
