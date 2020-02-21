@@ -195,11 +195,7 @@ if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
         NPM_LOCATION="$LAYOUT_DIR/externals/npm/node-v${NODE10_VERSION}-win-x86/npm"
     else
         NPM_LOCATION="$LAYOUT_DIR/externals/node10/bin/npm"
-        if [[ "$PACKAGERUNTIME" == "rhel.6-x64" ]]; then
-            su
-            yum install sudo
-            sudo ln -s $LAYOUT_DIR/externals/node10/bin/node /usr/bin/node
-        fi
+        PATH=~$LAYOUT_DIR:$PATH
     fi
 
     if [[ "$PRECACHE" == "" ]]; then
