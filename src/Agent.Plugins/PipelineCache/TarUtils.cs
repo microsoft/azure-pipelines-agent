@@ -31,7 +31,7 @@ namespace Agent.Plugins.PipelineCache
         public static async Task<string> ArchiveFilesToTarAsync(
             AgentTaskPluginExecutionContext context,
             Fingerprint pathFingerprint,
-            string workspace,
+            string workingDirectory,
             CancellationToken cancellationToken)
         {
             foreach (var inputPath in pathFingerprint.Segments)
@@ -45,7 +45,7 @@ namespace Agent.Plugins.PipelineCache
             var archiveFileName = CreateArchiveFileName();
             var archiveFile = Path.Combine(Path.GetTempPath(), archiveFileName);
 
-            ProcessStartInfo processStartInfo = GetCreateTarProcessInfo(context, archiveFile, pathFingerprint, workspace);
+            ProcessStartInfo processStartInfo = GetCreateTarProcessInfo(context, archiveFileName, pathFingerprint, workingDirectory);
 
             Action actionOnFailure = () =>
             {
@@ -76,7 +76,7 @@ namespace Agent.Plugins.PipelineCache
             AgentTaskPluginExecutionContext context,
             Manifest manifest,
             DedupManifestArtifactClient dedupManifestClient,
-            string workspace,
+            string workingDirectory,
             CancellationToken cancellationToken)
         {
             ValidateTarManifest(manifest);
@@ -84,7 +84,7 @@ namespace Agent.Plugins.PipelineCache
             DedupIdentifier dedupId = DedupIdentifier.Create(manifest.Items.Single(i => i.Path.EndsWith(archive, StringComparison.OrdinalIgnoreCase)).Blob.Id);
 
             // We now can simply specify the working directory as the tarball will contain paths relative to it
-            ProcessStartInfo processStartInfo = GetExtractStartProcessInfo(context, workspace);
+            ProcessStartInfo processStartInfo = GetExtractStartProcessInfo(context, workingDirectory);
 
             Func<Process, CancellationToken, Task> downloadTaskFunc =
                 (process, ct) =>
@@ -171,7 +171,7 @@ namespace Agent.Plugins.PipelineCache
             processStartInfo.WorkingDirectory = processWorkingDirectory;
         }
 
-        private static ProcessStartInfo GetCreateTarProcessInfo(AgentTaskPluginExecutionContext context, string archiveFilePath, Fingerprint pathFingerprint, string workspace)
+        private static ProcessStartInfo GetCreateTarProcessInfo(AgentTaskPluginExecutionContext context, string archiveFileName, Fingerprint pathFingerprint, string workingDirectory)
         {
             var processFileName = GetTar(context);
 
@@ -179,11 +179,11 @@ namespace Agent.Plugins.PipelineCache
                 .Select(i => $"\"{i.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)}\"")
                 .ToArray();
 
-            workspace = workspace.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            workingDirectory = workingDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
             // TODO: just how true is this
             // If given the absolute path for the '-cf' option, the GNU tar fails. The workaround is to start the tarring process in the temp directory, and simply speficy 'archive.tar' for that option.
-            var processArguments = $"-cf \"{archiveFilePath}\" -C \"{workspace}\" {string.Join(' ', inputPaths)}";
+            var processArguments = $"-cf \"{archiveFileName}\" -C \"{workingDirectory}\" {string.Join(' ', inputPaths)}";
 
             if (IsSystemDebugTrue(context))
             {
@@ -206,7 +206,7 @@ namespace Agent.Plugins.PipelineCache
             return String.IsNullOrWhiteSpace(location) ? "tar" : location;
         }
 
-        private static ProcessStartInfo GetExtractStartProcessInfo(AgentTaskPluginExecutionContext context, string workspace)
+        private static ProcessStartInfo GetExtractStartProcessInfo(AgentTaskPluginExecutionContext context, string workingDirectory)
         {
             // TODO: Get common directory of path segments
             //var targetDirectory = pathSegments[0];
@@ -221,7 +221,7 @@ namespace Agent.Plugins.PipelineCache
                 //}
                 // TODO: Verify this works
                 processFileName = "7z";
-                processArguments = $"x -si -aoa -o\"{workspace}\" -ttar";
+                processArguments = $"x -si -aoa -o\"{workingDirectory}\" -ttar";
                 if (IsSystemDebugTrue(context))
                 {
                     processArguments = "-bb1 " + processArguments;
@@ -240,7 +240,7 @@ namespace Agent.Plugins.PipelineCache
             }
 
             ProcessStartInfo processStartInfo = new ProcessStartInfo();
-            CreateProcessStartInfo(processStartInfo, processFileName, processArguments, processWorkingDirectory: workspace); // TODO: is this the right directory?
+            CreateProcessStartInfo(processStartInfo, processFileName, processArguments, processWorkingDirectory: workingDirectory); // TODO: is this the right directory?
             return processStartInfo;
         }
 

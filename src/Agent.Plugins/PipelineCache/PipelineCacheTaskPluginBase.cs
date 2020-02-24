@@ -141,7 +141,7 @@ namespace Agent.Plugins.PipelineCache
             Fingerprint fingerprint,
             Func<Fingerprint[]> restoreKeysGenerator,
             string[] pathSegments,
-            string workspace,
+            string workingDirectory,
             CancellationToken token);
 
         // Properties set by tasks

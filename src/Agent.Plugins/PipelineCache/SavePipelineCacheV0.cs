@@ -60,7 +60,7 @@ namespace Agent.Plugins.PipelineCache
             Fingerprint keyFingerprint,
             Func<Fingerprint[]> restoreKeysGenerator,
             string[] pathSegments,
-            string workspace,
+            string workingDirectory,
             CancellationToken token)
         {
             string contentFormatValue = context.Variables.GetValueOrDefault(ContentFormatVariableName)?.Value ?? string.Empty;
@@ -88,7 +88,7 @@ namespace Agent.Plugins.PipelineCache
                 context,
                 keyFingerprint,
                 pathSegments,
-                workspace,
+                workingDirectory,
                 token,
                 contentFormat);
         }
