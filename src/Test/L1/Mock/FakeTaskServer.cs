@@ -24,7 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 String zipName = Path.GetFileNameWithoutExtension(zip);
                 if (zipName.Equals(taskId.ToString()))
                 {
-                    return Task.FromResult<Stream>(new FileStream(zip, FileMode.Open, FileAccess.Read, FileShare.Read));
+                    return Task.FromResult<Stream>(new FileStream(zip, FileMode.Open));
                 }
             }
 

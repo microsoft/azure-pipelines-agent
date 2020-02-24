@@ -149,26 +149,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             if (!Directory.Exists(taskZipsPath))
             {
                 Directory.CreateDirectory(taskZipsPath);
-                foreach (var d in Directory.GetDirectories(tasksPath))
+            }
+            foreach (var d in Directory.GetDirectories(tasksPath))
+            {
+                var zip = Path.Join(taskZipsPath, Path.GetFileName(d) + ".zip");
+                if (File.Exists(zip))
                 {
-                    var zip = Path.Join(taskZipsPath, Path.GetFileName(d) + ".zip");
-                    if (!File.Exists(zip))
-                    {
-                        try
-                        {
-                            ZipFile.CreateFromDirectory(d, zip);
-                        }
-                        catch (System.IO.IOException ex)
-                        {
-                            // If the file was created successfully but we still get an exception, continue on - just means multiple processes got through the directory existence check and tried to create the file.
-                            // If the file still doesn't exist, that's a problem and we should throw.
-                            if (!File.Exists(zip))
-                            {
-                                throw ex;
-                            }
-                        }
-                    }
+                    File.Delete(zip);
                 }
+                ZipFile.CreateFromDirectory(d, zip);
             }
         }
 
@@ -206,7 +195,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                     workerTask = worker.RunAsync(
                         pipeIn: pipeHandleOut,
                         pipeOut: pipeHandleIn);
-                }, disposeClient: false); // Don't dispose the client because our process is both the client and the server
+                }, disposeClient: false);
 
                 // Send the job request message to the worker
                 var body = JsonUtility.ToString(message);
