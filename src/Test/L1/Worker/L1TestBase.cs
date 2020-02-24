@@ -195,7 +195,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                     workerTask = worker.RunAsync(
                         pipeIn: pipeHandleOut,
                         pipeOut: pipeHandleIn);
-                }, disposeClient: false);
+                }, disposeClient: false); // Don't dispose the client because our process is both the client and the server
 
                 // Send the job request message to the worker
                 var body = JsonUtility.ToString(message);
