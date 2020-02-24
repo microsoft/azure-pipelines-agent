@@ -22,6 +22,10 @@
     <LayoutBinFiles Include="$(MSBuildProjectDirectory)/Misc/layoutbin/**"/>
   </ItemGroup>
 
+  <ItemGroup>
+    <L1Tasks Include="$(L1Root)/externals/TaskZips/**"/>
+  </ItemGroup>
+
   <Target Name="GenerateConstant">
     <Exec Command="git rev-parse HEAD" ConsoleToMSBuild="true">
       <Output TaskParameter="ConsoleOutput" PropertyName="GitInfoCommitHash" />
@@ -81,6 +85,7 @@
 
   <Target Name="TestL1" DependsOnTargets="GenerateConstant">
     <Copy SourceFiles="@(LayoutBinFiles)"  DestinationFolder="$(L1Root)/bin/%(RecursiveDir)"/>
+    <Copy SourceFiles="@(L1Tasks)" DestinationFolder="$(L1Root)/bin/TaskZips"/>
 
     <MSBuild Targets="Restore"
              BuildInParallel="false"

@@ -40,6 +40,7 @@ function acquireExternalTool() {
                             # directly contains only a nested directory TEE-CLC-14.0.4. When this flag is set, the contents
                             # of the nested TEE-CLC-14.0.4 directory are moved up one directory, and then the empty directory
                             # TEE-CLC-14.0.4 is removed.
+    local skip_extract=$4 # Flag that indicates whether we should skip extracting the download and just use the compressed version
 
     # Extract the portion of the URL after the protocol. E.g. vstsagenttools.blob.core.windows.net/tools/pdbstr/1/pdbstr.zip
     local relative_url="${download_source#*://}"
@@ -76,25 +77,27 @@ function acquireExternalTool() {
             # Extract to current directory
             # Ensure we can extract those files
             # We might use them during dev.sh
-            if [[ "$download_basename" == *.zip ]]; then
-                # Extract the zip.
-                echo "Testing zip"
-                unzip "$download_target" -d "$download_dir" > /dev/null
-                local rc=$?
-                if [[ $rc -ne 0 && $rc -ne 1 ]]; then
-                    failed "unzip failed with return code $rc"
+            if [[ "$skip_extract" == "" ]]; then
+                if [[ "$download_basename" == *.zip ]]; then
+                    # Extract the zip.
+                    echo "Testing zip"
+                    unzip "$download_target" -d "$download_dir" > /dev/null
+                    local rc=$?
+                    if [[ $rc -ne 0 && $rc -ne 1 ]]; then
+                        failed "unzip failed with return code $rc"
+                    fi
+                elif [[ "$download_basename" == *.tar.gz ]]; then
+                    # Extract the tar gz.
+                    echo "Testing tar gz"
+                    tar xzf "$download_target" -C "$download_dir" > /dev/null || checkRC 'tar'
                 fi
-            elif [[ "$download_basename" == *.tar.gz ]]; then
-                # Extract the tar gz.
-                echo "Testing tar gz"
-                tar xzf "$download_target" -C "$download_dir" > /dev/null || checkRC 'tar'
             fi
         fi
     else
         # Extract to layout.
         mkdir -p "$target_dir" || checkRC 'mkdir'
         local nested_dir=""
-        if [[ "$download_basename" == *.zip ]]; then
+        if [[ "$download_basename" == *.zip  ]] && [[ "$skip_extract" == "" ]]; then
             # Extract the zip.
             echo "Extracting zip from $download_target to $target_dir"
             unzip "$download_target" -d "$target_dir" > /dev/null
@@ -107,7 +110,7 @@ function acquireExternalTool() {
             if [[ "$fix_nested_dir" == "fix_nested_dir" ]]; then
                 nested_dir="${download_basename%.zip}" # Remove the trailing ".zip".
             fi
-        elif [[ "$download_basename" == *.tar.gz ]]; then
+        elif [[ "$download_basename" == *.tar.gz ]] && [[ "$skip_extract" == "" ]]; then
             # Extract the tar gz.
             echo "Extracting tar gz from $download_target to $target_dir"
             tar xzf "$download_target" -C "$target_dir" > /dev/null || checkRC 'tar'
@@ -186,25 +189,6 @@ if [[ "$PACKAGERUNTIME" == "linux-arm" ]]; then
 fi
 
 if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
-    NPM_LOCATION=""
-    if [[ "$PACKAGERUNTIME" == "win-x64" ]]; then
-        acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-win-x64.zip" npm
-        NPM_LOCATION="$LAYOUT_DIR/externals/npm/node-v${NODE10_VERSION}-win-x64/npm"
-    elif [[ "$PACKAGERUNTIME" == "win-x86" ]]; then
-        acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-win-x86.zip" npm
-        NPM_LOCATION="$LAYOUT_DIR/externals/npm/node-v${NODE10_VERSION}-win-x86/npm"
-    else
-        NPM_LOCATION="$LAYOUT_DIR/externals/node10/bin/npm"
-    fi
-
-    if [[ "$PRECACHE" == "" ]]; then
-        echo $NPM_LOCATION install
-
-        cd Test/L1/Tasks
-        for f in $PWD/*; do
-            cd $f
-            $NPM_LOCATION install
-            cd ..
-        done;
-    fi
+    # cmdline task
+    acquireExternalTool "$CONTAINER_URL/l1Tasks/d9bafed4-0b18-4f58-968d-86655b4d2ce9.zip" "TaskZips" "" "skip"
 fi

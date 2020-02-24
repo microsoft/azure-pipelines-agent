@@ -134,31 +134,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             _mockedServices.Add(context.SetupService<IAgentPluginManager>(typeof(FakeAgentPluginManager)));
             _mockedServices.Add(context.SetupService<ITaskManager>(typeof(FakeTaskManager)));
             _mockedServices.Add(context.SetupService<ICustomerIntelligenceServer>(typeof(FakeCustomerIntelligenceServer)));
-            LoadTasks();
-        }
-
-        private void LoadTasks()
-        {
-            var baseDirectory = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
-            var taskZipsPath = Path.Join(baseDirectory, "TaskZips");
-            var tasksPath = Path.Join(baseDirectory, "L1", "Tasks");
-            if (!Directory.Exists(tasksPath))
-            {
-                throw new Exception("No mock tasks provided");
-            }
-            if (!Directory.Exists(taskZipsPath))
-            {
-                Directory.CreateDirectory(taskZipsPath);
-            }
-            foreach (var d in Directory.GetDirectories(tasksPath))
-            {
-                var zip = Path.Join(taskZipsPath, Path.GetFileName(d) + ".zip");
-                if (File.Exists(zip))
-                {
-                    File.Delete(zip);
-                }
-                ZipFile.CreateFromDirectory(d, zip);
-            }
         }
 
         private string GetLogFile(object testClass, string testMethod)
