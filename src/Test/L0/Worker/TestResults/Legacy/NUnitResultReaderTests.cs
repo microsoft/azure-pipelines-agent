@@ -572,13 +572,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
 
         public void Dispose()
         {
-            _nUnitReader.AddResultsFileToRunLevelAttachments = true;
-            try
+            Dispose(true);
+        }
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
             {
-                File.Delete(_fileName);
-            }
-            catch
-            {
+                _nUnitReader.AddResultsFileToRunLevelAttachments = true;
+                try
+                {
+                    File.Delete(_fileName);
+                }
+                catch
+                {
+                }
             }
         }
 

@@ -574,12 +574,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
 
         public void Dispose()
         {
-            try
+            Dispose(true);
+        }
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
             {
-                File.Delete(_xUnitResultFile);
-            }
-            catch
-            {
+                try
+                {
+                    File.Delete(_xUnitResultFile);
+                }
+                catch
+                {
+                }
             }
         }
 
