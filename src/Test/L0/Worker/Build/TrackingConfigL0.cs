@@ -6,11 +6,9 @@ using System.Collections.Generic;
 using System.IO;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
-using Microsoft.VisualStudio.Services.Agent.Tests;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Build;
 using Moq;
-using Moq.Language.Flow;
 using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
@@ -190,7 +188,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
         }
 
         private const string CollectionId = "226466ab-342b-4ca4-bbee-0b87154d4936";
-        private const string CollectionName = "Some collection name";
         private const string CollectionUrl = "http://contoso:8080/tfs/DefaultCollection/";
         private const int DefinitionId = 322;
         private const string DefinitionName = "Some definition name";
