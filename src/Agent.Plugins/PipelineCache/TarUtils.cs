@@ -208,8 +208,6 @@ namespace Agent.Plugins.PipelineCache
 
         private static ProcessStartInfo GetExtractStartProcessInfo(AgentTaskPluginExecutionContext context, string workingDirectory)
         {
-            // TODO: Get common directory of path segments
-            //var targetDirectory = pathSegments[0];
             string processFileName, processArguments;
             if (isWindows && CheckIf7ZExists())
             {
@@ -231,7 +229,7 @@ namespace Agent.Plugins.PipelineCache
             {
                 processFileName = GetTar(context);
                 // Instead of targetDirectory, we are providing . to tar, because the tar process is being started from targetDirectory.
-                // -P is added so that relative paths are accepted by tar
+                // -P is added so that relative paths and backtracing (e.g. ../foo) are accepted by tar
                 processArguments = $"-xf - -P -C .";
                 if (IsSystemDebugTrue(context))
                 {
@@ -240,7 +238,8 @@ namespace Agent.Plugins.PipelineCache
             }
 
             ProcessStartInfo processStartInfo = new ProcessStartInfo();
-            CreateProcessStartInfo(processStartInfo, processFileName, processArguments, processWorkingDirectory: workingDirectory); // TODO: is this the right directory?
+            // Tar is started in the working directory because the tarball contains paths relative to it
+            CreateProcessStartInfo(processStartInfo, processFileName, processArguments, processWorkingDirectory: workingDirectory);
             return processStartInfo;
         }
 
