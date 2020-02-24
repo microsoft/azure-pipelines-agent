@@ -9,7 +9,6 @@ resources:
 stages:
 - stage: Create_Release_Branch
   displayName: Create Release Branch
-  dependsOn: Create_Release_Branch
   jobs:
   ################################################################################
   - job: Create_Release_Branch
