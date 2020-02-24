@@ -14,7 +14,10 @@ steps:
 # Clean
 - checkout: self
   clean: true
-  branch: "releases/$(version)"
+
+- ${{ if ne(parameters.version, '') }}:
+    - script: git checkout releases/$(version)
+      displayName: Checkout release branch
 
 # Build agent layout
 - script: ./dev.sh layout Release
