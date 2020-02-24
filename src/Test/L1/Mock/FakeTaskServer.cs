@@ -33,7 +33,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                         {
                             return Task.FromResult<Stream>(new FileStream(zip, FileMode.Open));
                         }
-                        catch (System.IO.IOException ex)
+                        catch (System.IO.IOException)
                         {
                             Thread.Sleep(1000);
                             triesRemaining--;
