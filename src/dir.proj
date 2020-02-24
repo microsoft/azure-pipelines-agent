@@ -23,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <L1Tasks Include="$(L1Root)/externals/TaskZips/**"/>
+    <L1Tasks Include="$(L1Root)/externals/Tasks/**"/>
   </ItemGroup>
 
   <Target Name="GenerateConstant">
@@ -85,7 +85,7 @@
 
   <Target Name="TestL1" DependsOnTargets="GenerateConstant">
     <Copy SourceFiles="@(LayoutBinFiles)"  DestinationFolder="$(L1Root)/bin/%(RecursiveDir)"/>
-    <Copy SourceFiles="@(L1Tasks)" DestinationFolder="$(L1Root)/bin/TaskZips"/>
+    <Copy SourceFiles="@(L1Tasks)" DestinationFolder="$(L1Root)/bin/L1/Tasks/%(RecursiveDir)"/>
 
     <MSBuild Targets="Restore"
              BuildInParallel="false"
