@@ -187,5 +187,5 @@ fi
 
 if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
     # cmdline task
-    acquireExternalTool "$CONTAINER_URL/l1Tasks/d9bafed4-0b18-4f58-968d-86655b4d2ce9.zip" "Tasks/d9bafed4-0b18-4f58-968d-86655b4d2ce9" ""
+    acquireExternalTool "$CONTAINER_URL/l1Tasks/d9bafed4-0b18-4f58-968d-86655b4d2ce9.zip" "Tasks/d9bafed4-0b18-4f58-968d-86655b4d2ce9"
 fi

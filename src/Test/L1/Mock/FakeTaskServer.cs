@@ -24,7 +24,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 String zipName = Path.GetFileNameWithoutExtension(zip);
                 if (zipName.Equals(taskId.ToString()))
                 {
-                    return Task.FromResult<Stream>(new FileStream(zip, FileMode.Open));
+                    int triesRemaining = 10;
+                    while (triesRemaining > 0)
+                    {
+                        // Basic lock - if 2 processes try to create a filestream from the same file, one will receive an IO exception.
+                        // This just spins until it succeeds
+                        try
+                        {
+                            return Task.FromResult<Stream>(new FileStream(zip, FileMode.Open));
+                        }
+                        catch (System.IO.IOException ex)
+                        {
+                            Thread.Sleep(1000);
+                            triesRemaining--;
+                        }
+                    }
                 }
             }
 

@@ -149,15 +149,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             if (!Directory.Exists(taskZipsPath))
             {
                 Directory.CreateDirectory(taskZipsPath);
-            }
-            foreach (var d in Directory.GetDirectories(tasksPath))
-            {
-                var zip = Path.Join(taskZipsPath, Path.GetFileName(d) + ".zip");
-                if (File.Exists(zip))
+                foreach (var d in Directory.GetDirectories(tasksPath))
                 {
-                    File.Delete(zip);
+                    var zip = Path.Join(taskZipsPath, Path.GetFileName(d) + ".zip");
+                    if (!File.Exists(zip))
+                    {
+                        try
+                        {
+                            ZipFile.CreateFromDirectory(d, zip);
+                        }
+                        catch (System.IO.IOException ex)
+                        {
+                            // If the file was created successfully but we still get an exception, continue on - just means multiple processes got through the directory existence check and tried to create the file.
+                            // If the file still doesn't exist, that's a problem and we should throw.
+                            if (!File.Exists(zip))
+                            {
+                                throw ex;
+                            }
+                        }
+                    }
                 }
-                ZipFile.CreateFromDirectory(d, zip);
             }
         }
 
