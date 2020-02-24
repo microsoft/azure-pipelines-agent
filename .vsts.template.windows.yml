@@ -13,6 +13,7 @@ steps:
 # Clean
 - checkout: self
   clean: true
+  branch: "releases/$(version)"
 
 # Build agent layout
 - script: dev.cmd layout Release

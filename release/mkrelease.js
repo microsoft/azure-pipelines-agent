@@ -374,8 +374,8 @@ async function main()
     await fetchPRsSinceLastReleaseAndEditReleaseNotes(newRelease);
     createIntegrationFiles(newRelease);
     commitAgentChanges(path.join(__dirname, '..'), newRelease);
-    commitADOL2Changes(path.join(INTEGRATION_DIR, "AzureDevOps"), newRelease);
-    commitADOConfigChange(path.join(INTEGRATION_DIR, "AzureDevOps.ConfigChange"), newRelease);
+    // commitADOL2Changes(path.join(INTEGRATION_DIR, "AzureDevOps"), newRelease);
+    // commitADOConfigChange(path.join(INTEGRATION_DIR, "AzureDevOps.ConfigChange"), newRelease);
     console.log('done.');
 }
 
