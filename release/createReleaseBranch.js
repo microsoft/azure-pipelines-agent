@@ -254,10 +254,6 @@ function commitAgentChanges(directory, release)
     execInForeground(GIT + " add " + path.join('src', 'agentversion'), directory);
     execInForeground(GIT + " add releaseNote.md", directory);
     commitAndPush(directory, release, newBranch);
-
-    console.log("Create and publish release by kicking off this pipeline. (Use branch " + newBranch + ")");
-    console.log("       https://dev.azure.com/mseng/AzureDevOps/_build?definitionId=5845 ");
-    console.log("");
 }
 
 function checkGitStatus()
