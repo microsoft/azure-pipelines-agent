@@ -14,7 +14,7 @@ steps:
 - checkout: self
   clean: true
 
-- ${{ if ne(parameters.version, '') }}:
+- ${{ if ne(variables['version'], '') }}:
     - script: git checkout releases/$(version)
       displayName: Checkout release branch
 
