@@ -22,9 +22,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             int releaseId,
             Guid projectId,
             CancellationToken cancellationToken = default(CancellationToken))
-            {
-                return new List<AgentArtifactDefinition>();
-            }
+        {
+            return new List<AgentArtifactDefinition>();
+        }
         public Task<RMContracts.Release> UpdateReleaseName(
             string releaseId,
             Guid projectId,

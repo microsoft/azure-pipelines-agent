@@ -20,6 +20,5 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             events.AddRange(ciEvents);
             return Task.CompletedTask;
         }
-
     }
 }
