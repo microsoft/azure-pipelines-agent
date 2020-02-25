@@ -346,5 +346,7 @@ stages:
         npm install
         ls
         node createAdoPrs.js $(version) ../../AzureDevOps ../../AzureDevOps.ConfigChange
-      displayName: Checkout agent release branch
+      displayName: Create PRs in AzureDevOps and AzureDevOps.ConfigChange
       condition: ne(variables['version'], '')
+      env:
+        USER: 'damccorm'
