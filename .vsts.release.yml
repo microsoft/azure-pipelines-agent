@@ -40,7 +40,6 @@ stages:
       vmImage: vs2017-win2016
     variables:
       layoutRoot: '_layout\win-x64'
-      version: $(version)
     steps:
 
     # Steps template for windows platform
