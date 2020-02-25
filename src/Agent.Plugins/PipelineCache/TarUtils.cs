@@ -45,7 +45,7 @@ namespace Agent.Plugins.PipelineCache
             var archiveFileName = CreateArchiveFileName();
             var archiveFile = Path.Combine(Path.GetTempPath(), archiveFileName);
 
-            ProcessStartInfo processStartInfo = GetCreateTarProcessInfo(context, archiveFileName, pathFingerprint, workingDirectory);
+            ProcessStartInfo processStartInfo = GetCreateTarProcessInfo(context, archiveFileName, workingDirectory);
 
             Action actionOnFailure = () =>
             {
@@ -53,11 +53,39 @@ namespace Agent.Plugins.PipelineCache
                 TryDeleteFile(archiveFile);
             };
 
+            Func<Process, CancellationToken, Task> createTaskFunc =
+                (process, ct) =>
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        var inputPaths = pathFingerprint.Segments
+                            .Select(i => i.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+
+                        foreach (var inputPath in inputPaths)
+                        {
+                            await process.StandardInput.WriteLineAsync(inputPath);
+                        }
+
+                        process.StandardInput.BaseStream.Close();
+                    }
+                    catch (Exception e)
+                    {
+                        try
+                        {
+                            process.Kill();
+                        }
+                        catch { }
+                        ExceptionDispatchInfo.Capture(e).Throw();
+                    }
+                });
+
             await RunProcessAsync(
                 context,
                 processStartInfo,
                 // no additional tasks on create are required to run whilst running the TAR process
-                (Process process, CancellationToken ct) => Task.CompletedTask,
+                //(Process process, CancellationToken ct) => Task.CompletedTask,
+                createTaskFunc,
                 actionOnFailure,
                 cancellationToken);
 
@@ -171,19 +199,15 @@ namespace Agent.Plugins.PipelineCache
             processStartInfo.WorkingDirectory = processWorkingDirectory;
         }
 
-        private static ProcessStartInfo GetCreateTarProcessInfo(AgentTaskPluginExecutionContext context, string archiveFileName, Fingerprint pathFingerprint, string workingDirectory)
+        private static ProcessStartInfo GetCreateTarProcessInfo(AgentTaskPluginExecutionContext context, string archiveFileName, string workingDirectory)
         {
             var processFileName = GetTar(context);
 
-            var inputPaths = pathFingerprint.Segments
-                .Select(i => $"\"{i.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)}\"")
-                .ToArray();
-
             workingDirectory = workingDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-            // TODO: just how true is this
             // If given the absolute path for the '-cf' option, the GNU tar fails. The workaround is to start the tarring process in the temp directory, and simply speficy 'archive.tar' for that option.
-            var processArguments = $"-cf \"{archiveFileName}\" -C \"{workingDirectory}\" {string.Join(' ', inputPaths)}";
+            // The list of input files is piped in through the 'additionalTaskToExecuteWhilstRunningProcess' parameter
+            var processArguments = $"-cf \"{archiveFileName}\" -C \"{workingDirectory}\" -T -";
 
             if (IsSystemDebugTrue(context))
             {
@@ -193,6 +217,7 @@ namespace Agent.Plugins.PipelineCache
             {
                 processArguments = "-h " + processArguments;
             }
+            //cat input.txt | tar - v - cf "pipeline.tar" - C "/Users/ethand/code/azure-pipelines-agent/_layout/osx-x64/_work/3/s" - T -
 
             ProcessStartInfo processStartInfo = new ProcessStartInfo();
             CreateProcessStartInfo(processStartInfo, processFileName, processArguments, processWorkingDirectory: Path.GetTempPath()); // We want to create the archiveFile in temp folder, and hence starting the tar process from TEMP to avoid absolute paths in tar cmd line.

@@ -63,6 +63,8 @@ namespace Agent.Plugins.PipelineCache
             string workingDirectory,
             CancellationToken token)
         {
+            WaitForDebuggerAttach();
+
             string contentFormatValue = context.Variables.GetValueOrDefault(ContentFormatVariableName)?.Value ?? string.Empty;
             string calculatedFingerPrint = context.TaskVariables.GetValueOrDefault(ResolvedFingerPrintVariableName)?.Value ?? string.Empty;
 
