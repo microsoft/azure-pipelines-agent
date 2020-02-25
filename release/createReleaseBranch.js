@@ -245,7 +245,7 @@ function commitAndPush(directory, release, branch)
     execInForeground(`${GIT} config --global user.name "azure-pipelines-bot"`)
     execInForeground(GIT + " checkout -b " + branch, directory);
     execInForeground(`${GIT} commit -m "Agent Release ${release}" `, directory);
-    execInForeground(`${GIT} git -c credential.helper='!f() { echo "username=pat"; echo "password=$PAT"; };f' push push --set-upstream origin ${branch}`, directory);
+    execInForeground(`${GIT} -c credential.helper='!f() { echo "username=pat"; echo "password=$PAT"; };f' push push --set-upstream origin ${branch}`, directory);
 }
 
 function commitAgentChanges(directory, release)
