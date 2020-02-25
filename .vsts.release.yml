@@ -133,23 +133,25 @@ stages:
       vmImage: ubuntu-16.04
     steps:
 
-    # Steps template for non-windows platform
-    - template: .vsts.template.nonwindows.yml
-      parameters:
-        testLogTitle: 'Linux-x64'
+      - script: ls
 
-    # Create agent package zip
-    - script: ./dev.sh package Release
-      workingDirectory: src
-      displayName: Package Release    
+    # # Steps template for non-windows platform
+    # - template: .vsts.template.nonwindows.yml
+    #   parameters:
+    #     testLogTitle: 'Linux-x64'
 
-    # Upload agent package zip as build artifact
-    - task: PublishBuildArtifacts@1
-      displayName: Publish Artifact (Linux)    
-      inputs:
-        pathToPublish: _package
-        artifactName: agent
-        artifactType: container
+    # # Create agent package zip
+    # - script: ./dev.sh package Release
+    #   workingDirectory: src
+    #   displayName: Package Release    
+
+    # # Upload agent package zip as build artifact
+    # - task: PublishBuildArtifacts@1
+    #   displayName: Publish Artifact (Linux)    
+    #   inputs:
+    #     pathToPublish: _package
+    #     artifactName: agent
+    #     artifactType: container
 
   # ################################################################################
   # - job: build_linux_agent_arm
