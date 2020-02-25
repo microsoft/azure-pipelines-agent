@@ -20,7 +20,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             {
                 throw new ArgumentException("The target type must implement the specified interface");
             }
-            _serviceTypes.TryAdd(typeof(T), target);
+            ServiceTypes.TryAdd(typeof(T), target);
             return GetService<T>();
         }
 

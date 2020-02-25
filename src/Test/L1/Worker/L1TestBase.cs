@@ -32,8 +32,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
     public class L1TestBase
     {
-        protected TimeSpan _channelTimeout = TimeSpan.FromSeconds(100);
-        protected TimeSpan _jobTimeout = TimeSpan.FromSeconds(100);
+        protected TimeSpan ChannelTimeout = TimeSpan.FromSeconds(100);
+        protected TimeSpan JobTimeout = TimeSpan.FromSeconds(100);
 
         private List<IAgentService> _mockedServices = new List<IAgentService>();
 
@@ -119,7 +119,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 await SetupMessage(context, message);
 
                 var cts = new CancellationTokenSource();
-                cts.CancelAfter((int)_jobTimeout.TotalMilliseconds);
+                cts.CancelAfter((int)JobTimeout.TotalMilliseconds);
                 return await RunWorker(context, message, cts.Token);
             }
         }
@@ -199,7 +199,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
                 // Send the job request message to the worker
                 var body = JsonUtility.ToString(message);
-                using (var csSendJobRequest = new CancellationTokenSource(_channelTimeout))
+                using (var csSendJobRequest = new CancellationTokenSource(ChannelTimeout))
                 {
                     await processChannel.SendAsync(
                         messageType: MessageType.NewJobRequest,
