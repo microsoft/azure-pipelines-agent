@@ -14,9 +14,9 @@ steps:
 - checkout: self
   clean: true
 
-- ${{ if ne(variables['version'], '') }}:
-    - script: git checkout releases/$(version)
-      displayName: Checkout release branch
+- script: git checkout releases/$(version)
+  displayName: Checkout release branch
+  condition: ne($(version), '')
 
 # Build agent layout
 - script: dev.cmd layout Release
