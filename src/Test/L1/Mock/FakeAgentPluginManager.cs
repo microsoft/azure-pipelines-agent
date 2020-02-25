@@ -10,9 +10,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         {
             // Inject any plugin mocks here.
             // Each injection should be paired with a removal of the plugin being mocked.
-            _taskPlugins.Remove("Agent.Plugins.Repository.CheckoutTask, Agent.Plugins");
-            _taskPlugins.Add("Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker.FakeCheckoutTask, Test");
+            ReplacePlugin("Agent.Plugins.Repository.CheckoutTask, Agent.Plugins", "Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker.FakeCheckoutTask, Test");
             base.Initialize(hostContext);
+        }
+
+        private void ReplacePlugin(string existingPlugin, string fakePlugin)
+        {
+            if (!_taskPlugins.Contains(existingPlugin))
+            {
+                throw new Exception($"{existingPlugin} must exist in _taskPlugins in order to be replaced");
+            }
+            if (_taskPlugins.Contains(fakePlugin))
+            {
+                throw new Exception($"{fakePlugin} already exists in _taskPlugins");
+            }
+            _taskPlugins.Remove(existingPlugin);
+            _taskPlugins.Add(fakePlugin);
         }
     }
 }
