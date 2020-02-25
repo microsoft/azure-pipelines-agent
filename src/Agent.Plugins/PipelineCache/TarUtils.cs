@@ -215,7 +215,6 @@ namespace Agent.Plugins.PipelineCache
             {
                 processArguments = "-h " + processArguments;
             }
-            //cat input.txt | tar - v - cf "pipeline.tar" - C "/Users/ethand/code/azure-pipelines-agent/_layout/osx-x64/_work/3/s" - T -
 
             ProcessStartInfo processStartInfo = new ProcessStartInfo();
             CreateProcessStartInfo(processStartInfo, processFileName, processArguments, processWorkingDirectory: Path.GetTempPath()); // We want to create the archiveFile in temp folder, and hence starting the tar process from TEMP to avoid absolute paths in tar cmd line.
