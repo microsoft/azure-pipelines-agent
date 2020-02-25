@@ -130,19 +130,19 @@ namespace Microsoft.VisualStudio.Services.Agent
             if (File.Exists(proxyBypassFile))
             {
                 Trace.Verbose($"Try read proxy bypass list from file: {proxyBypassFile}.");
-                foreach (string bypass in File.ReadAllLines(proxyBypassFile).Where(value => !string.IsNullOrEmpty(value)).Select(value => value.Trim()))
+                foreach (string bypass in File.ReadAllLines(proxyBypassFile).Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim()))
                 {
                     Trace.Info($"Bypass proxy for: {bypass}.");
                     ProxyBypassList.Add(bypass.Trim());
                 }
             }
 
-            foreach (var envVar in new string[] { "NO_PROXY" })
+            foreach (var envVar in new string[] { "no_proxy" })
             {
                 Trace.Verbose($"Try reading proxy bypass list from environment variable: '{envVar}'.");
                 var proxyBypassEnv = Environment.GetEnvironmentVariable(envVar) ?? string.Empty;
 
-                foreach (string bypass in proxyBypassEnv.Split(new [] {',', ';'}).Where(value => !string.IsNullOrEmpty(value)).Select(value => value.Trim()))
+                foreach (string bypass in proxyBypassEnv.Split(new [] {',', ';'}).Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim()))
                 {
                     Trace.Info($"Bypass proxy for: {bypass}.");
                     ProxyBypassList.Add(bypass);
@@ -164,7 +164,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             if (string.IsNullOrEmpty(ProxyAddress))
             {
-                foreach (var envVar in new string[] { "VSTS_HTTP_PROXY", "HTTP_PROXY" })
+                foreach (var envVar in new string[] { "VSTS_HTTP_PROXY", "http_proxy" })
                 {
                     Trace.Verbose($"Try reading proxy setting from environment variable: '{envVar}'.");
                     ProxyAddress = Environment.GetEnvironmentVariable(envVar) ?? string.Empty;
