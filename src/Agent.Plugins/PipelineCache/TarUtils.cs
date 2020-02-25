@@ -53,7 +53,7 @@ namespace Agent.Plugins.PipelineCache
                 TryDeleteFile(archiveFile);
             };
 
-            Func<Process, CancellationToken, Task> createTaskFunc =
+            Func<Process, CancellationToken, Task> inputFilesTask =
                 (process, ct) =>
                 Task.Run(async () =>
                 {
@@ -83,9 +83,7 @@ namespace Agent.Plugins.PipelineCache
             await RunProcessAsync(
                 context,
                 processStartInfo,
-                // no additional tasks on create are required to run whilst running the TAR process
-                //(Process process, CancellationToken ct) => Task.CompletedTask,
-                createTaskFunc,
+                inputFilesTask,
                 actionOnFailure,
                 cancellationToken);
 

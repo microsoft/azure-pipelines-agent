@@ -82,8 +82,7 @@ namespace Agent.Plugins.PipelineCache
                     {
                         if (File.Exists(uploadPath))
                         {
-                            Console.WriteLine(uploadPath);
-                            //File.Delete(uploadPath);
+                            File.Delete(uploadPath);
                         }
                     }
                     catch { }
