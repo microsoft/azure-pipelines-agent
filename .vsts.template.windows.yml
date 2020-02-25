@@ -13,10 +13,9 @@ steps:
 # Clean
 - checkout: self
   clean: true
-  condition: eq(variables['version'], '')
 
-- checkout: self@releases/$(version)
-  clean: true
+- script: git checkout releases/$(version)
+  displayName: Checkout release branch
   condition: ne(variables['version'], '')
 
 # Build agent layout
