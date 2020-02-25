@@ -45,7 +45,7 @@ namespace Agent.Plugins.Repository
 
         public Guid Id => Pipelines.PipelineConstants.CheckoutTask.Id;
 
-        public ISourceProviderFactory SourceProviderFactory { get; set; }
+        public ISourceProviderFactory SourceProviderFactory { get; }
 
         public abstract string Stage { get; }
 
