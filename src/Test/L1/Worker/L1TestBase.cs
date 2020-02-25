@@ -188,13 +188,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             // Setup the anonymous pipes to use for communication with the worker.
             using (var processChannel = HostContext.CreateService<IProcessChannel>())
             {
-                processChannel.StartServer(startProcess: (string pipeHandleOut, string pipeHandleIn) =>
+                processChannel.StartServer(startProcess: (string host, int port) =>
                 {
                     // Run the worker
                     // Note: this happens on the same process as the test
                     workerTask = worker.RunAsync(
-                        pipeIn: pipeHandleOut,
-                        pipeOut: pipeHandleIn);
+                        host: host,
+                        port: port);
                 }, disposeClient: false);
 
                 // Send the job request message to the worker
