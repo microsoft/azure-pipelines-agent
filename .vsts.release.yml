@@ -336,13 +336,15 @@ stages:
       fetchDepth: 1
       persistCredentials: true
 
-    - script: ls
+    - bash: ls
 
     - bash: |
+        set -x
         cd azure-pipelines-agent 
         git checkout releases/$(version)
         cd release
         npm install
+        ls
         node createAdoPrs.js $(version) ../../AzureDevOps ../../AzureDevOps.ConfigChange
       displayName: Checkout agent release branch
       condition: ne(variables['version'], '')
