@@ -321,19 +321,28 @@ stages:
 #         Invoke-RestMethod @assetsParams
 #       displayName: Create agent release on Github
   ################################################################################
-  - job: Create_Release_Branch
+  - job: create_ado_prs
   ################################################################################
-    displayName: Create Release Branch
+    displayName: Create PRs in AzureDevOps
     pool:
       vmImage: ubuntu-16.04
 
     steps:
     - checkout: self
     - checkout: git://AzureDevOps/AzureDevOps
+      fetchDepth: 1
+      persistCredentials: true
     - checkout: git://AzureDevOps/AzureDevOps.ConfigChange
+      fetchDepth: 1
+      persistCredentials: true
 
     - script: ls
 
-    - script: cd azure-pipelines-agent && git checkout releases/$(version)
+    - bash: |
+        cd azure-pipelines-agent 
+        git checkout releases/$(version)
+        cd release
+        npm install
+        node createAdoPrs.js $(version) ../../AzureDevOps ../../AzureDevOps.ConfigChange
       displayName: Checkout agent release branch
       condition: ne(variables['version'], '')

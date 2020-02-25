@@ -89,11 +89,15 @@ function commitADOL2Changes(directory, release)
 {
     var gitUrl =  "https://mseng@dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps"
 
-    sparseClone(directory, gitUrl);
     var file = path.join(INTEGRATION_DIR, 'InstallAgentPackage.xml');
     var targetDirectory = path.join('DistributedTask', 'Service', 'Servicing', 'Host', 'Deployment', 'Groups');
-    execInForeground(GIT + " sparse-checkout set " + targetDirectory, directory);
     var target = path.join(directory, targetDirectory, 'InstallAgentPackage.xml');
+    
+    if (!fs.existsSync(directory))
+    {
+        sparseClone(directory, gitUrl);    
+        execInForeground(GIT + " sparse-checkout set " + targetDirectory, directory);
+    }
 
     if (opt.options.dryrun)
     {
@@ -116,8 +120,11 @@ function commitADOConfigChange(directory, release)
 {
     var gitUrl =  "https://mseng@dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps.ConfigChange"
 
-    sparseClone(directory, gitUrl);
-    execInForeground(GIT + " sparse-checkout set tfs", directory);
+    if (!fs.existsSync(directory))
+    {
+        sparseClone(directory, gitUrl);
+        execInForeground(GIT + " sparse-checkout set tfs", directory);
+    }
     var agentVersionPath=release.replace(/\./g, '-');
     var milestoneDir = "mXXX";
     var tfsDir = path.join(directory, "tfs");
@@ -159,10 +166,12 @@ async function main()
         console.log('Error: You must supply a version');
         process.exit(-1);
     }
+    var pathToAdo = opt.argv[1] || path.join(INTEGRATION_DIR, "AzureDevOps");
+    var pathToConfigChange = opt.argv[2] || path.join(INTEGRATION_DIR, "AzureDevOps.ConfigChange");
     verifyMinimumNodeVersion();
     verifyMinimumGitVersion();
-    commitADOL2Changes(path.join(INTEGRATION_DIR, "AzureDevOps"), newRelease);
-    commitADOConfigChange(path.join(INTEGRATION_DIR, "AzureDevOps.ConfigChange"), newRelease);
+    commitADOL2Changes(pathToAdo, newRelease);
+    commitADOConfigChange(pathToConfigChange, newRelease);
     console.log('done.');
 }
 
