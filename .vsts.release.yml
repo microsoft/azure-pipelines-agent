@@ -18,6 +18,9 @@ stages:
       vmImage: ubuntu-16.04
 
     steps:
+    - checkout: self
+      persistCredentials: true
+
     - script: |
         cd release
         npm install
