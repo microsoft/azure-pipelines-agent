@@ -214,11 +214,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
                 // Initialize the dictionary.
                 var locStrings = new Dictionary<string, object>();
-                foreach (var cultureName in cultureNames)
+                foreach (string cultureName in cultureNames)
                 {
                     // Merge the strings from the file into the instance dictionary.
-                    var assemblyLocation = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
-                    var file = Path.Combine(assemblyLocation, cultureName, "strings.json");
+                    string assemblyLocation = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
+                    string file = Path.Combine(assemblyLocation, cultureName, "strings.json");
                     if (File.Exists(file))
                     {
                         foreach (KeyValuePair<string, object> pair in IOUtil.LoadObject<Dictionary<string, object>>(file))
