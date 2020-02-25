@@ -110,10 +110,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     .Returns(Task.FromResult<TaskResult>(TaskResult.Succeeded));
 
                 //Act
-                await worker.RunAsync(host: "127.0.0.1", port: 12345);
+                await worker.RunAsync(host: "127.0.0.1", port: 0);
 
                 //Assert
-                _processChannel.Verify(x => x.StartClient("127.0.0.1", 12345), Times.Once());
+                _processChannel.Verify(x => x.StartClient("127.0.0.1", 0), Times.Once());
                 _jobRunner.Verify(x => x.RunAsync(
                     It.Is<Pipelines.AgentJobRequestMessage>(y => IsMessageIdentical(y, jobMessage)), It.IsAny<CancellationToken>()));
                 tokenSource.Cancel();
@@ -164,10 +164,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
                 //Act
                 await Assert.ThrowsAsync<TaskCanceledException>(
-                    async () => await worker.RunAsync("127.0.0.1", 12345));
+                    async () => await worker.RunAsync("127.0.0.1", 0));
 
                 //Assert
-                _processChannel.Verify(x => x.StartClient("127.0.0.1", 12345), Times.Once());
+                _processChannel.Verify(x => x.StartClient("127.0.0.1", 0), Times.Once());
                 _jobRunner.Verify(x => x.RunAsync(
                     It.Is<Pipelines.AgentJobRequestMessage>(y => IsMessageIdentical(y, jobMessage)), It.IsAny<CancellationToken>()));
             }
