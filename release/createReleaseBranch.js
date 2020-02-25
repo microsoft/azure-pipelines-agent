@@ -179,56 +179,6 @@ function editReleaseNotesFile(body)
     }
 }
 
-function versionifySync(template, destination, version)
-{
-    try
-    {
-        var data = fs.readFileSync(template, 'utf8');
-        data = data.replace(/<AGENT_VERSION>/g, version);
-        console.log("Generating " + destination);
-        fs.writeFileSync(destination, data);
-    }
-    catch(e)
-    {
-        console.log('Error:', e.stack);
-    }
-}
-
-function createIntegrationFiles(newRelease, callback)
-{
-    fs.mkdirSync(INTEGRATION_DIR, { recursive: true });
-    fs.readdirSync(INTEGRATION_DIR).forEach( function(entry) {
-        if (entry.startsWith('PublishVSTSAgent-'))
-        {
-            // node 12 has recursive support in rmdirSync
-            // but since most of us are still on node 10
-            // remove the files manually first
-            var dirToDelete = path.join(INTEGRATION_DIR, entry);
-            fs.readdirSync(dirToDelete).forEach( function(file) {
-                fs.unlinkSync(path.join(dirToDelete, file));
-            });
-            fs.rmdirSync(dirToDelete, { recursive: true });
-        }
-    });
-
-    versionifySync(path.join(__dirname, '..', 'src', 'Misc', 'InstallAgentPackage.template.xml'),
-        path.join(INTEGRATION_DIR, "InstallAgentPackage.xml"),
-        newRelease
-    );
-    var agentVersionPath=newRelease.replace(/\./g, '-');
-    var publishDir = path.join(INTEGRATION_DIR, "PublishVSTSAgent-" + agentVersionPath);
-    fs.mkdirSync(publishDir, { recursive: true });
-
-    versionifySync(path.join(__dirname, '..', 'src', 'Misc', 'PublishVSTSAgent.template.ps1'),
-        path.join(publishDir, "PublishVSTSAgent-" + agentVersionPath + ".ps1"),
-        newRelease
-    );
-    versionifySync(path.join(__dirname, '..', 'src', 'Misc', 'UnpublishVSTSAgent.template.ps1'),
-        path.join(publishDir, "UnpublishVSTSAgent-" + agentVersionPath + ".ps1"),
-        newRelease
-    );
-}
-
 function execInForeground(command, directory)
 {
     directory = directory === undefined ? "." : directory;
@@ -289,7 +239,6 @@ async function main()
     checkGitStatus();
     writeAgentVersionFile(newRelease);
     await fetchPRsSinceLastReleaseAndEditReleaseNotes(newRelease);
-    createIntegrationFiles(newRelease);
     commitAgentChanges(path.join(__dirname, '..'), newRelease);
     console.log('done.');
 }
