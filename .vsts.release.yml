@@ -19,15 +19,15 @@ stages:
 
     steps:
     - checkout: self
-      persistCredentials: true
 
     - script: |
         cd release
         npm install
-        node mkrelease.js $(version)
+        node createReleaseBranch.js $(version)
       env:
         EDITOR: cat
-
+        PAT: $(GithubToken)
+      displayName: Push release branch to GitHub
 
 - stage: Build
   dependsOn: Create_Release_Branch

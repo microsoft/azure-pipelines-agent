@@ -241,9 +241,11 @@ function execInForeground(command, directory)
 
 function commitAndPush(directory, release, branch)
 {
+    execInForeground(`${GIT} config --global user.email "azure-pipelines-bot@microsoft.com`)
+    execInForeground(`${GIT} config --global user.name "azure-pipelines-bot`)
     execInForeground(GIT + " checkout -b " + branch, directory);
     execInForeground(`${GIT} commit -m "Agent Release ${release}" `, directory);
-    execInForeground(GIT + " push --set-upstream origin " + branch, directory);
+    execInForeground(`${GIT} http.extraheader="AUTHORIZATION: Basic ${process.env.PAT.toString('base64')}" push --set-upstream origin ${branch}`, directory);
 }
 
 function commitAgentChanges(directory, release)
@@ -255,87 +257,6 @@ function commitAgentChanges(directory, release)
 
     console.log("Create and publish release by kicking off this pipeline. (Use branch " + newBranch + ")");
     console.log("       https://dev.azure.com/mseng/AzureDevOps/_build?definitionId=5845 ");
-    console.log("");
-}
-
-function sparseClone(directory, url)
-{
-    if (fs.existsSync(directory))
-    {
-        console.log("Removing previous clone of " + directory);
-        if (!opt.options.dryrun)
-        {
-            fs.rmdirSync(directory, { recursive: true });
-        }
-    }
-
-    execInForeground(GIT + " clone --no-checkout --depth 1 " + url + " " + directory);
-    execInForeground(GIT + " sparse-checkout init --cone", directory);
-}
-
-function commitADOL2Changes(directory, release)
-{
-    var gitUrl =  "https://mseng@dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps"
-
-    sparseClone(directory, gitUrl);
-    var file = path.join(INTEGRATION_DIR, 'InstallAgentPackage.xml');
-    var targetDirectory = path.join('DistributedTask', 'Service', 'Servicing', 'Host', 'Deployment', 'Groups');
-    execInForeground(GIT + " sparse-checkout set " + targetDirectory, directory);
-    var target = path.join(directory, targetDirectory, 'InstallAgentPackage.xml');
-
-    if (opt.options.dryrun)
-    {
-        console.log("Copy file from " + file + " to " + target );
-    }
-    else
-    {
-        fs.copyFileSync(file, target);
-    }
-    var newBranch = "users/" + process.env.USER + "/agent-" + release;
-    execInForeground(GIT + " add " + targetDirectory, directory);
-    commitAndPush(directory, release, newBranch);
-
-    console.log("Create pull-request for this change ");
-    console.log("       https://dev.azure.com/mseng/_git/AzureDevOps/pullrequests?_a=mine");
-    console.log("");
-}
-
-function commitADOConfigChange(directory, release)
-{
-    var gitUrl =  "https://mseng@dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps.ConfigChange"
-
-    sparseClone(directory, gitUrl);
-    execInForeground(GIT + " sparse-checkout set tfs", directory);
-    var agentVersionPath=release.replace(/\./g, '-');
-    var milestoneDir = "mXXX";
-    var tfsDir = path.join(directory, "tfs");
-    if (fs.existsSync(tfsDir))
-    {
-        var dirs = fs.readdirSync(tfsDir, { withFileTypes: true })
-        .filter(dirent => dirent.isDirectory() && dirent.name.startsWith("m"))
-        .map(dirent => dirent.name)
-        .sort(naturalSort({direction: 'desc'}))
-        milestoneDir = dirs[0];
-    }
-    var targetDir = "PublishVSTSAgent-" + agentVersionPath;
-    if (opt.options.dryrun)
-    {
-        console.log("Copy file from " + path.join(INTEGRATION_DIR, targetDir) + " to " + tfsDir + milestoneDir );
-    }
-    else
-    {
-        fs.mkdirSync(path.join(tfsDir, milestoneDir, targetDir));
-        fs.readdirSync(path.join(INTEGRATION_DIR, targetDir)).forEach( function (file) {
-            fs.copyFileSync(path.join(INTEGRATION_DIR, targetDir, file), path.join(tfsDir, milestoneDir, file));
-        });
-    }
-
-    var newBranch = "users/" + process.env.USER + "/agent-" + release;
-    execInForeground(GIT + " add " + path.join('tfs', milestoneDir), directory);
-    commitAndPush(directory, release, newBranch);
-
-    console.log("Create pull-request for this change ");
-    console.log("       https://dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps.ConfigChange/pullrequests?_a=mine");
     console.log("");
 }
 
@@ -374,8 +295,6 @@ async function main()
     await fetchPRsSinceLastReleaseAndEditReleaseNotes(newRelease);
     createIntegrationFiles(newRelease);
     commitAgentChanges(path.join(__dirname, '..'), newRelease);
-    commitADOL2Changes(path.join(INTEGRATION_DIR, "AzureDevOps"), newRelease);
-    commitADOConfigChange(path.join(INTEGRATION_DIR, "AzureDevOps.ConfigChange"), newRelease);
     console.log('done.');
 }
 
