@@ -32,98 +32,98 @@ stages:
 - stage: Build
   dependsOn: Create_Release_Branch
   jobs:
-  ################################################################################
-  - job: build_windows_agent_x64
-  ################################################################################
-    displayName: Windows Agent (x64)
-    pool:
-      vmImage: vs2017-win2016
-    variables:
-      layoutRoot: '_layout\win-x64'
-    steps:
+  # ################################################################################
+  # - job: build_windows_agent_x64
+  # ################################################################################
+  #   displayName: Windows Agent (x64)
+  #   pool:
+  #     vmImage: vs2017-win2016
+  #   variables:
+  #     layoutRoot: '_layout\win-x64'
+  #   steps:
 
-    # Steps template for windows platform
-    - template: .vsts.template.windows.yml
-      parameters:
-        testLogTitle: 'Windows-x64'
+  #   # Steps template for windows platform
+  #   - template: .vsts.template.windows.yml
+  #     parameters:
+  #       testLogTitle: 'Windows-x64'
     
-    # Package .NET Core Windows dependency (VC++ Redistributable)
-    - template: .azure-pipelines/package-vcredist.yml
-      parameters:
-        layoutRoot: ${{ variables.layoutRoot }}
-        flavor: 'x64'
+  #   # Package .NET Core Windows dependency (VC++ Redistributable)
+  #   - template: .azure-pipelines/package-vcredist.yml
+  #     parameters:
+  #       layoutRoot: ${{ variables.layoutRoot }}
+  #       flavor: 'x64'
 
-    # Signing steps
-    - template: .azure-pipelines/signing.yml
-      parameters:
-        layoutRoot: ${{ variables.layoutRoot }}
+  #   # Signing steps
+  #   - template: .azure-pipelines/signing.yml
+  #     parameters:
+  #       layoutRoot: ${{ variables.layoutRoot }}
 
-    # Create agent package zip
-    - script: dev.cmd package Release
-      workingDirectory: src
-      displayName: Package Release
+  #   # Create agent package zip
+  #   - script: dev.cmd package Release
+  #     workingDirectory: src
+  #     displayName: Package Release
 
-    # Upload agent package zip as build artifact
-    - task: PublishBuildArtifacts@1
-      displayName: Publish Artifact (Windows)
-      inputs:
-        pathToPublish: _package
-        artifactName: agent
-        artifactType: container
+  #   # Upload agent package zip as build artifact
+  #   - task: PublishBuildArtifacts@1
+  #     displayName: Publish Artifact (Windows)
+  #     inputs:
+  #       pathToPublish: _package
+  #       artifactName: agent
+  #       artifactType: container
 
-    # Verify all binaries are signed (generate report)
-    - task: securedevelopmentteam.vss-secure-development-tools.build-task-codesignvalidation.CodesignValidation@0
-      displayName: 'Generate Codesign Report'
-      inputs:
-        path: '$(layoutRoot)'
+  #   # Verify all binaries are signed (generate report)
+  #   - task: securedevelopmentteam.vss-secure-development-tools.build-task-codesignvalidation.CodesignValidation@0
+  #     displayName: 'Generate Codesign Report'
+  #     inputs:
+  #       path: '$(layoutRoot)'
     
-    # Verify all binaries are signed (check report)
-    - task: securedevelopmentteam.vss-secure-development-tools.build-task-postanalysis.PostAnalysis@1
-      displayName: 'Verify Codesign Report'
-      inputs:
-        CodesignValidation: true
-        CodesignValidationBreakOn: WarningAbove
-        ToolLogsNotFoundAction: Error
+  #   # Verify all binaries are signed (check report)
+  #   - task: securedevelopmentteam.vss-secure-development-tools.build-task-postanalysis.PostAnalysis@1
+  #     displayName: 'Verify Codesign Report'
+  #     inputs:
+  #       CodesignValidation: true
+  #       CodesignValidationBreakOn: WarningAbove
+  #       ToolLogsNotFoundAction: Error
 
-  ################################################################################
-  - job: build_windows_agent_x86
-  ################################################################################
-    displayName: Windows Agent (x86)
-    pool:
-      name: buildDevs
-      demands: 'Agent.OSArchitecture -equals X86'
-    variables:
-      layoutRoot: '_layout\win-x86'
-    steps:
+  # ################################################################################
+  # - job: build_windows_agent_x86
+  # ################################################################################
+  #   displayName: Windows Agent (x86)
+  #   pool:
+  #     name: buildDevs
+  #     demands: 'Agent.OSArchitecture -equals X86'
+  #   variables:
+  #     layoutRoot: '_layout\win-x86'
+  #   steps:
 
-    # Steps template for windows platform
-    - template: .vsts.template.windows.yml
-      parameters:
-        testLogTitle: 'Windows-x86'
+  #   # Steps template for windows platform
+  #   - template: .vsts.template.windows.yml
+  #     parameters:
+  #       testLogTitle: 'Windows-x86'
     
-    # Package .NET Core Windows dependency (VC++ Redistributable)
-    - template: .azure-pipelines/package-vcredist.yml
-      parameters:
-        layoutRoot: ${{ variables.layoutRoot }}
-        flavor: 'x86'
+  #   # Package .NET Core Windows dependency (VC++ Redistributable)
+  #   - template: .azure-pipelines/package-vcredist.yml
+  #     parameters:
+  #       layoutRoot: ${{ variables.layoutRoot }}
+  #       flavor: 'x86'
 
-    # Signing steps
-    - template: .azure-pipelines/signing.yml
-      parameters:
-        layoutRoot: ${{ variables.layoutRoot }}
+  #   # Signing steps
+  #   - template: .azure-pipelines/signing.yml
+  #     parameters:
+  #       layoutRoot: ${{ variables.layoutRoot }}
 
-    # Create agent package zip
-    - script: dev.cmd package Release
-      workingDirectory: src
-      displayName: Package Release
+  #   # Create agent package zip
+  #   - script: dev.cmd package Release
+  #     workingDirectory: src
+  #     displayName: Package Release
 
-    # Upload agent package zip as build artifact
-    - task: PublishBuildArtifacts@1
-      displayName: Publish Artifact (Windows)
-      inputs:
-        pathToPublish: _package
-        artifactName: agent
-        artifactType: container
+  #   # Upload agent package zip as build artifact
+  #   - task: PublishBuildArtifacts@1
+  #     displayName: Publish Artifact (Windows)
+  #     inputs:
+  #       pathToPublish: _package
+  #       artifactName: agent
+  #       artifactType: container
 
   ################################################################################
   - job: build_linux_agent_x64
@@ -151,90 +151,90 @@ stages:
         artifactName: agent
         artifactType: container
 
-  ################################################################################
-  - job: build_linux_agent_arm
-  ################################################################################
-    displayName: Linux Agent (ARM)
-    pool:
-      name: buildDevs
-      demands: 'Agent.OSArchitecture -equals ARM'
-    container: dotnetcore_arm
-    steps:
+  # ################################################################################
+  # - job: build_linux_agent_arm
+  # ################################################################################
+  #   displayName: Linux Agent (ARM)
+  #   pool:
+  #     name: buildDevs
+  #     demands: 'Agent.OSArchitecture -equals ARM'
+  #   container: dotnetcore_arm
+  #   steps:
 
-    # Steps template for non-windows platform
-    - template: .vsts.template.nonwindows.yml
-      parameters:
-        testLogTitle: 'Linux-ARM'
+  #   # Steps template for non-windows platform
+  #   - template: .vsts.template.nonwindows.yml
+  #     parameters:
+  #       testLogTitle: 'Linux-ARM'
 
-    # Create agent package zip
-    - script: ./dev.sh package Release
-      workingDirectory: src
-      displayName: Package Release    
+  #   # Create agent package zip
+  #   - script: ./dev.sh package Release
+  #     workingDirectory: src
+  #     displayName: Package Release    
 
-    # Upload agent package zip as build artifact
-    - task: PublishBuildArtifacts@1
-      displayName: Publish Artifact (Linux)    
-      inputs:
-        pathToPublish: _package
-        artifactName: agent
-        artifactType: container
+  #   # Upload agent package zip as build artifact
+  #   - task: PublishBuildArtifacts@1
+  #     displayName: Publish Artifact (Linux)    
+  #     inputs:
+  #       pathToPublish: _package
+  #       artifactName: agent
+  #       artifactType: container
 
-  ################################################################################
-  - job: build_rhel6_agent_x64
-  ################################################################################
-    displayName: RHEL6 Agent (x64)
-    pool:
-      vmImage: ubuntu-16.04
-    container: dotnetcore_centos6
-    steps:
+  # ################################################################################
+  # - job: build_rhel6_agent_x64
+  # ################################################################################
+  #   displayName: RHEL6 Agent (x64)
+  #   pool:
+  #     vmImage: ubuntu-16.04
+  #   container: dotnetcore_centos6
+  #   steps:
 
-    # Steps template for non-windows platform
-    - template: .vsts.template.nonwindows.yml
-      parameters:
-        testLogTitle: 'RHEL-x64'
+  #   # Steps template for non-windows platform
+  #   - template: .vsts.template.nonwindows.yml
+  #     parameters:
+  #       testLogTitle: 'RHEL-x64'
 
-    # Create agent package zip
-    - script: ./dev.sh package Release
-      workingDirectory: src
-      displayName: Package Release
+  #   # Create agent package zip
+  #   - script: ./dev.sh package Release
+  #     workingDirectory: src
+  #     displayName: Package Release
 
-    # Upload agent package zip as build artifact
-    - task: PublishBuildArtifacts@1
-      displayName: Publish Artifact (RHEL6 x64)
-      inputs:
-        pathToPublish: _package
-        artifactName: agent
-        artifactType: container
+  #   # Upload agent package zip as build artifact
+  #   - task: PublishBuildArtifacts@1
+  #     displayName: Publish Artifact (RHEL6 x64)
+  #     inputs:
+  #       pathToPublish: _package
+  #       artifactName: agent
+  #       artifactType: container
 
-  ################################################################################
-  - job: build_osx_agent
-  ################################################################################
-    displayName: macOS Agent (x64)
-    pool:
-      vmImage: macOS-10.13
-    steps:
+  # ################################################################################
+  # - job: build_osx_agent
+  # ################################################################################
+  #   displayName: macOS Agent (x64)
+  #   pool:
+  #     vmImage: macOS-10.13
+  #   steps:
 
-    # Steps template for non-windows platform
-    - template: .vsts.template.nonwindows.yml
-      parameters:
-        testLogTitle: 'macOS-x64'
+  #   # Steps template for non-windows platform
+  #   - template: .vsts.template.nonwindows.yml
+  #     parameters:
+  #       testLogTitle: 'macOS-x64'
     
-    # Create agent package zip
-    - script: ./dev.sh package Release
-      workingDirectory: src
-      displayName: Package Release    
+  #   # Create agent package zip
+  #   - script: ./dev.sh package Release
+  #     workingDirectory: src
+  #     displayName: Package Release    
 
-    # Upload agent package zip as build artifact
-    - task: PublishBuildArtifacts@1
-      displayName: Publish Artifact (OSX)    
-      inputs:
-        pathToPublish: _package
-        artifactName: agent
-        artifactType: container
+  #   # Upload agent package zip as build artifact
+  #   - task: PublishBuildArtifacts@1
+  #     displayName: Publish Artifact (OSX)    
+  #     inputs:
+  #       pathToPublish: _package
+  #       artifactName: agent
+  #       artifactType: container
 
-# - stage: Release
-#   dependsOn: Build
-#   jobs:
+- stage: Release
+  dependsOn: Build
+  jobs:
 #   ################################################################################
 #   - job: publish_agent_packages
 #   ################################################################################
@@ -318,3 +318,20 @@ stages:
 #         }
 #         Invoke-RestMethod @assetsParams
 #       displayName: Create agent release on Github
+  ################################################################################
+  - job: Create_Release_Branch
+  ################################################################################
+    displayName: Create Release Branch
+    pool:
+      vmImage: ubuntu-16.04
+
+    steps:
+    - checkout: self
+    - checkout: git://AzureDevOps/AzureDevOps
+    - checkout: git://AzureDevOps/AzureDevOps.ConfigChange
+
+    - script: ls
+
+    - script: cd azure-pipelines-agent && git checkout releases/$(version)
+      displayName: Checkout agent release branch
+      condition: ne(variables['version'], '')
