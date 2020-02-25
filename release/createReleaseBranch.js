@@ -227,20 +227,26 @@ function checkGitStatus()
 
 async function main()
 {
-    var newRelease = opt.argv[0];
-    if (newRelease === undefined)
-    {
-        console.log('Error: You must supply a version');
-        process.exit(-1);
+    try {
+        var newRelease = opt.argv[0];
+        if (newRelease === undefined)
+        {
+            console.log('Error: You must supply a version');
+            process.exit(-1);
+        }
+        verifyMinimumNodeVersion();
+        verifyMinimumGitVersion();
+        await verifyNewReleaseTagOk(newRelease);
+        checkGitStatus();
+        writeAgentVersionFile(newRelease);
+        await fetchPRsSinceLastReleaseAndEditReleaseNotes(newRelease);
+        commitAgentChanges(path.join(__dirname, '..'), newRelease);
+        console.log('done.');
     }
-    verifyMinimumNodeVersion();
-    verifyMinimumGitVersion();
-    await verifyNewReleaseTagOk(newRelease);
-    checkGitStatus();
-    writeAgentVersionFile(newRelease);
-    await fetchPRsSinceLastReleaseAndEditReleaseNotes(newRelease);
-    commitAgentChanges(path.join(__dirname, '..'), newRelease);
-    console.log('done.');
+    catch (err) {
+        tl.setResult(tl.TaskResult.Failed, err.message || 'run() failed', true);
+        throw err;
+    }
 }
 
 main();

@@ -1,6 +1,7 @@
 const fs = require('fs');
 const cp = require('child_process');
 const naturalSort = require('natural-sort');
+const tl = require('azure-pipelines-task-lib/task');
 const path = require('path');
 
 const INTEGRATION_DIR = path.join(__dirname, '..', '_layout', 'integrations');
@@ -210,20 +211,26 @@ function commitADOConfigChange(directory, release)
 
 async function main()
 {
-    var newRelease = opt.argv[0];
-    if (newRelease === undefined)
-    {
-        console.log('Error: You must supply a version');
-        process.exit(-1);
+    try {
+        var newRelease = opt.argv[0];
+        if (newRelease === undefined)
+        {
+            console.log('Error: You must supply a version');
+            process.exit(-1);
+        }
+        var pathToAdo = opt.argv[1] || path.join(INTEGRATION_DIR, "AzureDevOps");
+        var pathToConfigChange = opt.argv[2] || path.join(INTEGRATION_DIR, "AzureDevOps.ConfigChange");
+        verifyMinimumNodeVersion();
+        verifyMinimumGitVersion();
+        createIntegrationFiles(newRelease);
+        commitADOL2Changes(pathToAdo, newRelease);
+        commitADOConfigChange(pathToConfigChange, newRelease);
+        console.log('done.');
     }
-    var pathToAdo = opt.argv[1] || path.join(INTEGRATION_DIR, "AzureDevOps");
-    var pathToConfigChange = opt.argv[2] || path.join(INTEGRATION_DIR, "AzureDevOps.ConfigChange");
-    verifyMinimumNodeVersion();
-    verifyMinimumGitVersion();
-    createIntegrationFiles(newRelease);
-    commitADOL2Changes(pathToAdo, newRelease);
-    commitADOConfigChange(pathToConfigChange, newRelease);
-    console.log('done.');
+    catch (err) {
+        tl.setResult(tl.TaskResult.Failed, err.message || 'run() failed', true);
+        throw err;
+    }
 }
 
 main();
