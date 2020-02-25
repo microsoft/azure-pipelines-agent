@@ -13,11 +13,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
     public class FakeJobServer : AgentService, IJobServer
     {
         public List<JobEvent> RecordedEvents { get; }
-
         public Dictionary<int, TaskLog> LogObjects { get; }
         public Dictionary<int, IList<string>> LogLines { get; }
         public Dictionary<Guid, Timeline> Timelines { get; }
-
         public List<string> AttachmentsCreated { get; }
 
         public FakeJobServer()
@@ -44,15 +42,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             lines.AddRange(addedLines);
             return Task.FromResult(LogObjects.GetValueOrDefault(logId));
         }
+
         public Task AppendTimelineRecordFeedAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, Guid timelineRecordId, Guid stepId, IList<string> lines, long startLine, CancellationToken cancellationToken)
         {
             return Task.CompletedTask;
         }
+
         public Task<TaskAttachment> CreateAttachmentAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, Guid timelineRecordId, String type, String name, Stream uploadStream, CancellationToken cancellationToken)
         {
             AttachmentsCreated.Add(name);
             return Task.FromResult(new TaskAttachment(type, name));
         }
+
         public Task<TaskLog> CreateLogAsync(Guid scopeIdentifier, string hubName, Guid planId, TaskLog log, CancellationToken cancellationToken)
         {
             log.Id = LogObjects.Count + 1;
@@ -60,6 +61,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             LogLines.Add(log.Id, new List<string>());
             return Task.FromResult(log);
         }
+
         public Task<Timeline> CreateTimelineAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, CancellationToken cancellationToken)
         {
             var timeline = new Timeline {
@@ -68,6 +70,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             Timelines.Add(timelineId, timeline);
             return Task.FromResult(timeline);
         }
+
         public Task<List<TimelineRecord>> UpdateTimelineRecordsAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, IEnumerable<TimelineRecord> records, CancellationToken cancellationToken)
         {
             var recordDictionary = records.ToDictionary(x => x.Id);
@@ -83,11 +86,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             timeline.Records.AddRange(recordDictionary.Values);
             return Task.FromResult(records.ToList());
         }
+
         public Task RaisePlanEventAsync<T>(Guid scopeIdentifier, string hubName, Guid planId, T eventData, CancellationToken cancellationToken) where T : JobEvent
         {
             RecordedEvents.Add(eventData);
             return Task.CompletedTask;
         }
+
         public Task<Timeline> GetTimelineAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, CancellationToken cancellationToken)
         {
             return Task.FromResult(Timelines[timelineId]);
