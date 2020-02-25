@@ -233,13 +233,7 @@ namespace Agent.Plugins.PipelineCache
             string processFileName, processArguments;
             if (isWindows && CheckIf7ZExists())
             {
-                //processFileName = "7z";
-                //processArguments = $"x -si -aoa -o\"{targetDirectory}\" -ttar";
-                //if (IsSystemDebugTrue(context))
-                //{
-                //    processArguments = "-bb1 " + processArguments;
-                //}
-                // TODO: Verify this works
+                // TODO: This doesn't support backtracing paths (e.g. ..\foo), we need a mechanism to either force 7z to do so or to use tar if backtracing exists
                 processFileName = "7z";
                 processArguments = $"x -si -aoa -o\"{workingDirectory}\" -ttar";
                 if (IsSystemDebugTrue(context))
@@ -267,7 +261,6 @@ namespace Agent.Plugins.PipelineCache
 
         private static void ValidateTarManifest(Manifest manifest)
         {
-            // TODO: This will need to change
             if (manifest == null || manifest.Items.Count() != 1 || !manifest.Items.Single().Path.EndsWith(archive, StringComparison.OrdinalIgnoreCase))
             {
                 throw new ArgumentException($"Manifest containing a tar cannot have more than one item.");

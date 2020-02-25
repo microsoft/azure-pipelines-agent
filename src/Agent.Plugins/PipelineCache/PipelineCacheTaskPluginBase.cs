@@ -44,10 +44,10 @@ namespace Agent.Plugins.PipelineCache
             };
 
             Func<string, string[]> splitAcrossNewlines = (s) =>
-                 s.Replace("\r\n", "\n") //normalize newlines
-                  .Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                  .Select(line => line.Trim())
-                  .ToArray();
+                s.Replace("\r\n", "\n") //normalize newlines
+                 .Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                 .Select(line => line.Trim())
+                 .ToArray();
 
             string[] keySegments;
             string[] pathSegments;
@@ -70,7 +70,7 @@ namespace Agent.Plugins.PipelineCache
                 keySegments = splitAcrossPipes(key);
             }
 
-            // Path can now be a list of path segments to include in cache
+            // Path can be a list of path segments to include in cache
             pathSegments = splitAcrossPipes(path);
 
             if (hasRestoreKeys)
@@ -87,6 +87,8 @@ namespace Agent.Plugins.PipelineCache
 
         public async virtual Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
+            WaitForDebuggerAttach();
+
             ArgUtil.NotNull(context, nameof(context));
 
             VariableValue saltValue = context.Variables.GetValueOrDefault(SaltVariableName);

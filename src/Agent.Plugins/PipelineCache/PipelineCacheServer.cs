@@ -189,13 +189,12 @@ namespace Agent.Plugins.PipelineCache
             {
                 return pathFingerprint.Segments[0];
             }
-            string uploadPath = string.Empty;
-            // TODO: what to do if not SingleTar?
             if (contentFormat == ContentFormat.SingleTar)
             {
-                uploadPath = await TarUtils.ArchiveFilesToTarAsync(context, pathFingerprint, workingDirectory, cancellationToken);
+                return await TarUtils.ArchiveFilesToTarAsync(context, pathFingerprint, workingDirectory, cancellationToken);
             }
-            return uploadPath;
+            // TODO: what is the right way to handle !ContentFormat.SingleTar
+            return pathFingerprint.Segments[0];
         }
 
         private async Task DownloadPipelineCacheAsync(
@@ -226,7 +225,7 @@ namespace Agent.Plugins.PipelineCache
             {
                 DownloadDedupManifestArtifactOptions options = DownloadDedupManifestArtifactOptions.CreateWithManifestId(
                     manifestId,
-                    pathSegments[0], // TODO: whats the right format here
+                    pathSegments[0], // TODO: is this the right format here
                     proxyUri: null,
                     minimatchPatterns: null);
                 await dedupManifestClient.DownloadAsync(options, cancellationToken);
