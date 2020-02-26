@@ -15,7 +15,7 @@ stages:
   ################################################################################
     displayName: Create Release Branch
     pool:
-      vmImage: ubuntu-16.04
+      vmImage: ubuntu-18.04
 
     steps:
     - checkout: self
@@ -327,7 +327,7 @@ stages:
   ################################################################################
     displayName: Create PRs in AzureDevOps
     pool:
-      vmImage: ubuntu-16.04
+      vmImage: ubuntu-18.04
 
     steps:
     - checkout: self
@@ -342,5 +342,5 @@ stages:
       displayName: Create PRs in AzureDevOps and AzureDevOps.ConfigChange
       condition: ne(variables['version'], '')
       env:
-        USER: 'damccorm'
+        USER: $(User)
         PAT: $(AdoPAT)
