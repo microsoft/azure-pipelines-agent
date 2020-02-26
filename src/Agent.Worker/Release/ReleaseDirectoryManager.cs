@@ -99,8 +99,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 
                 if (folderNames.Any())
                 {
-                    var max = folderNames.Select(x => Int32.Parse(x.Substring(1))).Max();
-                    return max + 1;
+                    return folderNames.Select(x => Int32.Parse(x.Substring(1))).Max() + 1;
                 }
             }
 
@@ -117,8 +116,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
             }
 
             string content = File.ReadAllText(mappingFile);
-            var trackingConfig = JsonConvert.DeserializeObject<ReleaseTrackingConfig>(content);
-            return trackingConfig;
+            return JsonConvert.DeserializeObject<ReleaseTrackingConfig>(content);
         }
 
         private void WriteToFile(string file, object value)
