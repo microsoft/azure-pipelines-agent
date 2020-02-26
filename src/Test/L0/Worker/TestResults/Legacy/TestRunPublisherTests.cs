@@ -625,6 +625,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             _batchSizes = new List<int>();
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "VssConnection+TestHostContext")]
         private void SetupMocks([CallerMemberName] string name = "")
         {
             TestHostContext hc = new TestHostContext(this, name);

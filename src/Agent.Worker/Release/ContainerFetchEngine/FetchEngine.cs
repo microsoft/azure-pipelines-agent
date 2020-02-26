@@ -96,49 +96,49 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEng
 
             if (itemsToDownload.Count > 0)
             {
-                var cancellationTokenSource = new CancellationTokenSource();
-                CancellationToken cancellationToken =
-                    CancellationTokenSource.CreateLinkedTokenSource(token, cancellationTokenSource.Token).Token;
-
-                // Used to limit the number of concurrent downloads.
-                SemaphoreSlim downloadThrottle = new SemaphoreSlim(ContainerFetchEngineOptions.ParallelDownloadLimit);
-                Stopwatch watch = Stopwatch.StartNew();
-                LinkedList<Task> remainingDownloads = new LinkedList<Task>();
-
-                foreach (ContainerItem ticketedItem in itemsToDownload)
+                using (var cancellationTokenSource = new CancellationTokenSource())
+                using (var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(token, cancellationTokenSource.Token))
+                using (var downloadThrottle = new SemaphoreSlim(ContainerFetchEngineOptions.ParallelDownloadLimit))
                 {
-                    _bytesDownloaded += ticketedItem.FileLength;
-                    Task downloadTask = DownloadItemAsync(downloadThrottle, ticketedItem, cancellationToken);
+                    CancellationToken cancellationToken = linkedTokenSource.Token;
 
-                    if (downloadTask.IsCompleted)
+                    // Used to limit the number of concurrent downloads.
+                    Stopwatch watch = Stopwatch.StartNew();
+                    LinkedList<Task> remainingDownloads = new LinkedList<Task>();
+
+                    foreach (ContainerItem ticketedItem in itemsToDownload)
                     {
-                        // don't wait to throw for faulted tasks.
-                        await downloadTask.ConfigureAwait(false);
+                        _bytesDownloaded += ticketedItem.FileLength;
+                        Task downloadTask = DownloadItemAsync(downloadThrottle, ticketedItem, cancellationToken);
+
+                        if (downloadTask.IsCompleted)
+                        {
+                            // don't wait to throw for faulted tasks.
+                            await downloadTask.ConfigureAwait(false);
+                        }
+                        else
+                        {
+                            remainingDownloads.AddLast(downloadTask);
+                        }
                     }
-                    else
+
+                    try
                     {
-                        remainingDownloads.AddLast(downloadTask);
+                        // Monitor and log the progress of the download tasks if they take over a few seconds.
+                        await LogProgressAsync(remainingDownloads).ConfigureAwait(false);
                     }
+                    catch (Exception)
+                    {
+                        cancellationTokenSource.Cancel();
+                        await Task.WhenAll(remainingDownloads);
+                        throw;
+                    }
+
+                    _elapsedDownloadTime += watch.Elapsed;
                 }
 
-                try
-                {
-                    // Monitor and log the progress of the download tasks if they take over a few seconds.
-                    await LogProgressAsync(remainingDownloads).ConfigureAwait(false);
-                    cancellationTokenSource.Dispose();
-                }
-                catch (Exception)
-                {
-                    cancellationTokenSource.Cancel();
-                    await Task.WhenAll(remainingDownloads);
-                    cancellationTokenSource.Dispose();
-                    throw;
-                }
-
-                _elapsedDownloadTime += watch.Elapsed;
+                _downloadedFiles += itemsToDownload.Count;
             }
-
-            _downloadedFiles += itemsToDownload.Count;
         }
 
         private void LogStatistics()

@@ -215,6 +215,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "CreateConnection")]
         public virtual async Task TestConnectionAsync(AgentSettings agentSettings, VssCredentials creds, bool isHosted)
         {
             var url = agentSettings.ServerUrl;  // Ensure not to update back the url with agentSettings !!!
@@ -322,7 +323,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             // More on Instance Metadata Service can be found here: https://docs.microsoft.com/en-us/azure/virtual-machines/windows/instance-metadata-service
             string azureSubscriptionId = string.Empty;
             const string imdsUri = "http://169.254.169.254/metadata/instance/compute/subscriptionId?api-version=2017-08-01&format=text";
-            using (var httpClient = new HttpClient(HostContext.CreateHttpClientHandler()))
+            using (var handler = HostContext.CreateHttpClientHandler())
+            using (var httpClient = new HttpClient(handler))
             {
                 httpClient.DefaultRequestHeaders.Add("Metadata", "True");
                 httpClient.Timeout = TimeSpan.FromSeconds(5);
@@ -381,6 +383,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _environmentsServer = HostContext.GetService<IEnvironmentsServer>();
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "environmentConnection")]
         public override async Task TestConnectionAsync(AgentSettings agentSettings, VssCredentials creds, bool isHosted)
         {
             var url = agentSettings.ServerUrl;  // Ensure not to update back the url with agentSettings !!!

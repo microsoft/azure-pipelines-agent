@@ -22,6 +22,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         Task<bool> PublishAsync(TestRunContext runContext, List<string> testResultFiles, PublishOptions publishOptions, CancellationToken cancellationToken = default(CancellationToken));
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "CommandTraceListener")]
     public class TestDataPublisher : AgentService, ITestDataPublisher
     {
         private IExecutionContext _executionContext;

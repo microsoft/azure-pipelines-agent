@@ -712,20 +712,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         {
             // Determine the service deployment type based on connection data. (Hosted/OnPremises)
             var locationServer = HostContext.GetService<ILocationServer>();
-            VssConnection connection = VssUtil.CreateConnection(new Uri(serverUrl), credentials);
-            await locationServer.ConnectAsync(connection);
-            try
+            using (var connection = VssUtil.CreateConnection(new Uri(serverUrl), credentials))
             {
-                var connectionData = await locationServer.GetConnectionDataAsync();
-                Trace.Info($"Server deployment type: {connectionData.DeploymentType}");
-                return connectionData.DeploymentType.HasFlag(DeploymentFlags.Hosted);
-            }
-            catch (Exception ex)
-            {
-                // Since the DeploymentType is Enum, deserialization exception means there is a new Enum member been added.
-                // It's more likely to be Hosted since OnPremises is always behind and customer can update their agent if are on-prem
-                Trace.Error(ex);
-                return true;
+                await locationServer.ConnectAsync(connection);
+                try
+                {
+                    var connectionData = await locationServer.GetConnectionDataAsync();
+                    Trace.Info($"Server deployment type: {connectionData.DeploymentType}");
+                    return connectionData.DeploymentType.HasFlag(DeploymentFlags.Hosted);
+                }
+                catch (Exception ex)
+                {
+                    // Since the DeploymentType is Enum, deserialization exception means there is a new Enum member been added.
+                    // It's more likely to be Hosted since OnPremises is always behind and customer can update their agent if are on-prem
+                    Trace.Error(ex);
+                    return true;
+                }
             }
         }
     }

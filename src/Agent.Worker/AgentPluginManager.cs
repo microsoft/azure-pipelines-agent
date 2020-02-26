@@ -146,8 +146,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var pluginContext = GeneratePluginExecutionContext(context, inputs, runtimeVariables);
 
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
+            using (var redirectStandardIn = new InputQueue<string>())
             {
-                var redirectStandardIn = new InputQueue<string>();
                 redirectStandardIn.Enqueue(JsonUtility.ToString(pluginContext));
 
                 processInvoker.OutputDataReceived += outputHandler;
@@ -156,7 +156,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Execute the process. Exit code 0 should always be returned.
                 // A non-zero exit code indicates infrastructural failure.
                 // Task failure should be communicated over STDOUT using ## commands.
-                
+
                 // Agent.PluginHost's arguments
                 string arguments = $"task \"{plugin}\"";
                 await processInvoker.ExecuteAsync(workingDirectory: workingDirectory,

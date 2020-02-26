@@ -45,6 +45,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             _agentId = settings.AgentId;
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "invokeScript")]
         public async Task<bool> SelfUpdate(AgentRefreshMessage updateMessage, IJobDispatcher jobDispatcher, bool restartInteractiveAgent, CancellationToken token)
         {
             if (!await UpdateNeeded(updateMessage.TargetVersion, token))
@@ -204,11 +205,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             Trace.Info($"Download agent: begin download");
 
                             //open zip stream in async mode
-                            using (HttpClient httpClient = new HttpClient(HostContext.CreateHttpClientHandler()))
-                            using (FileStream fs = new FileStream(archiveFile, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true))
-                            using (Stream result = await httpClient.GetStreamAsync(_targetPackage.DownloadUrl))
+                            using (var handler = HostContext.CreateHttpClientHandler())
+                            using (var httpClient = new HttpClient(handler))
+                            using (var fs = new FileStream(archiveFile, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true))
+                            using (var result = await httpClient.GetStreamAsync(_targetPackage.DownloadUrl))
                             {
-                                //81920 is the default used by System.IO.Stream.CopyTo and is under the large object heap threshold (85k). 
+                                //81920 is the default used by System.IO.Stream.CopyTo and is under the large object heap threshold (85k).
                                 await result.CopyToAsync(fs, 81920, downloadCts.Token);
                                 await fs.FlushAsync(downloadCts.Token);
                             }
@@ -247,7 +249,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 else if (archiveFile.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase))
                 {
                     string tar = WhichUtil.Which("tar", trace: Trace);
-                    
+
                     if (string.IsNullOrEmpty(tar))
                     {
                         throw new NotSupportedException($"tar -xzf");

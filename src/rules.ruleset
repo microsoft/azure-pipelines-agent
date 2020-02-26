@@ -89,7 +89,7 @@
       <Rule Id="CA1827" Action="Warning" />          <!-- Do not use Count() or LongCount() when Any() can be used -->
       <Rule Id="CA1828" Action="Warning" />          <!-- Do not use CountAsync() or LongCountAsync() when AnyAsync() can be used -->
       <Rule Id="CA1829" Action="Warning" />          <!-- Use Length/Count property instead of Count() when available -->
-      <Rule Id="CA2000" Action="Warning" />          <!-- Dispose objects before losing scope -->
+      <Rule Id="CA2000" Action="Error" />            <!-- Dispose objects before losing scope -->
       <Rule Id="CA2002" Action="Warning" />          <!-- Do not lock on objects with weak identity -->
       <Rule Id="CA2007" Action="Warning" />          <!-- Consider calling ConfigureAwait on the awaited task -->
       <Rule Id="CA2008" Action="Warning" />          <!-- Do not create tasks without passing a TaskScheduler -->
@@ -104,7 +104,7 @@
       <Rule Id="CA2207" Action="Warning" />          <!-- Initialize value type static fields inline -->
       <Rule Id="CA2208" Action="Warning" />          <!-- Instantiate argument exceptions correctly -->
       <Rule Id="CA2211" Action="Warning" />          <!-- Non-constant fields should not be visible -->
-      <Rule Id="CA2213" Action="Warning" />          <!-- Disposable fields should be disposed -->
+      <Rule Id="CA2213" Action="Error" />            <!-- Disposable fields should be disposed -->
       <Rule Id="CA2214" Action="Warning" />          <!-- Do not call overridable methods in constructors -->
       <Rule Id="CA2216" Action="Warning" />          <!-- Disposable types should declare finalizer -->
       <Rule Id="CA2217" Action="Warning" />          <!-- Do not mark enums with FlagsAttribute -->

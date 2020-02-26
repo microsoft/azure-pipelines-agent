@@ -81,40 +81,41 @@ namespace Agent.Plugins.Repository
             ArgUtil.NotNull(ExecutionContext, nameof(ExecutionContext));
 
             // Invoke tf.
-            var processInvoker = new ProcessInvoker(ExecutionContext);
-            var outputLock = new object();
-            processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
+            using (var processInvoker = new ProcessInvoker(ExecutionContext))
             {
-                lock (outputLock)
+                var outputLock = new object();
+                processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
                 {
-                    if (quiet)
+                    lock (outputLock)
                     {
-                        ExecutionContext.Debug(e.Data);
+                        if (quiet)
+                        {
+                            ExecutionContext.Debug(e.Data);
+                        }
+                        else
+                        {
+                            ExecutionContext.Output(e.Data);
+                        }
                     }
-                    else
+                };
+                processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
+                {
+                    lock (outputLock)
                     {
                         ExecutionContext.Output(e.Data);
                     }
-                }
-            };
-            processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
-            {
-                lock (outputLock)
-                {
-                    ExecutionContext.Output(e.Data);
-                }
-            };
-            string arguments = FormatArguments(formatFlags, args);
-            ExecutionContext.Command($@"tf {arguments}");
-            await processInvoker.ExecuteAsync(
-                workingDirectory: SourcesDirectory,
-                fileName: "tf",
-                arguments: arguments,
-                environment: AdditionalEnvironmentVariables,
-                requireExitCodeZero: true,
-                outputEncoding: OutputEncoding,
-                cancellationToken: CancellationToken);
-
+                };
+                string arguments = FormatArguments(formatFlags, args);
+                ExecutionContext.Command($@"tf {arguments}");
+                await processInvoker.ExecuteAsync(
+                    workingDirectory: SourcesDirectory,
+                    fileName: "tf",
+                    arguments: arguments,
+                    environment: AdditionalEnvironmentVariables,
+                    requireExitCodeZero: true,
+                    outputEncoding: OutputEncoding,
+                    cancellationToken: CancellationToken);
+            }
         }
 
         protected Task<string> RunPorcelainCommandAsync(params string[] args)
@@ -146,46 +147,47 @@ namespace Agent.Plugins.Repository
             ArgUtil.NotNull(ExecutionContext, nameof(ExecutionContext));
 
             // Invoke tf.
-            var processInvoker = new ProcessInvoker(ExecutionContext);
-            var result = new TfsVCPorcelainCommandResult();
-            var outputLock = new object();
-            processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
+            using (var processInvoker = new ProcessInvoker(ExecutionContext))
             {
-                lock (outputLock)
+                var result = new TfsVCPorcelainCommandResult();
+                var outputLock = new object();
+                processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
                 {
-                    ExecutionContext.Debug(e.Data);
-                    result.Output.Add(e.Data);
-                }
-            };
-            processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
-            {
-                lock (outputLock)
+                    lock (outputLock)
+                    {
+                        ExecutionContext.Debug(e.Data);
+                        result.Output.Add(e.Data);
+                    }
+                };
+                processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
                 {
-                    ExecutionContext.Debug(e.Data);
-                    result.Output.Add(e.Data);
+                    lock (outputLock)
+                    {
+                        ExecutionContext.Debug(e.Data);
+                        result.Output.Add(e.Data);
+                    }
+                };
+                string arguments = FormatArguments(formatFlags, args);
+                ExecutionContext.Debug($@"tf {arguments}");
+                // TODO: Test whether the output encoding needs to be specified on a non-Latin OS.
+                try
+                {
+                    await processInvoker.ExecuteAsync(
+                        workingDirectory: SourcesDirectory,
+                        fileName: "tf",
+                        arguments: arguments,
+                        environment: AdditionalEnvironmentVariables,
+                        requireExitCodeZero: true,
+                        outputEncoding: OutputEncoding,
+                        cancellationToken: CancellationToken);
                 }
-            };
-            string arguments = FormatArguments(formatFlags, args);
-            ExecutionContext.Debug($@"tf {arguments}");
-            // TODO: Test whether the output encoding needs to be specified on a non-Latin OS.
-            try
-            {
-                await processInvoker.ExecuteAsync(
-                    workingDirectory: SourcesDirectory,
-                    fileName: "tf",
-                    arguments: arguments,
-                    environment: AdditionalEnvironmentVariables,
-                    requireExitCodeZero: true,
-                    outputEncoding: OutputEncoding,
-                    cancellationToken: CancellationToken);
-            }
-            catch (ProcessExitCodeException ex)
-            {
-                result.Exception = ex;
-            }
+                catch (ProcessExitCodeException ex)
+                {
+                    result.Exception = ex;
+                }
 
-            return result;
-
+                return result;
+            }
         }
 
         private string FormatArguments(FormatFlags formatFlags, params string[] args)

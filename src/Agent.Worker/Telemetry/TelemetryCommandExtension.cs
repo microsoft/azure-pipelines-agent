@@ -26,6 +26,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
     {
         public string Name => "publish";
         public List<string> Aliases => null;
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "GetVssConnection")]
         public void Execute(IExecutionContext context, Command command)
         {
             ArgUtil.NotNull(context, nameof(context));
