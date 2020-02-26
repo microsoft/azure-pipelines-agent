@@ -68,7 +68,7 @@ function commitAndPush(directory, release, branch)
 {
     execInForeground(GIT + " checkout -b " + branch, directory);
     execInForeground(`${GIT} commit -m "Agent Release ${release}" `, directory);
-    execInForeground(`${GIT} -c credential.helper='!f() { echo "username=pat"; echo "password=$PAT"; };f' push --set-upstream origin ${branch}`, directory);
+    execInForeground(`${GIT} push --set-upstream origin ${branch}`, directory);
 }
 
 function versionifySync(template, destination, version)
@@ -132,13 +132,13 @@ function sparseClone(directory, url)
         }
     }
 
-    execInForeground(`${GIT}  -c credential.helper='!f() { echo "username=pat"; echo "password=$PAT"; };f' clone --no-checkout --depth 1 ${url} ${directory}`);
+    execInForeground(`${GIT} clone --no-checkout --depth 1 ${url} ${directory}`);
     execInForeground(GIT + " sparse-checkout init --cone", directory);
 }
 
 function commitADOL2Changes(directory, release)
 {
-    var gitUrl =  "https://mseng@dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps"
+    var gitUrl =  `https://${process.env.PAT}@dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps`
 
     var file = path.join(INTEGRATION_DIR, 'InstallAgentPackage.xml');
     var targetDirectory = path.join('DistributedTask', 'Service', 'Servicing', 'Host', 'Deployment', 'Groups');
@@ -169,7 +169,7 @@ function commitADOL2Changes(directory, release)
 
 function commitADOConfigChange(directory, release)
 {
-    var gitUrl =  "https://mseng@dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps.ConfigChange"
+    var gitUrl =  `https://${process.env.PAT}@dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps.ConfigChange`
 
     sparseClone(directory, gitUrl);
     execInForeground(GIT + " sparse-checkout set tfs", directory);
