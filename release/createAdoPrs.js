@@ -223,6 +223,8 @@ async function main()
         verifyMinimumNodeVersion();
         verifyMinimumGitVersion();
         createIntegrationFiles(newRelease);
+        execInForeground(`${GIT} config --global user.email "${process.env.USER}@microsoft.com"`);
+        execInForeground(`${GIT} config --global user.name "${process.env.USER}"`);
         commitADOL2Changes(pathToAdo, newRelease);
         commitADOConfigChange(pathToConfigChange, newRelease);
         console.log('done.');
