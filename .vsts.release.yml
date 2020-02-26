@@ -330,8 +330,6 @@ stages:
     steps:
     - checkout: self
 
-    - bash: ls
-
     - bash: |
         set -x
         git checkout releases/$(version)

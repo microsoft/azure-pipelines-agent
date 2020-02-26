@@ -23,9 +23,8 @@ var opt = require('node-getopt').create([
   .bindHelp()     // bind option 'help' to default action
   .parseSystem(); // parse command line
 
-const authHandler = azdev.getPersonalAccessTokenHandler(process.env.TOKEN);
+const authHandler = azdev.getPersonalAccessTokenHandler(process.env.PAT);
 const connection = new azdev.WebApi('https://dev.azure.com/mseng', authHandler);
-const gitApi = connection.getGitApi();
 
 function verifyMinimumNodeVersion()
 {
@@ -141,7 +140,7 @@ function sparseClone(directory, url)
     execInForeground(GIT + " sparse-checkout init --cone", directory);
 }
 
-function commitADOL2Changes(directory, release)
+async function commitADOL2Changes(directory, release)
 {
     var gitUrl =  `https://${process.env.PAT}@dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps`
 
@@ -167,15 +166,16 @@ function commitADOL2Changes(directory, release)
     execInForeground(GIT + " add " + targetDirectory, directory);
     commitAndPush(directory, release, newBranch);
 
-    gitApi.createPullRequest({
+    const gitApi = await connection.getGitApi();
+    await gitApi.createPullRequest({
         sourceRefName: newBranch,
         targetRefName: 'master',
         title: "Update agent",
         description: `Update agent to version ${release}`
-    });
+    }, "AzureDevOps", "AzureDevOps");
 }
 
-function commitADOConfigChange(directory, release)
+async function commitADOConfigChange(directory, release)
 {
     var gitUrl =  `https://${process.env.PAT}@dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps.ConfigChange`
 
@@ -209,12 +209,13 @@ function commitADOConfigChange(directory, release)
     execInForeground(GIT + " add " + path.join('tfs', milestoneDir), directory);
     commitAndPush(directory, release, newBranch);
 
-    gitApi.createPullRequest({
+    const gitApi = await connection.getGitApi();
+    await gitApi.createPullRequest({
         sourceRefName: newBranch,
         targetRefName: 'master',
         title: "Update agent",
         description: `Update agent to version ${release}`
-    });
+    }, "AzureDevOps.ConfigChange", "AzureDevOps");
 }
 
 async function main()
@@ -233,8 +234,8 @@ async function main()
         createIntegrationFiles(newRelease);
         execInForeground(`${GIT} config --global user.email "${process.env.USER}@microsoft.com"`);
         execInForeground(`${GIT} config --global user.name "${process.env.USER}"`);
-        commitADOL2Changes(pathToAdo, newRelease);
-        commitADOConfigChange(pathToConfigChange, newRelease);
+        await commitADOL2Changes(pathToAdo, newRelease);
+        await commitADOConfigChange(pathToConfigChange, newRelease);
         console.log('done.');
     }
     catch (err) {
