@@ -376,7 +376,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     {
                         result.RepositoryTrackingInfo.Add(new Build.RepositoryTrackingInfo
                         {
-                            Identifier = RepositoryUtil.PrimaryRepositoryName,
+                            Identifier = RepositoryUtil.DefaultPrimaryRepositoryName,
                             RepositoryType = result.RepositoryType,
                             RepositoryUrl = result.RepositoryUrl,
                             SourcesDirectory = result.SourcesDirectory,
