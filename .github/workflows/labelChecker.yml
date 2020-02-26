@@ -9,6 +9,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
+    - run: printenv
+
     - run: |
         label_count=0
 
@@ -51,6 +54,3 @@ jobs:
             echo "Cannot contain more than one label of [bug, enhancement, misc, internal]. Currently contains $label_count"
             exit 1
         fi
-
-
-    - run: printenv
