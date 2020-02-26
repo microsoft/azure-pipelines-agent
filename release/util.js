@@ -4,7 +4,7 @@ const cp = require('child_process');
 const GIT = 'git';
 const GIT_RELEASE_RE = /([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/;
 
-export function verifyMinimumNodeVersion()
+exports.verifyMinimumNodeVersion = function()
 {
     var version = process.version;
     var minimumNodeVersion = '12.10.0'; // this is the version of node that supports the recursive option to rmdir
@@ -16,7 +16,7 @@ export function verifyMinimumNodeVersion()
     console.log(`Using node version ${version}`);
 }
 
-export function verifyMinimumGitVersion()
+exports.verifyMinimumGitVersion = function()
 {
     var gitVersionOutput = cp.execSync(`${GIT} --version`, { encoding: 'utf-8'});
     if (!gitVersionOutput)
@@ -36,7 +36,7 @@ export function verifyMinimumGitVersion()
 
 }
 
-export function execInForeground(command, directory)
+exports.execInForeground = function(command, directory)
 {
     directory = directory === undefined ? '.' : directory;
     console.log(`% ${command}`);
@@ -46,14 +46,14 @@ export function execInForeground(command, directory)
     }
 }
 
-export function commitAndPush(directory, release, branch)
+exports.commitAndPush = function(directory, release, branch)
 {
     execInForeground(`${GIT} checkout -b ${branch}`, directory);
     execInForeground(`${GIT} commit -m "Agent Release ${release}" `, directory);
     execInForeground(`${GIT} push --set-upstream origin ${branch}`, directory);
 }
 
-export function versionifySync(template, destination, version)
+exports.versionifySync = function(template, destination, version)
 {
     try
     {

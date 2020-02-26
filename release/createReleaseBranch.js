@@ -1,7 +1,9 @@
 const fs = require('fs');
 const cp = require('child_process');
 const path = require('path');
+const tl = require('azure-pipelines-task-lib/task');
 const httpm = require('typed-rest-client/HttpClient');
+const util = require('./util');
 
 const GIT = 'git';
 const VALID_RELEASE_RE = /^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/;
