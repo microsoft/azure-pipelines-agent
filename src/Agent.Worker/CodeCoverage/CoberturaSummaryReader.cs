@@ -17,9 +17,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
         public string Name => "Cobertura";
 
         private const string _linesCovered = "Lines";
-        private const string _linesTotal = "Total Lines";
         private const string _branchesCovered = "Branches";
-        private const string _branchesTotal = "Total Branches";
         private const string _linesCoveredTag = "lines-covered";
         private const string _branchesCoveredTag = "branches-covered";
         private const string _linesValidTag = "lines-valid";

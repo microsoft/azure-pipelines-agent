@@ -554,7 +554,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             if (context.Variables.IsReadOnly(name))
             {
-                context.Warning(StringUtil.Loc("ReadOnlyVariable", name));
+                // Check FF. If it is on then throw, otherwise warn
+                // TODO - remove this and just always throw once the feature has been fully rolled out.
+                if (context.Variables.Read_Only_Variables)
+                {
+                    throw new Exception(StringUtil.Loc("ReadOnlyVariable", name));
+                }
+                else
+                {
+                    context.Warning(StringUtil.Loc("ReadOnlyVariableWarning", name));
+                }
             }
 
             if (isSecret)
@@ -623,7 +632,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             if (context.TaskVariables.IsReadOnly(name))
             {
-                context.Warning(StringUtil.Loc("ReadOnlyTaskVariable", name));
+                // Check FF. If it is on then throw, otherwise warn
+                // TODO - remove this and just always throw once the feature has been fully rolled out.
+                if (context.Variables.Read_Only_Variables)
+                {
+                    throw new Exception(StringUtil.Loc("ReadOnlyTaskVariable", name));
+                }
+                else
+                {
+                    context.Warning(StringUtil.Loc("ReadOnlyTaskVariableWarning", name));
+                }
             }
 
             if (isSecret)

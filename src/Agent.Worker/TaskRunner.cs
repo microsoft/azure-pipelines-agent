@@ -77,13 +77,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Verify task signatures if a fingerprint is configured for the Agent.
                 var configurationStore = HostContext.GetService<IConfigurationStore>();
                 AgentSettings settings = configurationStore.GetSettings();
-                
+
                 if (!String.IsNullOrEmpty(settings.Fingerprint))
                 {
                     ISignatureService signatureService = HostContext.CreateService<ISignatureService>();
                     Boolean verificationSuccessful =  await signatureService.VerifyAsync(definition, ExecutionContext.CancellationToken);
 
-                    if (verificationSuccessful) 
+                    if (verificationSuccessful)
                     {
                         ExecutionContext.Output("Task signature verification successful.");
 
@@ -93,7 +93,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             taskManager.Extract(ExecutionContext, Task);
                         }
                     }
-                    else 
+                    else
                     {
                         throw new Exception("Task signature verification failed.");
                     }
@@ -349,8 +349,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                 }
 
-            // translate inputs
-            inputs = inputs.ToDictionary(kvp => kvp.Key, kvp => ExecutionContext.TranslatePathForStepTarget(kvp.Value));
+                // translate inputs
+                inputs = inputs.ToDictionary(kvp => kvp.Key, kvp => ExecutionContext.TranslatePathForStepTarget(kvp.Value));
 
                 // Create the handler.
                 IHandler handler = handlerFactory.Create(

@@ -117,6 +117,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             condition = ExpressionManager.Succeeded;
                         }
 
+                        task.DisplayName = context.Variables.ExpandValue(nameof(task.DisplayName), task.DisplayName);
+
                         taskConditionMap[task.Id] = condition;
                     }
                     context.Output("Checking job knob settings.");
