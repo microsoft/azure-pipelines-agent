@@ -16,8 +16,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
 {
     public sealed class BuildDirectoryManagerL0
     {
-        private const string HashKey = "4ee1398ce6c9874c8e9d08d09bc812546142f220";
-        private const string NonmatchingHashKey = "0987654321098765432109876543210987654321";
         private const string CollectionId = "31ffacb8-b468-4e60-b2f9-c50ce437da92";
         private const string DefinitionId = "1234";
         private BuildDirectoryManager _buildDirectoryManager;

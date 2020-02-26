@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Agent.Listener.Diagnostics;
+using System;
 using System.Collections.Generic;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Diagnostics
@@ -9,79 +10,102 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Diagnostics
         {
             m_terminal = terminal;
 
-            m_diagnosticTests = new List<IDiagnosticTest>()
+            m_diagnosticSuites = new List<DiagnosticSuite>
             {
-                new DnsTest(),
-                new PingTest(),
-            };
-
-            m_diagnosticInfo = new List<IDiagnosticInfo>()
-            {
-                new MtuInfo()
+                new DiagnosticSuite()
+                {
+                    SuiteName = "Networking",
+                    DiagnosticInfo = new List<IDiagnosticInfo>
+                    {
+                        new MtuInfo()
+                    },
+                    DiagnosticTests = new List<IDiagnosticTest>
+                    {
+                        new DnsTest(),
+                        new PingTest(),
+                    }
+                },
+                new DiagnosticSuite()
+                {
+                    SuiteName = "Disk Health",
+                    DiagnosticInfo = new List<IDiagnosticInfo>
+                    {
+                        new DiskInfo(),
+                        new FolderPermissionInfo(),
+                    },
+                },
             };
         }
 
         public void Execute()
         {
-            bool result = true;
-            foreach(var test in m_diagnosticTests)
+            foreach (var suite in m_diagnosticSuites)
             {
-                string testName = test.GetType().Name;
-                m_terminal.WriteLine(string.Format("*** Performing Test: {0} ***", testName));
-                try
+                m_terminal.WriteLine($"----- Diagnostics for {suite.SuiteName} -----");
+                bool result = true;
+                if (suite.DiagnosticTests != null)
                 {
-                    if (!test.Execute(m_terminal))
+                    foreach (var test in suite.DiagnosticTests)
                     {
-                        result = false;
-                        m_terminal.WriteError(string.Format("*** Test: {0} Failed ***", testName));
+                        string testName = test.GetType().Name;
+                        m_terminal.WriteLine(string.Format("*** {0} ***", testName));
+                        try
+                        {
+                            if (!test.Execute(m_terminal))
+                            {
+                                result = false;
+                                m_terminal.WriteError(string.Format("*** {0} Failed ***", testName));
+                            }
+                            else
+                            {
+                                m_terminal.WriteLine(string.Format("*** {0} Succeeded ***", testName));
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            result = false;
+                            m_terminal.WriteError(ex);
+                            m_terminal.WriteError(string.Format("***  {0} Failed ***", testName));
+                        }
+                        m_terminal.WriteLine(string.Empty);
+                    }
+                }
+
+                foreach (var info in suite.DiagnosticInfo)
+                {
+                    string infoName = info.GetType().Name;
+                    m_terminal.WriteLine(string.Format("*** {0} ***", infoName));
+                    try
+                    {
+                        info.Execute(m_terminal);
+                        m_terminal.WriteLine(string.Format("*** {0} Completed ***", infoName));
+                    }
+                    catch (Exception ex)
+                    {
+                        m_terminal.WriteError(ex);
+                        m_terminal.WriteError(string.Format("*** {0} Failed ***", infoName));
+                    }
+                    m_terminal.WriteLine(string.Empty);
+                }
+
+                if (suite.DiagnosticTests != null)
+                {
+                    if (result)
+                    {
+                        m_terminal.WriteLine($"{suite.SuiteName} Diagnostics tests were successful!");
                     }
                     else
                     {
-                        m_terminal.WriteLine(string.Format("*** Test: {0} Succeeded ***", testName));
+                        m_terminal.WriteLine($"{suite.SuiteName} 1 or more diagnostics tests FAILED!");
                     }
                 }
-                catch (Exception ex)
-                {
-                    result = false;
-                    m_terminal.WriteError(ex);
-                    m_terminal.WriteError(string.Format("*** Test: {0} Failed ***", testName));
-                }
+
                 m_terminal.WriteLine(string.Empty);
-            }
-
-            if (result)
-            {
-                m_terminal.WriteLine("Diagnostics tests were successful!");
-            }
-            else
-            {
-                m_terminal.WriteLine("1 or more diagnostics tests FAILED!");
-            }
-            m_terminal.WriteLine(string.Empty);
-            m_terminal.WriteLine(string.Empty);
-            m_terminal.WriteLine(string.Empty);
-
-
-            m_terminal.WriteLine("--- Additional Information ---");
-            foreach (var info in m_diagnosticInfo)
-            {
-                string infoName = info.GetType().Name;
-                m_terminal.WriteLine(string.Format("*** Info: {0} ***", infoName));
-                try
-                {
-                    info.Execute(m_terminal);
-                }
-                catch (Exception ex)
-                {
-                    m_terminal.WriteError(ex);
-                    m_terminal.WriteError(string.Format("*** Info: {0} Failed ***", infoName));
-                }
                 m_terminal.WriteLine(string.Empty);
             }
         }
 
-        private List<IDiagnosticInfo> m_diagnosticInfo;
-        private List<IDiagnosticTest> m_diagnosticTests;
+        private List<DiagnosticSuite> m_diagnosticSuites;
         private ITerminal m_terminal;
     }
 }

@@ -409,8 +409,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Repositories = message.Resources.Repositories;
 
             // JobSettings
+            var checkouts = message.Steps?.Where(x => Pipelines.PipelineConstants.IsCheckoutTask(x)).ToList();
             JobSettings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            JobSettings[WellKnownJobSettings.HasMultipleCheckouts] = message.Steps?.Where(x => Pipelines.PipelineConstants.IsCheckoutTask(x)).Count() > 1 ? Boolean.TrueString : Boolean.FalseString;
+            JobSettings[WellKnownJobSettings.HasMultipleCheckouts] = Boolean.FalseString;
+            if (checkouts != null && checkouts.Count > 0)
+            {
+                JobSettings[WellKnownJobSettings.HasMultipleCheckouts] = checkouts.Count > 1 ? Boolean.TrueString : Boolean.FalseString;
+                var firstCheckout = checkouts.First() as Pipelines.TaskStep;
+                if (firstCheckout != null && Repositories != null && firstCheckout.Inputs.TryGetValue(Pipelines.PipelineConstants.CheckoutTaskInputs.Repository, out string repoAlias))
+                {
+                    JobSettings[WellKnownJobSettings.FirstRepositoryCheckedOut] = repoAlias;
+                    var repo = Repositories.Find(r => String.Equals(r.Alias, repoAlias, StringComparison.OrdinalIgnoreCase));
+                    if (repo != null)
+                    {
+                        repo.Properties.Set<bool>(RepositoryUtil.IsPrimaryRepository, true);
+                    }
+                }
+            }
 
             // Variables (constructor performs initial recursive expansion)
             List<string> warnings;

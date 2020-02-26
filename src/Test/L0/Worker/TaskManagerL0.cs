@@ -19,7 +19,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 {
     public sealed class TaskManagerL0
     {
-        private const string TestDataFolderName = "TestData";
         private CancellationTokenSource _ecTokenSource;
         private Mock<IJobServer> _jobServer;
         private Mock<ITaskServer> _taskServer;
@@ -261,7 +260,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 }
                 else
                 {
-                    Assert.Null(definition.Data.Execution.Process);    
+                    Assert.Null(definition.Data.Execution.Process);
                 }
             }
             finally
@@ -413,7 +412,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public void ExtractsAnAlreadyDownloadedZipToTheCorrectLocation()
         {
-            try 
+            try
             {
                 // Arrange
                 Setup(signatureVerificationEnabled: true);

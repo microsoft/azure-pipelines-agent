@@ -114,6 +114,7 @@ jobs:
     parameters:
       componentDetection: 'true'
       testLogTitle: 'Linux-x64'
+      enableADOLogIssue: 'true'
 
   # Create agent package zip
   - script: ./dev.sh package Release
