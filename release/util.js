@@ -36,11 +36,11 @@ exports.verifyMinimumGitVersion = function()
 
 }
 
-exports.execInForeground = function(command, directory)
+exports.execInForeground = function(command, directory, dryrun = false)
 {
-    directory = directory === undefined ? '.' : directory;
+    directory = directory || '.';
     console.log(`% ${command}`);
-    if (!opt.options.dryrun)
+    if (!dryrun)
     {
         cp.execSync(command, { cwd: directory, stdio: [process.stdin, process.stdout, process.stderr] });
     }

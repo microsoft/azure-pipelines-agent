@@ -149,10 +149,10 @@ function editReleaseNotesFile(body)
 function commitAgentChanges(directory, release)
 {
     var newBranch = `releases/${release}`;
-    util.execInForeground(`${GIT} add ${path.join('src', 'agentversion')}`, directory);
-    util.execInForeground(`${GIT} add releaseNote.md`, directory);
-    util.execInForeground(`${GIT} config --global user.email "azure-pipelines-bot@microsoft.com"`);
-    util.execInForeground(`${GIT} config --global user.name "azure-pipelines-bot"`);
+    util.execInForeground(`${GIT} add ${path.join('src', 'agentversion')}`, directory, opt.dryrun);
+    util.execInForeground(`${GIT} add releaseNote.md`, directory, opt.dryrun);
+    util.execInForeground(`${GIT} config --global user.email "azure-pipelines-bot@microsoft.com"`, null, opt.dryrun);
+    util.execInForeground(`${GIT} config --global user.name "azure-pipelines-bot"`, null, opt.dryrun);
     util.commitAndPush(directory, release, newBranch);
 }
 

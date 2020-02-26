@@ -71,8 +71,8 @@ function sparseClone(directory, url)
         }
     }
 
-    util.execInForeground(`${GIT} clone --no-checkout --depth 1 ${url} ${directory}`);
-    util.execInForeground(`${GIT} sparse-checkout init --cone`, directory);
+    util.execInForeground(`${GIT} clone --no-checkout --depth 1 ${url} ${directory}`, null, opt.dryrun);
+    util.execInForeground(`${GIT} sparse-checkout init --cone`, directory, opt.dryrun);
 }
 
 async function commitADOL2Changes(directory, release)
@@ -86,7 +86,7 @@ async function commitADOL2Changes(directory, release)
     if (!fs.existsSync(directory))
     {
         sparseClone(directory, gitUrl);    
-        util.execInForeground(`${GIT} sparse-checkout set ${targetDirectory}`, directory);
+        util.execInForeground(`${GIT} sparse-checkout set ${targetDirectory}`, directory, opt.dryrun);
     }
 
     if (opt.options.dryrun)
@@ -98,7 +98,7 @@ async function commitADOL2Changes(directory, release)
         fs.copyFileSync(file, target);
     }
     var newBranch = `users/${process.env.USER}/agent-${release}`;
-    util.execInForeground(`${GIT} add ${targetDirectory}`, directory);
+    util.execInForeground(`${GIT} add ${targetDirectory}`, directory, opt.dryrun);
     util.commitAndPush(directory, release, newBranch);
 
     console.log(`Creating pr from ${newBranch} into master in the AzureDevOps repo`);
@@ -117,7 +117,7 @@ async function commitADOConfigChange(directory, release)
     var gitUrl =  `https://${process.env.PAT}@dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps.ConfigChange`
 
     sparseClone(directory, gitUrl);
-    util.execInForeground(`${GIT} sparse-checkout set tfs`, directory);
+    util.execInForeground(`${GIT} sparse-checkout set tfs`, directory, opt.dryrun);
     var agentVersionPath=release.replace(/\./g, '-');
     var milestoneDir = 'mXXX';
     var tfsDir = path.join(directory, 'tfs');
@@ -143,7 +143,7 @@ async function commitADOConfigChange(directory, release)
     }
 
     var newBranch = `users/${process.env.USER}/agent-${release}`;
-    util.execInForeground(`${GIT} add ${path.join('tfs', milestoneDir)}`, directory);
+    util.execInForeground(`${GIT} add ${path.join('tfs', milestoneDir)}`, directory, opt.dryrun);
     util.commitAndPush(directory, release, newBranch);
 
     console.log(`Creating pr from refs/heads/${newBranch} into refs/heads/master in the AzureDevOps.ConfigChange repo`);
@@ -171,8 +171,8 @@ async function main()
         util.verifyMinimumNodeVersion();
         util.verifyMinimumGitVersion();
         createIntegrationFiles(newRelease);
-        util.execInForeground(`${GIT} config --global user.email "${process.env.USER}@microsoft.com"`);
-        util.execInForeground(`${GIT} config --global user.name "${process.env.USER}"`);
+        util.execInForeground(`${GIT} config --global user.email "${process.env.USER}@microsoft.com"`, null, opt.dryrun);
+        util.execInForeground(`${GIT} config --global user.name "${process.env.USER}"`, null, opt.dryrun);
         await commitADOL2Changes(pathToAdo, newRelease);
         await commitADOConfigChange(pathToConfigChange, newRelease);
         console.log('done.');
