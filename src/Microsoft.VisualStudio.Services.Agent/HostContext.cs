@@ -49,7 +49,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         AutoStartup
     }
 
-    public sealed class HostContext : EventListener, IObserver<DiagnosticListener>, IObserver<KeyValuePair<string, object>>, IHostContext, IDisposable
+    public class HostContext : EventListener, IObserver<DiagnosticListener>, IObserver<KeyValuePair<string, object>>, IHostContext, IDisposable
     {
         private const int _defaultLogPageSize = 8;  //MB
 
@@ -70,7 +70,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         private static int[] _vssHttpMethodEventIds = new int[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 24 };
         private static int[] _vssHttpCredentialEventIds = new int[] { 11, 13, 14, 15, 16, 17, 18, 20, 21, 22, 27, 29 };
         private readonly ConcurrentDictionary<Type, object> _serviceInstances = new ConcurrentDictionary<Type, object>();
-        private readonly ConcurrentDictionary<Type, Type> _serviceTypes = new ConcurrentDictionary<Type, Type>();
+        protected readonly ConcurrentDictionary<Type, Type> ServiceTypes = new ConcurrentDictionary<Type, Type>();
         private readonly ISecretMasker _secretMasker = new SecretMasker();
         private readonly ProductInfoHeaderValue _userAgent = new ProductInfoHeaderValue($"VstsAgentCore-{BuildConstants.AgentPackage.PackageName}", BuildConstants.AgentPackage.Version);
         private CancellationTokenSource _agentShutdownTokenSource = new CancellationTokenSource();
@@ -84,7 +84,6 @@ namespace Microsoft.VisualStudio.Services.Agent
         private IDisposable _diagListenerSubscription;
         private StartupType _startupType;
         private string _perfFile;
-
         public event EventHandler Unloading;
         public CancellationToken AgentShutdownToken => _agentShutdownTokenSource.Token;
         public ShutdownReason AgentShutdownReason { get; private set; }
@@ -162,7 +161,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        public string GetDirectory(WellKnownDirectory directory)
+        public virtual string GetDirectory(WellKnownDirectory directory)
         {
             string path;
             switch (directory)
@@ -369,7 +368,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             Type defaultTarget = null;
             Type platformTarget = null;
 
-            if (!_serviceTypes.TryGetValue(typeof(T), out target))
+            if (!ServiceTypes.TryGetValue(typeof(T), out target))
             {
                 // Infer the concrete type from the ServiceLocatorAttribute.
                 CustomAttributeData attribute = typeof(T)
@@ -410,8 +409,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                     throw new KeyNotFoundException(string.Format(CultureInfo.InvariantCulture, "Service mapping not found for key '{0}'.", typeof(T).FullName));
                 }
 
-                _serviceTypes.TryAdd(typeof(T), target);
-                target = _serviceTypes[typeof(T)];
+                ServiceTypes.TryAdd(typeof(T), target);
+                target = ServiceTypes[typeof(T)];
             }
 
             // Create a new instance.
