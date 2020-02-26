@@ -7,6 +7,8 @@ const httpm = require('typed-rest-client/HttpClient');
 const INTEGRATION_DIR = path.join(__dirname, '..', '_layout', 'integrations');
 const GIT = 'git';
 const VALID_RELEASE_RE = /^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/;
+const GIT_RELEASE_RE = /([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/;
+
 const GIT_HUB_API_URL_ROOT="https://api.github.com/repos/microsoft/azure-pipelines-agent";
 
 var httpc = new httpm.HttpClient('vsts-node-api');
@@ -26,6 +28,37 @@ var opt = require('node-getopt').create([
   .bindHelp()     // bind option 'help' to default action
   .parseSystem(); // parse command line
 
+function verifyMinimumNodeVersion()
+{
+    var version = process.version;
+    var minimumNodeVersion = "12.10.0"; // this is the version of node that supports the recursive option to rmdir
+    if (parseFloat(version.substr(1,version.length)) < parseFloat(minimumNodeVersion))
+    {
+        console.log("Version of Node does not support recursive directory deletes. Be sure you are starting with a clean workspace!");
+
+    }
+    console.log("Using node version " + version);
+}
+
+function verifyMinimumGitVersion()
+{
+    var gitVersionOutput = cp.execSync(GIT + ' --version', { encoding: 'utf-8'});
+    if (gitVersionOutput == "")
+    {
+        console.log("Unable to get Git Version. Got: " + gitVersionOutput);
+        process.exit(-1);
+    }
+    var gitVersion = gitVersionOutput.match(GIT_RELEASE_RE)[0];
+
+    var minimumGitVersion = "2.25.0"; // this is the version that supports sparse-checkout
+    if (parseFloat(gitVersion) < parseFloat(minimumGitVersion))
+    {
+        console.log("Version of Git does not meet minimum requirement of " + minimumGitVersion);
+        process.exit(-1);
+    }
+    console.log("Using git version " + gitVersion);
+
+}
 
 async function verifyNewReleaseTagOk(newRelease)
 {
@@ -88,16 +121,46 @@ function editReleaseNotesFile(body)
 {
     var releaseNotesFile = path.join(__dirname, '..', 'releaseNote.md');
     var existingReleaseNotes = fs.readFileSync(releaseNotesFile);
-    var newPRs = [];
+    var newPRs = { "Features": [], "Bugs": [], "Misc": [] };
     body.items.forEach(function (item) {
-        newPRs.push(' - ' + item.title + ' (#' + item.number + ')');
+        var category = "Misc";
+        item.labels.forEach(function (label) {
+            if (category)
+            {
+                if (label.name === "bug")
+                {
+                    category = "Bugs";
+                }
+                if (label.name === "enhancement")
+                {
+                    category = "Features";
+                }
+                if (label.name === "internal")
+                {
+                    category = null;
+                }
+            }
+        });
+        if (category)
+        {
+            newPRs[category].push(' - ' + item.title + ' (#' + item.number + ')');
+        }
     });
-    var newReleaseNotes = newPRs.join("\n") + "\n\n" + existingReleaseNotes;
+    var newReleaseNotes = "";
+    var categories = ["Features", "Bugs", "Misc"];
+    categories.forEach(function (category) {
+        newReleaseNotes += "## " + category + "\n" + newPRs[category].join("\n") + "\n\n";
+    });
+
+    newReleaseNotes += existingReleaseNotes;
     var editorCmd = process.env.EDITOR + ' ' + releaseNotesFile;
     console.log(editorCmd);
     if (opt.options.dryrun)
     {
         console.log("Found the following PRs = %o", newPRs);
+        console.log("\n\n");
+        console.log(newReleaseNotes);
+        console.log("\n");
     }
     else
     {
@@ -195,26 +258,31 @@ function commitAgentChanges(directory, release)
     console.log("");
 }
 
-function cloneOrPull(directory, url)
+function sparseClone(directory, url)
 {
     if (fs.existsSync(directory))
     {
-        execInForeground(GIT + " checkout master", directory);
-        execInForeground(GIT + " pull --depth 1", directory);
+        console.log("Removing previous clone of " + directory);
+        if (!opt.options.dryrun)
+        {
+            fs.rmdirSync(directory, { recursive: true });
+        }
     }
-    else
-    {
-        execInForeground(GIT + " clone --depth 1 " + url + " " + directory);
-    }
+
+    execInForeground(GIT + " clone --no-checkout --depth 1 " + url + " " + directory);
+    execInForeground(GIT + " sparse-checkout init --cone", directory);
 }
 
 function commitADOL2Changes(directory, release)
 {
     var gitUrl =  "https://mseng@dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps"
 
-    cloneOrPull(directory, gitUrl);
+    sparseClone(directory, gitUrl);
     var file = path.join(INTEGRATION_DIR, 'InstallAgentPackage.xml');
-    var target = path.join(directory, 'DistributedTask', 'Service', 'Servicing', 'Host', 'Deployment', 'Groups', 'InstallAgentPackage.xml');
+    var targetDirectory = path.join('DistributedTask', 'Service', 'Servicing', 'Host', 'Deployment', 'Groups');
+    execInForeground(GIT + " sparse-checkout set " + targetDirectory, directory);
+    var target = path.join(directory, targetDirectory, 'InstallAgentPackage.xml');
+
     if (opt.options.dryrun)
     {
         console.log("Copy file from " + file + " to " + target );
@@ -224,7 +292,7 @@ function commitADOL2Changes(directory, release)
         fs.copyFileSync(file, target);
     }
     var newBranch = "users/" + process.env.USER + "/agent-" + release;
-    execInForeground(GIT + " add DistributedTask", directory);
+    execInForeground(GIT + " add " + targetDirectory, directory);
     commitAndPush(directory, release, newBranch);
 
     console.log("Create pull-request for this change ");
@@ -236,7 +304,8 @@ function commitADOConfigChange(directory, release)
 {
     var gitUrl =  "https://mseng@dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps.ConfigChange"
 
-    cloneOrPull(directory, gitUrl);
+    sparseClone(directory, gitUrl);
+    execInForeground(GIT + " sparse-checkout set tfs", directory);
     var agentVersionPath=release.replace(/\./g, '-');
     var milestoneDir = "mXXX";
     var tfsDir = path.join(directory, "tfs");
@@ -297,6 +366,8 @@ async function main()
         console.log('Error: You must supply a version');
         process.exit(-1);
     }
+    verifyMinimumNodeVersion();
+    verifyMinimumGitVersion();
     await verifyNewReleaseTagOk(newRelease);
     checkGitStatus();
     writeAgentVersionFile(newRelease);

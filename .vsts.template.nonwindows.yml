@@ -1,6 +1,7 @@
 parameters:
   componentDetection: 'false'
   testLogTitle: 'Non-Windows'
+  enableADOLogIssue: 'false'
 
 steps:
 
@@ -18,11 +19,18 @@ steps:
 - script: ./dev.sh layout Release
   workingDirectory: src
   displayName: Build & Layout Release
+  env:
+    ADO_ENABLE_LOGISSUE: ${{ parameters.enableADOLogIssue }}
 
 # Run test
-- script: ./dev.sh test
+- script: ./dev.sh testl0
   workingDirectory: src
-  displayName: Test
+  displayName: Unit tests
+
+- script: ./dev.sh testl1
+  workingDirectory: src
+  displayName: Functional tests
+  condition: ne('${{ parameters.testLogTitle }}', 'Linux-ARM')
 
 # Publish test results
 - task: PublishTestResults@2

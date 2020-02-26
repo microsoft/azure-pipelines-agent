@@ -1,8 +1,3 @@
-## Features
-
-## Bugs
-
-## Misc
 
 ## Agent Downloads
 

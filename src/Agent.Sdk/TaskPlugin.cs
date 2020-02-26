@@ -36,6 +36,7 @@ namespace Agent.Sdk
         private VssConnection _connection;
         private readonly object _stdoutLock = new object();
         private readonly ITraceWriter _trace; // for unit tests
+        private static string _failTaskCommand = "##vso[task.complete result=Failed;]";
 
         public AgentTaskPluginExecutionContext()
             : this(null)
@@ -162,7 +163,7 @@ namespace Agent.Sdk
         public void Error(string message)
         {
             Output($"##vso[task.logissue type=error;]{Escape(message)}");
-            Output($"##vso[task.complete result=Failed;]");
+            Output(_failTaskCommand);
         }
 
         public void Debug(string message)
@@ -181,7 +182,7 @@ namespace Agent.Sdk
             Output($"##vso[telemetry.publish area={area};feature={feature}]{Escape(propertiesAsJson)}");
         }
 
-        public void PublishTelemetry(string area, string feature, TelemetryRecord record) 
+        public void PublishTelemetry(string area, string feature, TelemetryRecord record)
             => PublishTelemetry(area, feature, record.GetAssignedProperties());
 
         public void Output(string message)

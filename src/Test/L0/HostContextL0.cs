@@ -69,6 +69,43 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        // some URLs with secrets to mask
+        [InlineData("https://user:pass@example.com/path", "https://user:***@example.com/path")]
+        [InlineData("http://user:pass@example.com/path", "http://user:***@example.com/path")]
+        [InlineData("ftp://user:pass@example.com/path", "ftp://user:***@example.com/path")]
+        [InlineData("https://user:pass@example.com/weird:thing@path", "https://user:***@example.com/weird:thing@path")]
+        [InlineData("https://user:pass@example.com:8080/path", "https://user:***@example.com:8080/path")]
+        // some URLs without secrets to mask
+        [InlineData("https://example.com/path", "https://example.com/path")]
+        [InlineData("http://example.com/path", "http://example.com/path")]
+        [InlineData("ftp://example.com/path", "ftp://example.com/path")]
+        [InlineData("ssh://example.com/path", "ssh://example.com/path")]
+        [InlineData("https://example.com/@path", "https://example.com/@path")]
+        [InlineData("https://example.com/weird:thing@path", "https://example.com/weird:thing@path")]
+        [InlineData("https://example.com:8080/path", "https://example.com:8080/path")]
+        public void UrlSecretsAreMasked(string input, string expected)
+        {
+            try
+            {
+                // Arrange.
+                Setup();
+
+                // Act.
+                var result = _hc.SecretMasker.MaskSecrets(input);
+
+                // Assert.
+                Assert.Equal(expected, result);
+            }
+            finally
+            {
+                // Cleanup.
+                Teardown();
+            }
+        }
+
         public void Setup([CallerMemberName] string testName = "")
         {
             _tokenSource = new CancellationTokenSource();

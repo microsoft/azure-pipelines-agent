@@ -132,6 +132,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public static readonly string Commit = "commit";
                     public static readonly string DeploymentGroup = "deploymentgroup";
                     public static readonly string DeploymentPool = "deploymentpool";
+                    public static readonly string Diagnostics = "diagnostics";
                     public static readonly string Environment = "environment";
                     public static readonly string OverwriteAutoLogon = "overwriteautologon";
                     public static readonly string GitUseSChannel = "gituseschannel";

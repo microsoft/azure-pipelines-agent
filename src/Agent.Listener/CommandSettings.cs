@@ -34,6 +34,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Constants.Agent.CommandLine.Flags.Commit,
             Constants.Agent.CommandLine.Flags.DeploymentGroup,
             Constants.Agent.CommandLine.Flags.DeploymentPool,
+            Constants.Agent.CommandLine.Flags.Diagnostics,
             Constants.Agent.CommandLine.Flags.Environment,
             // SChannel is Windows-only
             Constants.Agent.CommandLine.Flags.GitUseSChannel,
@@ -93,6 +94,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         // Flags.
         public bool Commit => TestFlag(Constants.Agent.CommandLine.Flags.Commit);
+        public bool Diagnostics => TestFlag(Constants.Agent.CommandLine.Flags.Diagnostics);
         public bool Help => TestFlag(Constants.Agent.CommandLine.Flags.Help);
         public bool Unattended => TestFlag(Constants.Agent.CommandLine.Flags.Unattended);
         public bool Version => TestFlag(Constants.Agent.CommandLine.Flags.Version);
