@@ -31,7 +31,7 @@ namespace Agent.Plugins.PipelineCache
         public static async Task<string> ArchiveFilesToTarAsync(
             AgentTaskPluginExecutionContext context,
             Fingerprint pathFingerprint,
-            string workingDirectory,
+            string workspaceRoot,
             CancellationToken cancellationToken)
         {
             foreach (var inputPath in pathFingerprint.Segments)
@@ -45,7 +45,7 @@ namespace Agent.Plugins.PipelineCache
             var archiveFileName = CreateArchiveFileName();
             var archiveFile = Path.Combine(Path.GetTempPath(), archiveFileName);
 
-            ProcessStartInfo processStartInfo = GetCreateTarProcessInfo(context, archiveFileName, workingDirectory);
+            ProcessStartInfo processStartInfo = GetCreateTarProcessInfo(context, archiveFileName, workspaceRoot);
 
             Action actionOnFailure = () =>
             {
@@ -102,7 +102,7 @@ namespace Agent.Plugins.PipelineCache
             AgentTaskPluginExecutionContext context,
             Manifest manifest,
             DedupManifestArtifactClient dedupManifestClient,
-            string workingDirectory,
+            string workspaceRoot,
             CancellationToken cancellationToken)
         {
             ValidateTarManifest(manifest);
@@ -110,7 +110,7 @@ namespace Agent.Plugins.PipelineCache
             DedupIdentifier dedupId = DedupIdentifier.Create(manifest.Items.Single(i => i.Path.EndsWith(archive, StringComparison.OrdinalIgnoreCase)).Blob.Id);
 
             // We now can simply specify the working directory as the tarball will contain paths relative to it
-            ProcessStartInfo processStartInfo = GetExtractStartProcessInfo(context, workingDirectory);
+            ProcessStartInfo processStartInfo = GetExtractStartProcessInfo(context, workspaceRoot);
 
             Func<Process, CancellationToken, Task> downloadTaskFunc =
                 (process, ct) =>
@@ -197,15 +197,15 @@ namespace Agent.Plugins.PipelineCache
             processStartInfo.WorkingDirectory = processWorkingDirectory;
         }
 
-        private static ProcessStartInfo GetCreateTarProcessInfo(AgentTaskPluginExecutionContext context, string archiveFileName, string workingDirectory)
+        private static ProcessStartInfo GetCreateTarProcessInfo(AgentTaskPluginExecutionContext context, string archiveFileName, string workspaceRoot)
         {
             var processFileName = GetTar(context);
 
-            workingDirectory = workingDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            workspaceRoot = workspaceRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
             // If given the absolute path for the '-cf' option, the GNU tar fails. The workaround is to start the tarring process in the temp directory, and simply speficy 'archive.tar' for that option.
             // The list of input files is piped in through the 'additionalTaskToExecuteWhilstRunningProcess' parameter
-            var processArguments = $"-cf \"{archiveFileName}\" -C \"{workingDirectory}\" -T -";
+            var processArguments = $"-cf \"{archiveFileName}\" -C \"{workspaceRoot}\" -T -";
 
             if (IsSystemDebugTrue(context))
             {
@@ -228,14 +228,14 @@ namespace Agent.Plugins.PipelineCache
             return String.IsNullOrWhiteSpace(location) ? "tar" : location;
         }
 
-        private static ProcessStartInfo GetExtractStartProcessInfo(AgentTaskPluginExecutionContext context, string workingDirectory)
+        private static ProcessStartInfo GetExtractStartProcessInfo(AgentTaskPluginExecutionContext context, string workspaceRoot)
         {
             string processFileName, processArguments;
             if (isWindows && CheckIf7ZExists())
             {
                 // TODO: This doesn't support backtracing paths (e.g. ..\foo), we need a mechanism to either force 7z to do so or to use tar if backtracing exists
                 processFileName = "7z";
-                processArguments = $"x -si -aoa -o\"{workingDirectory}\" -ttar";
+                processArguments = $"x -si -aoa -o\"{workspaceRoot}\" -ttar";
                 if (IsSystemDebugTrue(context))
                 {
                     processArguments = "-bb1 " + processArguments;
@@ -255,7 +255,7 @@ namespace Agent.Plugins.PipelineCache
 
             ProcessStartInfo processStartInfo = new ProcessStartInfo();
             // Tar is started in the working directory because the tarball contains paths relative to it
-            CreateProcessStartInfo(processStartInfo, processFileName, processArguments, processWorkingDirectory: workingDirectory);
+            CreateProcessStartInfo(processStartInfo, processFileName, processArguments, processWorkingDirectory: workspaceRoot);
             return processStartInfo;
         }
 

@@ -19,7 +19,7 @@ namespace Agent.Plugins.PipelineCache
             Fingerprint fingerprint,
             Func<Fingerprint[]> restoreKeysGenerator,
             string[] pathSegments,
-            string workingDirectory,
+            string workspaceRoot,
             CancellationToken token)
         {
             context.SetTaskVariable(RestoreStepRanVariableName, RestoreStepRanVariableValue);
@@ -32,7 +32,7 @@ namespace Agent.Plugins.PipelineCache
                 (new[] { fingerprint }).Concat(restoreFingerprints).ToArray(),
                 pathSegments,
                 context.GetInput(PipelineCacheTaskPluginConstants.CacheHitVariable, required: false),
-                workingDirectory,
+                workspaceRoot,
                 token);
         }
     }

@@ -124,14 +124,12 @@ namespace Agent.Plugins.PipelineCache
                 }).ToArray();
 
 
-            var workingDirectory = context.Variables.GetValueOrDefault("system.defaultworkingdirectory")?.Value ?? workspaceRoot;
-
             await ProcessCommandInternalAsync(
                 context,
                 keyFp,
                 restoreKeysGenerator,
                 pathSegments,
-                workingDirectory,
+                workspaceRoot,
                 token);
         }
 
@@ -141,7 +139,7 @@ namespace Agent.Plugins.PipelineCache
             Fingerprint fingerprint,
             Func<Fingerprint[]> restoreKeysGenerator,
             string[] pathSegments,
-            string workingDirectory,
+            string workspaceRoot,
             CancellationToken token);
 
         // Properties set by tasks

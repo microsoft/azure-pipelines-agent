@@ -23,7 +23,7 @@ namespace Agent.Plugins.PipelineCache
         Key,
         Path
     }
-    
+
     public static class FingerprintCreator
     {
         private static readonly bool isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
@@ -341,7 +341,7 @@ namespace Agent.Plugins.PipelineCache
                         IEnumerable<string> files = fingerprintType == FingerprintType.Key
                             ? Directory.EnumerateFiles(enumerate.RootPath, enumerate.Pattern, enumerate.Depth)
                             : Directory.EnumerateDirectories(enumerate.RootPath, enumerate.Pattern, enumerate.Depth);
-                        
+
                         Func<string, bool> filter = CreateFilter(context, absoluteIncludeGlobs, absoluteExcludeRules);
                         files = files.Where(f => filter(f)).Distinct();
 
@@ -349,7 +349,7 @@ namespace Agent.Plugins.PipelineCache
                         {
                             // Path.GetRelativePath returns 'The relative path, or path if the paths don't share the same root.'
                             string displayPath = filePathRoot == null ? path : Path.GetRelativePath(filePathRoot, path);
-                        
+
                             if (fingerprintType == FingerprintType.Key)
                             {
                                 using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
@@ -380,7 +380,7 @@ namespace Agent.Plugins.PipelineCache
                         segmentType = patternSegment ? KeySegmentType.FilePattern : KeySegmentType.FilePath;
                         details = matchedFiles.Values.ToArray();
                         resolvedSegments.Add(MatchedFile.GenerateHash(matchedFiles.Values));
-                        
+
                         if (!matchedFiles.Any())
                         {
                             var message = patternSegment ? $"No matching files found for pattern: {displaySegment}" : $"File not found: {displaySegment}";
@@ -392,13 +392,15 @@ namespace Agent.Plugins.PipelineCache
                         segmentType = patternSegment ? KeySegmentType.DirectoryPattern : KeySegmentType.Directory;
                         details = matchedDirectories.Values.ToArray();
                         resolvedSegments.AddRange(matchedDirectories.Values);
+
+                        // TODO: Is it the right behavior to throw an exception if a pathsegment isn't resolveable?
                         if (!matchedDirectories.Any())
                         {
-                            var message = patternSegment ? $"No matching directories found for pattern: {displaySegment}" : $"Directory not found: {displaySegment}"; 
+                            var message = patternSegment ? $"No matching directories found for pattern: {displaySegment}" : $"Directory not found: {displaySegment}";
                             exceptions.Add(new DirectoryNotFoundException(message));
                         }
                     }
-                    
+
                     LogSegment(
                         context,
                         segments,

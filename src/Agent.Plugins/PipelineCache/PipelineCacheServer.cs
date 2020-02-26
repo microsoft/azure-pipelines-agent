@@ -26,7 +26,7 @@ namespace Agent.Plugins.PipelineCache
             AgentTaskPluginExecutionContext context,
             Fingerprint keyFingerprint,
             string[] pathSegments,
-            string workingDirectory,
+            string workspaceRoot,
             CancellationToken cancellationToken,
             ContentFormat contentFormat)
         {
@@ -51,10 +51,10 @@ namespace Agent.Plugins.PipelineCache
                 }
 
                 context.Output("Resolving path:");
-                Fingerprint pathFp = FingerprintCreator.EvaluateToFingerprint(context, workingDirectory, pathSegments, FingerprintType.Path);
+                Fingerprint pathFp = FingerprintCreator.EvaluateToFingerprint(context, workspaceRoot, pathSegments, FingerprintType.Path);
                 context.Output($"Resolved to: {pathFp}");
 
-                string uploadPath = await this.GetUploadPathAsync(contentFormat, context, pathFp, workingDirectory, cancellationToken);
+                string uploadPath = await this.GetUploadPathAsync(contentFormat, context, pathFp, workspaceRoot, cancellationToken);
 
                 //Upload the pipeline artifact.
                 PipelineCacheActionRecord uploadRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
@@ -105,7 +105,7 @@ namespace Agent.Plugins.PipelineCache
             Fingerprint[] fingerprints,
             string[] pathSegments,
             string cacheHitVariable,
-            string workingDirectory,
+            string workspaceRoot,
             CancellationToken cancellationToken)
         {
             VssConnection connection = context.VssConnection;
@@ -132,7 +132,7 @@ namespace Agent.Plugins.PipelineCache
                         record: downloadRecord,
                         actionAsync: async () =>
                         {
-                            await this.DownloadPipelineCacheAsync(context, dedupManifestClient, result.ManifestId, pathSegments, workingDirectory, Enum.Parse<ContentFormat>(result.ContentFormat), cancellationToken);
+                            await this.DownloadPipelineCacheAsync(context, dedupManifestClient, result.ManifestId, pathSegments, workspaceRoot, Enum.Parse<ContentFormat>(result.ContentFormat), cancellationToken);
                         });
 
                     // Send results to CustomerIntelligence
@@ -183,7 +183,7 @@ namespace Agent.Plugins.PipelineCache
             return pipelineCacheClient;
         }
 
-        private async Task<string> GetUploadPathAsync(ContentFormat contentFormat, AgentTaskPluginExecutionContext context, Fingerprint pathFingerprint, string workingDirectory, CancellationToken cancellationToken)
+        private async Task<string> GetUploadPathAsync(ContentFormat contentFormat, AgentTaskPluginExecutionContext context, Fingerprint pathFingerprint, string workspaceRoot, CancellationToken cancellationToken)
         {
             if (pathFingerprint.Segments.Length == 1)
             {
@@ -191,7 +191,7 @@ namespace Agent.Plugins.PipelineCache
             }
             if (contentFormat == ContentFormat.SingleTar)
             {
-                return await TarUtils.ArchiveFilesToTarAsync(context, pathFingerprint, workingDirectory, cancellationToken);
+                return await TarUtils.ArchiveFilesToTarAsync(context, pathFingerprint, workspaceRoot, cancellationToken);
             }
             // TODO: what is the right way to handle !ContentFormat.SingleTar
             return pathFingerprint.Segments[0];
@@ -202,7 +202,7 @@ namespace Agent.Plugins.PipelineCache
             DedupManifestArtifactClient dedupManifestClient,
             DedupIdentifier manifestId,
             string[] pathSegments,
-            string workingDirectory,
+            string workspaceRoot,
             ContentFormat contentFormat,
             CancellationToken cancellationToken)
         {
@@ -211,7 +211,7 @@ namespace Agent.Plugins.PipelineCache
                 string manifestPath = Path.Combine(Path.GetTempPath(), $"{nameof(DedupManifestArtifactClient)}.{Path.GetRandomFileName()}.manifest");
                 await dedupManifestClient.DownloadFileToPathAsync(manifestId, manifestPath, proxyUri: null, cancellationToken: cancellationToken);
                 Manifest manifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(manifestPath));
-                await TarUtils.DownloadAndExtractTarAsync(context, manifest, dedupManifestClient, workingDirectory, cancellationToken);
+                await TarUtils.DownloadAndExtractTarAsync(context, manifest, dedupManifestClient, workspaceRoot, cancellationToken);
                 try
                 {
                     if (File.Exists(manifestPath))
