@@ -20,9 +20,13 @@ steps:
   displayName: Build & Layout Release
 
 # Run test
-- script: dev.cmd test
+- script: dev.cmd testl0
   workingDirectory: src
-  displayName: Test
+  displayName: Unit tests
+
+- script: dev.cmd testl1
+  workingDirectory: src
+  displayName: Functional tests
 
 # Publish test results
 - task: PublishTestResults@2
