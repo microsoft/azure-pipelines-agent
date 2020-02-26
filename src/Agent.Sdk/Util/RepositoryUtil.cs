@@ -12,7 +12,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 {
     public static class RepositoryUtil
     {
-        public static readonly string PrimaryRepositoryName = "self";
+        public static readonly string IsPrimaryRepository = "system.isprimaryrepository";
+        public static readonly string DefaultPrimaryRepositoryName = "self";
         public static readonly string GitStandardBranchPrefix = "refs/heads/";
 
         public static string TrimStandardBranchPrefix(string branchName)
@@ -43,7 +44,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         /// </summary>
         public static bool IsPrimaryRepositoryName(string repoAlias)
         {
-            return string.Equals(repoAlias, PrimaryRepositoryName, StringComparison.OrdinalIgnoreCase);
+            return string.Equals(repoAlias, DefaultPrimaryRepositoryName, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -63,9 +64,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             {
                 return repositories.First();
             }
+
+            // Look for any repository marked as the primary repo (this is the first one that is checked out)
+            var primaryRepo = repositories.Where(r => r.Properties.Get<bool>(RepositoryUtil.IsPrimaryRepository, false)).FirstOrDefault();
+            if (primaryRepo != null)
+            {
+                return primaryRepo;
+            }
             else
             {
-                return GetRepository(repositories, PrimaryRepositoryName);
+                // return the "self" repo or null
+                return GetRepository(repositories, DefaultPrimaryRepositoryName);
             }
         }
 
