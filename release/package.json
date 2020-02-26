@@ -10,8 +10,8 @@
   "author": "Microsoft Corporation",
   "license": "MIT",
   "dependencies": {
+    "@octokit/rest": "^16.43.1",
     "natural-sort": "^1.0.0",
-    "node-getopt": "^0.3.2",
-    "typed-rest-client": "^1.7.1"
+    "node-getopt": "^0.3.2"
   }
 }
