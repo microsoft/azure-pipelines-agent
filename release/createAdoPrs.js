@@ -68,7 +68,7 @@ function commitAndPush(directory, release, branch)
 {
     execInForeground(GIT + " checkout -b " + branch, directory);
     execInForeground(`${GIT} commit -m "Agent Release ${release}" `, directory);
-    execInForeground(GIT + " push --set-upstream origin " + branch, directory);
+    execInForeground(`${GIT} -c credential.helper='!f() { echo "username=pat"; echo "password=$PAT"; };f' push --set-upstream origin ${branch}`, directory);
 }
 
 function versionifySync(template, destination, version)
@@ -132,7 +132,7 @@ function sparseClone(directory, url)
         }
     }
 
-    execInForeground(GIT + " clone --no-checkout --depth 1 " + url + " " + directory);
+    execInForeground(`${GIT}  -c credential.helper='!f() { echo "username=pat"; echo "password=$PAT"; };f' clone --no-checkout --depth 1 ${url} ${directory}`);
     execInForeground(GIT + " sparse-checkout init --cone", directory);
 }
 
@@ -171,11 +171,8 @@ function commitADOConfigChange(directory, release)
 {
     var gitUrl =  "https://mseng@dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps.ConfigChange"
 
-    if (!fs.existsSync(directory))
-    {
-        sparseClone(directory, gitUrl);
-        execInForeground(GIT + " sparse-checkout set tfs", directory);
-    }
+    sparseClone(directory, gitUrl);
+    execInForeground(GIT + " sparse-checkout set tfs", directory);
     var agentVersionPath=release.replace(/\./g, '-');
     var milestoneDir = "mXXX";
     var tfsDir = path.join(directory, "tfs");
@@ -218,8 +215,8 @@ async function main()
             console.log('Error: You must supply a version');
             process.exit(-1);
         }
-        var pathToAdo = opt.argv[1] || path.join(INTEGRATION_DIR, "AzureDevOps");
-        var pathToConfigChange = opt.argv[2] || path.join(INTEGRATION_DIR, "AzureDevOps.ConfigChange");
+        var pathToAdo = path.join(INTEGRATION_DIR, "AzureDevOps");
+        var pathToConfigChange = path.join(INTEGRATION_DIR, "AzureDevOps.ConfigChange");
         verifyMinimumNodeVersion();
         verifyMinimumGitVersion();
         createIntegrationFiles(newRelease);

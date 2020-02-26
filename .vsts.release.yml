@@ -329,12 +329,6 @@ stages:
 
     steps:
     - checkout: self
-    - checkout: git://AzureDevOps/AzureDevOps
-      fetchDepth: 1
-      persistCredentials: true
-    - checkout: git://AzureDevOps/AzureDevOps.ConfigChange
-      fetchDepth: 1
-      persistCredentials: true
 
     - bash: ls
 
@@ -345,8 +339,9 @@ stages:
         cd release
         npm install
         ls
-        node createAdoPrs.js $(version) ../../AzureDevOps ../../AzureDevOps.ConfigChange
+        node createAdoPrs.js $(version)
       displayName: Create PRs in AzureDevOps and AzureDevOps.ConfigChange
       condition: ne(variables['version'], '')
       env:
         USER: 'damccorm'
+        PAT: $(AdoPAT)
