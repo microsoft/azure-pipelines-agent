@@ -170,8 +170,8 @@ async function commitADOL2Changes(directory, release)
 
     const gitApi = await connection.getGitApi();
     await gitApi.createPullRequest({
-        sourceRefName: newBranch,
-        targetRefName: 'master',
+        sourceRefName: `refs/heads/${newBranch}`,
+        targetRefName: 'refs/heads/master',
         title: "Update agent",
         description: `Update agent to version ${release}`
     }, "AzureDevOps", "AzureDevOps");
@@ -211,12 +211,12 @@ async function commitADOConfigChange(directory, release)
     execInForeground(GIT + " add " + path.join('tfs', milestoneDir), directory);
     commitAndPush(directory, release, newBranch);
 
-    console.log(`Creating pr from ${newBranch} into master in the AzureDevOps.ConfigChange repo`);
+    console.log(`Creating pr from refs/heads/${newBranch} into refs/heads/master in the AzureDevOps.ConfigChange repo`);
 
     const gitApi = await connection.getGitApi();
     await gitApi.createPullRequest({
-        sourceRefName: newBranch,
-        targetRefName: 'master',
+        sourceRefName: `refs/heads/${newBranch}`,
+        targetRefName: 'refs/heads/master',
         title: "Update agent",
         description: `Update agent to version ${release}`
     }, "AzureDevOps.ConfigChange", "AzureDevOps");
