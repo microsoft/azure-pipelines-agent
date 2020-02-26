@@ -318,6 +318,10 @@ stages:
         }
         Invoke-RestMethod @assetsParams
       displayName: Create agent release on Github
+
+- stage: CreatePRs
+  dependsOn: Release
+  jobs:
   ################################################################################
   - job: create_ado_prs
   ################################################################################
