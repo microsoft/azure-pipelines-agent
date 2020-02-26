@@ -166,6 +166,8 @@ async function commitADOL2Changes(directory, release)
     execInForeground(GIT + " add " + targetDirectory, directory);
     commitAndPush(directory, release, newBranch);
 
+    console.log(`Creating pr from ${newBranch} into master in the AzureDevOps repo`);
+
     const gitApi = await connection.getGitApi();
     await gitApi.createPullRequest({
         sourceRefName: newBranch,
@@ -208,6 +210,8 @@ async function commitADOConfigChange(directory, release)
     var newBranch = "users/" + process.env.USER + "/agent-" + release;
     execInForeground(GIT + " add " + path.join('tfs', milestoneDir), directory);
     commitAndPush(directory, release, newBranch);
+
+    console.log(`Creating pr from ${newBranch} into master in the AzureDevOps.ConfigChange repo`);
 
     const gitApi = await connection.getGitApi();
     await gitApi.createPullRequest({
