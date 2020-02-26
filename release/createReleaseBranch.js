@@ -1,16 +1,15 @@
-const fs = require('fs');
 const cp = require('child_process');
+const fs = require('fs');
+const httpm = require('typed-rest-client/HttpClient');
 const path = require('path');
 const tl = require('azure-pipelines-task-lib/task');
-const httpm = require('typed-rest-client/HttpClient');
 const util = require('./util');
 
 const GIT = 'git';
 const VALID_RELEASE_RE = /^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/;
-
 const GIT_HUB_API_URL_ROOT='https://api.github.com/repos/microsoft/azure-pipelines-agent';
 
-var httpc = new httpm.HttpClient('vsts-node-api');
+var httpc = new httpm.HttpClient('azure-devops-node-api');
 
 process.env.EDITOR = process.env.EDITOR === undefined ? 'code --wait' : process.env.EDITOR;
 

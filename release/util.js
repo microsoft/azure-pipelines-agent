@@ -1,5 +1,5 @@
-const fs = require('fs');
 const cp = require('child_process');
+const fs = require('fs');
 
 const GIT = 'git';
 const GIT_RELEASE_RE = /([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/;

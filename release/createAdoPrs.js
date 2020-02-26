@@ -1,14 +1,12 @@
+const azdev = require('azure-devops-node-api');
 const fs = require('fs');
 const naturalSort = require('natural-sort');
-const tl = require('azure-pipelines-task-lib/task');
 const path = require('path');
-const azdev = require('azure-devops-node-api');
+const tl = require('azure-pipelines-task-lib/task');
 const util = require('./util');
 
 const INTEGRATION_DIR = path.join(__dirname, '..', '_layout', 'integrations');
 const GIT = 'git';
-
-process.env.EDITOR = process.env.EDITOR === undefined ? 'code --wait' : process.env.EDITOR;
 
 var opt = require('node-getopt').create([
     ['',  'dryrun',               'Dry run only, do not actually commit new release'],
