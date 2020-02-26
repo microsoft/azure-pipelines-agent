@@ -26,15 +26,15 @@ namespace Agent.Plugins.Repository
                 : null;
         }
 
-        private readonly Dictionary<string, string> gitEnv = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        protected readonly Dictionary<string, string> gitEnv = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             { "GIT_TERMINAL_PROMPT", "0" },
         };
 
-        private string gitPath = null;
-        private Version gitVersion = null;
-        private string gitLfsPath = null;
-        private Version gitLfsVersion = null;
+        protected string gitPath = null;
+        protected Version gitVersion = null;
+        protected string gitLfsPath = null;
+        protected Version gitLfsVersion = null;
 
         public GitCliManager(Dictionary<string, string> envs = null)
         {
@@ -76,7 +76,7 @@ namespace Agent.Plugins.Repository
             return gitLfsVersion >= requiredVersion;
         }
 
-        public async Task LoadGitExecutionInfo(AgentTaskPluginExecutionContext context, bool useBuiltInGit)
+        public virtual async Task LoadGitExecutionInfo(AgentTaskPluginExecutionContext context, bool useBuiltInGit)
         {
             // There is no built-in git for OSX/Linux
             gitPath = null;
@@ -495,7 +495,7 @@ namespace Agent.Plugins.Repository
         }
 
         // git version
-        public async Task<Version> GitVersion(AgentTaskPluginExecutionContext context)
+        public virtual async Task<Version> GitVersion(AgentTaskPluginExecutionContext context)
         {
             context.Debug("Get git version.");
             string workingDir = context.Variables.GetValueOrDefault("agent.workfolder")?.Value;
@@ -528,7 +528,7 @@ namespace Agent.Plugins.Repository
         }
 
         // git lfs version
-        public async Task<Version> GitLfsVersion(AgentTaskPluginExecutionContext context)
+        public virtual async Task<Version> GitLfsVersion(AgentTaskPluginExecutionContext context)
         {
             context.Debug("Get git-lfs version.");
             string workingDir = context.Variables.GetValueOrDefault("agent.workfolder")?.Value;
@@ -560,7 +560,7 @@ namespace Agent.Plugins.Repository
             return version;
         }
 
-        private async Task<int> ExecuteGitCommandAsync(AgentTaskPluginExecutionContext context, string repoRoot, string command, string options, CancellationToken cancellationToken = default(CancellationToken))
+        protected virtual async Task<int> ExecuteGitCommandAsync(AgentTaskPluginExecutionContext context, string repoRoot, string command, string options, CancellationToken cancellationToken = default(CancellationToken))
         {
             string arg = StringUtil.Format($"{command} {options}").Trim();
             context.Command($"git {arg}");
@@ -586,7 +586,7 @@ namespace Agent.Plugins.Repository
                 cancellationToken: cancellationToken);
         }
 
-        private async Task<int> ExecuteGitCommandAsync(AgentTaskPluginExecutionContext context, string repoRoot, string command, string options, IList<string> output)
+        protected virtual async Task<int> ExecuteGitCommandAsync(AgentTaskPluginExecutionContext context, string repoRoot, string command, string options, IList<string> output)
         {
             string arg = StringUtil.Format($"{command} {options}").Trim();
             context.Command($"git {arg}");
@@ -617,7 +617,7 @@ namespace Agent.Plugins.Repository
                 cancellationToken: default(CancellationToken));
         }
 
-        private async Task<int> ExecuteGitCommandAsync(AgentTaskPluginExecutionContext context, string repoRoot, string command, string options, string additionalCommandLine, CancellationToken cancellationToken)
+        protected virtual async Task<int> ExecuteGitCommandAsync(AgentTaskPluginExecutionContext context, string repoRoot, string command, string options, string additionalCommandLine, CancellationToken cancellationToken)
         {
             string arg = StringUtil.Format($"{additionalCommandLine} {command} {options}").Trim();
             context.Command($"git {arg}");

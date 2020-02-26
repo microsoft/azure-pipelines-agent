@@ -181,6 +181,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
+        // Used for L1 testing
+        public static void LoadExternalLocalization(string stringsPath)
+        {
+            var locStrings = new Dictionary<string, object>();
+            if (File.Exists(stringsPath))
+            {
+                foreach (KeyValuePair<string, object> pair in IOUtil.LoadObject<Dictionary<string, object>>(stringsPath))
+                {
+                    locStrings[pair.Key] = pair.Value;
+                }
+            }
+            s_locStrings = locStrings;
+        }
+
         private static void EnsureLoaded()
         {
             if (s_locStrings == null)

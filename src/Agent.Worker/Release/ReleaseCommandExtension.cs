@@ -1,18 +1,12 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Microsoft.VisualStudio.Services.Agent.Worker;
-using Microsoft.VisualStudio.Services.Agent;
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.WebApi;
-using Agent.Worker.Release;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 {
@@ -72,8 +66,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                 string releaseName,
                 CancellationToken cancellationToken)
             {
-                ReleaseServer releaseServer = new ReleaseServer(connection, projectId);
-                var release = await releaseServer.UpdateReleaseName(releaseId, releaseName, cancellationToken);
+                var releaseServer = context.GetHostContext().GetService<IReleaseServer>();
+                await releaseServer.ConnectAsync(connection);
+                var release = await releaseServer.UpdateReleaseName(releaseId, projectId, releaseName, cancellationToken);
                 commandContext.Output(StringUtil.Loc("RMUpdateReleaseNameForRelease", release.Name, release.Id));
                 context.Variables.Set("release.releaseName", release.Name);
             }
