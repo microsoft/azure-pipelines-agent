@@ -146,6 +146,13 @@ function editReleaseNotesFile(body)
     }
 }
 
+function commitAndPush(directory, release, branch)
+{
+    util.execInForeground(GIT + " checkout -b " + branch, directory);
+    util.execInForeground(`${GIT} commit -m "Agent Release ${release}" `, directory);
+    util.execInForeground(`${GIT} -c credential.helper='!f() { echo "username=pat"; echo "password=$PAT"; };f' push --set-upstream origin ${branch}`, directory);
+}
+
 function commitAgentChanges(directory, release)
 {
     var newBranch = `releases/${release}`;
@@ -153,7 +160,7 @@ function commitAgentChanges(directory, release)
     util.execInForeground(`${GIT} add releaseNote.md`, directory, opt.dryrun);
     util.execInForeground(`${GIT} config --global user.email "azure-pipelines-bot@microsoft.com"`, null, opt.dryrun);
     util.execInForeground(`${GIT} config --global user.name "azure-pipelines-bot"`, null, opt.dryrun);
-    util.commitAndPush(directory, release, newBranch);
+    commitAndPush(directory, release, newBranch);
 }
 
 function checkGitStatus()

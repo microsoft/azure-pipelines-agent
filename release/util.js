@@ -46,13 +46,6 @@ exports.execInForeground = function(command, directory, dryrun = false)
     }
 }
 
-exports.commitAndPush = function(directory, release, branch)
-{
-    module.exports.execInForeground(`${GIT} checkout -b ${branch}`, directory);
-    module.exports.execInForeground(`${GIT} commit -m "Agent Release ${release}" `, directory);
-    module.exports.execInForeground(`${GIT} push --set-upstream origin ${branch}`, directory);
-}
-
 exports.versionifySync = function(template, destination, version)
 {
     try

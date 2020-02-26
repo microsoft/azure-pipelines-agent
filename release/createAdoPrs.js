@@ -60,6 +60,13 @@ function createIntegrationFiles(newRelease, callback)
     );
 }
 
+commitAndPush = function(directory, release, branch)
+{
+    util.execInForeground(`${GIT} checkout -b ${branch}`, directory);
+    util.execInForeground(`${GIT} commit -m "Agent Release ${release}" `, directory);
+    util.execInForeground(`${GIT} push --set-upstream origin ${branch}`, directory);
+}
+
 function sparseClone(directory, url)
 {
     if (fs.existsSync(directory))
@@ -99,7 +106,7 @@ async function commitADOL2Changes(directory, release)
     }
     var newBranch = `users/${process.env.USER}/agent-${release}`;
     util.execInForeground(`${GIT} add ${targetDirectory}`, directory, opt.dryrun);
-    util.commitAndPush(directory, release, newBranch);
+    commitAndPush(directory, release, newBranch);
 
     console.log(`Creating pr from ${newBranch} into master in the AzureDevOps repo`);
 
@@ -144,7 +151,7 @@ async function commitADOConfigChange(directory, release)
 
     var newBranch = `users/${process.env.USER}/agent-${release}`;
     util.execInForeground(`${GIT} add ${path.join('tfs', milestoneDir)}`, directory, opt.dryrun);
-    util.commitAndPush(directory, release, newBranch);
+    commitAndPush(directory, release, newBranch);
 
     console.log(`Creating pr from refs/heads/${newBranch} into refs/heads/master in the AzureDevOps.ConfigChange repo`);
 
