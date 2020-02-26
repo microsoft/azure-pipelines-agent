@@ -142,6 +142,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                     Type = "git",
                 };
 
+                // No properties set
                 Assert.Equal(null, RepositoryUtil.GetPrimaryRepository(null));
                 Assert.Equal(repo1, RepositoryUtil.GetPrimaryRepository(new[] { repo1 }));
                 Assert.Equal(repo2, RepositoryUtil.GetPrimaryRepository(new[] { repo2 }));
@@ -149,6 +150,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                 Assert.Equal(null, RepositoryUtil.GetPrimaryRepository(new[] { repo1, repo2 }));
                 Assert.Equal(repoSelf, RepositoryUtil.GetPrimaryRepository(new[] { repoSelf, repo1, repo2 }));
                 Assert.Equal(repoSelf, RepositoryUtil.GetPrimaryRepository(new[] { repo1, repoSelf, repo2 }));
+                Assert.Equal(repoSelf, RepositoryUtil.GetPrimaryRepository(new[] { repo1, repo2, repoSelf }));
+
+                // With IsPrimaryRepository set
+                repo2.Properties.Set(RepositoryUtil.IsPrimaryRepository, Boolean.TrueString);
+                Assert.Equal(repo2, RepositoryUtil.GetPrimaryRepository(new[] { repo1, repo2, repoSelf }));
+                repo2.Properties.Set(RepositoryUtil.IsPrimaryRepository, Boolean.FalseString);
                 Assert.Equal(repoSelf, RepositoryUtil.GetPrimaryRepository(new[] { repo1, repo2, repoSelf }));
             }
         }

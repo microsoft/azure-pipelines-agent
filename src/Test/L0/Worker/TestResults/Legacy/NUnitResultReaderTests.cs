@@ -467,7 +467,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             DateTime.TryParse(_testRunData.StartDate, DateTimeFormatInfo.InvariantInfo, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out testStartDate);
             DateTime.TryParse(_testRunData.CompleteDate, DateTimeFormatInfo.InvariantInfo, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out testCompleteDate);
             TimeSpan duration = testCompleteDate - testStartDate;
-            Assert.Equal(1.653, duration.TotalSeconds);
+            Assert.Equal(1.65398, duration.TotalSeconds);
         }
 
         [Fact]
@@ -501,7 +501,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
                 DateTime.TryParse(_testRunData.StartDate, out testStartDate);
                 DateTime.TryParse(_testRunData.CompleteDate, out testCompleteDate);
                 TimeSpan duration = testCompleteDate - testStartDate;
-                Assert.Equal(1.653, duration.TotalSeconds);
+                Assert.Equal(1.65398, duration.TotalSeconds);
 
             }
             finally

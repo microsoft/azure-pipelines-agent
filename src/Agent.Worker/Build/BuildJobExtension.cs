@@ -188,7 +188,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // RepoClean may be set from the server, so start with the server value
             bool? repoClean = executionContext.Variables.GetBoolean(Constants.Variables.Build.RepoClean);
 
-            foreach (var checkoutTask in steps.Where(x => x.IsCheckoutTask()).Select(x => x as TaskStep))
+            var checkoutTasks = steps.Where(x => x.IsCheckoutTask()).Select(x => x as TaskStep).ToList();
+            var hasOnlyOneCheckoutTask = checkoutTasks.Count == 1;
+            foreach (var checkoutTask in checkoutTasks)
             {
                 if (!checkoutTask.Inputs.TryGetValue(PipelineConstants.CheckoutTaskInputs.Repository, out string repositoryAlias))
                 {
@@ -203,8 +205,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     checkoutTask.Inputs[PipelineConstants.CheckoutTaskInputs.Clean] = repoClean.Value.ToString();
                 }
 
+                Trace.Info($"Checking repository name {repositoryAlias}");
                 // If this is the primary repository, use it to get the variable values
-                if (RepositoryUtil.IsPrimaryRepositoryName(repositoryAlias))
+                // A repository is considered the primary one if the name is 'self' or if there is only
+                // one checkout task. This is because Designer builds set the name of the repository something
+                // other than 'self'
+                if (hasOnlyOneCheckoutTask || RepositoryUtil.IsPrimaryRepositoryName(repositoryAlias))
                 {
                     submoduleCheckout = checkoutTask.Inputs.ContainsKey(PipelineConstants.CheckoutTaskInputs.Submodules);
                     repoClean = repoClean ?? checkoutTask.Inputs.ContainsKey(PipelineConstants.CheckoutTaskInputs.Clean);

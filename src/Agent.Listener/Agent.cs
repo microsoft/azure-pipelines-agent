@@ -4,6 +4,7 @@
 using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
+using Microsoft.VisualStudio.Services.Agent.Listener.Diagnostics;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Threading;
@@ -73,6 +74,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 if (command.Commit)
                 {
                     _term.WriteLine(BuildConstants.Source.CommitHash);
+                    return Constants.Agent.ReturnCode.Success;
+                }
+
+                if (command.Diagnostics)
+                {
+                    PrintBanner();
+                    _term.WriteLine("Running Diagnostics Only...");
+                    _term.WriteLine(string.Empty);
+                    DiagnosticTests diagnostics = new DiagnosticTests(_term);
+                    diagnostics.Execute();
                     return Constants.Agent.ReturnCode.Success;
                 }
 

@@ -26,5 +26,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             Assert.True(BuildConstants.Source.CommitHash.Length == 40, $"CommitHash should be SHA-1 hash {BuildConstants.Source.CommitHash}");
             Assert.True(validPackageNames.Contains(BuildConstants.AgentPackage.PackageName), $"PackageName should be one of the following '{string.Join(", ", validPackageNames)}', current PackageName is '{BuildConstants.AgentPackage.PackageName}'");
         }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Agent")]
+        public void ReleaseBuiltFromGitNotFromTarball()
+        {
+#if !DEBUG
+            // don't ship an agent with an empty commit ID
+            Assert.True(BuildConstants.Source.CommitHash != new string('0', 40), $"CommitHash should be non-empty");
+#endif
+        }
     }
 }

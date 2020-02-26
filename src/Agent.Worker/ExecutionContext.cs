@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -24,7 +25,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     }
 
     [ServiceLocator(Default = typeof(ExecutionContext))]
-    public interface IExecutionContext : IAgentService
+    public interface IExecutionContext : IAgentService, IKnobValueContext
     {
         Guid Id { get; }
         Task ForceCompleted { get; }
@@ -409,8 +410,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Repositories = message.Resources.Repositories;
 
             // JobSettings
+            var checkouts = message.Steps?.Where(x => Pipelines.PipelineConstants.IsCheckoutTask(x)).ToList();
             JobSettings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            JobSettings[WellKnownJobSettings.HasMultipleCheckouts] = message.Steps?.Where(x => Pipelines.PipelineConstants.IsCheckoutTask(x)).Count() > 1 ? Boolean.TrueString : Boolean.FalseString;
+            JobSettings[WellKnownJobSettings.HasMultipleCheckouts] = Boolean.FalseString;
+            if (checkouts != null && checkouts.Count > 0)
+            {
+                JobSettings[WellKnownJobSettings.HasMultipleCheckouts] = checkouts.Count > 1 ? Boolean.TrueString : Boolean.FalseString;
+                var firstCheckout = checkouts.First() as Pipelines.TaskStep;
+                if (firstCheckout != null && Repositories != null && firstCheckout.Inputs.TryGetValue(Pipelines.PipelineConstants.CheckoutTaskInputs.Repository, out string repoAlias))
+                {
+                    JobSettings[WellKnownJobSettings.FirstRepositoryCheckedOut] = repoAlias;
+                    var repo = Repositories.Find(r => String.Equals(r.Alias, repoAlias, StringComparison.OrdinalIgnoreCase));
+                    if (repo != null)
+                    {
+                        repo.Properties.Set<bool>(RepositoryUtil.IsPrimaryRepository, true);
+                    }
+                }
+            }
 
             // Variables (constructor performs initial recursive expansion)
             List<string> warnings;
@@ -732,6 +748,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 _currentStepTarget = Containers.FirstOrDefault(x => string.Equals(x.ContainerName, target?.Target, StringComparison.OrdinalIgnoreCase));
             }
+        }
+
+        public string GetVariableValueOrDefault(string variableName)
+        {
+            string value = null;
+            Variables.TryGetValue(variableName, out value);
+            return value;
+        }
+
+        public IScopedEnvironment GetScopedEnvironment()
+        {
+            return new SystemEnvironment();
         }
     }
 

@@ -6,7 +6,7 @@
 #
 ###############################################################################
 
-set -e
+set -eo pipefail
 
 DEV_CMD=$1
 DEV_CONFIG=$2
@@ -17,9 +17,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/.helpers.sh"
 
 DOTNETSDK_ROOT="$SCRIPT_DIR/../_dotnetsdk"
-DOTNETSDK_VERSION="2.1.509"
+DOTNETSDK_VERSION="3.1.100"
 DOTNETSDK_INSTALLDIR="$DOTNETSDK_ROOT/$DOTNETSDK_VERSION"
 AGENT_VERSION=$(cat "$SCRIPT_DIR/agentversion")
+
+DOTNET_ERROR_PREFIX=""
+DOTNET_WARNING_PREFIX=""
+
+# # if $ADO_ENABLE_LOGISSUE is set, add these prefixes to output of dotnet to elevate errors/warnings
+if  [[ "$ADO_ENABLE_LOGISSUE" == "true" ]]; then
+    DOTNET_ERROR_PREFIX="##vso[task.logissue type=error]"
+    DOTNET_WARNING_PREFIX="##vso[task.logissue type=warning]"
+fi
 
 pushd "$SCRIPT_DIR"
 
@@ -67,7 +76,10 @@ function detect_platform_and_runtime_id ()
 function cmd_build ()
 {
     heading "Building"
-    dotnet msbuild -t:Build -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" || failed build
+    dotnet msbuild -t:Build -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" \
+         | sed -e "/\: warning /s/^/${DOTNET_WARNING_PREFIX} /;" \
+         | sed -e "/\: error /s/^/${DOTNET_ERROR_PREFIX} /;" \
+         || failed build
 
     mkdir -p "${LAYOUT_DIR}/bin/en-US"
     grep --invert-match '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > "${LAYOUT_DIR}/bin/en-US/strings.json"
@@ -77,7 +89,10 @@ function cmd_build ()
 function cmd_layout ()
 {
     heading "Creating layout"
-    dotnet msbuild -t:layout -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" || failed build
+    dotnet msbuild -t:layout -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" \
+         | sed -e "/\: warning /s/^/${DOTNET_WARNING_PREFIX} /;" \
+         | sed -e "/\: error /s/^/${DOTNET_ERROR_PREFIX} /;" \
+         || failed build
 
     mkdir -p "${LAYOUT_DIR}/bin/en-US"
     grep --invert-match '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > "${LAYOUT_DIR}/bin/en-US/strings.json"
@@ -94,15 +109,39 @@ function cmd_layout ()
     bash ./Misc/externals.sh $RUNTIME_ID || checkRC externals.sh
 }
 
-function cmd_test ()
+function cmd_test_l0 ()
 {
-    heading "Testing"
+    heading "Testing L0"
 
     if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "darwin") ]]; then
         ulimit -n 1024
     fi
 
-    dotnet msbuild -t:test -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:SkipOn="${CURRENT_PLATFORM}" || failed "failed tests"
+    dotnet msbuild -t:testl0 -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:SkipOn="${CURRENT_PLATFORM}" || failed "failed tests"
+}
+
+function cmd_test_l1 ()
+{
+    heading "Clean"
+    dotnet msbuild -t:cleanl1 -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" || failed build
+
+    heading "Setup externals folder for $RUNTIME_ID agent's layout"
+    bash ./Misc/externals.sh $RUNTIME_ID "" "$SCRIPT_DIR/../_l1" "true" || checkRC externals.sh
+
+    heading "Testing L1"
+
+    if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "darwin") ]]; then
+        ulimit -n 1024
+    fi
+
+    dotnet msbuild -t:testl1 -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:SkipOn="${CURRENT_PLATFORM}" || failed "failed tests"
+}
+
+function cmd_test ()
+{
+    cmd_test_l0
+
+    cmd_test_l1
 }
 
 function cmd_package ()
@@ -157,15 +196,8 @@ function cmd_report ()
         exit -1
     fi
 
-    if ! command -v reportgenerator.exe > /dev/null; then 
-        echo "reportgenerator not installed."
-        echo "To install: "
-        echo "  % dotnet tool install --global dotnet-reportgenerator-globaltool"
-        exit -1
-    fi
-
     mkdir -p "$REPORT_DIR"
-    
+
     LATEST_COVERAGE_FILE=$(find "${SCRIPT_DIR}/Test/TestResults" -type f -name '*.coverage' -print0 | xargs -r -0 ls -1 -t | head -1)
 
     if [[ ("$LATEST_COVERAGE_FILE" == "") ]]; then
@@ -184,8 +216,15 @@ function cmd_report ()
         "${HOME}/.nuget/packages/microsoft.codecoverage/15.9.2/build/netstandard1.0/CodeCoverage/CodeCoverage.exe" analyze  "/output:coverage.xml" "$LATEST_COVERAGE_FILE"
         popd > /dev/null
 
+        if ! command -v reportgenerator.exe > /dev/null; then
+            echo "reportgenerator not installed. Skipping generation of HTML reports"
+            echo "To install: "
+            echo "  % dotnet tool install --global dotnet-reportgenerator-globaltool"
+            exit 0
+        fi
+
         echo "Generating HTML report"
-        reportgenerator.exe "-reports:$COVERAGE_XML_FILE" "-targetdir:$COVERAGE_REPORT_DIR/coveragereport"
+        reportgenerator.exe "-reports:$COVERAGE_XML_FILE" "-reporttypes:Html;Cobertura" "-targetdir:$COVERAGE_REPORT_DIR/coveragereport"
     fi
 }
 
@@ -272,6 +311,8 @@ case $DEV_CMD in
    "b") cmd_build;;
    "test") cmd_test;;
    "t") cmd_test;;
+   "testl0") cmd_test_l0;;
+   "testl1") cmd_test_l1;;
    "layout") cmd_layout;;
    "l") cmd_layout;;
    "package") cmd_package;;
