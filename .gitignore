@@ -9,8 +9,10 @@
 **/*.json.pretty
 **/.taskkey
 node_modules
+**/node_modules
 _downloads
 _layout
+_l1
 _package
 _reports
 _dotnetsdk

@@ -14,7 +14,7 @@ using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
-    public sealed class BuildCommandExtension: BaseWorkerCommandExtension
+    public sealed class BuildCommandExtension : BaseWorkerCommandExtension
     {
         public BuildCommandExtension()
         {
@@ -27,7 +27,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         }
     }
 
-    public sealed class BuildUploadLogCommand: IWorkerCommand
+    public sealed class BuildUploadLogCommand : IWorkerCommand
     {
         public string Name => "uploadlog";
         public List<string> Aliases => null;
@@ -49,7 +49,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
     // ##VSO[build.uploadsummary] command has been deprecated
     // Leave the implementation on agent for back compat
-    public sealed class BuildUploadSummaryCommand: IWorkerCommand
+    public sealed class BuildUploadSummaryCommand : IWorkerCommand
     {
         public string Name => "uploadsummary";
         public List<string> Aliases => null;
@@ -70,7 +70,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         }
     }
 
-    public sealed class BuildUpdateBuildNumberCommand: IWorkerCommand
+    public sealed class BuildUpdateBuildNumberCommand : IWorkerCommand
     {
         public string Name => "updatebuildnumber";
         public List<string> Aliases => null;
@@ -119,13 +119,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string buildNumber,
             CancellationToken cancellationToken)
         {
-            BuildServer buildServer = new BuildServer(connection, projectId);
-            var build = await buildServer.UpdateBuildNumber(buildId, buildNumber, cancellationToken);
+            var buildServer = context.GetHostContext().GetService<IBuildServer>();
+            await buildServer.ConnectAsync(connection);
+            var build = await buildServer.UpdateBuildNumber(buildId, projectId, buildNumber, cancellationToken);
             context.Output(StringUtil.Loc("UpdateBuildNumberForBuild", build.BuildNumber, build.Id));
         }
     }
 
-    public sealed class BuildAddBuildTagCommand: IWorkerCommand
+    public sealed class BuildAddBuildTagCommand : IWorkerCommand
     {
         public string Name => "addbuildtag";
         public List<string> Aliases => null;
@@ -170,8 +171,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string buildTag,
             CancellationToken cancellationToken)
         {
-            BuildServer buildServer = new BuildServer(connection, projectId);
-            var tags = await buildServer.AddBuildTag(buildId, buildTag, cancellationToken);
+            var buildServer = context.GetHostContext().GetService<IBuildServer>();
+            await buildServer.ConnectAsync(connection);
+            var tags = await buildServer.AddBuildTag(buildId, projectId, buildTag, cancellationToken);
 
             if (tags == null || !tags.Any(t => t.Equals(buildTag, StringComparison.OrdinalIgnoreCase)))
             {
