@@ -3,6 +3,7 @@ const cp = require('child_process');
 const naturalSort = require('natural-sort');
 const tl = require('azure-pipelines-task-lib/task');
 const path = require('path');
+const azdev = require('azure-devops-node-api');
 
 const INTEGRATION_DIR = path.join(__dirname, '..', '_layout', 'integrations');
 const GIT = 'git';
@@ -21,6 +22,10 @@ var opt = require('node-getopt').create([
   )
   .bindHelp()     // bind option 'help' to default action
   .parseSystem(); // parse command line
+
+const authHandler = azdev.getPersonalAccessTokenHandler(process.env.TOKEN);
+const connection = new azdev.WebApi('https://dev.azure.com/mseng', authHandler);
+const gitApi = connection.getGitApi();
 
 function verifyMinimumNodeVersion()
 {
@@ -162,9 +167,12 @@ function commitADOL2Changes(directory, release)
     execInForeground(GIT + " add " + targetDirectory, directory);
     commitAndPush(directory, release, newBranch);
 
-    console.log("Create pull-request for this change ");
-    console.log("       https://dev.azure.com/mseng/_git/AzureDevOps/pullrequests?_a=mine");
-    console.log("");
+    gitApi.createPullRequest({
+        sourceRefName: newBranch,
+        targetRefName: 'master',
+        title: "Update agent",
+        description: `Update agent to version ${release}`
+    });
 }
 
 function commitADOConfigChange(directory, release)
@@ -201,9 +209,12 @@ function commitADOConfigChange(directory, release)
     execInForeground(GIT + " add " + path.join('tfs', milestoneDir), directory);
     commitAndPush(directory, release, newBranch);
 
-    console.log("Create pull-request for this change ");
-    console.log("       https://dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps.ConfigChange/pullrequests?_a=mine");
-    console.log("");
+    gitApi.createPullRequest({
+        sourceRefName: newBranch,
+        targetRefName: 'master',
+        title: "Update agent",
+        description: `Update agent to version ${release}`
+    });
 }
 
 async function main()
