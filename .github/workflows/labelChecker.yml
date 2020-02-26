@@ -1,0 +1,51 @@
+# This workflow ensures that all PRs are correctly labeled
+
+name: LabelChecker
+on: [pull_request]
+
+jobs:
+  label:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - run: |
+        label_count=0
+
+        #GITHUB_REF has the form of refs/pull/<number>/merge
+        pull_request_number=$(basename $(dirname $GITHUB_REF))
+
+        echo "Pull Request number: $pull_request_number"
+        echo
+        echo "Getting pull request labels"
+        echo
+
+        labels=$(curl https://api.github.com/repos/microsoft/azure-pipelines-agent/issues/$pull_request_number/labels | tr '[:upper:]' '[:lower:]')
+        if [[ $labels == *"\"name\": \"bug\"",* ]]; then
+            echo "Contains bug"
+            label_count=$((label_count+1))
+        fi
+        if [[ $labels == *"\"name\": \"enhancement\"",* ]]; then
+            echo "Contains enhancement"
+            label_count=$((label_count+1))
+        fi
+        if [[ $labels == *"\"name\": \"misc\"",* ]]; then
+            echo "Contains misc"
+            label_count=$((label_count+1))
+        fi
+        if [[ $labels == *"\"name\": \"internal\"",* ]]; then
+            echo "Contains internal"
+            label_count=$((label_count+1))
+        fi
+
+        echo
+
+        if [[ $label_count == 0 ]]; then
+            echo "Must be labeled one of [bug, enhancement, misc, internal]"
+            exit 1
+        fi
+
+        if [[ $label_count > 1 ]]; then
+            echo "Cannot contain more than one label of [bug, enhancement, misc, internal]. Currently contains $label_count"
+            exit 1
+        fi
