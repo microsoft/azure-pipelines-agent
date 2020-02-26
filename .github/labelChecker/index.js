@@ -9,7 +9,7 @@ async function main() {
         let rest = new rm.RestClient('labelChecker');
         console.log('Getting label info\n');
         let res = await rest.get(`https://api.github.com/repos/microsoft/azure-pipelines-agent/issues/${pullRequestNumber}/labels`);
-        console.log(`Labels: ${res.result}`);
+        console.log(`Labels: ${JSON.stringify(res.result)}`);
         let labelCount = 0;
         res.result.forEach(tag => {
             let name = tag.name.toLowerCase();
