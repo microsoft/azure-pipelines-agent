@@ -62,6 +62,7 @@ namespace Agent.Plugins.PipelineCache
                         var inputPaths = pathFingerprint.Segments
                             .Select(i => i.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
 
+                        // Stream input paths to tar to avoid command length limitations
                         foreach (var inputPath in inputPaths)
                         {
                             await process.StandardInput.WriteLineAsync(inputPath);
@@ -233,7 +234,6 @@ namespace Agent.Plugins.PipelineCache
             string processFileName, processArguments;
             if (isWindows && CheckIf7ZExists())
             {
-                // TODO: This doesn't support backtracing paths (e.g. ..\foo), we need a mechanism to either force 7z to do so or to use tar if backtracing exists
                 processFileName = "7z";
                 processArguments = $"x -si -aoa -o\"{workspaceRoot}\" -ttar";
                 if (IsSystemDebugTrue(context))
@@ -244,9 +244,8 @@ namespace Agent.Plugins.PipelineCache
             else
             {
                 processFileName = GetTar(context);
-                // Instead of targetDirectory, we are providing . to tar, because the tar process is being started from targetDirectory.
-                // -P is added so that relative paths and backtracing (e.g. ../foo) are accepted by tar
-                processArguments = $"-xf - -P -C .";
+                // Instead of targetDirectory, we are providing . to tar, because the tar process is being started from workspaceRoot.
+                processArguments = $"-xf - -C .";
                 if (IsSystemDebugTrue(context))
                 {
                     processArguments = "-v " + processArguments;
