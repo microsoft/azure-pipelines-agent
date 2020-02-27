@@ -236,6 +236,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
+        public void Fingerprint_Path_NoOutsidePipelineWorkspace()
+        {
+            using(var hostContext = new TestHostContext(this))
+            {
+                var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
+                var directoryInfo = new DirectoryInfo(directory);
+                var segments = new[]
+                {
+                    directoryInfo.Parent.FullName,
+                };
+                
+                Assert.Throws<AggregateException>(
+                    () => FingerprintCreator.EvaluateToFingerprint(context, directory, segments, FingerprintType.Path)
+                );
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
         public void Fingerprint_Key_ExcludeExactMisses()
         {
             using(var hostContext = new TestHostContext(this))

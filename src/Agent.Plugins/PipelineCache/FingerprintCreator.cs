@@ -393,6 +393,12 @@ namespace Agent.Plugins.PipelineCache
                         details = matchedDirectories.Values.ToArray();
                         resolvedSegments.AddRange(matchedDirectories.Values);
 
+                        // Fail if paths our outside of Pipeline.Workspace. This limitation is b/c 7z doesn't extract backtraced paths
+                        foreach (var backtracedPath in matchedDirectories.Where(x => x.Value.StartsWith("..")))
+                        {
+                            exceptions.Add(new ArgumentException($"Specified path is not within `Pipeline.Workspace`: {backtracedPath.Value}"));
+                        }
+
                         // TODO: Is it the right behavior to throw an exception if a pathsegment isn't resolveable?
                         if (!matchedDirectories.Any())
                         {
