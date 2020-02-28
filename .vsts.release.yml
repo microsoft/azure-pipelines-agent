@@ -7,7 +7,30 @@ resources:
     image: huangtingluo/azure-pipelines-agent-eng:centos6
 
 stages:
-- stage: Build    
+- stage: Create_Release_Branch
+  displayName: Create Release Branch
+  jobs:
+  ################################################################################
+  - job: Create_Release_Branch
+  ################################################################################
+    displayName: Create Release Branch
+    pool:
+      vmImage: ubuntu-18.04
+
+    steps:
+    - checkout: self
+
+    - script: |
+        cd release
+        npm install
+        node createReleaseBranch.js $(version)
+      env:
+        EDITOR: cat
+        PAT: $(GithubToken)
+      displayName: Push release branch to GitHub
+
+- stage: Build
+  dependsOn: Create_Release_Branch
   jobs:
   ################################################################################
   - job: build_windows_agent_x64
@@ -295,3 +318,29 @@ stages:
         }
         Invoke-RestMethod @assetsParams
       displayName: Create agent release on Github
+
+- stage: CreatePRs
+  dependsOn: Release
+  jobs:
+  ################################################################################
+  - job: create_ado_prs
+  ################################################################################
+    displayName: Create PRs in AzureDevOps
+    pool:
+      vmImage: ubuntu-18.04
+
+    steps:
+    - checkout: self
+
+    - bash: |
+        set -x
+        git checkout releases/$(version)
+        cd release
+        npm install
+        ls
+        node createAdoPrs.js $(version)
+      displayName: Create PRs in AzureDevOps and AzureDevOps.ConfigChange
+      condition: ne(variables['version'], '')
+      env:
+        USER: $(User)
+        PAT: $(AdoPAT)
