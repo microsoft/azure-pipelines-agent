@@ -128,7 +128,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Trace.Info($"Current running agent version is {BuildConstants.AgentPackage.Version}");
             PackageVersion agentVersion = new PackageVersion(BuildConstants.AgentPackage.Version);
 
-            return serverVersion.CompareTo(agentVersion) > 0;
+            // Always return true for newer agent versions to enable auto rollback (this feature was introduced after 2.165.0)
+            return serverVersion.CompareTo(agentVersion) > 0 || agentVersion.CompareTo(new PackageVersion("2.165.0")) > 0;
         }
 
         /// <summary>
