@@ -8,7 +8,7 @@ using System.Diagnostics;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCaching
 {
-    public  class TarUtilsL0 {
+    public class TarUtilsL0 {
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
