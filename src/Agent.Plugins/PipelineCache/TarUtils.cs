@@ -31,7 +31,8 @@ namespace Agent.Plugins.PipelineCache
         public static async Task<string> ArchiveFilesToTarAsync(
             AgentTaskPluginExecutionContext context,
             Fingerprint pathFingerprint,
-            string workspaceRoot,
+            string tarWorkingDirectory,
+            bool isWorkspaceContained,
             CancellationToken cancellationToken)
         {
             foreach (var inputPath in pathFingerprint.Segments)
@@ -45,7 +46,7 @@ namespace Agent.Plugins.PipelineCache
             var archiveFileName = CreateArchiveFileName();
             var archiveFile = Path.Combine(Path.GetTempPath(), archiveFileName);
 
-            ProcessStartInfo processStartInfo = GetCreateTarProcessInfo(context, archiveFileName, pathFingerprint, workspaceRoot);
+            ProcessStartInfo processStartInfo = GetCreateTarProcessInfo(context, archiveFileName, tarWorkingDirectory);
 
             Action actionOnFailure = () =>
             {
@@ -59,8 +60,10 @@ namespace Agent.Plugins.PipelineCache
                 {
                     try
                     {
-                        var inputPaths = pathFingerprint.Segments
-                            .Select(i => i.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                        // If path segment is single directory outside of Pipeline.Workspace, inputPaths is simply `.`
+                        var inputPaths = isWorkspaceContained ? 
+                            pathFingerprint.Segments.Select(i => i.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+                            : new[]{ "." };
 
                         // Stream input paths to tar to avoid command length limitations
                         foreach (var inputPath in inputPaths)
@@ -103,8 +106,7 @@ namespace Agent.Plugins.PipelineCache
             AgentTaskPluginExecutionContext context,
             Manifest manifest,
             DedupManifestArtifactClient dedupManifestClient,
-            string[] pathSegments,
-            string workspaceRoot,
+            string tarWorkingDirectory,
             CancellationToken cancellationToken)
         {
             ValidateTarManifest(manifest);
@@ -112,7 +114,12 @@ namespace Agent.Plugins.PipelineCache
             DedupIdentifier dedupId = DedupIdentifier.Create(manifest.Items.Single(i => i.Path.EndsWith(archive, StringComparison.OrdinalIgnoreCase)).Blob.Id);
 
             // We now can simply specify the working directory as the tarball will contain paths relative to it
-            ProcessStartInfo processStartInfo = GetExtractStartProcessInfo(context, pathSegments, workspaceRoot);
+            ProcessStartInfo processStartInfo = GetExtractStartProcessInfo(context, tarWorkingDirectory);
+
+            if (!Directory.Exists(tarWorkingDirectory))
+            {
+                Directory.CreateDirectory(tarWorkingDirectory);
+            }
 
             Func<Process, CancellationToken, Task> downloadTaskFunc =
                 (process, ct) =>
@@ -199,15 +206,13 @@ namespace Agent.Plugins.PipelineCache
             processStartInfo.WorkingDirectory = processWorkingDirectory;
         }
 
-        private static ProcessStartInfo GetCreateTarProcessInfo(AgentTaskPluginExecutionContext context, string archiveFileName, Fingerprint pathFingerprint, string workspaceRoot)
+        private static ProcessStartInfo GetCreateTarProcessInfo(AgentTaskPluginExecutionContext context, string archiveFileName, string tarWorkingDirectory)
         {
             var processFileName = GetTar(context);
 
-            string workingDirectory = GetTarWorkingDirectory(pathFingerprint.Segments, workspaceRoot);
-
             // If given the absolute path for the '-cf' option, the GNU tar fails. The workaround is to start the tarring process in the temp directory, and simply speficy 'archive.tar' for that option.
             // The list of input files is piped in through the 'additionalTaskToExecuteWhilstRunningProcess' parameter
-            var processArguments = $"-cf \"{archiveFileName}\" -C \"{workingDirectory}\" -T -";
+            var processArguments = $"-cf \"{archiveFileName}\" -C \"{tarWorkingDirectory}\" -T -";
 
             if (IsSystemDebugTrue(context))
             {
@@ -231,15 +236,14 @@ namespace Agent.Plugins.PipelineCache
             return String.IsNullOrWhiteSpace(location) ? "tar" : location;
         }
 
-        private static ProcessStartInfo GetExtractStartProcessInfo(AgentTaskPluginExecutionContext context, string[] pathSegments, string workspaceRoot)
+        private static ProcessStartInfo GetExtractStartProcessInfo(AgentTaskPluginExecutionContext context, string tarWorkingDirectory)
         {
             string processFileName, processArguments;
-            string workingDirectory = GetTarWorkingDirectory(pathSegments, workspaceRoot);
 
             if (isWindows && CheckIf7ZExists())
             {
                 processFileName = "7z";
-                processArguments = $"x -si -aoa -o\"{workingDirectory}\" -ttar";
+                processArguments = $"x -si -aoa -o\"{tarWorkingDirectory}\" -ttar";
                 if (IsSystemDebugTrue(context))
                 {
                     processArguments = "-bb1 " + processArguments;
@@ -258,24 +262,8 @@ namespace Agent.Plugins.PipelineCache
 
             ProcessStartInfo processStartInfo = new ProcessStartInfo();
             // Tar is started in the working directory because the tarball contains paths relative to it
-            CreateProcessStartInfo(processStartInfo, processFileName, processArguments, processWorkingDirectory: workingDirectory);
+            CreateProcessStartInfo(processStartInfo, processFileName, processArguments, processWorkingDirectory: tarWorkingDirectory);
             return processStartInfo;
-        }
-
-        private static string GetTarWorkingDirectory(string[] segments, string workspaceRoot)
-        {
-            // If path segment is single directory outside of Pipeline.Workspace extract tarball directly to this path
-            if (segments.Count() == 1) 
-            {
-                var workingDirectory = segments[0];
-                if (workingDirectory.StartsWith(".."))
-                {
-                    return Path.GetFullPath(workingDirectory, workspaceRoot);
-                }
-            }
-
-            // If path segment contains multiple directories, extract relative to Pipeline.Workspace
-            return workspaceRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         }
 
         private static void ValidateTarManifest(Manifest manifest)

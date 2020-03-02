@@ -54,7 +54,7 @@ namespace Agent.Plugins.PipelineCache
                 Fingerprint pathFp = FingerprintCreator.EvaluateToFingerprint(context, workspaceRoot, pathSegments, FingerprintType.Path);
                 context.Output($"Resolved to: {pathFp}");
 
-                string uploadPath = await this.GetUploadPathAsync(contentFormat, context, pathFp, workspaceRoot, cancellationToken);
+                string uploadPath = await this.GetUploadPathAsync(contentFormat, context, pathFp, pathSegments, workspaceRoot, cancellationToken);
 
                 //Upload the pipeline artifact.
                 PipelineCacheActionRecord uploadRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
@@ -183,11 +183,19 @@ namespace Agent.Plugins.PipelineCache
             return pipelineCacheClient;
         }
 
-        private Task<string> GetUploadPathAsync(ContentFormat contentFormat, AgentTaskPluginExecutionContext context, Fingerprint pathFingerprint, string workspaceRoot, CancellationToken cancellationToken)
+        private Task<string> GetUploadPathAsync(ContentFormat contentFormat, AgentTaskPluginExecutionContext context, Fingerprint pathFingerprint, string[] pathSegments, string workspaceRoot, CancellationToken cancellationToken)
         {
             if (contentFormat == ContentFormat.SingleTar)
             {
-                return TarUtils.ArchiveFilesToTarAsync(context, pathFingerprint, workspaceRoot, cancellationToken);
+                var (tarWorkingDirectory, isWorkspaceContained) = GetTarWorkingDirectory(pathSegments, workspaceRoot);
+
+                return TarUtils.ArchiveFilesToTarAsync(
+                    context, 
+                    pathFingerprint, 
+                    tarWorkingDirectory, 
+                    isWorkspaceContained, 
+                    cancellationToken
+                );
             }
             // TODO: what is the right way to handle !ContentFormat.SingleTar
             return Task.FromResult(pathFingerprint.Segments[0]);
@@ -207,7 +215,8 @@ namespace Agent.Plugins.PipelineCache
                 string manifestPath = Path.Combine(Path.GetTempPath(), $"{nameof(DedupManifestArtifactClient)}.{Path.GetRandomFileName()}.manifest");
                 await dedupManifestClient.DownloadFileToPathAsync(manifestId, manifestPath, proxyUri: null, cancellationToken: cancellationToken);
                 Manifest manifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(manifestPath));
-                await TarUtils.DownloadAndExtractTarAsync(context, manifest, dedupManifestClient, pathSegments, workspaceRoot, cancellationToken);
+                var (tarWorkingDirectory, _) = GetTarWorkingDirectory(pathSegments, workspaceRoot);
+                await TarUtils.DownloadAndExtractTarAsync(context, manifest, dedupManifestClient, tarWorkingDirectory, cancellationToken);
                 try
                 {
                     if (File.Exists(manifestPath))
@@ -226,7 +235,23 @@ namespace Agent.Plugins.PipelineCache
                     minimatchPatterns: null);
                 await dedupManifestClient.DownloadAsync(options, cancellationToken);
             }
+        }
 
+        private (string workingDirectory, bool isWorkspaceContained) GetTarWorkingDirectory(string[] segments, string workspaceRoot)
+        {
+            // If path segment is single directory outside of Pipeline.Workspace extract tarball directly to this path
+            if (segments.Count() == 1) 
+            {
+                var workingDirectory = segments[0];
+                // TODO: verify this works with src/foo/ (e.g. relative to defaultWorkingDirectory)
+                if (FingerprintCreator.IsPathySegment(workingDirectory) && !workingDirectory.StartsWith(workspaceRoot))
+                {
+                    return (workingDirectory, false);
+                }
+            }
+
+            // All other scenarios means that paths must within and relative to Pipeline.Workspace
+            return (workspaceRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), true);
         }
     }
 }
