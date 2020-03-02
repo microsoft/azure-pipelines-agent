@@ -282,7 +282,7 @@ namespace Agent.Plugins.PipelineCache
             // Quickly validate all segments
             foreach (string segment in segments)
             {
-                CheckSegment(segment, "key");
+                CheckSegment(segment, fingerprintType.ToString());
             }
 
             string defaultWorkingDirectory = context.Variables.GetValueOrDefault(
@@ -291,17 +291,18 @@ namespace Agent.Plugins.PipelineCache
 
             var resolvedSegments = new List<string>();
             var exceptions = new List<Exception>();
+            var hasPatternSegments = false;
 
-            foreach (string keySegment in segments)
+            foreach (string segment in segments)
             {
-                if (!IsPathySegment(keySegment))
+                if (!IsPathySegment(segment))
                 {
-                    LogSegment(context, segments, keySegment, KeySegmentType.String, null);
-                    resolvedSegments.Add(keySegment);
+                    LogSegment(context, segments, segment, KeySegmentType.String, null);
+                    resolvedSegments.Add(segment);
                 }
                 else
                 {
-                    string[] pathRules = keySegment.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToArray();
+                    string[] pathRules = segment.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToArray();
                     string[] includeRules = pathRules.Where(p => !p.StartsWith('!')).ToArray();
 
                     if (!includeRules.Any())
@@ -364,9 +365,10 @@ namespace Agent.Plugins.PipelineCache
                         }
                     }
 
-                    var patternSegment = keySegment.IndexOfAny(GlobChars) >= 0 || matchedFiles.Count > 1;
+                    var patternSegment = segment.IndexOfAny(GlobChars) >= 0 || matchedFiles.Count > 1;
+                    hasPatternSegments |= patternSegment;
 
-                    var displaySegment = keySegment;
+                    var displaySegment = segment;
 
                     if (context.Container != null)
                     {
@@ -393,13 +395,7 @@ namespace Agent.Plugins.PipelineCache
                         details = matchedDirectories.Values.ToArray();
                         resolvedSegments.AddRange(matchedDirectories.Values);
 
-                        // Fail if paths our outside of Pipeline.Workspace. This limitation is b/c 7z doesn't extract backtraced paths
-                        foreach (var backtracedPath in matchedDirectories.Where(x => x.Value.StartsWith("..")))
-                        {
-                            exceptions.Add(new ArgumentException($"Specified path is not within `Pipeline.Workspace`: {backtracedPath.Value}"));
-                        }
-
-                        // TODO: Is it the right behavior to throw an exception if a pathsegment isn't resolveable?
+                        // TODO: Is it the right behavior to throw an exception if a path segment isn't resolveable?
                         if (!matchedDirectories.Any())
                         {
                             var message = patternSegment ? $"No matching directories found for pattern: {displaySegment}" : $"Directory not found: {displaySegment}";
@@ -414,6 +410,19 @@ namespace Agent.Plugins.PipelineCache
                         segmentType,
                         details
                     );
+                }
+            }
+
+            if (fingerprintType == FingerprintType.Path)
+            {
+                // If there are segments or contains a glob pattern, all resolved segments must be rooted within filePathRoot (e.g. Pipeline.Workspace)
+                // This limitation is mainly due to 7z not extracting backtraced paths
+                if (resolvedSegments.Count() > 1 || hasPatternSegments)
+                {
+                    foreach (var backtracedPath in resolvedSegments.Where(x => x.StartsWith("..")))
+                    {
+                        exceptions.Add(new ArgumentException($"Resolved path is not within `Pipeline.Workspace`: {backtracedPath}"));
+                    }
                 }
             }
 

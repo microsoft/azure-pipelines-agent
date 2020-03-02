@@ -183,18 +183,14 @@ namespace Agent.Plugins.PipelineCache
             return pipelineCacheClient;
         }
 
-        private async Task<string> GetUploadPathAsync(ContentFormat contentFormat, AgentTaskPluginExecutionContext context, Fingerprint pathFingerprint, string workspaceRoot, CancellationToken cancellationToken)
+        private Task<string> GetUploadPathAsync(ContentFormat contentFormat, AgentTaskPluginExecutionContext context, Fingerprint pathFingerprint, string workspaceRoot, CancellationToken cancellationToken)
         {
-            if (pathFingerprint.Segments.Length == 1)
-            {
-                return pathFingerprint.Segments[0];
-            }
             if (contentFormat == ContentFormat.SingleTar)
             {
-                return await TarUtils.ArchiveFilesToTarAsync(context, pathFingerprint, workspaceRoot, cancellationToken);
+                return TarUtils.ArchiveFilesToTarAsync(context, pathFingerprint, workspaceRoot, cancellationToken);
             }
             // TODO: what is the right way to handle !ContentFormat.SingleTar
-            return pathFingerprint.Segments[0];
+            return Task.FromResult(pathFingerprint.Segments[0]);
         }
 
         private async Task DownloadPipelineCacheAsync(
@@ -211,7 +207,7 @@ namespace Agent.Plugins.PipelineCache
                 string manifestPath = Path.Combine(Path.GetTempPath(), $"{nameof(DedupManifestArtifactClient)}.{Path.GetRandomFileName()}.manifest");
                 await dedupManifestClient.DownloadFileToPathAsync(manifestId, manifestPath, proxyUri: null, cancellationToken: cancellationToken);
                 Manifest manifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(manifestPath));
-                await TarUtils.DownloadAndExtractTarAsync(context, manifest, dedupManifestClient, workspaceRoot, cancellationToken);
+                await TarUtils.DownloadAndExtractTarAsync(context, manifest, dedupManifestClient, pathSegments, workspaceRoot, cancellationToken);
                 try
                 {
                     if (File.Exists(manifestPath))
