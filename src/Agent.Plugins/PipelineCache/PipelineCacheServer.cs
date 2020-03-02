@@ -243,7 +243,6 @@ namespace Agent.Plugins.PipelineCache
             if (segments.Count() == 1) 
             {
                 var workingDirectory = segments[0];
-                // TODO: verify this works with src/foo/ (e.g. relative to defaultWorkingDirectory)
                 if (FingerprintCreator.IsPathySegment(workingDirectory) && !workingDirectory.StartsWith(workspaceRoot))
                 {
                     return (workingDirectory, false);
