@@ -11,6 +11,7 @@ using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Moq;
 using Xunit;
+using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
@@ -173,11 +174,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             List<string> warnings;
             variables = variables ?? new Dictionary<string, VariableValue>();
 
-             executionContext
+            executionContext
                 .Setup(x => x.Variables)
                 .Returns(new Variables(tc, copy: variables, warnings: out warnings));
 
-             return executionContext.Object;
+            executionContext
+                .Setup(x => x.GetScopedEnvironment())
+                .Returns(new SystemEnvironment());
+
+            executionContext
+                .Setup(x => x.GetVariableValueOrDefault(It.IsAny<string>()))
+                .Returns((string variableName) =>
+                {
+                    var value = variables.GetValueOrDefault(variableName);
+                    if (value != null)
+                    {
+                        return value.Value;
+                    }
+                    return null;
+                });
+
+            return executionContext.Object;
         }
     }
 }

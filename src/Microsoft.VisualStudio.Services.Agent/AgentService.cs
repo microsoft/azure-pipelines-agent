@@ -25,9 +25,9 @@ namespace Microsoft.VisualStudio.Services.Agent
         protected IHostContext HostContext { get; private set; }
         protected Tracing Trace { get; private set; }
 
-        public string TraceName 
+        public string TraceName
         {
-            get 
+            get
             {
                 return GetType().Name;
             }

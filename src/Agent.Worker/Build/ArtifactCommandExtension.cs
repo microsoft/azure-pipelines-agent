@@ -216,8 +216,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             Dictionary<string, string> propertiesDictionary,
             CancellationToken cancellationToken)
         {
-            BuildServer buildHelper = new BuildServer(connection, projectId);
-            var artifact = await buildHelper.AssociateArtifactAsync(buildId, name, jobId, type, data, propertiesDictionary, cancellationToken);
+            var buildHelper = context.GetHostContext().GetService<IBuildServer>();
+            await buildHelper.ConnectAsync(connection);
+            var artifact = await buildHelper.AssociateArtifactAsync(buildId, projectId, name, jobId, type, data, propertiesDictionary, cancellationToken);
             context.Output(StringUtil.Loc("AssociateArtifactWithBuild", artifact.Id, buildId));
         }
 
@@ -234,15 +235,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string source,
             CancellationToken cancellationToken)
         {
-            FileContainerServer fileContainerHelper = new FileContainerServer(connection, projectId, containerId, containerPath);
-            long size = await fileContainerHelper.CopyToContainerAsync(context, source, cancellationToken);
+            var fileContainerHelper = new FileContainerServer(connection, projectId, containerId, containerPath);
+            var size = await fileContainerHelper.CopyToContainerAsync(context, source, cancellationToken);
             propertiesDictionary.Add(ArtifactUploadEventProperties.ArtifactSize, size.ToString());
 
-            string fileContainerFullPath = StringUtil.Format($"#/{containerId}/{containerPath}");
+            var fileContainerFullPath = StringUtil.Format($"#/{containerId}/{containerPath}");
             context.Output(StringUtil.Loc("UploadToFileContainer", source, fileContainerFullPath));
 
-            BuildServer buildHelper = new BuildServer(connection, projectId);
-            var artifact = await buildHelper.AssociateArtifactAsync(buildId, name, jobId, ArtifactResourceTypes.Container, fileContainerFullPath, propertiesDictionary, cancellationToken);
+            var buildHelper = context.GetHostContext().GetService<IBuildServer>();
+            await buildHelper.ConnectAsync(connection);
+            var artifact = await buildHelper.AssociateArtifactAsync(buildId, projectId, name, jobId, ArtifactResourceTypes.Container, fileContainerFullPath, propertiesDictionary, cancellationToken);
             context.Output(StringUtil.Loc("AssociateArtifactWithBuild", artifact.Id, buildId));
         }
 

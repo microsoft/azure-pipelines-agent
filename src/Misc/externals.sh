@@ -1,6 +1,8 @@
 #!/bin/bash
 PACKAGERUNTIME=$1
 PRECACHE=$2
+LAYOUT_DIR=$3
+L1_MODE=$4
 
 CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
 NODE_URL=https://nodejs.org/dist
@@ -13,8 +15,10 @@ get_abs_path() {
   echo "$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 }
 
-LAYOUT_DIR=$(get_abs_path "$(dirname $0)/../../_layout/$PACKAGERUNTIME")
 DOWNLOAD_DIR="$(get_abs_path "$(dirname $0)/../../_downloads")/$PACKAGERUNTIME/netcore2x"
+if [[ "$LAYOUT_DIR" == "" ]]; then
+    LAYOUT_DIR=$(get_abs_path "$(dirname $0)/../../_layout/$PACKAGERUNTIME")
+fi
 
 function failed() {
    local error=${1:-Undefined error}
@@ -90,7 +94,7 @@ function acquireExternalTool() {
         # Extract to layout.
         mkdir -p "$target_dir" || checkRC 'mkdir'
         local nested_dir=""
-        if [[ "$download_basename" == *.zip ]]; then
+        if [[ "$download_basename" == *.zip  ]]; then
             # Extract the zip.
             echo "Extracting zip from $download_target to $target_dir"
             unzip "$download_target" -d "$target_dir" > /dev/null
@@ -179,4 +183,9 @@ fi
 if [[ "$PACKAGERUNTIME" == "linux-arm" ]]; then
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-armv7l.tar.gz" node fix_nested_dir
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-linux-armv7l.tar.gz" node10 fix_nested_dir
+fi
+
+if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
+    # cmdline task
+    acquireExternalTool "$CONTAINER_URL/l1Tasks/d9bafed4-0b18-4f58-968d-86655b4d2ce9.zip" "Tasks/d9bafed4-0b18-4f58-968d-86655b4d2ce9" ""
 fi

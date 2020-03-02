@@ -42,7 +42,7 @@
       <Rule Id="CA1067" Action="Warning" />          <!-- Override Object.Equals(object) when implementing IEquatable<T> -->
       <Rule Id="CA1068" Action="Warning" />          <!-- CancellationToken parameters must come last -->
       <Rule Id="CA1200" Action="Warning" />          <!-- Avoid using cref tags with a prefix -->
-      <Rule Id="CA1303" Action="Warning" />          <!-- Do not pass literals as localized parameters -->
+      <Rule Id="CA1303" Action="Hidden" />           <!-- Do not pass literals as localized parameters -->
       <Rule Id="CA1304" Action="Warning" />          <!-- Specify CultureInfo -->
       <Rule Id="CA1305" Action="Warning" />          <!-- Specify IFormatProvider -->
       <Rule Id="CA1307" Action="Warning" />          <!-- Specify StringComparison -->
@@ -82,7 +82,7 @@
       <Rule Id="CA1820" Action="Warning" />          <!-- Test for empty strings using string length -->
       <Rule Id="CA1821" Action="Warning" />          <!-- Remove empty Finalizers -->
       <Rule Id="CA1822" Action="Warning" />          <!-- Mark members as static -->
-      <Rule Id="CA1823" Action="Warning" />          <!-- Avoid unused private fields -->
+      <Rule Id="CA1823" Action="Error" />          <!-- Avoid unused private fields -->
       <Rule Id="CA1824" Action="Warning" />          <!-- Mark assemblies with NeutralResourcesLanguageAttribute -->
       <Rule Id="CA1825" Action="Warning" />          <!-- Avoid zero-length array allocations. -->
       <Rule Id="CA1826" Action="Warning" />          <!-- Do not use Enumerable methods on indexable collections. Instead use the collection directly -->
