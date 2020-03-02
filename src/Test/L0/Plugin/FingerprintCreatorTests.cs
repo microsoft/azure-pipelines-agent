@@ -236,7 +236,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
-        public void Fingerprint_Path_NoOutsidePipelineWorkspace()
+        public void Fingerprint_Path_SinglePathOutsidePipelineWorkspace()
         {
             using(var hostContext = new TestHostContext(this))
             {
@@ -245,6 +245,51 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 var segments = new[]
                 {
                     directoryInfo.Parent.FullName,
+                };
+
+                Fingerprint f = FingerprintCreator.EvaluateToFingerprint(context, directory, segments, FingerprintType.Path);
+
+                Assert.Equal(1, f.Segments.Count());
+                Assert.Equal(
+                    new [] { Path.GetRelativePath(directory, directoryInfo.Parent.FullName) },
+                    f.Segments
+                );
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public void Fingerprint_Path_MultiplePathOutsidePipelineWorkspace()
+        {
+            using(var hostContext = new TestHostContext(this))
+            {
+                var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
+                var directoryInfo = new DirectoryInfo(directory);
+                var segments = new[]
+                {
+                    directoryInfo.Parent.FullName,
+                    directoryInfo.Parent.Parent.FullName,
+                };
+                
+                Assert.Throws<AggregateException>(
+                    () => FingerprintCreator.EvaluateToFingerprint(context, directory, segments, FingerprintType.Path)
+                );
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public void Fingerprint_Path_BacktracedGlobPattern()
+        {
+            using(var hostContext = new TestHostContext(this))
+            {
+                var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
+                var directoryInfo = new DirectoryInfo(directory);
+                var segments = new[]
+                {
+                    $"{directoryInfo.Parent.FullName}/*",
                 };
                 
                 Assert.Throws<AggregateException>(
