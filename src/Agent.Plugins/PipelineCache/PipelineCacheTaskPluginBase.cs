@@ -87,8 +87,6 @@ namespace Agent.Plugins.PipelineCache
 
         public async virtual Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
-            WaitForDebuggerAttach();
-
             ArgUtil.NotNull(context, nameof(context));
 
             VariableValue saltValue = context.Variables.GetValueOrDefault(SaltVariableName);
@@ -151,26 +149,6 @@ namespace Agent.Plugins.PipelineCache
             public static readonly string PipelineId = "pipelineId";
             public static readonly string CacheHitVariable = "cacheHitVar";
             public static readonly string Salt = "salt";
-        }
-
-        protected void WaitForDebuggerAttach()
-        {
-            var process = System.Diagnostics.Process.GetCurrentProcess();
-            System.Diagnostics.Process.EnterDebugMode();
-
-            Console.WriteLine($"PID: {process.Id}");
-            var timeout = 60;
-            for (int i = 0; i < timeout; i++)
-            {
-                Console.WriteLine($"Attach debugger in {timeout - i} seconds");
-                Thread.Sleep(1000);
-
-                if (System.Diagnostics.Debugger.IsAttached)
-                {
-                    Console.WriteLine("Debugger attached!");
-                    break;
-                }
-            }
         }
     }
 }
