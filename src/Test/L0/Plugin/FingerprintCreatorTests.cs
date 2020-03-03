@@ -21,11 +21,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
 
         private static readonly byte[] hash1;
         private static readonly byte[] hash2;
-        
         private static readonly string directory;
         private static readonly string path1;
         private static readonly string path2;
         
+        private static readonly string workspaceRoot;
         private static readonly string directory1;
         private static readonly string directory2;
         
@@ -44,11 +44,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
             directory = Path.GetDirectoryName(path1);
             Assert.Equal(directory, Path.GetDirectoryName(path2));
 
-            var path3 = Path.Combine(directory, Guid.NewGuid().ToString(), Guid.NewGuid().ToString());
-            var path4 = Path.Combine(directory, Guid.NewGuid().ToString(), Guid.NewGuid().ToString());
+            var workspace = Guid.NewGuid().ToString();
+
+            var path3 = Path.Combine(directory, workspace, Guid.NewGuid().ToString(), Guid.NewGuid().ToString());
+            var path4 = Path.Combine(directory, workspace, Guid.NewGuid().ToString(), Guid.NewGuid().ToString());
 
             directory1 = Path.GetDirectoryName(path3);
             directory2 = Path.GetDirectoryName(path4);
+
+            workspaceRoot = Path.GetDirectoryName(directory1);
 
             directory1Name = Path.GetFileName(directory1);
             directory2Name = Path.GetFileName(directory2);
@@ -122,7 +126,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                     directory2
                 };
                 
-                Fingerprint f = FingerprintCreator.EvaluateToFingerprint(context, directory, segments, FingerprintType.Path);
+                Fingerprint f = FingerprintCreator.EvaluateToFingerprint(context, workspaceRoot, segments, FingerprintType.Path);
                 Assert.Equal(
                     new [] { directory1Name, directory2Name }.OrderBy(x => x), 
                     f.Segments.OrderBy(x => x)
@@ -140,11 +144,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 var segments = new[]
                 {
-                    $"{directory1Name}",
-                    $"{directory2Name}"
+                    directory1Name,
+                    directory2Name
                 };
                 
-                Fingerprint f = FingerprintCreator.EvaluateToFingerprint(context, directory, segments, FingerprintType.Path);
+                Fingerprint f = FingerprintCreator.EvaluateToFingerprint(context, workspaceRoot, segments, FingerprintType.Path);
                 Assert.Equal(
                     new [] { directory1Name, directory2Name }.OrderBy(x => x), 
                     f.Segments.OrderBy(x => x)
@@ -165,7 +169,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                     $"**/{directory1Name},**/{directory2Name}",
                 };
                 
-                Fingerprint f = FingerprintCreator.EvaluateToFingerprint(context, directory, segments, FingerprintType.Path);
+                Fingerprint f = FingerprintCreator.EvaluateToFingerprint(context, workspaceRoot, segments, FingerprintType.Path);
                 Assert.Equal(
                     new [] { directory1Name, directory2Name }.OrderBy(x => x), 
                     f.Segments.OrderBy(x => x)
@@ -186,7 +190,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                     $"**/{directory1Name},!**/{directory2Name}",
                 };
                 
-                Fingerprint f = FingerprintCreator.EvaluateToFingerprint(context, directory, segments, FingerprintType.Path);
+                Fingerprint f = FingerprintCreator.EvaluateToFingerprint(context, workspaceRoot, segments, FingerprintType.Path);
                 Assert.Equal(
                     new [] { directory1Name }, 
                     f.Segments
@@ -208,7 +212,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 };
                 
                 Assert.Throws<ArgumentException>(
-                    () => FingerprintCreator.EvaluateToFingerprint(context, directory, segments, FingerprintType.Path)
+                    () => FingerprintCreator.EvaluateToFingerprint(context, workspaceRoot, segments, FingerprintType.Path)
                 );
             }
         }
@@ -223,12 +227,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 var segments = new[]
                 {
-                    $"**/{Guid.NewGuid().ToString()},!**/{directory2Name}",
+                    $"**/{Guid.NewGuid().ToString()},!**/{directory2Name}"
                 };
                 
                 // TODO: Should this really be throwing an exception?
                 Assert.Throws<AggregateException>(
-                    () => FingerprintCreator.EvaluateToFingerprint(context, directory, segments, FingerprintType.Path)
+                    () => FingerprintCreator.EvaluateToFingerprint(context, workspaceRoot, segments, FingerprintType.Path)
                 );
             }
         }
@@ -241,17 +245,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
             using(var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
-                var directoryInfo = new DirectoryInfo(directory);
+                var directoryInfo = new DirectoryInfo(workspaceRoot);
                 var segments = new[]
                 {
                     directoryInfo.Parent.FullName,
                 };
 
-                Fingerprint f = FingerprintCreator.EvaluateToFingerprint(context, directory, segments, FingerprintType.Path);
+                Fingerprint f = FingerprintCreator.EvaluateToFingerprint(context, workspaceRoot, segments, FingerprintType.Path);
 
                 Assert.Equal(1, f.Segments.Count());
                 Assert.Equal(
-                    new [] { Path.GetRelativePath(directory, directoryInfo.Parent.FullName) },
+                    new [] { Path.GetRelativePath(workspaceRoot, directoryInfo.Parent.FullName) },
                     f.Segments
                 );
             }
@@ -265,15 +269,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
             using(var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
-                var directoryInfo = new DirectoryInfo(directory);
+                var directoryInfo = new DirectoryInfo(workspaceRoot);
                 var segments = new[]
                 {
                     directoryInfo.Parent.FullName,
-                    directoryInfo.Parent.Parent.FullName,
+                    directory1Name,
                 };
                 
                 Assert.Throws<AggregateException>(
-                    () => FingerprintCreator.EvaluateToFingerprint(context, directory, segments, FingerprintType.Path)
+                    () => FingerprintCreator.EvaluateToFingerprint(context, workspaceRoot, segments, FingerprintType.Path)
                 );
             }
         }
@@ -286,14 +290,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
             using(var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
-                var directoryInfo = new DirectoryInfo(directory);
+                var directoryInfo = new DirectoryInfo(workspaceRoot);
                 var segments = new[]
                 {
                     $"{directoryInfo.Parent.FullName}/*",
                 };
                 
                 Assert.Throws<AggregateException>(
-                    () => FingerprintCreator.EvaluateToFingerprint(context, directory, segments, FingerprintType.Path)
+                    () => FingerprintCreator.EvaluateToFingerprint(context, workspaceRoot, segments, FingerprintType.Path)
                 );
             }
         }
