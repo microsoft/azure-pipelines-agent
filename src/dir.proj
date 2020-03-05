@@ -75,11 +75,6 @@
     <Exec Command="%22$(DesktopMSBuild)%22 Agent.Service/Windows/AgentService.csproj /p:Configuration=$(BUILDCONFIG) /p:OutputPath=%22$(LayoutRoot)/bin%22" ConsoleToMSBuild="true" Condition="'$(PackageRuntime)' == 'win-x64' Or '$(PackageRuntime)' == 'win-x86'" />
   </Target>
 
-  <Target Name="Test" DependsOnTargets="GenerateConstant">
-    <Exec Command="dotnet build Test/Test.csproj -c $(BUILDCONFIG) /p:PackageRuntime=$(PackageRuntime)" ConsoleToMSBuild="true" />
-    <Exec Command="dotnet test Test/Test.csproj --settings $(MSBuildProjectDirectory)/Test/CodeCoverage.runsettings --no-build --logger:trx --collect:&quot;Code Coverage&quot;  --filter SkipOn!=$(SkipOn)" ConsoleToMSBuild="true" />
-  </Target>
-
   <Target Name="TestL0" DependsOnTargets="GenerateConstant">
     <Exec Command="dotnet build Test/Test.csproj -c $(BUILDCONFIG) /p:PackageRuntime=$(PackageRuntime)" ConsoleToMSBuild="true" />
     <Exec Command="dotnet test Test/Test.csproj --settings $(MSBuildProjectDirectory)/Test/CodeCoverage.runsettings --no-build --logger:trx --collect:&quot;Code Coverage&quot;  --filter &quot;Level=L0&amp;SkipOn!=$(SkipOn)&quot;" ConsoleToMSBuild="true" />

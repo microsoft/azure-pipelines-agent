@@ -15,6 +15,13 @@ steps:
 - checkout: self
   clean: true
 
+- script: |
+    git config user.email "azure-pipelines-bot@microsoft.com"
+    git config user.name "azure-pipelines-bot"
+    git checkout -f origin/releases/$(version)
+  displayName: Checkout release branch
+  condition: ne(variables['version'], '')
+
 # Build agent layout
 - script: ./dev.sh layout Release
   workingDirectory: src

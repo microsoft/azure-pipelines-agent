@@ -2,12 +2,35 @@ resources:
   containers:
   - container: dotnetcore_arm
     image: huangtingluo/azure-pipelines-agent-eng:arm
-  
+
   - container: dotnetcore_centos6
     image: huangtingluo/azure-pipelines-agent-eng:centos6
 
 stages:
-- stage: Build    
+- stage: Create_Release_Branch
+  displayName: Create Release Branch
+  jobs:
+  ################################################################################
+  - job: Create_Release_Branch
+  ################################################################################
+    displayName: Create Release Branch
+    pool:
+      vmImage: ubuntu-18.04
+
+    steps:
+    - checkout: self
+
+    - script: |
+        cd release
+        npm install
+        node createReleaseBranch.js $(version)
+      env:
+        EDITOR: cat
+        PAT: $(GithubToken)
+      displayName: Push release branch to GitHub
+
+- stage: Build
+  dependsOn: Create_Release_Branch
   jobs:
   ################################################################################
   - job: build_windows_agent_x64
@@ -23,7 +46,7 @@ stages:
     - template: .vsts.template.windows.yml
       parameters:
         testLogTitle: 'Windows-x64'
-    
+
     # Package .NET Core Windows dependency (VC++ Redistributable)
     - template: .azure-pipelines/package-vcredist.yml
       parameters:
@@ -53,7 +76,7 @@ stages:
       displayName: 'Generate Codesign Report'
       inputs:
         path: '$(layoutRoot)'
-    
+
     # Verify all binaries are signed (check report)
     - task: securedevelopmentteam.vss-secure-development-tools.build-task-postanalysis.PostAnalysis@1
       displayName: 'Verify Codesign Report'
@@ -77,7 +100,7 @@ stages:
     - template: .vsts.template.windows.yml
       parameters:
         testLogTitle: 'Windows-x86'
-    
+
     # Package .NET Core Windows dependency (VC++ Redistributable)
     - template: .azure-pipelines/package-vcredist.yml
       parameters:
@@ -118,11 +141,11 @@ stages:
     # Create agent package zip
     - script: ./dev.sh package Release
       workingDirectory: src
-      displayName: Package Release    
+      displayName: Package Release
 
     # Upload agent package zip as build artifact
     - task: PublishBuildArtifacts@1
-      displayName: Publish Artifact (Linux)    
+      displayName: Publish Artifact (Linux)
       inputs:
         pathToPublish: _package
         artifactName: agent
@@ -146,11 +169,11 @@ stages:
     # Create agent package zip
     - script: ./dev.sh package Release
       workingDirectory: src
-      displayName: Package Release    
+      displayName: Package Release
 
     # Upload agent package zip as build artifact
     - task: PublishBuildArtifacts@1
-      displayName: Publish Artifact (Linux)    
+      displayName: Publish Artifact (Linux)
       inputs:
         pathToPublish: _package
         artifactName: agent
@@ -188,22 +211,22 @@ stages:
   ################################################################################
     displayName: macOS Agent (x64)
     pool:
-      vmImage: macOS-10.13
+      vmImage: macOS-10.14
     steps:
 
     # Steps template for non-windows platform
     - template: .vsts.template.nonwindows.yml
       parameters:
         testLogTitle: 'macOS-x64'
-    
+
     # Create agent package zip
     - script: ./dev.sh package Release
       workingDirectory: src
-      displayName: Package Release    
+      displayName: Package Release
 
     # Upload agent package zip as build artifact
     - task: PublishBuildArtifacts@1
-      displayName: Publish Artifact (OSX)    
+      displayName: Publish Artifact (OSX)
       inputs:
         pathToPublish: _package
         artifactName: agent
@@ -219,11 +242,18 @@ stages:
     pool:
       name: ProductionRMAgents
     steps:
-    
+
     # Clean
     - checkout: self
       clean: true
-    
+
+    - script: |
+        git config user.email "azure-pipelines-bot@microsoft.com"
+        git config user.name "azure-pipelines-bot"
+        git checkout -f origin/releases/$(version)
+      displayName: Checkout release branch
+      condition: ne(variables['version'], '')
+
     # Download all agent packages from all previous phases
     - task: DownloadBuildArtifacts@0
       displayName: Download Agent Packages
@@ -295,3 +325,29 @@ stages:
         }
         Invoke-RestMethod @assetsParams
       displayName: Create agent release on Github
+
+- stage: CreatePRs
+  dependsOn: Release
+  jobs:
+  ################################################################################
+  - job: create_ado_prs
+  ################################################################################
+    displayName: Create PRs in AzureDevOps
+    pool:
+      vmImage: ubuntu-18.04
+
+    steps:
+    - checkout: self
+
+    - bash: |
+        set -x
+        git checkout releases/$(version)
+        cd release
+        npm install
+        ls
+        node createAdoPrs.js $(version)
+      displayName: Create PRs in AzureDevOps and AzureDevOps.ConfigChange
+      condition: ne(variables['version'], '')
+      env:
+        USER: $(User)
+        PAT: $(AdoPAT)

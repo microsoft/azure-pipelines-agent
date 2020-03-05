@@ -99,6 +99,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             this.SecretMasker.AddValueEncoder(ValueEncoders.JsonStringEscape);
             this.SecretMasker.AddValueEncoder(ValueEncoders.UriDataEscape);
+            this.SecretMasker.AddValueEncoder(ValueEncoders.BackslashEscape);
             this.SecretMasker.AddRegex(_urlSecretMaskerPattern);
 
             // Create the trace manager.

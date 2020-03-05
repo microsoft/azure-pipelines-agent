@@ -109,17 +109,6 @@ function cmd_layout ()
     bash ./Misc/externals.sh $RUNTIME_ID || checkRC externals.sh
 }
 
-function cmd_test ()
-{
-    heading "Testing"
-
-    if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "darwin") ]]; then
-        ulimit -n 1024
-    fi
-
-    dotnet msbuild -t:test -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:SkipOn="${CURRENT_PLATFORM}" || failed "failed tests"
-}
-
 function cmd_test_l0 ()
 {
     heading "Testing L0"
@@ -146,6 +135,13 @@ function cmd_test_l1 ()
     fi
 
     dotnet msbuild -t:testl1 -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:SkipOn="${CURRENT_PLATFORM}" || failed "failed tests"
+}
+
+function cmd_test ()
+{
+    cmd_test_l0
+
+    cmd_test_l1
 }
 
 function cmd_package ()

@@ -54,13 +54,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 string repositoryPath = data.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 repository.Properties.Set<string>(RepositoryPropertyNames.Path, repositoryPath);
 
-                if (RepositoryUtil.IsPrimaryRepositoryName(repository.Alias))
+                bool isSelfRepo = RepositoryUtil.IsPrimaryRepositoryName(repository.Alias);
+                bool hasMultipleCheckouts = RepositoryUtil.HasMultipleCheckouts(context.JobSettings);
+
+                if (isSelfRepo || !hasMultipleCheckouts)
                 {
                     var directoryManager = context.GetHostContext().GetService<IBuildDirectoryManager>();
                     string _workDirectory = context.GetHostContext().GetDirectory(WellKnownDirectory.Work);
 
                     var trackingConfig = directoryManager.UpdateDirectory(context, repository);
-                    if (RepositoryUtil.HasMultipleCheckouts(context.JobSettings))
+                    if (hasMultipleCheckouts)
                     {
                         // In Multi-checkout, we don't want to reset sources dir or default working dir.
                         // So, we will just reset the repo local path
@@ -71,9 +74,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     else
                     {
                         // If we only have a single repository, then update all the paths to point to it.
-                        context.SetVariable(Constants.Variables.Build.SourcesDirectory, Path.Combine(_workDirectory, trackingConfig.SourcesDirectory), isFilePath: true);
-                        context.SetVariable(Constants.Variables.Build.RepoLocalPath, Path.Combine(_workDirectory, trackingConfig.SourcesDirectory), isFilePath: true);
-                        context.SetVariable(Constants.Variables.System.DefaultWorkingDirectory, Path.Combine(_workDirectory, trackingConfig.SourcesDirectory), isFilePath: true);
+                        context.SetVariable(Constants.Variables.Build.SourcesDirectory, repositoryPath, isFilePath: true);
+                        context.SetVariable(Constants.Variables.Build.RepoLocalPath, repositoryPath, isFilePath: true);
+                        context.SetVariable(Constants.Variables.System.DefaultWorkingDirectory, repositoryPath, isFilePath: true);
                     }
                 }
             }

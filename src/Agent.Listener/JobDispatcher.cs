@@ -35,7 +35,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
     // and server will not send another job while this one is still running.
     public sealed class JobDispatcher : AgentService, IJobDispatcher
     {
-        private readonly Lazy<Dictionary<long, TaskResult>> _localRunJobResult = new Lazy<Dictionary<long, TaskResult>>();
         private int _poolId;
         AgentSettings _agentSetting;
         private static readonly string _workerProcessName = $"Agent.Worker{IOUtil.ExeExtension}";

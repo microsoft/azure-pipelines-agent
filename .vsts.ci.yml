@@ -9,10 +9,10 @@ pr:
 resources:
   containers:
   - container: dotnetcore_arm
-    image: huangtingluo/azure-pipelines-agent-eng:arm
+    image: azpagentinfra/arm:latest
 
   - container: dotnetcore_centos6
-    image: huangtingluo/azure-pipelines-agent-eng:centos6
+    image: azpagentinfra/centos6:latest
 
 jobs:
 
@@ -196,7 +196,7 @@ jobs:
 ################################################################################
   displayName: macOS Agent (x64)
   pool:
-    vmImage: macOS-10.13
+    vmImage: macOS-10.14
   steps:
 
   # Steps template for non-windows platform
