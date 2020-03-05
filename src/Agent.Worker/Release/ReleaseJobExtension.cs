@@ -154,9 +154,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
             IList<AgentArtifactDefinition> agentArtifactDefinitions)
         {
             Trace.Entering();
+            string commitsWorkFolder = String.Empty;
 
-            Trace.Info("Creating commit work folder");
-            string commitsWorkFolder = GetCommitsWorkFolder(executionContext);
+            if (agentArtifactDefinitions?.Any(x => x.ArtifactType == AgentArtifactType.Jenkins) == true)
+            {
+                Trace.Info("Creating commit work folder");
+                commitsWorkFolder = GetCommitsWorkFolder(executionContext);
+            }
 
             // Note: We are having an explicit type here. For other artifact types we are planning to go with tasks
             // Only for jenkins we are making the agent to download
@@ -315,7 +319,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                 executionContext.Variables.System_TeamProjectId.ToString(),
                 releaseDefinition);
 
-            ReleaseWorkingFolder = releaseTrackingConfig.ReleaseDirectory;
+            ReleaseWorkingFolder = Path.Combine(
+                        HostContext.GetDirectory(WellKnownDirectory.Work),
+                        releaseTrackingConfig.ReleaseDirectory);
+
             ArtifactsWorkingFolder = string.IsNullOrEmpty(executionContext.Variables.Release_ArtifactsDirectory)
                 ? Path.Combine(
                         HostContext.GetDirectory(WellKnownDirectory.Work),
