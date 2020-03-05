@@ -2,7 +2,7 @@ resources:
   containers:
   - container: dotnetcore_arm
     image: huangtingluo/azure-pipelines-agent-eng:arm
-  
+
   - container: dotnetcore_centos6
     image: huangtingluo/azure-pipelines-agent-eng:centos6
 
@@ -46,7 +46,7 @@ stages:
     - template: .vsts.template.windows.yml
       parameters:
         testLogTitle: 'Windows-x64'
-    
+
     # Package .NET Core Windows dependency (VC++ Redistributable)
     - template: .azure-pipelines/package-vcredist.yml
       parameters:
@@ -76,7 +76,7 @@ stages:
       displayName: 'Generate Codesign Report'
       inputs:
         path: '$(layoutRoot)'
-    
+
     # Verify all binaries are signed (check report)
     - task: securedevelopmentteam.vss-secure-development-tools.build-task-postanalysis.PostAnalysis@1
       displayName: 'Verify Codesign Report'
@@ -100,7 +100,7 @@ stages:
     - template: .vsts.template.windows.yml
       parameters:
         testLogTitle: 'Windows-x86'
-    
+
     # Package .NET Core Windows dependency (VC++ Redistributable)
     - template: .azure-pipelines/package-vcredist.yml
       parameters:
@@ -141,11 +141,11 @@ stages:
     # Create agent package zip
     - script: ./dev.sh package Release
       workingDirectory: src
-      displayName: Package Release    
+      displayName: Package Release
 
     # Upload agent package zip as build artifact
     - task: PublishBuildArtifacts@1
-      displayName: Publish Artifact (Linux)    
+      displayName: Publish Artifact (Linux)
       inputs:
         pathToPublish: _package
         artifactName: agent
@@ -169,11 +169,11 @@ stages:
     # Create agent package zip
     - script: ./dev.sh package Release
       workingDirectory: src
-      displayName: Package Release    
+      displayName: Package Release
 
     # Upload agent package zip as build artifact
     - task: PublishBuildArtifacts@1
-      displayName: Publish Artifact (Linux)    
+      displayName: Publish Artifact (Linux)
       inputs:
         pathToPublish: _package
         artifactName: agent
@@ -211,22 +211,22 @@ stages:
   ################################################################################
     displayName: macOS Agent (x64)
     pool:
-      vmImage: macOS-10.13
+      vmImage: macOS-10.14
     steps:
 
     # Steps template for non-windows platform
     - template: .vsts.template.nonwindows.yml
       parameters:
         testLogTitle: 'macOS-x64'
-    
+
     # Create agent package zip
     - script: ./dev.sh package Release
       workingDirectory: src
-      displayName: Package Release    
+      displayName: Package Release
 
     # Upload agent package zip as build artifact
     - task: PublishBuildArtifacts@1
-      displayName: Publish Artifact (OSX)    
+      displayName: Publish Artifact (OSX)
       inputs:
         pathToPublish: _package
         artifactName: agent
@@ -242,7 +242,7 @@ stages:
     pool:
       name: ProductionRMAgents
     steps:
-    
+
     # Clean
     - checkout: self
       clean: true
@@ -253,7 +253,7 @@ stages:
         git checkout -f origin/releases/$(version)
       displayName: Checkout release branch
       condition: ne(variables['version'], '')
-    
+
     # Download all agent packages from all previous phases
     - task: DownloadBuildArtifacts@0
       displayName: Download Agent Packages
