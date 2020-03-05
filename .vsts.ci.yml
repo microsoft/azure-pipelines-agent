@@ -196,7 +196,7 @@ jobs:
 ################################################################################
   displayName: macOS Agent (x64)
   pool:
-    vmImage: macOS-10.13
+    vmImage: macOS-10.14
   steps:
 
   # Steps template for non-windows platform
