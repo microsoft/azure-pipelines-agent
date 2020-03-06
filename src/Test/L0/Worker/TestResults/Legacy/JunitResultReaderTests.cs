@@ -602,6 +602,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             Assert.True(expectedOwnerName.Equals(_testRunData.Results[0].Owner.DisplayName, StringComparison.OrdinalIgnoreCase));
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "TestHostContext")]
         private void SetupMocks([CallerMemberName] string name = "")
         {
             TestHostContext hc = new TestHostContext(this, name);
@@ -623,14 +624,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
 
         public void Dispose()
         {
-            _jUnitReader.AddResultsFileToRunLevelAttachments = true;
-            try
+            Dispose(true);
+        }
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
             {
-                File.Delete(_fileName);
-            }
-            catch
-            {
+                _jUnitReader.AddResultsFileToRunLevelAttachments = true;
+                try
+                {
+                    File.Delete(_fileName);
+                }
+                catch
+                {
 
+                }
             }
         }
     }

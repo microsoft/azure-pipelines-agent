@@ -49,7 +49,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         AutoStartup
     }
 
-    public class HostContext : EventListener, IObserver<DiagnosticListener>, IObserver<KeyValuePair<string, object>>, IHostContext, IDisposable
+    public class HostContext : EventListener, IObserver<DiagnosticListener>, IObserver<KeyValuePair<string, object>>, IHostContext
     {
         private const int _defaultLogPageSize = 8;  //MB
 
@@ -483,7 +483,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             return containerInfo;
         }
 
-        public override void Dispose()
+        public sealed override void Dispose()
         {
             Dispose(true);
             GC.SuppressFinalize(this);
@@ -520,7 +520,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        private void Dispose(bool disposing)
+        protected virtual void Dispose(bool disposing)
         {
             // TODO: Dispose the trace listener also.
             if (disposing)
@@ -534,6 +534,12 @@ namespace Microsoft.VisualStudio.Services.Agent
                 _diagListenerSubscription?.Dispose();
                 _traceManager?.Dispose();
                 _traceManager = null;
+                _vssTrace?.Dispose();
+                _vssTrace = null;
+                _trace?.Dispose();
+                _trace = null;
+                _httpTrace?.Dispose();
+                _httpTrace = null;
 
                 _agentShutdownTokenSource?.Dispose();
                 _agentShutdownTokenSource = null;

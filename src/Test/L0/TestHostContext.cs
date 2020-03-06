@@ -414,6 +414,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     _loadContext = null;
                 }
                 _traceManager?.Dispose();
+                _secretMasker?.Dispose();
+                _term?.Dispose();
+                _trace?.Dispose();
+                _agentShutdownTokenSource?.Dispose();
                 try
                 {
                     Directory.Delete(_tempDirectoryRoot);

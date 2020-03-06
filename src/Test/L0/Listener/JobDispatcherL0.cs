@@ -60,7 +60,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 _configurationStore.Setup(x => x.GetSettings()).Returns(new AgentSettings() { PoolId = 1 });
                 jobDispatcher.Initialize(hc);
 
-                var ts = new CancellationTokenSource();
                 Pipelines.AgentJobRequestMessage message = CreateJobRequestMessage();
                 string strMessage = JsonUtility.ToString(message);
 
@@ -467,7 +466,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 _configurationStore.Setup(x => x.GetSettings()).Returns(new AgentSettings() { PoolId = 1 });
                 jobDispatcher.Initialize(hc);
 
-                var ts = new CancellationTokenSource();
                 Pipelines.AgentJobRequestMessage message = CreateJobRequestMessage();
                 string strMessage = JsonUtility.ToString(message);
 

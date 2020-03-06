@@ -49,8 +49,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 fileContainerClientConnectionSetting.SendTimeout = TimeSpan.FromSeconds(600);
             }
 
-            var fileContainerClientConnection = new VssConnection(connection.Uri, connection.Credentials, fileContainerClientConnectionSetting);
-            _fileContainerHttpClient = fileContainerClientConnection.GetClient<FileContainerHttpClient>();
+            using (var fileContainerClientConnection = new VssConnection(connection.Uri, connection.Credentials, fileContainerClientConnectionSetting))
+            {
+                _fileContainerHttpClient = fileContainerClientConnection.GetClient<FileContainerHttpClient>();
+            }
         }
 
         public async Task<long> CopyToContainerAsync(

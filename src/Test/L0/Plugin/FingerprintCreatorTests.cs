@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -24,11 +24,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         private static readonly string directory;
         private static readonly string path1;
         private static readonly string path2;
-        
+
         private static readonly string workspaceRoot;
         private static readonly string directory1;
         private static readonly string directory2;
-        
+
         private static readonly string directory1Name;
         private static readonly string directory2Name;
 
@@ -40,7 +40,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
 
             path1 = Path.GetTempFileName();
             path2 = Path.GetTempFileName();
-            
+
             directory = Path.GetDirectoryName(path1);
             Assert.Equal(directory, Path.GetDirectoryName(path2));
 
@@ -56,19 +56,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
 
             directory1Name = Path.GetFileName(directory1);
             directory2Name = Path.GetFileName(directory2);
-            
+
             File.WriteAllBytes(path1, content1);
             File.WriteAllBytes(path2, content2);
 
             Directory.CreateDirectory(directory1);
             Directory.CreateDirectory(directory2);
-            
+
             File.WriteAllBytes(path3, content1);
             File.WriteAllBytes(path4, content2);
 
-            var hasher = new SHA256Managed();
-            hash1 = hasher.ComputeHash(content1);
-            hash2 = hasher.ComputeHash(content2);
+            using (var hasher = new SHA256Managed())
+            {
+                hash1 = hasher.ComputeHash(content1);
+                hash2 = hasher.ComputeHash(content2);
+            }
         }
 
         [Fact]
@@ -76,20 +78,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         [Trait("Category", "Plugin")]
         public void Fingerprint_ReservedFails()
         {
-            using(var hostContext = new TestHostContext(this))
+            using (var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 Assert.Throws<ArgumentException>(
-                    () => FingerprintCreator.EvaluateToFingerprint(context, directory, new [] {"*"}, FingerprintType.Key)
+                    () => FingerprintCreator.EvaluateToFingerprint(context, directory, new[] { "*" }, FingerprintType.Key)
                 );
                 Assert.Throws<ArgumentException>(
-                    () => FingerprintCreator.EvaluateToFingerprint(context, directory, new [] {"**"}, FingerprintType.Key)
+                    () => FingerprintCreator.EvaluateToFingerprint(context, directory, new[] { "**" }, FingerprintType.Key)
                 );
                 Assert.Throws<ArgumentException>(
-                    () => FingerprintCreator.EvaluateToFingerprint(context, directory, new [] {"*"}, FingerprintType.Path)
+                    () => FingerprintCreator.EvaluateToFingerprint(context, directory, new[] { "*" }, FingerprintType.Path)
                 );
                 Assert.Throws<ArgumentException>(
-                    () => FingerprintCreator.EvaluateToFingerprint(context, directory, new [] {"**"}, FingerprintType.Path)
+                    () => FingerprintCreator.EvaluateToFingerprint(context, directory, new[] { "**" }, FingerprintType.Path)
                 );
             }
         }
@@ -99,7 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         [Trait("Category", "Plugin")]
         public void Fingerprint_Key_ExcludeExactMatches()
         {
-            using(var hostContext = new TestHostContext(this))
+            using (var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 var segments = new[]
@@ -111,35 +113,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 );
             }
         }
-        
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
         public void Fingerprint_Path_IncludeFullPathMatches()
         {
-            using(var hostContext = new TestHostContext(this))
+            using (var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 var segments = new[]
                 {
-                    directory1, 
+                    directory1,
                     directory2
                 };
-                
+
                 Fingerprint f = FingerprintCreator.EvaluateToFingerprint(context, workspaceRoot, segments, FingerprintType.Path);
                 Assert.Equal(
-                    new [] { directory1Name, directory2Name }.OrderBy(x => x), 
+                    new[] { directory1Name, directory2Name }.OrderBy(x => x),
                     f.Segments.OrderBy(x => x)
                 );
             }
         }
-        
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
         public void Fingerprint_Path_IncludeRelativePathMatches()
         {
-            using(var hostContext = new TestHostContext(this))
+            using (var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 var segments = new[]
@@ -147,89 +149,89 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                     directory1Name,
                     directory2Name
                 };
-                
+
                 Fingerprint f = FingerprintCreator.EvaluateToFingerprint(context, workspaceRoot, segments, FingerprintType.Path);
                 Assert.Equal(
-                    new [] { directory1Name, directory2Name }.OrderBy(x => x), 
+                    new[] { directory1Name, directory2Name }.OrderBy(x => x),
                     f.Segments.OrderBy(x => x)
                 );
             }
         }
-        
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
         public void Fingerprint_Path_IncludeGlobMatches()
         {
-            using(var hostContext = new TestHostContext(this))
+            using (var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 var segments = new[]
                 {
                     $"**/{directory1Name},**/{directory2Name}",
                 };
-                
+
                 Fingerprint f = FingerprintCreator.EvaluateToFingerprint(context, workspaceRoot, segments, FingerprintType.Path);
                 Assert.Equal(
-                    new [] { directory1Name, directory2Name }.OrderBy(x => x), 
+                    new[] { directory1Name, directory2Name }.OrderBy(x => x),
                     f.Segments.OrderBy(x => x)
                 );
             }
         }
-        
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
         public void Fingerprint_Path_ExcludeGlobMatches()
         {
-            using(var hostContext = new TestHostContext(this))
+            using (var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 var segments = new[]
                 {
                     $"**/{directory1Name},!**/{directory2Name}",
                 };
-                
+
                 Fingerprint f = FingerprintCreator.EvaluateToFingerprint(context, workspaceRoot, segments, FingerprintType.Path);
                 Assert.Equal(
-                    new [] { directory1Name }, 
+                    new[] { directory1Name },
                     f.Segments
                 );
             }
         }
-        
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
         public void Fingerprint_Path_NoIncludePatterns()
         {
-            using(var hostContext = new TestHostContext(this))
+            using (var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 var segments = new[]
                 {
                     $"!**/{directory1Name},!**/{directory2Name}",
                 };
-                
+
                 Assert.Throws<ArgumentException>(
                     () => FingerprintCreator.EvaluateToFingerprint(context, workspaceRoot, segments, FingerprintType.Path)
                 );
             }
         }
-        
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
         public void Fingerprint_Path_NoMatches()
         {
-            using(var hostContext = new TestHostContext(this))
+            using (var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 var segments = new[]
                 {
                     $"**/{Guid.NewGuid().ToString()},!**/{directory2Name}"
                 };
-                
+
                 // TODO: Should this really be throwing an exception?
                 Assert.Throws<AggregateException>(
                     () => FingerprintCreator.EvaluateToFingerprint(context, workspaceRoot, segments, FingerprintType.Path)
@@ -242,7 +244,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         [Trait("Category", "Plugin")]
         public void Fingerprint_Path_SinglePathOutsidePipelineWorkspace()
         {
-            using(var hostContext = new TestHostContext(this))
+            using (var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 var directoryInfo = new DirectoryInfo(workspaceRoot);
@@ -255,7 +257,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
 
                 Assert.Equal(1, f.Segments.Count());
                 Assert.Equal(
-                    new [] { Path.GetRelativePath(workspaceRoot, directoryInfo.Parent.FullName) },
+                    new[] { Path.GetRelativePath(workspaceRoot, directoryInfo.Parent.FullName) },
                     f.Segments
                 );
             }
@@ -266,7 +268,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         [Trait("Category", "Plugin")]
         public void Fingerprint_Path_MultiplePathOutsidePipelineWorkspace()
         {
-            using(var hostContext = new TestHostContext(this))
+            using (var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 var directoryInfo = new DirectoryInfo(workspaceRoot);
@@ -275,7 +277,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                     directoryInfo.Parent.FullName,
                     directory1Name,
                 };
-                
+
                 Assert.Throws<AggregateException>(
                     () => FingerprintCreator.EvaluateToFingerprint(context, workspaceRoot, segments, FingerprintType.Path)
                 );
@@ -287,7 +289,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         [Trait("Category", "Plugin")]
         public void Fingerprint_Path_BacktracedGlobPattern()
         {
-            using(var hostContext = new TestHostContext(this))
+            using (var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 var directoryInfo = new DirectoryInfo(workspaceRoot);
@@ -295,7 +297,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 {
                     $"{directoryInfo.Parent.FullName}/*",
                 };
-                
+
                 Assert.Throws<AggregateException>(
                     () => FingerprintCreator.EvaluateToFingerprint(context, workspaceRoot, segments, FingerprintType.Path)
                 );
@@ -307,7 +309,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         [Trait("Category", "Plugin")]
         public void Fingerprint_Key_ExcludeExactMisses()
         {
-            using(var hostContext = new TestHostContext(this))
+            using (var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 var segments = new[]
@@ -315,7 +317,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                     $"{path1},!{path2}",
                 };
                 Fingerprint f = FingerprintCreator.EvaluateToFingerprint(context, directory, segments, FingerprintType.Key);
-                
+
                 Assert.Equal(1, f.Segments.Length);
 
                 var matchedFile = new FingerprintCreator.MatchedFile(Path.GetFileName(path1), content1.Length, hash1.ToHex());
@@ -328,7 +330,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         [Trait("Category", "Plugin")]
         public void Fingerprint_Key_FileAbsolute()
         {
-            using(var hostContext = new TestHostContext(this))
+            using (var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 var segments = new[]
@@ -340,7 +342,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
 
                 var file1 = new FingerprintCreator.MatchedFile(Path.GetFileName(path1), content1.Length, hash1.ToHex());
                 var file2 = new FingerprintCreator.MatchedFile(Path.GetFileName(path2), content2.Length, hash2.ToHex());
-                
+
                 Assert.Equal(2, f.Segments.Length);
                 Assert.Equal(file1.GetHash(), f.Segments[0]);
                 Assert.Equal(file2.GetHash(), f.Segments[1]);
@@ -356,7 +358,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
             string relPath1 = Path.GetFileName(path1);
             string relPath2 = Path.GetFileName(path2);
 
-            using(var hostContext = new TestHostContext(this))
+            using (var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 context.SetVariable(
@@ -374,7 +376,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
 
                 var file1 = new FingerprintCreator.MatchedFile(relPath1, content1.Length, hash1.ToHex());
                 var file2 = new FingerprintCreator.MatchedFile(relPath2, content2.Length, hash2.ToHex());
-                
+
                 Assert.Equal(2, f.Segments.Length);
                 Assert.Equal(file1.GetHash(), f.Segments[0]);
                 Assert.Equal(file2.GetHash(), f.Segments[1]);
@@ -386,7 +388,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         [Trait("Category", "Plugin")]
         public void Fingerprint_Key_Str()
         {
-            using(var hostContext = new TestHostContext(this))
+            using (var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 var segments = new[]
@@ -395,7 +397,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 };
 
                 Fingerprint f = FingerprintCreator.EvaluateToFingerprint(context, directory, segments, FingerprintType.Key);
-                
+
                 Assert.Equal(1, f.Segments.Length);
                 Assert.Equal($"hello", f.Segments[0]);
             }
@@ -412,7 +414,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 string.Empty,
                 string.Empty);
             Assert.True(isOldFormat);
-            Assert.Equal(new [] {"gems", "$(Agent.OS)", "$(Build.SourcesDirectory)/my.gemspec"}, keySegments);
+            Assert.Equal(new[] { "gems", "$(Agent.OS)", "$(Build.SourcesDirectory)/my.gemspec" }, keySegments);
             Assert.Equal(0, restoreKeys.Count());
         }
 
@@ -427,7 +429,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 string.Empty,
                 string.Empty);
             Assert.False(isOldFormat);
-            Assert.Equal(new [] {"$(Agent.OS)"}, keySegments);
+            Assert.Equal(new[] { "$(Agent.OS)" }, keySegments);
             Assert.Equal(0, restoreKeys.Count());
         }
 
@@ -442,10 +444,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 "$(Agent.OS) | Gemfile.lock\n$(Agent.OS)",
                 string.Empty);
             Assert.False(isOldFormat);
-            Assert.Equal(new [] {"$(Agent.OS)","Gemfile.lock","**/*.gemspec,!./junk/**"}, keySegments);
-            Assert.Equal(new [] {new []{ "$(Agent.OS)","Gemfile.lock"}, new[] {"$(Agent.OS)"}}, restoreKeys);
+            Assert.Equal(new[] { "$(Agent.OS)", "Gemfile.lock", "**/*.gemspec,!./junk/**" }, keySegments);
+            Assert.Equal(new[] { new[] { "$(Agent.OS)", "Gemfile.lock" }, new[] { "$(Agent.OS)" } }, restoreKeys);
         }
-        
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
@@ -457,7 +459,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 string.Empty,
                 "node_modules | dist | **/globby.*,!**.exclude");
             Assert.False(isOldFormat);
-            Assert.Equal(new []{ "node_modules", "dist", "**/globby.*,!**.exclude"}, pathSegments);
+            Assert.Equal(new[] { "node_modules", "dist", "**/globby.*,!**.exclude" }, pathSegments);
         }
     }
 }

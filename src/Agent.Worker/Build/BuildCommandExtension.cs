@@ -74,6 +74,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
     {
         public string Name => "updatebuildnumber";
         public List<string> Aliases => null;
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "GetVssConnection")]
         public void Execute(IExecutionContext context, Command command)
         {
             ArgUtil.NotNull(context, nameof(context));
@@ -130,6 +132,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
     {
         public string Name => "addbuildtag";
         public List<string> Aliases => null;
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "GetVssConnection")]
         public void Execute(IExecutionContext context, Command command)
         {
             ArgUtil.NotNull(context, nameof(context));
