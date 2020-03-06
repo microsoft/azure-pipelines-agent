@@ -13,6 +13,7 @@ stages:
   ################################################################################
   - job: Create_Release_Branch
   ################################################################################
+    condition: eq(variables['Build.SourceBranch'], 'refs/heads/master')
     displayName: Create Release Branch
     pool:
       vmImage: ubuntu-18.04
@@ -252,7 +253,7 @@ stages:
         git config user.name "azure-pipelines-bot"
         git checkout -f origin/releases/$(version)
       displayName: Checkout release branch
-      condition: ne(variables['version'], '')
+      condition: and(ne(variables['version'], ''), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
 
     # Download all agent packages from all previous phases
     - task: DownloadBuildArtifacts@0
@@ -339,9 +340,12 @@ stages:
     steps:
     - checkout: self
 
+    - script: git checkout releases/$(version)
+      condition: eq(variables['Build.SourceBranch'], 'refs/heads/master')
+      displayName: Checkout release branch
+
     - bash: |
         set -x
-        git checkout releases/$(version)
         cd release
         npm install
         ls
