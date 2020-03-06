@@ -583,32 +583,33 @@ namespace Agent.Plugins.Repository
             ArgUtil.NotNull(_context, nameof(_context));
 
             // Invoke tf.
-            var processInvoker = new ProcessInvoker(_context);
-            var outputLock = new object();
-            processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
+            using (var processInvoker = new ProcessInvoker(_context))
             {
-                lock (outputLock)
+                var outputLock = new object();
+                processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
                 {
-                    _context.Output(e.Data);
-                }
-            };
-            processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
-            {
-                lock (outputLock)
+                    lock (outputLock)
+                    {
+                        _context.Output(e.Data);
+                    }
+                };
+                processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
                 {
-                    _context.Output(e.Data);
-                }
-            };
-            string arguments = FormatArgumentsWithDefaults(args);
-            _context.Command($@"{_svn} {arguments}");
-            await processInvoker.ExecuteAsync(
-                workingDirectory: _context.Variables.GetValueOrDefault("agent.workfolder")?.Value,
-                fileName: _svn,
-                arguments: arguments,
-                environment: null,
-                requireExitCodeZero: true,
-                cancellationToken: _cancellationToken);
-
+                    lock (outputLock)
+                    {
+                        _context.Output(e.Data);
+                    }
+                };
+                string arguments = FormatArgumentsWithDefaults(args);
+                _context.Command($@"{_svn} {arguments}");
+                await processInvoker.ExecuteAsync(
+                    workingDirectory: _context.Variables.GetValueOrDefault("agent.workfolder")?.Value,
+                    fileName: _svn,
+                    arguments: arguments,
+                    environment: null,
+                    requireExitCodeZero: true,
+                    cancellationToken: _cancellationToken);
+            }
         }
 
         private async Task<string> RunPorcelainCommandAsync(params string[] args)
@@ -618,48 +619,49 @@ namespace Agent.Plugins.Repository
             ArgUtil.NotNull(_context, nameof(_context));
 
             // Invoke tf.
-            var processInvoker = new ProcessInvoker(_context);
-            var output = new List<string>();
-            var outputLock = new object();
-            processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
+            using (var processInvoker = new ProcessInvoker(_context))
             {
-                lock (outputLock)
+                var output = new List<string>();
+                var outputLock = new object();
+                processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
                 {
-                    _context.Debug(e.Data);
-                    output.Add(e.Data);
-                }
-            };
-            processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
-            {
-                lock (outputLock)
+                    lock (outputLock)
+                    {
+                        _context.Debug(e.Data);
+                        output.Add(e.Data);
+                    }
+                };
+                processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
                 {
-                    _context.Debug(e.Data);
-                    output.Add(e.Data);
+                    lock (outputLock)
+                    {
+                        _context.Debug(e.Data);
+                        output.Add(e.Data);
+                    }
+                };
+                string arguments = FormatArgumentsWithDefaults(args);
+                _context.Debug($@"{_svn} {arguments}");
+                // TODO: Test whether the output encoding needs to be specified on a non-Latin OS.
+                try
+                {
+                    await processInvoker.ExecuteAsync(
+                        workingDirectory: _context.Variables.GetValueOrDefault("agent.workfolder")?.Value,
+                        fileName: _svn,
+                        arguments: arguments,
+                        environment: null,
+                        requireExitCodeZero: true,
+                        cancellationToken: _cancellationToken);
                 }
-            };
-            string arguments = FormatArgumentsWithDefaults(args);
-            _context.Debug($@"{_svn} {arguments}");
-            // TODO: Test whether the output encoding needs to be specified on a non-Latin OS.
-            try
-            {
-                await processInvoker.ExecuteAsync(
-                    workingDirectory: _context.Variables.GetValueOrDefault("agent.workfolder")?.Value,
-                    fileName: _svn,
-                    arguments: arguments,
-                    environment: null,
-                    requireExitCodeZero: true,
-                    cancellationToken: _cancellationToken);
-            }
-            catch (ProcessExitCodeException)
-            {
-                // The command failed. Dump the output and throw.
-                output.ForEach(x => _context.Output(x ?? string.Empty));
-                throw;
-            }
+                catch (ProcessExitCodeException)
+                {
+                    // The command failed. Dump the output and throw.
+                    output.ForEach(x => _context.Output(x ?? string.Empty));
+                    throw;
+                }
 
-            // Note, string.join gracefully handles a null element within the IEnumerable<string>.
-            return string.Join(Environment.NewLine, output);
-
+                // Note, string.join gracefully handles a null element within the IEnumerable<string>.
+                return string.Join(Environment.NewLine, output);
+            }
         }
 
         /// <summary>

@@ -35,7 +35,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
     // and server will not send another job while this one is still running.
     public sealed class JobDispatcher : AgentService, IJobDispatcher
     {
-        private readonly Lazy<Dictionary<long, TaskResult>> _localRunJobResult = new Lazy<Dictionary<long, TaskResult>>();
         private int _poolId;
         AgentSettings _agentSetting;
         private static readonly string _workerProcessName = $"Agent.Worker{IOUtil.ExeExtension}";
@@ -72,6 +71,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         public TaskCompletionSource<bool> RunOnceJobCompleted => _runOnceJobCompleted;
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "WorkerDispatcher")]
         public void Run(Pipelines.AgentJobRequestMessage jobRequestMessage, bool runOnce = false)
         {
             Trace.Info($"Job request {jobRequestMessage.RequestId} for plan {jobRequestMessage.Plan.PlanId} job {jobRequestMessage.JobId} received.");
@@ -828,15 +828,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     }
                 }
 
-                VssConnection jobConnection = VssUtil.CreateConnection(jobServerUrl, jobServerCredential);
-                await jobServer.ConnectAsync(jobConnection);
-                var timeline = await jobServer.GetTimelineAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, CancellationToken.None);
-                ArgUtil.NotNull(timeline, nameof(timeline));
-                TimelineRecord jobRecord = timeline.Records.FirstOrDefault(x => x.Id == message.JobId && x.RecordType == "Job");
-                ArgUtil.NotNull(jobRecord, nameof(jobRecord));
-                jobRecord.ErrorCount++;
-                jobRecord.Issues.Add(new Issue() { Type = IssueType.Error, Message = errorMessage });
-                await jobServer.UpdateTimelineRecordsAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, new TimelineRecord[] { jobRecord }, CancellationToken.None);
+                using (var jobConnection = VssUtil.CreateConnection(jobServerUrl, jobServerCredential))
+                {
+                    await jobServer.ConnectAsync(jobConnection);
+                    var timeline = await jobServer.GetTimelineAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, CancellationToken.None);
+                    ArgUtil.NotNull(timeline, nameof(timeline));
+                    TimelineRecord jobRecord = timeline.Records.FirstOrDefault(x => x.Id == message.JobId && x.RecordType == "Job");
+                    ArgUtil.NotNull(jobRecord, nameof(jobRecord));
+                    jobRecord.ErrorCount++;
+                    jobRecord.Issues.Add(new Issue() { Type = IssueType.Error, Message = errorMessage });
+                    await jobServer.UpdateTimelineRecordsAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, new TimelineRecord[] { jobRecord }, CancellationToken.None);
+                }
             }
             catch (Exception ex)
             {

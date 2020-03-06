@@ -227,6 +227,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 hc,
                 new[]
                 {
+                    "configure",
                     "--windowslogonaccount", "wont be honored",
                     "--windowslogonpassword", "sssh",
                     "--norestart"

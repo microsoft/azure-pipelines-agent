@@ -59,25 +59,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
                 // TODO: Invalid config prints usage
 
-                if (command.Help)
+                if (command.IsHelp())
                 {
                     PrintUsage(command);
                     return Constants.Agent.ReturnCode.Success;
                 }
 
-                if (command.Version)
+                if (command.IsVersion())
                 {
                     _term.WriteLine(BuildConstants.AgentPackage.Version);
                     return Constants.Agent.ReturnCode.Success;
                 }
 
-                if (command.Commit)
+                if (command.IsCommit())
                 {
                     _term.WriteLine(BuildConstants.Source.CommitHash);
                     return Constants.Agent.ReturnCode.Success;
                 }
 
-                if (command.Diagnostics)
+                if (command.IsDiagnostics())
                 {
                     PrintBanner();
                     _term.WriteLine("Running Diagnostics Only...");
@@ -89,7 +89,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
                 // Configure agent prompt for args if not supplied
                 // Unattend configure mode will not prompt for args if not supplied and error on any missing or invalid value.
-                if (command.Configure)
+                if (command.IsConfigureCommand())
                 {
                     PrintBanner();
                     try
@@ -106,7 +106,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 }
 
                 // remove config files, remove service, and exit
-                if (command.Remove)
+                if (command.IsRemoveCommand())
                 {
                     try
                     {
@@ -126,7 +126,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 // warmup agent process (JIT/CLR)
                 // In scenarios where the agent is single use (used and then thrown away), the system provisioning the agent can call `agent.listener --warmup` before the machine is made available to the pool for use.
                 // this will optimizes the agent process startup time.
-                if (command.Warmup)
+                if (command.IsWarmupCommand())
                 {
                     var binDir = HostContext.GetDirectory(WellKnownDirectory.Bin);
                     foreach (var assemblyFile in Directory.EnumerateFiles(binDir, "*.dll"))
@@ -226,7 +226,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     }
                 }
                 // Run the agent interactively or as service
-                return await RunAsync(settings, command.RunOnce);
+                return await RunAsync(settings, command.GetRunOnce());
             }
             finally
             {
@@ -504,11 +504,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
             string commonHelp = StringUtil.Loc("CommandLineHelp_Common");
             string envHelp = StringUtil.Loc("CommandLineHelp_Env");
-            if (command.Configure)
+            if (command.IsConfigureCommand())
             {
                 _term.WriteLine(StringUtil.Loc("CommandLineHelp_Configure", Path.DirectorySeparatorChar, ext, commonHelp, envHelp));
             }
-            else if (command.Remove)
+            else if (command.IsRemoveCommand())
             {
                 _term.WriteLine(StringUtil.Loc("CommandLineHelp_Remove", Path.DirectorySeparatorChar, ext, commonHelp, envHelp));
             }

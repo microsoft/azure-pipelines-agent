@@ -34,13 +34,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
         public Task<TaskLog> AppendLogContentAsync(Guid scopeIdentifier, string hubName, Guid planId, int logId, Stream uploadStream, CancellationToken cancellationToken)
         {
-            var reader = new StreamReader(uploadStream);
-            var text = reader.ReadToEnd();
-            var addedLines = text.Split("\n");
+            using (var reader = new StreamReader(uploadStream))
+            {
+                var text = reader.ReadToEnd();
+                var addedLines = text.Split("\n");
 
-            var lines = LogLines.GetValueOrDefault(logId);
-            lines.AddRange(addedLines);
-            return Task.FromResult(LogObjects.GetValueOrDefault(logId));
+                var lines = LogLines.GetValueOrDefault(logId);
+                lines.AddRange(addedLines);
+                return Task.FromResult(LogObjects.GetValueOrDefault(logId));
+            }
         }
 
         public Task AppendTimelineRecordFeedAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, Guid timelineRecordId, Guid stepId, IList<string> lines, long startLine, CancellationToken cancellationToken)
