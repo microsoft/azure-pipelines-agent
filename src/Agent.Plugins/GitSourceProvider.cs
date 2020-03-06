@@ -191,9 +191,9 @@ namespace Agent.Plugins.Repository
 
         public abstract bool GitSupportsFetchingCommitBySha1Hash { get; }
 
-        public virtual bool UseBearerAuthenticationForOAuth() 
-        { 
-            return false; 
+        public virtual bool UseBearerAuthenticationForOAuth()
+        {
+            return false;
         }
 
         public string GenerateAuthHeader(AgentTaskPluginExecutionContext executionContext, string username, string password, bool isBearer)
@@ -492,23 +492,25 @@ namespace Agent.Plugins.Repository
                             string argLine = $"775 {clientCertPrivateKeyAskPassFile}";
                             executionContext.Command($"chmod {argLine}");
 
-                            var processInvoker = new ProcessInvoker(executionContext);
-                            processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+                            using (var processInvoker = new ProcessInvoker(executionContext))
                             {
-                                if (!string.IsNullOrEmpty(args.Data))
+                                processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
                                 {
-                                    executionContext.Output(args.Data);
-                                }
-                            };
-                            processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
-                            {
-                                if (!string.IsNullOrEmpty(args.Data))
+                                    if (!string.IsNullOrEmpty(args.Data))
+                                    {
+                                        executionContext.Output(args.Data);
+                                    }
+                                };
+                                processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
                                 {
-                                    executionContext.Output(args.Data);
-                                }
-                            };
+                                    if (!string.IsNullOrEmpty(args.Data))
+                                    {
+                                        executionContext.Output(args.Data);
+                                    }
+                                };
 
-                            await processInvoker.ExecuteAsync(executionContext.Variables.GetValueOrDefault("system.defaultworkingdirectory")?.Value, toolPath, argLine, null, true, CancellationToken.None);
+                                await processInvoker.ExecuteAsync(executionContext.Variables.GetValueOrDefault("system.defaultworkingdirectory")?.Value, toolPath, argLine, null, true, CancellationToken.None);
+                            }
                         }
                     }
                 }
@@ -858,7 +860,7 @@ namespace Agent.Plugins.Repository
             executionContext.Progress(80, "Starting checkout...");
             string sourcesToBuild;
             executionContext.Debug($"refFetchedByCommit : {refFetchedByCommit}");
-            
+
             if (refFetchedByCommit != null)
             {
                 sourcesToBuild = refFetchedByCommit;

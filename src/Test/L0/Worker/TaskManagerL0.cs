@@ -305,30 +305,34 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                         }
                     }
                 };
-                _taskServer
-                    .Setup(x => x.GetTaskContentZipAsync(
-                        bingGuid,
-                        It.Is<TaskVersion>(y => string.Equals(y.ToString(), bingVersion, StringComparison.Ordinal)),
-                        It.IsAny<CancellationToken>()))
-                    .Returns(Task.FromResult<Stream>(GetZipStream()));
 
-                //Act
-                //first invocation will download and unzip the task from mocked IJobServer
-                await _taskManager.DownloadAsync(_ec.Object, tasks);
-                //second and third invocations should find the task in the cache and do nothing
-                await _taskManager.DownloadAsync(_ec.Object, tasks);
-                await _taskManager.DownloadAsync(_ec.Object, tasks);
+                using (var stream = GetZipStream())
+                {
+                    _taskServer
+                        .Setup(x => x.GetTaskContentZipAsync(
+                            bingGuid,
+                            It.Is<TaskVersion>(y => string.Equals(y.ToString(), bingVersion, StringComparison.Ordinal)),
+                            It.IsAny<CancellationToken>()))
+                        .Returns(Task.FromResult<Stream>(stream));
 
-                //Assert
-                //see if the task.json was downloaded
-                string destDirectory = Path.Combine(
-                    _hc.GetDirectory(WellKnownDirectory.Tasks),
-                    $"{bingTaskName}_{bingGuid}",
-                    bingVersion);
-                Assert.True(File.Exists(Path.Combine(destDirectory, Constants.Path.TaskJsonFile)));
-                //assert download has happened only once, because disabled, duplicate and cached tasks are not downloaded
-                _taskServer
-                    .Verify(x => x.GetTaskContentZipAsync(It.IsAny<Guid>(), It.IsAny<TaskVersion>(), It.IsAny<CancellationToken>()), Times.Once());
+                    //Act
+                    //first invocation will download and unzip the task from mocked IJobServer
+                    await _taskManager.DownloadAsync(_ec.Object, tasks);
+                    //second and third invocations should find the task in the cache and do nothing
+                    await _taskManager.DownloadAsync(_ec.Object, tasks);
+                    await _taskManager.DownloadAsync(_ec.Object, tasks);
+
+                    //Assert
+                    //see if the task.json was downloaded
+                    string destDirectory = Path.Combine(
+                        _hc.GetDirectory(WellKnownDirectory.Tasks),
+                        $"{bingTaskName}_{bingGuid}",
+                        bingVersion);
+                    Assert.True(File.Exists(Path.Combine(destDirectory, Constants.Path.TaskJsonFile)));
+                    //assert download has happened only once, because disabled, duplicate and cached tasks are not downloaded
+                    _taskServer
+                        .Verify(x => x.GetTaskContentZipAsync(It.IsAny<Guid>(), It.IsAny<TaskVersion>(), It.IsAny<CancellationToken>()), Times.Once());
+                }
             }
             finally
             {
@@ -371,34 +375,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                         }
                     }
                 };
-                _taskServer
-                    .Setup(x => x.GetTaskContentZipAsync(
-                        bingGuid,
-                        It.Is<TaskVersion>(y => string.Equals(y.ToString(), bingVersion, StringComparison.Ordinal)),
-                        It.IsAny<CancellationToken>()))
-                    .Returns(Task.FromResult<Stream>(GetZipStream()));
+                using (var stream = GetZipStream())
+                {
+                    _taskServer
+                        .Setup(x => x.GetTaskContentZipAsync(
+                            bingGuid,
+                            It.Is<TaskVersion>(y => string.Equals(y.ToString(), bingVersion, StringComparison.Ordinal)),
+                            It.IsAny<CancellationToken>()))
+                        .Returns(Task.FromResult<Stream>(stream));
 
-                //Act
-                //first invocation will download and unzip the task from mocked IJobServer
-                await _taskManager.DownloadAsync(_ec.Object, tasks);
-                //second and third invocations should find the task in the cache and do nothing
-                await _taskManager.DownloadAsync(_ec.Object, tasks);
-                await _taskManager.DownloadAsync(_ec.Object, tasks);
+                    //Act
+                    //first invocation will download and unzip the task from mocked IJobServer
+                    await _taskManager.DownloadAsync(_ec.Object, tasks);
+                    //second and third invocations should find the task in the cache and do nothing
+                    await _taskManager.DownloadAsync(_ec.Object, tasks);
+                    await _taskManager.DownloadAsync(_ec.Object, tasks);
 
-                //Assert
-                //see if the task.json was downloaded
-                string destDirectory = Path.Combine(
-                    _hc.GetDirectory(WellKnownDirectory.Tasks),
-                    $"{bingTaskName}_{bingGuid}",
-                    bingVersion);
-                string zipDestDirectory = Path.Combine(_hc.GetDirectory(WellKnownDirectory.TaskZips), $"{bingTaskName}_{bingGuid}_{bingVersion}.zip");
-                // task.json should exist since we need it for JobExtension.InitializeJob
-                Assert.True(File.Exists(Path.Combine(destDirectory, Constants.Path.TaskJsonFile)));
-                // the zip for the task should exist on disk
-                Assert.True(File.Exists(zipDestDirectory));
-                //assert download has happened only once, because disabled, duplicate and cached tasks are not downloaded
-                _taskServer
-                    .Verify(x => x.GetTaskContentZipAsync(It.IsAny<Guid>(), It.IsAny<TaskVersion>(), It.IsAny<CancellationToken>()), Times.Once());
+                    //Assert
+                    //see if the task.json was downloaded
+                    string destDirectory = Path.Combine(
+                        _hc.GetDirectory(WellKnownDirectory.Tasks),
+                        $"{bingTaskName}_{bingGuid}",
+                        bingVersion);
+                    string zipDestDirectory = Path.Combine(_hc.GetDirectory(WellKnownDirectory.TaskZips), $"{bingTaskName}_{bingGuid}_{bingVersion}.zip");
+                    // task.json should exist since we need it for JobExtension.InitializeJob
+                    Assert.True(File.Exists(Path.Combine(destDirectory, Constants.Path.TaskJsonFile)));
+                    // the zip for the task should exist on disk
+                    Assert.True(File.Exists(zipDestDirectory));
+                    //assert download has happened only once, because disabled, duplicate and cached tasks are not downloaded
+                    _taskServer
+                        .Verify(x => x.GetTaskContentZipAsync(It.IsAny<Guid>(), It.IsAny<TaskVersion>(), It.IsAny<CancellationToken>()), Times.Once());
+                }
             }
             finally
             {

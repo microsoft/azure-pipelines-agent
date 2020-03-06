@@ -24,6 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
             public string Name => "updatereleasename";
             public List<string> Aliases => null;
 
+            [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "GetVssConnection")]
             public void Execute(IExecutionContext context, Command command)
             {
                 var data = command.Data;

@@ -66,7 +66,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     break;
                 }
 
-                if (command.Unattended)
+                if (command.Unattended())
                 {
                     throw new SecurityException(StringUtil.Loc("InvalidAutoLogonCredential"));
                 }

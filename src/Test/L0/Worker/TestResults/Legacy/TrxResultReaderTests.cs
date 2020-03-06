@@ -304,7 +304,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
 
             Assert.Equal(runData.BuildFlavor, "debug");
             Assert.Equal(runData.BuildPlatform, "any cpu");
-            // 3 files related mstest.static, 3 files related to vstest.static, and 1 file for vstest.dynamic 
+            // 3 files related mstest.static, 3 files related to vstest.static, and 1 file for vstest.dynamic
             Assert.Equal(runData.Attachments.Length, 7);
 
             int buildId;
@@ -443,7 +443,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             Assert.Equal(testRunData.Results[2].TestCaseSubResultData[1].DisplayName, "02- CodedUITestMethod2 (OrderedTest1)");
             Assert.Equal(testRunData.Results[2].TestCaseSubResultData[0].Outcome, "Passed");
             Assert.Equal(testRunData.Results[2].TestCaseSubResultData[1].Outcome, "Passed");
-            // 3 files related mstest.static, 3 files related to vstest.static, and 1 file for vstest.dynamic 
+            // 3 files related mstest.static, 3 files related to vstest.static, and 1 file for vstest.dynamic
             Assert.Equal(testRunData.Attachments.Length, 7);
         }
 
@@ -570,7 +570,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
 
                 Assert.Equal(runData.BuildFlavor, "debug");
                 Assert.Equal(runData.BuildPlatform, "any cpu");
-                // 3 files related mstest.static, 3 files related to vstest.static, and 1 file for vstest.dynamic 
+                // 3 files related mstest.static, 3 files related to vstest.static, and 1 file for vstest.dynamic
                 Assert.Equal(runData.Attachments.Length, 7);
 
                 int buildId;
@@ -856,12 +856,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         }
         public void Dispose()
         {
-            try
+            Dispose(true);
+        }
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
             {
-                File.Delete(_trxResultFile);
-            }
-            catch
-            {
+              try
+              {
+                  File.Delete(_trxResultFile);
+              }
+              catch
+              {
+              }
             }
         }
 
@@ -982,6 +989,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             return GetTestRunData(trxContents, myReader, trContext);
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "TestHostContext")]
         private void SetupMocks([CallerMemberName] string name = "")
         {
             TestHostContext hc = new TestHostContext(this, name);

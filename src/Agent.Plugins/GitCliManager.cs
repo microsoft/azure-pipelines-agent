@@ -565,25 +565,27 @@ namespace Agent.Plugins.Repository
             string arg = StringUtil.Format($"{command} {options}").Trim();
             context.Command($"git {arg}");
 
-            var processInvoker = new ProcessInvoker(context, disableWorkerCommands: true);
-            processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
+            using (var processInvoker = new ProcessInvoker(context, disableWorkerCommands: true))
             {
-                context.Output(message.Data);
-            };
+                processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
+                {
+                    context.Output(message.Data);
+                };
 
-            processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
-            {
-                context.Output(message.Data);
-            };
+                processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
+                {
+                    context.Output(message.Data);
+                };
 
-            return await processInvoker.ExecuteAsync(
-                workingDirectory: repoRoot,
-                fileName: gitPath,
-                arguments: arg,
-                environment: gitEnv,
-                requireExitCodeZero: false,
-                outputEncoding: _encoding,
-                cancellationToken: cancellationToken);
+                return await processInvoker.ExecuteAsync(
+                    workingDirectory: repoRoot,
+                    fileName: gitPath,
+                    arguments: arg,
+                    environment: gitEnv,
+                    requireExitCodeZero: false,
+                    outputEncoding: _encoding,
+                    cancellationToken: cancellationToken);
+            }
         }
 
         protected virtual async Task<int> ExecuteGitCommandAsync(AgentTaskPluginExecutionContext context, string repoRoot, string command, string options, IList<string> output)
@@ -596,25 +598,27 @@ namespace Agent.Plugins.Repository
                 output = new List<string>();
             }
 
-            var processInvoker = new ProcessInvoker(context, disableWorkerCommands: true);
-            processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
+            using (var processInvoker = new ProcessInvoker(context, disableWorkerCommands: true))
             {
-                output.Add(message.Data);
-            };
+                processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
+                {
+                    output.Add(message.Data);
+                };
 
-            processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
-            {
-                context.Output(message.Data);
-            };
+                processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
+                {
+                    context.Output(message.Data);
+                };
 
-            return await processInvoker.ExecuteAsync(
-                workingDirectory: repoRoot,
-                fileName: gitPath,
-                arguments: arg,
-                environment: gitEnv,
-                requireExitCodeZero: false,
-                outputEncoding: _encoding,
-                cancellationToken: default(CancellationToken));
+                return await processInvoker.ExecuteAsync(
+                    workingDirectory: repoRoot,
+                    fileName: gitPath,
+                    arguments: arg,
+                    environment: gitEnv,
+                    requireExitCodeZero: false,
+                    outputEncoding: _encoding,
+                    cancellationToken: default(CancellationToken));
+            }
         }
 
         protected virtual async Task<int> ExecuteGitCommandAsync(AgentTaskPluginExecutionContext context, string repoRoot, string command, string options, string additionalCommandLine, CancellationToken cancellationToken)
@@ -622,25 +626,27 @@ namespace Agent.Plugins.Repository
             string arg = StringUtil.Format($"{additionalCommandLine} {command} {options}").Trim();
             context.Command($"git {arg}");
 
-            var processInvoker = new ProcessInvoker(context, disableWorkerCommands: true);
-            processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
+            using (var processInvoker = new ProcessInvoker(context, disableWorkerCommands: true))
             {
-                context.Output(message.Data);
-            };
+                processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
+                {
+                    context.Output(message.Data);
+                };
 
-            processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
-            {
-                context.Output(message.Data);
-            };
+                processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
+                {
+                    context.Output(message.Data);
+                };
 
-            return await processInvoker.ExecuteAsync(
-                workingDirectory: repoRoot,
-                fileName: gitPath,
-                arguments: arg,
-                environment: gitEnv,
-                requireExitCodeZero: false,
-                outputEncoding: _encoding,
-                cancellationToken: cancellationToken);
+                return await processInvoker.ExecuteAsync(
+                    workingDirectory: repoRoot,
+                    fileName: gitPath,
+                    arguments: arg,
+                    environment: gitEnv,
+                    requireExitCodeZero: false,
+                    outputEncoding: _encoding,
+                    cancellationToken: cancellationToken);
+            }
         }
     }
 }

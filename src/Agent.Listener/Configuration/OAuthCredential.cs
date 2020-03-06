@@ -24,6 +24,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             // Nothing to verify here
         }
 
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "VssOAuthJwtBearerClientCredential")]
         public override VssCredentials GetVssCredentials(IHostContext context)
         {
             var clientId = this.CredentialData.Data.GetValueOrDefault("clientId", null);
