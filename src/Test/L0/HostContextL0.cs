@@ -78,6 +78,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [InlineData("ftp://user:pass@example.com/path", "ftp://user:***@example.com/path")]
         [InlineData("https://user:pass@example.com/weird:thing@path", "https://user:***@example.com/weird:thing@path")]
         [InlineData("https://user:pass@example.com:8080/path", "https://user:***@example.com:8080/path")]
+        [InlineData("https://user:pass@example.com:8080/path\nhttps://user2:pass2@example.com:8080/path", "https://user:***@example.com:8080/path\nhttps://user2:***@example.com:8080/path")]
+        [InlineData("https://user@example.com:8080/path\nhttps://user2:pass2@example.com:8080/path", "https://user@example.com:8080/path\nhttps://user2:***@example.com:8080/path")]
+        [InlineData("https://user:pass@example.com:8080/path\nhttps://user2@example.com:8080/path", "https://user:***@example.com:8080/path\nhttps://user2@example.com:8080/path")]
         // some URLs without secrets to mask
         [InlineData("https://example.com/path", "https://example.com/path")]
         [InlineData("http://example.com/path", "http://example.com/path")]
