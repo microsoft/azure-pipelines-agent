@@ -11,7 +11,9 @@ namespace Agent.Sdk.Knob
                                                         new EnvironmentKnobSource("AGENT_USE_NODE10"),
                                                         new BuiltInDefaultKnobSource("false"));
 
-
+        public static readonly Knob DisableAgentDowngrade = new Knob(nameof(DisableAgentDowngrade), "Disable agent downgrades. Upgrades will still be allowed.",
+                                                            new EnvironmentKnobSource("AZP_AGENT_DOWNGRADE_DISABLED"),
+                                                            new BuiltInDefaultKnobSource("false"));
     }
 
 }

@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
@@ -26,6 +27,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
     {
         private static string _packageType = "agent";
         private static string _platform = BuildConstants.AgentPackage.PackageName;
+        private static UpdaterKnobValueContext _knobContext = new UpdaterKnobValueContext();
 
         private PackageMetadata _targetPackage;
         private ITerminal _terminal;
@@ -129,7 +131,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Trace.Info($"Current running agent version is {BuildConstants.AgentPackage.Version}");
             PackageVersion agentVersion = new PackageVersion(BuildConstants.AgentPackage.Version);
 
-            return serverVersion.CompareTo(agentVersion) > 0;
+            if (serverVersion.CompareTo(agentVersion) > 0)
+            {
+                return true;
+            }
+
+            if (AgentKnobs.DisableAgentDowngrade.GetValue(_knobContext).AsBoolean())
+            {
+                Trace.Info("Agent downgrade disabled, skipping update");
+                return false;
+            }
+
+            // Always return true for newer agent versions unless they're exactly equal to enable auto rollback (this feature was introduced after 2.165.0)
+            if (serverVersion.CompareTo(agentVersion) != 0)
+            {
+                _terminal.WriteLine(StringUtil.Loc("AgentDowngrade"));
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -490,6 +510,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 Trace.Error(ex);
                 Trace.Info($"Catch exception during report update state, ignore this error and continue auto-update.");
             }
+        }
+    }
+
+    public class UpdaterKnobValueContext : IKnobValueContext
+    {
+        public string GetVariableValueOrDefault(string variableName)
+        {
+            return null;
+        }
+
+        public IScopedEnvironment GetScopedEnvironment()
+        {
+            return new SystemEnvironment();
         }
     }
 }
