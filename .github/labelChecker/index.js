@@ -4,6 +4,7 @@ const github = require('@actions/github');
 
 async function main() {
     try {
+        const issueTypes = ['bug', 'enhancement', 'misc', 'internal'];
         const pullRequestNumber = github.context.issue.number;
         console.log(`Running for PR: ${pullRequestNumber}\n`);
         let rest = new rm.RestClient('labelChecker');
@@ -13,17 +14,17 @@ async function main() {
         let labelCount = 0;
         res.result.forEach(tag => {
             let name = tag.name.toLowerCase();
-            if (['bug', 'enhancement', 'misc', 'internal'].indexOf(name) > -1) {
+            if (issueTypes.indexOf(name) > -1) {
                 console.log(`Found tag: ${name}`);
                 labelCount++;
             }
         });
 
         if (labelCount === 0) {
-            throw 'Must be labeled one of [bug, enhancement, misc, internal]'
+            throw `Must be labeled one of ${issueTypes.join(', ')}`
         }
         if (labelCount > 1) {
-            throw `Cannot contain more than one label of [bug, enhancement, misc, internal]. Currently contains ${labelCount}`
+            throw `Cannot contain more than one label of ${issueTypes.join(', ')}. Currently contains ${labelCount}`
         }
     } catch (err) {
         core.setFailed(err);
