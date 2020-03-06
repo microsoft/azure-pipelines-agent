@@ -7,6 +7,8 @@
 **/.vscode
 **/*.error
 **/*.json.pretty
+**/.taskkey
+node_modules
 **/node_modules
 _downloads
 _layout

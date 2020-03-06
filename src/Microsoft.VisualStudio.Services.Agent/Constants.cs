@@ -69,40 +69,39 @@ namespace Microsoft.VisualStudio.Services.Agent
                 //validArgs array as well present in the CommandSettings.cs
                 public static class Args
                 {
-                    public static readonly string Agent = "agent";
-                    public static readonly string Auth = "auth";
-                    public static readonly string CollectionName = "collectionname";
-                    public static readonly string DeploymentGroupName = "deploymentgroupname";
-                    public static readonly string DeploymentPoolName = "deploymentpoolname";
-                    public static readonly string DeploymentGroupTags = "deploymentgrouptags";
-                    public static readonly string EnvironmentName = "environmentname";
-                    public static readonly string EnvironmentVMResourceTags = "virtualmachineresourcetags";
-                    public static readonly string MachineGroupName = "machinegroupname";
-                    public static readonly string MachineGroupTags = "machinegrouptags";
-                    public static readonly string Matrix = "matrix";
-                    public static readonly string MonitorSocketAddress = "monitorsocketaddress";
-                    public static readonly string NotificationPipeName = "notificationpipename";
-                    public static readonly string NotificationSocketAddress = "notificationsocketaddress";
-                    public static readonly string Pool = "pool";
-                    public static readonly string ProjectName = "projectname";
-                    public static readonly string ProxyUrl = "proxyurl";
-                    public static readonly string ProxyUserName = "proxyusername";
-                    public static readonly string SslCACert = "sslcacert";
-                    public static readonly string SslClientCert = "sslclientcert";
-                    public static readonly string SslClientCertKey = "sslclientcertkey";
-                    public static readonly string SslClientCertArchive = "sslclientcertarchive";
-                    public static readonly string SslClientCertPassword = "sslclientcertpassword";
-                    public static readonly string StartupType = "startuptype";
-                    public static readonly string Url = "url";
-                    public static readonly string UserName = "username";
-                    public static readonly string WindowsLogonAccount = "windowslogonaccount";
-                    public static readonly string Work = "work";
+                    public const string Agent = "agent";
+                    public const string Auth = "auth";
+                    public const string CollectionName = "collectionname";
+                    public const string DeploymentGroupName = "deploymentgroupname";
+                    public const string DeploymentPoolName = "deploymentpoolname";
+                    public const string DeploymentGroupTags = "deploymentgrouptags";
+                    public const string EnvironmentName = "environmentname";
+                    public const string EnvironmentVMResourceTags = "virtualmachineresourcetags";
+                    public const string MachineGroupName = "machinegroupname";
+                    public const string MachineGroupTags = "machinegrouptags";
+                    public const string MonitorSocketAddress = "monitorsocketaddress";
+                    public const string NotificationPipeName = "notificationpipename";
+                    public const string NotificationSocketAddress = "notificationsocketaddress";
+                    public const string Pool = "pool";
+                    public const string ProjectName = "projectname";
+                    public const string ProxyUrl = "proxyurl";
+                    public const string ProxyUserName = "proxyusername";
+                    public const string SslCACert = "sslcacert";
+                    public const string SslClientCert = "sslclientcert";
+                    public const string SslClientCertKey = "sslclientcertkey";
+                    public const string SslClientCertArchive = "sslclientcertarchive";
+                    public const string StartupType = "startuptype";
+                    public const string Url = "url";
+                    public const string UserName = "username";
+                    public const string WindowsLogonAccount = "windowslogonaccount";
+                    public const string Work = "work";
 
                     // Secret args. Must be added to the "Secrets" getter as well.
-                    public static readonly string Password = "password";
-                    public static readonly string ProxyPassword = "proxypassword";
-                    public static readonly string Token = "token";
-                    public static readonly string WindowsLogonPassword = "windowslogonpassword";
+                    public const string Password = "password";
+                    public const string ProxyPassword = "proxypassword";
+                    public const string SslClientCertPassword = "sslclientcertpassword";
+                    public const string Token = "token";
+                    public const string WindowsLogonPassword = "windowslogonpassword";
                     public static string[] Secrets => new[]
                     {
                         Password,
@@ -115,38 +114,38 @@ namespace Microsoft.VisualStudio.Services.Agent
 
                 public static class Commands
                 {
-                    public static readonly string Configure = "configure";
-                    public static readonly string Remove = "remove";
-                    public static readonly string Run = "run";
-                    public static readonly string Warmup = "warmup";
+                    public const string Configure = "configure";
+                    public const string Remove = "remove";
+                    public const string Run = "run";
+                    public const string Warmup = "warmup";
                 }
 
                 //if you are adding a new flag, please make sure you update the
                 //validFlags array as well present in the CommandSettings.cs
                 public static class Flags
                 {
-                    public static readonly string AcceptTeeEula = "acceptteeeula";
-                    public static readonly string AddDeploymentGroupTags = "adddeploymentgrouptags";
-                    public static readonly string AddMachineGroupTags = "addmachinegrouptags";
-                    public static readonly string AddEnvironmentVirtualMachineResourceTags = "addvirtualmachineresourcetags";
-                    public static readonly string Commit = "commit";
-                    public static readonly string DeploymentGroup = "deploymentgroup";
-                    public static readonly string DeploymentPool = "deploymentpool";
-                    public static readonly string Diagnostics = "diagnostics";
-                    public static readonly string Environment = "environment";
-                    public static readonly string OverwriteAutoLogon = "overwriteautologon";
-                    public static readonly string GitUseSChannel = "gituseschannel";
-                    public static readonly string Help = "help";
-                    public static readonly string MachineGroup = "machinegroup";
-                    public static readonly string Replace = "replace";
-                    public static readonly string NoRestart = "norestart";
-                    public static readonly string LaunchBrowser = "launchbrowser";
-                    public static readonly string Once = "once";
-                    public static readonly string RunAsAutoLogon = "runasautologon";
-                    public static readonly string RunAsService = "runasservice";
-                    public static readonly string SslSkipCertValidation = "sslskipcertvalidation";
-                    public static readonly string Unattended = "unattended";
-                    public static readonly string Version = "version";
+                    public const string AcceptTeeEula = "acceptteeeula";
+                    public const string AddDeploymentGroupTags = "adddeploymentgrouptags";
+                    public const string AddMachineGroupTags = "addmachinegrouptags";
+                    public const string AddEnvironmentVirtualMachineResourceTags = "addvirtualmachineresourcetags";
+                    public const string Commit = "commit";
+                    public const string DeploymentGroup = "deploymentgroup";
+                    public const string DeploymentPool = "deploymentpool";
+                    public const string Diagnostics = "diagnostics";
+                    public const string Environment = "environment";
+                    public const string OverwriteAutoLogon = "overwriteautologon";
+                    public const string GitUseSChannel = "gituseschannel";
+                    public const string Help = "help";
+                    public const string MachineGroup = "machinegroup";
+                    public const string Replace = "replace";
+                    public const string NoRestart = "norestart";
+                    public const string LaunchBrowser = "launchbrowser";
+                    public const string Once = "once";
+                    public const string RunAsAutoLogon = "runasautologon";
+                    public const string RunAsService = "runasservice";
+                    public const string SslSkipCertValidation = "sslskipcertvalidation";
+                    public const string Unattended = "unattended";
+                    public const string Version = "version";
                 }
             }
 

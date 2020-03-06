@@ -174,15 +174,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             // Create the configuration provider as per agent type.
             string agentType;
-            if (command.DeploymentGroup)
+            if (command.GetDeploymentOrMachineGroup())
             {
                 agentType = Constants.Agent.AgentConfigurationProvider.DeploymentAgentConfiguration;
             }
-            else if (command.DeploymentPool)
+            else if (command.GetDeploymentPool())
             {
                 agentType = Constants.Agent.AgentConfigurationProvider.SharedDeploymentAgentConfiguration;
             }
-            else if (command.EnvironmentVMResource)
+            else if (command.GetEnvironmentVMResource())
             {
                 agentType = Constants.Agent.AgentConfigurationProvider.EnvironmentVMResourceConfiguration;
             }
@@ -224,7 +224,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     Trace.Info("Test Connection complete.");
                     break;
                 }
-                catch (Exception e) when (!command.Unattended)
+                catch (Exception e) when (!command.Unattended())
                 {
                     _term.WriteError(e);
                     _term.WriteError(StringUtil.Loc("FailedToConnect"));
@@ -250,7 +250,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     await agentProvider.GetPoolIdAndName(agentSettings, command);
                     break;
                 }
-                catch (Exception e) when (!command.Unattended)
+                catch (Exception e) when (!command.Unattended())
                 {
                     _term.WriteError(e);
                     _term.WriteError(agentProvider.GetFailedToFindPoolErrorString());
@@ -282,13 +282,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                             _term.WriteLine(StringUtil.Loc("AgentReplaced"));
                             break;
                         }
-                        catch (Exception e) when (!command.Unattended)
+                        catch (Exception e) when (!command.Unattended())
                         {
                             _term.WriteError(e);
                             _term.WriteError(StringUtil.Loc("FailedToReplaceAgent"));
                         }
                     }
-                    else if (command.Unattended)
+                    else if (command.Unattended())
                     {
                         // if not replace and it is unattended config.
                         agentProvider.ThrowTaskAgentExistException(agentSettings);
@@ -305,7 +305,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                         _term.WriteLine(StringUtil.Loc("AgentAddedSuccessfully"));
                         break;
                     }
-                    catch (Exception e) when (!command.Unattended)
+                    catch (Exception e) when (!command.Unattended())
                     {
                         _term.WriteError(e);
                         _term.WriteError(StringUtil.Loc("AddAgentFailed"));
@@ -437,7 +437,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             bool saveRuntimeOptions = false;
             var runtimeOptions = new AgentRuntimeOptions();
-            if (PlatformUtil.RunningOnWindows && command.GitUseSChannel)
+            if (PlatformUtil.RunningOnWindows && command.GetGitUseSChannel())
             {
                 saveRuntimeOptions = true;
                 runtimeOptions.GitUseSecureChannel = true;
@@ -651,7 +651,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             // Create the credential.
             Trace.Info("Creating credential for auth: {0}", authType);
             var provider = credentialManager.GetCredentialProvider(authType);
-            if (provider.RequireInteractive && command.Unattended)
+            if (provider.RequireInteractive && command.Unattended())
             {
                 throw new NotSupportedException($"Authentication type '{authType}' is not supported for unattended configuration.");
             }
@@ -712,20 +712,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         {
             // Determine the service deployment type based on connection data. (Hosted/OnPremises)
             var locationServer = HostContext.GetService<ILocationServer>();
-            VssConnection connection = VssUtil.CreateConnection(new Uri(serverUrl), credentials);
-            await locationServer.ConnectAsync(connection);
-            try
+            using (var connection = VssUtil.CreateConnection(new Uri(serverUrl), credentials))
             {
-                var connectionData = await locationServer.GetConnectionDataAsync();
-                Trace.Info($"Server deployment type: {connectionData.DeploymentType}");
-                return connectionData.DeploymentType.HasFlag(DeploymentFlags.Hosted);
-            }
-            catch (Exception ex)
-            {
-                // Since the DeploymentType is Enum, deserialization exception means there is a new Enum member been added.
-                // It's more likely to be Hosted since OnPremises is always behind and customer can update their agent if are on-prem
-                Trace.Error(ex);
-                return true;
+                await locationServer.ConnectAsync(connection);
+                try
+                {
+                    var connectionData = await locationServer.GetConnectionDataAsync();
+                    Trace.Info($"Server deployment type: {connectionData.DeploymentType}");
+                    return connectionData.DeploymentType.HasFlag(DeploymentFlags.Hosted);
+                }
+                catch (Exception ex)
+                {
+                    // Since the DeploymentType is Enum, deserialization exception means there is a new Enum member been added.
+                    // It's more likely to be Hosted since OnPremises is always behind and customer can update their agent if are on-prem
+                    Trace.Error(ex);
+                    return true;
+                }
             }
         }
     }

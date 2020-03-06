@@ -116,28 +116,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         break;
                 };
 
-                if ((currentExecution?.All.Any(x => x is PowerShell3HandlerData)).Value &&
-                    (currentExecution?.All.Any(x => x is PowerShellHandlerData && x.Platforms != null && x.Platforms.Contains("windows", StringComparer.OrdinalIgnoreCase))).Value)
-                {
-                    // When task contains both PS and PS3 implementations, we will always prefer PS3 over PS regardless of the platform pinning.
-                    Trace.Info("Ignore platform pinning for legacy PowerShell execution handler.");
-                    var legacyPShandler = currentExecution?.All.Where(x => x is PowerShellHandlerData).FirstOrDefault();
-                    legacyPShandler.Platforms = null;
-                }
+                HandlerData handlerData = GetHandlerData(ExecutionContext, currentExecution, PlatformUtil.HostOS);
 
-                var targetOS = PlatformUtil.HostOS;
-                var stepTarget = ExecutionContext.StepTarget();
-                if (stepTarget != null)
-                {
-                    targetOS = stepTarget.ExecutionOS;
-                }
-                Trace.Info($"Get handler data for target platform {targetOS.ToString()}");
-
-                HandlerData handlerData =
-                    currentExecution?.All
-                    .OrderBy(x => !x.PreferredOnPlatform(targetOS)) // Sort true to false.
-                    .ThenBy(x => x.Priority)
-                    .FirstOrDefault();
                 if (handlerData == null)
                 {
                     if (PlatformUtil.RunningOnWindows)
@@ -147,11 +127,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     throw new Exception(StringUtil.Loc("SupportedTaskHandlerNotFoundLinux"));
                 }
-
+                Trace.Info($"Handler data is of type {handlerData}");
 
                 Variables runtimeVariables = ExecutionContext.Variables;
                 IStepHost stepHost = HostContext.CreateService<IDefaultStepHost>();
-
+                var stepTarget = ExecutionContext.StepTarget();
                 // Setup container stephost and the right runtime variables for running job inside container.
                 if (stepTarget is ContainerInfo containerTarget)
                 {
@@ -368,6 +348,48 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Run the task.
                 await handler.RunAsync();
             }
+        }
+
+        public HandlerData GetHandlerData(IExecutionContext ExecutionContext, ExecutionData currentExecution, PlatformUtil.OS hostOS)
+        {
+            if (currentExecution == null)
+            {
+                return null;
+            }
+
+            if ((currentExecution.All.Any(x => x is PowerShell3HandlerData)) &&
+                (currentExecution.All.Any(x => x is PowerShellHandlerData && x.Platforms != null && x.Platforms.Contains("windows", StringComparer.OrdinalIgnoreCase))))
+            {
+                // When task contains both PS and PS3 implementations, we will always prefer PS3 over PS regardless of the platform pinning.
+                Trace.Info("Ignore platform pinning for legacy PowerShell execution handler.");
+                var legacyPShandler = currentExecution.All.Where(x => x is PowerShellHandlerData).FirstOrDefault();
+                legacyPShandler.Platforms = null;
+            }
+
+            var targetOS = hostOS;
+
+            var stepTarget = ExecutionContext.StepTarget();
+            var preferPowershellHandler = true;
+            var preferPowershellHandlerOnContainers = ExecutionContext.Variables.GetBoolean("agent.preferPowerShellOnContainers")
+                ?? StringUtil.ConvertToBoolean(System.Environment.GetEnvironmentVariable("AGENT_PREFER_POWERSHELL_ON_CONTAINERS"), false);
+            if (!preferPowershellHandlerOnContainers && stepTarget != null)
+            {
+                targetOS = stepTarget.ExecutionOS;
+                if (stepTarget is ContainerInfo)
+                {
+                    if ((currentExecution.All.Any(x => x is PowerShell3HandlerData)) &&
+                        (currentExecution.All.Any(x => x is NodeHandlerData || x is Node10HandlerData)))
+                        {
+                            Trace.Info($"Since we are targeting a container, we will prefer a node handler if one is available");
+                            preferPowershellHandler = false;
+                        }
+                }
+            }
+            Trace.Info($"Get handler data for target platform {targetOS.ToString()}");
+            return currentExecution.All
+                    .OrderBy(x => !(x.PreferredOnPlatform(targetOS) && (preferPowershellHandler || !(x is PowerShell3HandlerData)))) // Sort true to false.
+                    .ThenBy(x => x.Priority)
+                    .FirstOrDefault();
         }
 
         private string TranslateFilePathInput(string inputValue)

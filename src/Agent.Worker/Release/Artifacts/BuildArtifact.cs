@@ -54,44 +54,46 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                 throw new ArgumentException("artifactDefinition.Details");
             }
 
-            // Get the list of available artifacts from build. 
+            // Get the list of available artifacts from build.
             executionContext.Output(StringUtil.Loc("RMPreparingToGetBuildArtifactList"));
 
-            var vssConnection = VssUtil.CreateConnection(buildArtifactDetails.TfsUrl, buildArtifactDetails.Credentials);
-            var buildClient = vssConnection.GetClient<BuildHttpClient>();
-            var xamlBuildClient = vssConnection.GetClient<XamlBuildHttpClient>();
-            List<ServerBuildArtifact> buildArtifacts = null;
-
-            EnsureVersionBelongsToLinkedDefinition(artifactDefinition, buildClient, xamlBuildClient);
-
-            try
+            using (var vssConnection = VssUtil.CreateConnection(buildArtifactDetails.TfsUrl, buildArtifactDetails.Credentials))
             {
-                buildArtifacts = await buildClient.GetArtifactsAsync(buildArtifactDetails.Project, buildId);
-            }
-            catch (BuildNotFoundException)
-            {
-                buildArtifacts = await xamlBuildClient.GetArtifactsAsync(buildArtifactDetails.Project, buildId);
-            }
+                var buildClient = vssConnection.GetClient<BuildHttpClient>();
+                var xamlBuildClient = vssConnection.GetClient<XamlBuildHttpClient>();
+                List<ServerBuildArtifact> buildArtifacts = null;
 
-            // No artifacts found in the build, add warning. 
-            if (buildArtifacts == null || !buildArtifacts.Any())
-            {
-                executionContext.Warning(StringUtil.Loc("RMNoBuildArtifactsFound", buildId));
-                return;
-            }
+                EnsureVersionBelongsToLinkedDefinition(artifactDefinition, buildClient, xamlBuildClient);
 
-            // DownloadFromStream each of the artifact sequentially. 
-            // TODO: Should we download them parallely?
-            foreach (ServerBuildArtifact buildArtifact in buildArtifacts)
-            {
-                if (Match(buildArtifact, artifactDefinition))
+                try
                 {
-                    executionContext.Output(StringUtil.Loc("RMPreparingToDownload", buildArtifact.Name));
-                    await this.DownloadArtifactAsync(executionContext, buildArtifact, artifactDefinition, localFolderPath);
+                    buildArtifacts = await buildClient.GetArtifactsAsync(buildArtifactDetails.Project, buildId);
                 }
-                else
+                catch (BuildNotFoundException)
                 {
-                    executionContext.Warning(StringUtil.Loc("RMArtifactMatchNotFound", buildArtifact.Name));
+                    buildArtifacts = await xamlBuildClient.GetArtifactsAsync(buildArtifactDetails.Project, buildId);
+                }
+
+                // No artifacts found in the build, add warning.
+                if (buildArtifacts == null || !buildArtifacts.Any())
+                {
+                    executionContext.Warning(StringUtil.Loc("RMNoBuildArtifactsFound", buildId));
+                    return;
+                }
+
+                // DownloadFromStream each of the artifact sequentially.
+                // TODO: Should we download them parallely?
+                foreach (ServerBuildArtifact buildArtifact in buildArtifacts)
+                {
+                    if (Match(buildArtifact, artifactDefinition))
+                    {
+                        executionContext.Output(StringUtil.Loc("RMPreparingToDownload", buildArtifact.Name));
+                        await this.DownloadArtifactAsync(executionContext, buildArtifact, artifactDefinition, localFolderPath);
+                    }
+                    else
+                    {
+                        executionContext.Warning(StringUtil.Loc("RMArtifactMatchNotFound", buildArtifact.Name));
+                    }
                 }
             }
         }

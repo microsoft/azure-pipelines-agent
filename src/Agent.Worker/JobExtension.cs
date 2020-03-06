@@ -12,6 +12,7 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using System.Linq;
 using System.Diagnostics;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -120,6 +121,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                         taskConditionMap[task.Id] = condition;
                     }
+                    context.Output("Checking job knob settings.");
+                    foreach (var knob in Knob.GetAllKnobsFor<AgentKnobs>())
+                    {
+                        var value = knob.GetValue(jobContext);
+                        if (value.Source.GetType() != typeof(BuiltInDefaultKnobSource))
+                        {
+                            var tag = "";
+                            if (knob.IsDeprecated)
+                            {
+                                tag = "(DEPRECATED)";
+                            }
+                            else if (knob.IsExperimental)
+                            {
+                                tag = "(EXPERIMENTAL)";
+                            }
+                            var outputLine = $"   Knob: {knob.Name} = {value.AsString()} Source: {value.Source.GetDisplayString()} {tag}";
+                            if (knob.IsDeprecated)
+                            {
+                                context.Warning(outputLine);
+                            }
+                            else
+                            {
+                                context.Output(outputLine);
+                            }
+                        }
+                    }
+                    context.Output("Finished checking job knob settings.");
 
                     if (PlatformUtil.RunningOnWindows)
                     {
