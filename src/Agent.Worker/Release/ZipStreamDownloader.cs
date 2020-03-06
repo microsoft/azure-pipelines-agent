@@ -52,7 +52,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
             {
                 try
                 {
-                    // Remove leading '/'s if any 
+                    // Remove leading '/'s if any
                     var path = stream.FullName.TrimStart(ForwardSlash);
 
                     Trace.Verbose($"Downloading {path}, localFolderPath {localFolderPath}, folderWithinStream {folderWithinStream}, relativePathWithinStream {relativePathWithinStream}");
@@ -61,7 +61,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                     {
                         var normalizedFolderWithInStream = folderWithinStream.TrimStart(ForwardSlash).TrimEnd(ForwardSlash) + ForwardSlash;
 
-                        // If this zip entry does not start with the expected folderName, skip it. 
+                        // If this zip entry does not start with the expected folderName, skip it.
                         if (!path.StartsWith(normalizedFolderWithInStream, StringComparison.OrdinalIgnoreCase))
                         {
                             continue;
@@ -114,6 +114,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
             return streamsDownloaded;
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "ZipStream")]
         private static IEnumerable<ZipEntryStream> GetZipEntryStreams(Stream zipStream)
         {
             return

@@ -49,7 +49,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             // We use NetworkService as default account for build and release agent
             // We use Local System as default account for deployment agent, deployment pool agent, environment vm agent 
-            bool isDeploymentGroupScenario = command.DeploymentGroup || command.DeploymentPool || command.EnvironmentVMResource;
+            bool isDeploymentGroupScenario = command.GetDeploymentOrMachineGroup() || command.GetDeploymentPool() || command.GetEnvironmentVMResource();
             NTAccount defaultServiceAccount = isDeploymentGroupScenario ? _windowsServiceHelper.GetDefaultAdminServiceAccount() : _windowsServiceHelper.GetDefaultServiceAccount();
             string logonAccount = command.GetWindowsLogonAccount(defaultValue: defaultServiceAccount.ToString(), descriptionMsg: StringUtil.Loc("WindowsLogonAccountNameDescription"));
 
@@ -78,7 +78,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     }
                     else
                     {
-                        if (!command.Unattended)
+                        if (!command.Unattended())
                         {
                             Trace.Info("Invalid credential entered");
                             _term.WriteLine(StringUtil.Loc("InvalidWindowsCredential"));

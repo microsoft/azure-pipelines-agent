@@ -129,6 +129,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             get
             {
+                // Any time this gets updated, the agent cannot be rolled back.
+                // Back compat is guaranteed here, forward compat is not.
                 return 3;
             }
 
