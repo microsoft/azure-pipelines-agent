@@ -23,7 +23,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "CommandTraceListener")]
-    public class TestDataPublisher : AgentService, ITestDataPublisher
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA1001:Types that own disposable fields should be disposable", MessageId = "DisposableFieldsArePassedIn")]
+    public sealed class TestDataPublisher : AgentService, ITestDataPublisher
     {
         private IExecutionContext _executionContext;
         private string _projectName;

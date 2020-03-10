@@ -26,7 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         void Write(Guid stepId, string message);
     }
 
-    public sealed class AgentLogPlugin : AgentService, IAgentLogPlugin
+    public sealed class AgentLogPlugin : AgentService, IAgentLogPlugin, IDisposable
     {
         private readonly Guid _instanceId = Guid.NewGuid();
 
@@ -111,7 +111,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         _outputs.Enqueue(e.Data);
                     }
                 };
-
+                _pluginHostProcess?.Dispose();
                 _pluginHostProcess = processInvoker.ExecuteAsync(workingDirectory: workingDirectory,
                                                              fileName: file,
                                                              arguments: arguments,
@@ -238,6 +238,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                 }
             }
+        }
+
+        public void Dispose()
+        {
+            _pluginHostProcess?.Dispose();
+            _redirectedStdin?.Close();
         }
     }
 }

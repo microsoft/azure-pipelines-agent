@@ -21,14 +21,8 @@ DOTNETSDK_VERSION="3.1.100"
 DOTNETSDK_INSTALLDIR="$DOTNETSDK_ROOT/$DOTNETSDK_VERSION"
 AGENT_VERSION=$(cat "$SCRIPT_DIR/agentversion")
 
-DOTNET_ERROR_PREFIX=""
-DOTNET_WARNING_PREFIX=""
-
-# # if $ADO_ENABLE_LOGISSUE is set, add these prefixes to output of dotnet to elevate errors/warnings
-if  [[ "$ADO_ENABLE_LOGISSUE" == "true" ]]; then
-    DOTNET_ERROR_PREFIX="##vso[task.logissue type=error]"
-    DOTNET_WARNING_PREFIX="##vso[task.logissue type=warning]"
-fi
+DOTNET_ERROR_PREFIX="##vso[task.logissue type=error]"
+DOTNET_WARNING_PREFIX="##vso[task.logissue type=warning]"
 
 pushd "$SCRIPT_DIR"
 
@@ -76,10 +70,18 @@ function detect_platform_and_runtime_id ()
 function cmd_build ()
 {
     heading "Building"
-    dotnet msbuild -t:Build -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" \
+    TARGET="Build"
+    if  [[ "$ADO_ENABLE_LOGISSUE" == "true" ]]; then
+
+        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" \
          | sed -e "/\: warning /s/^/${DOTNET_WARNING_PREFIX} /;" \
          | sed -e "/\: error /s/^/${DOTNET_ERROR_PREFIX} /;" \
          || failed build
+    else
+        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" \
+         || failed build
+    fi
+
 
     mkdir -p "${LAYOUT_DIR}/bin/en-US"
     grep --invert-match '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > "${LAYOUT_DIR}/bin/en-US/strings.json"
@@ -89,10 +91,16 @@ function cmd_build ()
 function cmd_layout ()
 {
     heading "Creating layout"
-    dotnet msbuild -t:layout -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" \
+    TARGET="layout"
+    if  [[ "$ADO_ENABLE_LOGISSUE" == "true" ]]; then
+        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" \
          | sed -e "/\: warning /s/^/${DOTNET_WARNING_PREFIX} /;" \
          | sed -e "/\: error /s/^/${DOTNET_ERROR_PREFIX} /;" \
          || failed build
+    else
+        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" \
+         || failed build
+    fi
 
     mkdir -p "${LAYOUT_DIR}/bin/en-US"
     grep --invert-match '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > "${LAYOUT_DIR}/bin/en-US/strings.json"

@@ -10,7 +10,7 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEngine;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider.Helpers
 {
-    public class ContainerProviderFactory
+    public sealed class ContainerProviderFactory : IDisposable
     {
         private readonly BuildArtifactDetails _buildArtifactDetails;
         private readonly string _rootLocation;
@@ -60,6 +60,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider
                 default:
                     throw new ArtifactDownloadException((StringUtil.Loc("RMArtifactTypeNotSupported", containerType)));
             }
+        }
+
+        public void Dispose()
+        {
+            _retryOnTimeoutMessageHandler?.Dispose();
         }
     }
 }

@@ -245,15 +245,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                 executionContext.Output(StringUtil.Loc("RMParallelDownloadLimit", containerFetchEngineOptions.ParallelDownloadLimit));
                 executionContext.Output(StringUtil.Loc("RMDownloadBufferSize", containerFetchEngineOptions.DownloadBufferSize));
 
-                IContainerProvider containerProvider =
-                    new ContainerProviderFactory(buildArtifactDetails, rootLocation, containerId, executionContext).GetContainerProvider(
-                        ArtifactResourceTypes.Container);
-
-                using (var engine = new ContainerFetchEngine.ContainerFetchEngine(containerProvider, rootLocation, rootDestinationDir))
+                using (var containerProviderFactory = new ContainerProviderFactory(buildArtifactDetails, rootLocation, containerId, executionContext))
                 {
-                    engine.ContainerFetchEngineOptions = containerFetchEngineOptions;
-                    engine.ExecutionLogger = new ExecutionLogger(executionContext);
-                    await engine.FetchAsync(executionContext.CancellationToken);
+                    var containerProvider = containerProviderFactory.GetContainerProvider(ArtifactResourceTypes.Container);
+                    using (var engine = new ContainerFetchEngine.ContainerFetchEngine(containerProvider, rootLocation, rootDestinationDir))
+                    {
+                        engine.ContainerFetchEngineOptions = containerFetchEngineOptions;
+                        engine.ExecutionLogger = new ExecutionLogger(executionContext);
+                        await engine.FetchAsync(executionContext.CancellationToken);
+                    }
                 }
             }
             else
