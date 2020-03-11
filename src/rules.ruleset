@@ -63,7 +63,7 @@
       <Rule Id="CA1506" Action="Warning" />          <!-- Avoid excessive class coupling -->
       <Rule Id="CA1507" Action="Error" />            <!-- Use nameof to express symbol names -->
       <Rule Id="CA1508" Action="Hidden" />           <!-- Avoid dead conditional code --> <!-- TOO MANY FALSE POSITIVES -->
-      <Rule Id="CA1509" Action="Error" />          <!-- Invalid entry in code metrics rule specification file -->
+      <Rule Id="CA1509" Action="Error" />            <!-- Invalid entry in code metrics rule specification file -->
       <Rule Id="CA1707" Action="Hidden" />           <!-- Identifiers should not contain underscores --> <!-- Too much work to change now -->
       <Rule Id="CA1708" Action="Warning" />          <!-- Identifiers should differ by more than case -->
       <Rule Id="CA1710" Action="Error" />            <!-- Identifiers should have correct suffix -->
