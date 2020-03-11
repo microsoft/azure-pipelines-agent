@@ -15,7 +15,7 @@ $vstsAuthHeader = @{"Authorization"="Basic $base64authinfo"}
 $allHeaders = $vstsAuthHeader + @{"Content-Type"="application/json"; "Accept"="application/json"}
 
 # List of deprecated images
-$deprecatedImages = 'WINCON', 'win1803', 'macOS-10.13', 'macOS 10.13', 'MacOS 1013', 'MacOS-1013', 'DefaultHosted', 'vs2015 win2012r2', 'vs2015-win2012r2'
+[string[]] $deprecatedImages = 'WINCON', 'win1803', 'macOS-10.13', 'macOS 10.13', 'MacOS 1013', 'MacOS-1013', 'DefaultHosted', 'vs2015 win2012r2', 'vs2015-win2012r2'
 
 try
 {
@@ -80,7 +80,9 @@ try
             {
                 foreach($job in $resultJson.value)
                 {
-                    if ($job.agentSpecification -and ($deprecatedImages -contains $job.agentSpecification))
+                    if ($job.agentSpecification -and
+                        $job.agentSpecification.VMImage -and
+                        $deprecatedImages.Contains($job.agentSpecification.VMImage))
                     {
                         $hashJobsToDef[$job.definition.name] = $job.definition._links.web.href
                     }
