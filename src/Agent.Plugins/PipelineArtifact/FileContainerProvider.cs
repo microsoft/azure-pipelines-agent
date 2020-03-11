@@ -78,7 +78,7 @@ namespace Agent.Plugins.PipelineArtifact
             else
             {
                 var message = $"Resource data value '{resourceData}' is invalid.";
-                throw new ArgumentException(message, "resourceData");
+                throw new ArgumentException(message, nameof(resourceData));
             }
         }
 

@@ -10,7 +10,7 @@
 <RuleSet Name="All Rules Enabled with default severity" Description="All Rules are enabled with default severity. Rules with IsEnabledByDefault = false are force enabled with default severity." ToolsVersion="15.0">
    <Rules AnalyzerId="Microsoft.CodeAnalysis.FxCopAnalyzers" RuleNamespace="Microsoft.CodeAnalysis.FxCopAnalyzers">
       <Rule Id="CA1000" Action="Error" />            <!-- Do not declare static members on generic types -->
-      <Rule Id="CA1001" Action="Warning" />          <!-- Types that own disposable fields should be disposable -->
+      <Rule Id="CA1001" Action="Error" />            <!-- Types that own disposable fields should be disposable -->
       <Rule Id="CA1003" Action="Error" />            <!-- Use generic event handler instances -->
       <Rule Id="CA1008" Action="Warning" />          <!-- Enums should have zero value -->
       <Rule Id="CA1010" Action="Error" />            <!-- Collections should implement generic interface -->
@@ -24,8 +24,8 @@
       <Rule Id="CA1027" Action="Error" />            <!-- Mark enums with FlagsAttribute -->
       <Rule Id="CA1028" Action="Error" />            <!-- Enum Storage should be Int32 -->
       <Rule Id="CA1030" Action="Warning" />          <!-- Use events where appropriate -->
-      <Rule Id="CA1031" Action="Warning" />          <!-- Do not catch general exception types -->
-      <Rule Id="CA1032" Action="Warning" />            <!-- Implement standard exception constructors -->
+      <Rule Id="CA1031" Action="Hidden" />           <!-- Do not catch general exception types -->
+      <Rule Id="CA1032" Action="Warning" />          <!-- Implement standard exception constructors -->
       <Rule Id="CA1033" Action="Warning" />          <!-- Interface methods should be callable by child types -->
       <Rule Id="CA1034" Action="Warning" />          <!-- Nested types should not be visible -->
       <Rule Id="CA1036" Action="Error" />            <!-- Override methods on comparable types -->
@@ -61,10 +61,10 @@
       <Rule Id="CA1502" Action="Warning" />          <!-- Avoid excessive complexity -->
       <Rule Id="CA1505" Action="Warning" />          <!-- Avoid unmaintainable code -->
       <Rule Id="CA1506" Action="Warning" />          <!-- Avoid excessive class coupling -->
-      <Rule Id="CA1507" Action="Warning" />          <!-- Use nameof to express symbol names -->
-      <Rule Id="CA1508" Action="Warning" />          <!-- Avoid dead conditional code -->
+      <Rule Id="CA1507" Action="Error" />            <!-- Use nameof to express symbol names -->
+      <Rule Id="CA1508" Action="Hidden" />           <!-- Avoid dead conditional code --> <!-- TOO MANY FALSE POSITIVES -->
       <Rule Id="CA1509" Action="Error" />            <!-- Invalid entry in code metrics rule specification file -->
-      <Rule Id="CA1707" Action="Hidden" />           <!-- Identifiers should not contain underscores -->
+      <Rule Id="CA1707" Action="Hidden" />           <!-- Identifiers should not contain underscores --> <!-- Too much work to change now -->
       <Rule Id="CA1708" Action="Warning" />          <!-- Identifiers should differ by more than case -->
       <Rule Id="CA1710" Action="Error" />            <!-- Identifiers should have correct suffix -->
       <Rule Id="CA1711" Action="Warning" />          <!-- Identifiers should not have incorrect suffix -->
@@ -78,7 +78,7 @@
       <Rule Id="CA1724" Action="Warning" />          <!-- Type names should not match namespaces -->
       <Rule Id="CA1725" Action="Warning" />          <!-- Parameter names should match base declaration -->
       <Rule Id="CA1801" Action="Warning" />          <!-- Review unused parameters -->
-      <Rule Id="CA1802" Action="Warning" />          <!-- Use literals where appropriate -->
+      <Rule Id="CA1802" Action="Hidden" />           <!-- Use literals where appropriate --> <!-- this flags 'static readonly' as should be 'const' -->
       <Rule Id="CA1806" Action="Warning" />          <!-- Do not ignore method results -->
       <Rule Id="CA1810" Action="Warning" />          <!-- Initialize reference type static fields inline -->
       <Rule Id="CA1812" Action="Warning" />          <!-- Avoid uninstantiated internal classes -->
