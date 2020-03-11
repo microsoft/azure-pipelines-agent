@@ -1,6 +1,12 @@
 param (
-    $accountUrl,
-    $pat
+    [Parameter(Mandatory = $true)]
+    [string] $accountUrl,
+
+    [Parameter(Mandatory = $true)]
+    [string] $pat,
+
+    [Parameter(Mandatory = $false)]
+    [string] $continuationToken
 )
 
 # Create the VSTS auth header
@@ -8,15 +14,18 @@ $base64authinfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$p
 $vstsAuthHeader = @{"Authorization"="Basic $base64authinfo"}
 $allHeaders = $vstsAuthHeader + @{"Content-Type"="application/json"; "Accept"="application/json"}
 
+# List of deprecated images
+$deprecatedImages = 'WINCON', 'win1803', 'macOS-10.13', 'macOS 10.13', 'MacOS 1013', 'MacOS-1013', 'DefaultHosted', 'vs2015 win2012r2', 'vs2015-win2012r2'
+
 try
 {
-	$result = Invoke-WebRequest -Headers $allHeaders -Method GET "$accountUrl/_apis/DistributedTask/pools?api-version=5.0-preview"
-	if ($result.StatusCode -ne 200)
+    $result = Invoke-WebRequest -Headers $allHeaders -Method GET "$accountUrl/_apis/DistributedTask/pools?api-version=5.0-preview"
+    if ($result.StatusCode -ne 200)
     {
-		echo $result.Content
-		throw "Failed to query pools"
-	}
-	$resultJson = ConvertFrom-Json $result.Content
+        Write-Output $result.Content
+        throw "Failed to query pools"
+    }
+    $resultJson = ConvertFrom-Json $result.Content
     $azurePipelinesPoolId = 0
     foreach($pool in $resultJson.value)
     {
@@ -32,19 +41,18 @@ try
         throw "Failed to find Azure Pipelines pool"
     }
     
-    Write-Host ("Azure Pipelines Pool Id: " + $azurePipelinesPoolId)
+    Write-Host ("Azure Pipelines Pool Id: " + $azurePipelinesPoolId + "`n")
 
     $msg = 'Query next 200 jobs? (y/n)'
     $response = 'y'
-    $continuationToken = 0
     $hashJobsToDef = @{}
     do
     {
         if ($response -eq 'y')
         {
-	        echo "Querying next 200 jobs"
+            Write-Output ("Querying next 200 jobs with continuation token:`n" + $continuationToken + "`n")
 
-            if ($continuationToken -eq 0)
+            if (!$continuationToken)
             {
                 $result = Invoke-WebRequest -Headers $allHeaders -Method GET "$accountUrl/_apis/DistributedTask/pools/$($azurePipelinesPoolId)/jobrequests?api-version=5.0-preview&`$top=200"
             }
@@ -53,44 +61,34 @@ try
                 $result = Invoke-WebRequest -Headers $allHeaders -Method GET "$accountUrl/_apis/DistributedTask/pools/$($azurePipelinesPoolId)/jobrequests?api-version=5.0-preview&`$top=200&continuationToken=$($continuationToken)"
             }
 
-	        if ($result.StatusCode -ne 200)
+            if ($result.StatusCode -ne 200)
             {
-		        echo $result.Content
-		        throw "Failed to query jobs"
-	        }
+                Write-Output $result.Content
+                throw "Failed to query jobs"
+            }
             $continuationToken = $result.Headers.'X-MS-ContinuationToken'
-	        $resultJson = ConvertFrom-Json $result.Content
+            $resultJson = ConvertFrom-Json $result.Content
 
             if ($resultJson.value.count -eq 0)
             {
                 $response = 'n'
-                echo "Done"
-                echo "List of definitions targetting deprecated images:"
-                echo $hashJobsToDef
+                Write-Output "Done`n"
+                Write-Output "List of definitions targetting deprecated images:`n"
+                Write-Output $hashJobsToDef
             }
             else
             {
                 foreach($job in $resultJson.value)
                 {
-                    if ($job.agentSpecification)
+                    if ($job.agentSpecification -and ($deprecatedImages -contains $job.agentSpecification))
                     {
-                        if ($job.agentSpecification.VMImage -eq 'WINCON' -or
-                            $job.agentSpecification.VMImage  -eq 'win1803' -or
-                            $job.agentSpecification.VMImage  -eq 'macOS-10.13' -or
-                            $job.agentSpecification.VMImage  -eq 'macOS 10.13' -or
-                            $job.agentSpecification.VMImage  -eq 'MacOS 1013' -or
-                            $job.agentSpecification.VMImage  -eq 'MacOS-1013' -or
-                            $job.agentSpecification.VMImage  -eq 'DefaultHosted' -or
-                            $job.agentSpecification.VMImage  -eq 'vs2015 win2012r2' -or
-                            $job.agentSpecification.VMImage  -eq 'vs2015-win2012r2')
-                        {
-                            $hashJobsToDef[$job.definition.name] = $job.definition._links.web.href
-                        }
+                        $hashJobsToDef[$job.definition.name] = $job.definition._links.web.href
                     }
                 }
 
-                echo "Current list of definitions targetting deprecated images:"
-                echo $hashJobsToDef
+                Write-Output "Current list of definitions targetting deprecated images:`n"
+                Write-Output $hashJobsToDef
+                Write-Output "`n"
 
                 $response = Read-Host -Prompt $msg
             }
@@ -98,5 +96,5 @@ try
     } until ($response -eq 'n')
 }
 catch {
-	throw "Failed to query jobs: $_"
+    throw "Failed to query jobs: $_"
 }
