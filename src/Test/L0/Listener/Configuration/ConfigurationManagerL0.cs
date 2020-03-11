@@ -20,7 +20,7 @@ using Microsoft.VisualStudio.Services.Common;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
 {
-    public class ConfigurationManagerL0
+    public sealed class ConfigurationManagerL0 : IDisposable
     {
         private Mock<IAgentServer> _agentServer;
         private Mock<ILocationServer> _locationServer;
@@ -626,6 +626,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             return new List<IConfigurationProvider> { buildReleasesAgentConfigProvider, _deploymentGroupAgentConfigProvider, sharedDeploymentAgentConfiguration, environmentVMResourceConfiguration };
         }
         // TODO Unit Test for IsConfigured - Rename config file and make sure it returns false
+
+        public void Dispose()
+        {
+            rsa?.Dispose();
+        }
 
     }
 }
