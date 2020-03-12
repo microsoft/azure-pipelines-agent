@@ -60,10 +60,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         }
 
         /// <summary>
-        /// This method returns the repo from the list that is considered the primary repository.
-        /// If the list only contains 1 repo, then that is the primary repository.
-        /// If the list contains more than one, then we look for the repository marked as the primary repo.
-        /// It returns null, if no primary repository can be found.
+        /// This method returns the repo from the list that is considered the triggering repository.
+        /// If the list only contains 1 repo, then that is the triggering repository.
+        /// If the list contains more than one, then we look for the repository marked as the triggering repo.
+        /// It returns null, if no triggering repository can be found.
         /// </summary>
         public static RepositoryResource GetTriggeringRepository(IList<RepositoryResource> repositories)
         {
