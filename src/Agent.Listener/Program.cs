@@ -2,10 +2,13 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using CommandLine;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
@@ -103,14 +106,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 }
 
                 // Parse the command line args.
-                var command = new CommandSettings(context, args);
+                var command = new CommandSettings(context, args, new SystemEnvironment());
                 trace.Info("Arguments parsed");
 
-                // Up front validation, warn for unrecognized commandline args.
-                var unknownCommandlines = command.Validate();
-                if (unknownCommandlines.Count > 0)
+                // Print any Parse Errros
+                if (command.ParseErrors?.Any() == true)
                 {
-                    terminal.WriteError(StringUtil.Loc("UnrecognizedCmdArgs", string.Join(", ", unknownCommandlines)));
+                    List<string> errorStr = new List<string>();
+
+                    foreach (var error in command.ParseErrors)
+                    {
+                        if (error is TokenError tokenError)
+                        {
+                            errorStr.Add(tokenError.Token);
+                        }
+                        else
+                        {
+                            // Unknown type of error dump to log
+                            terminal.WriteError(StringUtil.Loc("ErrorOccurred", error.Tag));
+                        }
+                    }
+
+                    terminal.WriteError(
+                        StringUtil.Loc("UnrecognizedCmdArgs",
+                        string.Join(", ", errorStr)));
                 }
 
                 // Defer to the Agent class to execute the command.

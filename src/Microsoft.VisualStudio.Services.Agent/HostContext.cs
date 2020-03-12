@@ -24,7 +24,6 @@ namespace Microsoft.VisualStudio.Services.Agent
 {
     public interface IHostContext : IDisposable
     {
-        RunMode RunMode { get; set; }
         StartupType StartupType { get; set; }
         CancellationToken AgentShutdownToken { get; }
         ShutdownReason AgentShutdownReason { get; }
@@ -50,20 +49,32 @@ namespace Microsoft.VisualStudio.Services.Agent
         AutoStartup
     }
 
-    public sealed class HostContext : EventListener, IObserver<DiagnosticListener>, IObserver<KeyValuePair<string, object>>, IHostContext, IDisposable
+    public class HostContext : EventListener, IObserver<DiagnosticListener>, IObserver<KeyValuePair<string, object>>, IHostContext
     {
         private const int _defaultLogPageSize = 8;  //MB
+
+        // URLs can contain secrets if they have a userinfo part
+        // in the authority. example: https://user:pass@example.com
+        // (see https://tools.ietf.org/html/rfc3986#section-3.2)
+        // This regex will help filter those out of the output.
+        // It uses a zero-width positive lookbehind to find the scheme,
+        // the user, and the ":" and skip them. Similarly, it uses
+        // a zero-width positive lookahead to find the "@".
+        // It only matches on the password part.
+        private const string _urlSecretMaskerPattern
+            = "(?<=//[^:/?#\\n]+:)" // lookbehind
+            + "[^@\n]+"             // actual match
+            + "(?=@)";              // lookahead
+
         private static int _defaultLogRetentionDays = 30;
         private static int[] _vssHttpMethodEventIds = new int[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 24 };
         private static int[] _vssHttpCredentialEventIds = new int[] { 11, 13, 14, 15, 16, 17, 18, 20, 21, 22, 27, 29 };
         private readonly ConcurrentDictionary<Type, object> _serviceInstances = new ConcurrentDictionary<Type, object>();
-        private readonly ConcurrentDictionary<Type, Type> _serviceTypes = new ConcurrentDictionary<Type, Type>();
+        protected readonly ConcurrentDictionary<Type, Type> ServiceTypes = new ConcurrentDictionary<Type, Type>();
         private readonly ISecretMasker _secretMasker = new SecretMasker();
         private readonly ProductInfoHeaderValue _userAgent = new ProductInfoHeaderValue($"VstsAgentCore-{BuildConstants.AgentPackage.PackageName}", BuildConstants.AgentPackage.Version);
         private CancellationTokenSource _agentShutdownTokenSource = new CancellationTokenSource();
         private object _perfLock = new object();
-
-        private RunMode _runMode = RunMode.Normal;
         private Tracing _trace;
         private Tracing _vssTrace;
         private Tracing _httpTrace;
@@ -73,7 +84,6 @@ namespace Microsoft.VisualStudio.Services.Agent
         private IDisposable _diagListenerSubscription;
         private StartupType _startupType;
         private string _perfFile;
-
         public event EventHandler Unloading;
         public CancellationToken AgentShutdownToken => _agentShutdownTokenSource.Token;
         public ShutdownReason AgentShutdownReason { get; private set; }
@@ -89,6 +99,8 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             this.SecretMasker.AddValueEncoder(ValueEncoders.JsonStringEscape);
             this.SecretMasker.AddValueEncoder(ValueEncoders.UriDataEscape);
+            this.SecretMasker.AddValueEncoder(ValueEncoders.BackslashEscape);
+            this.SecretMasker.AddRegex(_urlSecretMaskerPattern);
 
             // Create the trace manager.
             if (string.IsNullOrEmpty(logFile))
@@ -150,21 +162,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        public RunMode RunMode
-        {
-            get
-            {
-                return _runMode;
-            }
-
-            set
-            {
-                _trace.Info($"Set run mode: {value}");
-                _runMode = value;
-            }
-        }
-
-        public string GetDirectory(WellKnownDirectory directory)
+        public virtual string GetDirectory(WellKnownDirectory directory)
         {
             string path;
             switch (directory)
@@ -200,13 +198,13 @@ namespace Microsoft.VisualStudio.Services.Agent
                         GetDirectory(WellKnownDirectory.Externals),
                         Constants.Path.ServerOMDirectory);
                     break;
-                
+
                 case WellKnownDirectory.Tf:
                     path = Path.Combine(
                         GetDirectory(WellKnownDirectory.Externals),
                         Constants.Path.TfDirectory);
                     break;
-                
+
                 case WellKnownDirectory.Tee:
                     path = Path.Combine(
                         GetDirectory(WellKnownDirectory.Externals),
@@ -371,7 +369,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             Type defaultTarget = null;
             Type platformTarget = null;
 
-            if (!_serviceTypes.TryGetValue(typeof(T), out target))
+            if (!ServiceTypes.TryGetValue(typeof(T), out target))
             {
                 // Infer the concrete type from the ServiceLocatorAttribute.
                 CustomAttributeData attribute = typeof(T)
@@ -412,8 +410,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                     throw new KeyNotFoundException(string.Format(CultureInfo.InvariantCulture, "Service mapping not found for key '{0}'.", typeof(T).FullName));
                 }
 
-                _serviceTypes.TryAdd(typeof(T), target);
-                target = _serviceTypes[typeof(T)];
+                ServiceTypes.TryAdd(typeof(T), target);
+                target = ServiceTypes[typeof(T)];
             }
 
             // Create a new instance.
@@ -457,7 +455,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             AgentShutdownReason = reason;
             _agentShutdownTokenSource.Cancel();
         }
- 
+
         public ContainerInfo CreateContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true)
         {
             ContainerInfo containerInfo = new ContainerInfo(container, isJobContainer);
@@ -474,17 +472,18 @@ namespace Microsoft.VisualStudio.Services.Agent
                 pathMappings[this.GetDirectory(WellKnownDirectory.Tools)] = "/__t"; // Tool cache folder may come from ENV, so we need a unique folder to avoid collision
                 pathMappings[this.GetDirectory(WellKnownDirectory.Work)] = "/__w";
                 pathMappings[this.GetDirectory(WellKnownDirectory.Root)] = "/__a";
-                if (containerInfo.IsJobContainer)
-                {
-                    containerInfo.MountVolumes.Add(new MountVolume("/var/run/docker.sock", "/var/run/docker.sock"));
-                }
+            }
+
+            if (containerInfo.IsJobContainer && containerInfo.MapDockerSocket)
+            {
+                containerInfo.MountVolumes.Add(new MountVolume("/var/run/docker.sock", "/var/run/docker.sock"));
             }
 
             containerInfo.AddPathMappings(pathMappings);
             return containerInfo;
         }
 
-        public override void Dispose()
+        public sealed override void Dispose()
         {
             Dispose(true);
             GC.SuppressFinalize(this);
@@ -521,7 +520,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        private void Dispose(bool disposing)
+        protected virtual void Dispose(bool disposing)
         {
             // TODO: Dispose the trace listener also.
             if (disposing)
@@ -535,6 +534,12 @@ namespace Microsoft.VisualStudio.Services.Agent
                 _diagListenerSubscription?.Dispose();
                 _traceManager?.Dispose();
                 _traceManager = null;
+                _vssTrace?.Dispose();
+                _vssTrace = null;
+                _trace?.Dispose();
+                _trace = null;
+                _httpTrace?.Dispose();
+                _httpTrace = null;
 
                 _agentShutdownTokenSource?.Dispose();
                 _agentShutdownTokenSource = null;

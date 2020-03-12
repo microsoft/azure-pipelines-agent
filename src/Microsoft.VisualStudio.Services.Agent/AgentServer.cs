@@ -68,10 +68,6 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public async Task ConnectAsync(Uri serverUrl, VssCredentials credentials)
         {
-            if (HostContext.RunMode == RunMode.Local)
-            {
-                return;
-            }
 
             // Perf: Kick off these 3 outbound calls in parallel and wait for all of them to finish.
             Task<VssConnection> task1 = EstablishVssConnection(serverUrl, credentials, TimeSpan.FromSeconds(60));
@@ -306,29 +302,18 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public Task<TaskAgentJobRequest> RenewAgentRequestAsync(int poolId, long requestId, Guid lockToken, CancellationToken cancellationToken = default(CancellationToken))
         {
-            if (HostContext.RunMode == RunMode.Local)
-            {
-                return Task.FromResult(JsonUtility.FromString<TaskAgentJobRequest>("{ lockedUntil: \"" + DateTime.Now.Add(TimeSpan.FromMinutes(5)).ToString("u") + "\" }"));
-            }
-
             CheckConnection(AgentConnectionType.JobRequest);
             return _requestTaskAgentClient.RenewAgentRequestAsync(poolId, requestId, lockToken, cancellationToken: cancellationToken);
         }
 
         public Task<TaskAgentJobRequest> FinishAgentRequestAsync(int poolId, long requestId, Guid lockToken, DateTime finishTime, TaskResult result, CancellationToken cancellationToken = default(CancellationToken))
         {
-            if (HostContext.RunMode == RunMode.Local)
-            {
-                return Task.FromResult<TaskAgentJobRequest>(null);
-            }
-
             CheckConnection(AgentConnectionType.JobRequest);
             return _requestTaskAgentClient.FinishAgentRequestAsync(poolId, requestId, lockToken, finishTime, result, cancellationToken: cancellationToken);
         }
 
         public Task<TaskAgentJobRequest> GetAgentRequestAsync(int poolId, long requestId, CancellationToken cancellationToken = default(CancellationToken))
         {
-            ArgUtil.Equal(RunMode.Normal, HostContext.RunMode, nameof(HostContext.RunMode));
             CheckConnection(AgentConnectionType.JobRequest);
             return _requestTaskAgentClient.GetAgentRequestAsync(poolId, requestId, cancellationToken: cancellationToken);
         }
@@ -338,7 +323,6 @@ namespace Microsoft.VisualStudio.Services.Agent
         //-----------------------------------------------------------------
         public Task<List<PackageMetadata>> GetPackagesAsync(string packageType, string platform, int top, CancellationToken cancellationToken)
         {
-            ArgUtil.Equal(RunMode.Normal, HostContext.RunMode, nameof(HostContext.RunMode));
             CheckConnection(AgentConnectionType.Generic);
             return _genericTaskAgentClient.GetPackagesAsync(packageType, platform, top, cancellationToken: cancellationToken);
         }

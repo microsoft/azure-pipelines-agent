@@ -298,16 +298,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                 }
             }
 
-            return await processInvoker.ExecuteAsync(
-                workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
-                fileName: DockerPath,
-                arguments: arg,
-                environment: null,
-                requireExitCodeZero: false,
-                outputEncoding: null,
-                killProcessOnCancel: false,
-                redirectStandardIn: redirectStandardIn,
-                cancellationToken: cancellationToken);
+            using (redirectStandardIn)
+            {
+                return await processInvoker.ExecuteAsync(
+                    workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
+                    fileName: DockerPath,
+                    arguments: arg,
+                    environment: null,
+                    requireExitCodeZero: false,
+                    outputEncoding: null,
+                    killProcessOnCancel: false,
+                    redirectStandardIn: redirectStandardIn,
+                    cancellationToken: cancellationToken);
+            }
         }
 
         private async Task<List<string>> ExecuteDockerCommandAsync(IExecutionContext context, string command, string options)

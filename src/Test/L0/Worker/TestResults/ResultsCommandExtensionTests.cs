@@ -29,10 +29,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         private Mock<IExtensionManager> _mockExtensionManager;
         private Mock<IParser> _mockParser;
         private Mock<ICustomerIntelligenceServer> _mockCustomerIntelligenceServer;
-
         private Mock<IFeatureFlagService> _mockFeatureFlagService;
-
-        private TestHostContext _hc;
         private Variables _variables;
         private IWorkerCommandRestrictionPolicy _policy = new UnrestricedWorkerCommandRestrictionPolicy();
 
@@ -58,13 +55,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         [Trait("Category", "PublishTestResults")]
         public void Publish_NullTestRunner()
         {
-            SetupMocks();
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", "ResultFile.txt");
+            using (var _hc = SetupMocks())
+            {
+                var resultCommand = new ResultsCommandExtension();
+                resultCommand.Initialize(_hc);
+                var command = new Command("results", "publish");
+                command.Properties.Add("resultFiles", "ResultFile.txt");
 
-            Assert.Throws<ArgumentException>(() => resultCommand.ProcessCommand(_ec.Object, command, _policy));
+                Assert.Throws<ArgumentException>(() => resultCommand.ProcessCommand(_ec.Object, command, _policy));
+            }
         }
 
         [Fact]
@@ -72,11 +71,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         [Trait("Category", "PublishTestResults")]
         public void Publish_NullTestResultFiles()
         {
-            SetupMocks();
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            Assert.Throws<ArgumentException>(() => resultCommand.ProcessCommand(_ec.Object, command, _policy));
+            using (var _hc = SetupMocks())
+            {
+                var resultCommand = new ResultsCommandExtension();
+                resultCommand.Initialize(_hc);
+                var command = new Command("results", "publish");
+                Assert.Throws<ArgumentException>(() => resultCommand.ProcessCommand(_ec.Object, command, _policy));
+            }
         }
 
         [Fact]
@@ -84,16 +85,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         [Trait("Category", "PublishTestResults")]
         public void Publish_DataIsHonoredWhenTestResultsFieldIsNotSpecified()
         {
-            SetupMocks();
+            using (var _hc = SetupMocks())
+            {
+                var resultCommand = new ResultsCommandExtension();
+                resultCommand.Initialize(_hc);
+                var command = new Command("results", "publish");
+                command.Properties.Add("type", "mockResults");
+                command.Data = "testfile1,testfile2";
+                resultCommand.ProcessCommand(_ec.Object, command, _policy);
 
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("type", "mockResults");
-            command.Data = "testfile1,testfile2";
-            resultCommand.ProcessCommand(_ec.Object, command, _policy);
-
-            Assert.Equal(0, _errors.Count());
+                Assert.Equal(0, _errors.Count());
+            }
         }
 
         private List<TestRun> MockTestRun()
@@ -138,9 +140,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         }
 
 
-        private void SetupMocks([CallerMemberName] string name = "", bool includePipelineVariables = false)
+        private TestHostContext SetupMocks([CallerMemberName] string name = "", bool includePipelineVariables = false)
         {
-            _hc = new TestHostContext(this, name);
+            var _hc = new TestHostContext(this, name);
 
             _hc.SetSingleton(_mockTestRunDataPublisher.Object);
             _hc.SetSingleton(_mockParser.Object);
@@ -192,6 +194,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
                 }
             });
             _ec.Setup(x => x.GetHostContext()).Returns(_hc);
+
+            return _hc;
         }
     }
 }

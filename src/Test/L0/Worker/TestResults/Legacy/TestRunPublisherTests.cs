@@ -98,7 +98,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
                                         var subResult = new TestSubResult();
                                         subResult.Id = j++;
                                         SubResults.Add(subResult);
-                                    }                                    
+                                    }
                                 }
                                 resultsList.Add(new TestCaseResult() { Id = ++i, SubResults = SubResults });
 
@@ -185,7 +185,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             Assert.Equal("runName", _runContext.RunName);
         }
 
-#if OS_LINUX	
+#if OS_LINUX
 	[Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "PublishTestResults")]
@@ -195,7 +195,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             SetupMocks();
             File.WriteAllText("colon:1:2:3.trx", "asdf");
             ResetValues();
-            
+
             _testRunData = _publisher.ReadResultsFromFile(_testRunContext, "filepath");
             _publisher.StartTestRunAsync(_testRunData).Wait();
             var result = new TestCaseResultData();
@@ -212,7 +212,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             }
             catch
             { }
-        }	
+        }
 
         [Fact]
         [Trait("Level", "L0")]
@@ -220,7 +220,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         public void AddResultsWithAttachmentsCallsRightApi()
         {
             SetupMocks();
-            
+
             //Add results
             _testRunData = _publisher.ReadResultsFromFile(_testRunContext, "filepath");
             _publisher.StartTestRunAsync(_testRunData);
@@ -243,7 +243,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         public void AddResultsWithSubResultsAttachmentsCallsRightApi()
         {
             SetupMocks();
-            
+
             //Add results
             _testRunData = _publisher.ReadResultsFromFile(_testRunContext, "filepath");
             _publisher.StartTestRunAsync(_testRunData);
@@ -404,7 +404,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             Assert.Equal(_testRunContext, _runContext);
             Assert.Equal("filepath", _resultsFilepath);
 
-            //Start run 
+            //Start run
             _publisher.StartTestRunAsync(_testRunData).Wait();
             Assert.Equal(_projectId, "Project1");
             Assert.Equal(_testRunData, _testRun);
@@ -460,7 +460,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             ResetValues();
             _publisher.StartTestRunAsync(new TestRunData()).Wait();
             List<TestCaseResultData> testCaseResultData = new List<TestCaseResultData>();
-            for (int i = 0; i < batchSize + 1; i++) { 
+            for (int i = 0; i < batchSize + 1; i++) {
                 testCaseResultData.Add(new TestCaseResultData());
                 testCaseResultData[i].AttachmentData = new AttachmentData();
             }
@@ -599,12 +599,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
 
         public void Dispose()
         {
-            try
+            Dispose(true);
+        }
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
             {
-                File.Delete(_attachmentFilePath);
+                try
+                {
+                    File.Delete(_attachmentFilePath);
+                }
+                catch
+                { }
             }
-            catch
-            { }
         }
 
         private void ResetValues()
@@ -618,6 +625,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             _batchSizes = new List<int>();
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "VssConnection+TestHostContext")]
         private void SetupMocks([CallerMemberName] string name = "")
         {
             TestHostContext hc = new TestHostContext(this, name);

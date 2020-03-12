@@ -12,7 +12,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 {
     public static class RepositoryUtil
     {
-        public static readonly string PrimaryRepositoryName = "self";
+        public static readonly string IsPrimaryRepository = "system.isprimaryrepository";
+        public static readonly string IsTriggeringRepository = "system.istriggeringrepository";
+        public static readonly string DefaultPrimaryRepositoryName = "self";
         public static readonly string GitStandardBranchPrefix = "refs/heads/";
 
         public static string TrimStandardBranchPrefix(string branchName)
@@ -43,16 +45,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         /// </summary>
         public static bool IsPrimaryRepositoryName(string repoAlias)
         {
-            return string.Equals(repoAlias, PrimaryRepositoryName, StringComparison.OrdinalIgnoreCase);
+            return string.Equals(repoAlias, DefaultPrimaryRepositoryName, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
         /// This method returns the repo from the list that is considered the primary repository.
         /// If the list only contains 1 repo, then that is the primary repository.
-        /// If the list contains more than one, then we look for the repository with the primary repo name (self).
+        /// If the list contains more than one, then we look for the repository marked as the primary repo.
         /// It returns null, if no primary repository can be found.
         /// </summary>
         public static RepositoryResource GetPrimaryRepository(IList<RepositoryResource> repositories)
+        {
+            return GetWellKnownRepository(repositories, RepositoryUtil.IsPrimaryRepository);
+        }
+
+        /// <summary>
+        /// This method returns the repo from the list that is considered the triggering repository.
+        /// If the list only contains 1 repo, then that is the triggering repository.
+        /// If the list contains more than one, then we look for the repository marked as the triggering repo.
+        /// It returns null, if no triggering repository can be found.
+        /// </summary>
+        public static RepositoryResource GetTriggeringRepository(IList<RepositoryResource> repositories)
+        {
+            return GetWellKnownRepository(repositories, RepositoryUtil.IsTriggeringRepository);
+        }
+
+        private static RepositoryResource GetWellKnownRepository(IList<RepositoryResource> repositories, string repositoryFlagName)
         {
             if (repositories == null || !repositories.Any())
             {
@@ -63,9 +81,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             {
                 return repositories.First();
             }
+
+            // Look for any repository marked with the expected flag name
+            var repo = repositories.Where(r => r.Properties.Get<bool>(repositoryFlagName, false)).FirstOrDefault();
+            if (repo != null)
+            {
+                return repo;
+            }
             else
             {
-                return GetRepository(repositories, PrimaryRepositoryName);
+                // return the "self" repo or null
+                return GetRepository(repositories, DefaultPrimaryRepositoryName);
             }
         }
 

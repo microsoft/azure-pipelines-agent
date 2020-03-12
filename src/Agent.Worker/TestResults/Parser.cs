@@ -65,6 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
     {
         public override string Name => "JUnit";
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "CommandTraceListener")]
         protected override ITestResultParser GetTestResultParser(IExecutionContext executionContext)
         {
             var traceListener = new CommandTraceListener(executionContext);
@@ -76,6 +77,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
     {
         public override string Name => "XUnit";
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "CommandTraceListener")]
         protected override ITestResultParser GetTestResultParser(IExecutionContext executionContext)
         {
             var traceListener = new CommandTraceListener(executionContext);
@@ -88,6 +90,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
     {
         public override string Name => "VSTest";
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "CommandTraceListener")]
         protected override ITestResultParser GetTestResultParser(IExecutionContext executionContext)
         {
             var traceListener = new CommandTraceListener(executionContext);
@@ -100,6 +103,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
     {
         public override string Name => "NUnit";
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "CommandTraceListener")]
         protected override ITestResultParser GetTestResultParser(IExecutionContext executionContext)
         {
             var traceListener = new CommandTraceListener(executionContext);
@@ -112,6 +116,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
     {
         public override string Name => "CTest";
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "CommandTraceListener")]
         protected override ITestResultParser GetTestResultParser(IExecutionContext executionContext)
         {
             var traceListener = new CommandTraceListener(executionContext);
@@ -124,6 +129,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
     {
         public override string Name => "ContainerStructure";
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "CommandTraceListener")]
         protected override ITestResultParser GetTestResultParser(IExecutionContext executionContext)
         {
             var traceListener = new CommandTraceListener(executionContext);

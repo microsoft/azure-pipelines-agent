@@ -30,9 +30,11 @@ namespace Agent.Plugins.PipelineArtifact
         public FileContainerProvider(VssConnection connection, IAppTraceSource tracer)
         {
             BuildHttpClient buildHttpClient = connection.GetClient<BuildHttpClient>();
-            connection = new VssConnection(buildHttpClient.BaseAddress, connection.Credentials);
-            containerClient = connection.GetClient<FileContainerHttpClient>();
-            this.tracer = tracer;
+            using (var connection2 = new VssConnection(buildHttpClient.BaseAddress, connection.Credentials))
+            {
+                containerClient = connection2.GetClient<FileContainerHttpClient>();
+                this.tracer = tracer;
+            }
         }
 
         public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken)
@@ -76,7 +78,7 @@ namespace Agent.Plugins.PipelineArtifact
             else
             {
                 var message = $"Resource data value '{resourceData}' is invalid.";
-                throw new ArgumentException(message, "resourceData");
+                throw new ArgumentException(message, nameof(resourceData));
             }
         }
 

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- File name extension must be .runsettings -->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="Code Coverage" uri="datacollector://Microsoft/CodeCoverage/2.0" assemblyQualifiedName="Microsoft.VisualStudio.Coverage.DynamicCoverageDataCollector, Microsoft.VisualStudio.TraceCollector, Version=11.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+        <Configuration>
+          <CodeCoverage>
+            <ModulePaths>              
+              <Exclude>                
+                <ModulePath>.*buildxl.*</ModulePath>
+                <ModulePath>.*ncrontab.*</ModulePath>
+                <ModulePath>.*runtimecontracts\.dll</ModulePath>
+                <ModulePath>.*test\.dll</ModulePath>
+                <ModulePath>.*system\.identitymodel\.tokens\.jwt\.dll</ModulePath>
+                <ModulePath>.*microsoft\..*\.dll</ModulePath>
+              </Exclude>
+            </ModulePaths>
+          </CodeCoverage>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

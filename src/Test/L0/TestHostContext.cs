@@ -63,6 +63,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             _secretMasker = new SecretMasker();
             _secretMasker.AddValueEncoder(ValueEncoders.JsonStringEscape);
             _secretMasker.AddValueEncoder(ValueEncoders.UriDataEscape);
+            _secretMasker.AddValueEncoder(ValueEncoders.BackslashEscape);
             _traceManager = new TraceManager(traceListener, _secretMasker);
             _trace = GetTrace(nameof(TestHostContext));
 
@@ -83,8 +84,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         }
 
         public CultureInfo DefaultCulture { get; private set; }
-
-        public RunMode RunMode { get; set; }
 
         public string TraceFileName { get; private set; }
 
@@ -415,6 +414,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     _loadContext = null;
                 }
                 _traceManager?.Dispose();
+                _secretMasker?.Dispose();
+                _term?.Dispose();
+                _trace?.Dispose();
+                _agentShutdownTokenSource?.Dispose();
                 try
                 {
                     Directory.Delete(_tempDirectoryRoot);

@@ -66,6 +66,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
 
                 // Variable expansion.
+                step.ExecutionContext.SetStepTarget(step.Target);
                 List<string> expansionWarnings;
                 step.ExecutionContext.Variables.RecalculateExpanded(out expansionWarnings);
                 expansionWarnings?.ForEach(x => step.ExecutionContext.Warning(x));
@@ -205,7 +206,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Trace.Info("Starting the step.");
             step.ExecutionContext.Section(StringUtil.Loc("StepStarting", step.DisplayName));
             step.ExecutionContext.SetTimeout(timeout: step.Timeout);
-            step.ExecutionContext.SetStepTarget(step.Target);
 
             // Windows may not be on the UTF8 codepage; try to fix that
             await SwitchToUtf8Codepage(step);

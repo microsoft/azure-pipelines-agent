@@ -40,37 +40,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
 
         private T QueryItem<T>(string accessToken, string url, out string errorMessage)
         {
-            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, url);
-
-            request.Headers.Add("Accept", "application/vnd.GitHubData.V3+json");
-            request.Headers.Add("Authorization", "Token " + accessToken);
-            request.Headers.Add("User-Agent", "VSTS-Agent/" + BuildConstants.AgentPackage.Version);
-
-            if (PlatformUtil.RunningOnMacOS || PlatformUtil.RunningOnLinux)
+            using (var request = new HttpRequestMessage(HttpMethod.Get, url))
             {
-                request.Version = HttpVersion.Version11;
-            }
 
-            int httpRequestTimeoutSeconds;
-            if (!int.TryParse(Environment.GetEnvironmentVariable("VSTS_HTTP_TIMEOUT") ?? string.Empty, out httpRequestTimeoutSeconds))
-            {
-                httpRequestTimeoutSeconds = 100;
-            }
+                request.Headers.Add("Accept", "application/vnd.GitHubData.V3+json");
+                request.Headers.Add("Authorization", "Token " + accessToken);
+                request.Headers.Add("User-Agent", "VSTS-Agent/" + BuildConstants.AgentPackage.Version);
 
-            using (var httpClientHandler = HostContext.CreateHttpClientHandler())
-            using (var httpClient = new HttpClient(httpClientHandler) { Timeout = new TimeSpan(0, 0, httpRequestTimeoutSeconds) })
-            {
-                errorMessage = string.Empty;
-                Task<HttpResponseMessage> sendAsyncTask = httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-                HttpResponseMessage response = sendAsyncTask.GetAwaiter().GetResult();
-                if (!response.IsSuccessStatusCode)
+                if (PlatformUtil.RunningOnMacOS || PlatformUtil.RunningOnLinux)
                 {
-                    errorMessage = response.StatusCode.ToString();
-                    return default(T);
+                    request.Version = HttpVersion.Version11;
                 }
 
-                string result = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-                return JsonConvert.DeserializeObject<T>(result);
+                int httpRequestTimeoutSeconds;
+                if (!int.TryParse(Environment.GetEnvironmentVariable("VSTS_HTTP_TIMEOUT") ?? string.Empty, out httpRequestTimeoutSeconds))
+                {
+                    httpRequestTimeoutSeconds = 100;
+                }
+
+                using (var httpClientHandler = HostContext.CreateHttpClientHandler())
+                using (var httpClient = new HttpClient(httpClientHandler) { Timeout = new TimeSpan(0, 0, httpRequestTimeoutSeconds) })
+                {
+                    errorMessage = string.Empty;
+                    Task<HttpResponseMessage> sendAsyncTask = httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+                    HttpResponseMessage response = sendAsyncTask.GetAwaiter().GetResult();
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        errorMessage = response.StatusCode.ToString();
+                        return default(T);
+                    }
+
+                    string result = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                    return JsonConvert.DeserializeObject<T>(result);
+                }
             }
         }
     }

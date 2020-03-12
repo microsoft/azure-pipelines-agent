@@ -24,7 +24,6 @@ namespace Microsoft.VisualStudio.Services.Agent
 
     public class VstsAgentWebProxy : AgentService, IVstsAgentWebProxy
     {
-        private readonly List<Regex> _regExBypassList = new List<Regex>();
         private readonly List<string> _bypassList = new List<string>();
         private AgentWebProxy _agentWebProxy = new AgentWebProxy();
 
@@ -130,20 +129,26 @@ namespace Microsoft.VisualStudio.Services.Agent
             if (File.Exists(proxyBypassFile))
             {
                 Trace.Verbose($"Try read proxy bypass list from file: {proxyBypassFile}.");
-                foreach (string bypass in File.ReadAllLines(proxyBypassFile))
+                foreach (string bypass in File.ReadAllLines(proxyBypassFile).Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim()))
                 {
-                    if (string.IsNullOrWhiteSpace(bypass))
-                    {
-                        continue;
-                    }
-                    else
-                    {
-                        Trace.Info($"Bypass proxy for: {bypass}.");
-                        ProxyBypassList.Add(bypass.Trim());
-                    }
+                    Trace.Info($"Bypass proxy for: {bypass}.");
+                    ProxyBypassList.Add(bypass.Trim());
+                }
+            }
+
+            foreach (var envVar in new string[] { "no_proxy" })
+            {
+                Trace.Verbose($"Try reading proxy bypass list from environment variable: '{envVar}'.");
+                var proxyBypassEnv = Environment.GetEnvironmentVariable(envVar) ?? string.Empty;
+
+                foreach (string bypass in proxyBypassEnv.Split(new [] {',', ';'}).Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim()))
+                {
+                    Trace.Info($"Bypass proxy for: {bypass}.");
+                    ProxyBypassList.Add(bypass);
                 }
             }
         }
+
         private void LoadProxySetting()
         {
             string proxyConfigFile = HostContext.GetConfigFile(WellKnownConfigFile.Proxy);
@@ -158,10 +163,17 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             if (string.IsNullOrEmpty(ProxyAddress))
             {
-                Trace.Verbose("Try read proxy setting from environment variable: 'VSTS_HTTP_PROXY'.");
-                ProxyAddress = Environment.GetEnvironmentVariable("VSTS_HTTP_PROXY") ?? string.Empty;
-                ProxyAddress = ProxyAddress.Trim();
-                Trace.Verbose($"{ProxyAddress}");
+                foreach (var envVar in new string[] { "VSTS_HTTP_PROXY", "http_proxy" })
+                {
+                    Trace.Verbose($"Try reading proxy setting from environment variable: '{envVar}'.");
+                    ProxyAddress = Environment.GetEnvironmentVariable(envVar) ?? string.Empty;
+                    ProxyAddress = ProxyAddress.Trim();
+                    Trace.Verbose($"{ProxyAddress}");
+                    if (!string.IsNullOrEmpty(ProxyAddress))
+                    {
+                        break;
+                    }
+                }
             }
 
             if (!string.IsNullOrEmpty(ProxyAddress) && !Uri.IsWellFormedUriString(ProxyAddress, UriKind.Absolute))

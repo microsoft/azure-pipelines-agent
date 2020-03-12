@@ -424,11 +424,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public bool IsReadOnly(string name)
         {
-            if (!Read_Only_Variables)
-            {
-                return false;
-            }
-
             Variable existingVariable = null;
             if (!_expanded.TryGetValue(name, out existingVariable)) {
                 _nonexpanded.TryGetValue(name, out existingVariable);
@@ -539,7 +534,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                     }
 
                                     stack.Push(state);
-                                    state = new RecursionState(name: nestedName, value: nestedVariable.Value ?? string.Empty);
+                                    state = new RecursionState(name: nestedName, value: StringTranslator(nestedVariable.Value ?? string.Empty));
                                 }
                             }
                             else

@@ -19,13 +19,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 {
     public sealed class TaskManagerL0
     {
-        private const string TestDataFolderName = "TestData";
-        private CancellationTokenSource _ecTokenSource;
         private Mock<IJobServer> _jobServer;
         private Mock<ITaskServer> _taskServer;
         private Mock<IConfigurationStore> _configurationStore;
         private Mock<IExecutionContext> _ec;
-        private TestHostContext _hc;
         private TaskManager _taskManager;
         private string _workFolder;
 
@@ -38,62 +35,65 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             try
             {
                 //Arrange
-                Setup();
-                var bingTask = new Pipelines.TaskStep()
+                using (var tokenSource = new CancellationTokenSource())
+                using (var _hc = Setup(tokenSource))
                 {
-                    Enabled = true,
-                    Reference = new Pipelines.TaskStepDefinitionReference()
+                    var bingTask = new Pipelines.TaskStep()
                     {
-                        Name = "Bing",
-                        Version = "0.1.2",
-                        Id = Guid.NewGuid()
-                    }
-                };
-                var pingTask = new Pipelines.TaskStep()
-                {
-                    Enabled = true,
-                    Reference = new Pipelines.TaskStepDefinitionReference()
+                        Enabled = true,
+                        Reference = new Pipelines.TaskStepDefinitionReference()
+                        {
+                            Name = "Bing",
+                            Version = "0.1.2",
+                            Id = Guid.NewGuid()
+                        }
+                    };
+                    var pingTask = new Pipelines.TaskStep()
                     {
-                        Name = "Ping",
-                        Version = "0.1.1",
-                        Id = Guid.NewGuid()
-                    }
-                };
+                        Enabled = true,
+                        Reference = new Pipelines.TaskStepDefinitionReference()
+                        {
+                            Name = "Ping",
+                            Version = "0.1.1",
+                            Id = Guid.NewGuid()
+                        }
+                    };
 
-                var bingVersion = new TaskVersion(bingTask.Reference.Version);
-                var pingVersion = new TaskVersion(pingTask.Reference.Version);
+                    var bingVersion = new TaskVersion(bingTask.Reference.Version);
+                    var pingVersion = new TaskVersion(pingTask.Reference.Version);
 
-                _taskServer
-                    .Setup(x => x.GetTaskContentZipAsync(It.IsAny<Guid>(), It.IsAny<TaskVersion>(), It.IsAny<CancellationToken>()))
-                    .Returns((Guid taskId, TaskVersion taskVersion, CancellationToken token) =>
-                    {
-                        _ecTokenSource.Cancel();
-                        _ecTokenSource.Token.ThrowIfCancellationRequested();
-                        return null;
-                    });
+                    _taskServer
+                        .Setup(x => x.GetTaskContentZipAsync(It.IsAny<Guid>(), It.IsAny<TaskVersion>(), It.IsAny<CancellationToken>()))
+                        .Returns((Guid taskId, TaskVersion taskVersion, CancellationToken token) =>
+                        {
+                            tokenSource.Cancel();
+                            tokenSource.Token.ThrowIfCancellationRequested();
+                            return null;
+                        });
 
-                var tasks = new List<Pipelines.TaskStep>(new Pipelines.TaskStep[] { bingTask, pingTask });
+                    var tasks = new List<Pipelines.TaskStep>(new Pipelines.TaskStep[] { bingTask, pingTask });
 
-                //Act
-                //should initiate a download with a mocked IJobServer, which sets a cancellation token and
-                //download task is expected to be in cancelled state
-                Task downloadTask = _taskManager.DownloadAsync(_ec.Object, tasks);
-                Task[] taskToWait = { downloadTask, Task.Delay(2000) };
-                //wait for the task to be cancelled to exit
-                await Task.WhenAny(taskToWait);
+                    //Act
+                    //should initiate a download with a mocked IJobServer, which sets a cancellation token and
+                    //download task is expected to be in cancelled state
+                    Task downloadTask = _taskManager.DownloadAsync(_ec.Object, tasks);
+                    Task[] taskToWait = { downloadTask, Task.Delay(2000) };
+                    //wait for the task to be cancelled to exit
+                    await Task.WhenAny(taskToWait);
 
-                //Assert
-                //verify task completed in less than 2sec and it is in cancelled state
-                Assert.True(downloadTask.IsCompleted, $"{nameof(_taskManager.DownloadAsync)} timed out.");
-                Assert.True(!downloadTask.IsFaulted, downloadTask.Exception?.ToString());
-                Assert.True(downloadTask.IsCanceled);
-                //check if the task.json was not downloaded for ping and bing tasks
-                Assert.Equal(
-                    0,
-                    Directory.GetFiles(_hc.GetDirectory(WellKnownDirectory.Tasks), "*", SearchOption.AllDirectories).Length);
-                //assert download was invoked only once, because the first task cancelled the second task download
-                _taskServer
-                    .Verify(x => x.GetTaskContentZipAsync(It.IsAny<Guid>(), It.IsAny<TaskVersion>(), It.IsAny<CancellationToken>()), Times.Once());
+                    //Assert
+                    //verify task completed in less than 2sec and it is in cancelled state
+                    Assert.True(downloadTask.IsCompleted, $"{nameof(_taskManager.DownloadAsync)} timed out.");
+                    Assert.True(!downloadTask.IsFaulted, downloadTask.Exception?.ToString());
+                    Assert.True(downloadTask.IsCanceled);
+                    //check if the task.json was not downloaded for ping and bing tasks
+                    Assert.Equal(
+                        0,
+                        Directory.GetFiles(_hc.GetDirectory(WellKnownDirectory.Tasks), "*", SearchOption.AllDirectories).Length);
+                    //assert download was invoked only once, because the first task cancelled the second task download
+                    _taskServer
+                        .Verify(x => x.GetTaskContentZipAsync(It.IsAny<Guid>(), It.IsAny<TaskVersion>(), It.IsAny<CancellationToken>()), Times.Once());
+                }
             }
             finally
             {
@@ -110,52 +110,55 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             try
             {
                 // Arrange.
-                Setup();
-                var pingTask = new Pipelines.TaskStep()
+                using (var tokenSource = new CancellationTokenSource())
+                using (var _hc = Setup(tokenSource))
                 {
-                    Enabled = true,
-                    Reference = new Pipelines.TaskStepDefinitionReference()
+                    var pingTask = new Pipelines.TaskStep()
                     {
-                        Name = "Ping",
-                        Version = "0.1.1",
-                        Id = Guid.NewGuid()
+                        Enabled = true,
+                        Reference = new Pipelines.TaskStepDefinitionReference()
+                        {
+                            Name = "Ping",
+                            Version = "0.1.1",
+                            Id = Guid.NewGuid()
+                        }
+                    };
+
+                    var pingVersion = new TaskVersion(pingTask.Reference.Version);
+                    Exception expectedException = new System.Net.Http.HttpRequestException("simulated network error");
+                    _taskServer
+                        .Setup(x => x.GetTaskContentZipAsync(It.IsAny<Guid>(), It.IsAny<TaskVersion>(), It.IsAny<CancellationToken>()))
+                        .Returns((Guid taskId, TaskVersion taskVersion, CancellationToken token) =>
+                        {
+                            throw expectedException;
+                        });
+
+                    var tasks = new List<Pipelines.TaskStep>(new Pipelines.TaskStep[] { pingTask });
+
+                    //Act
+                    Exception actualException = null;
+                    try
+                    {
+                        await _taskManager.DownloadAsync(_ec.Object, tasks);
                     }
-                };
-
-                var pingVersion = new TaskVersion(pingTask.Reference.Version);
-                Exception expectedException = new System.Net.Http.HttpRequestException("simulated network error");
-                _taskServer
-                    .Setup(x => x.GetTaskContentZipAsync(It.IsAny<Guid>(), It.IsAny<TaskVersion>(), It.IsAny<CancellationToken>()))
-                    .Returns((Guid taskId, TaskVersion taskVersion, CancellationToken token) =>
+                    catch (Exception ex)
                     {
-                        throw expectedException;
-                    });
+                        actualException = ex;
+                    }
 
-                var tasks = new List<Pipelines.TaskStep>(new Pipelines.TaskStep[] { pingTask });
+                    //Assert
+                    //verify task completed in less than 2sec and it is in failed state state
+                    Assert.Equal(expectedException, actualException);
 
-                //Act
-                Exception actualException = null;
-                try
-                {
-                    await _taskManager.DownloadAsync(_ec.Object, tasks);
+                    //assert download was invoked 3 times, because we retry on task download
+                    _taskServer
+                        .Verify(x => x.GetTaskContentZipAsync(It.IsAny<Guid>(), It.IsAny<TaskVersion>(), It.IsAny<CancellationToken>()), Times.Exactly(3));
+
+                    //see if the task.json was not downloaded
+                    Assert.Equal(
+                        0,
+                        Directory.GetFiles(_hc.GetDirectory(WellKnownDirectory.Tasks), "*", SearchOption.AllDirectories).Length);
                 }
-                catch (Exception ex)
-                {
-                    actualException = ex;
-                }
-
-                //Assert
-                //verify task completed in less than 2sec and it is in failed state state
-                Assert.Equal(expectedException, actualException);
-
-                //assert download was invoked 3 times, because we retry on task download
-                _taskServer
-                    .Verify(x => x.GetTaskContentZipAsync(It.IsAny<Guid>(), It.IsAny<TaskVersion>(), It.IsAny<CancellationToken>()), Times.Exactly(3));
-
-                //see if the task.json was not downloaded
-                Assert.Equal(
-                    0,
-                    Directory.GetFiles(_hc.GetDirectory(WellKnownDirectory.Tasks), "*", SearchOption.AllDirectories).Length);
             }
             finally
             {
@@ -172,52 +175,55 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             try
             {
                 // Arrange.
-                Setup();
-                var pingTask = new Pipelines.TaskStep()
+                using (var tokenSource = new CancellationTokenSource())
+                using (var _hc = Setup(tokenSource))
                 {
-                    Enabled = true,
-                    Reference = new Pipelines.TaskStepDefinitionReference()
+                    var pingTask = new Pipelines.TaskStep()
                     {
-                        Name = "Ping",
-                        Version = "0.1.1",
-                        Id = Guid.NewGuid()
+                        Enabled = true,
+                        Reference = new Pipelines.TaskStepDefinitionReference()
+                        {
+                            Name = "Ping",
+                            Version = "0.1.1",
+                            Id = Guid.NewGuid()
+                        }
+                    };
+
+                    var pingVersion = new TaskVersion(pingTask.Reference.Version);
+                    Exception expectedException = new System.Net.Http.HttpRequestException("simulated network error");
+                    _taskServer
+                        .Setup(x => x.GetTaskContentZipAsync(It.IsAny<Guid>(), It.IsAny<TaskVersion>(), It.IsAny<CancellationToken>()))
+                        .Returns((Guid taskId, TaskVersion taskVersion, CancellationToken token) =>
+                        {
+                            return Task.FromResult<Stream>(new ExceptionStream());
+                        });
+
+                    var tasks = new List<Pipelines.TaskStep>(new Pipelines.TaskStep[] { pingTask });
+
+                    //Act
+                    Exception actualException = null;
+                    try
+                    {
+                        await _taskManager.DownloadAsync(_ec.Object, tasks);
                     }
-                };
-
-                var pingVersion = new TaskVersion(pingTask.Reference.Version);
-                Exception expectedException = new System.Net.Http.HttpRequestException("simulated network error");
-                _taskServer
-                    .Setup(x => x.GetTaskContentZipAsync(It.IsAny<Guid>(), It.IsAny<TaskVersion>(), It.IsAny<CancellationToken>()))
-                    .Returns((Guid taskId, TaskVersion taskVersion, CancellationToken token) =>
+                    catch (Exception ex)
                     {
-                        return Task.FromResult<Stream>(new ExceptionStream());
-                    });
+                        actualException = ex;
+                    }
 
-                var tasks = new List<Pipelines.TaskStep>(new Pipelines.TaskStep[] { pingTask });
+                    //Assert
+                    //verify task completed in less than 2sec and it is in failed state state
+                    Assert.Equal("NotImplementedException", actualException.GetType().Name);
 
-                //Act
-                Exception actualException = null;
-                try
-                {
-                    await _taskManager.DownloadAsync(_ec.Object, tasks);
+                    //assert download was invoked 3 times, because we retry on task download
+                    _taskServer
+                        .Verify(x => x.GetTaskContentZipAsync(It.IsAny<Guid>(), It.IsAny<TaskVersion>(), It.IsAny<CancellationToken>()), Times.Exactly(3));
+
+                    //see if the task.json was not downloaded
+                    Assert.Equal(
+                        0,
+                        Directory.GetFiles(_hc.GetDirectory(WellKnownDirectory.Tasks), "*", SearchOption.AllDirectories).Length);
                 }
-                catch (Exception ex)
-                {
-                    actualException = ex;
-                }
-
-                //Assert
-                //verify task completed in less than 2sec and it is in failed state state
-                Assert.Equal("NotImplementedException", actualException.GetType().Name);
-
-                //assert download was invoked 3 times, because we retry on task download
-                _taskServer
-                    .Verify(x => x.GetTaskContentZipAsync(It.IsAny<Guid>(), It.IsAny<TaskVersion>(), It.IsAny<CancellationToken>()), Times.Exactly(3));
-
-                //see if the task.json was not downloaded
-                Assert.Equal(
-                    0,
-                    Directory.GetFiles(_hc.GetDirectory(WellKnownDirectory.Tasks), "*", SearchOption.AllDirectories).Length);
             }
             finally
             {
@@ -233,35 +239,38 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             try
             {
                 // Arrange.
-                Setup();
-                // Prepare the content.
-                const string Content = @"
+                using (var tokenSource = new CancellationTokenSource())
+                using (var _hc = Setup(tokenSource))
+                {
+                    // Prepare the content.
+                    const string Content = @"
 {
     ""execution"": {
         ""Node"": { },
         ""Process"": { },
     }
 }";
-                // Write the task.json to disk.
-                Pipelines.TaskStep instance;
-                string directory;
-                CreateTask(jsonContent: Content, instance: out instance, directory: out directory);
+                    // Write the task.json to disk.
+                    Pipelines.TaskStep instance;
+                    string directory;
+                    CreateTask(jsonContent: Content, instance: out instance, directory: out directory);
 
-                // Act.
-                Definition definition = _taskManager.Load(instance);
+                    // Act.
+                    Definition definition = _taskManager.Load(instance);
 
-                // Assert.
-                Assert.NotNull(definition);
-                Assert.NotNull(definition.Data);
-                Assert.NotNull(definition.Data.Execution);
-                Assert.NotNull(definition.Data.Execution.Node);
-                if (TestUtil.IsWindows())
-                {
-                    Assert.NotNull(definition.Data.Execution.Process);
-                }
-                else
-                {
-                    Assert.Null(definition.Data.Execution.Process);    
+                    // Assert.
+                    Assert.NotNull(definition);
+                    Assert.NotNull(definition.Data);
+                    Assert.NotNull(definition.Data.Execution);
+                    Assert.NotNull(definition.Data.Execution.Node);
+                    if (TestUtil.IsWindows())
+                    {
+                        Assert.NotNull(definition.Data.Execution.Process);
+                    }
+                    else
+                    {
+                        Assert.Null(definition.Data.Execution.Process);
+                    }
                 }
             }
             finally
@@ -279,57 +288,64 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             try
             {
                 //Arrange
-                Setup();
-                var bingGuid = Guid.NewGuid();
-                string bingTaskName = "Bing";
-                string bingVersion = "1.21.2";
-                var tasks = new List<Pipelines.TaskStep>
+                using (var tokenSource = new CancellationTokenSource())
+                using (var _hc = Setup(tokenSource))
                 {
-                    new Pipelines.TaskStep()
+                    var bingGuid = Guid.NewGuid();
+                    string bingTaskName = "Bing";
+                    string bingVersion = "1.21.2";
+                    var tasks = new List<Pipelines.TaskStep>
                     {
-                        Enabled = true,
-                        Reference = new Pipelines.TaskStepDefinitionReference()
+                        new Pipelines.TaskStep()
                         {
-                            Name = bingTaskName,
-                            Version = bingVersion,
-                            Id = bingGuid
+                            Enabled = true,
+                            Reference = new Pipelines.TaskStepDefinitionReference()
+                            {
+                                Name = bingTaskName,
+                                Version = bingVersion,
+                                Id = bingGuid
+                            }
+                        },
+                        new Pipelines.TaskStep()
+                        {
+                            Enabled = true,
+                            Reference = new Pipelines.TaskStepDefinitionReference()
+                            {
+                                Name = bingTaskName,
+                                Version = bingVersion,
+                                Id = bingGuid
+                            }
                         }
-                    },
-                    new Pipelines.TaskStep()
+                    };
+
+                    using (var stream = GetZipStream())
                     {
-                        Enabled = true,
-                        Reference = new Pipelines.TaskStepDefinitionReference()
-                        {
-                            Name = bingTaskName,
-                            Version = bingVersion,
-                            Id = bingGuid
-                        }
+                        _taskServer
+                            .Setup(x => x.GetTaskContentZipAsync(
+                                bingGuid,
+                                It.Is<TaskVersion>(y => string.Equals(y.ToString(), bingVersion, StringComparison.Ordinal)),
+                                It.IsAny<CancellationToken>()))
+                            .Returns(Task.FromResult<Stream>(stream));
+
+                        //Act
+                        //first invocation will download and unzip the task from mocked IJobServer
+                        await _taskManager.DownloadAsync(_ec.Object, tasks);
+                        //second and third invocations should find the task in the cache and do nothing
+                        await _taskManager.DownloadAsync(_ec.Object, tasks);
+                        await _taskManager.DownloadAsync(_ec.Object, tasks);
+
+                        //Assert
+                        //see if the task.json was downloaded
+                        string destDirectory = Path.Combine(
+                            _hc.GetDirectory(WellKnownDirectory.Tasks),
+                            $"{bingTaskName}_{bingGuid}",
+                            bingVersion);
+                        Assert.True(File.Exists(Path.Combine(destDirectory, Constants.Path.TaskJsonFile)));
+                        //assert download has happened only once, because disabled, duplicate and cached tasks are not downloaded
+                        _taskServer
+                            .Verify(x => x.GetTaskContentZipAsync(It.IsAny<Guid>(), It.IsAny<TaskVersion>(), It.IsAny<CancellationToken>()), Times.Once());
                     }
-                };
-                _taskServer
-                    .Setup(x => x.GetTaskContentZipAsync(
-                        bingGuid,
-                        It.Is<TaskVersion>(y => string.Equals(y.ToString(), bingVersion, StringComparison.Ordinal)),
-                        It.IsAny<CancellationToken>()))
-                    .Returns(Task.FromResult<Stream>(GetZipStream()));
-
-                //Act
-                //first invocation will download and unzip the task from mocked IJobServer
-                await _taskManager.DownloadAsync(_ec.Object, tasks);
-                //second and third invocations should find the task in the cache and do nothing
-                await _taskManager.DownloadAsync(_ec.Object, tasks);
-                await _taskManager.DownloadAsync(_ec.Object, tasks);
-
-                //Assert
-                //see if the task.json was downloaded
-                string destDirectory = Path.Combine(
-                    _hc.GetDirectory(WellKnownDirectory.Tasks),
-                    $"{bingTaskName}_{bingGuid}",
-                    bingVersion);
-                Assert.True(File.Exists(Path.Combine(destDirectory, Constants.Path.TaskJsonFile)));
-                //assert download has happened only once, because disabled, duplicate and cached tasks are not downloaded
-                _taskServer
-                    .Verify(x => x.GetTaskContentZipAsync(It.IsAny<Guid>(), It.IsAny<TaskVersion>(), It.IsAny<CancellationToken>()), Times.Once());
+                }
             }
             finally
             {
@@ -345,61 +361,67 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             try
             {
                 //Arrange
-                Setup(signatureVerificationEnabled: true);
-                var bingGuid = Guid.NewGuid();
-                string bingTaskName = "Bing";
-                string bingVersion = "1.21.2";
-                var tasks = new List<Pipelines.TaskStep>
+                using (var tokenSource = new CancellationTokenSource())
+                using (var _hc = Setup(tokenSource, signatureVerificationEnabled: true))
                 {
-                    new Pipelines.TaskStep()
+                    var bingGuid = Guid.NewGuid();
+                    string bingTaskName = "Bing";
+                    string bingVersion = "1.21.2";
+                    var tasks = new List<Pipelines.TaskStep>
                     {
-                        Enabled = true,
-                        Reference = new Pipelines.TaskStepDefinitionReference()
+                        new Pipelines.TaskStep()
                         {
-                            Name = bingTaskName,
-                            Version = bingVersion,
-                            Id = bingGuid
+                            Enabled = true,
+                            Reference = new Pipelines.TaskStepDefinitionReference()
+                            {
+                                Name = bingTaskName,
+                                Version = bingVersion,
+                                Id = bingGuid
+                            }
+                        },
+                        new Pipelines.TaskStep()
+                        {
+                            Enabled = true,
+                            Reference = new Pipelines.TaskStepDefinitionReference()
+                            {
+                                Name = bingTaskName,
+                                Version = bingVersion,
+                                Id = bingGuid
+                            }
                         }
-                    },
-                    new Pipelines.TaskStep()
+                    };
+                    using (var stream = GetZipStream())
                     {
-                        Enabled = true,
-                        Reference = new Pipelines.TaskStepDefinitionReference()
-                        {
-                            Name = bingTaskName,
-                            Version = bingVersion,
-                            Id = bingGuid
-                        }
+                        _taskServer
+                            .Setup(x => x.GetTaskContentZipAsync(
+                                bingGuid,
+                                It.Is<TaskVersion>(y => string.Equals(y.ToString(), bingVersion, StringComparison.Ordinal)),
+                                It.IsAny<CancellationToken>()))
+                            .Returns(Task.FromResult<Stream>(stream));
+
+                        //Act
+                        //first invocation will download and unzip the task from mocked IJobServer
+                        await _taskManager.DownloadAsync(_ec.Object, tasks);
+                        //second and third invocations should find the task in the cache and do nothing
+                        await _taskManager.DownloadAsync(_ec.Object, tasks);
+                        await _taskManager.DownloadAsync(_ec.Object, tasks);
+
+                        //Assert
+                        //see if the task.json was downloaded
+                        string destDirectory = Path.Combine(
+                            _hc.GetDirectory(WellKnownDirectory.Tasks),
+                            $"{bingTaskName}_{bingGuid}",
+                            bingVersion);
+                        string zipDestDirectory = Path.Combine(_hc.GetDirectory(WellKnownDirectory.TaskZips), $"{bingTaskName}_{bingGuid}_{bingVersion}.zip");
+                        // task.json should exist since we need it for JobExtension.InitializeJob
+                        Assert.True(File.Exists(Path.Combine(destDirectory, Constants.Path.TaskJsonFile)));
+                        // the zip for the task should exist on disk
+                        Assert.True(File.Exists(zipDestDirectory));
+                        //assert download has happened only once, because disabled, duplicate and cached tasks are not downloaded
+                        _taskServer
+                            .Verify(x => x.GetTaskContentZipAsync(It.IsAny<Guid>(), It.IsAny<TaskVersion>(), It.IsAny<CancellationToken>()), Times.Once());
                     }
-                };
-                _taskServer
-                    .Setup(x => x.GetTaskContentZipAsync(
-                        bingGuid,
-                        It.Is<TaskVersion>(y => string.Equals(y.ToString(), bingVersion, StringComparison.Ordinal)),
-                        It.IsAny<CancellationToken>()))
-                    .Returns(Task.FromResult<Stream>(GetZipStream()));
-
-                //Act
-                //first invocation will download and unzip the task from mocked IJobServer
-                await _taskManager.DownloadAsync(_ec.Object, tasks);
-                //second and third invocations should find the task in the cache and do nothing
-                await _taskManager.DownloadAsync(_ec.Object, tasks);
-                await _taskManager.DownloadAsync(_ec.Object, tasks);
-
-                //Assert
-                //see if the task.json was downloaded
-                string destDirectory = Path.Combine(
-                    _hc.GetDirectory(WellKnownDirectory.Tasks),
-                    $"{bingTaskName}_{bingGuid}",
-                    bingVersion);
-                string zipDestDirectory = Path.Combine(_hc.GetDirectory(WellKnownDirectory.TaskZips), $"{bingTaskName}_{bingGuid}_{bingVersion}.zip");
-                // task.json should exist since we need it for JobExtension.InitializeJob
-                Assert.True(File.Exists(Path.Combine(destDirectory, Constants.Path.TaskJsonFile)));
-                // the zip for the task should exist on disk
-                Assert.True(File.Exists(zipDestDirectory));
-                //assert download has happened only once, because disabled, duplicate and cached tasks are not downloaded
-                _taskServer
-                    .Verify(x => x.GetTaskContentZipAsync(It.IsAny<Guid>(), It.IsAny<TaskVersion>(), It.IsAny<CancellationToken>()), Times.Once());
+                }
             }
             finally
             {
@@ -413,41 +435,44 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public void ExtractsAnAlreadyDownloadedZipToTheCorrectLocation()
         {
-            try 
+            try
             {
                 // Arrange
-                Setup(signatureVerificationEnabled: true);
-                var bingGuid = Guid.NewGuid();
-                string bingTaskName = "Bing";
-                string bingVersion = "1.21.2";
-                var taskStep = new Pipelines.TaskStep
+                using (var tokenSource = new CancellationTokenSource())
+                using (var _hc = Setup(tokenSource, signatureVerificationEnabled: true))
                 {
-                    Name = bingTaskName,
-                    Reference = new Pipelines.TaskStepDefinitionReference
+                    var bingGuid = Guid.NewGuid();
+                    string bingTaskName = "Bing";
+                    string bingVersion = "1.21.2";
+                    var taskStep = new Pipelines.TaskStep
                     {
-                        Id = bingGuid,
                         Name = bingTaskName,
-                        Version = bingVersion
+                        Reference = new Pipelines.TaskStepDefinitionReference
+                        {
+                            Id = bingGuid,
+                            Name = bingTaskName,
+                            Version = bingVersion
+                        }
+                    };
+                    string zipDestDirectory = Path.Combine(_hc.GetDirectory(WellKnownDirectory.TaskZips), $"{bingTaskName}_{bingGuid}_{bingVersion}.zip");
+                    Directory.CreateDirectory(_hc.GetDirectory(WellKnownDirectory.TaskZips));
+                    // write stream to file
+                    using (Stream zipStream = GetZipStream())
+                    using (var fileStream = new FileStream(zipDestDirectory, FileMode.Create, FileAccess.Write))
+                    {
+                        zipStream.CopyTo(fileStream);
                     }
-                };
-                string zipDestDirectory = Path.Combine(_hc.GetDirectory(WellKnownDirectory.TaskZips), $"{bingTaskName}_{bingGuid}_{bingVersion}.zip");
-                Directory.CreateDirectory(_hc.GetDirectory(WellKnownDirectory.TaskZips));
-                // write stream to file
-                using (Stream zipStream = GetZipStream())
-                using (var fileStream = new FileStream(zipDestDirectory, FileMode.Create, FileAccess.Write))
-                {
-                    zipStream.CopyTo(fileStream);
+
+                    // Act
+                    _taskManager.Extract(_ec.Object, taskStep);
+
+                    // Assert
+                    string destDirectory = Path.Combine(
+                        _hc.GetDirectory(WellKnownDirectory.Tasks),
+                        $"{bingTaskName}_{bingGuid}",
+                        bingVersion);
+                    Assert.True(File.Exists(Path.Combine(destDirectory, Constants.Path.TaskJsonFile)));
                 }
-
-                // Act
-                _taskManager.Extract(_ec.Object, taskStep);
-
-                // Assert
-                string destDirectory = Path.Combine(
-                    _hc.GetDirectory(WellKnownDirectory.Tasks),
-                    $"{bingTaskName}_{bingGuid}",
-                    bingVersion);
-                Assert.True(File.Exists(Path.Combine(destDirectory, Constants.Path.TaskJsonFile)));
             }
             finally
             {
@@ -463,12 +488,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             try
             {
                 // Arrange.
-                Setup();
-                HandlerData data = new NodeHandlerData() { Platforms = new string[] { "nosuch" } };
-                // Act/Assert.
-                Assert.False(data.PreferredOnPlatform(PlatformUtil.OS.Windows));
-                Assert.False(data.PreferredOnPlatform(PlatformUtil.OS.Linux));
-                Assert.False(data.PreferredOnPlatform(PlatformUtil.OS.OSX));
+                using (var tokenSource = new CancellationTokenSource())
+                using (var _hc = Setup(tokenSource))
+                {
+                    HandlerData data = new NodeHandlerData() { Platforms = new string[] { "nosuch" } };
+                    // Act/Assert.
+                    Assert.False(data.PreferredOnPlatform(PlatformUtil.OS.Windows));
+                    Assert.False(data.PreferredOnPlatform(PlatformUtil.OS.Linux));
+                    Assert.False(data.PreferredOnPlatform(PlatformUtil.OS.OSX));
+                }
             }
             finally
             {
@@ -484,9 +512,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             try
             {
                 // Arrange.
-                Setup();
-                // Prepare the task.json content.
-                const string Content = @"
+                using (var tokenSource = new CancellationTokenSource())
+                using (var _hc = Setup(tokenSource))
+                {
+                    // Prepare the task.json content.
+                    const string Content = @"
 {
     ""inputs"": [
         {
@@ -534,58 +564,59 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         ""someExtraKey"": ""Some extra value""
     }
 }";
-                // Write the task.json to disk.
-                Pipelines.TaskStep instance;
-                string directory;
-                CreateTask(jsonContent: Content, instance: out instance, directory: out directory);
+                    // Write the task.json to disk.
+                    Pipelines.TaskStep instance;
+                    string directory;
+                    CreateTask(jsonContent: Content, instance: out instance, directory: out directory);
 
-                // Act.
-                Definition definition = _taskManager.Load(instance);
+                    // Act.
+                    Definition definition = _taskManager.Load(instance);
 
-                // Assert.
-                Assert.NotNull(definition);
-                Assert.Equal(directory, definition.Directory);
-                Assert.NotNull(definition.Data);
-                Assert.NotNull(definition.Data.Inputs); // inputs
-                Assert.Equal(2, definition.Data.Inputs.Length);
-                Assert.Equal("someFilePathInput", definition.Data.Inputs[0].Name);
-                Assert.Equal("Some default file path", definition.Data.Inputs[0].DefaultValue);
-                Assert.Equal("someStringInput", definition.Data.Inputs[1].Name);
-                Assert.Equal("Some default string", definition.Data.Inputs[1].DefaultValue);
-                Assert.NotNull(definition.Data.Execution); // execution
+                    // Assert.
+                    Assert.NotNull(definition);
+                    Assert.Equal(directory, definition.Directory);
+                    Assert.NotNull(definition.Data);
+                    Assert.NotNull(definition.Data.Inputs); // inputs
+                    Assert.Equal(2, definition.Data.Inputs.Length);
+                    Assert.Equal("someFilePathInput", definition.Data.Inputs[0].Name);
+                    Assert.Equal("Some default file path", definition.Data.Inputs[0].DefaultValue);
+                    Assert.Equal("someStringInput", definition.Data.Inputs[1].Name);
+                    Assert.Equal("Some default string", definition.Data.Inputs[1].DefaultValue);
+                    Assert.NotNull(definition.Data.Execution); // execution
 
-                if (TestUtil.IsWindows())
-                {
-                    // Process handler should only be deserialized on Windows.
-                    Assert.Equal(3, definition.Data.Execution.All.Count);
-                }
-                else
-                {
-                    // Only the Node and Node10 handlers should be deserialized on non-Windows.
-                    Assert.Equal(2, definition.Data.Execution.All.Count);
-                }
+                    if (TestUtil.IsWindows())
+                    {
+                        // Process handler should only be deserialized on Windows.
+                        Assert.Equal(3, definition.Data.Execution.All.Count);
+                    }
+                    else
+                    {
+                        // Only the Node and Node10 handlers should be deserialized on non-Windows.
+                        Assert.Equal(2, definition.Data.Execution.All.Count);
+                    }
 
-                // Node handler should always be deserialized.
-                Assert.NotNull(definition.Data.Execution.Node); // execution.Node
-                Assert.Equal(definition.Data.Execution.Node, definition.Data.Execution.All[0]);
-                Assert.Equal("Some Node target", definition.Data.Execution.Node.Target);
+                    // Node handler should always be deserialized.
+                    Assert.NotNull(definition.Data.Execution.Node); // execution.Node
+                    Assert.Equal(definition.Data.Execution.Node, definition.Data.Execution.All[0]);
+                    Assert.Equal("Some Node target", definition.Data.Execution.Node.Target);
 
-                // Node10 handler should always be deserialized.
-                Assert.NotNull(definition.Data.Execution.Node10); // execution.Node10
-                Assert.Equal(definition.Data.Execution.Node10, definition.Data.Execution.All[1]);
-                Assert.Equal("Some Node10 target", definition.Data.Execution.Node10.Target);
+                    // Node10 handler should always be deserialized.
+                    Assert.NotNull(definition.Data.Execution.Node10); // execution.Node10
+                    Assert.Equal(definition.Data.Execution.Node10, definition.Data.Execution.All[1]);
+                    Assert.Equal("Some Node10 target", definition.Data.Execution.Node10.Target);
 
-                if (TestUtil.IsWindows())
-                {
-                    // Process handler should only be deserialized on Windows.
-                    Assert.NotNull(definition.Data.Execution.Process); // execution.Process
-                    Assert.Equal(definition.Data.Execution.Process, definition.Data.Execution.All[2]);
-                    Assert.Equal("Some process argument format", definition.Data.Execution.Process.ArgumentFormat);
-                    Assert.NotNull(definition.Data.Execution.Process.Platforms);
-                    Assert.Equal(1, definition.Data.Execution.Process.Platforms.Length);
-                    Assert.Equal("windows", definition.Data.Execution.Process.Platforms[0]);
-                    Assert.Equal("Some process target", definition.Data.Execution.Process.Target);
-                    Assert.Equal("Some process working directory", definition.Data.Execution.Process.WorkingDirectory);
+                    if (TestUtil.IsWindows())
+                    {
+                        // Process handler should only be deserialized on Windows.
+                        Assert.NotNull(definition.Data.Execution.Process); // execution.Process
+                        Assert.Equal(definition.Data.Execution.Process, definition.Data.Execution.All[2]);
+                        Assert.Equal("Some process argument format", definition.Data.Execution.Process.ArgumentFormat);
+                        Assert.NotNull(definition.Data.Execution.Process.Platforms);
+                        Assert.Equal(1, definition.Data.Execution.Process.Platforms.Length);
+                        Assert.Equal("windows", definition.Data.Execution.Process.Platforms[0]);
+                        Assert.Equal("Some process target", definition.Data.Execution.Process.Target);
+                        Assert.Equal("Some process working directory", definition.Data.Execution.Process.WorkingDirectory);
+                    }
                 }
             }
             finally
@@ -604,12 +635,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             try
             {
                 // Arrange.
-                Setup();
-                HandlerData data = new NodeHandlerData() { Platforms = new[] { "WiNdOwS" } };
-                // Act/Assert.
-                Assert.True(data.PreferredOnPlatform(PlatformUtil.OS.Windows));
-                Assert.False(data.PreferredOnPlatform(PlatformUtil.OS.Linux));
-                Assert.False(data.PreferredOnPlatform(PlatformUtil.OS.OSX));
+                using (var tokenSource = new CancellationTokenSource())
+                using (var _hc = Setup(tokenSource))
+                {
+                    HandlerData data = new NodeHandlerData() { Platforms = new[] { "WiNdOwS" } };
+                    // Act/Assert.
+                    Assert.True(data.PreferredOnPlatform(PlatformUtil.OS.Windows));
+                    Assert.False(data.PreferredOnPlatform(PlatformUtil.OS.Linux));
+                    Assert.False(data.PreferredOnPlatform(PlatformUtil.OS.OSX));
+                }
             }
             finally
             {
@@ -625,31 +659,34 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             try
             {
                 // Arrange.
-                Setup();
-                const string Directory = "Some directory";
-                Definition definition = new Definition() { Directory = Directory };
-                NodeHandlerData node = new NodeHandlerData()
+                using (var tokenSource = new CancellationTokenSource())
+                using (var _hc = Setup(tokenSource))
                 {
-                    Target = @"$(CuRrEnTdIrEcToRy)\Some node target",
-                    WorkingDirectory = @"$(CuRrEnTdIrEcToRy)\Some node working directory",
-                };
-                ProcessHandlerData process = new ProcessHandlerData()
-                {
-                    ArgumentFormat = @"$(CuRrEnTdIrEcToRy)\Some process argument format",
-                    Target = @"$(CuRrEnTdIrEcToRy)\Some process target",
-                    WorkingDirectory = @"$(CuRrEnTdIrEcToRy)\Some process working directory",
-                };
+                    const string Directory = "Some directory";
+                    Definition definition = new Definition() { Directory = Directory };
+                    NodeHandlerData node = new NodeHandlerData()
+                    {
+                        Target = @"$(CuRrEnTdIrEcToRy)\Some node target",
+                        WorkingDirectory = @"$(CuRrEnTdIrEcToRy)\Some node working directory",
+                    };
+                    ProcessHandlerData process = new ProcessHandlerData()
+                    {
+                        ArgumentFormat = @"$(CuRrEnTdIrEcToRy)\Some process argument format",
+                        Target = @"$(CuRrEnTdIrEcToRy)\Some process target",
+                        WorkingDirectory = @"$(CuRrEnTdIrEcToRy)\Some process working directory",
+                    };
 
-                // Act.
-                node.ReplaceMacros(_hc, definition);
-                process.ReplaceMacros(_hc, definition);
+                    // Act.
+                    node.ReplaceMacros(_hc, definition);
+                    process.ReplaceMacros(_hc, definition);
 
-                // Assert.
-                Assert.Equal($@"{Directory}\Some node target", node.Target);
-                Assert.Equal($@"{Directory}\Some node working directory", node.WorkingDirectory);
-                Assert.Equal($@"{Directory}\Some process argument format", process.ArgumentFormat);
-                Assert.Equal($@"{Directory}\Some process target", process.Target);
-                Assert.Equal($@"{Directory}\Some process working directory", process.WorkingDirectory);
+                    // Assert.
+                    Assert.Equal($@"{Directory}\Some node target", node.Target);
+                    Assert.Equal($@"{Directory}\Some node working directory", node.WorkingDirectory);
+                    Assert.Equal($@"{Directory}\Some process argument format", process.ArgumentFormat);
+                    Assert.Equal($@"{Directory}\Some process target", process.Target);
+                    Assert.Equal($@"{Directory}\Some process working directory", process.WorkingDirectory);
+                }
             }
             finally
             {
@@ -665,19 +702,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             try
             {
                 // Arrange.
-                Setup();
-                string directory = "$(currentdirectory)$(currentdirectory)";
-                Definition definition = new Definition() { Directory = directory };
-                NodeHandlerData node = new NodeHandlerData()
+                using (var tokenSource = new CancellationTokenSource())
+                using (var _hc = Setup(tokenSource))
                 {
-                    Target = @"$(currentDirectory)\Some node target",
-                };
+                    string directory = "$(currentdirectory)$(currentdirectory)";
+                    Definition definition = new Definition() { Directory = directory };
+                    NodeHandlerData node = new NodeHandlerData()
+                    {
+                        Target = @"$(currentDirectory)\Some node target",
+                    };
 
-                // Act.
-                node.ReplaceMacros(_hc, definition);
+                    // Act.
+                    node.ReplaceMacros(_hc, definition);
 
-                // Assert.
-                Assert.Equal($@"{directory}\Some node target", node.Target);
+                    // Assert.
+                    Assert.Equal($@"{directory}\Some node target", node.Target);
+                }
             }
             finally
             {
@@ -693,19 +733,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             try
             {
                 // Arrange.
-                Setup();
-                const string Directory = "Some directory";
-                Definition definition = new Definition() { Directory = Directory };
-                NodeHandlerData node = new NodeHandlerData()
+                using (var tokenSource = new CancellationTokenSource())
+                using (var _hc = Setup(tokenSource))
                 {
-                    Target = @"$(CuRrEnTdIrEcToRy)$(CuRrEnTdIrEcToRy)\Some node target",
-                };
+                    const string Directory = "Some directory";
+                    Definition definition = new Definition() { Directory = Directory };
+                    NodeHandlerData node = new NodeHandlerData()
+                    {
+                        Target = @"$(CuRrEnTdIrEcToRy)$(CuRrEnTdIrEcToRy)\Some node target",
+                    };
 
-                // Act.
-                node.ReplaceMacros(_hc, definition);
+                    // Act.
+                    node.ReplaceMacros(_hc, definition);
 
-                // Assert.
-                Assert.Equal($@"{Directory}{Directory}\Some node target", node.Target);
+                    // Assert.
+                    Assert.Equal($@"{Directory}{Directory}\Some node target", node.Target);
+                }
             }
             finally
             {
@@ -749,10 +792,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             return new FileStream(zipFile, FileMode.Open);
         }
 
-        private void Setup([CallerMemberName] string name = "", bool signatureVerificationEnabled = false)
+        private TestHostContext Setup(CancellationTokenSource _ecTokenSource, [CallerMemberName] string name = "", bool signatureVerificationEnabled = false)
         {
-            _ecTokenSource?.Dispose();
-            _ecTokenSource = new CancellationTokenSource();
 
             // Mocks.
             _jobServer = new Mock<IJobServer>();
@@ -761,7 +802,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             _ec.Setup(x => x.CancellationToken).Returns(_ecTokenSource.Token);
 
             // Test host context.
-            _hc = new TestHostContext(this, name);
+            var _hc = new TestHostContext(this, name);
 
             // Random work folder.
             _workFolder = _hc.GetDirectory(WellKnownDirectory.Work);
@@ -791,11 +832,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             _taskManager.Initialize(_hc);
 
             Environment.SetEnvironmentVariable("VSTS_TASK_DOWNLOAD_NO_BACKOFF", "1");
+            return _hc;
         }
 
         private void Teardown()
         {
-            _hc?.Dispose();
             if (!string.IsNullOrEmpty(_workFolder) && Directory.Exists(_workFolder))
             {
                 Directory.Delete(_workFolder, recursive: true);

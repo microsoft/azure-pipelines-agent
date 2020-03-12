@@ -142,6 +142,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                     Type = "git",
                 };
 
+                // No properties set
                 Assert.Equal(null, RepositoryUtil.GetPrimaryRepository(null));
                 Assert.Equal(repo1, RepositoryUtil.GetPrimaryRepository(new[] { repo1 }));
                 Assert.Equal(repo2, RepositoryUtil.GetPrimaryRepository(new[] { repo2 }));
@@ -150,6 +151,60 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                 Assert.Equal(repoSelf, RepositoryUtil.GetPrimaryRepository(new[] { repoSelf, repo1, repo2 }));
                 Assert.Equal(repoSelf, RepositoryUtil.GetPrimaryRepository(new[] { repo1, repoSelf, repo2 }));
                 Assert.Equal(repoSelf, RepositoryUtil.GetPrimaryRepository(new[] { repo1, repo2, repoSelf }));
+
+                // With IsPrimaryRepository set
+                repo2.Properties.Set(RepositoryUtil.IsPrimaryRepository, Boolean.TrueString);
+                Assert.Equal(repo2, RepositoryUtil.GetPrimaryRepository(new[] { repo1, repo2, repoSelf }));
+                repo2.Properties.Set(RepositoryUtil.IsPrimaryRepository, Boolean.FalseString);
+                Assert.Equal(repoSelf, RepositoryUtil.GetPrimaryRepository(new[] { repo1, repo2, repoSelf }));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void GetTriggeringRepository_should_return_correct_value_when_called()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+
+                var repo1 = new RepositoryResource
+                {
+                    Alias = "repo1",
+                    Id = "repo1",
+                    Type = "git",
+                };
+
+                var repo2 = new RepositoryResource
+                {
+                    Alias = "repo2",
+                    Id = "repo2",
+                    Type = "git",
+                };
+
+                var repoSelf = new RepositoryResource
+                {
+                    Alias = "self",
+                    Id = "repo3",
+                    Type = "git",
+                };
+
+                // No properties set
+                Assert.Equal(null, RepositoryUtil.GetTriggeringRepository(null));
+                Assert.Equal(repo1, RepositoryUtil.GetTriggeringRepository(new[] { repo1 }));
+                Assert.Equal(repo2, RepositoryUtil.GetTriggeringRepository(new[] { repo2 }));
+                Assert.Equal(repoSelf, RepositoryUtil.GetTriggeringRepository(new[] { repoSelf }));
+                Assert.Equal(null, RepositoryUtil.GetTriggeringRepository(new[] { repo1, repo2 }));
+                Assert.Equal(repoSelf, RepositoryUtil.GetTriggeringRepository(new[] { repoSelf, repo1, repo2 }));
+                Assert.Equal(repoSelf, RepositoryUtil.GetTriggeringRepository(new[] { repo1, repoSelf, repo2 }));
+                Assert.Equal(repoSelf, RepositoryUtil.GetTriggeringRepository(new[] { repo1, repo2, repoSelf }));
+
+                // With IsPrimaryRepository set
+                repo2.Properties.Set(RepositoryUtil.IsTriggeringRepository, Boolean.TrueString);
+                Assert.Equal(repo2, RepositoryUtil.GetTriggeringRepository(new[] { repo1, repo2, repoSelf }));
+                repo2.Properties.Set(RepositoryUtil.IsTriggeringRepository, Boolean.FalseString);
+                Assert.Equal(repoSelf, RepositoryUtil.GetTriggeringRepository(new[] { repo1, repo2, repoSelf }));
             }
         }
 

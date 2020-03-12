@@ -72,6 +72,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNull(repositories, nameof(repositories));
 
+            // Get the repo that we are going to checkout first to create the tracking info from.
             var primaryRepository = RepositoryUtil.GetPrimaryRepository(repositories);
 
             // Set the directories.
@@ -129,6 +130,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             get
             {
+                // Any time this gets updated, the agent cannot be rolled back.
+                // Back compat is guaranteed here, forward compat is not.
                 return 3;
             }
 

@@ -65,13 +65,12 @@ namespace Microsoft.VisualStudio.Services.Agent
         private Task[] _allDequeueTasks;
         private readonly TaskCompletionSource<int> _jobCompletionSource = new TaskCompletionSource<int>();
         private bool _queueInProcess = false;
-        private ITerminal _term;
 
         public event EventHandler<ThrottlingEventArgs> JobServerQueueThrottling;
 
         // Web console dequeue will start with process queue every 250ms for the first 60*4 times (~60 seconds).
         // Then the dequeue will happen every 500ms.
-        // In this way, customer still can get instance live console output on job start, 
+        // In this way, customer still can get instance live console output on job start,
         // at the same time we can cut the load to server after the build run for more than 60s
         private int _webConsoleLineAggressiveDequeueCount = 0;
         private const int _webConsoleLineAggressiveDequeueLimit = 4 * 60;
@@ -87,11 +86,6 @@ namespace Microsoft.VisualStudio.Services.Agent
         public void Start(Pipelines.AgentJobRequestMessage jobRequest)
         {
             Trace.Entering();
-            if (HostContext.RunMode == RunMode.Local)
-            {
-                _term = HostContext.GetService<ITerminal>();
-                return;
-            }
 
             if (_queueInProcess)
             {
@@ -131,10 +125,6 @@ namespace Microsoft.VisualStudio.Services.Agent
         // TimelineUpdate queue error will become critical when timeline records contain output variabls.
         public async Task ShutdownAsync()
         {
-            if (HostContext.RunMode == RunMode.Local)
-            {
-                return;
-            }
 
             if (!_queueInProcess)
             {
@@ -171,32 +161,12 @@ namespace Microsoft.VisualStudio.Services.Agent
         public void QueueWebConsoleLine(Guid stepRecordId, string line, long lineNumber)
         {
             Trace.Verbose("Enqueue web console line queue: {0}", line);
-            if (HostContext.RunMode == RunMode.Local)
-            {
-                if ((line ?? string.Empty).StartsWith("##[section]"))
-                {
-                    Console.WriteLine("******************************************************************************");
-                    Console.WriteLine(line.Substring("##[section]".Length));
-                    Console.WriteLine("******************************************************************************");
-                }
-                else
-                {
-                    Console.WriteLine(line);
-                }
-
-                return;
-            }
 
             _webConsoleLineQueue.Enqueue(new ConsoleLineInfo(stepRecordId, line, lineNumber));
         }
 
         public void QueueFileUpload(Guid timelineId, Guid timelineRecordId, string type, string name, string path, bool deleteSource)
         {
-            if (HostContext.RunMode == RunMode.Local)
-            {
-                return;
-            }
-
             ArgUtil.NotEmpty(timelineId, nameof(timelineId));
             ArgUtil.NotEmpty(timelineRecordId, nameof(timelineRecordId));
 
@@ -217,11 +187,6 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public void QueueTimelineRecordUpdate(Guid timelineId, TimelineRecord timelineRecord)
         {
-            if (HostContext.RunMode == RunMode.Local)
-            {
-                return;
-            }
-
             ArgUtil.NotEmpty(timelineId, nameof(timelineId));
             ArgUtil.NotNull(timelineRecord, nameof(timelineRecord));
             ArgUtil.NotEmpty(timelineRecord.Id, nameof(timelineRecord.Id));
@@ -504,8 +469,8 @@ namespace Microsoft.VisualStudio.Services.Agent
 
                 if (runOnce)
                 {
-                    // continue process timeline records update, 
-                    // we might have more records need update, 
+                    // continue process timeline records update,
+                    // we might have more records need update,
                     // since we just create a new sub-timeline
                     if (pendingSubtimelineUpdate)
                     {
