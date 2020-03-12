@@ -160,6 +160,7 @@ stages:
       name: buildDevs
       demands: 'Agent.OSArchitecture -equals ARM'
     container: dotnetcore_arm
+    timeoutInMinutes: 75
     steps:
 
     # Steps template for non-windows platform
