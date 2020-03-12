@@ -62,8 +62,8 @@ namespace Microsoft.VisualStudio.Services.Agent
         // a zero-width positive lookahead to find the "@".
         // It only matches on the password part.
         private const string _urlSecretMaskerPattern
-            = "(?<=//[^:/?#]+:)"    // lookbehind
-            + "[^@]+"               // actual match
+            = "(?<=//[^:/?#\\n]+:)" // lookbehind
+            + "[^@\n]+"             // actual match
             + "(?=@)";              // lookahead
 
         private static int _defaultLogRetentionDays = 30;

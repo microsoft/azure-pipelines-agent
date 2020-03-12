@@ -24,6 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         public void InitializeJob_LogsWarningsFromVariables()
         {
             using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
             {
                 // Arrange: Create a job request message.
                 TaskOrchestrationPlanReference plan = new TaskOrchestrationPlanReference();
@@ -41,7 +42,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var pagingLogger = new Mock<IPagingLogger>();
                 hc.EnqueueInstance(pagingLogger.Object);
 
-                var ec = new Agent.Worker.ExecutionContext();
                 ec.Initialize(hc);
 
                 // Act.
@@ -58,6 +58,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         public void AddIssue_CountWarningsErrors()
         {
             using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
             {
                 // Arrange: Create a job request message.
                 TaskOrchestrationPlanReference plan = new TaskOrchestrationPlanReference();
@@ -77,7 +78,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 hc.EnqueueInstance(pagingLogger.Object);
                 hc.SetSingleton(jobServerQueue.Object);
 
-                var ec = new Agent.Worker.ExecutionContext();
                 ec.Initialize(hc);
 
                 // Act.
@@ -130,8 +130,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         public void StepTarget_VerifySet()
         {
             using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
             {
-                var ec = new Agent.Worker.ExecutionContext();
                 ec.Initialize(hc);
 
                 var pipeContainer = new Pipelines.ContainerResource {
@@ -181,8 +181,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         public void StepTarget_RestrictedCommands_Host()
         {
             using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
             {
-                var ec = new Agent.Worker.ExecutionContext();
                 ec.Initialize(hc);
 
                 var pipeContainer = new Pipelines.ContainerResource {
@@ -233,8 +233,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         public void StepTarget_LoadStepContainersWithoutJobContainer()
         {
             using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
             {
-                var ec = new Agent.Worker.ExecutionContext();
                 ec.Initialize(hc);
 
                 var pipeContainer = new Pipelines.ContainerResource {
@@ -280,8 +280,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         public void SidecarContainers_VerifyNotJobContainers()
         {
             using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
             {
-                var ec = new Agent.Worker.ExecutionContext();
                 ec.Initialize(hc);
 
                 var pipeContainer = new Pipelines.ContainerResource {
@@ -337,6 +337,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         public void InitializeJob_should_set_JobSettings()
         {
             using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
             {
                 // Arrange: Create a job request message.
                 TaskOrchestrationPlanReference plan = new TaskOrchestrationPlanReference();
@@ -352,7 +353,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var pagingLogger = new Mock<IPagingLogger>();
                 hc.EnqueueInstance(pagingLogger.Object);
 
-                var ec = new Agent.Worker.ExecutionContext();
                 ec.Initialize(hc);
 
                 // Act.
@@ -370,6 +370,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         public void InitializeJob_should_set_JobSettings_multicheckout()
         {
             using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
             {
                 // Arrange: Create a job request message.
                 TaskOrchestrationPlanReference plan = new TaskOrchestrationPlanReference();
@@ -387,7 +388,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var pagingLogger = new Mock<IPagingLogger>();
                 hc.EnqueueInstance(pagingLogger.Object);
 
-                var ec = new Agent.Worker.ExecutionContext();
                 ec.Initialize(hc);
 
                 // Act.
@@ -406,6 +406,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         {
             // Note: the primary repository is defined as the first repository that is checked out in the job
             using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
             {
                 // Arrange: Create a job request message.
                 TaskOrchestrationPlanReference plan = new TaskOrchestrationPlanReference();
@@ -424,7 +425,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var pagingLogger = new Mock<IPagingLogger>();
                 hc.EnqueueInstance(pagingLogger.Object);
 
-                var ec = new Agent.Worker.ExecutionContext();
                 ec.Initialize(hc);
 
                 // Act.
@@ -446,6 +446,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         {
             // Note: the primary repository is defined as the first repository that is checked out in the job
             using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
             {
                 // Arrange: Create a job request message.
                 TaskOrchestrationPlanReference plan = new TaskOrchestrationPlanReference();
@@ -469,7 +470,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var pagingLogger = new Mock<IPagingLogger>();
                 hc.EnqueueInstance(pagingLogger.Object);
 
-                var ec = new Agent.Worker.ExecutionContext();
+
                 ec.Initialize(hc);
 
                 // Act.
