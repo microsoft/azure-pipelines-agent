@@ -75,7 +75,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         IHostContext GetHostContext();
     }
 
-    public sealed class ExecutionContext : AgentService, IExecutionContext
+    public sealed class ExecutionContext : AgentService, IExecutionContext, IDisposable
     {
         private const int _maxIssueCount = 10;
 
@@ -760,6 +760,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public IScopedEnvironment GetScopedEnvironment()
         {
             return new SystemEnvironment();
+        }
+
+        public void Dispose()
+        {
+            _cancellationTokenSource?.Dispose();
         }
     }
 
