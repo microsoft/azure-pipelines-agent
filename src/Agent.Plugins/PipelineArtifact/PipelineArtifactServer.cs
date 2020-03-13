@@ -314,7 +314,7 @@ namespace Agent.Plugins.PipelineArtifact
                 ArtifactProviderFactory factory = new ArtifactProviderFactory(context, connection, this.tracer);
                 IArtifactProvider provider = factory.GetProvider(buildArtifact);
                 
-                await provider.DownloadSingleArtifactAsync(downloadParameters, buildArtifact, cancellationToken);
+                await provider.DownloadSingleArtifactAsync(downloadParameters, buildArtifact, context, cancellationToken);
             }
             else
             {
