@@ -91,7 +91,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 buildArtifact.Resource = new ArtifactResource();
                 buildArtifact.Resource.Data = sourcePath;
                 
-                await provider.DownloadMultipleArtifactsAsync(downloadParameters, new List<BuildArtifact> { buildArtifact }, CancellationToken.None);
+                await provider.DownloadMultipleArtifactsAsync(downloadParameters, new List<BuildArtifact> { buildArtifact }, CancellationToken.None, context);
                 var sourceFiles = Directory.GetFiles(sourcePath);
                 var destFiles = Directory.GetFiles(destPath);
 
@@ -133,7 +133,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 buildArtifact.Resource = new ArtifactResource();
                 buildArtifact.Resource.Data = sourcePath;
                 
-                await provider.DownloadMultipleArtifactsAsync(downloadParameters, new List<BuildArtifact> {buildArtifact}, CancellationToken.None);
+                await provider.DownloadMultipleArtifactsAsync(downloadParameters, new List<BuildArtifact> {buildArtifact}, CancellationToken.None, context);
                 var sourceFiles = Directory.GetFiles(sourcePath);
                 var destFiles = Directory.GetFiles(Path.Combine(destPath, buildArtifact.Name));
                 Assert.Equal(1, destFiles.Length);
