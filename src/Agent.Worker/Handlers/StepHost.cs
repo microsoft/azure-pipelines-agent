@@ -97,6 +97,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             // make sure container exist.
             ArgUtil.NotNull(Container, nameof(Container));
             ArgUtil.NotNullOrEmpty(Container.ContainerId, nameof(Container.ContainerId));
+            ArgUtil.NotNull(path, nameof(path));
 
             // remove double quotes around the path
             path = path.Trim('\"');

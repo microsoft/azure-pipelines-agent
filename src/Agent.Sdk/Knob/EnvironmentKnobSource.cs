@@ -1,5 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Agent.Sdk.Knob
 {
@@ -15,6 +16,7 @@ namespace Agent.Sdk.Knob
 
         public KnobValue GetValue(IKnobValueContext context)
         {
+            ArgUtil.NotNull(context, nameof(context));
             var scopedEnvironment = context.GetScopedEnvironment();
             var value = scopedEnvironment.GetEnvironmentVariable(_envVar);
             if (!string.IsNullOrEmpty(value))

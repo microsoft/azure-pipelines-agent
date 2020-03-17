@@ -28,6 +28,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public List<string> Aliases => null;
         public void Execute(IExecutionContext context, Command command)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
+
             var eventProperties = command.Properties;
             var data = command.Data;
 
@@ -69,7 +72,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         // So, we will just reset the repo local path
                         string buildDirectory = context.Variables.Get(Constants.Variables.Pipeline.Workspace);
                         string repoRelativePath = directoryManager.GetRelativeRepositoryPath(buildDirectory, repositoryPath);
-                        context.SetVariable(Constants.Variables.Build.RepoLocalPath, Path.Combine(_workDirectory, repoRelativePath), isFilePath: true);
+                        context?.SetVariable(Constants.Variables.Build.RepoLocalPath, Path.Combine(_workDirectory, repoRelativePath), isFilePath: true);
                     }
                     else
                     {

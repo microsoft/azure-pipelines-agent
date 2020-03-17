@@ -122,11 +122,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void Extract(IExecutionContext executionContext, Pipelines.TaskStep task)
         {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+            ArgUtil.NotNull(task, nameof(task));
+
             String zipFile = GetTaskZipPath(task.Reference);
             String destinationDirectory = GetDirectory(task.Reference);
-            
+
             executionContext.Debug($"Extracting task {task.Name} from {zipFile} to {destinationDirectory}.");
-            
+
             Trace.Verbose("Deleting task destination folder: {0}", destinationDirectory);
             IOUtil.DeleteDirectory(destinationDirectory, executionContext.CancellationToken);
 
@@ -541,6 +544,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void ReplaceMacros(IHostContext context, Definition definition)
         {
+            ArgUtil.NotNull(definition, nameof(definition));
             var handlerVariables = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             handlerVariables["currentdirectory"] = definition.Directory;
             VarUtil.ExpandValues(context, source: handlerVariables, target: Inputs);

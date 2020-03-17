@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Collections.Generic;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -24,6 +25,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public void AddUploadResult(UploadResult resultToAdd)
         {
+            ArgUtil.NotNull(resultToAdd, nameof(resultToAdd));
+
             this.FailedFiles.AddRange(resultToAdd.FailedFiles);
             this.TotalFileSizeUploaded += resultToAdd.TotalFileSizeUploaded;
         }

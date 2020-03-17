@@ -4,6 +4,7 @@
 using Microsoft.TeamFoundation.TestClient.PublishTestResults;
 using System;
 using System.Collections.Generic;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
@@ -24,6 +25,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
         public TestDataProvider ParseTestResultFiles(IExecutionContext executionContext, TestRunContext testRunContext, List<string> testResultsFiles)
         {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
             if (string.IsNullOrEmpty(Name))
             {
                 executionContext.Warning("Test runner name is null or empty");

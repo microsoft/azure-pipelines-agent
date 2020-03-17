@@ -33,6 +33,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         public List<string> Aliases => null;
         public void Execute(IExecutionContext context, Command command)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
+
             var data = command.Data;
             // Translate file path back from container path
             data = context.TranslateToHostPath(data);
@@ -55,6 +58,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         public List<string> Aliases => null;
         public void Execute(IExecutionContext context, Command command)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
+
             var data = command.Data;
             // Translate file path back from container path
             data = context.TranslateToHostPath(data);
@@ -80,6 +86,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(context.Endpoints, nameof(context.Endpoints));
+            ArgUtil.NotNull(command, nameof(command));
 
             string data = command.Data;
 
@@ -138,6 +145,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(context.Endpoints, nameof(context.Endpoints));
+            ArgUtil.NotNull(command, nameof(command));
 
             string data = command.Data;
 

@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Text.RegularExpressions;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Agent.Sdk
 {
@@ -84,6 +85,7 @@ namespace Agent.Sdk
 
         public bool IsBypassed(Uri uri)
         {
+            ArgUtil.NotNull(uri, nameof(uri));
             return string.IsNullOrEmpty(_proxyAddress) || uri.IsLoopback || IsMatchInBypassList(uri);
         }
 

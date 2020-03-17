@@ -172,7 +172,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         }
 
         public string GetRelativeRepositoryPath(
-            string buildDirectory, 
+            string buildDirectory,
             string repositoryPath)
         {
             ArgUtil.NotNullOrEmpty(buildDirectory, nameof(buildDirectory));
@@ -203,6 +203,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public void CreateDirectory(IExecutionContext executionContext, string description, string path, bool deleteExisting)
         {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+
             // Delete.
             if (deleteExisting)
             {

@@ -41,6 +41,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                          Pipelines.AgentJobRequestMessage message,
                                          DateTime jobStartTimeUtc)
         {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+            ArgUtil.NotNull(message, nameof(message));
+
             executionContext.Debug("Starting diagnostic file upload.");
 
             // Setup folders

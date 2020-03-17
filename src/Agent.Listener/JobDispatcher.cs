@@ -51,6 +51,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         public override void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
             base.Initialize(hostContext);
 
             // get pool id from config
@@ -74,6 +75,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "WorkerDispatcher")]
         public void Run(Pipelines.AgentJobRequestMessage jobRequestMessage, bool runOnce = false)
         {
+            ArgUtil.NotNull(jobRequestMessage, nameof(jobRequestMessage));
             Trace.Info($"Job request {jobRequestMessage.RequestId} for plan {jobRequestMessage.Plan.PlanId} job {jobRequestMessage.JobId} received.");
 
             WorkerDispatcher currentDispatch = null;
@@ -104,6 +106,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         public bool Cancel(JobCancelMessage jobCancelMessage)
         {
+            ArgUtil.NotNull(jobCancelMessage, nameof(jobCancelMessage));
             Trace.Info($"Job cancellation request {jobCancelMessage.JobId} received, cancellation timeout {jobCancelMessage.Timeout.TotalMinutes} minutes.");
 
             WorkerDispatcher workerDispatcher;
@@ -625,6 +628,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         public async Task RenewJobRequestAsync(int poolId, long requestId, Guid lockToken, TaskCompletionSource<int> firstJobRequestRenewed, CancellationToken token)
         {
+            ArgUtil.NotNull(firstJobRequestRenewed, nameof(firstJobRequestRenewed));
             var agentServer = HostContext.GetService<IAgentServer>();
             TaskAgentJobRequest request = null;
             int firstRenewRetryLimit = 5;
