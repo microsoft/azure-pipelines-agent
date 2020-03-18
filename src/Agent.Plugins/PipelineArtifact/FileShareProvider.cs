@@ -52,7 +52,7 @@ namespace Agent.Plugins.PipelineArtifact
 
         public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context) 
         {
-            context.Warning("Please use Download Build Artifact task for downloading 'UNC' type artifact");
+            context.Warning(StringUtil.Loc("DownloadUNCArtifactWarning"));
             BlobStoreClientTelemetry clientTelemetry;
             DedupManifestArtifactClient dedupManifestClient = this.factory.CreateDedupManifestClient(context, connection, cancellationToken, out clientTelemetry);
             using (clientTelemetry)

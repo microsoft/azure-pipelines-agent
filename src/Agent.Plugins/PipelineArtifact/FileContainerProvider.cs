@@ -3,6 +3,7 @@
 
 using Agent.Sdk;
 using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
 using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
@@ -40,13 +41,13 @@ namespace Agent.Plugins.PipelineArtifact
 
         public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
-            context.Warning($"Please use Download Build Artifact task for downloading 'Build Artifact' type artifact");
+            context.Warning(StringUtil.Loc("DownloadBuildArtifactWarning"));
             await this.DownloadFileContainerAsync(downloadParameters.ProjectId, buildArtifact, downloadParameters.TargetDirectory, downloadParameters.MinimatchFilters, cancellationToken);
         }
 
         public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
-            context.Warning($"Please use Download Build Artifact task for downloading 'Build Artifact' type artifact");
+            context.Warning(StringUtil.Loc("DownloadBuildArtifactWarning"));
             await this.DownloadFileContainersAsync(downloadParameters.ProjectId, buildArtifacts, downloadParameters.TargetDirectory, downloadParameters.MinimatchFilters, cancellationToken);
         }
 
