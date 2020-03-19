@@ -249,6 +249,7 @@
   "DownloadArtifacts": "Download Artifacts",
   "DownloadArtifactsFailed": "Downloading artifacts failed: {0}",
   "DownloadArtifactTo": "Download artifact to: {0}",
+  "DownloadArtifactWarning": "Please use Download Build Artifact task for downloading {0} type artifact. https://docs.microsoft.com/en-us/azure/devops/pipelines/tasks/utility/download-build-artifacts?view=azure-devops",
   "DownloadingFromBuild": "Download from the specified build: #{0}",
   "DownloadingJenkinsCommitsBetween": "Downloading commits between job {0} to {1}",
   "DownloadingJenkinsCommitsFailedWithException": "Downloading commits for jenkins artifact {0} failed. Exception: {1}",

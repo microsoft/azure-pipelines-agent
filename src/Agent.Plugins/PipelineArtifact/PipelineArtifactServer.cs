@@ -272,19 +272,19 @@ namespace Agent.Plugins.PipelineArtifact
                 if (buildArtifacts.Any())
                 {
                     FileContainerProvider provider = new FileContainerProvider(connection, this.tracer);
-                    await provider.DownloadMultipleArtifactsAsync(downloadParameters, buildArtifacts, cancellationToken);
+                    await provider.DownloadMultipleArtifactsAsync(downloadParameters, buildArtifacts, cancellationToken, context);
                 }
 
                 if (pipelineArtifacts.Any())
                 {
                     PipelineArtifactProvider provider = new PipelineArtifactProvider(context, connection, this.tracer);
-                    await provider.DownloadMultipleArtifactsAsync(downloadParameters, pipelineArtifacts, cancellationToken);
+                    await provider.DownloadMultipleArtifactsAsync(downloadParameters, pipelineArtifacts, cancellationToken, context);
                 }
 
                 if(fileShareArtifacts.Any()) 
                 {
                     FileShareProvider provider = new FileShareProvider(context, connection, this.tracer);
-                    await provider.DownloadMultipleArtifactsAsync(downloadParameters, fileShareArtifacts, cancellationToken);
+                    await provider.DownloadMultipleArtifactsAsync(downloadParameters, fileShareArtifacts, cancellationToken, context);
                 }
             }
             else if (downloadOptions == DownloadOptions.SingleDownload)
@@ -314,7 +314,7 @@ namespace Agent.Plugins.PipelineArtifact
                 ArtifactProviderFactory factory = new ArtifactProviderFactory(context, connection, this.tracer);
                 IArtifactProvider provider = factory.GetProvider(buildArtifact);
                 
-                await provider.DownloadSingleArtifactAsync(downloadParameters, buildArtifact, cancellationToken);
+                await provider.DownloadSingleArtifactAsync(downloadParameters, buildArtifact, cancellationToken, context);
             }
             else
             {

@@ -51,7 +51,7 @@ namespace Agent.Plugins.PipelineArtifact
             var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, parallelism);
         }
 
-        public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken)
+        public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
             DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClient(
                 this.context, this.connection, cancellationToken, out BlobStoreClientTelemetry clientTelemetry);
@@ -77,7 +77,7 @@ namespace Agent.Plugins.PipelineArtifact
             }
         }
 
-        public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken)
+        public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
             DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClient(
                 this.context, this.connection, cancellationToken, out BlobStoreClientTelemetry clientTelemetry);
