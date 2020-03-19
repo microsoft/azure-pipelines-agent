@@ -21,7 +21,7 @@ namespace Agent.Sdk.Knob
         
         public static readonly Knob QuietCheckout = new Knob(
             nameof(QuietCheckout),
-            "Aggressively reudce what gets logged to the console when checking out source.",
+            "Aggressively reduce what gets logged to the console when checking out source.",
             new RuntimeKnobSource("agent.source.checkout.quiet"),
             new EnvironmentKnobSource("AGENT_SOURCE_CHECKOUT_QUIET"),
             new BuiltInDefaultKnobSource("false"));
