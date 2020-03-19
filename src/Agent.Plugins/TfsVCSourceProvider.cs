@@ -38,7 +38,7 @@ namespace Agent.Plugins.Repository
             if (reducedOutput)
             {
                 executionContext.Output(StringUtil.Loc("QuietCheckoutModeRequested"));
-                executionContext.SetTaskVariable("agent.source.checkout.quiet", Boolean.TrueString);
+                executionContext.SetTaskVariable(AgentKnobs.QuietCheckoutRuntimeVarName, Boolean.TrueString);
             }
 
 

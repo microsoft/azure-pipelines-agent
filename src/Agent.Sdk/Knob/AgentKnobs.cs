@@ -19,11 +19,14 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_AGENT_DOWNGRADE_DISABLED"),
             new BuiltInDefaultKnobSource("false"));
         
+        public const string QuietCheckoutRuntimeVarName = "agent.source.checkout.quiet";
+        public const string QuietCheckoutEnvVarName = "AGENT_SOURCE_CHECKOUT_QUIET";
+        
         public static readonly Knob QuietCheckout = new Knob(
             nameof(QuietCheckout),
             "Aggressively reduce what gets logged to the console when checking out source.",
-            new RuntimeKnobSource("agent.source.checkout.quiet"),
-            new EnvironmentKnobSource("AGENT_SOURCE_CHECKOUT_QUIET"),
+            new RuntimeKnobSource(QuietCheckoutRuntimeVarName),
+            new EnvironmentKnobSource(QuietCheckoutEnvVarName),
             new BuiltInDefaultKnobSource("false"));
     }
 
