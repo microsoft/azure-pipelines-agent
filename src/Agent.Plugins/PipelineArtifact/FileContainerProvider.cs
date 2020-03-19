@@ -41,13 +41,13 @@ namespace Agent.Plugins.PipelineArtifact
 
         public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
-            context.Warning(StringUtil.Loc("DownloadBuildArtifactWarning"));
+            context.Warning(StringUtil.Loc("DownloadArtifactWarning", "Build Artifact"));
             await this.DownloadFileContainerAsync(downloadParameters.ProjectId, buildArtifact, downloadParameters.TargetDirectory, downloadParameters.MinimatchFilters, cancellationToken);
         }
 
         public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
-            context.Warning(StringUtil.Loc("DownloadBuildArtifactWarning"));
+            context.Warning(StringUtil.Loc("DownloadArtifactWarning", "Build Artifact"));
             await this.DownloadFileContainersAsync(downloadParameters.ProjectId, buildArtifacts, downloadParameters.TargetDirectory, downloadParameters.MinimatchFilters, cancellationToken);
         }
 
