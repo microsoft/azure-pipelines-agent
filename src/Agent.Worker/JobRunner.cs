@@ -178,7 +178,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
 
                 // for back compat TFS 2015 RTM/QU1, we may need to switch the task server url to agent config url
-                if (!string.Equals(message.Variables.GetValueOrDefault(Constants.Variables.System.ServerType)?.Value, "Hosted", StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(message?.Variables.GetValueOrDefault(Constants.Variables.System.ServerType)?.Value, "Hosted", StringComparison.OrdinalIgnoreCase))
                 {
                     if (taskServerUri == null || !await taskServer.TaskDefinitionEndpointExist())
                     {
@@ -266,7 +266,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // trace out all steps
                 Trace.Info($"Total job steps: {jobSteps.Count}.");
                 Trace.Verbose($"Job steps: '{string.Join(", ", jobSteps.Select(x => x.DisplayName))}'");
-                HostContext.WritePerfCounter($"WorkerJobInitialized_{message.RequestId.ToString()}");
+                HostContext.WritePerfCounter($"WorkerJobInitialized_{message?.RequestId.ToString()}");
 
                 // Run all job steps
                 Trace.Info("Run all job steps.");
@@ -329,6 +329,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void ExpandProperties(ContainerInfo container, Variables variables)
         {
+            if (container == null || variables == null)
+            {
+                return;
+            }
             // Expand port mapping
             variables.ExpandValues(container.UserPortMappings);
 
@@ -350,6 +354,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private async Task<TaskResult> CompleteJobAsync(IJobServer jobServer, IExecutionContext jobContext, Pipelines.AgentJobRequestMessage message, TaskResult? taskResult = null)
         {
+            ArgUtil.NotNull(message, nameof(message));
             jobContext.Section(StringUtil.Loc("StepFinishing", message.JobDisplayName));
             TaskResult result = jobContext.Complete(taskResult);
 

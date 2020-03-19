@@ -124,6 +124,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             TrackingConfig newConfig,
             TrackingConfig previousConfig)
         {
+            ArgUtil.NotNull(newConfig, nameof(newConfig));
+            ArgUtil.NotNull(previousConfig, nameof(previousConfig));
+
             Trace.Entering();
 
             TrackingConfig mergedConfig = previousConfig.Clone();
@@ -153,6 +156,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             IExecutionContext executionContext,
             TrackingConfig modifiedConfig)
         {
+            ArgUtil.NotNull(modifiedConfig, nameof(modifiedConfig));
+
             Trace.Entering();
 
             Trace.Verbose("Updating job run properties.");
@@ -190,6 +195,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public void MaintenanceStarted(TrackingConfig config)
         {
+            ArgUtil.NotNull(config, nameof(config));
+
             Trace.Entering();
             config.LastMaintenanceAttemptedOn = DateTimeOffset.Now;
             config.LastMaintenanceCompletedOn = null;
@@ -198,6 +205,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public void MaintenanceCompleted(TrackingConfig config)
         {
+            ArgUtil.NotNull(config, nameof(config));
+
             Trace.Entering();
             config.LastMaintenanceCompletedOn = DateTimeOffset.Now;
             WriteToFile(config.FileLocation, config);
@@ -242,6 +251,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             IExecutionContext executionContext,
             TimeSpan expiration)
         {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+            ArgUtil.NotNull(expiration, nameof(expiration));
+
             Trace.Entering();
 
             Trace.Info("Scan all SourceFolder tracking files.");
@@ -287,6 +299,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public void DisposeCollectedGarbage(IExecutionContext executionContext)
         {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+
             Trace.Entering();
             PrintOutDiskUsage(executionContext);
 

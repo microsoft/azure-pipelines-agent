@@ -38,6 +38,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         public async Task<int> ExecuteCommand(CommandSettings command)
         {
+            ArgUtil.NotNull(command, nameof(command));
             try
             {
                 var agentWebProxy = HostContext.GetService<IVstsAgentWebProxy>();

@@ -7,6 +7,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -16,8 +17,10 @@ namespace Microsoft.VisualStudio.Services.Agent
         // Reference: http://blog.gapotchenko.com/eazfuscator.net/reading-environment-variables
         public static string GetEnvironmentVariable(Process process, IHostContext hostContext, string variable)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
+            ArgUtil.NotNull(process, nameof(process));
             var trace = hostContext.GetTrace(nameof(WindowsEnvVarHelper));
-            
+
             IntPtr processHandle = process.SafeHandle.DangerousGetHandle();
 
             IntPtr environmentBlockAddress;

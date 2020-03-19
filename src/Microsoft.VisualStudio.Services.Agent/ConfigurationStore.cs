@@ -239,6 +239,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public void SaveCredential(CredentialData credential)
         {
+            ArgUtil.NotNull(credential, nameof(credential));
             Trace.Info("Saving {0} credential @ {1}", credential.Scheme, _credFilePath);
             if (File.Exists(_credFilePath))
             {

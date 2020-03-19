@@ -43,6 +43,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private readonly Dictionary<Guid, TimelineRecord> _timelineRecordsTracker = new Dictionary<Guid, TimelineRecord>();
         public void Execute(IExecutionContext context, Command command)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
+
             var eventProperties = command.Properties;
             var data = command.Data;
 
@@ -229,6 +232,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void Execute(IExecutionContext context, Command command)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
+
             var data = command.Data;
             if (!string.IsNullOrEmpty(data))
             {
@@ -253,6 +259,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void Execute(IExecutionContext context, Command command)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
+
             var data = command.Data;
 
             if (!string.IsNullOrEmpty(data))
@@ -278,11 +287,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void Execute(IExecutionContext context, Command command)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
+
             AddAttachment(context, command.Properties, command.Data);
         }
 
         public static void AddAttachment(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(eventProperties, nameof(eventProperties));
+
             String type;
             if (!eventProperties.TryGetValue(TaskAddAttachmentEventProperties.Type, out type) || String.IsNullOrEmpty(type))
             {
@@ -329,6 +344,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void Execute(IExecutionContext context, Command command)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
+
             var eventProperties = command.Properties;
             var data = command.Data;
 
@@ -448,6 +466,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void Execute(IExecutionContext context, Command command)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
+
             var eventProperties = command.Properties;
             var data = command.Data;
 
@@ -480,6 +501,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void Execute(IExecutionContext context, Command command)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
+
             var eventProperties = command.Properties;
             var data = command.Data;
 
@@ -506,6 +530,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void Execute(IExecutionContext context, Command command)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
+
             var data = command.Data;
             if (!string.IsNullOrEmpty(data))
             {
@@ -522,6 +549,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void Execute(IExecutionContext context, Command command)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
+
             var eventProperties = command.Properties;
             var data = command.Data;
 
@@ -594,6 +624,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void Execute(IExecutionContext context, Command command)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
+
             var data = command.Data;
             context.Debug(data);
         }
@@ -607,6 +640,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void Execute(IExecutionContext context, Command command)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
+
             var eventProperties = command.Properties;
             var data = command.Data;
 
@@ -671,6 +707,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void Execute(IExecutionContext context, Command command)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
+
             var eventProperties = command.Properties;
             var data = command.Data;
 
@@ -750,6 +789,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void Execute(IExecutionContext context, Command command)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
+
             var data = command.Data;
 
             ArgUtil.NotNullOrEmpty(data, this.Name);

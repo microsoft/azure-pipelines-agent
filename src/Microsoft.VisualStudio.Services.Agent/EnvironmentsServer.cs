@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.Azure.Pipelines.Environments.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -47,6 +48,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public async Task ConnectAsync(VssConnection agentConnection)
         {
+            ArgUtil.NotNull(agentConnection, nameof(agentConnection));
             _connection = agentConnection;
             if (!_connection.HasAuthenticated)
             {
@@ -85,7 +87,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public Task DeleteEnvironmentVMAsync(string projectName, int environmentId, int virtualMachineId)
         {
-            CheckConnection();            
+            CheckConnection();
             return _environmentsHttpClient.DeleteVirtualMachineResourceAsync(projectName, environmentId, virtualMachineId);
         }
 
@@ -109,7 +111,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public Task<TaskAgentPoolReference> GetEnvironmentPoolAsync(Guid projectGuid, int environmentId)
         {
-            CheckConnection();            
+            CheckConnection();
             return _environmentsHttpClient.GetLinkedPoolAsync(projectGuid, environmentId);
         }
 

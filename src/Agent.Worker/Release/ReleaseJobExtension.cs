@@ -57,6 +57,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 
         public override string GetRootedPath(IExecutionContext context, string path)
         {
+            ArgUtil.NotNull(context, nameof(context));
+
             string rootedPath = null;
 
             if (!string.IsNullOrEmpty(path) &&
@@ -293,8 +295,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 
         public override void InitializeJobExtension(IExecutionContext executionContext, IList<JobStep> steps, WorkspaceOptions workspace)
         {
-            Trace.Entering();
             ArgUtil.NotNull(executionContext, nameof(executionContext));
+            Trace.Entering();
 
             executionContext.Output(StringUtil.Loc("PrepareReleasesDir"));
             var directoryManager = HostContext.GetService<IReleaseDirectoryManager>();
@@ -315,6 +317,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                 releaseDefinition = regex.Replace(releaseDefinitionName, string.Empty);
             }
 
+            ArgUtil.NotNull(executionContext, nameof(executionContext)); // I am not sure why this is needed, but static analysis flagged all uses of executionContext below this point
             var releaseTrackingConfig = directoryManager.PrepareArtifactsDirectory(
                 HostContext.GetDirectory(WellKnownDirectory.Work),
                 executionContext.Variables.System_CollectionId,

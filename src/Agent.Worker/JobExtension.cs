@@ -93,7 +93,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     // Give job extension a chance to initialize
                     Trace.Info($"Run initial step from extension {this.GetType().Name}.");
-                    InitializeJobExtension(context, message.Steps, message.Workspace);
+                    InitializeJobExtension(context, message?.Steps, message?.Workspace);
 
                     // Download tasks if not already in the cache
                     Trace.Info("Downloading task definitions.");
@@ -163,7 +163,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                             Trace.Verbose($"Adding agent init script step.");
                             prepareStep.Initialize(HostContext);
-                            prepareStep.ExecutionContext = jobContext.CreateChild(Guid.NewGuid(), prepareStep.DisplayName, nameof(ManagementScriptStep));
+                            prepareStep.ExecutionContext = jobContext?.CreateChild(Guid.NewGuid(), prepareStep.DisplayName, nameof(ManagementScriptStep));
                             prepareStep.AccessToken = systemConnection.Authorization.Parameters["AccessToken"];
                             prepareStep.Condition = ExpressionManager.Succeeded;
                             preJobSteps.Add(prepareStep);
@@ -191,7 +191,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                                                         data: (object)containers));
                     }
 
-                    foreach (var task in message.Steps.OfType<Pipelines.TaskStep>())
+                    foreach (var task in message?.Steps.OfType<Pipelines.TaskStep>())
                     {
                         var taskDefinition = taskManager.Load(task);
 
@@ -248,6 +248,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         postJobStepsBuilder.Push(extensionPostJobStep);
                     }
 
+                    ArgUtil.NotNull(jobContext, nameof(jobContext)); // I am not sure why this is needed, but static analysis flagged all uses of jobContext below this point
                     // create execution context for all pre-job steps
                     foreach (var step in preJobSteps)
                     {

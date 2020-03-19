@@ -15,6 +15,10 @@ namespace Microsoft.VisualStudio.Services.Agent
     {
         public static string GetEnvironmentVariable(this Process process, IHostContext hostContext, string variable)
         {
+            ArgUtil.NotNull(process, nameof(process));
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
+            ArgUtil.NotNull(variable, nameof(variable));
+
             switch (PlatformUtil.HostOS)
             {
                 case PlatformUtil.OS.Linux:

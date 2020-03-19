@@ -6,6 +6,7 @@ using System.IO;
 using System.IO.Pipes;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -52,6 +53,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public void StartServer(StartProcessDelegate startProcess, bool disposeLocalClientHandle = true)
         {
+            ArgUtil.NotNull(startProcess, nameof(startProcess));
             _outServer = new AnonymousPipeServerStream(PipeDirection.Out, HandleInheritability.Inheritable);
             _inServer = new AnonymousPipeServerStream(PipeDirection.In, HandleInheritability.Inheritable);
             _readStream = new StreamString(_inServer);

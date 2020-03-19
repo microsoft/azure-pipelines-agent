@@ -67,6 +67,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             IExecutionContext context,
             AgentArtifactDefinition agentArtifactDefinition)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(agentArtifactDefinition, nameof(agentArtifactDefinition));
+
             var artifactDetails =
                 JsonConvert.DeserializeObject<Dictionary<string, string>>(agentArtifactDefinition.Details);
 

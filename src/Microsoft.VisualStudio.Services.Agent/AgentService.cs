@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -35,6 +36,8 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public virtual void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
+
             HostContext = hostContext;
             Trace = HostContext.GetTrace(TraceName);
             Trace.Entering();

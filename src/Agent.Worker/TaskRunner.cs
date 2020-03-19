@@ -352,6 +352,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public HandlerData GetHandlerData(IExecutionContext ExecutionContext, ExecutionData currentExecution, PlatformUtil.OS hostOS)
         {
+            ArgUtil.NotNull(ExecutionContext, nameof(ExecutionContext));
             if (currentExecution == null)
             {
                 return null;

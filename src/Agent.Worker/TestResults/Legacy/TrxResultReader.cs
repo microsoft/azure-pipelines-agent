@@ -66,7 +66,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 
 
             string runUser = "";
-            if (runContext.Owner != null)
+            if (runContext?.Owner != null)
             {
                 runUser = runContext.Owner;
             }
@@ -124,7 +124,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 
             AddRunLevelAttachments(filePath, doc, testRunData);
 
-            // Create a dictionary of testcase definitions to be used when iterating over the results 
+            // Create a dictionary of testcase definitions to be used when iterating over the results
             Dictionary<string, TestCaseDefinition> definitions = new Dictionary<string, TestCaseDefinition>();
             if (doc.SelectNodes("/TestRun/TestDefinitions").Count > 0)
             {
@@ -152,16 +152,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                         owner = ownerIdRef;
                     }
 
-                    // The automated test name should be FQDN, if we are unable to figure it out like in case of a webtest, 
-                    // set it as "name" from the parent (where it is always present) 
+                    // The automated test name should be FQDN, if we are unable to figure it out like in case of a webtest,
+                    // set it as "name" from the parent (where it is always present)
                     XmlNode testResultNode = definitionNode.SelectSingleNode("./TestMethod");
                     string automatedTestName = null;
                     if (testResultNode != null && testResultNode.Attributes["className"] != null && testResultNode.Attributes["name"] != null)
                     {
-                        // At times the class names are coming as 
+                        // At times the class names are coming as
                         // className="MS.TF.Test.AgileX.VSTests.WiLinking.UI.WiLinkingUIQueryTests"
-                        // at other times, they are as 
-                        // className="UnitTestProject3.UnitTest1, UnitTestProject3, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" 
+                        // at other times, they are as
+                        // className="UnitTestProject3.UnitTest1, UnitTestProject3, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null"
                         string className = testResultNode.Attributes["className"].Value.Split(',')[0];
                         automatedTestName = className + "." + testResultNode.Attributes["name"].Value;
                     }
@@ -215,8 +215,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 
         private void AddCodeCoverageSourceFilesAsRunLevelAttachment(XmlDocument doc, List<string> runAttachments)
         {
-            // Needed for mstest.exe generated result files which are now getting used in the "PublishTestResults" task 
-            // And for static Codecoverage(VS2010), binary and pdb files need to be uploaded as well 
+            // Needed for mstest.exe generated result files which are now getting used in the "PublishTestResults" task
+            // And for static Codecoverage(VS2010), binary and pdb files need to be uploaded as well
             XmlNodeList staticCodeCoverageNodes =
                 doc.SelectNodes(
                     "/TestRun/TestSettings/Execution/AgentRule/DataCollectors/DataCollector/Configuration/CodeCoverage/Regular/CodeCoverageItem");
@@ -243,7 +243,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 
         private void AddResultFilesAsRunLevelAttachment(XmlDocument doc, List<string> runAttachments)
         {
-            // Needed for static codecoverage and any other run level result files generated at ModuleInit levels 
+            // Needed for static codecoverage and any other run level result files generated at ModuleInit levels
             XmlNodeList runResultFileNodes = doc.SelectNodes("/TestRun/ResultSummary/ResultFiles/ResultFile");
             foreach (XmlNode runResultFileNode in runResultFileNodes)
             {
@@ -311,7 +311,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 
                 if ((DateTime.Compare(default(DateTime), startedDate) < 0 && DateTime.Compare(startedDate, (DateTime) SqlDateTime.MinValue) <= 0)
                     || (DateTime.Compare(default(DateTime), completedDate) < 0 && DateTime.Compare(completedDate, (DateTime) SqlDateTime.MinValue) <= 0)) {
-                        
+
                         DateTime utcNow = DateTime.UtcNow;
                         resultCreateModel.StartedDate = utcNow;
                         resultCreateModel.CompletedDate = utcNow.AddTicks(duration.Ticks);
@@ -320,7 +320,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                 if (resultNode.Attributes["outcome"] == null || resultNode.Attributes["outcome"].Value == null || string.Equals(resultNode.Attributes["outcome"].Value, "failed", StringComparison.OrdinalIgnoreCase))
                 {
                     resultCreateModel.Outcome = TestOutcome.Failed.ToString(); ;
-                }               
+                }
                 else if (string.Equals(resultNode.Attributes["outcome"].Value, "passed", StringComparison.OrdinalIgnoreCase))
                 {
                     resultCreateModel.Outcome = TestOutcome.Passed.ToString();
@@ -330,9 +330,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                     resultCreateModel.Outcome = TestOutcome.Inconclusive.ToString();
                 }
                 else
-                {                    
+                {
                     resultCreateModel.Outcome = TestOutcome.NotExecuted.ToString();
-                }               
+                }
 
                 if (resultNode.Attributes["testName"] != null && resultNode.Attributes["testName"].Value != null)
                 {
@@ -476,7 +476,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
             }
             object sync = new object();
             var resultXmlNodes = resultsNodes.Cast<XmlNode>();
-            
+
             foreach (var resultNode in resultXmlNodes)
             {
                 TestCaseSubResultData resultCreateModel = new TestCaseSubResultData();
@@ -510,7 +510,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                 if (resultNode.Attributes["outcome"] == null || resultNode.Attributes["outcome"].Value == null || string.Equals(resultNode.Attributes["outcome"].Value, "failed", StringComparison.OrdinalIgnoreCase))
                 {
                     resultCreateModel.Outcome = TestOutcome.Failed.ToString(); ;
-                }               
+                }
                 else if (string.Equals(resultNode.Attributes["outcome"].Value, "passed", StringComparison.OrdinalIgnoreCase))
                 {
                     resultCreateModel.Outcome = TestOutcome.Passed.ToString();
@@ -520,9 +520,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                     resultCreateModel.Outcome = TestOutcome.Inconclusive.ToString();
                 }
                 else
-                {                    
+                {
                     resultCreateModel.Outcome = TestOutcome.NotExecuted.ToString();
-                }               
+                }
 
                 if (resultNode.Attributes["testName"] != null && resultNode.Attributes["testName"].Value != null)
                 {
@@ -669,7 +669,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                 if (resultNode.Attributes["resultType"]?.Value != null && resultNode.Attributes["resultType"]?.Value == "DataDrivenTest")
                 {
                     return ResultGroupType.DataDriven;
-                } 
+                }
             }
 
             return ResultGroupType.Generic;

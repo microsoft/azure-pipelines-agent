@@ -36,6 +36,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(context.Endpoints, nameof(context.Endpoints));
+            ArgUtil.NotNull(command, nameof(command));
 
             var eventProperties = command.Properties;
             var data = command.Data;
@@ -131,6 +132,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(context.Endpoints, nameof(context.Endpoints));
+            ArgUtil.NotNull(command, nameof(command));
 
             var eventProperties = command.Properties;
             var data = command.Data;
