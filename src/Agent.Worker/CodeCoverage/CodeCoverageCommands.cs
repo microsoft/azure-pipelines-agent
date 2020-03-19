@@ -41,6 +41,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
         public void Execute(IExecutionContext context, Command command)
         {
             ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
 
             var eventProperties = command.Properties;
             _buildId = context.Variables.Build_BuildId ?? -1;

@@ -90,6 +90,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public AgentTaskPluginExecutionContext GeneratePluginExecutionContext(IExecutionContext context, Dictionary<string, string> inputs, Variables runtimeVariables)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(inputs, nameof(inputs));
+            ArgUtil.NotNull(runtimeVariables, nameof(runtimeVariables));
+
             // construct plugin context
             var target = context.StepTarget();
             Variables.TranslationMethod translateToHostPath = Variables.DefaultStringTranslator;

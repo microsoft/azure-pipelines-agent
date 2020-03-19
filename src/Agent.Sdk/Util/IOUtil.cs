@@ -7,7 +7,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -45,6 +44,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         public static string GetPathHash(string path)
         {
+            ArgUtil.NotNull(path, nameof(path));
             string hashString = path.ToLowerInvariant();
             using (SHA256 sha256hash = SHA256.Create())
             {
@@ -465,6 +465,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         public static string GetDirectoryName(string path, PlatformUtil.OS platform)
         {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return string.Empty;
+            }
             if (platform == PlatformUtil.OS.Windows)
             {
                 var paths = path.TrimEnd('\\', '/')

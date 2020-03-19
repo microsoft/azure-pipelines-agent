@@ -36,6 +36,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public override void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
             base.Initialize(hostContext);
             Trace.Verbose("Creating _store");
             _store = hostContext.GetService<IConfigurationStore>();
@@ -66,6 +67,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public async Task ConfigureAsync(CommandSettings command)
         {
+            ArgUtil.NotNull(command, nameof(command));
             Trace.Info(nameof(ConfigureAsync));
             if (IsConfigured())
             {
@@ -484,6 +486,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public async Task UnconfigureAsync(CommandSettings command)
         {
+            ArgUtil.NotNull(command, nameof(command));
             string currentAction = string.Empty;
             try
             {

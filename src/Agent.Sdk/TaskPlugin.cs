@@ -145,11 +145,13 @@ namespace Agent.Sdk
 
         public void Info(string message)
         {
+            ArgUtil.NotNull(message, nameof(message));
             Debug(message);
         }
 
         public void Verbose(string message)
         {
+            ArgUtil.NotNull(message, nameof(message));
 #if DEBUG
             Debug(message);
 #else
@@ -163,31 +165,38 @@ namespace Agent.Sdk
 
         public void Error(string message)
         {
+            ArgUtil.NotNull(message, nameof(message));
             Output($"##vso[task.logissue type=error;]{Escape(message)}");
             Output(_failTaskCommand);
         }
 
         public void Debug(string message)
         {
+            ArgUtil.NotNull(message, nameof(message));
             Output($"##vso[task.debug]{Escape(message)}");
         }
 
         public void Warning(string message)
         {
+            ArgUtil.NotNull(message, nameof(message));
             Output($"##vso[task.logissue type=warning;]{Escape(message)}");
         }
 
         public void PublishTelemetry(string area, string feature, Dictionary<string, string> properties)
         {
+            ArgUtil.NotNull(area, nameof(area));
+            ArgUtil.NotNull(feature, nameof(feature));
+            ArgUtil.NotNull(properties, nameof(properties));
             string propertiesAsJson = StringUtil.ConvertToJson(properties, Formatting.None);
             Output($"##vso[telemetry.publish area={area};feature={feature}]{Escape(propertiesAsJson)}");
         }
 
         public void PublishTelemetry(string area, string feature, TelemetryRecord record)
-            => PublishTelemetry(area, feature, record.GetAssignedProperties());
+            => PublishTelemetry(area, feature, record?.GetAssignedProperties());
 
         public void Output(string message)
         {
+            ArgUtil.NotNull(message, nameof(message));
             lock (_stdoutLock)
             {
                 if (_trace == null)
@@ -203,12 +212,14 @@ namespace Agent.Sdk
 
         public void PrependPath(string directory)
         {
+            ArgUtil.NotNull(directory, nameof(directory));
             PathUtil.PrependPath(directory);
             Output($"##vso[task.prependpath]{Escape(directory)}");
         }
 
         public void Progress(int progress, string operation)
         {
+            ArgUtil.NotNull(operation, nameof(operation));
             if (progress < 0 || progress > 100)
             {
                 throw new ArgumentOutOfRangeException(nameof(progress));
@@ -219,28 +230,36 @@ namespace Agent.Sdk
 
         public void SetSecret(string secret)
         {
+            ArgUtil.NotNull(secret, nameof(secret));
             Output($"##vso[task.setsecret]{Escape(secret)}");
         }
 
         public void SetVariable(string variable, string value, bool isSecret = false)
         {
+            ArgUtil.NotNull(variable, nameof(variable));
+            ArgUtil.NotNull(value, nameof(value));
             this.Variables[variable] = new VariableValue(value, isSecret);
             Output($"##vso[task.setvariable variable={Escape(variable)};issecret={isSecret.ToString()};]{Escape(value)}");
         }
 
         public void SetTaskVariable(string variable, string value, bool isSecret = false)
         {
+            ArgUtil.NotNull(variable, nameof(variable));
+            ArgUtil.NotNull(value, nameof(value));
             this.TaskVariables[variable] = new VariableValue(value, isSecret);
             Output($"##vso[task.settaskvariable variable={Escape(variable)};issecret={isSecret.ToString()};]{Escape(value)}");
         }
 
         public void Command(string command)
         {
+            ArgUtil.NotNull(command, nameof(command));
             Output($"##[command]{Escape(command)}");
         }
 
         public void UpdateRepositoryPath(string alias, string path)
         {
+            ArgUtil.NotNull(alias, nameof(alias));
+            ArgUtil.NotNull(path, nameof(path));
             Output($"##vso[plugininternal.updaterepositorypath alias={Escape(alias)};]{path}");
         }
 

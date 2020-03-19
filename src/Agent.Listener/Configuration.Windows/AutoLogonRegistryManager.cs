@@ -28,6 +28,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public override void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
             base.Initialize(hostContext);
             _registryManager = hostContext.GetService<IWindowsRegistryManager>();
             _windowsServiceHelper = hostContext.GetService<INativeWindowsServiceHelper>();

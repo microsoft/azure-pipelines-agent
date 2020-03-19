@@ -13,7 +13,7 @@ using System.IO;
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
     /// <summary>
-    /// This class is used to keep track of which repositories are being fetched and 
+    /// This class is used to keep track of which repositories are being fetched and
     /// where they will be fetched to.
     /// This information is tracked per definition.
     /// </summary>
@@ -35,6 +35,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             bool useNewArtifactsDirectoryName = false)
             : this()
         {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+            ArgUtil.NotNull(copy, nameof(copy));
+
             // Set the directories.
             BuildDirectory = Path.GetFileName(copy.BuildDirectory); // Just take the portion after _work folder.
             string artifactsDirectoryNameOnly =
@@ -234,6 +237,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public void UpdateJobRunProperties(IExecutionContext executionContext)
         {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+
             CollectionUrl = executionContext.Variables.System_TFCollectionUrl;
             DefinitionName = executionContext.Variables.Build_DefinitionName;
             LastRunOn = DateTimeOffset.Now;

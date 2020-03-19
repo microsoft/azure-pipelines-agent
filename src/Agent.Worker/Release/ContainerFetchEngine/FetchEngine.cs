@@ -56,6 +56,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEng
 
         protected async Task FetchItemsAsync(IEnumerable<ContainerItem> containerItems, CancellationToken token)
         {
+            ArgUtil.NotNull(containerItems, nameof(containerItems));
+
             var itemsToDownload = new List<ContainerItem>();
 
             foreach (ContainerItem item in containerItems)

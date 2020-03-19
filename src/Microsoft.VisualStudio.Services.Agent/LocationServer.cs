@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Location.Client;
 using Microsoft.VisualStudio.Services.Location;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -25,6 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public async Task ConnectAsync(VssConnection jobConnection)
         {
+            ArgUtil.NotNull(jobConnection, nameof(jobConnection));
             _connection = jobConnection;
             int attemptCount = 5;
             while (!_connection.HasAuthenticated && attemptCount-- > 0)

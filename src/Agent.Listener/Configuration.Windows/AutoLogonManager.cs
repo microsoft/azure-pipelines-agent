@@ -27,6 +27,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public override void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
             base.Initialize(hostContext);
             _terminal = hostContext.GetService<ITerminal>();
             _windowsServiceHelper = hostContext.GetService<INativeWindowsServiceHelper>();
@@ -36,6 +37,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public async Task ConfigureAsync(CommandSettings command)
         {
+            ArgUtil.NotNull(command, nameof(command));
             if (!_windowsServiceHelper.IsRunningInElevatedMode())
             {
                 Trace.Error("Needs Administrator privileges to configure agent with AutoLogon capability.");

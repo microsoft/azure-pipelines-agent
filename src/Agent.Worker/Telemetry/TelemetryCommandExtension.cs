@@ -31,6 +31,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
         public void Execute(IExecutionContext context, Command command)
         {
             ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
             Dictionary<string, string> eventProperties = command.Properties;
             string data = command.Data;
             string area;

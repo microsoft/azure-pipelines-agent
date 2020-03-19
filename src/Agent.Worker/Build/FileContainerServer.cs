@@ -39,6 +39,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             long containerId,
             string containerPath)
         {
+            ArgUtil.NotNull(connection, nameof(connection));
+
             _projectId = projectId;
             _containerId = containerId;
             _containerPath = containerPath;
@@ -59,6 +61,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             String source,
             CancellationToken cancellationToken)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(source, nameof(source));
+
             //set maxConcurrentUploads up to 2 until figure out how to use WinHttpHandler.MaxConnectionsPerServer modify DefaultConnectionLimit
             int maxConcurrentUploads = Math.Min(Environment.ProcessorCount, 2);
             //context.Output($"Max Concurrent Uploads {maxConcurrentUploads}");

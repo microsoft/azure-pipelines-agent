@@ -56,7 +56,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         public void Execute(IExecutionContext context, Command command)
         {
             ArgUtil.NotNull(context, nameof(context));
-
+            ArgUtil.NotNull(command, nameof(command));
             var data = command.Data;
             var eventProperties = command.Properties;
 

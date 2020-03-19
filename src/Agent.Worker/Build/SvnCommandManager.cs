@@ -188,7 +188,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             if (cleanRepository)
             {
-                // A clean build has been requested, if the $(build.Clean) variable didn't force 
+                // A clean build has been requested, if the $(build.Clean) variable didn't force
                 // the BuildDirectoryManager to re-create the source directory earlier,
                 // let's do it now explicitly.
 
@@ -343,6 +343,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public string ResolveServerPath(string serverPath, string rootPath)
         {
+            ArgUtil.NotNull(serverPath, nameof(serverPath));
             ArgUtil.Equal(true, serverPath.StartsWith(@"^/"), nameof(serverPath));
 
             foreach (string workingDirectoryPath in GetSvnWorkingCopyPaths(rootPath))
@@ -756,6 +757,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public Dictionary<string, SvnMappingDetails> NormalizeMappings(List<SvnMappingDetails> allMappings)
         {
+            ArgUtil.NotNull(allMappings, nameof(allMappings));
             // We use Ordinal comparer because SVN is case sensetive and keys in the dictionary are URLs.
             Dictionary<string, SvnMappingDetails> distinctMappings = new Dictionary<string, SvnMappingDetails>(StringComparer.Ordinal);
             HashSet<string> localPaths = new HashSet<string>(StringComparer.Ordinal);

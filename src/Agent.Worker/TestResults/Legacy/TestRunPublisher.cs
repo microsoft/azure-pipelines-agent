@@ -44,6 +44,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         #region Public API
         public void InitializePublisher(IExecutionContext executionContext, VssConnection connection, string projectName, IResultReader resultReader)
         {
+            ArgUtil.NotNull(connection, nameof(connection));
             Trace.Entering();
             _executionContext = executionContext;
             _projectName = projectName;
@@ -60,6 +61,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         /// <param name="testResults">Results to be published.</param>
         public async Task AddResultsAsync(TestRun testRun, TestCaseResultData[] testResults, CancellationToken cancellationToken)
         {
+            ArgUtil.NotNull(testRun, nameof(testRun));
+            ArgUtil.NotNull(testResults, nameof(testResults));
             Trace.Entering();
             int noOfResultsToBePublished = BATCH_SIZE;
 
@@ -116,6 +119,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         /// </summary>
         public async Task EndTestRunAsync(TestRunData testRunData, int testRunId, bool publishAttachmentsAsArchive = false, CancellationToken cancellationToken = default(CancellationToken))
         {
+            ArgUtil.NotNull(testRunData, nameof(testRunData));
             Trace.Entering();
             RunUpdateModel updateModel = new RunUpdateModel(
                 completedDate: testRunData.CompleteDate,
@@ -158,6 +162,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         /// <returns>TestRunData</returns>
         public TestRunData ReadResultsFromFile(TestRunContext runContext, string filePath, string runName)
         {
+            ArgUtil.NotNull(runContext, nameof(runContext));
             Trace.Entering();
             runContext.RunName = runName;
             return _resultReader.ReadResults(_executionContext, filePath, runContext);
@@ -261,7 +266,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
             }
 
             string[] attachments = subResultData.AttachmentData.AttachmentsFilePathList?.ToArray();
-            
+
             // remove duplicate entries
             HashSet<string> attachedFiles = GetUniqueTestRunFiles(attachments);
             if (attachedFiles != null && attachedFiles.Any())

@@ -35,6 +35,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
         {
             Trace.Entering();
 
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNullOrEmpty(localFolderPath, nameof(localFolderPath));
             ArgUtil.NotNull(folderWithinStream, nameof(folderWithinStream));
 

@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -37,12 +38,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public virtual void SetVariablesInEndpoint(IExecutionContext executionContext, ServiceEndpoint endpoint)
         {
+            if (executionContext == null || endpoint == null)
+            {
+                return;
+            }
+
             endpoint.Data.Add(Constants.EndpointData.SourcesDirectory, executionContext.Variables.Get(Constants.Variables.Build.SourcesDirectory));
             endpoint.Data.Add(Constants.EndpointData.SourceVersion, executionContext.Variables.Get(Constants.Variables.Build.SourceVersion));
         }
 
         public string GetEndpointData(ServiceEndpoint endpoint, string name)
         {
+            ArgUtil.NotNull(endpoint, nameof(endpoint));
+
             var trace = HostContext.GetTrace(nameof(SourceProvider));
             string value;
             if (endpoint.Data.TryGetValue(name, out value))
