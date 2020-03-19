@@ -32,12 +32,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         private int _filesProcessed = 0;
         private string _sourceParentDirectory;
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "fileContainerClientConnection")]
         public FileContainerServer(
             VssConnection connection,
             Guid projectId,
             long containerId,
             string containerPath)
         {
+            ArgUtil.NotNull(connection, nameof(connection));
+
             _projectId = projectId;
             _containerId = containerId;
             _containerPath = containerPath;
@@ -49,10 +52,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 fileContainerClientConnectionSetting.SendTimeout = TimeSpan.FromSeconds(600);
             }
 
-            using (var fileContainerClientConnection = new VssConnection(connection.Uri, connection.Credentials, fileContainerClientConnectionSetting))
-            {
-                _fileContainerHttpClient = fileContainerClientConnection.GetClient<FileContainerHttpClient>();
-            }
+            var fileContainerClientConnection = new VssConnection(connection.Uri, connection.Credentials, fileContainerClientConnectionSetting);
+            _fileContainerHttpClient = fileContainerClientConnection.GetClient<FileContainerHttpClient>();
         }
 
         public async Task<long> CopyToContainerAsync(
@@ -60,6 +61,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             String source,
             CancellationToken cancellationToken)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(source, nameof(source));
+
             //set maxConcurrentUploads up to 2 until figure out how to use WinHttpHandler.MaxConnectionsPerServer modify DefaultConnectionLimit
             int maxConcurrentUploads = Math.Min(Environment.ProcessorCount, 2);
             //context.Output($"Max Concurrent Uploads {maxConcurrentUploads}");

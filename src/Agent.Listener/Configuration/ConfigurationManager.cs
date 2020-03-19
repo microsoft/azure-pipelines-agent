@@ -36,6 +36,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public override void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
             base.Initialize(hostContext);
             Trace.Verbose("Creating _store");
             _store = hostContext.GetService<IConfigurationStore>();
@@ -66,6 +67,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public async Task ConfigureAsync(CommandSettings command)
         {
+            ArgUtil.NotNull(command, nameof(command));
             Trace.Info(nameof(ConfigureAsync));
             if (IsConfigured())
             {
@@ -484,6 +486,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public async Task UnconfigureAsync(CommandSettings command)
         {
+            ArgUtil.NotNull(command, nameof(command));
             string currentAction = string.Empty;
             try
             {
@@ -708,26 +711,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _term.WriteLine();
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "locationServer")]
         private async Task<bool> IsHostedServer(string serverUrl, VssCredentials credentials)
         {
             // Determine the service deployment type based on connection data. (Hosted/OnPremises)
             var locationServer = HostContext.GetService<ILocationServer>();
-            using (var connection = VssUtil.CreateConnection(new Uri(serverUrl), credentials))
+            VssConnection connection = VssUtil.CreateConnection(new Uri(serverUrl), credentials);
+            await locationServer.ConnectAsync(connection);
+            try
             {
-                await locationServer.ConnectAsync(connection);
-                try
-                {
-                    var connectionData = await locationServer.GetConnectionDataAsync();
-                    Trace.Info($"Server deployment type: {connectionData.DeploymentType}");
-                    return connectionData.DeploymentType.HasFlag(DeploymentFlags.Hosted);
-                }
-                catch (Exception ex)
-                {
-                    // Since the DeploymentType is Enum, deserialization exception means there is a new Enum member been added.
-                    // It's more likely to be Hosted since OnPremises is always behind and customer can update their agent if are on-prem
-                    Trace.Error(ex);
-                    return true;
-                }
+                var connectionData = await locationServer.GetConnectionDataAsync();
+                Trace.Info($"Server deployment type: {connectionData.DeploymentType}");
+                return connectionData.DeploymentType.HasFlag(DeploymentFlags.Hosted);
+            }
+            catch (Exception ex)
+            {
+                // Since the DeploymentType is Enum, deserialization exception means there is a new Enum member been added.
+                // It's more likely to be Hosted since OnPremises is always behind and customer can update their agent if are on-prem
+                Trace.Error(ex);
+                return true;
             }
         }
     }

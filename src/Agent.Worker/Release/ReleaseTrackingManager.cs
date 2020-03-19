@@ -81,7 +81,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                 {
                     executionContext.Output(StringUtil.Loc("EvaluateReleaseTrackingFile", trackingFile));
                     ReleaseTrackingConfig tracking = LoadIfExists(executionContext, trackingFile);
-                    
+
                     if (tracking.LastRunOn == null)
                     {
                         Trace.Verbose($"{trackingFile} is a old format tracking file.");
@@ -113,6 +113,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 
         public void DisposeCollectedGarbage(IExecutionContext executionContext)
         {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+
             Trace.Entering();
             PrintOutDiskUsage(executionContext);
 

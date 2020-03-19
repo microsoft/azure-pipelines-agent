@@ -56,6 +56,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 
         public async Task<bool> PublishAsync(TestRunContext runContext, List<string> testResultFiles, string runTitle, int? buildId, bool mergeResults)
         {
+            ArgUtil.NotNull(runContext, nameof(runContext));
+            ArgUtil.NotNull(testResultFiles, nameof(testResultFiles));
             if (mergeResults)
             {
                 return await PublishAllTestResultsToSingleTestRunAsync(testResultFiles, _testRunPublisher, runContext, _resultReader.Name, runTitle, buildId, _executionContext.CancellationToken);
@@ -105,7 +107,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                     _executionContext.Debug(StringUtil.Format("Reading test results from file '{0}'", resultFile));
                     TestRunData resultFileRunData = publisher.ReadResultsFromFile(runContext, resultFile);
                     isTestRunOutcomeFailed = isTestRunOutcomeFailed || GetTestRunOutcome(resultFileRunData, testRunSummary);
-                    
+
                     if (resultFileRunData != null)
                     {
                         if (resultFileRunData.Results != null && resultFileRunData.Results.Length > 0)
@@ -324,7 +326,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
             {
                 return;
             }
-            
+
             if (runCreateModel.BuildReference == null)
             {
                 runCreateModel.BuildReference = new BuildConfiguration() { TargetBranchName = pullRequestTargetBranchName };

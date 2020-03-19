@@ -9,6 +9,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -34,7 +35,10 @@ namespace Microsoft.VisualStudio.Services.Agent
         public async Task JobStarted(Guid jobId, string accessToken, Uri serverUrl, Guid planId, string identifier, string definitionId, string planType)
         {
             Trace.Info("Entering JobStarted Notification");
-
+            ArgUtil.NotNull(jobId, nameof(jobId));
+            ArgUtil.NotNull(accessToken, nameof(accessToken));
+            ArgUtil.NotNull(serverUrl, nameof(serverUrl));
+            ArgUtil.NotNull(planId, nameof(planId));
             StartMonitor(jobId, accessToken, serverUrl, planId, identifier, definitionId, planType);
 
             if (_configured)
@@ -114,6 +118,9 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public void StartClient(string socketAddress, string monitorSocketAddress)
         {
+            ArgUtil.NotNull(socketAddress, nameof(socketAddress));
+            ArgUtil.NotNull(monitorSocketAddress, nameof(monitorSocketAddress));
+
             ConnectMonitor(monitorSocketAddress);
 
             if (!_configured)

@@ -503,6 +503,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public void WritePerfCounter(string counter)
         {
+            ArgUtil.NotNull(counter, nameof(counter));
             if (!string.IsNullOrEmpty(_perfFile))
             {
                 string normalizedCounter = counter.Replace(':', '_');
@@ -591,6 +592,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         protected override void OnEventSourceCreated(EventSource source)
         {
+            ArgUtil.NotNull(source, nameof(source));
             if (source.Name.Equals("Microsoft-VSS-Http"))
             {
                 EnableEvents(source, EventLevel.Verbose);
@@ -670,6 +672,7 @@ namespace Microsoft.VisualStudio.Services.Agent
     {
         public static HttpClientHandler CreateHttpClientHandler(this IHostContext context)
         {
+            ArgUtil.NotNull(context, nameof(context));
             HttpClientHandler clientHandler = new HttpClientHandler();
             var agentWebProxy = context.GetService<IVstsAgentWebProxy>();
             clientHandler.Proxy = agentWebProxy.WebProxy;

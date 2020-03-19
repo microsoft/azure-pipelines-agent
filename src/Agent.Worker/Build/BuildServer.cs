@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Build2 = Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -43,6 +44,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public async Task ConnectAsync(VssConnection jobConnection)
         {
+            ArgUtil.NotNull(jobConnection, nameof(jobConnection));
+
             _connection = jobConnection;
             int attemptCount = 5;
             while (!_connection.HasAuthenticated && attemptCount-- > 0)

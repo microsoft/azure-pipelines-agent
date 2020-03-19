@@ -74,6 +74,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 var expressionManager = HostContext.GetService<IExpressionManager>();
                 try
                 {
+                    ArgUtil.NotNull(jobContext, nameof(jobContext)); // I am not sure why this is needed, but static analysis flagged all uses of jobContext below this point
                     // Register job cancellation call back only if job cancellation token not been fire before each step run
                     if (!jobContext.CancellationToken.IsCancellationRequested)
                     {

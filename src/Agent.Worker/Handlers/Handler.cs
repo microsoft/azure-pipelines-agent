@@ -49,6 +49,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         public override void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
+
             base.Initialize(hostContext);
             CommandManager = hostContext.GetService<IWorkerCommandManager>();
         }

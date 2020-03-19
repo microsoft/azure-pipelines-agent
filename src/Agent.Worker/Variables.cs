@@ -80,11 +80,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public Variables(IHostContext hostContext, IDictionary<string, VariableValue> copy, out List<string> warnings)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
+
             // Store/Validate args.
             _hostContext = hostContext;
             _secretMasker = _hostContext.SecretMasker;
             _trace = _hostContext.GetTrace(nameof(Variables));
-            ArgUtil.NotNull(hostContext, nameof(hostContext));
 
             // Validate the dictionary, remove any variable with empty variable name.
             ArgUtil.NotNull(copy, nameof(copy));
@@ -260,6 +261,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void ExpandValues(IDictionary<string, string> target)
         {
+            ArgUtil.NotNull(target, nameof(target));
             _trace.Entering();
             var source = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (Variable variable in _expanded.Values)

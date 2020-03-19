@@ -27,14 +27,14 @@ namespace Agent.Plugins.PipelineArtifact
         private readonly FileContainerHttpClient containerClient;
         private readonly IAppTraceSource tracer;
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "connection2")]
         public FileContainerProvider(VssConnection connection, IAppTraceSource tracer)
         {
             BuildHttpClient buildHttpClient = connection.GetClient<BuildHttpClient>();
-            using (var connection2 = new VssConnection(buildHttpClient.BaseAddress, connection.Credentials))
-            {
-                containerClient = connection2.GetClient<FileContainerHttpClient>();
-                this.tracer = tracer;
-            }
+            var connection2 = new VssConnection(buildHttpClient.BaseAddress, connection.Credentials);
+            containerClient = connection2.GetClient<FileContainerHttpClient>();
+            this.tracer = tracer;
+
         }
 
         public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken)

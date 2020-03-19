@@ -3,6 +3,7 @@
 
 using System;
 using System.IO;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -40,6 +41,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public override void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
             base.Initialize(hostContext);
             _totalLines = 0;
             _pageId = Guid.NewGuid().ToString();

@@ -28,6 +28,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
 
         public void Initialize(VssConnection connection)
         {
+            ArgUtil.NotNull(connection, nameof(connection));
             _ciClient = connection.GetClient<CustomerIntelligenceHttpClient>();
         }
 

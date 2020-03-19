@@ -3,6 +3,7 @@
 
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Agent.Sdk
 {
@@ -22,6 +23,7 @@ namespace Agent.Sdk
 
         public MountVolume(string fromString)
         {
+            ArgUtil.NotNull(fromString, nameof(fromString));
             ParseVolumeString(fromString);
         }
 

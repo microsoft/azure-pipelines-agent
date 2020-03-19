@@ -85,6 +85,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public override void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
             base.Initialize(hostContext);
             _term = hostContext.GetService<ITerminal>();
         }
@@ -149,9 +150,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             groupInfo.Comment = StringUtil.Format("Built-in group used by Team Foundation Server.");
 
             int returnCode = NetLocalGroupAdd(null,               // computer name
-                                              1,                  // 1 means include comment 
+                                              1,                  // 1 means include comment
                                               ref groupInfo,
-                                              0);                 // param error number 
+                                              0);                 // param error number
 
             // return on success
             if (returnCode == ReturnCode.S_OK)
@@ -181,7 +182,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public void DeleteLocalGroup(string groupName)
         {
             Trace.Entering();
-            int returnCode = NetLocalGroupDel(null,  // computer name 
+            int returnCode = NetLocalGroupDel(null,  // computer name
                                               groupName);
 
             // return on success
@@ -869,6 +870,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public void GrantDirectoryPermissionForAccount(string accountName, IList<string> folders)
         {
+            ArgUtil.NotNull(folders, nameof(folders));
             Trace.Entering();
             string groupName = GetUniqueBuildGroupName();
             Trace.Info(StringUtil.Format("Calculated unique group name {0}", groupName));
@@ -895,6 +897,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public void RevokeDirectoryPermissionForAccount(IList<string> folders)
         {
+            ArgUtil.NotNull(folders, nameof(folders));
             Trace.Entering();
             string groupName = GetUniqueBuildGroupName();
             Trace.Info(StringUtil.Format("Calculated unique group name {0}", groupName));
@@ -1111,7 +1114,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             public const int S_OK = 0;
             public const int ERROR_ACCESS_DENIED = 5;
             public const int ERROR_INVALID_PARAMETER = 87;
-            public const int ERROR_MEMBER_NOT_IN_ALIAS = 1377; // member not in a group            
+            public const int ERROR_MEMBER_NOT_IN_ALIAS = 1377; // member not in a group
             public const int ERROR_MEMBER_IN_ALIAS = 1378; // member already exists
             public const int ERROR_ALIAS_EXISTS = 1379;  // group already exists
             public const int ERROR_NO_SUCH_ALIAS = 1376;

@@ -37,6 +37,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         public override void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
             base.Initialize(hostContext);
 
             _terminal = hostContext.GetService<ITerminal>();
@@ -50,6 +51,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "invokeScript")]
         public async Task<bool> SelfUpdate(AgentRefreshMessage updateMessage, IJobDispatcher jobDispatcher, bool restartInteractiveAgent, CancellationToken token)
         {
+            ArgUtil.NotNull(updateMessage, nameof(updateMessage));
+            ArgUtil.NotNull(jobDispatcher, nameof(jobDispatcher));
             if (!await UpdateNeeded(updateMessage.TargetVersion, token))
             {
                 Trace.Info($"Can't find available update package.");
