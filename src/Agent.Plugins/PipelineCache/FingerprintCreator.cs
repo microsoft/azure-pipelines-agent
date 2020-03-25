@@ -216,7 +216,7 @@ namespace Agent.Plugins.PipelineCache
             KeySegmentType type,
             Object details)
         {
-            Func<string, int, string> FormatForDisplay = (value, displayLength) =>
+            string FormatForDisplay(string value, int displayLength)
             {
                 if (value.Length > displayLength)
                 {
@@ -227,49 +227,49 @@ namespace Agent.Plugins.PipelineCache
             };
 
             string formattedSegment = FormatForDisplay(segment, Math.Min(segments.Select(s => s.Length).Max(), 50));
-
-            if (type == KeySegmentType.String)
+            
+            void LogPatternSegment<T>(object value, string title, Func<T, string> getText, Func<T,string> getSuffix = null)
             {
-                context.Output($" - {formattedSegment} [string]");
-            }
-            else if (type == KeySegmentType.Directory)
-            {
-                context.Output($" - {formattedSegment} [directory]");
-            }
-            else if (type == KeySegmentType.DirectoryPattern)
-            {
-                var directories = (details as string[]) ?? new string[0];
-                context.Output($" - {formattedSegment} [directory pattern; matches: {directories.Length}]");
-                if (directories.Any())
+                var matches = (value as T[]) ?? Array.Empty<T>();
+                context.Output($" - {formattedSegment} [{title} pattern; matches: {matches.Length}]");
+                if (matches.Any())
                 {
-                    int filePathDisplayLength = Math.Min(directories.Select(d => d.Length).Max(), 70);
-                    foreach (var directory in directories)
+                    int displayLength = Math.Min(matches.Select(d => getText(d).Length).Max(), 70);
+                    foreach (var match in matches)
                     {
-                        context.Output($"   - {FormatForDisplay(directory, filePathDisplayLength)}");
+                        context.Output($"   - {FormatForDisplay(getText(match), displayLength)}{(getSuffix != null ? getSuffix(match) : "")}");
                     }
                 }
-            }
-            else
-            {
-                var matches = (details as MatchedFile[]) ?? new MatchedFile[0];
+            };
 
-                if (type == KeySegmentType.FilePath)
-                {
-                    string fileHash = matches.Length > 0 ? matches[0].Hash : null;
+            switch (type)
+            {
+                case KeySegmentType.String:
+                    context.Output($" - {formattedSegment} [string]");
+                    break;
+                case KeySegmentType.Directory:
+                    context.Output($" - {formattedSegment} [directory]");
+                    break;
+                case KeySegmentType.DirectoryPattern:
+                    LogPatternSegment<string>(
+                        details, 
+                        "directory", 
+                        s => s
+                    );
+                    break;
+                case KeySegmentType.FilePath:
+                    var files = (details as MatchedFile[]) ?? new MatchedFile[0];
+                    string fileHash = files.Length > 0 ? files[0].Hash : null;
                     context.Output($" - {formattedSegment} [file] {(!string.IsNullOrWhiteSpace(fileHash) ? $"--> {fileHash}" : "(not found)")}");
-                }
-                else if (type == KeySegmentType.FilePattern)
-                {
-                    context.Output($" - {formattedSegment} [file pattern; matches: {matches.Length}]");
-                    if (matches.Any())
-                    {
-                        int filePathDisplayLength = Math.Min(matches.Select(mf => mf.DisplayPath.Length).Max(), 70);
-                        foreach (var match in matches)
-                        {
-                            context.Output($"   - {FormatForDisplay(match.DisplayPath, filePathDisplayLength)} --> {match.Hash}");
-                        }
-                    }
-                }
+                    break;
+                case KeySegmentType.FilePattern:
+                    LogPatternSegment<MatchedFile>(
+                        details, 
+                        "file", 
+                        match => match.DisplayPath, 
+                        match => $" --> {match.Hash}"
+                    );
+                    break;
             }
         }
 
