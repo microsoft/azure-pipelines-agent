@@ -24,10 +24,16 @@ namespace Agent.PluginHost
 
         public static int Main(string[] args)
         {
-            // We can't use the new SocketsHttpHandler for now for both Windows and Linux
+            // In .NET Core 2.1, we couldn't use the new SocketsHttpHandler for now for both Windows and Linux
             // On linux, Negotiate auth is not working if the TFS url is behind Https
             // On windows, Proxy is not working
-            AppContext.SetSwitch("System.Net.Http.UseSocketsHttpHandler", false);
+	    // But on ARM/ARM64, the legacy curl dependency is problematic
+	    // https://github.com/dotnet/runtime/issues/28891
+	    if (PlatformUtil.RunningOnLinux && (PlatformUtil.IsArm || PlatformUtil.IsArm64))
+	    {
+                AppContext.SetSwitch("System.Net.Http.UseSocketsHttpHandler", false);
+	    }
+
             Console.CancelKeyPress += Console_CancelKeyPress;
 
             // Set encoding to UTF8, process invoker will use UTF8 write to STDIN
