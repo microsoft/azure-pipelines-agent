@@ -1,3 +1,14 @@
+## Features
+ - Add a warning message to Download Pipeline Artifact task (#2855)
+
+## Bugs
+ - Fix issue where agent configuration errors out when trying to look up pool (#2861)
+
+## Misc
+ - Typo fix (#2859)
+ - Partial fix of CA1062, which forces validation of arguments for publi… (#2856)
+ - Skip masking single space character secrets (#2809)
+
 
 ## Agent Downloads
 
