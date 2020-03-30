@@ -7,7 +7,7 @@ L1_MODE=$4
 CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
 NODE_URL=https://nodejs.org/dist
 NODE_VERSION="6.17.1"
-NODE10_VERSION="10.17.0"
+NODE10_VERSION="10.19.0"
 MINGIT_VERSION="2.25.1"
 
 get_abs_path() {
