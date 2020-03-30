@@ -30,7 +30,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         public bool TimedOut { get; internal set; }
     }
 
-    public class L1TestBase
+    public class L1TestBase : IDisposable
     {
         protected TimeSpan ChannelTimeout = TimeSpan.FromSeconds(100);
         protected TimeSpan JobTimeout = TimeSpan.FromSeconds(100);
@@ -93,8 +93,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             return step;
         }
 
-        protected async Task<TestResults> RunWorker(Pipelines.AgentJobRequestMessage message,
-            [CallerMemberName] string testName = "")
+        public void SetupL1([CallerMemberName] string testName = "")
         {
             // Clear working directory
             var path = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "/TestRuns/" + testName;
@@ -108,21 +107,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             var stringFile = Path.Combine(assemblyLocation, "en-US", "strings.json");
             StringUtil.LoadExternalLocalization(stringFile);
 
-            using (L1HostContext context = new L1HostContext("Agent", GetLogFile(this, testName)))
+            _l1HostContext = new L1HostContext("Agent", GetLogFile(this, testName));
+            SetupMocks(_l1HostContext);
+
+            // Use different working directories for each test
+            var config = GetMockedService<FakeConfigurationStore>(); // TODO: Need to update this. can hack it for now.
+            config.WorkingDirectoryName = testName;
+        }
+
+        protected L1HostContext _l1HostContext;
+
+        protected async Task<TestResults> RunWorker(Pipelines.AgentJobRequestMessage message)
+        {
+            if (_l1HostContext == null)
             {
-                SetupMocks(context);
+                throw new InvalidOperationException("Must call SetupL1() to initialize L1HostContext before calling RunWorker()");
+            }
 
-                // Use different working directories for each test
-                var config = GetMockedService<FakeConfigurationStore>();
-                config.WorkingDirectoryName = testName;
+            await SetupMessage(_l1HostContext, message);
 
-                await SetupMessage(context, message);
-
-                using (var cts = new CancellationTokenSource())
-                {
-                  cts.CancelAfter((int)JobTimeout.TotalMilliseconds);
-                  return await RunWorker(context, message, cts.Token);
-                }
+            using (var cts = new CancellationTokenSource())
+            {
+              cts.CancelAfter((int)JobTimeout.TotalMilliseconds);
+              return await RunWorker(_l1HostContext, message, cts.Token);
             }
         }
 
@@ -204,6 +211,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                         TimedOut = true
                     };
                 }
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing) 
+            {
+                this._l1HostContext?.Dispose();
             }
         }
 

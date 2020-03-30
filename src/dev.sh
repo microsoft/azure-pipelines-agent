@@ -320,13 +320,15 @@ case $DEV_CMD in
    "test") cmd_test;;
    "t") cmd_test;;
    "testl0") cmd_test_l0;;
+   "l0") cmd_test_l0;;
    "testl1") cmd_test_l1;;
+   "l1") cmd_test_l1;;
    "layout") cmd_layout;;
    "l") cmd_layout;;
    "package") cmd_package;;
    "p") cmd_package;;
    "report") cmd_report;;
-   *) echo "Invalid command. Use (l)ayout, (b)uild, (t)est, or (p)ackage.";;
+   *) echo "Invalid command. Use (l)ayout, (b)uild, (t)est, test(l0), test(l1), or (p)ackage.";;
 esac
 
 popd
