@@ -27,23 +27,23 @@ then
 
     ldd ./bin/System.Security.Cryptography.Native.OpenSsl.so | grep 'not found'
     if [ $? -eq 0 ]; then
-        echo "Dependencies is missing for .NET Core 3.1"
+        echo "Dependencies missing for .NET Core 3.1"
         echo "Execute ./bin/installdependencies.sh to install any missing dependencies."
         exit 1
     fi
 
     ldd ./bin/System.IO.Compression.Native.so | grep 'not found'
     if [ $? -eq 0 ]; then
-        echo "Dependencies is missing for .NET Core 3.1"
+        echo "Dependencies missing for .NET Core 3.1"
         echo "Execute ./bin/installdependencies.sh to install any missing dependencies."
         exit 1
     fi
 
     ldd ./bin/System.Net.Http.Native.so | grep 'not found'
     if [ $? -eq 0 ]; then
-        echo "Dependencies is missing for .NET Core 3.1"
-        echo "Execute ./bin/installdependencies.sh to install any missing dependencies."
-        exit 1
+        echo "Warning: on some platforms, libcurl3 is required."
+        echo "It was not found."
+        echo "Execute ./bin/installdependencies.sh to install missing dependencies."
     fi
 
     if ! [ -x "$(command -v ldconfig)" ]; then
@@ -59,7 +59,7 @@ then
     libpath=${LD_LIBRARY_PATH:-}
     $LDCONFIG_COMMAND -NXv ${libpath//:/} 2>&1 | grep libicu >/dev/null 2>&1
     if [ $? -ne 0 ]; then
-        echo "Libicu's dependencies is missing for .NET Core 3.1"
+        echo "libicu's dependencies missing for .NET Core 3.1"
         echo "Execute ./bin/installdependencies.sh to install any missing dependencies."
         exit 1
     fi

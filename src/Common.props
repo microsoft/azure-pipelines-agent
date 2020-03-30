@@ -30,20 +30,25 @@
 
   <PropertyGroup Condition="'$(OSPlatform)' == 'OS_WINDOWS' AND '$(PROCESSOR_ARCHITECTURE)' == 'AMD64'">
     <OSArchitecture>X64</OSArchitecture>
+    <DefineConstants>LEGACY_HTTP_STACK</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition="'$(OSPlatform)' == 'OS_WINDOWS' AND '$(PROCESSOR_ARCHITECTURE)' == 'X86'">
     <OSArchitecture>X86</OSArchitecture>
+    <DefineConstants>LEGACY_HTTP_STACK</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(OSPlatform)' == 'OS_OSX'">
     <OSArchitecture>X64</OSArchitecture>
+    <DefineConstants>LEGACY_HTTP_STACK</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(OSPlatform)' == 'OS_LINUX' AND '$(PackageRuntime)' == 'linux-x64'">
     <OSArchitecture>X64</OSArchitecture>
+    <DefineConstants>LEGACY_HTTP_STACK</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition="'$(OSPlatform)' == 'OS_LINUX' AND '$(PackageRuntime)' == 'rhel.6-x64'">
     <OSArchitecture>OS_RHEL6;X64</OSArchitecture>
+    <DefineConstants>LEGACY_HTTP_STACK</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition="'$(OSPlatform)' == 'OS_LINUX' AND '$(PackageRuntime)' == 'linux-arm'">
     <OSArchitecture>ARM</OSArchitecture>
