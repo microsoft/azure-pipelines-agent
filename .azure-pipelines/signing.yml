@@ -137,6 +137,7 @@ steps:
     FolderPath: '${{ parameters.layoutRoot }}'
     Pattern: |
       bin\Ben.Demystifier.dll
+      bin\CommandLine.dll
       bin\DotNet.Glob.dll
       bin\Minimatch.dll
       bin\NCrontab.Signed.dll
