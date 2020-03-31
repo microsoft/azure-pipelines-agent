@@ -166,7 +166,6 @@ jobs:
 - job: build_linux_arm64_agent
 ################################################################################
   displayName: Linux Agent (ARM64)
-  condition: false # don't run this job yet, we need to bootstrap
   pool:
     name: buildDevs
     demands: 'Agent.OSArchitecture -equals ARM64'
