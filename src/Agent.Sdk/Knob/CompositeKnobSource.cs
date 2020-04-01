@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System;
 using System.Collections.Generic;
 
 namespace Agent.Sdk.Knob
@@ -18,16 +17,9 @@ namespace Agent.Sdk.Knob
 
         public KnobValue GetValue(IKnobValueContext context)
         {
-            KnobValue value = null;
             foreach (var source in _sources)
             {
-                try {
-                    value = source.GetValue(context);
-                }
-                catch (NotSupportedException ex)
-                {
-                    throw new NotSupportedException($"{source.GetType()} not supported for context type {context.GetType()}");
-                }
+                var value = source.GetValue(context);
                 if (!(value is null))
                 {
                     return value;
