@@ -313,12 +313,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             char[] s_invalidFileChars = Path.GetInvalidFileNameChars();
             if (type.IndexOfAny(s_invalidFileChars) != -1)
             {
-                throw new ArgumentException($"Type contain invalid characters. ({String.Join(",", s_invalidFileChars)})");
+                throw new ArgumentException($"Type contains invalid characters. ({String.Join(",", s_invalidFileChars)})");
             }
 
             if (name.IndexOfAny(s_invalidFileChars) != -1)
             {
-                throw new ArgumentException($"Name contain invalid characters. ({String.Join(", ", s_invalidFileChars)})");
+                throw new ArgumentException($"Name contains invalid characters. ({String.Join(", ", s_invalidFileChars)})");
             }
 
             // Translate file path back from container path
