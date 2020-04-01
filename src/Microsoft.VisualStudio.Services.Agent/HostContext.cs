@@ -524,7 +524,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         string IKnobValueContext.GetVariableValueOrDefault(string variableName)
         {
-            throw new Exception("RuntimeKnobSource not supported for Microsoft.VisualStudio.Services.Agent.HostContext");
+            throw new NotSupportedException("Method not supported for Microsoft.VisualStudio.Services.Agent.HostContext");
         }
 
         IScopedEnvironment IKnobValueContext.GetScopedEnvironment()
