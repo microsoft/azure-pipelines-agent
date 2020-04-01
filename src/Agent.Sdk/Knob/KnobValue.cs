@@ -1,5 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+using System;
 using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Agent.Sdk.Knob
@@ -24,6 +25,11 @@ namespace Agent.Sdk.Knob
         public bool AsBoolean()
         {
             return StringUtil.ConvertToBoolean(_value);
+        }
+
+        public int AsInt()
+        {
+            return Int32.Parse(_value);
         }
     }
 

@@ -34,25 +34,43 @@ namespace Agent.Sdk.Knob
             "Proxy server address if one exists",
             new EnvironmentKnobSource("VSTS_HTTP_PROXY"),
             new EnvironmentKnobSource("http_proxy"),
-            new BuiltInDefaultKnobSource(""));
+            new BuiltInDefaultKnobSource(string.Empty));
 
         public static readonly Knob ProxyUsername = new Knob(
             nameof(ProxyUsername),
             "Proxy username if one exists",
             new EnvironmentKnobSource("VSTS_HTTP_PROXY_USERNAME"),
-            new BuiltInDefaultKnobSource(""));
+            new BuiltInDefaultKnobSource(string.Empty));
 
         public static readonly Knob ProxyPassword = new Knob(
             nameof(ProxyPassword),
             "Proxy password if one exists",
             new EnvironmentKnobSource("VSTS_HTTP_PROXY_PASSWORD"),
-            new BuiltInDefaultKnobSource(""));
+            new BuiltInDefaultKnobSource(string.Empty));
 
         public static readonly Knob NoProxy = new Knob(
             nameof(NoProxy),
             "Proxy bypass list if one exists. Should be comma seperated",
             new EnvironmentKnobSource("no_proxy"),
-            new BuiltInDefaultKnobSource(""));
+            new BuiltInDefaultKnobSource(string.Empty));
+
+        public static readonly Knob HttpRetryCount = new Knob(
+            nameof(HttpRetryCount),
+            "Number of times to retry Http requests",
+            new EnvironmentKnobSource("VSTS_HTTP_RETRY"),
+            new BuiltInDefaultKnobSource("3"));
+
+        public static readonly Knob HttpTimeout = new Knob(
+            nameof(HttpTimeout),
+            "Timeout for Http requests",
+            new EnvironmentKnobSource("VSTS_HTTP_TIMEOUT"),
+            new BuiltInDefaultKnobSource("100"));
+
+        public static readonly Knob PermissionsCheckFailsafe = new Knob(
+            nameof(PermissionsCheckFailsafe),
+            "Maximum depth of file permitted in directory hierarchy when checking permissions. Check to avoid accidentally entering infinite loops.",
+            new EnvironmentKnobSource("AGENT_TEST_VALIDATE_EXECUTE_PERMISSIONS_FAILSAFE"),
+            new BuiltInDefaultKnobSource("100"));
     }
 
 }
