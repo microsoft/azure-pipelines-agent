@@ -73,7 +73,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 }
 
                 // Otherwise throw.
-                throw new Exception(StringUtil.Loc("InvalidConfigFor0TerminatingUnattended", argName));
+                throw new ArgumentNullException(StringUtil.Loc("InvalidConfigFor0TerminatingUnattended", argName));
             }
 
             // Prompt until a valid value is read.

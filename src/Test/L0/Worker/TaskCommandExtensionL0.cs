@@ -86,7 +86,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             {
                 TaskCommandExtension commandExtension = new TaskCommandExtension();
                 var cmd = new Command("task", "setEndpoint");
-                Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
+                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
             }
         }
 
@@ -100,7 +100,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 TaskCommandExtension commandExtension = new TaskCommandExtension();
                 var cmd = new Command("task", "setEndpoint");
 
-                Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
+                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
             }
         }
 
@@ -115,7 +115,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var cmd = new Command("task", "setEndpoint");
                 cmd.Properties.Add("field", "blah");
 
-                Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
+                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
             }
         }
 
@@ -130,7 +130,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var cmd = new Command("task", "setEndpoint");
                 cmd.Properties.Add("field", "url");
 
-                Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
+                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
             }
         }
 
@@ -146,7 +146,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 cmd.Properties.Add("field", "url");
                 cmd.Properties.Add("id", "blah");
 
-                Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
+                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
             }
         }
 
@@ -162,7 +162,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 cmd.Properties.Add("field", "authParameter");
                 cmd.Properties.Add("id", Guid.Empty.ToString());
 
-                Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
+                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
             }
         }
 
@@ -179,7 +179,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 cmd.Properties.Add("field", "url");
                 cmd.Properties.Add("id", Guid.Empty.ToString());
 
-                Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
+                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
             }
         }
 

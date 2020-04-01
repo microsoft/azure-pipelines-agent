@@ -88,7 +88,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             PowerShellInfo latest = infos.OrderByDescending(x => x.Version).FirstOrDefault();
             if (latest == null)
             {
-                throw new Exception(StringUtil.Loc("PowerShellNotInstalledMinVersion0", MinimumVersion));
+                throw new InvalidOperationException(StringUtil.Loc("PowerShellNotInstalledMinVersion0", MinimumVersion));
             }
 
             return latest.Path;

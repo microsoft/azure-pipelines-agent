@@ -199,10 +199,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
                     // Assert.
                     throw new InvalidOperationException();
                 }
-                catch (Exception ex)
+                catch (ArgumentNullException ex)
                 {
                     // Assert.
-                    Assert.Equal(_unattendedExceptionMessage, ex.Message);
+                    Assert.True(ex.Message.Contains(_unattendedExceptionMessage));
                 }
             }
         }

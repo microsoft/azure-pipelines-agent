@@ -408,7 +408,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 // 2. The bearer token is not valid until {jwt.ValidFrom}. Current server time is {DateTime.UtcNow}.
                 Trace.Error("Catch exception during test agent connection.");
                 Trace.Error(ex);
-                throw new Exception(StringUtil.Loc("LocalClockSkewed"));
+                throw new InvalidOperationException(StringUtil.Loc("LocalClockSkewed"));
             }
 
             // We will Combine() what's stored with root.  Defaults to string a relative path
@@ -504,12 +504,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     else if (PlatformUtil.RunningOnLinux)
                     {
                         // unconfig systemd service first
-                        throw new Exception(StringUtil.Loc("UnconfigureServiceDService"));
+                        throw new InvalidOperationException(StringUtil.Loc("UnconfigureServiceDService"));
                     }
                     else if (PlatformUtil.RunningOnMacOS)
                     {
                         // unconfig macOS service first
-                        throw new Exception(StringUtil.Loc("UnconfigureOSXService"));
+                        throw new InvalidOperationException(StringUtil.Loc("UnconfigureOSXService"));
                     }
                 }
                 else

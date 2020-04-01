@@ -27,15 +27,15 @@ namespace Test.L0.Worker
                 var command = new Microsoft.VisualStudio.Services.Agent.Command("area", "event");
 
                 // missing alias
-                Assert.Throws<Exception>(() => updateRepoPath.Execute(_ec.Object, command));
+                Assert.Throws<ArgumentNullException>(() => updateRepoPath.Execute(_ec.Object, command));
 
                 // add alias, still missing matching repository                
                 command.Properties.Add("alias", "repo1");
-                Assert.Throws<Exception>(() => updateRepoPath.Execute(_ec.Object, command));
+                Assert.Throws<ArgumentNullException>(() => updateRepoPath.Execute(_ec.Object, command));
 
                 // add repository, still missing data
                 _repositories.Add(new RepositoryResource() { Alias = "repo1" });
-                Assert.Throws<Exception>(() => updateRepoPath.Execute(_ec.Object, command));
+                Assert.Throws<ArgumentNullException>(() => updateRepoPath.Execute(_ec.Object, command));
             }
         }
 

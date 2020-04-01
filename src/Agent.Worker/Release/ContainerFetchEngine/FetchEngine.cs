@@ -335,7 +335,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEng
 
                     if (lastAttempt)
                     {
-                        throw new Exception(StringUtil.Loc("RMErrorDownloadingContainerItem", tmpDownloadPath, exception));
+                        throw new InvalidOperationException(StringUtil.Loc("RMErrorDownloadingContainerItem", tmpDownloadPath, exception));
                     }
 
                     lock (_lock)
