@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -15,6 +16,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 {
     public static class IOUtil
     {
+        private static UtilKnobValueContext _knobContext = new UtilKnobValueContext();
+
         public static string ExeExtension
         {
             get =>
@@ -392,12 +395,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         {
             ArgUtil.Directory(directory, nameof(directory));
             string dir = directory;
-            string failsafeString = Environment.GetEnvironmentVariable("AGENT_TEST_VALIDATE_EXECUTE_PERMISSIONS_FAILSAFE");
-            int failsafe;
-            if (string.IsNullOrEmpty(failsafeString) || !int.TryParse(failsafeString, out failsafe))
-            {
-                failsafe = 100;
-            }
+            int failsafe = AgentKnobs.PermissionsCheckFailsafe.GetValue(_knobContext).AsInt();
 
             for (int i = 0; i < failsafe; i++)
             {
