@@ -163,6 +163,36 @@ jobs:
       artifactType: container
 
 ################################################################################
+- job: build_linux_arm64_agent
+################################################################################
+  displayName: Linux Agent (ARM64)
+  pool:
+    name: buildDevs
+    demands: 'Agent.OSArchitecture -equals ARM64'
+  timeoutInMinutes: 75
+  steps:
+
+  # Steps template for non-windows platform
+  - template: .vsts.template.nonwindows.yml
+    parameters:
+      testLogTitle: 'Linux-ARM64'
+
+  # Create agent package zip
+  - script: ./dev.sh package Release
+    workingDirectory: src
+    displayName: Package Release
+    condition: and(succeeded(), ne(variables['build.reason'], 'PullRequest'))
+
+  # Upload agent package zip as build artifact
+  - task: PublishBuildArtifacts@1
+    displayName: Publish Artifact (Linux ARM64)
+    condition: and(succeeded(), ne(variables['build.reason'], 'PullRequest'))
+    inputs:
+      pathToPublish: _package
+      artifactName: agent
+      artifactType: container
+
+################################################################################
 - job: build_rhel6_x64_agent
 ################################################################################
   displayName: RHEL6 Agent (x64)

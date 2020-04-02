@@ -147,18 +147,18 @@ function editReleaseNotesFile(body)
 
 function commitAndPush(directory, release, branch)
 {
-    util.execInForeground(GIT + " checkout -b " + branch, directory);
-    util.execInForeground(`${GIT} commit -m "Agent Release ${release}" `, directory);
-    util.execInForeground(`${GIT} -c credential.helper='!f() { echo "username=pat"; echo "password=$PAT"; };f' push --set-upstream origin ${branch}`, directory);
+    util.execInForeground(GIT + " checkout -b " + branch, directory, opt.options.dryrun);
+    util.execInForeground(`${GIT} commit -m "Agent Release ${release}" `, directory, opt.options.dryrun);
+    util.execInForeground(`${GIT} -c credential.helper='!f() { echo "username=pat"; echo "password=$PAT"; };f' push --set-upstream origin ${branch}`, directory, opt.options.dryrun);
 }
 
 function commitAgentChanges(directory, release)
 {
     var newBranch = `releases/${release}`;
-    util.execInForeground(`${GIT} add ${path.join('src', 'agentversion')}`, directory, opt.dryrun);
-    util.execInForeground(`${GIT} add releaseNote.md`, directory, opt.dryrun);
-    util.execInForeground(`${GIT} config --global user.email "azure-pipelines-bot@microsoft.com"`, null, opt.dryrun);
-    util.execInForeground(`${GIT} config --global user.name "azure-pipelines-bot"`, null, opt.dryrun);
+    util.execInForeground(`${GIT} add ${path.join('src', 'agentversion')}`, directory, opt.options.dryrun);
+    util.execInForeground(`${GIT} add releaseNote.md`, directory, opt.options.dryrun);
+    util.execInForeground(`${GIT} config --global user.email "azure-pipelines-bot@microsoft.com"`, null, opt.options.dryrun);
+    util.execInForeground(`${GIT} config --global user.name "azure-pipelines-bot"`, null, opt.options.dryrun);
     commitAndPush(directory, release, newBranch);
 }
 

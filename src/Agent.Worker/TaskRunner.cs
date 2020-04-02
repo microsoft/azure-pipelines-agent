@@ -95,7 +95,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                     else
                     {
-                        throw new Exception("Task signature verification failed.");
+                        throw new InvalidOperationException("Task signature verification failed.");
                     }
                 }
 
@@ -122,10 +122,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     if (PlatformUtil.RunningOnWindows)
                     {
-                        throw new Exception(StringUtil.Loc("SupportedTaskHandlerNotFoundWindows", $"{PlatformUtil.HostOS}({PlatformUtil.HostArchitecture})"));
+                        throw new InvalidOperationException(StringUtil.Loc("SupportedTaskHandlerNotFoundWindows", $"{PlatformUtil.HostOS}({PlatformUtil.HostArchitecture})"));
                     }
 
-                    throw new Exception(StringUtil.Loc("SupportedTaskHandlerNotFoundLinux"));
+                    throw new InvalidOperationException(StringUtil.Loc("SupportedTaskHandlerNotFoundLinux"));
                 }
                 Trace.Info($"Handler data is of type {handlerData}");
 

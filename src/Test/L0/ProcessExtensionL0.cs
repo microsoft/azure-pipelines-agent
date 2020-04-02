@@ -66,7 +66,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                                     retries--;
                                     if (retries < 0)
                                     {
-                                        throw ex;
+                                        throw;
                                     }
                                     trace.Info($"Unable to get the environment variable, will retry. {retries} retries remaining");
                                     await Task.Delay(2000);

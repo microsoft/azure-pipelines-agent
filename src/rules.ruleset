@@ -107,7 +107,7 @@
       <Rule Id="CA2101" Action="Warning" />          <!-- Specify marshaling for P/Invoke string arguments -->
       <Rule Id="CA2119" Action="Error" />            <!-- Seal methods that satisfy private interfaces -->
       <Rule Id="CA2153" Action="Error" />            <!-- Do Not Catch Corrupted State Exceptions -->
-      <Rule Id="CA2200" Action="Warning" />          <!-- Rethrow to preserve stack details. -->
+      <Rule Id="CA2200" Action="Error" />            <!-- Rethrow to preserve stack details. -->
       <Rule Id="CA2201" Action="Warning" />          <!-- Do not raise reserved exception types -->
       <Rule Id="CA2207" Action="Error" />            <!-- Initialize value type static fields inline -->
       <Rule Id="CA2208" Action="Warning" />          <!-- Instantiate argument exceptions correctly -->

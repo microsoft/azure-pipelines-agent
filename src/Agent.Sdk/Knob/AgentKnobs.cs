@@ -28,6 +28,31 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource(QuietCheckoutRuntimeVarName),
             new EnvironmentKnobSource(QuietCheckoutEnvVarName),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob ProxyAddress = new Knob(
+            nameof(ProxyAddress),
+            "Proxy server address if one exists",
+            new EnvironmentKnobSource("VSTS_HTTP_PROXY"),
+            new EnvironmentKnobSource("http_proxy"),
+            new BuiltInDefaultKnobSource(""));
+
+        public static readonly Knob ProxyUsername = new Knob(
+            nameof(ProxyUsername),
+            "Proxy username if one exists",
+            new EnvironmentKnobSource("VSTS_HTTP_PROXY_USERNAME"),
+            new BuiltInDefaultKnobSource(""));
+
+        public static readonly Knob ProxyPassword = new Knob(
+            nameof(ProxyPassword),
+            "Proxy password if one exists",
+            new EnvironmentKnobSource("VSTS_HTTP_PROXY_PASSWORD"),
+            new BuiltInDefaultKnobSource(""));
+
+        public static readonly Knob NoProxy = new Knob(
+            nameof(NoProxy),
+            "Proxy bypass list if one exists. Should be comma seperated",
+            new EnvironmentKnobSource("no_proxy"),
+            new BuiltInDefaultKnobSource(""));
     }
 
 }

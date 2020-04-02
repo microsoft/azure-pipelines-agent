@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Concurrent;
@@ -22,7 +23,7 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
-    public interface IHostContext : IDisposable
+    public interface IHostContext : IDisposable, IKnobValueContext
     {
         StartupType StartupType { get; set; }
         CancellationToken AgentShutdownToken { get; }
@@ -519,6 +520,16 @@ namespace Microsoft.VisualStudio.Services.Agent
                     }
                 }
             }
+        }
+
+        string IKnobValueContext.GetVariableValueOrDefault(string variableName)
+        {
+            throw new NotSupportedException("Method not supported for Microsoft.VisualStudio.Services.Agent.HostContext");
+        }
+
+        IScopedEnvironment IKnobValueContext.GetScopedEnvironment()
+        {
+            return new SystemEnvironment();
         }
 
         protected virtual void Dispose(bool disposing)
