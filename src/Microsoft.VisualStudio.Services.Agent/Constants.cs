@@ -264,8 +264,6 @@ namespace Microsoft.VisualStudio.Services.Agent
                 // Keep alphabetical. If you add or remove a variable here, do the same in ReadOnlyVariables
                 //
                 public static readonly string AcceptTeeEula = "agent.acceptteeeula";
-                public static readonly string AllowAllEndpoints = "agent.allowAllEndpoints"; // remove after sprint 120 or so.
-                public static readonly string AllowAllSecureFiles = "agent.allowAllSecureFiles"; // remove after sprint 121 or so.
                 public static readonly string BuildDirectory = "agent.builddirectory";
                 public static readonly string ContainerId = "agent.containerid";
                 public static readonly string ContainerNetwork = "agent.containernetwork";
@@ -428,8 +426,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static List<string> ReadOnlyVariables = new List<string>(){
                 // Agent variables
                 Agent.AcceptTeeEula,
-                Agent.AllowAllEndpoints,
-                Agent.AllowAllSecureFiles,
                 Agent.BuildDirectory,
                 Agent.ContainerId,
                 Agent.ContainerNetwork,

@@ -71,6 +71,12 @@ namespace Agent.Sdk.Knob
             "Maximum depth of file permitted in directory hierarchy when checking permissions. Check to avoid accidentally entering infinite loops.",
             new EnvironmentKnobSource("AGENT_TEST_VALIDATE_EXECUTE_PERMISSIONS_FAILSAFE"),
             new BuiltInDefaultKnobSource("100"));
+
+        public static readonly Knob TraceVerbose = new Knob(
+            nameof(TraceVerbose),
+            "If set to anything, trace level will be verbose",
+            new EnvironmentKnobSource("VSTSAGENT_TRACE"),
+            new BuiltInDefaultKnobSource(""));
     }
 
 }
