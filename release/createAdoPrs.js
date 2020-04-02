@@ -13,7 +13,7 @@ var opt = require('node-getopt').create([
     ['h', 'help',                 'Display this help'],
   ])
   .setHelp(
-    'Usage: node mkrelease.js [OPTION] <version>\n' +
+    'Usage: node createAdoPrs.js [OPTION] <version>\n' +
     '\n' +
     '[[OPTIONS]]\n'
   )
