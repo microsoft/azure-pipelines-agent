@@ -5,6 +5,9 @@ const tl = require('azure-pipelines-task-lib/task');
 const util = require('./util');
 
 const { Octokit } = require("@octokit/rest");
+
+const OWNER = 'microsoft';
+const REPO  = 'azure-pipelines-agent';
 const GIT = 'git';
 const VALID_RELEASE_RE = /^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/;
 const octokit = new Octokit({}); // only read-only operations, no need to auth
@@ -35,9 +38,9 @@ async function verifyNewReleaseTagOk(newRelease)
     {
         var tag = 'v' + newRelease;
         await octokit.repos.getReleaseByTag({
-            owner,
-            repo,
-            tag
+            owner: OWNER,
+            repo: REPO,
+            tag: tag
         });
 
         console.log(`Version ${newRelease} is already in use`);
@@ -66,16 +69,29 @@ async function fetchPRsSinceLastReleaseAndEditReleaseNotes(newRelease, callback)
 
     try
     {
-        var tag = 'latest';
+        var releaseInfo;
+
         if (derivedFrom !== 'latest')
         {
-            tag = 'v' + derivedFrom;
+            var tag = 'v' + derivedFrom;
+
+            console.log(`Getting release by tag ${tag}`);
+
+            releaseInfo = await octokit.repos.getReleaseByTag({
+                owner: OWNER,
+                repo: REPO,
+                tag: tag
+            });
         }
-        var releaseInfo = await octokit.repos.getReleaseByTag({
-            owner,
-            repo,
-            tag
-        });
+        else
+        {
+            console.log("Getting latest release");
+
+            releaseInfo = await octokit.repos.getLatestRelease({
+                owner: OWNER,
+                repo: REPO
+            });
+        }
 
         var branch = opt.options.branch;
         var lastReleaseDate = releaseInfo.data.published_at;
@@ -83,7 +99,7 @@ async function fetchPRsSinceLastReleaseAndEditReleaseNotes(newRelease, callback)
         try
         {
             var results = await octokit.search.issuesAndPullRequests({
-                q:`type:pr+is:merged+repo:${owner}/${repo}+base:${branch}+merged:>=${lastReleaseDate}`,
+                q:`type:pr+is:merged+repo:${OWNER}/${REPO}+base:${branch}+merged:>=${lastReleaseDate}`,
                 order: 'asc',
                 sort: 'created'
             })
@@ -97,6 +113,7 @@ async function fetchPRsSinceLastReleaseAndEditReleaseNotes(newRelease, callback)
     }
     catch (e)
     {
+        console.log(e);
         console.log(`Error: Cannot find release ${opt.options.derivedFrom}. Aborting.`);
         process.exit(-1);
     }
