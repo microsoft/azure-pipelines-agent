@@ -43,7 +43,7 @@ async function verifyNewReleaseTagOk(newRelease)
         console.log(`Version ${newRelease} is already in use`);
         process.exit(-1);
     }
-    catch (e)
+    catch
     {
         console.log(`Version ${newRelease} is available for use`);
     }
