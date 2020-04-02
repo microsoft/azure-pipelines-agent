@@ -395,7 +395,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         {
             ArgUtil.Directory(directory, nameof(directory));
             string dir = directory;
-            int failsafe = AgentKnobs.HttpTimeout.GetValue(_knobContext).AsInt();
+            int failsafe = AgentKnobs.PermissionsCheckFailsafe.GetValue(_knobContext).AsInt();
 
             for (int i = 0; i < failsafe; i++)
             {
