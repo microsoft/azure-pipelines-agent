@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Concurrent;
@@ -22,7 +23,7 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
-    public interface IHostContext : IDisposable
+    public interface IHostContext : IDisposable, IKnobValueContext
     {
         StartupType StartupType { get; set; }
         CancellationToken AgentShutdownToken { get; }
@@ -133,7 +134,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             // Enable Http trace
             bool enableHttpTrace;
-            if (bool.TryParse(Environment.GetEnvironmentVariable("VSTS_AGENT_HTTPTRACE"), out enableHttpTrace) && enableHttpTrace)
+            if (AgentKnobs.HttpTrace.GetValue(this).AsBoolean())
             {
                 _trace.Warning("*****************************************************************************************");
                 _trace.Warning("**                                                                                     **");
@@ -147,7 +148,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
 
             // Enable perf counter trace
-            string perfCounterLocation = Environment.GetEnvironmentVariable("VSTS_AGENT_PERFLOG");
+            string perfCounterLocation = AgentKnobs.AgentPerflog.GetValue(this).AsString();
             if (!string.IsNullOrEmpty(perfCounterLocation))
             {
                 try
@@ -230,7 +231,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     break;
 
                 case WellKnownDirectory.Tools:
-                    path = Environment.GetEnvironmentVariable("AGENT_TOOLSDIRECTORY") ?? Environment.GetEnvironmentVariable(Constants.Variables.Agent.ToolsDirectory);
+                    path = AgentKnobs.AgentToolsDirectory.GetValue(this).AsString();
                     if (string.IsNullOrEmpty(path))
                     {
                         path = Path.Combine(
@@ -519,6 +520,16 @@ namespace Microsoft.VisualStudio.Services.Agent
                     }
                 }
             }
+        }
+
+        string IKnobValueContext.GetVariableValueOrDefault(string variableName)
+        {
+            throw new NotSupportedException("Method not supported for Microsoft.VisualStudio.Services.Agent.HostContext");
+        }
+
+        IScopedEnvironment IKnobValueContext.GetScopedEnvironment()
+        {
+            return new SystemEnvironment();
         }
 
         protected virtual void Dispose(bool disposing)

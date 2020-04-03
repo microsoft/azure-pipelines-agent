@@ -11,6 +11,7 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Text;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using System.Linq;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -236,13 +237,11 @@ namespace Agent.Plugins.Repository
             string clientCertPrivateKeyAskPassFile = null;
             bool acceptUntrustedCerts = false;
 
-            bool reducedOutput = StringUtil.ConvertToBoolean(
-                executionContext.Variables.GetValueOrDefault("agent.source.checkout.quiet")?.Value ??
-                System.Environment.GetEnvironmentVariable("AGENT_SOURCE_CHECKOUT_QUIET"), false);
+            bool reducedOutput = AgentKnobs.QuietCheckout.GetValue(executionContext).AsBoolean();
             if (reducedOutput)
             {
                 executionContext.Output(StringUtil.Loc("QuietCheckoutModeRequested"));
-                executionContext.SetTaskVariable("agent.source.checkout.quiet", "false");
+                executionContext.SetTaskVariable(AgentKnobs.QuietCheckoutRuntimeVarName, Boolean.TrueString);
             }
 
             executionContext.Output($"Syncing repository: {repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Name)} ({repository.Type})");

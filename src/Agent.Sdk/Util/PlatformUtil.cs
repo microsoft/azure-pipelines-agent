@@ -124,5 +124,17 @@ namespace Agent.Sdk
         {
             get => PlatformUtil.HostArchitecture == Architecture.Arm64;
         }
+
+        // remove this after addressing
+        // https://github.com/microsoft/azure-pipelines-agent/issues/2875
+        public static bool UseLegacyHttpHandler
+        {
+            // In .NET Core 2.1, we couldn't use the new SocketsHttpHandler for Windows or Linux
+            // On Linux, negotiate auth didn't work if the TFS URL was HTTPS
+            // On Windows, proxy was not working
+            // But on ARM/ARM64 Linux, the legacy curl dependency is problematic
+            // (see https://github.com/dotnet/runtime/issues/28891)
+            get => !(PlatformUtil.RunningOnLinux && (PlatformUtil.IsArm || PlatformUtil.IsArm64));
+        }
     }
 }

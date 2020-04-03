@@ -31,6 +31,9 @@ steps:
   workingDirectory: src
   displayName: Unit tests
 
+- task: NuGetToolInstaller@1
+  displayName: Install NuGet for signing tests
+
 - script: dev.cmd testl1
   workingDirectory: src
   displayName: Functional tests

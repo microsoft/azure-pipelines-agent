@@ -51,7 +51,7 @@ function detect_platform_and_runtime_id ()
             local CPU_NAME=$(uname -m)
             case $CPU_NAME in
                 armv7l) DETECTED_RUNTIME_ID="linux-arm";;
-                aarch64) DETECTED_RUNTIME_ID="linux-arm";;
+                aarch64) DETECTED_RUNTIME_ID="linux-arm64";;
             esac
         fi
 
@@ -73,12 +73,12 @@ function cmd_build ()
     TARGET="Build"
     if  [[ "$ADO_ENABLE_LOGISSUE" == "true" ]]; then
 
-        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" \
+        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
          | sed -e "/\: warning /s/^/${DOTNET_WARNING_PREFIX} /;" \
          | sed -e "/\: error /s/^/${DOTNET_ERROR_PREFIX} /;" \
          || failed build
     else
-        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" \
+        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
          || failed build
     fi
 
@@ -93,12 +93,12 @@ function cmd_layout ()
     heading "Creating layout"
     TARGET="layout"
     if  [[ "$ADO_ENABLE_LOGISSUE" == "true" ]]; then
-        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" \
+        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
          | sed -e "/\: warning /s/^/${DOTNET_WARNING_PREFIX} /;" \
          | sed -e "/\: error /s/^/${DOTNET_ERROR_PREFIX} /;" \
          || failed build
     else
-        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" \
+        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
          || failed build
     fi
 
@@ -246,7 +246,7 @@ else
     RUNTIME_ID=$DETECTED_RUNTIME_ID
 fi
 
-_VALID_RIDS='linux-x64:linux-arm:rhel.6-x64:osx-x64:win-x64:win-x86'
+_VALID_RIDS='linux-x64:linux-arm:linux-arm64:rhel.6-x64:osx-x64:win-x64:win-x86'
 if [[ ":$_VALID_RIDS:" != *:$RUNTIME_ID:* ]]; then
     failed "must specify a valid target runtime ID (one of: $_VALID_RIDS)"
 fi
@@ -320,13 +320,15 @@ case $DEV_CMD in
    "test") cmd_test;;
    "t") cmd_test;;
    "testl0") cmd_test_l0;;
+   "l0") cmd_test_l0;;
    "testl1") cmd_test_l1;;
+   "l1") cmd_test_l1;;
    "layout") cmd_layout;;
    "l") cmd_layout;;
    "package") cmd_package;;
    "p") cmd_package;;
    "report") cmd_report;;
-   *) echo "Invalid command. Use (l)ayout, (b)uild, (t)est, or (p)ackage.";;
+   *) echo "Invalid command. Use (l)ayout, (b)uild, (t)est, test(l0), test(l1), or (p)ackage.";;
 esac
 
 popd

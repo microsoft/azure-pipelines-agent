@@ -794,6 +794,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         }
 
         // log an error issue to job level timeline record
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "jobServer")]
         private async Task LogWorkerProcessUnhandledException(Pipelines.AgentJobRequestMessage message, string errorMessage)
         {
             try
@@ -832,17 +833,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     }
                 }
 
-                using (var jobConnection = VssUtil.CreateConnection(jobServerUrl, jobServerCredential))
-                {
-                    await jobServer.ConnectAsync(jobConnection);
-                    var timeline = await jobServer.GetTimelineAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, CancellationToken.None);
-                    ArgUtil.NotNull(timeline, nameof(timeline));
-                    TimelineRecord jobRecord = timeline.Records.FirstOrDefault(x => x.Id == message.JobId && x.RecordType == "Job");
-                    ArgUtil.NotNull(jobRecord, nameof(jobRecord));
-                    jobRecord.ErrorCount++;
-                    jobRecord.Issues.Add(new Issue() { Type = IssueType.Error, Message = errorMessage });
-                    await jobServer.UpdateTimelineRecordsAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, new TimelineRecord[] { jobRecord }, CancellationToken.None);
-                }
+                var jobConnection = VssUtil.CreateConnection(jobServerUrl, jobServerCredential);
+                await jobServer.ConnectAsync(jobConnection);
+                var timeline = await jobServer.GetTimelineAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, CancellationToken.None);
+                ArgUtil.NotNull(timeline, nameof(timeline));
+                TimelineRecord jobRecord = timeline.Records.FirstOrDefault(x => x.Id == message.JobId && x.RecordType == "Job");
+                ArgUtil.NotNull(jobRecord, nameof(jobRecord));
+                jobRecord.ErrorCount++;
+                jobRecord.Issues.Add(new Issue() { Type = IssueType.Error, Message = errorMessage });
+                await jobServer.UpdateTimelineRecordsAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, new TimelineRecord[] { jobRecord }, CancellationToken.None);
             }
             catch (Exception ex)
             {

@@ -182,6 +182,35 @@ stages:
         artifactType: container
 
   ################################################################################
+  - job: build_linux_agent_arm64
+  ################################################################################
+    displayName: Linux Agent (ARM64)
+    condition: false
+    pool:
+      name: buildDevs
+      demands: 'Agent.OSArchitecture -equals ARM64'
+    timeoutInMinutes: 75
+    steps:
+
+    # Steps template for non-windows platform
+    - template: .vsts.template.nonwindows.yml
+      parameters:
+        testLogTitle: 'Linux-ARM64'
+
+    # Create agent package zip
+    - script: ./dev.sh package Release
+      workingDirectory: src
+      displayName: Package Release
+
+    # Upload agent package zip as build artifact
+    - task: PublishBuildArtifacts@1
+      displayName: Publish Artifact (Linux)
+      inputs:
+        pathToPublish: _package
+        artifactName: agent
+        artifactType: container
+
+  ################################################################################
   - job: build_rhel6_agent_x64
   ################################################################################
     displayName: RHEL6 Agent (x64)

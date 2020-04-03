@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.IO;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Common;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
@@ -170,8 +171,7 @@ namespace Agent.Plugins.Repository
                 forceTag = "--force";
             }
 
-            bool reducedOutput = StringUtil.ConvertToBoolean(
-                context.Variables.GetValueOrDefault("agent.source.checkout.quiet")?.Value);
+            bool reducedOutput = AgentKnobs.QuietCheckout.GetValue(context).AsBoolean();
             string progress = reducedOutput ? string.Empty : "--progress";
 
             // default options for git fetch.

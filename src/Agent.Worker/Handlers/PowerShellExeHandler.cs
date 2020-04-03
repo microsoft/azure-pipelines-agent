@@ -162,14 +162,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                         }
                         else
                         {
-                            throw new Exception(StringUtil.Loc("ProcessCompletedWithCode0Errors1", exitCode, _errorCount));
+                            throw new InvalidOperationException(StringUtil.Loc("ProcessCompletedWithCode0Errors1", exitCode, _errorCount));
                         }
                     }
 
                     // Fail on non-zero exit code.
                     if (exitCode != 0)
                     {
-                        throw new Exception(StringUtil.Loc("ProcessCompletedWithExitCode0", exitCode));
+                        throw new InvalidOperationException(StringUtil.Loc("ProcessCompletedWithExitCode0", exitCode));
                     }
                 }
             }

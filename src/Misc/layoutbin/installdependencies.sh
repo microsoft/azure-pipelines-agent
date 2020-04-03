@@ -16,7 +16,7 @@ function print_errormessage()
 {
     echo "Can't install dotnet core dependencies."
     echo "You can manually install all required dependencies based on following documentation"
-    echo "https://docs.microsoft.com/en-us/dotnet/core/linux-prerequisites?tabs=netcore2x"
+    echo "https://docs.microsoft.com/en-us/dotnet/core/dependencies?pivots=os-linux&tabs=netcore31"
 }
 
 function print_rhel6message() 
@@ -31,7 +31,7 @@ function print_rhel6errormessage()
 {
     echo "We couldn't install dotnet core dependencies"
     echo "You can manually install all required dependencies based on following documentation"
-    echo "https://docs.microsoft.com/en-us/dotnet/core/linux-prerequisites?tabs=netcore2x"
+    echo "https://docs.microsoft.com/en-us/dotnet/core/dependencies?pivots=os-linux&tabs=netcore31"
     echo "In addition, there are some dependencies which require manual installation. Please follow this documentation" 
     echo "https://github.com/dotnet/core/blob/master/Documentation/build-and-install-rhel6-prerequisites.md"
 }
@@ -71,9 +71,10 @@ then
                 exit 1
             fi
 
-            # debian 9 use libssl1.0.2
+	        # debian 10 uses libssl1.1
+            # debian 9 uses libssl1.0.2
             # other debian linux use libssl1.0.0
-            apt install -y libssl1.0.0 || apt install -y libssl1.0.2
+            apt install -y libssl1.0.0 || apt install -y libssl1.0.2 || apt install -y libssl1.1
             if [ $? -ne 0 ]
             then
                 echo "'apt' failed with exit code '$?'"
@@ -81,8 +82,8 @@ then
                 exit 1
             fi
 
-            # libicu version prefer: libicu52 -> libicu55 -> libicu57 -> libicu60
-            apt install -y libicu52 || apt install -y libicu55 || apt install -y libicu57 || apt install -y libicu60
+            # libicu versions: libicu52 -> libicu55 -> libicu57 -> libicu60 -> libicu63
+            apt install -y libicu52 || apt install -y libicu55 || apt install -y libicu57 || apt install -y libicu60 || apt install -y libicu63
             if [ $? -ne 0 ]
             then
                 echo "'apt' failed with exit code '$?'"
@@ -111,9 +112,10 @@ then
                     exit 1
                 fi
 
-                # debian 9 use libssl1.0.2
+                # debian 10 uses libssl1.1
+                # debian 9 uses libssl1.0.2
                 # other debian linux use libssl1.0.0
-                apt-get install -y libssl1.0.0 || apt install -y libssl1.0.2
+                apt-get install -y libssl1.0.0 || apt-get install -y libssl1.0.2 || apt-get install -y libssl1.1
                 if [ $? -ne 0 ]
                 then
                     echo "'apt-get' failed with exit code '$?'"
@@ -121,8 +123,8 @@ then
                     exit 1
                 fi
 
-                # libicu version prefer: libicu52 -> libicu55 -> libicu57 -> libicu60
-                apt-get install -y libicu52 || apt install -y libicu55 || apt install -y libicu57 || apt install -y libicu60
+                # libicu versions: libicu52 -> libicu55 -> libicu57 -> libicu60 -> libicu63
+                apt-get install -y libicu52 || apt-get install -y libicu55 || apt-get install -y libicu57 || apt-get install -y libicu60 || apt-get install -y libicu63
                 if [ $? -ne 0 ]
                 then
                     echo "'apt-get' failed with exit code '$?'"
