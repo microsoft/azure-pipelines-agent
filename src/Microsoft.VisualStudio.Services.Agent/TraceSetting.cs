@@ -13,7 +13,7 @@ namespace Microsoft.VisualStudio.Services.Agent
     [DataContract]
     public class TraceSetting
     {
-        private static UtilKnobValueContext _knobContext = new UtilKnobValueContext();
+        private static UtilKnobValueContext _knobContext = UtilKnobValueContext.Instance();
 
         public TraceSetting()
         {

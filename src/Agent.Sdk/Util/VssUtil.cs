@@ -19,7 +19,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 {
     public static class VssUtil
     {
-        private static UtilKnobValueContext _knobContext = new UtilKnobValueContext();
+        private static UtilKnobValueContext _knobContext = UtilKnobValueContext.Instance();
 
         public static void InitializeVssClientSettings(ProductInfoHeaderValue additionalUserAgent, IWebProxy proxy, IVssClientCertificateManager clientCert)
         {

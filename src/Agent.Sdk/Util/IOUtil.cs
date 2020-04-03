@@ -16,7 +16,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 {
     public static class IOUtil
     {
-        private static UtilKnobValueContext _knobContext = new UtilKnobValueContext();
+        private static UtilKnobValueContext _knobContext = UtilKnobValueContext.Instance();
 
         public static string ExeExtension
         {

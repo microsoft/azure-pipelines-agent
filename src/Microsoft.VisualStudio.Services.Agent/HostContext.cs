@@ -134,7 +134,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             // Enable Http trace
             bool enableHttpTrace;
-            if (AgentKnobs.HttpTrace.GetValue(this).AsBoolean());
+            if (AgentKnobs.HttpTrace.GetValue(this).AsBoolean())
             {
                 _trace.Warning("*****************************************************************************************");
                 _trace.Warning("**                                                                                     **");
