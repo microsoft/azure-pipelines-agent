@@ -73,12 +73,12 @@ function cmd_build ()
     TARGET="Build"
     if  [[ "$ADO_ENABLE_LOGISSUE" == "true" ]]; then
 
-        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" \
+        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
          | sed -e "/\: warning /s/^/${DOTNET_WARNING_PREFIX} /;" \
          | sed -e "/\: error /s/^/${DOTNET_ERROR_PREFIX} /;" \
          || failed build
     else
-        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" \
+        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
          || failed build
     fi
 
@@ -93,12 +93,12 @@ function cmd_layout ()
     heading "Creating layout"
     TARGET="layout"
     if  [[ "$ADO_ENABLE_LOGISSUE" == "true" ]]; then
-        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" \
+        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
          | sed -e "/\: warning /s/^/${DOTNET_WARNING_PREFIX} /;" \
          | sed -e "/\: error /s/^/${DOTNET_ERROR_PREFIX} /;" \
          || failed build
     else
-        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" \
+        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
          || failed build
     fi
 

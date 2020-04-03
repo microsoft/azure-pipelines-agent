@@ -22,7 +22,7 @@ namespace Agent.Sdk.Knob
             {
                 value = context.GetVariableValueOrDefault(_runTimeVar);
             }
-            catch (NotSupportedException ex)
+            catch (NotSupportedException)
             {
                 throw new NotSupportedException($"RuntimeKnobSource not supported for context type {context.GetType()}");
             }

@@ -36,9 +36,9 @@
       <Rule Id="CA1050" Action="Error" />            <!-- Declare types in namespaces -->
       <Rule Id="CA1051" Action="Warning" />          <!-- Do not declare visible instance fields -->
       <Rule Id="CA1052" Action="Warning" />          <!-- Static holder types should be Static or NotInheritable -->
-      <Rule Id="CA1054" Action="Warning" />          <!-- Uri parameters should not be strings -->
-      <Rule Id="CA1055" Action="Warning" />          <!-- Uri return values should not be strings -->
-      <Rule Id="CA1056" Action="Warning" />          <!-- Uri properties should not be strings -->
+      <Rule Id="CA1054" Action="Hidden" />           <!-- Uri parameters should not be strings -->
+      <Rule Id="CA1055" Action="Hidden" />           <!-- Uri return values should not be strings -->
+      <Rule Id="CA1056" Action="Hidden" />           <!-- Uri properties should not be strings -->
       <Rule Id="CA1058" Action="Error" />            <!-- Types should not extend certain base types -->
       <Rule Id="CA1060" Action="Warning" />          <!-- Move pinvokes to native methods class -->
       <Rule Id="CA1061" Action="Error" />            <!-- Do not hide base class methods -->

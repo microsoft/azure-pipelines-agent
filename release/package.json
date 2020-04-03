@@ -14,7 +14,6 @@
     "azure-devops-node-api": "10.0.0",
     "azure-pipelines-task-lib": "2.9.3",
     "natural-sort": "^1.0.0",
-    "node-getopt": "^0.3.2",
-    "typed-rest-client": "^1.7.2"
+    "node-getopt": "^0.3.2"
   }
 }

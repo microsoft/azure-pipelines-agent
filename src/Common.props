@@ -11,6 +11,7 @@
     <OSArchitecture>ARCH_UNKNOWN</OSArchitecture>
     <DebugConstant></DebugConstant>
     <VssApiVersion>0.5.149-private</VssApiVersion>
+    <CodeAnalysis>$(CodeAnalysis)</CodeAnalysis>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -54,7 +55,6 @@
 
   <PropertyGroup>
     <CodeAnalysisRuleSet>..\rules.ruleset</CodeAnalysisRuleSet>
-    <RunCodeAnalysis>true</RunCodeAnalysis>
   </PropertyGroup>
 
   <PropertyGroup>

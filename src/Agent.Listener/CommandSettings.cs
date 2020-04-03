@@ -419,7 +419,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         // This is used to find out the source from where the agent.listener.exe was launched at the time of run
         public string GetStartupType()
         {
-            return GetArg(Configure?.StartupType, Constants.Agent.CommandLine.Args.StartupType);
+            return GetArg(Run?.StartupType, Constants.Agent.CommandLine.Args.StartupType);
         }
         
         public string GetProxyUrl()
@@ -724,6 +724,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             {
                 config.AutoHelp = false;
                 config.AutoVersion = false;
+                config.CaseSensitive = false;
 
                 // We should consider making this false, but it will break people adding unknown arguments
                 config.IgnoreUnknownArguments = ignoreErrors;

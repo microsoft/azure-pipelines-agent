@@ -42,6 +42,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", nameof(CommandSettings))]
+        public void GetsArgCaseInsensitive()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            {
+                // Arrange.
+                var command = new CommandSettings(hc, args: new string[] { "configure", "--AgenT", "some agent" });
+
+                // Act.
+                string actual = command.GetAgentName();
+
+                // Assert.
+                Assert.Equal("some agent", actual);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", nameof(CommandSettings))]
         public void GetsArgFromEnvVar()
         {
             using (TestHostContext hc = CreateTestContext())
@@ -282,6 +300,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 // Assert.
                 Assert.True(actual);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", nameof(CommandSettings))]
+        public void GetsStartUpType()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            {
+                string expected = "test";
+
+                // Arrange.
+                var command = new CommandSettings(hc, args: new string[] { "run", "--startuptype", expected });
+
+                // Act.
+                string actual = command.GetStartupType();
+
+                // Assert.
+                Assert.Equal(expected, actual);
             }
         }
 
