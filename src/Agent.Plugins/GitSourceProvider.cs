@@ -344,15 +344,7 @@ namespace Agent.Plugins.Repository
             // system.prefergitfrompath=true will cause the agent to find Git.exe from %PATH%
             if (PlatformUtil.RunningOnWindows)
             {
-                var definitionSetting = executionContext.Variables.GetValueOrDefault("system.prefergitfrompath");
-                if (definitionSetting != null)
-                {
-                    preferGitFromPath = StringUtil.ConvertToBoolean(definitionSetting.Value);
-                }
-                else
-                {
-                    bool.TryParse(Environment.GetEnvironmentVariable("system.prefergitfrompath"), out preferGitFromPath);
-                }
+                preferGitFromPath = AgentKnobs.PreferGitFromPath.GetValue(executionContext).AsBoolean();
             }
 
             // Determine do we need to provide creds to git operation

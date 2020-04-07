@@ -119,7 +119,6 @@ namespace Microsoft.VisualStudio.Services.Agent
         public void StartClient(string socketAddress, string monitorSocketAddress)
         {
             ArgUtil.NotNull(socketAddress, nameof(socketAddress));
-            ArgUtil.NotNull(monitorSocketAddress, nameof(monitorSocketAddress));
 
             ConnectMonitor(monitorSocketAddress);
 
