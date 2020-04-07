@@ -114,10 +114,10 @@ namespace Agent.Sdk.Knob
 
         public static readonly Knob PreferPowershellHandlerOnContainers = new Knob(
             nameof(PreferPowershellHandlerOnContainers),
-            "If true, prefer using the PowerShell handler on containers for tasks that provide both a Node and PowerShell handler version.",
+            "If true, prefer using the PowerShell handler on Windows containers for tasks that provide both a Node and PowerShell handler version.",
             new RuntimeKnobSource("agent.preferPowerShellOnContainers"),
             new EnvironmentKnobSource("AGENT_PREFER_POWERSHELL_ON_CONTAINERS"),
-            new BuiltInDefaultKnobSource("false"));
+            new BuiltInDefaultKnobSource("true"));
 
         public static readonly Knob TraceVerbose = new Knob(
             nameof(TraceVerbose),
