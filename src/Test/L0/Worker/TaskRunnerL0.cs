@@ -37,6 +37,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             {
                 var _ec = new Mock<IExecutionContext>();
                 _ec.Setup(x => x.StepTarget()).Returns(StepTarget);
+                _ec.Setup(x => x.GetScopedEnvironment()).Returns(new SystemEnvironment());
+                _ec.Setup(x => x.GetVariableValueOrDefault("agent.preferPowerShellOnContainers")).Returns(variables?["agent.preferPowerShellOnContainers"]?.Value ?? string.Empty);
 
                 if (variables is null)
                 {
