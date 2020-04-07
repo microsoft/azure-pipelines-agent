@@ -96,6 +96,18 @@ namespace Agent.Sdk.Knob
             "If set to anything, trace level will be verbose",
             new EnvironmentKnobSource("VSTSAGENT_TRACE"),
             new BuiltInDefaultKnobSource(string.Empty));
+
+        public static readonly Knob AgentDownloadTimeout = new Knob(
+            nameof(AgentDownloadTimeout),
+            "Amount of time in seconds to wait for the agent to download a new version when updating",
+            new EnvironmentKnobSource("AZP_AGENT_DOWNLOAD_TIMEOUT"),
+            new BuiltInDefaultKnobSource("900")); // 15*60
+
+        public static readonly Knob TaskDownloadTimeout = new Knob(
+            nameof(TaskDownloadTimeout),
+            "Amount of time in seconds to wait for the agent to download a task when starting a job",
+            new EnvironmentKnobSource("VSTS_TASK_DOWNLOAD_TIMEOUT"),
+            new BuiltInDefaultKnobSource("1200")); // 20*60
     }
 
 }

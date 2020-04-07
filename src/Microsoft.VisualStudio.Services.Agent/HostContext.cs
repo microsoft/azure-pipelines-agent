@@ -133,7 +133,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             _vssTrace = GetTrace(nameof(VisualStudio) + nameof(VisualStudio.Services));  // VisualStudioService
 
             // Enable Http trace
-            bool enableHttpTrace;
             if (AgentKnobs.HttpTrace.GetValue(this).AsBoolean())
             {
                 _trace.Warning("*****************************************************************************************");

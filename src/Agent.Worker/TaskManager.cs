@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -199,10 +200,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Allow up to 20 * 60s for any task to be downloaded from service.
                 // Base on Kusto, the longest we have on the service today is over 850 seconds.
                 // Timeout limit can be overwrite by environment variable
-                if (!int.TryParse(Environment.GetEnvironmentVariable("VSTS_TASK_DOWNLOAD_TIMEOUT") ?? string.Empty, out int timeoutSeconds))
-                {
-                    timeoutSeconds = 20 * 60;
-                }
+                var timeoutSeconds = AgentKnobs.TaskDownloadTimeout.GetValue(UtilKnobValueContext.Instance()).AsInt();
 
                 while (retryCount < 3)
                 {

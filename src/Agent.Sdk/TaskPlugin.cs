@@ -156,7 +156,7 @@ namespace Agent.Sdk
 #if DEBUG
             Debug(message);
 #else
-            string vstsAgentTrace = Environment.GetEnvironmentVariable("VSTSAGENT_TRACE");
+            string vstsAgentTrace = AgentKnobs.TraceVerbose.GetValue(UtilKnobValueContext.Instance()).AsString();
             if (!string.IsNullOrEmpty(vstsAgentTrace))
             {
                 Debug(message);
