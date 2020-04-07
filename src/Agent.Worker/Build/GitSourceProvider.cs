@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -316,15 +317,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 // Determine which git will be use
                 // On windows, we prefer the built-in portable git within the agent's externals folder,
                 // set system.prefergitfrompath=true can change the behavior, agent will find git.exe from %PATH%
-                var definitionSetting = executionContext.Variables.GetBoolean(Constants.Variables.System.PreferGitFromPath);
-                if (definitionSetting != null)
-                {
-                    preferGitFromPath = definitionSetting.Value;
-                }
-                else
-                {
-                    bool.TryParse(Environment.GetEnvironmentVariable(Constants.Variables.System.PreferGitFromPath), out preferGitFromPath);
-                }
+                preferGitFromPath = AgentKnobs.PreferGitFromPath.GetValue(executionContext).AsBoolean();
             }
 
             // Determine do we need to provide creds to git operation
