@@ -32,7 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         void Extract(IExecutionContext executionContext, Pipelines.TaskStep task);
     }
 
-    public sealed class TaskManager : AgentService, ITaskManager
+    public class TaskManager : AgentService, ITaskManager
     {
         private const int _defaultFileStreamBufferSize = 4096;
 
@@ -76,7 +76,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public Definition Load(Pipelines.TaskStep task)
+        public virtual Definition Load(Pipelines.TaskStep task)
         {
             // Validate args.
             Trace.Entering();
@@ -122,11 +122,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void Extract(IExecutionContext executionContext, Pipelines.TaskStep task)
         {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+            ArgUtil.NotNull(task, nameof(task));
+
             String zipFile = GetTaskZipPath(task.Reference);
             String destinationDirectory = GetDirectory(task.Reference);
-            
+
             executionContext.Debug($"Extracting task {task.Name} from {zipFile} to {destinationDirectory}.");
-            
+
             Trace.Verbose("Deleting task destination folder: {0}", destinationDirectory);
             IOUtil.DeleteDirectory(destinationDirectory, executionContext.CancellationToken);
 
@@ -541,6 +544,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void ReplaceMacros(IHostContext context, Definition definition)
         {
+            ArgUtil.NotNull(definition, nameof(definition));
             var handlerVariables = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             handlerVariables["currentdirectory"] = definition.Directory;
             VarUtil.ExpandValues(context, source: handlerVariables, target: Inputs);

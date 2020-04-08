@@ -21,7 +21,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
 
         private static readonly byte[] hash1;
         private static readonly byte[] hash2;
-        
+
         private static readonly string directory;
         private static readonly string path1;
         private static readonly string path2;
@@ -41,9 +41,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
             File.WriteAllBytes(path1, content1);
             File.WriteAllBytes(path2, content2);
 
-            var hasher = new SHA256Managed();
-            hash1 = hasher.ComputeHash(content1);
-            hash2 = hasher.ComputeHash(content2);
+            using (var hasher = new SHA256Managed())
+            {
+                hash1 = hasher.ComputeHash(content1);
+                hash2 = hasher.ComputeHash(content2);
+            }
         }
 
         [Fact]
@@ -94,7 +96,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                     $"{path1},!{path2}",
                 };
                 Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments);
-                
+
                 Assert.Equal(1, f.Segments.Length);
 
                 var matchedFile = new FingerprintCreator.MatchedFile(Path.GetFileName(path1), content1.Length, hash1.ToHex());
@@ -119,7 +121,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
 
                 var file1 = new FingerprintCreator.MatchedFile(Path.GetFileName(path1), content1.Length, hash1.ToHex());
                 var file2 = new FingerprintCreator.MatchedFile(Path.GetFileName(path2), content2.Length, hash2.ToHex());
-                
+
                 Assert.Equal(2, f.Segments.Length);
                 Assert.Equal(file1.GetHash(), f.Segments[0]);
                 Assert.Equal(file2.GetHash(), f.Segments[1]);
@@ -153,7 +155,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
 
                 var file1 = new FingerprintCreator.MatchedFile(relPath1, content1.Length, hash1.ToHex());
                 var file2 = new FingerprintCreator.MatchedFile(relPath2, content2.Length, hash2.ToHex());
-                
+
                 Assert.Equal(2, f.Segments.Length);
                 Assert.Equal(file1.GetHash(), f.Segments[0]);
                 Assert.Equal(file2.GetHash(), f.Segments[1]);
@@ -174,7 +176,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 };
 
                 Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, directory, segments);
-                
+
                 Assert.Equal(1, f.Segments.Length);
                 Assert.Equal($"hello", f.Segments[0]);
             }

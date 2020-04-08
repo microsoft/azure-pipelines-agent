@@ -44,6 +44,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 
         public override void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
+
             base.Initialize(hostContext);
             DockerPath = WhichUtil.Which("docker", true, Trace);
             DockerInstanceLabel = IOUtil.GetPathHash(hostContext.GetDirectory(WellKnownDirectory.Root)).Substring(0, 6);
@@ -51,6 +53,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 
         public async Task<DockerVersion> DockerVersion(IExecutionContext context)
         {
+            ArgUtil.NotNull(context, nameof(context));
             string serverVersionStr = (await ExecuteDockerCommandAsync(context, "version", "--format '{{.Server.APIVersion}}'")).FirstOrDefault();
             ArgUtil.NotNullOrEmpty(serverVersionStr, "Docker.Server.Version");
             context.Output($"Docker daemon API version: {serverVersionStr}");
@@ -87,6 +90,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 
         public async Task<int> DockerLogin(IExecutionContext context, string server, string username, string password)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(server, nameof(server));
+            ArgUtil.NotNull(username, nameof(username));
+            ArgUtil.NotNull(password, nameof(password));
+
             if (PlatformUtil.RunningOnWindows)
             {
                 // Wait for 17.07 to switch using stdin for docker registry password.
@@ -97,16 +105,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 
         public async Task<int> DockerLogout(IExecutionContext context, string server)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(server, nameof(server));
+
             return await ExecuteDockerCommandAsync(context, "logout", $"{server}", context.CancellationToken);
         }
 
         public async Task<int> DockerPull(IExecutionContext context, string image)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(image, nameof(image));
+
             return await ExecuteDockerCommandAsync(context, "pull", image, context.CancellationToken);
         }
 
         public async Task<string> DockerCreate(IExecutionContext context, ContainerInfo container)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(container, nameof(container));
+
             IList<string> dockerOptions = new List<string>();
             // OPTIONS
             dockerOptions.Add($"--name {container.ContainerDisplayName}");
@@ -126,7 +143,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             dockerOptions.Add($"{container.ContainerCreateOptions}");
             foreach (var env in container.ContainerEnvironmentVariables)
             {
-                if (String.IsNullOrEmpty(env.Value) && String.IsNullOrEmpty(context.Variables.Get("_VSTS_DONT_RESOLVE_ENV_FROM_HOST")))
+                if (String.IsNullOrEmpty(env.Value) && String.IsNullOrEmpty(context?.Variables.Get("_VSTS_DONT_RESOLVE_ENV_FROM_HOST")))
                 {
                     // TODO: Remove fallback variable if stable
                     dockerOptions.Add($"-e \"{env.Key}\"");
@@ -136,7 +153,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                     dockerOptions.Add($"-e \"{env.Key}={env.Value.Replace("\"", "\\\"")}\"");
                 }
             }
-            foreach (var volume in container.MountVolumes)
+            foreach (var volume in container?.MountVolumes)
             {
                 // replace `"` with `\"` and add `"{0}"` to all path.
                 String volumeArg;
@@ -171,26 +188,40 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 
         public async Task<int> DockerStart(IExecutionContext context, string containerId)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(containerId, nameof(containerId));
+
             return await ExecuteDockerCommandAsync(context, "start", containerId, context.CancellationToken);
         }
 
         public async Task<int> DockerRemove(IExecutionContext context, string containerId)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(containerId, nameof(containerId));
+
             return await ExecuteDockerCommandAsync(context, "rm", $"--force {containerId}", context.CancellationToken);
         }
 
         public async Task<int> DockerLogs(IExecutionContext context, string containerId)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(containerId, nameof(containerId));
+
             return await ExecuteDockerCommandAsync(context, "logs", $"--details {containerId}", context.CancellationToken);
         }
 
         public async Task<List<string>> DockerPS(IExecutionContext context, string options)
         {
+            ArgUtil.NotNull(context, nameof(context));
+
             return await ExecuteDockerCommandAsync(context, "ps", options);
         }
 
         public async Task<int> DockerNetworkCreate(IExecutionContext context, string network)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(network, nameof(network));
+
             var usingWindowsContainers = context.Containers.Where(x => x.ExecutionOS != PlatformUtil.OS.Windows).Count() == 0;
             var networkDrivers = await ExecuteDockerCommandAsync(context, "info", "-f \"{{range .Plugins.Network}}{{println .}}{{end}}\"");
             if (usingWindowsContainers && networkDrivers.Contains("nat"))
@@ -202,16 +233,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 
         public async Task<int> DockerNetworkRemove(IExecutionContext context, string network)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(network, nameof(network));
+
             return await ExecuteDockerCommandAsync(context, "network", $"rm {network}", context.CancellationToken);
         }
 
         public async Task<int> DockerNetworkPrune(IExecutionContext context)
         {
+            ArgUtil.NotNull(context, nameof(context));
+
             return await ExecuteDockerCommandAsync(context, "network", $"prune --force --filter \"label={DockerInstanceLabel}\"", context.CancellationToken);
         }
 
         public async Task<int> DockerExec(IExecutionContext context, string containerId, string options, string command)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(containerId, nameof(containerId));
+            ArgUtil.NotNull(options, nameof(options));
+            ArgUtil.NotNull(command, nameof(command));
+
             return await ExecuteDockerCommandAsync(context, "exec", $"{options} {containerId} {command}", context.CancellationToken);
         }
 
@@ -298,16 +339,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                 }
             }
 
-            return await processInvoker.ExecuteAsync(
-                workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
-                fileName: DockerPath,
-                arguments: arg,
-                environment: null,
-                requireExitCodeZero: false,
-                outputEncoding: null,
-                killProcessOnCancel: false,
-                redirectStandardIn: redirectStandardIn,
-                cancellationToken: cancellationToken);
+            using (redirectStandardIn)
+            {
+                return await processInvoker.ExecuteAsync(
+                    workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
+                    fileName: DockerPath,
+                    arguments: arg,
+                    environment: null,
+                    requireExitCodeZero: false,
+                    outputEncoding: null,
+                    killProcessOnCancel: false,
+                    redirectStandardIn: redirectStandardIn,
+                    cancellationToken: cancellationToken);
+            }
         }
 
         private async Task<List<string>> ExecuteDockerCommandAsync(IExecutionContext context, string command, string options)

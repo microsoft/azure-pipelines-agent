@@ -49,6 +49,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public override void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
             base.Initialize(hostContext);
             _term = hostContext.GetService<ITerminal>();
             _agentServer = HostContext.GetService<IAgentServer>();
@@ -56,6 +57,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public void GetServerUrl(AgentSettings agentSettings, CommandSettings command)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
+            ArgUtil.NotNull(command, nameof(command));
             agentSettings.ServerUrl = command.GetUrl();
         }
 
@@ -66,6 +69,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public virtual async Task GetPoolIdAndName(AgentSettings agentSettings, CommandSettings command)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
+            ArgUtil.NotNull(command, nameof(command));
             string poolName = command.GetPool();
 
             TaskAgentPool agentPool = (await _agentServer.GetAgentPoolsAsync(poolName)).FirstOrDefault();
@@ -85,32 +90,38 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public void ThrowTaskAgentExistException(AgentSettings agentSettings)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
             throw new TaskAgentExistsException(StringUtil.Loc("AgentWithSameNameAlreadyExistInPool", agentSettings.PoolId, agentSettings.AgentName));
         }
 
         public Task<TaskAgent> UpdateAgentAsync(AgentSettings agentSettings, TaskAgent agent, CommandSettings command)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
             return _agentServer.UpdateAgentAsync(agentSettings.PoolId, agent);
         }
 
         public Task<TaskAgent> AddAgentAsync(AgentSettings agentSettings, TaskAgent agent, CommandSettings command)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
             return _agentServer.AddAgentAsync(agentSettings.PoolId, agent);
         }
 
         public Task DeleteAgentAsync(AgentSettings agentSettings)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
             return _agentServer.DeleteAgentAsync(agentSettings.PoolId, agentSettings.AgentId);
         }
 
         public async Task TestConnectionAsync(AgentSettings agentSettings, VssCredentials creds, bool isHosted)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
             _term.WriteLine(StringUtil.Loc("ConnectingToServer"));
             await _agentServer.ConnectAsync(new Uri(agentSettings.ServerUrl), creds);
         }
 
         public async Task<TaskAgent> GetAgentAsync(AgentSettings agentSettings)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
             var agents = await _agentServer.GetAgentsAsync(agentSettings.PoolId, agentSettings.AgentName);
             Trace.Verbose("Returns {0} agents", agents.Count);
             return agents.FirstOrDefault();
@@ -128,6 +139,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public override void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
             base.Initialize(hostContext);
             _term = hostContext.GetService<ITerminal>();
             _deploymentGroupServer = HostContext.GetService<IDeploymentGroupServer>();
@@ -135,12 +147,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public void GetServerUrl(AgentSettings agentSettings, CommandSettings command)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
+            ArgUtil.NotNull(command, nameof(command));
             agentSettings.ServerUrl = command.GetUrl();
             Trace.Info("url - {0}", agentSettings.ServerUrl);
         }
 
         public void GetCollectionName(AgentSettings agentSettings, CommandSettings command, bool isHosted)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
+            ArgUtil.NotNull(command, nameof(command));
             // for onprem tfs, collection is required for deploymentGroup
             if (!isHosted)
             {
@@ -151,6 +167,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public virtual async Task GetPoolIdAndName(AgentSettings agentSettings, CommandSettings command)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
+            ArgUtil.NotNull(command, nameof(command));
             _projectName = command.GetProjectName(_projectName);
             var deploymentGroupName = command.GetDeploymentGroupName();
 
@@ -168,11 +186,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public virtual void ThrowTaskAgentExistException(AgentSettings agentSettings)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
             throw new TaskAgentExistsException(StringUtil.Loc("DeploymentMachineWithSameNameAlreadyExistInDeploymentGroup", agentSettings.DeploymentGroupId, agentSettings.AgentName));
         }
 
         public virtual async Task<TaskAgent> UpdateAgentAsync(AgentSettings agentSettings, TaskAgent agent, CommandSettings command)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
+            ArgUtil.NotNull(command, nameof(command));
             var deploymentMachine = (await this.GetDeploymentTargetsAsync(agentSettings)).FirstOrDefault();
 
             deploymentMachine.Agent = agent;
@@ -184,6 +205,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public virtual async Task<TaskAgent> AddAgentAsync(AgentSettings agentSettings, TaskAgent agent, CommandSettings command)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
+            ArgUtil.NotNull(command, nameof(command));
             var deploymentMachine = new DeploymentMachine() { Agent = agent };
             var azureSubscriptionId = await GetAzureSubscriptionIdAsync();
             if (!String.IsNullOrEmpty(azureSubscriptionId))
@@ -199,6 +222,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public virtual async Task DeleteAgentAsync(AgentSettings agentSettings)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
             var machines = await GetDeploymentTargetsAsync(agentSettings);
             Trace.Verbose("Returns {0} machines with name {1}", machines.Count, agentSettings.AgentName);
             var machine = machines.FirstOrDefault();
@@ -215,8 +239,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "CreateConnection")]
         public virtual async Task TestConnectionAsync(AgentSettings agentSettings, VssCredentials creds, bool isHosted)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
             var url = agentSettings.ServerUrl;  // Ensure not to update back the url with agentSettings !!!
             _term.WriteLine(StringUtil.Loc("ConnectingToServer"));
 
@@ -237,6 +263,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public virtual async Task<TaskAgent> GetAgentAsync(AgentSettings agentSettings)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
             var machines = await GetDeploymentTargetsAsync(agentSettings);
             Trace.Verbose("Returns {0} machines", machines.Count);
             var machine = machines.FirstOrDefault();
@@ -251,8 +278,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         private async Task GetAndAddTags(DeploymentMachine deploymentMachine, AgentSettings agentSettings, CommandSettings command)
         {
             // Get and apply Tags in case agent is configured against Deployment Group
-            bool needToAddTags = command.GetDeploymentGroupTagsRequired();
-            while (needToAddTags)
+            if (command.GetDeploymentGroupTagsRequired())
             {
                 try
                 {
@@ -276,9 +302,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                             _term.WriteLine(StringUtil.Loc("DeploymentGroupTagsAddedMsg"));
                         }
                     }
-                    break;
                 }
-                catch (Exception e) when (!command.Unattended)
+                catch (Exception e) when (!command.Unattended())
                 {
                     _term.WriteError(e);
                     _term.WriteError(StringUtil.Loc("FailedToAddTags"));
@@ -322,7 +347,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             // More on Instance Metadata Service can be found here: https://docs.microsoft.com/en-us/azure/virtual-machines/windows/instance-metadata-service
             string azureSubscriptionId = string.Empty;
             const string imdsUri = "http://169.254.169.254/metadata/instance/compute/subscriptionId?api-version=2017-08-01&format=text";
-            using (var httpClient = new HttpClient(HostContext.CreateHttpClientHandler()))
+            using (var handler = HostContext.CreateHttpClientHandler())
+            using (var httpClient = new HttpClient(handler))
             {
                 httpClient.DefaultRequestHeaders.Add("Metadata", "True");
                 httpClient.Timeout = TimeSpan.FromSeconds(5);
@@ -353,6 +379,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public override async Task GetPoolIdAndName(AgentSettings agentSettings, CommandSettings command)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
+            ArgUtil.NotNull(command, nameof(command));
             string poolName = command.GetDeploymentPoolName();
 
             TaskAgentPool agentPool = (await _agentServer.GetAgentPoolsAsync(poolName, TaskAgentPoolType.Deployment)).FirstOrDefault();
@@ -381,8 +409,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _environmentsServer = HostContext.GetService<IEnvironmentsServer>();
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "environmentConnection")]
         public override async Task TestConnectionAsync(AgentSettings agentSettings, VssCredentials creds, bool isHosted)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
             var url = agentSettings.ServerUrl;  // Ensure not to update back the url with agentSettings !!!
             _term.WriteLine(StringUtil.Loc("ConnectingToServer"));
 
@@ -403,6 +433,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public override async Task GetPoolIdAndName(AgentSettings agentSettings, CommandSettings command)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
+            ArgUtil.NotNull(command, nameof(command));
             _projectName = command.GetProjectName(_projectName);
             var environmentName = command.GetEnvironmentName();
             Trace.Info("vm resource will be configured against the environment '{0}'", environmentName);
@@ -419,11 +451,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public override void ThrowTaskAgentExistException(AgentSettings agentSettings)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
             throw new TaskAgentExistsException(StringUtil.Loc("VMResourceWithSameNameAlreadyExistInEnvironment", agentSettings.EnvironmentId, agentSettings.AgentName));
         }
 
         public override async Task<TaskAgent> AddAgentAsync(AgentSettings agentSettings, TaskAgent agent, CommandSettings command)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
+            ArgUtil.NotNull(agent, nameof(agent));
+            ArgUtil.NotNull(command, nameof(command));
             var virtualMachine = new VirtualMachineResource() { Name = agent.Name, Agent = agent };
             var tags = GetVirtualMachineResourceTags(command);
             virtualMachine.Tags = tags;
@@ -465,6 +501,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public override async Task DeleteAgentAsync(AgentSettings agentSettings)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
             Trace.Info("Deleting environment virtual machine resource with id: '{0}'", agentSettings.EnvironmentVMResourceId);
             if (!string.IsNullOrWhiteSpace(agentSettings.ProjectId))
             {
@@ -479,6 +516,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public override async Task<TaskAgent> GetAgentAsync(AgentSettings agentSettings)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
             var vmResources = await GetEnvironmentVMsAsync(agentSettings);
             Trace.Verbose("Returns {0} virtual machine resources", vmResources.Count);
             var machine = vmResources.FirstOrDefault();
@@ -492,6 +530,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public override async Task<TaskAgent> UpdateAgentAsync(AgentSettings agentSettings, TaskAgent agent, CommandSettings command)
         {
+            ArgUtil.NotNull(agentSettings, nameof(agentSettings));
+            ArgUtil.NotNull(command, nameof(command));
             var tags = GetVirtualMachineResourceTags(command);
 
             var vmResource = (await GetEnvironmentVMsAsync(agentSettings)).FirstOrDefault();

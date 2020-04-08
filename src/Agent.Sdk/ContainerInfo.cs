@@ -37,6 +37,8 @@ namespace Agent.Sdk
 
         public ContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true)
         {
+            ArgUtil.NotNull(container, nameof(container));
+
             this.ContainerName = container.Alias;
 
             string containerImage = container.Properties.Get<string>("image");
@@ -274,6 +276,7 @@ namespace Agent.Sdk
 
         public void AddPortMappings(List<PortMapping> portMappings)
         {
+            ArgUtil.NotNull(portMappings, nameof(portMappings));
             foreach (var port in portMappings)
             {
                 PortMappings.Add(port);
@@ -282,6 +285,7 @@ namespace Agent.Sdk
 
         public void AddPathMappings(Dictionary<string, string> pathMappings)
         {
+            ArgUtil.NotNull(pathMappings, nameof(pathMappings));
             foreach (var path in pathMappings)
             {
                 PathMappings.Add(path.Key, path.Value);
@@ -289,5 +293,5 @@ namespace Agent.Sdk
         }
     }
 
-    
+
 }

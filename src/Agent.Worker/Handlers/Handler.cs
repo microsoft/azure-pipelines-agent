@@ -49,6 +49,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         public override void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
+
             base.Initialize(hostContext);
             CommandManager = hostContext.GetService<IWorkerCommandManager>();
         }
@@ -60,16 +62,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             ArgUtil.NotNull(ExecutionContext, nameof(ExecutionContext));
             ArgUtil.NotNull(ExecutionContext.Endpoints, nameof(ExecutionContext.Endpoints));
 
-            List<ServiceEndpoint> endpoints;
-            if ((RuntimeVariables.GetBoolean(Constants.Variables.Agent.AllowAllEndpoints) ?? false) ||
-                string.Equals(System.Environment.GetEnvironmentVariable("AGENT_ALLOWALLENDPOINTS") ?? string.Empty, bool.TrueString, StringComparison.OrdinalIgnoreCase))
-            {
-                endpoints = ExecutionContext.Endpoints; // todo: remove after sprint 120 or so
-            }
-            else
-            {
-                endpoints = Endpoints;
-            }
+            List<ServiceEndpoint> endpoints = Endpoints;
 
             // Add the endpoints to the environment variable dictionary.
             foreach (ServiceEndpoint endpoint in endpoints)
@@ -138,16 +131,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             ArgUtil.NotNull(ExecutionContext, nameof(ExecutionContext));
             ArgUtil.NotNull(SecureFiles, nameof(SecureFiles));
 
-            List<SecureFile> secureFiles;
-            if ((RuntimeVariables.GetBoolean(Constants.Variables.Agent.AllowAllSecureFiles) ?? false) ||
-                string.Equals(System.Environment.GetEnvironmentVariable("AGENT_ALLOWALLSECUREFILES") ?? string.Empty, bool.TrueString, StringComparison.OrdinalIgnoreCase))
-            {
-                secureFiles = ExecutionContext.SecureFiles ?? new List<SecureFile>(0); // todo: remove after sprint 121 or so
-            }
-            else
-            {
-                secureFiles = SecureFiles;
-            }
+            List<SecureFile> secureFiles = SecureFiles;
 
             // Add the secure files to the environment variable dictionary.
             foreach (SecureFile secureFile in secureFiles)

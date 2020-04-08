@@ -1,12 +1,8 @@
 parameters:
-  layoutRoot: ''
+- name: layoutRoot
+  type: string
 
 steps:
-# Guard against missing parameters
-- ${{ if eq(parameters.layoutRoot, '') }}:
-  - |
-      Badly configured build; an expected parameter is missing. //
-      layoutRoot: ${{ parameters.layoutRoot }}
 
 - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@1
   inputs:
@@ -137,6 +133,7 @@ steps:
     FolderPath: '${{ parameters.layoutRoot }}'
     Pattern: |
       bin\Ben.Demystifier.dll
+      bin\CommandLine.dll
       bin\DotNet.Glob.dll
       bin\Minimatch.dll
       bin\NCrontab.Signed.dll

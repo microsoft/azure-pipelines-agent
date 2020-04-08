@@ -572,16 +572,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
 
         public void Dispose()
         {
-            _nUnitReader.AddResultsFileToRunLevelAttachments = true;
-            try
+            Dispose(true);
+        }
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
             {
-                File.Delete(_fileName);
-            }
-            catch
-            {
+                _nUnitReader.AddResultsFileToRunLevelAttachments = true;
+                try
+                {
+                    File.Delete(_fileName);
+                }
+                catch
+                {
+                }
             }
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "TestHostContext")]
         private void SetupMocks([CallerMemberName] string name = "")
         {
             TestHostContext hc = new TestHostContext(this, name);

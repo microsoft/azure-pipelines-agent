@@ -123,14 +123,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 Trace.Verbose("AzurePowerShellHandler.UpdatePowerShellEnvironment - Could not find {0}, so looking for DeploymentEnvironmentName.", connectedServiceName);
                 if (!inputs.TryGetValue("DeploymentEnvironmentName", out environment))
                 {
-                    throw new Exception($"The required {connectedServiceName} parameter was not found by the AzurePowerShellRunner.");
+                    throw new ArgumentNullException($"The required {connectedServiceName} parameter was not found by the AzurePowerShellRunner.");
                 }
             }
 
             string connectedServiceNameValue = environment;
             if (String.IsNullOrEmpty(connectedServiceNameValue))
             {
-                throw new Exception($"The required {connectedServiceName} parameter was either null or empty. Ensure you have provisioned a Deployment Environment using services tab in Admin UI.");
+                throw new ArgumentNullException($"The required {connectedServiceName} parameter was either null or empty. Ensure you have provisioned a Deployment Environment using services tab in Admin UI.");
             }
 
             return connectedServiceNameValue;
@@ -318,7 +318,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                         }
                         else
                         {
-                            throw new Exception($"Found value {match.Value} with no corresponding named parameter");
+                            throw new ArgumentException($"Found value {match.Value} with no corresponding named parameter");
                         }
                     }
                 }

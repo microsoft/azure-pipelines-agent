@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -90,6 +91,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             executionContext
                 .Setup(x => x.WriteDebug)
                 .Returns(true);
+            executionContext
+                .Setup(x => x.GetScopedEnvironment())
+                .Returns(new SystemEnvironment());
             executionContext.Object.Variables.Set(Constants.Variables.Build.SourcesDirectory, sourceFolder);
             executionContext.Object.Variables.Set(Constants.Variables.Build.SourceBranch, sourceBranch);
             executionContext.Object.Variables.Set(Constants.Variables.Build.SourceVersion, sourceVersion);

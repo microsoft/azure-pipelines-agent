@@ -28,6 +28,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public override void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
             base.Initialize(hostContext);
             _registryManager = hostContext.GetService<IWindowsRegistryManager>();
             _windowsServiceHelper = hostContext.GetService<INativeWindowsServiceHelper>();
@@ -64,7 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 if(string.IsNullOrEmpty(securityId))
                 {
                     Trace.Error($"Could not find the Security ID for the user '{domainName}\\{userName}'. AutoLogon will not be configured.");
-                    throw new Exception(StringUtil.Loc("InvalidSIDForUser", domainName, userName));
+                    throw new ArgumentException(StringUtil.Loc("InvalidSIDForUser", domainName, userName));
                 }
 
                 //check if the registry exists for the user, if not load the user profile
@@ -102,7 +103,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             if(string.IsNullOrEmpty(securityId))
             {
                 Trace.Error($"Could not find the Security ID for the user '{domainName}\\{userName}'. Unconfiguration of AutoLogon is not possible.");
-                throw new Exception(StringUtil.Loc("InvalidSIDForUser", domainName, userName));
+                throw new ArgumentException(StringUtil.Loc("InvalidSIDForUser", domainName, userName));
             }
 
             //machine specific
@@ -326,7 +327,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             if (string.IsNullOrEmpty(cmdExePath))
             {
                 Trace.Error("Unable to get the path for cmd.exe.");
-                throw new Exception(StringUtil.Loc("FilePathNotFound", "cmd.exe"));
+                throw new ArgumentException(StringUtil.Loc("FilePathNotFound", "cmd.exe"));
             }
 
             //file to run in cmd.exe

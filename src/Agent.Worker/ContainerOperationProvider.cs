@@ -319,6 +319,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 // Ensure .taskkey file exist so we can mount it.
                 string taskKeyFile = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), ".taskkey");
+
                 if (!File.Exists(taskKeyFile))
                 {
                     File.WriteAllText(taskKeyFile, string.Empty);
