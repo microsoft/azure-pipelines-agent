@@ -15,7 +15,7 @@ parameters:
 
 - name: timeoutInMinutes
   type: number
-  default: 0
+  default: 60
 
 - name: branch
   type: string
@@ -68,12 +68,10 @@ jobs:
 - job: ${{ parameters.jobName }}
   displayName: ${{ parameters.displayName }}
   pool: ${{ parameters.pool }}
+  timeoutInMinutes: ${{ parameters.timeoutInMinutes }}
 
   ${{ if ne(parameters.container, '') }}:
     container: ${{ parameters.container }}
-
-  ${{ if gt(parameters.timeoutInMinutes, 0) }}:
-    timeoutInMinutes: ${{ parameters.timeoutInMinutes }}
 
   variables:
     ${{ if eq(parameters.os, 'win') }}:
