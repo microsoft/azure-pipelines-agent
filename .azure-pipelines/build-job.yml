@@ -116,7 +116,7 @@ jobs:
       displayName: Install NuGet for signing tests
 
   # Run l1 tests
-  - ${{ if eq(parameters.functionalTests, true) }}:
+  - ${{ if parameters.functionalTests }}:
     - script: ${{ variables.devCommand }} testl1
       workingDirectory: src
       displayName: Functional tests
@@ -140,7 +140,7 @@ jobs:
     condition: always()
 
   # Code coverage
-  - ${{ if eq(parameters.codeCoverage, true) }}:
+  - ${{ if parameters.codeCoverage }}:
     - script: dotnet tool install --global dotnet-reportgenerator-globaltool
       displayName: Install Report Generator
 
@@ -154,14 +154,14 @@ jobs:
         summaryFileLocation: _reports/**/Cobertura.xml
         pathToSources: src
 
-  - ${{ if eq(parameters.sign, true) }}:
+  - ${{ if parameters.sign }}:
     # Signing steps
     - template: signing.yml
       parameters:
         layoutRoot: ${{ variables.layoutRoot }}
 
   # Publish artifacts
-  - ${{ if eq(parameters.publishArtifact, true) }}:
+  - ${{ if parameters.publishArtifact }}:
 
     # Package .NET Core Windows dependency (VC++ Redistributable)
     - ${{ if eq(parameters.os, 'win') }}:
@@ -184,7 +184,7 @@ jobs:
         artifactType: container
 
   # Signing verification
-  - ${{ if eq(parameters.verifySigning, true) }}:
+  - ${{ if parameters.verifySigning }}:
 
     # Verify all binaries are signed (generate report)
     - task: securedevelopmentteam.vss-secure-development-tools.build-task-codesignvalidation.CodesignValidation@0
