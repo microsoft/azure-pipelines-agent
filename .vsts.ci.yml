@@ -10,4 +10,4 @@ extends:
   template: .azure-pipelines/pipeline.yml
   parameters:
     componentDetection: ${{ eq(variables['Build.Reason'], 'PullRequest') }}
-    publishArtifacts: ${{ ne(variables['build.reason'], 'PullRequest') }}
+    publishArtifacts: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
