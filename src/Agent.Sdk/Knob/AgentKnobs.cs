@@ -98,6 +98,27 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("system.prefergitfrompath"),
             new BuiltInDefaultKnobSource("true"));
 
+        public static readonly Knob AllowUnsafeMultilineSecret = new Knob(
+            nameof(AllowUnsafeMultilineSecret),
+            "WARNING: enabling this may allow secrets to leak. Allows multi-line secrets to be set. Unsafe because it is possible for log lines to get dropped in agent failure cases, causing the secret to not get correctly masked. We recommend leaving this option off.",
+            new RuntimeKnobSource("SYSTEM_UNSAFEALLOWMULTILINESECRET"),
+            new EnvironmentKnobSource("SYSTEM_UNSAFEALLOWMULTILINESECRET"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob OverwriteTemp = new Knob(
+            nameof(OverwriteTemp),
+            "If true, the system temp variable will be overriden to point to the agent's temp directory.",
+            new RuntimeKnobSource("VSTS_OVERWRITE_TEMP"),
+            new EnvironmentKnobSource("VSTS_OVERWRITE_TEMP"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob PreferPowershellHandlerOnContainers = new Knob(
+            nameof(PreferPowershellHandlerOnContainers),
+            "If true, prefer using the PowerShell handler on Windows containers for tasks that provide both a Node and PowerShell handler version.",
+            new RuntimeKnobSource("agent.preferPowerShellOnContainers"),
+            new EnvironmentKnobSource("AGENT_PREFER_POWERSHELL_ON_CONTAINERS"),
+            new BuiltInDefaultKnobSource("true"));
+
         public static readonly Knob TraceVerbose = new Knob(
             nameof(TraceVerbose),
             "If set to anything, trace level will be verbose",

@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
@@ -598,15 +599,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             if (isSecret)
             {
-                bool? allowMultilineSecret = context.Variables.GetBoolean("SYSTEM_UNSAFEALLOWMULTILINESECRET");
-                if (allowMultilineSecret == null)
-                {
-                    allowMultilineSecret = StringUtil.ConvertToBoolean(Environment.GetEnvironmentVariable("SYSTEM_UNSAFEALLOWMULTILINESECRET"), false);
-                }
 
                 if (!string.IsNullOrEmpty(data) &&
                     data.Contains(Environment.NewLine) &&
-                    !allowMultilineSecret.Value)
+                    !AgentKnobs.AllowUnsafeMultilineSecret.GetValue(context).AsBoolean())
                 {
                     throw new InvalidOperationException(StringUtil.Loc("MultilineSecret"));
                 }
@@ -682,15 +678,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             if (isSecret)
             {
-                bool? allowMultilineSecret = context.Variables.GetBoolean("SYSTEM_UNSAFEALLOWMULTILINESECRET");
-                if (allowMultilineSecret == null)
-                {
-                    allowMultilineSecret = StringUtil.ConvertToBoolean(Environment.GetEnvironmentVariable("SYSTEM_UNSAFEALLOWMULTILINESECRET"), false);
-                }
-
                 if (!string.IsNullOrEmpty(data) &&
                     data.Contains(Environment.NewLine) &&
-                    !allowMultilineSecret.Value)
+                    !AgentKnobs.AllowUnsafeMultilineSecret.GetValue(context).AsBoolean())
                 {
                     throw new InvalidOperationException(StringUtil.Loc("MultilineSecret"));
                 }
