@@ -1,16 +1,17 @@
 parameters:
 - name: target
+  displayName: Target
   type: string
   default: all
   values:
-  - all
-  - win-x64
-  - win-x86
-  - linux-x64
-  - linux-arm
-  - linux-arm64
-  - rhel.6-x64
-  - osx-x64
+  - All
+  - Windows (x64)
+  - Windows (x86)
+  - Linux (x64)
+  - Linux (ARM)
+  - Linux (ARM64)
+  - RHEL 6 (x64)
+  - macOS (x64)
 
 pr:
   branches:
