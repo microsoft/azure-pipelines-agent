@@ -157,7 +157,7 @@ stages:
         arch: x64
         branch: ${{ parameters.branch }}
         componentDetection: ${{ parameters.componentDetection }}
-        sign: false
+        sign: ${{ parameters.sign }}
         publishArtifact: ${{ parameters.publishArtifacts }}
 
 - ${{ parameters.postBuildStages }}
