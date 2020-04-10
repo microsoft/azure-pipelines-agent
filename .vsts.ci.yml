@@ -1,3 +1,17 @@
+parameters:
+- name: target
+  type: string
+  default: all
+  values:
+  - all
+  - win-x64
+  - win-x86
+  - linux-x64
+  - linux-arm
+  - linux-arm64
+  - rhel.6-x64
+  - osx-x64
+
 pr:
   branches:
     include:
@@ -11,3 +25,4 @@ extends:
   parameters:
     componentDetection: ${{ eq(variables['Build.Reason'], 'PullRequest') }}
     publishArtifacts: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    target: ${{ parameters.target }}
