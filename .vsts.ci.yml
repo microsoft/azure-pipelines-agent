@@ -2,7 +2,7 @@ parameters:
 - name: target
   displayName: Target
   type: string
-  default: all
+  default: All
   values:
   - All
   - Windows (x64)

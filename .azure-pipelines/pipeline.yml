@@ -19,7 +19,7 @@ parameters:
   default: ''
 - name: target
   type: string
-  default: all
+  default: All
 
 resources:
   containers:
