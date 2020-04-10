@@ -20,6 +20,15 @@ parameters:
 - name: target
   type: string
   default: All
+  values:
+  - All
+  - Windows (x64)
+  - Windows (x86)
+  - Linux (x64)
+  - Linux (ARM)
+  - Linux (ARM64)
+  - RHEL 6 (x64)
+  - macOS (x64)
 
 resources:
   containers:
