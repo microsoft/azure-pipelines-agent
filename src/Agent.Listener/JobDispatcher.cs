@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk.Knob;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -59,11 +60,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             _agentSetting = configurationStore.GetSettings();
             _poolId = _agentSetting.PoolId;
 
-            int channelTimeoutSeconds;
-            if (!int.TryParse(Environment.GetEnvironmentVariable("VSTS_AGENT_CHANNEL_TIMEOUT") ?? string.Empty, out channelTimeoutSeconds))
-            {
-                channelTimeoutSeconds = 30;
-            }
+            int channelTimeoutSeconds = AgentKnobs.AgentChannelTimeout.GetValue(UtilKnobValueContext.Instance()).AsInt();
 
             // _channelTimeout should in range [30,  300] seconds
             _channelTimeout = TimeSpan.FromSeconds(Math.Min(Math.Max(channelTimeoutSeconds, 30), 300));

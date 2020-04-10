@@ -136,6 +136,33 @@ namespace Agent.Sdk.Knob
             "Amount of time in seconds to wait for the agent to download a task when starting a job",
             new EnvironmentKnobSource("VSTS_TASK_DOWNLOAD_TIMEOUT"),
             new BuiltInDefaultKnobSource("1200")); // 20*60
+
+        public static readonly Knob DisableGitPrompt = new Knob(
+            nameof(DisableGitPrompt),
+            "If true, git will not prompt on the terminal (e.g., when asking for HTTP authentication).",
+            new RuntimeKnobSource("VSTS_DISABLE_GIT_PROMPT"),
+            new EnvironmentKnobSource("VSTS_DISABLE_GIT_PROMPT"),
+            new BuiltInDefaultKnobSource("true"));
+
+        public static readonly Knob DisableFetchByCommit = new Knob(
+            nameof(DisableFetchByCommit),
+            "If true and server supports it, fetch the target branch by commit. Otherwise, fetch all branches and pull request ref to get the target branch.",
+            new RuntimeKnobSource("VSTS.DisableFetchByCommit"),
+            new EnvironmentKnobSource("VSTS_DISABLEFETCHBYCOMMIT"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob SetupDockerGroup = new Knob(
+            nameof(SetupDockerGroup),
+            "If true, allows the user to run docker commands without sudo",
+            new RuntimeKnobSource("VSTS_SETUP_DOCKERGROUP"),
+            new EnvironmentKnobSource("VSTS_SETUP_DOCKERGROUP"),
+            new BuiltInDefaultKnobSource("true"));
+
+        public static readonly Knob AgentChannelTimeout = new Knob(
+            nameof(AgentChannelTimeout),
+            "Timeout for channel communication between agent listener and worker processes.",
+            new EnvironmentKnobSource("VSTS_AGENT_CHANNEL_TIMEOUT"),
+            new BuiltInDefaultKnobSource("30"));
     }
 
 }
