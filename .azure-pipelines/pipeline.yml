@@ -103,8 +103,8 @@ stages:
         publishArtifact: ${{ parameters.publishArtifacts }}
 
   # Linux (ARM64)
-  # - ${{ if or(eq(parameters.target, 'Linux (ARM64)'), eq(parameters.target, 'All')) }}:
-  - ${{ if false }}:
+  #- ${{ if or(eq(parameters.target, 'Linux (ARM64)'), eq(parameters.target, 'All')) }}:
+  - ${{ if eq(parameters.target, 'Linux (ARM64)') }}:
     - template: build-job.yml
       parameters:
         jobName: build_linux_arm64_agent
