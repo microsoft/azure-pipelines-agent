@@ -159,6 +159,7 @@ jobs:
     - template: signing.yml
       parameters:
         layoutRoot: ${{ variables.layoutRoot }}
+        isWindows: ${{ eq(parameters.os, 'win') }}
 
   # Publish artifacts
   - ${{ if parameters.publishArtifact }}:
