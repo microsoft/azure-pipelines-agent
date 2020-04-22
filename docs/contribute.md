@@ -44,6 +44,6 @@ https://github.com/dotnet/corefx/blob/master/Documentation/coding-guidelines/cod
 
 'unzip' not found
 - if you see this while building or testing on Windows, you need to install unzip for the Windows bash shell
-- open an command window, run bash, and run `sudo apt install unzip` to get that tool installed
+- open a command window, run bash, and run `sudo apt install unzip` to get that tool installed
 
 
