@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 
@@ -8,6 +9,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         public string WorkingDirectoryName { get; set; }
 
         public string RootFolder => Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "/TestRuns/" + WorkingDirectoryName;
+
+        public List<SetupInfo> SetupInfo => new List<SetupInfo>();
 
         private AgentSettings _agentSettings;
 
@@ -34,6 +37,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         public CredentialData GetCredentials()
         {
             return null;
+        }
+
+        public IEnumerable<SetupInfo> GetSetupInfo()
+        {
+            return SetupInfo;
         }
 
         public AgentSettings GetSettings()

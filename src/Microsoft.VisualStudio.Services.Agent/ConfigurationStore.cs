@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Microsoft.VisualStudio.Services.Agent.Util;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
 using System.Text;
@@ -99,6 +100,16 @@ namespace Microsoft.VisualStudio.Services.Agent
         public bool GitUseSecureChannel { get; set; }
     }
 
+    [DataContract]
+    public class SetupInfo
+    {
+        [DataMember]
+        public string Group { get; set; }
+
+        [DataMember]
+        public string Detail { get; set; }
+    }
+
     [ServiceLocator(Default = typeof(ConfigurationStore))]
     public interface IConfigurationStore : IAgentService
     {
@@ -117,6 +128,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         void SaveAutoLogonSettings(AutoLogonSettings settings);
         AutoLogonSettings GetAutoLogonSettings();
         AgentRuntimeOptions GetAgentRuntimeOptions();
+        IEnumerable<SetupInfo> GetSetupInfo();
         void SaveAgentRuntimeOptions(AgentRuntimeOptions options);
         void DeleteAgentRuntimeOptions();
     }
@@ -129,11 +141,13 @@ namespace Microsoft.VisualStudio.Services.Agent
         private string _serviceConfigFilePath;
         private string _autoLogonSettingsFilePath;
         private string _runtimeOptionsFilePath;
+        private string _setupInfoFilePath;
 
         private CredentialData _creds;
         private AgentSettings _settings;
         private AutoLogonSettings _autoLogonSettings;
         private AgentRuntimeOptions _runtimeOptions;
+        private IEnumerable<SetupInfo> _setupInfo;
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -162,6 +176,9 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             _runtimeOptionsFilePath = hostContext.GetConfigFile(WellKnownConfigFile.Options);
             Trace.Info("RuntimeOptionsFilePath: {0}", _runtimeOptionsFilePath);
+
+            _setupInfoFilePath = hostContext.GetConfigFile(WellKnownConfigFile.SetupInfo);
+            Trace.Info("SetupInfoFilePath: {0}", _setupInfoFilePath);
         }
 
         public string RootFolder { get; private set; }
@@ -235,6 +252,24 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
 
             return _autoLogonSettings;
+        }
+
+        public IEnumerable<SetupInfo> GetSetupInfo()
+        {
+            if (_setupInfo == null)
+            {
+                if (File.Exists(_setupInfoFilePath))
+                {
+                    Trace.Info($"Load machine setup info from {_setupInfoFilePath}");
+                    _setupInfo = IOUtil.LoadObject<List<SetupInfo>>(_setupInfoFilePath);
+                }
+                else
+                {
+                    _setupInfo = new List<SetupInfo>();
+                }
+            }
+
+            return _setupInfo;
         }
 
         public void SaveCredential(CredentialData credential)

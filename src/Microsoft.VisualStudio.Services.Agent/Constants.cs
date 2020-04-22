@@ -38,6 +38,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         ProxyBypass,
         Autologon,
         Options,
+        SetupInfo
     }
 
     public static class Constants

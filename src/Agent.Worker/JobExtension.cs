@@ -77,11 +77,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     context.Output(StringUtil.Loc("AgentNameLog", context.Variables.Get(Constants.Variables.Agent.Name)));
                     context.Output(StringUtil.Loc("AgentMachineNameLog", context.Variables.Get(Constants.Variables.Agent.MachineName)));
                     context.Output(StringUtil.Loc("AgentVersion", BuildConstants.AgentPackage.Version));
+
+                    // Machine specific setup info
+                    OutputSetupInfo(context);
+
                     string imageVersion = System.Environment.GetEnvironmentVariable(Constants.ImageVersionVariable);
                     if (imageVersion != null)
                     {
                         context.Output(StringUtil.Loc("ImageVersionLog", imageVersion));
                     }
+
                     context.Output(StringUtil.Loc("UserNameLog", System.Environment.UserName));
 
                     // Print proxy setting information for better diagnostic experience
@@ -505,6 +510,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             Trace.Info($"Total accessible running process: {snapshot.Count}.");
             return snapshot;
+        }
+
+        private void OutputSetupInfo(IExecutionContext context)
+        {
+            try
+            {
+                var configurationStore = HostContext.GetService<IConfigurationStore>();
+
+                foreach (var info in configurationStore.GetSetupInfo())
+                {
+                    if (!string.IsNullOrEmpty(info.Detail))
+                    {
+                        var groupName = info.Group;
+                        if (string.IsNullOrEmpty(groupName))
+                        {
+                            groupName = "Machine Setup Info";
+                        }
+
+                        context.Output($"##[group]{groupName}");
+                        var multiLines = info.Detail.Replace("\r\n", "\n").TrimEnd('\n').Split('\n');
+                        foreach (var line in multiLines)
+                        {
+                            context.Output(line);
+                        }
+                        context.Output("##[endgroup]");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                context.Output($"Fail to load and print machine setup info: {ex.Message}");
+                Trace.Error(ex);
+            }
         }
     }
 }
