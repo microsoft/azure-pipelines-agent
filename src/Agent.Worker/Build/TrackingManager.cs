@@ -485,16 +485,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 Constants.Build.Path.TopLevelTrackingConfigFile);
         }
 
-        private string GetTrackingFileLocation(IExecutionContext executionContext, bool includeJobId)
+        private string GetTrackingFileLocation(IExecutionContext executionContext, bool includeWorkspaceId)
         {
-            if (includeJobId && executionContext.JobSettings.TryGetValue(WellKnownJobSettings.WorkspaceIdentifier, out string jobId))
+            if (includeWorkspaceId && executionContext.JobSettings.TryGetValue(WellKnownJobSettings.WorkspaceIdentifier, out string workspaceId))
             {
                 return Path.Combine(
                     HostContext.GetDirectory(WellKnownDirectory.Work),
                     Constants.Build.Path.SourceRootMappingDirectory,
                     executionContext.Variables.System_CollectionId,
                     executionContext.Variables.System_DefinitionId,
-                    jobId,
+                    workspaceId,
                     Constants.Build.Path.TrackingConfigFile);
             }
 
