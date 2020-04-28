@@ -433,6 +433,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Variables = new Variables(HostContext, message.Variables, out warnings);
             Variables.StringTranslator = TranslatePathForStepTarget;
 
+            if (Variables.GetBoolean("agent.useWorkspaceIds") == true)
+            {
+                // We need an identifier that represents which repos make up the workspace.
+                // This allows similar jobs in the same definition to reuse that workspace and other jobs to have their own.
+                JobSettings[WellKnownJobSettings.WorkspaceIdentifier] = GetWorkspaceIdentifier(message);
+            }
+
             // Prepend Path
             PrependPath = new List<string>();
 
@@ -571,6 +578,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Hook up JobServerQueueThrottling event, we will log warning on server tarpit.
             _jobServerQueue.JobServerQueueThrottling += JobServerQueueThrottling_EventReceived;
+        }
+
+        private string GetWorkspaceIdentifier(Pipelines.AgentJobRequestMessage message)
+        {
+            message.Variables.TryGetValue("system.collectionId", out VariableValue collectionIdVar);
+            message.Variables.TryGetValue("system.definitionId", out VariableValue definitionIdVar);
+            var repoTrackingInfos = message.Resources.Repositories.Select(repo => new Build.RepositoryTrackingInfo(repo, "/")).ToList();
+            var workspaceIdentifier = Build.TrackingConfigHashAlgorithm.ComputeHash(collectionIdVar?.Value, definitionIdVar?.Value, repoTrackingInfos);
+
+            Trace.Info($"WorkspaceIdentifier '{workspaceIdentifier}' created for repos {String.Join(',', repoTrackingInfos)}");
+            return workspaceIdentifier;
         }
 
         // Do not add a format string overload. In general, execution context messages are user facing and

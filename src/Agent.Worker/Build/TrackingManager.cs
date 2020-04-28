@@ -179,8 +179,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             Trace.Entering();
 
             ArgUtil.NotNull(executionContext, nameof(executionContext));
-            string trackingFileLocation = GetTrackingFileLocation(executionContext);
-            return LoadIfExists(executionContext, trackingFileLocation);
+            // First, attempt to load the file from the new location (collection, definition, workspaceId)
+            string trackingFileLocation = GetTrackingFileLocation(executionContext, true);
+            var trackingConfig = LoadIfExists(executionContext, trackingFileLocation);
+            if (trackingConfig == null)
+            {
+                // If it's not in the new location, look for it in the old location
+                trackingFileLocation = GetTrackingFileLocation(executionContext, false);
+                trackingConfig = LoadIfExists(executionContext, trackingFileLocation);
+            }
+
+            return trackingConfig;
         }
 
         public void MarkForGarbageCollection(
@@ -476,8 +485,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 Constants.Build.Path.TopLevelTrackingConfigFile);
         }
 
-        private string GetTrackingFileLocation(IExecutionContext executionContext)
+        private string GetTrackingFileLocation(IExecutionContext executionContext, bool includeJobId)
         {
+            if (includeJobId && executionContext.JobSettings.TryGetValue(WellKnownJobSettings.WorkspaceIdentifier, out string jobId))
+            {
+                return Path.Combine(
+                    HostContext.GetDirectory(WellKnownDirectory.Work),
+                    Constants.Build.Path.SourceRootMappingDirectory,
+                    executionContext.Variables.System_CollectionId,
+                    executionContext.Variables.System_DefinitionId,
+                    jobId,
+                    Constants.Build.Path.TrackingConfigFile);
+            }
+
             return Path.Combine(
                 HostContext.GetDirectory(WellKnownDirectory.Work),
                 Constants.Build.Path.SourceRootMappingDirectory,
@@ -506,7 +526,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             // Update the info properties and save the file.
             config.UpdateJobRunProperties(executionContext);
-            WriteToFile(GetTrackingFileLocation(executionContext), config);
+
+            // Make sure we clean up any files in the old location (no job in the path)
+            string oldLocation = GetTrackingFileLocation(executionContext, false);
+            if (File.Exists(oldLocation))
+            {
+                File.Delete(oldLocation);
+            }
+
+            WriteToFile(GetTrackingFileLocation(executionContext, true), config);
         }
 
         private void PrintOutDiskUsage(IExecutionContext context)
