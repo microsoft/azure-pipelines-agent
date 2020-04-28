@@ -10,6 +10,22 @@ using System.Threading;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
+    public enum SignatureVerificationMode
+    {
+        Error,
+        Warning,
+        None
+    }
+
+    public sealed class SignatureVerificationSettings
+    {
+        [DataMember(EmitDefaultValue = false)]
+        public SignatureVerificationMode Mode { get; set; }
+
+        [DataMember(EmitDefaultValue = false)]
+        public List<string> Fingerprints { get; set; }
+    }
+
     //
     // Settings are persisted in this structure
     //
@@ -29,7 +45,22 @@ namespace Microsoft.VisualStudio.Services.Agent
         public bool IsHosted => !string.IsNullOrEmpty(NotificationPipeName) || !string.IsNullOrEmpty(NotificationSocketAddress);
 
         [DataMember(EmitDefaultValue = false)]
-        public string Fingerprint { get; set; }
+        public string Fingerprint
+        {
+            // This setter is for backwards compatibility with the top level fingerprint setting
+            set
+            {
+                // prefer the new config format to the old
+                if (SignatureVerification == null && value != null)
+                {
+                    SignatureVerification = new SignatureVerificationSettings()
+                    {
+                        Mode = SignatureVerificationMode.Error,
+                        Fingerprints = new List<string>() { value }
+                    };
+                }
+            }
+        }
 
         [DataMember(EmitDefaultValue = false)]
         public string NotificationPipeName { get; set; }
@@ -42,6 +73,9 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         [DataMember(EmitDefaultValue = false)]
         public bool SkipSessionRecover { get; set; }
+
+        [DataMember(EmitDefaultValue = false)]
+        public SignatureVerificationSettings SignatureVerification { get; set; }
 
         [DataMember(EmitDefaultValue = false)]
         public int PoolId { get; set; }

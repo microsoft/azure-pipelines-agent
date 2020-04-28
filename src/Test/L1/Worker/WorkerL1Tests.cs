@@ -5,7 +5,7 @@ using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using System;
-using System.Diagnostics;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
@@ -195,13 +195,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             }
         }
 
-        [Fact]
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(true, false)]
+        [InlineData(false, true)]
         [Trait("Level", "L1")]
         [Trait("Category", "Worker")]
         // TODO: When NuGet works cross-platform, remove these traits. Also, package NuGet with the Agent.
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
-        public async Task SignatureEnforcementMode_PassesWhenAllTasksAreSigned()
+        public async Task SignatureVerification_PassesWhenAllTasksAreSigned(bool useFingerprintList, bool useTopLevelFingerprint)
         {
             try
             {
@@ -209,7 +212,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 SetupL1();
                 FakeConfigurationStore fakeConfigurationStore = GetMockedService<FakeConfigurationStore>();
                 AgentSettings settings = fakeConfigurationStore.GetSettings();
-                settings.Fingerprint = _fingerprint;
+                settings.SignatureVerification = new SignatureVerificationSettings()
+                {
+                    Mode = SignatureVerificationMode.Error
+                };
+                if (useFingerprintList)
+                {
+                    settings.SignatureVerification.Fingerprints = new List<string>() { _fingerprint };
+                }
+                else if (useTopLevelFingerprint)
+                {
+                    settings.Fingerprint = _fingerprint;
+                }
                 fakeConfigurationStore.UpdateSettings(settings);
 
                 var message = LoadTemplateMessage();
@@ -221,8 +235,87 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
                 // Assert
                 FakeJobServer fakeJobServer = GetMockedService<FakeJobServer>();
-                Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(fakeJobServer.Timelines));
+                AssertJobCompleted();
+                Assert.Equal(TaskResult.Succeeded, results.Result);
+            }
+            finally
+            {
+                TearDown();
+            }
+        }
 
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(true, false)]
+        [InlineData(false, true)]
+        [Trait("Level", "L1")]
+        [Trait("Category", "Worker")]
+        // TODO: When NuGet works cross-platform, remove these traits. Also, package NuGet with the Agent.
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
+        public async Task SignatureVerification_FailsWhenTasksArentSigned(bool useFingerprintList, bool useTopLevelFingerprint)
+        {
+            try
+            {
+                // Arrange
+                SetupL1();
+                FakeConfigurationStore fakeConfigurationStore = GetMockedService<FakeConfigurationStore>();
+                AgentSettings settings = fakeConfigurationStore.GetSettings();
+                settings.SignatureVerification = new SignatureVerificationSettings()
+                {
+                    Mode = SignatureVerificationMode.Error
+                };
+                if (useFingerprintList)
+                {
+                    settings.SignatureVerification.Fingerprints = new List<string>() { _fingerprint };
+                }
+                else if (useTopLevelFingerprint)
+                {
+                    settings.Fingerprint = _fingerprint;
+                }
+                fakeConfigurationStore.UpdateSettings(settings);
+                var message = LoadTemplateMessage();
+
+                // Act
+                var results = await RunWorker(message);
+
+                // Assert
+                AssertJobCompleted();
+                Assert.Equal(TaskResult.Failed, results.Result);
+            }
+            finally
+            {
+                TearDown();
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L1")]
+        [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
+        public async Task SignatureVerification_MultipleFingerprints()
+        {
+            try
+            {
+                // Arrange
+                SetupL1();
+                FakeConfigurationStore fakeConfigurationStore = GetMockedService<FakeConfigurationStore>();
+                AgentSettings settings = fakeConfigurationStore.GetSettings();
+                settings.SignatureVerification = new SignatureVerificationSettings()
+                {
+                    Mode = SignatureVerificationMode.Error,
+                    Fingerprints = new List<string>() { "BAD", _fingerprint }
+                };
+                fakeConfigurationStore.UpdateSettings(settings);
+                var message = LoadTemplateMessage();
+                message.Steps.Clear();
+                message.Steps.Add(GetSignedTask());
+
+                // Act
+                var results = await RunWorker(message);
+
+                // Assert
                 AssertJobCompleted();
                 Assert.Equal(TaskResult.Succeeded, results.Result);
             }
@@ -235,10 +328,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         [Fact]
         [Trait("Level", "L1")]
         [Trait("Category", "Worker")]
-        // TODO: When NuGet works cross-platform, remove these traits. Also, package NuGet with the Agent.
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
-        public async Task SignatureEnforcementMode_FailsWhenTasksArentSigned()
+        public async Task SignatureVerification_Warning()
         {
             try
             {
@@ -246,16 +338,63 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 SetupL1();
                 FakeConfigurationStore fakeConfigurationStore = GetMockedService<FakeConfigurationStore>();
                 AgentSettings settings = fakeConfigurationStore.GetSettings();
-                settings.Fingerprint = _fingerprint;
+                settings.SignatureVerification = new SignatureVerificationSettings()
+                {
+                    Mode = SignatureVerificationMode.Warning,
+                    Fingerprints = new List<string>() { "BAD" }
+                };
                 fakeConfigurationStore.UpdateSettings(settings);
                 var message = LoadTemplateMessage();
+                message.Steps.Clear();
+                message.Steps.Add(GetSignedTask());
 
                 // Act
                 var results = await RunWorker(message);
 
                 // Assert
                 AssertJobCompleted();
-                Assert.Equal(TaskResult.Failed, results.Result);
+                Assert.Equal(TaskResult.Succeeded, results.Result);
+
+                var steps = GetSteps();
+                var log = GetTimelineLogLines(steps[1]);
+
+                Assert.Equal(1, log.Where(x => x.Contains("##[warning]Task signature verification failed.")).Count());
+            }
+            finally
+            {
+                TearDown();
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L1")]
+        [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
+        public async Task SignatureVerification_Disabled()
+        {
+            try
+            {
+                // Arrange
+                SetupL1();
+                FakeConfigurationStore fakeConfigurationStore = GetMockedService<FakeConfigurationStore>();
+                AgentSettings settings = fakeConfigurationStore.GetSettings();
+                settings.SignatureVerification = new SignatureVerificationSettings()
+                {
+                    Mode = SignatureVerificationMode.None,
+                    Fingerprints = new List<string>() { "BAD" }
+                };
+                fakeConfigurationStore.UpdateSettings(settings);
+                var message = LoadTemplateMessage();
+                message.Steps.Clear();
+                message.Steps.Add(GetSignedTask());
+
+                // Act
+                var results = await RunWorker(message);
+
+                // Assert
+                AssertJobCompleted();
+                Assert.Equal(TaskResult.Succeeded, results.Result);
             }
             finally
             {

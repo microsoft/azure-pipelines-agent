@@ -30,14 +30,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             var configurationStore = HostContext.GetService<IConfigurationStore>();
             AgentSettings settings = configurationStore.GetSettings();
-            String fingerprint = settings.Fingerprint;
+            SignatureVerificationSettings verificationSettings = settings.SignatureVerification;
             String taskZipPath = definition.ZipPath;
             String taskNugetPath = definition.ZipPath.Replace(".zip", ".nupkg");
 
             // Rename .zip to .nupkg
             File.Move(taskZipPath, taskNugetPath);
 
-            String arguments = $"verify -Signatures \"{taskNugetPath}\" -CertificateFingerprint {fingerprint} -Verbosity Detailed";
+            String arguments = $"verify -Signatures \"{taskNugetPath}\" -Verbosity Detailed";
+
+            if (verificationSettings?.Fingerprints != null && verificationSettings.Fingerprints.Count > 0)
+            {
+                String fingerprint = String.Join(";", verificationSettings.Fingerprints);
+                arguments += $" -CertificateFingerprint {fingerprint}";
+            }
 
             // Run nuget verify
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())

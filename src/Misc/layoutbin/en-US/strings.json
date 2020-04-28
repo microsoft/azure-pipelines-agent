@@ -585,6 +585,8 @@
     "A copy of the Team Explorer Everywhere license agreement can be found at:",
     "  {0}"
   ],
+  "TaskSignatureVerificationFailed": "Task signature verification failed.",
+  "TaskSignatureVerificationSucceeeded": "Task signature verification successful.",
   "Telemetry": "Telemetry",
   "TelemetryCommandDataError": "Unable to parse telemetry data {0}. Error: {1}",
   "TelemetryCommandFailed": "Failed to publish telemetry data. Error {0}",

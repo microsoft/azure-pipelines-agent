@@ -154,7 +154,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             var configurationStore = HostContext.GetService<IConfigurationStore>();
             AgentSettings settings = configurationStore.GetSettings();
-            Boolean signingEnabled = !String.IsNullOrEmpty(settings.Fingerprint);
+            Boolean signingEnabled = (settings.SignatureVerification != null && settings.SignatureVerification.Mode != SignatureVerificationMode.None);
 
             if (File.Exists(destDirectory + ".completed") && !signingEnabled)
             {
