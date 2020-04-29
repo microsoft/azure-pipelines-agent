@@ -16,7 +16,7 @@ Requirements:
 To run this tool:
 - Extract the credential provider to the right place on your system
 - `dotnet build --interactive` (so you get prompted to auth to the feed)
-- `dotnet run`
+- `dotnet run > ../../src/Microsoft.VisualStudio.Services.Agent/AdditionalMaskingRegexes.CredScan.cs`
 
 You **must** check in the generated code after running this tool.
 At the time of writing, the target file is `src/Microsoft.VisualStudio.Services.Agent/AdditionalMaskingRegexes.CredScan.cs`.
