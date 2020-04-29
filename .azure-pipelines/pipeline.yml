@@ -8,6 +8,9 @@ parameters:
 - name: componentDetection
   type: boolean
   default: false
+- name: test
+  type: boolean
+  default: true
 - name: sign
   type: boolean
   default: false
@@ -17,18 +20,29 @@ parameters:
 - name: branch
   type: string
   default: ''
-- name: target
-  type: string
-  default: All
-  values:
-  - All
-  - Windows (x64)
-  - Windows (x86)
-  - Linux (x64)
-  - Linux (ARM)
-  - Linux (ARM64)
-  - RHEL 6 (x64)
-  - macOS (x64)
+
+# Targets
+- name: win_x64
+  type: boolean
+  default: true
+- name: win_x86
+  type: boolean
+  default: true
+- name: linux_x64
+  type: boolean
+  default: true
+- name: linux_arm
+  type: boolean
+  default: true
+- name: linux_arm64
+  type: boolean
+  default: true
+- name: rhel6_x64
+  type: boolean
+  default: true
+- name: macOS_x64
+  type: boolean
+  default: true
 
 resources:
   containers:
@@ -46,7 +60,7 @@ stages:
   jobs:
 
   # Windows x64
-  - ${{ if or(eq(parameters.target, 'Windows (x64)'), eq(parameters.target, 'All')) }}:
+  - ${{ if parameters.win_x64 }}:
     - template: build-job.yml
       parameters:
         jobName: build_windows_x64_agent
@@ -58,12 +72,14 @@ stages:
         branch: ${{ parameters.branch }}
         codeCoverage: true
         componentDetection: ${{ parameters.componentDetection }}
+        unitTests: ${{ parameters.test }}
+        functionalTests: ${{ parameters.test }}
         sign: ${{ parameters.sign }}
         verifySigning: ${{ parameters.sign }}
         publishArtifact: ${{ parameters.publishArtifacts }}
 
   # Windows (x86)
-  - ${{ if or(eq(parameters.target, 'Windows (x86)'), eq(parameters.target, 'All')) }}:
+  - ${{ if parameters.win_x86 }}:
     - template: build-job.yml
       parameters:
         jobName: build_windows_x86_agent
@@ -75,11 +91,13 @@ stages:
         arch: x86
         branch: ${{ parameters.branch }}
         componentDetection: false
+        unitTests: ${{ parameters.test }}
+        functionalTests: ${{ parameters.test }}
         sign: ${{ parameters.sign }}
         publishArtifact: ${{ parameters.publishArtifacts }}
 
   # Linux (x64)
-  - ${{ if or(eq(parameters.target, 'Linux (x64)'), eq(parameters.target, 'All')) }}:
+  - ${{ if parameters.linux_x64 }}:
     - template: build-job.yml
       parameters:
         jobName: build_linux_x64_agent
@@ -90,11 +108,13 @@ stages:
         arch: x64
         branch: ${{ parameters.branch }}
         componentDetection: ${{ parameters.componentDetection }}
+        unitTests: ${{ parameters.test }}
+        functionalTests: ${{ parameters.test }}
         sign: ${{ parameters.sign }}
         publishArtifact: ${{ parameters.publishArtifacts }}
 
   # Linux (ARM)
-  - ${{ if or(eq(parameters.target, 'Linux (ARM)'), eq(parameters.target, 'All')) }}:
+  - ${{ if parameters.linux_arm }}:
     - template: build-job.yml
       parameters:
         jobName: build_linux_arm_agent
@@ -108,12 +128,13 @@ stages:
         arch: arm
         branch: ${{ parameters.branch }}
         componentDetection: false
+        unitTests: ${{ parameters.test }}
+        functionalTests: false
         sign: false
         publishArtifact: ${{ parameters.publishArtifacts }}
 
   # Linux (ARM64)
-  #- ${{ if or(eq(parameters.target, 'Linux (ARM64)'), eq(parameters.target, 'All')) }}:
-  - ${{ if eq(parameters.target, 'Linux (ARM64)') }}:
+  - ${{ if parameters.linux_arm64 }}:
     - template: build-job.yml
       parameters:
         jobName: build_linux_arm64_agent
@@ -126,11 +147,13 @@ stages:
         arch: arm64
         branch: ${{ parameters.branch }}
         componentDetection: false
+        unitTests: ${{ parameters.test }}
+        functionalTests: ${{ parameters.test }}
         sign: false
         publishArtifact: ${{ parameters.publishArtifacts }}
 
   # RHEL6 Agent (x64)
-  - ${{ if or(eq(parameters.target, 'RHEL 6 (x64)'), eq(parameters.target, 'All')) }}:
+  - ${{ if parameters.rhel6_x64 }}:
     - template: build-job.yml
       parameters:
         jobName: build_rhel6_x64_agent
@@ -142,11 +165,13 @@ stages:
         arch: x64
         branch: ${{ parameters.branch }}
         componentDetection: false
+        unitTests: ${{ parameters.test }}
+        functionalTests: ${{ parameters.test }}
         sign: false
         publishArtifact: ${{ parameters.publishArtifacts }}
 
   # macOS x64
-  - ${{ if or(eq(parameters.target, 'macOS (x64)'), eq(parameters.target, 'All')) }}:
+  - ${{ if parameters.macOS_x64 }}:
     - template: build-job.yml
       parameters:
         jobName: build_osx_agent
@@ -157,6 +182,8 @@ stages:
         arch: x64
         branch: ${{ parameters.branch }}
         componentDetection: ${{ parameters.componentDetection }}
+        unitTests: ${{ parameters.test }}
+        functionalTests: ${{ parameters.test }}
         sign: ${{ parameters.sign }}
         publishArtifact: ${{ parameters.publishArtifacts }}
 
