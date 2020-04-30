@@ -37,6 +37,10 @@ parameters:
   - x64
   - x86
 
+- name: unitTests
+  type: boolean
+  default: true
+
 - name: functionalTests
   type: boolean
   default: true
@@ -106,9 +110,10 @@ jobs:
         ADO_ENABLE_LOGISSUE: true
 
   # Run l0 tests
-  - script: ${{ variables.devCommand }} testl0
-    workingDirectory: src
-    displayName: Unit tests
+  - ${{ if parameters.unitTests }}:
+    - script: ${{ variables.devCommand }} testl0
+      workingDirectory: src
+      displayName: Unit tests
 
   # Install nuget
   - ${{ if eq(parameters.os, 'win') }}:
@@ -121,23 +126,24 @@ jobs:
       workingDirectory: src
       displayName: Functional tests
 
-  # Publish test results
-  - task: PublishTestResults@2
-    displayName: Publish Test Results **/*.trx
-    inputs:
-      testRunner: VSTest
-      testResultsFiles: '**/*.trx'
-      testRunTitle: 'Agent Tests - ${{ parameters.os }}-${{ parameters.arch }}'
-    condition: always()
+  - ${{ if or(parameters.unitTests, parameters.functionalTests) }}:
+    # Publish test results
+    - task: PublishTestResults@2
+      displayName: Publish Test Results **/*.trx
+      inputs:
+        testRunner: VSTest
+        testResultsFiles: '**/*.trx'
+        testRunTitle: 'Agent Tests - ${{ parameters.os }}-${{ parameters.arch }}'
+      condition: always()
 
-  # Upload test log
-  - task: PublishBuildArtifacts@1
-    displayName: Publish Test logs
-    inputs:
-      pathToPublish: src/Test/TestLogs
-      artifactName: ${{ parameters.os }}-${{ parameters.arch }}-$(System.JobId)
-      artifactType: container
-    condition: always()
+    # Upload test log
+    - task: PublishBuildArtifacts@1
+      displayName: Publish Test logs
+      inputs:
+        pathToPublish: src/Test/TestLogs
+        artifactName: ${{ parameters.os }}-${{ parameters.arch }}-$(System.JobId)
+        artifactType: container
+      condition: always()
 
   # Code coverage
   - ${{ if parameters.codeCoverage }}:

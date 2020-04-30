@@ -118,6 +118,7 @@
     "                                   root of the agent directory. The work directory is owned by a given",
     "                                   agent and should not share between multiple agents.",
     " --acceptTeeEula                   macOS and Linux only. Accept the TEE end user license agreement.",
+    " --gitUseSChannel                  Windows only. Tell Git to use Windows' native cert store.",
     "",
     "CLI-WIDTH-OPTIONS-(35-CHARS)-------CLI-WIDTH-DESCRIPTION-(70-CHARS)--------------------------------------",
     "Startup options (Windows only):",

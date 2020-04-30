@@ -3,7 +3,9 @@
 
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.VisualStudio.Services.WebApi;
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
@@ -260,6 +262,128 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 TearDown();
             }
         }
+
+        [Fact]
+        [Trait("Level", "L1")]
+        [Trait("Category", "Worker")]
+        public async Task TrackingConfigsShouldBeConsistentAcrossRuns()
+        {
+            try
+            {
+                // Arrange
+                SetupL1();
+                FakeConfigurationStore fakeConfigurationStore = GetMockedService<FakeConfigurationStore>();
+                var message1 = LoadTemplateMessage();
+                // second message is the same definition but a different job with a different repository checked out
+                var message2 = LoadTemplateMessage(jobId: "642e8db6-0794-4b7b-8fd9-33ee9202a795", jobName: "__default2", jobDisplayName: "Job2", checkoutRepoAlias: "repo2");
+
+                // Act
+                var results1 = await RunWorker(message1);
+                var trackingConfig1 = GetTrackingConfig(message1.Variables["system.collectionId"].Value, message1.Variables["system.definitionId"].Value);
+                AssertJobCompleted(1);
+                Assert.Equal(TaskResult.Succeeded, results1.Result);
+
+                // Act2
+                var results2 = await RunWorker(message2);
+                var trackingConfig2 = GetTrackingConfig(message2.Variables["system.collectionId"].Value, message2.Variables["system.definitionId"].Value);
+                AssertJobCompleted(2);
+                Assert.Equal(TaskResult.Succeeded, results2.Result);
+
+                // Assert
+                Assert.Equal(trackingConfig1.BuildDirectory, trackingConfig2.BuildDirectory);
+                Assert.Equal(trackingConfig1.HashKey, trackingConfig2.HashKey);
+            }
+            finally
+            {
+                TearDown();
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L1")]
+        [Trait("Category", "Worker")]
+        public async Task TrackingConfigsShouldBeConsistentAcrossMulticheckoutRuns()
+        {
+            try
+            {
+                // Arrange
+                SetupL1();
+                FakeConfigurationStore fakeConfigurationStore = GetMockedService<FakeConfigurationStore>();
+                var message1 = LoadTemplateMessage(additionalRepos: 2);
+                message1.Steps.Add(CreateCheckoutTask("Repo2"));
+                message1.Steps.Add(CreateCheckoutTask("Repo2"));
+                // second message is the same definition but a different job with a different order of the repos being checked out in a different order
+                var message2 = LoadTemplateMessage(jobId: "642e8db6-0794-4b7b-8fd9-33ee9202a795", jobName: "__default2", jobDisplayName: "Job2", checkoutRepoAlias: "Repo3", additionalRepos: 2);
+                message2.Steps.Add(CreateCheckoutTask("Repo2"));
+                message2.Steps.Add(CreateCheckoutTask("self"));
+
+                // Act
+                var results1 = await RunWorker(message1);
+                var trackingConfig1 = GetTrackingConfig(message1.Variables["system.collectionId"].Value, message1.Variables["system.definitionId"].Value);
+                AssertJobCompleted(1);
+                Assert.Equal(TaskResult.Succeeded, results1.Result);
+
+                // Act2
+                var results2 = await RunWorker(message2);
+                var trackingConfig2 = GetTrackingConfig(message2.Variables["system.collectionId"].Value, message2.Variables["system.definitionId"].Value);
+                AssertJobCompleted(2);
+                Assert.Equal(TaskResult.Succeeded, results2.Result);
+
+                // Assert
+                Assert.Equal(trackingConfig1.BuildDirectory, trackingConfig2.BuildDirectory);
+                Assert.Equal(trackingConfig1.HashKey, trackingConfig2.HashKey);
+            }
+            finally
+            {
+                TearDown();
+            }
+        }
+
+        /*
+         * This test is currently failing until we fix this bug
+         * 
+        [Fact]
+        [Trait("Level", "L1")]
+        [Trait("Category", "Worker")]
+        public async Task TrackingConfigsShouldBeConsistentAcrossRunsWithDifferentCheckouts()
+        {
+            try
+            {
+                // Arrange
+                SetupL1();
+                FakeConfigurationStore fakeConfigurationStore = GetMockedService<FakeConfigurationStore>();
+                var message1 = LoadTemplateMessage(additionalRepos: 2);
+                // second message is the same definition but a different job with a different order of the repos being checked out in a different order
+                var message2 = LoadTemplateMessage(jobId: "642e8db6-0794-4b7b-8fd9-33ee9202a795", jobName: "__default2", jobDisplayName: "Job2", checkoutRepoAlias: "Repo3", additionalRepos: 2);
+
+                // Act
+                var results1 = await RunWorker(message1);
+                var trackingConfig1 = GetTrackingConfig(message1.Variables["system.collectionId"].Value, message1.Variables["system.definitionId"].Value);
+                AssertJobCompleted(1);
+                Assert.Equal(TaskResult.Succeeded, results1.Result);
+
+                // Act2
+                var results2 = await RunWorker(message2);
+                var trackingConfig2 = GetTrackingConfig(message2.Variables["system.collectionId"].Value, message2.Variables["system.definitionId"].Value);
+                AssertJobCompleted(2);
+                Assert.Equal(TaskResult.Succeeded, results2.Result);
+
+                // Act3
+                var results3 = await RunWorker(message1);
+                var trackingConfig3 = GetTrackingConfig(message2.Variables["system.collectionId"].Value, message2.Variables["system.definitionId"].Value);
+                AssertJobCompleted(3);
+                Assert.Equal(TaskResult.Succeeded, results3.Result);
+
+                // Assert - the first and third runs should be consistent
+                Assert.Equal(trackingConfig1.BuildDirectory, trackingConfig3.BuildDirectory);
+                Assert.Equal(trackingConfig1.HashKey, trackingConfig3.HashKey);
+            }
+            finally
+            {
+                TearDown();
+            }
+        }
+        */
 
         private static TaskStep GetSignedTask()
         {

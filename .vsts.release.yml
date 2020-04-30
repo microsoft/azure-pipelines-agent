@@ -6,6 +6,10 @@ parameters:
   type: string
   displayName: Derived From Version
   default: latest
+- name: skipTests
+  type: boolean
+  default: false
+  displayName: Skip Tests
 
 variables:
   releaseBranch: releases/${{ parameters.version }}
@@ -15,6 +19,7 @@ extends:
   parameters:
     branch:  ${{ variables.releaseBranch }}
     componentDetection: false
+    test: ${{ not(parameters.skipTests) }}
     sign: true
     publishArtifacts: true
 

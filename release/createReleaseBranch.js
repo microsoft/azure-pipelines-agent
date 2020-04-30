@@ -17,6 +17,7 @@ process.env.EDITOR = process.env.EDITOR === undefined ? 'code --wait' : process.
 var opt = require('node-getopt').create([
     ['',  'dryrun',               'Dry run only, do not actually commit new release'],
     ['',  'derivedFrom=version',  'Used to get PRs merged since this release was created', 'latest'],
+    ['',  'branch=branch',        'Branch to select PRs merged into', 'master'],
     ['h', 'help',                 'Display this help'],
   ])
   .setHelp(
