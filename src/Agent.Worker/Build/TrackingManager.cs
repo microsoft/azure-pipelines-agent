@@ -487,7 +487,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         private string GetTrackingFileLocation(IExecutionContext executionContext, bool includeWorkspaceId)
         {
-            if (includeWorkspaceId && executionContext.JobSettings.TryGetValue(WellKnownJobSettings.WorkspaceIdentifier, out string workspaceId))
+            string workspaceId = null;
+            if (includeWorkspaceId && executionContext.JobSettings?.TryGetValue(WellKnownJobSettings.WorkspaceIdentifier, out workspaceId) == true)
             {
                 return Path.Combine(
                     HostContext.GetDirectory(WellKnownDirectory.Work),
