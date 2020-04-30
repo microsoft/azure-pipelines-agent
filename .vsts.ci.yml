@@ -1,17 +1,32 @@
 parameters:
-- name: target
-  displayName: Target
-  type: string
-  default: All
-  values:
-  - All
-  - Windows (x64)
-  - Windows (x86)
-  - Linux (x64)
-  - Linux (ARM)
-  - Linux (ARM64)
-  - RHEL 6 (x64)
-  - macOS (x64)
+- name: win_x64
+  type: boolean
+  displayName: Windows (x64)
+  default: true
+- name: win_x86
+  type: boolean
+  displayName: Windows (x86)
+  default: true
+- name: linux_x64
+  type: boolean
+  displayName: Linux (x64)
+  default: true
+- name: linux_arm
+  type: boolean
+  displayName: Linux (ARM)
+  default: true
+- name: linux_arm64
+  type: boolean
+  displayName: Linux (ARM64)
+  default: false
+- name: rhel6_x64
+  type: boolean
+  displayName: RHEL 6 (x64)
+  default: true
+- name: macOS_x64
+  type: boolean
+  displayName: macOS (x64)
+  default: true
 
 pr:
   branches:
@@ -26,4 +41,10 @@ extends:
   parameters:
     componentDetection: ${{ eq(variables['Build.Reason'], 'PullRequest') }}
     publishArtifacts: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
-    target: ${{ parameters.target }}
+    win_x64: ${{ parameters.win_x64 }}
+    win_x86: ${{ parameters.win_x86 }}
+    linux_x64: ${{ parameters.linux_x64 }}
+    linux_arm: ${{ parameters.linux_arm }}
+    linux_arm64: ${{ parameters.linux_arm64 }}
+    rhel6_x64: ${{ parameters.rhel6_x64 }}
+    macOS_x64: ${{ parameters.macOS_x64 }}
