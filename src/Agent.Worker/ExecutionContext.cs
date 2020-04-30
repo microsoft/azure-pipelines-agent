@@ -582,10 +582,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private string GetWorkspaceIdentifier(Pipelines.AgentJobRequestMessage message)
         {
-            message.Variables.TryGetValue("system.collectionId", out VariableValue collectionIdVar);
-            message.Variables.TryGetValue("system.definitionId", out VariableValue definitionIdVar);
+            Variables.TryGetValue(Constants.Variables.System.CollectionId, out string collectionId);
+            Variables.TryGetValue(Constants.Variables.System.DefinitionId, out string definitionId);
             var repoTrackingInfos = message.Resources.Repositories.Select(repo => new Build.RepositoryTrackingInfo(repo, "/")).ToList();
-            var workspaceIdentifier = Build.TrackingConfigHashAlgorithm.ComputeHash(collectionIdVar?.Value, definitionIdVar?.Value, repoTrackingInfos);
+            var workspaceIdentifier = Build.TrackingConfigHashAlgorithm.ComputeHash(collectionId, definitionId, repoTrackingInfos);
 
             Trace.Info($"WorkspaceIdentifier '{workspaceIdentifier}' created for repos {String.Join(',', repoTrackingInfos)}");
             return workspaceIdentifier;

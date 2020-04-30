@@ -527,7 +527,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // Update the info properties and save the file.
             config.UpdateJobRunProperties(executionContext);
 
-            // Make sure we clean up any files in the old location (no job in the path)
+            // Make sure we clean up any files in the old location (no workspace id in the path)
             string oldLocation = GetTrackingFileLocation(executionContext, false);
             if (File.Exists(oldLocation))
             {
