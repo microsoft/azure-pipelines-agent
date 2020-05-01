@@ -179,13 +179,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             return Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "/TestRuns/" + testName + "/w";
         }
 
-        public TrackingConfig GetTrackingConfig(string collectionId, string definitionId, [CallerMemberName] string testName = "")
+        public TrackingConfig GetTrackingConfig(Pipelines.AgentJobRequestMessage message, [CallerMemberName] string testName = "")
         {
-            string filename = Path.Combine(GetWorkingDirectory(testName),
-                Constants.Build.Path.SourceRootMappingDirectory,
-                collectionId,
-                definitionId,
-                Constants.Build.Path.TrackingConfigFile);
+            message.Variables.TryGetValue("system.collectionId", out VariableValue collectionIdVar);
+            message.Variables.TryGetValue("system.definitionId", out VariableValue definitionIdVar);
+
+            string filename;
+            if (message.Variables.TryGetValue("agent.useWorkspaceIds", out _))
+            {
+                var repoTrackingInfos = message.Resources.Repositories.Select(repo => new RepositoryTrackingInfo(repo, "/")).ToList();
+                var workspaceIdentifier = TrackingConfigHashAlgorithm.ComputeHash(collectionIdVar?.Value, definitionIdVar?.Value, repoTrackingInfos);
+                filename = Path.Combine(GetWorkingDirectory(testName),
+                    Constants.Build.Path.SourceRootMappingDirectory,
+                    collectionIdVar.Value,
+                    definitionIdVar.Value,
+                    workspaceIdentifier,
+                    Constants.Build.Path.TrackingConfigFile);
+            }
+            else
+            {
+                filename = Path.Combine(GetWorkingDirectory(testName),
+                    Constants.Build.Path.SourceRootMappingDirectory,
+                    collectionIdVar.Value,
+                    definitionIdVar.Value,
+                    Constants.Build.Path.TrackingConfigFile);
+            }
             string content = File.ReadAllText(filename);
             return JsonConvert.DeserializeObject<TrackingConfig>(content);
         }
