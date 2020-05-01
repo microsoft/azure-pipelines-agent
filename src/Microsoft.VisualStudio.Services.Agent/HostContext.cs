@@ -89,9 +89,12 @@ namespace Microsoft.VisualStudio.Services.Agent
             this.SecretMasker.AddValueEncoder(ValueEncoders.UriDataEscape);
             this.SecretMasker.AddValueEncoder(ValueEncoders.BackslashEscape);
             this.SecretMasker.AddRegex(AdditionalMaskingRegexes.UrlSecretPattern);
-            foreach (var pattern in AdditionalMaskingRegexes.CredScanPatterns)
+            if (AgentKnobs.MaskUsingCredScanRegexes.GetValue(this).AsBoolean())
             {
-                this.SecretMasker.AddRegex(pattern);
+                foreach (var pattern in AdditionalMaskingRegexes.CredScanPatterns)
+                {
+                    this.SecretMasker.AddRegex(pattern);
+                }
             }
 
             // Create the trace manager.

@@ -150,14 +150,21 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTS_HTTP_PROXY_USERNAME"),
             new BuiltInDefaultKnobSource(string.Empty));
 
-        // Misc
+        // Secrets masking
         public static readonly Knob AllowUnsafeMultilineSecret = new Knob(
             nameof(AllowUnsafeMultilineSecret),
             "WARNING: enabling this may allow secrets to leak. Allows multi-line secrets to be set. Unsafe because it is possible for log lines to get dropped in agent failure cases, causing the secret to not get correctly masked. We recommend leaving this option off.",
             new RuntimeKnobSource("SYSTEM_UNSAFEALLOWMULTILINESECRET"),
             new EnvironmentKnobSource("SYSTEM_UNSAFEALLOWMULTILINESECRET"),
             new BuiltInDefaultKnobSource("false"));
+        
+        public static readonly Knob MaskUsingCredScanRegexes = new Knob(
+            nameof(MaskUsingCredScanRegexes),
+            "Use the CredScan regexes for masking secrets. CredScan is an internal tool developed at Microsoft to keep passwords and authentication keys from being checked in. This defaults to enabled, but can be turned off if it masks too much.",
+            new EnvironmentKnobSource("AZP_USE_CREDSCAN_REGEXES"),
+            new BuiltInDefaultKnobSource("true"));
 
+        // Misc
         public static readonly Knob DisableAgentDowngrade = new Knob(
             nameof(DisableAgentDowngrade),
             "Disable agent downgrades. Upgrades will still be allowed.",
