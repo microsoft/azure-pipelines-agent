@@ -82,8 +82,8 @@ then
                 exit 1
             fi
 
-            # libicu versions: libicu52 -> libicu55 -> libicu57 -> libicu60 -> libicu63
-            apt install -y libicu52 || apt install -y libicu55 || apt install -y libicu57 || apt install -y libicu60 || apt install -y libicu63
+            # libicu versions: libicu52 -> libicu55 -> libicu57 -> libicu60 -> libicu63 -> libicu66
+            apt install -y libicu52 || apt install -y libicu55 || apt install -y libicu57 || apt install -y libicu60 || apt install -y libicu63 || apt install -y libicu66
             if [ $? -ne 0 ]
             then
                 echo "'apt' failed with exit code '$?'"
@@ -123,8 +123,8 @@ then
                     exit 1
                 fi
 
-                # libicu versions: libicu52 -> libicu55 -> libicu57 -> libicu60 -> libicu63
-                apt-get install -y libicu52 || apt-get install -y libicu55 || apt-get install -y libicu57 || apt-get install -y libicu60 || apt-get install -y libicu63
+                # libicu versions: libicu52 -> libicu55 -> libicu57 -> libicu60 -> libicu63 -> libicu66
+                apt-get install -y libicu52 || apt-get install -y libicu55 || apt-get install -y libicu57 || apt-get install -y libicu60 || apt-get install -y libicu63 || apt-get install -y libicu66
                 if [ $? -ne 0 ]
                 then
                     echo "'apt-get' failed with exit code '$?'"
