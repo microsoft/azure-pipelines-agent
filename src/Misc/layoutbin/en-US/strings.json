@@ -579,14 +579,14 @@
   "SvnSyncingRepo": "Syncing repository: {0} (Svn)",
   "TaskDownloadFailed": "Failed to download task '{0}'. Error {1}",
   "TaskDownloadTimeout": "Task '{0}' didn't finish download within {1} seconds.",
+  "TaskSignatureVerificationFailed": "Task signature verification failed.",
+  "TaskSignatureVerificationSucceeeded": "Task signature verification successful.",
   "TeeEula": [
     "Building sources from a TFVC repository requires accepting the Team Explorer Everywhere End User License Agreement. This step is not required for building sources from Git repositories.",
     "",
     "A copy of the Team Explorer Everywhere license agreement can be found at:",
     "  {0}"
   ],
-  "TaskSignatureVerificationFailed": "Task signature verification failed.",
-  "TaskSignatureVerificationSucceeeded": "Task signature verification successful.",
   "Telemetry": "Telemetry",
   "TelemetryCommandDataError": "Unable to parse telemetry data {0}. Error: {1}",
   "TelemetryCommandFailed": "Failed to publish telemetry data. Error {0}",
