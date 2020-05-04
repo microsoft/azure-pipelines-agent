@@ -42,12 +42,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             if (verificationSettings?.Fingerprints != null && verificationSettings.Fingerprints.Count > 0)
             {
                 String fingerprint = String.Join(";", verificationSettings.Fingerprints);
-                arguments += $" -CertificateFingerprint {fingerprint}";
+                arguments += $" -CertificateFingerprint \"{fingerprint}\"";
             }
+
+            Trace.Info($"nuget arguments: {arguments}");
 
             // Run nuget verify
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
             {
+                processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+                {
+                    if (!string.IsNullOrEmpty(args.Data))
+                    {
+                        Trace.Info(args.Data);
+                    }
+                };
                 int exitCode = await processInvoker.ExecuteAsync(workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Root),
                                                                  fileName: nugetPath,
                                                                  arguments: arguments,
