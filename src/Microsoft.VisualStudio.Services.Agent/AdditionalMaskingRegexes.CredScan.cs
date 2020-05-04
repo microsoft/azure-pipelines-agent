@@ -41,9 +41,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 + @"(?<DataBlock>(?-i)MI(?i)[a-z0-9/+\s\u0085\u200b""',\\]{200,20000}[a-z0-9/+]={0,2})",
 
                 // JsonWebToken
-                @"(?<=(?-i))"
-                + @"(?<JwtToken>eyJ(?i)[a-z0-9\-_%]+\.(?-i)eyJ(?i)[a-z0-9\-_%]+\.[a-z0-9\-_%]+)"
-                + @"(?=|([rR]efresh_?[tT]oken|REFRESH_?TOKEN)[""']?\s*[:=]{1,2}\s*[""']?(?<JwtToken>(\w+-)+\w+)[""']?)",
+                // skipped pattern: (?-i)(?<JwtToken>eyJ(?i)[a-z0-9\-_%]+\.(?-i)eyJ(?i)[a-z0-9\-_%]+\.[a-z0-9\-_%]+)|([rR]efresh_?[tT]oken|REFRESH_?TOKEN)["']?\s*[:=]{1,2}\s*["']?(?<JwtToken>(\w+-)+\w+)["']?
 
                 // SlackTokens
                 @"xox[pbar]\-[a-z0-9\-]+",
@@ -79,9 +77,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 + @"(?=([^\w/\+\.\$]|$))",
 
                 // SymmetricKey256B32
-                @"(?<=[^\w/\+\._\-\$,\\])"
-                + @"(?<SymmetricKey>(?-i)[a-z2-7]{52}(?i))"
-                + @"(?=(?<=[0-9]+[a-z]+[0-9]+.{0,49})([^\w/\+\.\-\$,]|$))",
+                // skipped pattern: [^\w/\+\._\-\$,\\](?<SymmetricKey>(?-i)[a-z2-7]{52}(?i))(?<=[0-9]+[a-z]+[0-9]+.{0,49})([^\w/\+\.\-\$,]|$)
 
                 // SymmetricKey256UrlEncoded
                 @"(?<=[^\w/\+\._\-\$,\\%])"
@@ -143,9 +139,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 + @"(?=[""']?(\s|$))",
 
                 // PasswordContextInCode
-                @"(?<=([a-z_\s%\$,\.@\-/](secret|password)[""']\s*,\s*(\$?@?|N?|(u8?|L)?R?|(\((const )?\w{5,10}\*\))?))"
-                + @"(?<q1>['""\\]+)"
-                + @"(?=(?<Password>[^""'][^\s""']{2,1100}?)\k<q1>)\s*[\)\}]|([""']?name[""']?\s*[=:]\s*[""']\w{0,60}passwords?[""'][, ]\s*[""']?value[""']?\s*[=:]\s*[""'](?<Password>[^""']+)[""'])|((^|[/\s%""'\$,\.@\->:])\w{0,60}(secret|password(override)?|(primary|secondary)Key)[""'\]\\]*\s*[=:]+\s*(\$?@?|N?|(u8?|L)?R?|(\((const )?\w{5,10}\*\))?)(?<q2>['""\\]+)(?<Password>[^""'][^\s""']{2,1100}?)\k<q2>)|([cC]onvert[tT]o\-?[sS]ecure[sS]tring\s*((\(|\W[sS]tring)\s*)?(?<q3>['""\\]+)(?<Password>[^""'][^\s""']{2,1100}?)\k<q3>)|((?<Password>[a-z0-9/+=]{10})[""']\s*\|\s*[cC]onvert[tT]o\-?[sS]ecure[sS]tring\s)|(new(\-Object)?\s+((System\.Security\.Cryptography\.X509Certificates\.)?X509Certificate2?|(System\.Net\.)?NetworkCredential|WebCredentials)\([^\(\),]+\s*,\s*""(?<Password>[^\s""]{2,1100}?)""|(SetPassword)\(\s*""(?<Password>[^\s""]{2,1100}?)""|#define \w*(secret|password)\s+""(?<Password>[^""]+)))",
+                // skipped pattern: ([a-z_\s%\$,\.@\-/](secret|password)["']\s*,\s*(\$?@?|N?|(u8?|L)?R?|(\((const )?\w{5,10}\*\))?)(?<q1>['"\\]+)(?<Password>[^"'][^\s"']{2,1100}?)\k<q1>)\s*[\)\}]|(["']?name["']?\s*[=:]\s*["']\w{0,60}passwords?["'][, ]\s*["']?value["']?\s*[=:]\s*["'](?<Password>[^"']+)["'])|((^|[/\s%"'\$,\.@\->:])\w{0,60}(secret|password(override)?|(primary|secondary)Key)["'\]\\]*\s*[=:]+\s*(\$?@?|N?|(u8?|L)?R?|(\((const )?\w{5,10}\*\))?)(?<q2>['"\\]+)(?<Password>[^"'][^\s"']{2,1100}?)\k<q2>)|([cC]onvert[tT]o\-?[sS]ecure[sS]tring\s*((\(|\W[sS]tring)\s*)?(?<q3>['"\\]+)(?<Password>[^"'][^\s"']{2,1100}?)\k<q3>)|((?<Password>[a-z0-9/+=]{10})["']\s*\|\s*[cC]onvert[tT]o\-?[sS]ecure[sS]tring\s)|(new(\-Object)?\s+((System\.Security\.Cryptography\.X509Certificates\.)?X509Certificate2?|(System\.Net\.)?NetworkCredential|WebCredentials)\([^\(\),]+\s*,\s*"(?<Password>[^\s"]{2,1100}?)"|(SetPassword)\(\s*"(?<Password>[^\s"]{2,1100}?)"|#define \w*(secret|password)\s+"(?<Password>[^"]+))
 
                 // PasswordContextInScript
                 @"(?<=\s-(admin|user|vm)?password\s+[""']?)"
@@ -166,9 +160,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 + @"(?=[""']?)",
 
                 // PasswordContextInXml
-                @"(?<=<[a-z]*(userpass|password|pwd|secret|credential)(\s+[\w\-]+=[""'][^""']+?[""'])?>)"
-                + @"(?<Password>[^<]+)"
-                + @"(?=</[a-z]*(userpass|password|pwd|secret|credential)>|<(add\s+key|\w*(setting|credential|variable|parameter)[^>]+name)\s*=\s*""[^""]*ConnectionString""[^<]{1,60}<?value(\s*=\s*""|>)(?<Password>[a-z0-9/+=!#\.;\-_]{200})|<(add\s+key|\w*(setting|credential|variable|parameter)[^>]+name)\s*=\s*""[^""]*([^\s][kK][eE][yY]([sS]|[0-9])?(Value)?|([cC]redential|CREDENTIAL)[sS]?[a-z0-9]?|([sS]ecret|SECRET)(s|S|[0-9])?|PASSWORDS?|PWD|PW|[tT]oken|TOKEN|([kK]ey|KEY)([pP]rimary|PRIMARY|[sS]econdary|SECONDARY|[oO]r[sS]as|SAS|[eE]ncrypted|ENCRYPTED))""[^<]{1,60}<?value(\s*=\s*""|>)(?<Password>[^""<]+)|<add\s+key\s*=\s*""[^""]+""\s*value\s*=\s*""[^""]*?([eE]ncrypted|ENCRYPTED).?([sS]ecret|SECRET)(?<Password>[^""]+)"")",
+                // skipped pattern: <[a-z]*(userpass|password|pwd|secret|credential)(\s+[\w\-]+=["'][^"']+?["'])?>(?<Password>[^<]+)</[a-z]*(userpass|password|pwd|secret|credential)>|<(add\s+key|\w*(setting|credential|variable|parameter)[^>]+name)\s*=\s*"[^"]*ConnectionString"[^<]{1,60}<?value(\s*=\s*"|>)(?<Password>[a-z0-9/+=!#\.;\-_]{200})|<(add\s+key|\w*(setting|credential|variable|parameter)[^>]+name)\s*=\s*"[^"]*([^\s][kK][eE][yY]([sS]|[0-9])?(Value)?|([cC]redential|CREDENTIAL)[sS]?[a-z0-9]?|([sS]ecret|SECRET)(s|S|[0-9])?|PASSWORDS?|PWD|PW|[tT]oken|TOKEN|([kK]ey|KEY)([pP]rimary|PRIMARY|[sS]econdary|SECONDARY|[oO]r[sS]as|SAS|[eE]ncrypted|ENCRYPTED))"[^<]{1,60}<?value(\s*=\s*"|>)(?<Password>[^"<]+)|<add\s+key\s*=\s*"[^"]+"\s*value\s*=\s*"[^"]*?([eE]ncrypted|ENCRYPTED).?([sS]ecret|SECRET)(?<Password>[^"]+)"
 
                 // SymmetricKeyContextInXml
                 @"<(machineKey|parameter name=""|[a-z]+AccountInfo[^a-z])",

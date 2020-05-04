@@ -27,17 +27,24 @@ namespace CredScanRegexes
 
                 foreach (var pattern in regex.Value)
                 {
-                    string[] subPatterns = AddNonmatchingGroups(pattern);
+                    string[] subPatterns = PreprocessPattern(pattern);
                     var escapedPatterns =
                         from p in subPatterns
                         select p.Replace("\"", "\"\"");
                     
-                    sb.Append($"{sp}@\"{escapedPatterns.First()}\"");
-                    foreach (var ep in escapedPatterns.Skip(1))
+                    if (escapedPatterns.Count() > 0)
                     {
-                        sb.Append($"\n{sp}+ @\"{ep}\"");
+                        sb.Append($"{sp}@\"{escapedPatterns.First()}\"");
+                        foreach (var ep in escapedPatterns.Skip(1))
+                        {
+                            sb.Append($"\n{sp}+ @\"{ep}\"");
+                        }
+                        sb.Append(",\n");
                     }
-                    sb.Append(",\n");
+                    else
+                    {
+                        sb.Append($"{sp}// skipped pattern: {pattern}\n");
+                    }
                 }
 
                 sb.Append("\n");
@@ -89,13 +96,32 @@ namespace CredScanRegexes
             return assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion;
         }
 
+        private static int CountOccurrences(string needle, string haystack)
+        {
+            int count = 0;
+            int start = haystack.IndexOf(needle);
+            while (start > -1)
+            {
+                count++;
+                haystack = haystack.Substring(start + needle.Length);
+                start = haystack.IndexOf(needle);
+            }
+            return count;
+        }
+
         // if a CredScan pattern has a named group, then the credential
         // is assumed to be in that group. otherwise, the entire pattern
         // is the credential. the azure pipelines agent assumes the whole
         // pattern is the credential to suppress, so we need to doctor up
         // CredScan patterns with non-matching groups.
-        private static string[] AddNonmatchingGroups(string pattern)
+        private static string[] PreprocessPattern(string pattern)
         {
+            // multiple named groups confuses things, so skip them for now
+            if (CountOccurrences("(?<", pattern) > 1)
+            {
+                return new string[] { };
+            }
+
             if (pattern.IndexOf("(?<") > -1)
             {
                 // finding the beginning of the named capture group is easy
