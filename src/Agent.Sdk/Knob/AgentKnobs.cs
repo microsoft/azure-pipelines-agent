@@ -48,7 +48,7 @@ namespace Agent.Sdk.Knob
             "Determines which Git we will use on Windows. By default, we prefer the built-in portable git in the agent's externals folder, setting this to true makes the agent find git.exe from %PATH% if possible.",
             new RuntimeKnobSource("system.prefergitfrompath"),
             new EnvironmentKnobSource("system.prefergitfrompath"),
-            new BuiltInDefaultKnobSource("true"));
+            new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob DisableGitPrompt = new Knob(
             nameof(DisableGitPrompt),
