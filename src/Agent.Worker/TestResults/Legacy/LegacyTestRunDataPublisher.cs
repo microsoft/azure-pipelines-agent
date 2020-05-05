@@ -80,6 +80,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
             return reader;
         }
 
+        public async static Task DoIt() 
+        {
+            var results = await Task.WhenAll(
+                RunTimeLimitedTask(10),
+                RunTimeLimitedTask(1000));
+            
+            foreach(var result in results) Console.WriteLine(result);
+        }
+
+        public async static Task<string> RunTimeLimitedTask(int timeLimit)
+        {
+            var source = new CancellationTokenSource();
+            source.CancelAfter(timeLimit);
+
+            // try {
+                // mimic a web request that will take 500ms
+                await Task.Run(async () => await Task.Delay(500, source.Token));
+                return "Complete";
+            // }
+            // catch (TaskCanceledException) {
+            // 	return "Cancelled";
+            // }
+        }
+
         /// <summary>
         /// Publish single test run
         /// </summary>
@@ -97,6 +121,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                 List<string> runAttachments = new List<string>();
                 List<TestCaseResultData> runResults = new List<TestCaseResultData>();
                 TestRunSummary testRunSummary = new TestRunSummary();
+                DoIt().GetAwaiter().GetResult();
                 //read results from each file
                 foreach (string resultFile in resultFiles)
                 {
@@ -203,9 +228,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 
                 StoreTestRunSummaryInEnvVar(testRunSummary);
             }
-            catch (Exception ex) when (!(ex is OperationCanceledException))
+            catch (Exception ex) when (!(ex is OperationCanceledException && _executionContext.CancellationToken.IsCancellationRequested))
             {
-                //Do not fail the task.
+                // Not catching all the operationcancelled exceptions, as the pipeline cancellation should cancel the command as well.
+                // Do not fail the task.
                 LogPublishTestResultsFailureWarning(ex);
             }
             return isTestRunOutcomeFailed;
@@ -242,7 +268,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 
                 bool changeTestRunTitle = resultFiles.Count > 1;
                 TestRunSummary testRunSummary = new TestRunSummary();
-
+                DoIt().GetAwaiter().GetResult();
                 foreach (var files in groupedFiles)
                 {
                     // Publish separate test run for each result file that has results.
@@ -289,9 +315,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 
                 StoreTestRunSummaryInEnvVar(testRunSummary);
             }
-            catch (Exception ex) when (!(ex is OperationCanceledException))
+            catch (Exception ex) when (!(ex is OperationCanceledException && _executionContext.CancellationToken.IsCancellationRequested))
             {
-                //Do not fail the task.
+                // Not catching all the operationcancelled exceptions, as the pipeline cancellation should cancel the command as well.
+                // Do not fail the task.
                 LogPublishTestResultsFailureWarning(ex);
             }
             return isTestRunOutcomeFailed;
