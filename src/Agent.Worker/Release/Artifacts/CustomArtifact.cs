@@ -22,9 +22,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
     {
         public Type ExtensionType => typeof(IArtifactExtension);
         public AgentArtifactType ArtifactType => AgentArtifactType.Custom;
-        
+
         public async Task DownloadAsync(IExecutionContext executionContext, ArtifactDefinition artifactDefinition, string downloadFolderPath)
         {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+            ArgUtil.NotNull(artifactDefinition, nameof(artifactDefinition));
+
             EnsureVersionBelongsToLinkedDefinition(artifactDefinition);
 
             var customArtifactDetails = artifactDefinition.Details as CustomArtifactDetails;
@@ -57,6 +60,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
 
         public IArtifactDetails GetArtifactDetails(IExecutionContext context, AgentArtifactDefinition agentArtifactDefinition)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(agentArtifactDefinition, nameof(agentArtifactDefinition));
+
             var artifactDetails = JsonConvert.DeserializeObject<Dictionary<string, string>>(agentArtifactDefinition.Details);
 
             string connectionName;

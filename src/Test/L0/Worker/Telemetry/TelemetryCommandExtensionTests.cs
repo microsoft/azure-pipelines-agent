@@ -21,7 +21,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Telemetry
         private List<string> _errors = new List<string>();
         private Mock<ICustomerIntelligenceServer> _mockCiService;
         private Mock<IAsyncCommandContext> _mockCommandContext;
-        private TestHostContext _hc;
         private IWorkerCommandRestrictionPolicy _policy = new UnrestricedWorkerCommandRestrictionPolicy();
 
         [Fact]
@@ -29,25 +28,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Telemetry
         [Trait("Category", "Telemetry")]
         public void PublishTelemetryCommandWithCiProps()
         {
-            SetupMocks();
-            var publishTelemetryCmd = new TelemetryCommandExtension();
-            publishTelemetryCmd.Initialize(_hc);
-
-            var data = new Dictionary<string, object>()
+            using (var _hc = SetupMocks())
             {
-                {"key1", "valu\\e1"},
-                {"key2", "value2"},
-                {"key3", Int64.Parse("4") }
-            };
+                var publishTelemetryCmd = new TelemetryCommandExtension();
+                publishTelemetryCmd.Initialize(_hc);
 
-            var json = JsonConvert.SerializeObject(data, Formatting.None);
-            var cmd = new Command("telemetry", "publish");
-            cmd.Data = json;
-            cmd.Properties.Add("area", "Test");
-            cmd.Properties.Add("feature", "Task");
+                var data = new Dictionary<string, object>()
+                {
+                    {"key1", "valu\\e1"},
+                    {"key2", "value2"},
+                    {"key3", Int64.Parse("4") }
+                };
 
-            publishTelemetryCmd.ProcessCommand(_ec.Object, cmd, _policy);
-            _mockCiService.Verify(s => s.PublishEventsAsync(It.Is<CustomerIntelligenceEvent[]>(e => VerifyEvent(e, data))), Times.Once());
+                var json = JsonConvert.SerializeObject(data, Formatting.None);
+                var cmd = new Command("telemetry", "publish");
+                cmd.Data = json;
+                cmd.Properties.Add("area", "Test");
+                cmd.Properties.Add("feature", "Task");
+
+                publishTelemetryCmd.ProcessCommand(_ec.Object, cmd, _policy);
+                _mockCiService.Verify(s => s.PublishEventsAsync(It.Is<CustomerIntelligenceEvent[]>(e => VerifyEvent(e, data))), Times.Once());
+            }
         }
 
         [Fact]
@@ -55,23 +56,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Telemetry
         [Trait("Category", "Telemetry")]
         public void PublishTelemetryCommandWithSpecialCiProps()
         {
-            SetupMocks();
-            var publishTelemetryCmd = new TelemetryCommandExtension();
-            publishTelemetryCmd.Initialize(_hc);
-
-            var data = new Dictionary<string, object>()
+            using (var _hc = SetupMocks())
             {
-                {"key1", "va@lu;çe1"}
-            };
+                var publishTelemetryCmd = new TelemetryCommandExtension();
+                publishTelemetryCmd.Initialize(_hc);
 
-            var json = JsonConvert.SerializeObject(data, Formatting.None);
-            var cmd = new Command("telemetry", "publish");
-            cmd.Data = json;
-            cmd.Properties.Add("area", "Test");
-            cmd.Properties.Add("feature", "Task");
+                var data = new Dictionary<string, object>()
+                {
+                    {"key1", "va@lu;çe1"}
+                };
 
-            publishTelemetryCmd.ProcessCommand(_ec.Object, cmd, _policy);
-            _mockCiService.Verify(s => s.PublishEventsAsync(It.Is<CustomerIntelligenceEvent[]>(e => VerifyEvent(e, data))), Times.Once());
+                var json = JsonConvert.SerializeObject(data, Formatting.None);
+                var cmd = new Command("telemetry", "publish");
+                cmd.Data = json;
+                cmd.Properties.Add("area", "Test");
+                cmd.Properties.Add("feature", "Task");
+
+                publishTelemetryCmd.ProcessCommand(_ec.Object, cmd, _policy);
+                _mockCiService.Verify(s => s.PublishEventsAsync(It.Is<CustomerIntelligenceEvent[]>(e => VerifyEvent(e, data))), Times.Once());
+            }
         }
 
         [Fact]
@@ -79,15 +82,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Telemetry
         [Trait("Category", "Telemetry")]
         public void PublishTelemetryWithoutArea()
         {
-            SetupMocks();
-            var publishTelemetryCmd = new TelemetryCommandExtension();
-            publishTelemetryCmd.Initialize(_hc);
+            using (var _hc = SetupMocks())
+            {
+                var publishTelemetryCmd = new TelemetryCommandExtension();
+                publishTelemetryCmd.Initialize(_hc);
 
-            var cmd = new Command("telemetry", "publish");
-            cmd.Data = "key1=value1;key2=value2";
-            cmd.Properties.Add("feature", "Task");
+                var cmd = new Command("telemetry", "publish");
+                cmd.Data = "key1=value1;key2=value2";
+                cmd.Properties.Add("feature", "Task");
 
-            Assert.Throws<ArgumentException>(() => publishTelemetryCmd.ProcessCommand(_ec.Object, cmd, _policy));
+                Assert.Throws<ArgumentException>(() => publishTelemetryCmd.ProcessCommand(_ec.Object, cmd, _policy));
+            }
         }
 
         [Fact]
@@ -95,15 +100,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Telemetry
         [Trait("Category", "Telemetry")]
         public void PublishTelemetryWithoutFeature()
         {
-            SetupMocks();
-            var publishTelemetryCmd = new TelemetryCommandExtension();
-            publishTelemetryCmd.Initialize(_hc);
+            using (var _hc = SetupMocks())
+            {
+                var publishTelemetryCmd = new TelemetryCommandExtension();
+                publishTelemetryCmd.Initialize(_hc);
 
-            var cmd = new Command("telemetry", "publish");
-            cmd.Data = "key1=value1;key2=value2";
-            cmd.Properties.Add("area", "Test");
+                var cmd = new Command("telemetry", "publish");
+                cmd.Data = "key1=value1;key2=value2";
+                cmd.Properties.Add("area", "Test");
 
-            Assert.Throws<ArgumentException>(() => publishTelemetryCmd.ProcessCommand(_ec.Object, cmd, _policy));
+                Assert.Throws<ArgumentException>(() => publishTelemetryCmd.ProcessCommand(_ec.Object, cmd, _policy));
+            }
         }
 
         [Fact]
@@ -111,15 +118,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Telemetry
         [Trait("Category", "Telemetry")]
         public void PublishTelemetryWithoutCiData()
         {
-            SetupMocks();
-            var publishTelemetryCmd = new TelemetryCommandExtension();
-            publishTelemetryCmd.Initialize(_hc);
+            using (var _hc = SetupMocks())
+            {
+                var publishTelemetryCmd = new TelemetryCommandExtension();
+                publishTelemetryCmd.Initialize(_hc);
 
-            var cmd = new Command("telemetry", "publish");
-            cmd.Properties.Add("area", "Test");
-            cmd.Properties.Add("feature", "Task");
+                var cmd = new Command("telemetry", "publish");
+                cmd.Properties.Add("area", "Test");
+                cmd.Properties.Add("feature", "Task");
 
-            Assert.Throws<ArgumentException>(() => publishTelemetryCmd.ProcessCommand(_ec.Object, cmd, _policy));
+                Assert.Throws<ArgumentException>(() => publishTelemetryCmd.ProcessCommand(_ec.Object, cmd, _policy));
+            }
         }
 
         [Fact]
@@ -127,15 +136,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Telemetry
         [Trait("Category", "Telemetry")]
         public void PublishTelemetryWithoutCommandEvent()
         {
-            SetupMocks();
-            var publishTelemetryCmd = new TelemetryCommandExtension();
-            publishTelemetryCmd.Initialize(_hc);
+            using (var _hc = SetupMocks())
+            {
+                var publishTelemetryCmd = new TelemetryCommandExtension();
+                publishTelemetryCmd.Initialize(_hc);
 
-            var cmd = new Command("telemetry", "abcxyz");
-            cmd.Properties.Add("area", "Test");
-            cmd.Properties.Add("feature", "Task");
+                var cmd = new Command("telemetry", "abcxyz");
+                cmd.Properties.Add("area", "Test");
+                cmd.Properties.Add("feature", "Task");
 
-            var ex = Assert.Throws<Exception>(() => publishTelemetryCmd.ProcessCommand(_ec.Object, cmd, _policy));
+                var ex = Assert.Throws<Exception>(() => publishTelemetryCmd.ProcessCommand(_ec.Object, cmd, _policy));
+            }
         }
 
         [Fact]
@@ -143,33 +154,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Telemetry
         [Trait("Category", "Telemetry")]
         public void PublishTelemetryCommandWithExceptionFromServer()
         {
-            SetupMocks();
-            _mockCiService.Setup(x => x.PublishEventsAsync(It.IsAny<CustomerIntelligenceEvent[]>())).Throws<Exception>();
-
-            var publishTelemetryCmd = new TelemetryCommandExtension();
-            publishTelemetryCmd.Initialize(_hc);
-
-            var data = new Dictionary<string, object>()
+            using (var _hc = SetupMocks())
             {
-                {"key1", "valu\\e1"},
-                {"key2", "value2"},
-                {"key3", Int64.Parse("4") }
-            };
+                _mockCiService.Setup(x => x.PublishEventsAsync(It.IsAny<CustomerIntelligenceEvent[]>())).Throws<Exception>();
 
-            var json = JsonConvert.SerializeObject(data, Formatting.None);
-            var cmd = new Command("telemetry", "publish");
-            cmd.Data = json;
-            cmd.Properties.Add("area", "Test");
-            cmd.Properties.Add("feature", "Task");
+                var publishTelemetryCmd = new TelemetryCommandExtension();
+                publishTelemetryCmd.Initialize(_hc);
 
-            publishTelemetryCmd.ProcessCommand(_ec.Object, cmd, _policy);
-            _mockCiService.Verify(s => s.PublishEventsAsync(It.Is<CustomerIntelligenceEvent[]>(e => VerifyEvent(e, data))), Times.Once());
-            Assert.True(_warnings.Count > 0);
+                var data = new Dictionary<string, object>()
+                {
+                    {"key1", "valu\\e1"},
+                    {"key2", "value2"},
+                    {"key3", Int64.Parse("4") }
+                };
+
+                var json = JsonConvert.SerializeObject(data, Formatting.None);
+                var cmd = new Command("telemetry", "publish");
+                cmd.Data = json;
+                cmd.Properties.Add("area", "Test");
+                cmd.Properties.Add("feature", "Task");
+
+                publishTelemetryCmd.ProcessCommand(_ec.Object, cmd, _policy);
+                _mockCiService.Verify(s => s.PublishEventsAsync(It.Is<CustomerIntelligenceEvent[]>(e => VerifyEvent(e, data))), Times.Once());
+                Assert.True(_warnings.Count > 0);
+            }
         }
 
-        private void SetupMocks([CallerMemberName] string name = "")
+        private TestHostContext SetupMocks([CallerMemberName] string name = "")
         {
-            _hc = new TestHostContext(this, name);
+            var _hc = new TestHostContext(this, name);
 
             _mockCiService = new Mock<ICustomerIntelligenceServer>();
             _hc.SetSingleton(_mockCiService.Object);
@@ -204,6 +217,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Telemetry
                 }
             });
             _ec.Setup(x => x.GetHostContext()).Returns(_hc);
+
+            return _hc;
         }
 
         private bool VerifyEvent(CustomerIntelligenceEvent[] ciEvent, Dictionary<string, object> eventData)

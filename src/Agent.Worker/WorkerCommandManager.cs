@@ -30,6 +30,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public override void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
+
             base.Initialize(hostContext);
 
             // Register all command extensions
@@ -64,6 +66,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public bool TryProcessCommand(IExecutionContext context, string input)
         {
+            ArgUtil.NotNull(context, nameof(context));
             if (string.IsNullOrEmpty(input))
             {
                 return false;
@@ -177,7 +180,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         public bool isCommandAllowed(IWorkerCommand command)
         {
-
+            ArgUtil.NotNull(command, nameof(command));
             foreach (var attr in command.GetType().GetCustomAttributes(typeof(CommandRestrictionAttribute), false))
             {
                 var cra = attr as CommandRestrictionAttribute;
@@ -203,6 +206,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         protected void InstallWorkerCommand(IWorkerCommand commandExecutor)
         {
+            ArgUtil.NotNull(commandExecutor, nameof(commandExecutor));
             if (_commands.ContainsKey(commandExecutor.Name))
             {
                 throw new Exception(StringUtil.Loc("CommandDuplicateDetected", commandExecutor.Name, CommandArea.ToLowerInvariant()));
@@ -230,6 +234,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void ProcessCommand(IExecutionContext context, Command command, IWorkerCommandRestrictionPolicy restrictionPolicy)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
+            ArgUtil.NotNull(restrictionPolicy, nameof(restrictionPolicy));
+
             var commandExecutor = GetWorkerCommand(command.Event);
             if (commandExecutor == null)
             {

@@ -18,51 +18,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        [Trait("SkipOn", "darwin")]
-        [Trait("SkipOn", "linux")]
-        public async Task DefaultsToCurrentSystemOemEncoding()
-        {
-            // This test verifies that the additional code pages encoding provider is registered.
-            // By default, only Unicode encodings, ASCII, and code page 28591 are supported. An
-            // additional provider must be registered to support the full set of encodings that
-            // were included in Full .NET prior to 4.6.
-            //
-            // For example, on an en-US box, this is required for loading the encoding for the
-            // default console output code page '437'. Without loading the correct encoding for
-            // code page IBM437, some characters cannot be translated correctly, e.g. write 'ç'
-            // from powershell.exe.
-            using (TestHostContext hc = new TestHostContext(this))
-            {
-                Tracing trace = hc.GetTrace();
-                var processInvoker = new ProcessInvokerWrapper();
-                processInvoker.Initialize(hc);
-                var stdout = new List<string>();
-                var stderr = new List<string>();
-                processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
-                {
-                    stdout.Add(e.Data);
-                };
-                processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
-                {
-                    stderr.Add(e.Data);
-                };
-                await processInvoker.ExecuteAsync(
-                    workingDirectory: "",
-                    fileName: "powershell.exe",
-                    arguments: $@"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command ""Write-Host 'From STDOUT ''ç''' ; Write-Error 'From STDERR ''ç'''""",
-                    environment: null,
-                    requireExitCodeZero: false,
-                    cancellationToken: CancellationToken.None);
-                Assert.Equal(1, stdout.Count);
-                Assert.Equal("From STDOUT 'ç'", stdout[0]);
-                Assert.True(stderr.Count > 0);
-                Assert.True(stderr[0].Contains("From STDERR 'ç'"));
-            }
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Common")]
         public async Task SuccessExitsWithCodeZero()
         {
             using (TestHostContext hc = new TestHostContext(this))
@@ -70,14 +25,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 Tracing trace = hc.GetTrace();
 
                 Int32 exitCode = -1;
-                var processInvoker = new ProcessInvokerWrapper();
-                processInvoker.Initialize(hc);
-                exitCode = (TestUtil.IsWindows())
-                    ? await processInvoker.ExecuteAsync("", "cmd.exe", "/c \"dir >nul\"", null, CancellationToken.None)
-                    : await processInvoker.ExecuteAsync("", "bash", "-c echo .", null, CancellationToken.None);
+                using (var processInvoker = new ProcessInvokerWrapper())
+                {
+                    processInvoker.Initialize(hc);
+                    exitCode = (TestUtil.IsWindows())
+                        ? await processInvoker.ExecuteAsync("", "cmd.exe", "/c \"dir >nul\"", null, CancellationToken.None)
+                        : await processInvoker.ExecuteAsync("", "bash", "-c echo .", null, CancellationToken.None);
 
-                trace.Info("Exit Code: {0}", exitCode);
-                Assert.Equal(0, exitCode);
+                    trace.Info("Exit Code: {0}", exitCode);
+                    Assert.Equal(0, exitCode);
+                }
             }
         }
 
@@ -93,32 +50,34 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (var tokenSource = new CancellationTokenSource())
             {
                 Tracing trace = hc.GetTrace();
-                var processInvoker = new ProcessInvokerWrapper();
-                processInvoker.Initialize(hc);
-                Stopwatch watch = Stopwatch.StartNew();
-                Task execTask = processInvoker.ExecuteAsync("", "bash", $"-c \"sleep {SecondsToRun}s\"", null, tokenSource.Token);
-
-                await Task.Delay(500);
-                tokenSource.Cancel();
-                try
+                using (var processInvoker = new ProcessInvokerWrapper())
                 {
-                    await execTask;
+                    processInvoker.Initialize(hc);
+                    Stopwatch watch = Stopwatch.StartNew();
+                    Task execTask = processInvoker.ExecuteAsync("", "bash", $"-c \"sleep {SecondsToRun}s\"", null, tokenSource.Token);
+
+                    await Task.Delay(500);
+                    tokenSource.Cancel();
+                    try
+                    {
+                        await execTask;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        trace.Info("Get expected OperationCanceledException.");
+                    }
+
+                    Assert.True(execTask.IsCompleted);
+                    Assert.True(!execTask.IsFaulted);
+                    Assert.True(execTask.IsCanceled);
+                    watch.Stop();
+                    long elapsedSeconds = watch.ElapsedMilliseconds / 1000;
+
+                    // if cancellation fails, then execution time is more than 15 seconds
+                    long expectedSeconds = (SecondsToRun * 3) / 4;
+
+                    Assert.True(elapsedSeconds <= expectedSeconds, $"cancellation failed, because task took too long to run. {elapsedSeconds}");
                 }
-                catch (OperationCanceledException)
-                {
-                    trace.Info("Get expected OperationCanceledException.");
-                }
-
-                Assert.True(execTask.IsCompleted);
-                Assert.True(!execTask.IsFaulted);
-                Assert.True(execTask.IsCanceled);
-                watch.Stop();
-                long elapsedSeconds = watch.ElapsedMilliseconds / 1000;
-
-                // if cancellation fails, then execution time is more than 15 seconds
-                long expectedSeconds = (SecondsToRun * 3) / 4;
-
-                Assert.True(elapsedSeconds <= expectedSeconds, $"cancellation failed, because task took too long to run. {elapsedSeconds}");
             }
         }
 
@@ -128,46 +87,48 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         public async Task RedirectSTDINCloseStream()
         {
             using (TestHostContext hc = new TestHostContext(this))
+            using (var redirectSTDIN = new InputQueue<string>())
             {
                 Tracing trace = hc.GetTrace();
-                CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
                 Int32 exitCode = -1;
-                InputQueue<string> redirectSTDIN = new InputQueue<string>();
                 List<string> stdout = new List<string>();
                 redirectSTDIN.Enqueue("Single line of STDIN");
 
-                var processInvoker = new ProcessInvokerWrapper();
-                processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
-                 {
-                     stdout.Add(e.Data);
-                 };
-
-                processInvoker.Initialize(hc);
-                var proc = (TestUtil.IsWindows())
-                    ? processInvoker.ExecuteAsync("", "cmd.exe", "/c more", null, false, null, false, redirectSTDIN, false, false, cancellationTokenSource.Token)
-                    : processInvoker.ExecuteAsync("", "bash", "-c \"read input; echo $input; read input; echo $input; read input; echo $input;\"", null, false, null, false, redirectSTDIN, false, false, cancellationTokenSource.Token);
-
-                redirectSTDIN.Enqueue("More line of STDIN");
-                redirectSTDIN.Enqueue("More line of STDIN");
-                await Task.Delay(100);
-                redirectSTDIN.Enqueue("More line of STDIN");
-                redirectSTDIN.Enqueue("More line of STDIN");
-                await Task.Delay(100);
-                redirectSTDIN.Enqueue("More line of STDIN");
-                cancellationTokenSource.CancelAfter(100);
-
-                try
+                using (var cancellationTokenSource = new CancellationTokenSource() )
+                using (var processInvoker = new ProcessInvokerWrapper())
                 {
-                    exitCode = await proc;
-                    trace.Info("Exit Code: {0}", exitCode);
-                }
-                catch (Exception ex)
-                {
-                    trace.Error(ex);
-                }
+                    processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
+                    {
+                        stdout.Add(e.Data);
+                    };
 
-                trace.Info("STDOUT: {0}", string.Join(Environment.NewLine, stdout));
-                Assert.False(stdout.Contains("More line of STDIN"), "STDIN should be closed after first input line.");
+                    processInvoker.Initialize(hc);
+                    var proc = (TestUtil.IsWindows())
+                        ? processInvoker.ExecuteAsync("", "cmd.exe", "/c more", null, false, null, false, redirectSTDIN, false, false, cancellationTokenSource.Token)
+                        : processInvoker.ExecuteAsync("", "bash", "-c \"read input; echo $input; read input; echo $input; read input; echo $input;\"", null, false, null, false, redirectSTDIN, false, false, cancellationTokenSource.Token);
+
+                    redirectSTDIN.Enqueue("More line of STDIN");
+                    redirectSTDIN.Enqueue("More line of STDIN");
+                    await Task.Delay(100);
+                    redirectSTDIN.Enqueue("More line of STDIN");
+                    redirectSTDIN.Enqueue("More line of STDIN");
+                    await Task.Delay(100);
+                    redirectSTDIN.Enqueue("More line of STDIN");
+                    cancellationTokenSource.CancelAfter(100);
+
+                    try
+                    {
+                        exitCode = await proc;
+                        trace.Info("Exit Code: {0}", exitCode);
+                    }
+                    catch (Exception ex)
+                    {
+                        trace.Error(ex);
+                    }
+
+                    trace.Info("STDOUT: {0}", string.Join(Environment.NewLine, stdout));
+                    Assert.False(stdout.Contains("More line of STDIN"), "STDIN should be closed after first input line.");
+                }
             }
         }
 
@@ -177,46 +138,47 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         public async Task RedirectSTDINKeepStreamOpen()
         {
             using (TestHostContext hc = new TestHostContext(this))
+            using (var redirectSTDIN = new InputQueue<string>())
             {
                 Tracing trace = hc.GetTrace();
-                CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
                 Int32 exitCode = -1;
-                InputQueue<string> redirectSTDIN = new InputQueue<string>();
                 List<string> stdout = new List<string>();
                 redirectSTDIN.Enqueue("Single line of STDIN");
-
-                var processInvoker = new ProcessInvokerWrapper();
-                processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
-                 {
-                     stdout.Add(e.Data);
-                 };
-
-                processInvoker.Initialize(hc);
-                var proc = (TestUtil.IsWindows())
-                    ? processInvoker.ExecuteAsync("", "cmd.exe", "/c more", null, false, null, false, redirectSTDIN, false, true, cancellationTokenSource.Token)
-                    : processInvoker.ExecuteAsync("", "bash", "-c \"read input; echo $input; read input; echo $input; read input; echo $input;\"", null, false, null, false, redirectSTDIN, false, true, cancellationTokenSource.Token);
-
-                redirectSTDIN.Enqueue("More line of STDIN");
-                redirectSTDIN.Enqueue("More line of STDIN");
-                await Task.Delay(100);
-                redirectSTDIN.Enqueue("More line of STDIN");
-                redirectSTDIN.Enqueue("More line of STDIN");
-                await Task.Delay(100);
-                redirectSTDIN.Enqueue("More line of STDIN");
-                cancellationTokenSource.CancelAfter(100);
-
-                try
+                using (var cancellationTokenSource = new CancellationTokenSource() )
+                using (var processInvoker = new ProcessInvokerWrapper())
                 {
-                    exitCode = await proc;
-                    trace.Info("Exit Code: {0}", exitCode);
-                }
-                catch (Exception ex)
-                {
-                    trace.Error(ex);
-                }
+                    processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
+                    {
+                        stdout.Add(e.Data);
+                    };
 
-                trace.Info("STDOUT: {0}", string.Join(Environment.NewLine, stdout));
-                Assert.True(stdout.Contains("More line of STDIN"), "STDIN should keep open and accept more inputs after first input line.");
+                    processInvoker.Initialize(hc);
+                    var proc = (TestUtil.IsWindows())
+                        ? processInvoker.ExecuteAsync("", "cmd.exe", "/c more", null, false, null, false, redirectSTDIN, false, true, cancellationTokenSource.Token)
+                        : processInvoker.ExecuteAsync("", "bash", "-c \"read input; echo $input; read input; echo $input; read input; echo $input;\"", null, false, null, false, redirectSTDIN, false, true, cancellationTokenSource.Token);
+
+                    redirectSTDIN.Enqueue("More line of STDIN");
+                    redirectSTDIN.Enqueue("More line of STDIN");
+                    await Task.Delay(100);
+                    redirectSTDIN.Enqueue("More line of STDIN");
+                    redirectSTDIN.Enqueue("More line of STDIN");
+                    await Task.Delay(100);
+                    redirectSTDIN.Enqueue("More line of STDIN");
+                    cancellationTokenSource.CancelAfter(100);
+
+                    try
+                    {
+                        exitCode = await proc;
+                        trace.Info("Exit Code: {0}", exitCode);
+                    }
+                    catch (Exception ex)
+                    {
+                        trace.Error(ex);
+                    }
+
+                    trace.Info("STDOUT: {0}", string.Join(Environment.NewLine, stdout));
+                    Assert.True(stdout.Contains("More line of STDIN"), "STDIN should keep open and accept more inputs after first input line.");
+                }
             }
         }
 
@@ -235,24 +197,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 using (var tokenSource = new CancellationTokenSource())
                 {
                     Tracing trace = hc.GetTrace();
-                    var processInvoker = new ProcessInvokerWrapper();
-                    processInvoker.Initialize(hc);
-                    int oomScoreAdj = -9999;
-                    processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
+                    using (var processInvoker = new ProcessInvokerWrapper())
                     {
-                        oomScoreAdj = int.Parse(e.Data);
-                        tokenSource.Cancel();
-                    };
-                    try
-                    {
-                        var proc = await processInvoker.ExecuteAsync("", "bash", "-c \"cat /proc/$$/oom_score_adj\"", null, false, null, false, null, false, false,
-                                                            highPriorityProcess: false,
-                                                            cancellationToken: tokenSource.Token);
-                        Assert.Equal(oomScoreAdj, 500);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        trace.Info("Caught expected OperationCanceledException");
+                        processInvoker.Initialize(hc);
+                        int oomScoreAdj = -9999;
+                        processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
+                        {
+                            oomScoreAdj = int.Parse(e.Data);
+                            tokenSource.Cancel();
+                        };
+                        try
+                        {
+                            var proc = await processInvoker.ExecuteAsync("", "bash", "-c \"cat /proc/$$/oom_score_adj\"", null, false, null, false, null, false, false,
+                                                                highPriorityProcess: false,
+                                                                cancellationToken: tokenSource.Token);
+                            Assert.Equal(oomScoreAdj, 500);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            trace.Info("Caught expected OperationCanceledException");
+                        }
                     }
                 }
             }
@@ -273,26 +237,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 using (var tokenSource = new CancellationTokenSource())
                 {
                     Tracing trace = hc.GetTrace();
-                    var processInvoker = new ProcessInvokerWrapper();
-                    processInvoker.Initialize(hc);
-                    int oomScoreAdj = -9999;
-                    processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
+                    using (var processInvoker = new ProcessInvokerWrapper())
                     {
-                        oomScoreAdj = int.Parse(e.Data);
-                        tokenSource.Cancel();
-                    };
-                    try
-                    {
-                        var proc = await processInvoker.ExecuteAsync("", "bash", "-c \"cat /proc/$$/oom_score_adj\"",
-                                                                new Dictionary<string, string> { {"PIPELINE_JOB_OOMSCOREADJ", "1234"} },
-                                                                false, null, false, null, false, false,
-                                                                highPriorityProcess: false,
-                                                                cancellationToken: tokenSource.Token);
-                        Assert.Equal(oomScoreAdj, 1234);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        trace.Info("Caught expected OperationCanceledException");
+                        processInvoker.Initialize(hc);
+                        int oomScoreAdj = -9999;
+                        processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
+                        {
+                            oomScoreAdj = int.Parse(e.Data);
+                            tokenSource.Cancel();
+                        };
+                        try
+                        {
+                            var proc = await processInvoker.ExecuteAsync("", "bash", "-c \"cat /proc/$$/oom_score_adj\"",
+                                                                    new Dictionary<string, string> { {"PIPELINE_JOB_OOMSCOREADJ", "1234"} },
+                                                                    false, null, false, null, false, false,
+                                                                    highPriorityProcess: false,
+                                                                    cancellationToken: tokenSource.Token);
+                            Assert.Equal(oomScoreAdj, 1234);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            trace.Info("Caught expected OperationCanceledException");
+                        }
                     }
                 }
             }
@@ -315,24 +281,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 using (var tokenSource = new CancellationTokenSource())
                 {
                     Tracing trace = hc.GetTrace();
-                    var processInvoker = new ProcessInvokerWrapper();
-                    processInvoker.Initialize(hc);
-                    int oomScoreAdj = -9999;
-                    processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
+                    using (var processInvoker = new ProcessInvokerWrapper())
                     {
-                        oomScoreAdj = int.Parse(e.Data);
-                        tokenSource.Cancel();
-                    };
-                    try
-                    {
-                        var proc = await processInvoker.ExecuteAsync("", "bash", "-c \"cat /proc/$$/oom_score_adj\"", null, false, null, false, null, false, false,
-                                                            highPriorityProcess: true,
-                                                            cancellationToken: tokenSource.Token);
-                        Assert.Equal(oomScoreAdj, 123);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        trace.Info("Caught expected OperationCanceledException");
+                        processInvoker.Initialize(hc);
+                        int oomScoreAdj = -9999;
+                        processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
+                        {
+                            oomScoreAdj = int.Parse(e.Data);
+                            tokenSource.Cancel();
+                        };
+                        try
+                        {
+                            var proc = await processInvoker.ExecuteAsync("", "bash", "-c \"cat /proc/$$/oom_score_adj\"", null, false, null, false, null, false, false,
+                                                                highPriorityProcess: true,
+                                                                cancellationToken: tokenSource.Token);
+                            Assert.Equal(oomScoreAdj, 123);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            trace.Info("Caught expected OperationCanceledException");
+                        }
                     }
                 }
             }
@@ -350,21 +318,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 Int32 exitCode = -1;
                 List<string> stdout = new List<string>();
 
-                var processInvoker = new ProcessInvokerWrapper();
-                processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
-                 {
-                     stdout.Add(e.Data);
-                 };
-                processInvoker.DisableWorkerCommands = true;
-                processInvoker.Initialize(hc);
-                exitCode = (TestUtil.IsWindows())
-                    ? await processInvoker.ExecuteAsync("", "powershell.exe",  $@"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command ""Write-Host '##vso somecommand'""", null, CancellationToken.None)
-                    : await processInvoker.ExecuteAsync("", "bash", "-c \"echo '##vso somecommand'\"", null, CancellationToken.None);
+                using (var processInvoker = new ProcessInvokerWrapper())
+                {
+                    processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
+                    {
+                        stdout.Add(e.Data);
+                    };
+                    processInvoker.DisableWorkerCommands = true;
+                    processInvoker.Initialize(hc);
+                    exitCode = (TestUtil.IsWindows())
+                        ? await processInvoker.ExecuteAsync("", "powershell.exe",  $@"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command ""Write-Host '##vso somecommand'""", null, CancellationToken.None)
+                        : await processInvoker.ExecuteAsync("", "bash", "-c \"echo '##vso somecommand'\"", null, CancellationToken.None);
 
-                trace.Info("Exit Code: {0}", exitCode);
-                Assert.Equal(0, exitCode);
+                    trace.Info("Exit Code: {0}", exitCode);
+                    Assert.Equal(0, exitCode);
 
-                Assert.False(stdout.Contains("##vso somecommand"), $"##vso commands should be escaped.");
+                    Assert.False(stdout.Contains("##vso somecommand"), $"##vso commands should be escaped.");
+                }
             }
         }
 
@@ -380,20 +350,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 Int32 exitCode = -1;
                 List<string> stdout = new List<string>();
 
-                var processInvoker = new ProcessInvokerWrapper();
-                processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
-                 {
-                     stdout.Add(e.Data);
-                 };
-                processInvoker.Initialize(hc);
-                exitCode = (TestUtil.IsWindows())
-                    ? await processInvoker.ExecuteAsync("", "powershell.exe",  $@"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command ""Write-Host '##vso somecommand'""", null, CancellationToken.None)
-                    : await processInvoker.ExecuteAsync("", "bash", "-c \"echo '##vso somecommand'\"", null, CancellationToken.None);
+                using (var processInvoker = new ProcessInvokerWrapper())
+                {
+                    processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
+                    {
+                        stdout.Add(e.Data);
+                    };
+                    processInvoker.Initialize(hc);
+                    exitCode = (TestUtil.IsWindows())
+                        ? await processInvoker.ExecuteAsync("", "powershell.exe",  $@"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command ""Write-Host '##vso somecommand'""", null, CancellationToken.None)
+                        : await processInvoker.ExecuteAsync("", "bash", "-c \"echo '##vso somecommand'\"", null, CancellationToken.None);
 
-                trace.Info("Exit Code: {0}", exitCode);
-                Assert.Equal(0, exitCode);
+                    trace.Info("Exit Code: {0}", exitCode);
+                    Assert.Equal(0, exitCode);
 
-                Assert.True(stdout.Contains("##vso somecommand"), "##vso commands should not be escaped.");
+                    Assert.True(stdout.Contains("##vso somecommand"), "##vso commands should not be escaped.");
+                }
             }
         }
     }

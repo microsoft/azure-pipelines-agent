@@ -6,6 +6,7 @@ using System.IO;
 using System.IO.Pipes;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -34,7 +35,7 @@ namespace Microsoft.VisualStudio.Services.Agent
     [ServiceLocator(Default = typeof(ProcessChannel))]
     public interface IProcessChannel : IDisposable, IAgentService
     {
-        void StartServer(StartProcessDelegate startProcess);
+        void StartServer(StartProcessDelegate startProcess, bool disposeClient = true);
         void StartClient(string pipeNameInput, string pipeNameOutput);
 
         Task SendAsync(MessageType messageType, string body, CancellationToken cancellationToken);
@@ -50,15 +51,19 @@ namespace Microsoft.VisualStudio.Services.Agent
         private StreamString _writeStream;
         private StreamString _readStream;
 
-        public void StartServer(StartProcessDelegate startProcess)
+        public void StartServer(StartProcessDelegate startProcess, bool disposeLocalClientHandle = true)
         {
+            ArgUtil.NotNull(startProcess, nameof(startProcess));
             _outServer = new AnonymousPipeServerStream(PipeDirection.Out, HandleInheritability.Inheritable);
             _inServer = new AnonymousPipeServerStream(PipeDirection.In, HandleInheritability.Inheritable);
             _readStream = new StreamString(_inServer);
             _writeStream = new StreamString(_outServer);
             startProcess(_outServer.GetClientHandleAsString(), _inServer.GetClientHandleAsString());
-            _outServer.DisposeLocalCopyOfClientHandle();
-            _inServer.DisposeLocalCopyOfClientHandle();
+            if (disposeLocalClientHandle)
+            {
+                _outServer.DisposeLocalCopyOfClientHandle();
+                _inServer.DisposeLocalCopyOfClientHandle();
+            }
         }
 
         public void StartClient(string pipeNameInput, string pipeNameOutput)

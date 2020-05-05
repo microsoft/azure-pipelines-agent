@@ -37,6 +37,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public void ConfigureService(AgentSettings settings, CommandSettings command)
         {
+            ArgUtil.NotNull(command, nameof(command));
             Trace.Entering();
 
             if (!_windowsServiceHelper.IsRunningInElevatedMode())
@@ -48,8 +49,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             // TODO: Fix bug that exists in the legacy Windows agent where configuration using mirrored credentials causes an error, but the agent is still functional (after restarting). Mirrored credentials is a supported scenario and shouldn't manifest any errors.
 
             // We use NetworkService as default account for build and release agent
-            // We use Local System as default account for deployment agent, deployment pool agent, environment vm agent 
-            bool isDeploymentGroupScenario = command.DeploymentGroup || command.DeploymentPool || command.EnvironmentVMResource;
+            // We use Local System as default account for deployment agent, deployment pool agent, environment vm agent
+            bool isDeploymentGroupScenario = command.GetDeploymentOrMachineGroup() || command.GetDeploymentPool() || command.GetEnvironmentVMResource();
             NTAccount defaultServiceAccount = isDeploymentGroupScenario ? _windowsServiceHelper.GetDefaultAdminServiceAccount() : _windowsServiceHelper.GetDefaultServiceAccount();
             string logonAccount = command.GetWindowsLogonAccount(defaultValue: defaultServiceAccount.ToString(), descriptionMsg: StringUtil.Loc("WindowsLogonAccountNameDescription"));
 
@@ -78,7 +79,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     }
                     else
                     {
-                        if (!command.Unattended)
+                        if (!command.Unattended())
                         {
                             Trace.Info("Invalid credential entered");
                             _term.WriteLine(StringUtil.Loc("InvalidWindowsCredential"));

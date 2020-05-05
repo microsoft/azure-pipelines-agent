@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
 
@@ -33,13 +34,11 @@ namespace Agent.Plugins.Repository
             }
 
             // determine if we've been asked to suppress some checkout step output
-            bool reducedOutput = StringUtil.ConvertToBoolean(
-                executionContext.Variables.GetValueOrDefault("agent.source.checkout.quiet")?.Value ??
-                System.Environment.GetEnvironmentVariable("AGENT_SOURCE_CHECKOUT_QUIET"), false);
+            bool reducedOutput = AgentKnobs.QuietCheckout.GetValue(executionContext).AsBoolean();
             if (reducedOutput)
             {
                 executionContext.Output(StringUtil.Loc("QuietCheckoutModeRequested"));
-                executionContext.SetTaskVariable("agent.source.checkout.quiet", "false");
+                executionContext.SetTaskVariable(AgentKnobs.QuietCheckoutRuntimeVarName, Boolean.TrueString);
             }
 
 

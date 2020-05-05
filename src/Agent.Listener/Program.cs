@@ -2,10 +2,13 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using CommandLine;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
@@ -15,10 +18,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
     {
         public static int Main(string[] args)
         {
-            // We can't use the new SocketsHttpHandler for now for both Windows and Linux
-            // On linux, Negotiate auth is not working if the TFS url is behind Https
-            // On windows, Proxy is not working
-            AppContext.SetSwitch("System.Net.Http.UseSocketsHttpHandler", false);
+            if (PlatformUtil.UseLegacyHttpHandler)
+            {
+                AppContext.SetSwitch("System.Net.Http.UseSocketsHttpHandler", false);
+            }
+
             using (HostContext context = new HostContext("Agent"))
             {
                 return MainAsync(context, args).GetAwaiter().GetResult();
@@ -30,7 +34,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         // 1: Terminate failure
         // 2: Retriable failure
         // 3: Exit for self update
-        public async static Task<int> MainAsync(IHostContext context, string[] args)
+        private async static Task<int> MainAsync(IHostContext context, string[] args)
         {
             Tracing trace = context.GetTrace("AgentProcess");
             trace.Info($"Agent package {BuildConstants.AgentPackage.PackageName}.");
@@ -106,11 +110,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 var command = new CommandSettings(context, args, new SystemEnvironment());
                 trace.Info("Arguments parsed");
 
-                // Up front validation, warn for unrecognized commandline args.
-                var unknownCommandlines = command.Validate();
-                if (unknownCommandlines.Count > 0)
+                // Print any Parse Errros
+                if (command.ParseErrors?.Any() == true)
                 {
-                    terminal.WriteError(StringUtil.Loc("UnrecognizedCmdArgs", string.Join(", ", unknownCommandlines)));
+                    List<string> errorStr = new List<string>();
+
+                    foreach (var error in command.ParseErrors)
+                    {
+                        if (error is TokenError tokenError)
+                        {
+                            errorStr.Add(tokenError.Token);
+                        }
+                        else
+                        {
+                            // Unknown type of error dump to log
+                            terminal.WriteError(StringUtil.Loc("ErrorOccurred", error.Tag));
+                        }
+                    }
+
+                    terminal.WriteError(
+                        StringUtil.Loc("UnrecognizedCmdArgs",
+                        string.Join(", ", errorStr)));
                 }
 
                 // Defer to the Agent class to execute the command.

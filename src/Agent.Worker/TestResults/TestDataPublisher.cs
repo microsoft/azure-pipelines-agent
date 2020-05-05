@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils;
+using ITestResultsServer = Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults.ITestResultsServer;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
@@ -22,7 +23,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         Task<bool> PublishAsync(TestRunContext runContext, List<string> testResultFiles, PublishOptions publishOptions, CancellationToken cancellationToken = default(CancellationToken));
     }
 
-    public class TestDataPublisher : AgentService, ITestDataPublisher
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "CommandTraceListener")]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA1001:Types that own disposable fields should be disposable", MessageId = "DisposableFieldsArePassedIn")]
+    public sealed class TestDataPublisher : AgentService, ITestDataPublisher
     {
         private IExecutionContext _executionContext;
         private string _projectName;
@@ -35,6 +38,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private IFeatureFlagService _featureFlagService;
         private string _testRunner;
         private bool _calculateTestRunSummary;
+        private TestRunDataPublisherHelper _testRunPublisherHelper;
+        private ITestResultsServer _testResultsServer;
 
         public void InitializePublisher(IExecutionContext context, string projectName, VssConnection connection, string testRunner)
         {
@@ -45,10 +50,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             _testRunner = testRunner;
             _testRunPublisher = new TestRunPublisher(connection, new CommandTraceListener(context));
             _testLogStore = new TestLogStore(connection, new CommandTraceListener(context));
-
+            _testResultsServer = HostContext.GetService<ITestResultsServer>();
+            _testResultsServer.InitializeServer(connection, _executionContext);
             var extensionManager = HostContext.GetService<IExtensionManager>();
             _featureFlagService = HostContext.GetService<IFeatureFlagService>();
             _parser = (extensionManager.GetExtensions<IParser>()).FirstOrDefault(x => _testRunner.Equals(x.Name, StringComparison.OrdinalIgnoreCase));
+            _testRunPublisherHelper = new TestRunDataPublisherHelper(_executionContext, _testRunPublisher, null, _testResultsServer);
             Trace.Leaving();
         }
 
@@ -62,23 +69,42 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 if (testDataProvider != null){
                     var testRunData = testDataProvider.GetTestRunData();
                     //publishing run level attachment
-                    publishTasks.Add(Task.Run(() => _testRunPublisher.PublishTestRunDataAsync(runContext, _projectName, testRunData, publishOptions, cancellationToken)));
+                    Task<IList<TestRun>> publishtestRunDataTask = Task.Run(() => _testRunPublisher.PublishTestRunDataAsync(runContext, _projectName, testRunData, publishOptions, cancellationToken));
+                    Task uploadBuildDataAttachmentTask = Task.Run(() => UploadBuildDataAttachment(runContext, testDataProvider.GetBuildData(), cancellationToken));
+
+                    publishTasks.Add(publishtestRunDataTask);
 
                     //publishing build level attachment
-                    publishTasks.Add(Task.Run(() => UploadBuildDataAttachment(runContext, testDataProvider.GetBuildData(), cancellationToken)));
+                    publishTasks.Add(uploadBuildDataAttachmentTask);
 
                     await Task.WhenAll(publishTasks);
+
+                    IList<TestRun> publishedRuns = publishtestRunDataTask.Result;
+
                     _calculateTestRunSummary = _featureFlagService.GetFeatureFlagState(TestResultsConstants.CalculateTestRunSummaryFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
 
-                    var runOutcome = GetTestRunOutcome(_executionContext, testRunData, out TestRunSummary testRunSummary);
-
+                    var isTestRunOutcomeFailed = GetTestRunOutcome(_executionContext, testRunData, out TestRunSummary testRunSummary);
+                    
                     // Storing testrun summary in environment variable, which will be read by PublishPipelineMetadataTask and publish to evidence store.
                     if(_calculateTestRunSummary)
                     {
                         TestResultUtils.StoreTestRunSummaryInEnvVar(_executionContext, testRunSummary, _testRunner, "PublishTestResults");
                     }
 
-                    return runOutcome;
+                    // Check failed results for flaky aware
+                    // Fallback to flaky aware if there are any failures.
+                    bool isFlakyCheckEnabled = _featureFlagService.GetFeatureFlagState(TestResultsConstants.EnableFlakyCheckInAgentFeatureFlag, TestResultsConstants.TCMServiceInstanceGuid);
+
+                    if (isTestRunOutcomeFailed && isFlakyCheckEnabled)
+                    {
+                        var runOutcome = _testRunPublisherHelper.CheckRunsForFlaky(publishedRuns, _projectName);
+                        if (runOutcome != null && runOutcome.HasValue)
+                        {
+                            isTestRunOutcomeFailed = runOutcome.Value;
+                        }
+                    }
+
+                    return isTestRunOutcomeFailed;
                 }
 
                 return false;
@@ -125,7 +151,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                         default: break;
                     }
 
-                    if(!_calculateTestRunSummary)
+                    if(!_calculateTestRunSummary && anyFailedTests)
                     {
                         return anyFailedTests;
                     }

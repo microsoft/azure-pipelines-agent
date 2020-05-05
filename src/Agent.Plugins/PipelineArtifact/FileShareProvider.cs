@@ -45,13 +45,14 @@ namespace Agent.Plugins.PipelineArtifact
             this.connection = connection;
         }
 
-        public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken) 
+        public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context) 
         {
-            await DownloadMultipleArtifactsAsync(downloadParameters, new List<BuildArtifact> { buildArtifact }, cancellationToken);
+            await DownloadMultipleArtifactsAsync(downloadParameters, new List<BuildArtifact> { buildArtifact }, cancellationToken, context);
         }
 
-        public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken) 
+        public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context) 
         {
+            context.Warning(StringUtil.Loc("DownloadArtifactWarning", "UNC"));
             BlobStoreClientTelemetry clientTelemetry;
             DedupManifestArtifactClient dedupManifestClient = this.factory.CreateDedupManifestClient(context, connection, cancellationToken, out clientTelemetry);
             using (clientTelemetry)

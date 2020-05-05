@@ -124,6 +124,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             TrackingConfig newConfig,
             TrackingConfig previousConfig)
         {
+            ArgUtil.NotNull(newConfig, nameof(newConfig));
+            ArgUtil.NotNull(previousConfig, nameof(previousConfig));
+
             Trace.Entering();
 
             TrackingConfig mergedConfig = previousConfig.Clone();
@@ -153,6 +156,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             IExecutionContext executionContext,
             TrackingConfig modifiedConfig)
         {
+            ArgUtil.NotNull(modifiedConfig, nameof(modifiedConfig));
+
             Trace.Entering();
 
             Trace.Verbose("Updating job run properties.");
@@ -174,8 +179,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             Trace.Entering();
 
             ArgUtil.NotNull(executionContext, nameof(executionContext));
-            string trackingFileLocation = GetTrackingFileLocation(executionContext);
-            return LoadIfExists(executionContext, trackingFileLocation);
+            // First, attempt to load the file from the new location (collection, definition, workspaceId)
+            string trackingFileLocation = GetTrackingFileLocation(executionContext, true);
+            var trackingConfig = LoadIfExists(executionContext, trackingFileLocation);
+            if (trackingConfig == null)
+            {
+                // If it's not in the new location, look for it in the old location
+                trackingFileLocation = GetTrackingFileLocation(executionContext, false);
+                trackingConfig = LoadIfExists(executionContext, trackingFileLocation);
+            }
+
+            return trackingConfig;
         }
 
         public void MarkForGarbageCollection(
@@ -190,6 +204,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public void MaintenanceStarted(TrackingConfig config)
         {
+            ArgUtil.NotNull(config, nameof(config));
+
             Trace.Entering();
             config.LastMaintenanceAttemptedOn = DateTimeOffset.Now;
             config.LastMaintenanceCompletedOn = null;
@@ -198,6 +214,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public void MaintenanceCompleted(TrackingConfig config)
         {
+            ArgUtil.NotNull(config, nameof(config));
+
             Trace.Entering();
             config.LastMaintenanceCompletedOn = DateTimeOffset.Now;
             WriteToFile(config.FileLocation, config);
@@ -242,6 +260,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             IExecutionContext executionContext,
             TimeSpan expiration)
         {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+            ArgUtil.NotNull(expiration, nameof(expiration));
+
             Trace.Entering();
 
             Trace.Info("Scan all SourceFolder tracking files.");
@@ -287,6 +308,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public void DisposeCollectedGarbage(IExecutionContext executionContext)
         {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+
             Trace.Entering();
             PrintOutDiskUsage(executionContext);
 
@@ -368,6 +391,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 // The config is the new format.
                 Trace.Verbose("Parsing new tracking config format.");
                 result = JsonConvert.DeserializeObject<TrackingConfig>(content);
+                if (result != null)
+                {
+                    // if RepositoryTrackingInfo is empty, then we should create an entry so the rest
+                    // of the logic after this will act correctly
+                    if (result.RepositoryTrackingInfo.Count == 0)
+                    {
+                        result.RepositoryTrackingInfo.Add(new Build.RepositoryTrackingInfo
+                        {
+                            Identifier = RepositoryUtil.DefaultPrimaryRepositoryName,
+                            RepositoryType = result.RepositoryType,
+                            RepositoryUrl = result.RepositoryUrl,
+                            SourcesDirectory = result.SourcesDirectory,
+                        });
+                    }
+                }
             }
             else
             {
@@ -447,8 +485,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 Constants.Build.Path.TopLevelTrackingConfigFile);
         }
 
-        private string GetTrackingFileLocation(IExecutionContext executionContext)
+        private string GetTrackingFileLocation(IExecutionContext executionContext, bool includeWorkspaceId)
         {
+            string workspaceId = null;
+            if (includeWorkspaceId && executionContext.JobSettings?.TryGetValue(WellKnownJobSettings.WorkspaceIdentifier, out workspaceId) == true)
+            {
+                return Path.Combine(
+                    HostContext.GetDirectory(WellKnownDirectory.Work),
+                    Constants.Build.Path.SourceRootMappingDirectory,
+                    executionContext.Variables.System_CollectionId,
+                    executionContext.Variables.System_DefinitionId,
+                    workspaceId,
+                    Constants.Build.Path.TrackingConfigFile);
+            }
+
             return Path.Combine(
                 HostContext.GetDirectory(WellKnownDirectory.Work),
                 Constants.Build.Path.SourceRootMappingDirectory,
@@ -477,7 +527,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             // Update the info properties and save the file.
             config.UpdateJobRunProperties(executionContext);
-            WriteToFile(GetTrackingFileLocation(executionContext), config);
+
+            // Make sure we clean up any files in the old location (no workspace id in the path)
+            string oldLocation = GetTrackingFileLocation(executionContext, false);
+            if (File.Exists(oldLocation))
+            {
+                File.Delete(oldLocation);
+            }
+
+            WriteToFile(GetTrackingFileLocation(executionContext, true), config);
         }
 
         private void PrintOutDiskUsage(IExecutionContext context)

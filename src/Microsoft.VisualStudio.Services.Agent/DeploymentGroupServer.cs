@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.WebApi;
 using System.Linq;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -46,6 +47,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public async Task ConnectAsync(VssConnection agentConnection)
         {
+            ArgUtil.NotNull(agentConnection, nameof(agentConnection));
             _connection = agentConnection;
             if (!_connection.HasAuthenticated)
             {

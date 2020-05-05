@@ -13,6 +13,7 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.Win32;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
@@ -319,6 +320,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 // Ensure .taskkey file exist so we can mount it.
                 string taskKeyFile = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), ".taskkey");
+
                 if (!File.Exists(taskKeyFile))
                 {
                     File.WriteAllText(taskKeyFile, string.Empty);
@@ -492,8 +494,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         throw new InvalidOperationException($"Docker exec fail with exit code {execEchoExitCode}");
                     }
 
-                    bool setupDockerGroup = executionContext.Variables.GetBoolean("VSTS_SETUP_DOCKERGROUP") ?? StringUtil.ConvertToBoolean(Environment.GetEnvironmentVariable("VSTS_SETUP_DOCKERGROUP"), true);
-                    if (setupDockerGroup)
+                    if (AgentKnobs.SetupDockerGroup.GetValue(executionContext).AsBoolean())
                     {
                         executionContext.Output(StringUtil.Loc("AllowContainerUserRunDocker", containerUserName));
                         // Get docker.sock group id on Host

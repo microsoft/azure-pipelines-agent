@@ -32,6 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public async Task ConnectAsync(VssConnection jobConnection)
         {
+            ArgUtil.NotNull(jobConnection, nameof(jobConnection));
             _connection = jobConnection;
             int attemptCount = 5;
             while (!_connection.HasAuthenticated && attemptCount-- > 0)

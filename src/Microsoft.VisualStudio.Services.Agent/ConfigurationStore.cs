@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Microsoft.VisualStudio.Services.Agent.Util;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
 using System.Text;
@@ -9,6 +10,22 @@ using System.Threading;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
+    public enum SignatureVerificationMode
+    {
+        Error,
+        Warning,
+        None
+    }
+
+    public sealed class SignatureVerificationSettings
+    {
+        [DataMember(EmitDefaultValue = false)]
+        public SignatureVerificationMode Mode { get; set; }
+
+        [DataMember(EmitDefaultValue = false)]
+        public List<string> Fingerprints { get; set; }
+    }
+
     //
     // Settings are persisted in this structure
     //
@@ -28,7 +45,22 @@ namespace Microsoft.VisualStudio.Services.Agent
         public bool IsHosted => !string.IsNullOrEmpty(NotificationPipeName) || !string.IsNullOrEmpty(NotificationSocketAddress);
 
         [DataMember(EmitDefaultValue = false)]
-        public string Fingerprint { get; set; }
+        public string Fingerprint
+        {
+            // This setter is for backwards compatibility with the top level fingerprint setting
+            set
+            {
+                // prefer the new config format to the old
+                if (SignatureVerification == null && value != null)
+                {
+                    SignatureVerification = new SignatureVerificationSettings()
+                    {
+                        Mode = SignatureVerificationMode.Error,
+                        Fingerprints = new List<string>() { value }
+                    };
+                }
+            }
+        }
 
         [DataMember(EmitDefaultValue = false)]
         public string NotificationPipeName { get; set; }
@@ -41,6 +73,9 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         [DataMember(EmitDefaultValue = false)]
         public bool SkipSessionRecover { get; set; }
+
+        [DataMember(EmitDefaultValue = false)]
+        public SignatureVerificationSettings SignatureVerification { get; set; }
 
         [DataMember(EmitDefaultValue = false)]
         public int PoolId { get; set; }
@@ -99,6 +134,16 @@ namespace Microsoft.VisualStudio.Services.Agent
         public bool GitUseSecureChannel { get; set; }
     }
 
+    [DataContract]
+    public class SetupInfo
+    {
+        [DataMember]
+        public string Group { get; set; }
+
+        [DataMember]
+        public string Detail { get; set; }
+    }
+
     [ServiceLocator(Default = typeof(ConfigurationStore))]
     public interface IConfigurationStore : IAgentService
     {
@@ -117,6 +162,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         void SaveAutoLogonSettings(AutoLogonSettings settings);
         AutoLogonSettings GetAutoLogonSettings();
         AgentRuntimeOptions GetAgentRuntimeOptions();
+        IEnumerable<SetupInfo> GetSetupInfo();
         void SaveAgentRuntimeOptions(AgentRuntimeOptions options);
         void DeleteAgentRuntimeOptions();
     }
@@ -129,11 +175,13 @@ namespace Microsoft.VisualStudio.Services.Agent
         private string _serviceConfigFilePath;
         private string _autoLogonSettingsFilePath;
         private string _runtimeOptionsFilePath;
+        private string _setupInfoFilePath;
 
         private CredentialData _creds;
         private AgentSettings _settings;
         private AutoLogonSettings _autoLogonSettings;
         private AgentRuntimeOptions _runtimeOptions;
+        private IEnumerable<SetupInfo> _setupInfo;
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -162,6 +210,9 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             _runtimeOptionsFilePath = hostContext.GetConfigFile(WellKnownConfigFile.Options);
             Trace.Info("RuntimeOptionsFilePath: {0}", _runtimeOptionsFilePath);
+
+            _setupInfoFilePath = hostContext.GetConfigFile(WellKnownConfigFile.SetupInfo);
+            Trace.Info("SetupInfoFilePath: {0}", _setupInfoFilePath);
         }
 
         public string RootFolder { get; private set; }
@@ -237,8 +288,27 @@ namespace Microsoft.VisualStudio.Services.Agent
             return _autoLogonSettings;
         }
 
+        public IEnumerable<SetupInfo> GetSetupInfo()
+        {
+            if (_setupInfo == null)
+            {
+                if (File.Exists(_setupInfoFilePath))
+                {
+                    Trace.Info($"Load machine setup info from {_setupInfoFilePath}");
+                    _setupInfo = IOUtil.LoadObject<List<SetupInfo>>(_setupInfoFilePath);
+                }
+                else
+                {
+                    _setupInfo = new List<SetupInfo>();
+                }
+            }
+
+            return _setupInfo;
+        }
+
         public void SaveCredential(CredentialData credential)
         {
+            ArgUtil.NotNull(credential, nameof(credential));
             Trace.Info("Saving {0} credential @ {1}", credential.Scheme, _credFilePath);
             if (File.Exists(_credFilePath))
             {

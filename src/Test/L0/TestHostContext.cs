@@ -14,6 +14,7 @@ using System.Reflection;
 using Microsoft.TeamFoundation.DistributedTask.Logging;
 using System.Net.Http.Headers;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
@@ -63,6 +64,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             _secretMasker = new SecretMasker();
             _secretMasker.AddValueEncoder(ValueEncoders.JsonStringEscape);
             _secretMasker.AddValueEncoder(ValueEncoders.UriDataEscape);
+            _secretMasker.AddValueEncoder(ValueEncoders.BackslashEscape);
             _traceManager = new TraceManager(traceListener, _secretMasker);
             _trace = GetTrace(nameof(TestHostContext));
 
@@ -340,6 +342,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                         GetDirectory(WellKnownDirectory.Root),
                         ".options");
                     break;
+
+                case WellKnownConfigFile.SetupInfo:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        ".setup_info");
+                    break;
+
                 default:
                     throw new NotSupportedException($"Unexpected well known config file: '{configFile}'");
             }
@@ -397,6 +406,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         {
         }
 
+        string IKnobValueContext.GetVariableValueOrDefault(string variableName)
+        {
+            throw new NotSupportedException("Method not supported for Microsoft.VisualStudio.Services.Agent.Tests.TestHostContext");
+        }
+
+        IScopedEnvironment IKnobValueContext.GetScopedEnvironment()
+        {
+            return new SystemEnvironment();
+        }
+
         public void Dispose()
         {
             Dispose(true);
@@ -413,6 +432,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     _loadContext = null;
                 }
                 _traceManager?.Dispose();
+                _secretMasker?.Dispose();
+                _term?.Dispose();
+                _trace?.Dispose();
+                _agentShutdownTokenSource?.Dispose();
                 try
                 {
                     Directory.Delete(_tempDirectoryRoot);

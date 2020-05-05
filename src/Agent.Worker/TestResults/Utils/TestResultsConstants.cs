@@ -14,5 +14,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
         public const string UsePublishTestResultsLibFeatureFlag = "TestManagement.Server.UsePublishTestResultsLibInAgent";
 
         public const string CalculateTestRunSummaryFeatureFlag = "TestManagement.PTR.CalculateTestRunSummary";
+
+        public const string UseStatAPIFeatureFlag = "TestManagement.PublishTestResultsTask.UseStatsAPI";
+
+        public static readonly string UseNewRunSummaryAPIFeatureFlag = "TestManagement.Server.UseNewRunSummaryAPIForPublishTestResultsTask";
+
+        public const string EnableFlakyCheckInAgentFeatureFlag = "TestManagement.Agent.PTR.EnableFlakyCheck";
     }
 }

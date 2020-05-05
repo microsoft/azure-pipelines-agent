@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -24,7 +25,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     }
 
     [ServiceLocator(Default = typeof(ExecutionContext))]
-    public interface IExecutionContext : IAgentService
+    public interface IExecutionContext : IAgentService, IKnobValueContext
     {
         Guid Id { get; }
         Task ForceCompleted { get; }
@@ -74,7 +75,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         IHostContext GetHostContext();
     }
 
-    public sealed class ExecutionContext : AgentService, IExecutionContext
+    public sealed class ExecutionContext : AgentService, IExecutionContext, IDisposable
     {
         private const int _maxIssueCount = 10;
 
@@ -409,13 +410,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Repositories = message.Resources.Repositories;
 
             // JobSettings
+            var checkouts = message.Steps?.Where(x => Pipelines.PipelineConstants.IsCheckoutTask(x)).ToList();
             JobSettings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            JobSettings[WellKnownJobSettings.HasMultipleCheckouts] = message.Steps?.Where(x => Pipelines.PipelineConstants.IsCheckoutTask(x)).Count() > 1 ? Boolean.TrueString : Boolean.FalseString;
+            JobSettings[WellKnownJobSettings.HasMultipleCheckouts] = Boolean.FalseString;
+            if (checkouts != null && checkouts.Count > 0)
+            {
+                JobSettings[WellKnownJobSettings.HasMultipleCheckouts] = checkouts.Count > 1 ? Boolean.TrueString : Boolean.FalseString;
+                var firstCheckout = checkouts.First() as Pipelines.TaskStep;
+                if (firstCheckout != null && Repositories != null && firstCheckout.Inputs.TryGetValue(Pipelines.PipelineConstants.CheckoutTaskInputs.Repository, out string repoAlias))
+                {
+                    JobSettings[WellKnownJobSettings.FirstRepositoryCheckedOut] = repoAlias;
+                    var repo = Repositories.Find(r => String.Equals(r.Alias, repoAlias, StringComparison.OrdinalIgnoreCase));
+                    if (repo != null)
+                    {
+                        repo.Properties.Set<bool>(RepositoryUtil.IsPrimaryRepository, true);
+                    }
+                }
+            }
 
             // Variables (constructor performs initial recursive expansion)
             List<string> warnings;
             Variables = new Variables(HostContext, message.Variables, out warnings);
             Variables.StringTranslator = TranslatePathForStepTarget;
+
+            if (Variables.GetBoolean("agent.useWorkspaceIds") == true)
+            {
+                // We need an identifier that represents which repos make up the workspace.
+                // This allows similar jobs in the same definition to reuse that workspace and other jobs to have their own.
+                JobSettings[WellKnownJobSettings.WorkspaceIdentifier] = GetWorkspaceIdentifier(message);
+            }
 
             // Prepend Path
             PrependPath = new List<string>();
@@ -555,6 +578,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Hook up JobServerQueueThrottling event, we will log warning on server tarpit.
             _jobServerQueue.JobServerQueueThrottling += JobServerQueueThrottling_EventReceived;
+        }
+
+        private string GetWorkspaceIdentifier(Pipelines.AgentJobRequestMessage message)
+        {
+            Variables.TryGetValue(Constants.Variables.System.CollectionId, out string collectionId);
+            Variables.TryGetValue(Constants.Variables.System.DefinitionId, out string definitionId);
+            var repoTrackingInfos = message.Resources.Repositories.Select(repo => new Build.RepositoryTrackingInfo(repo, "/")).ToList();
+            var workspaceIdentifier = Build.TrackingConfigHashAlgorithm.ComputeHash(collectionId, definitionId, repoTrackingInfos);
+
+            Trace.Info($"WorkspaceIdentifier '{workspaceIdentifier}' created for repos {String.Join(',', repoTrackingInfos)}");
+            return workspaceIdentifier;
         }
 
         // Do not add a format string overload. In general, execution context messages are user facing and
@@ -733,6 +767,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 _currentStepTarget = Containers.FirstOrDefault(x => string.Equals(x.ContainerName, target?.Target, StringComparison.OrdinalIgnoreCase));
             }
         }
+
+        public string GetVariableValueOrDefault(string variableName)
+        {
+            string value = null;
+            Variables.TryGetValue(variableName, out value);
+            return value;
+        }
+
+        public IScopedEnvironment GetScopedEnvironment()
+        {
+            return new SystemEnvironment();
+        }
+
+        public void Dispose()
+        {
+            _cancellationTokenSource?.Dispose();
+        }
     }
 
     // The Error/Warning/etc methods are created as extension methods to simplify unit testing.
@@ -741,6 +792,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         public static void Error(this IExecutionContext context, Exception ex)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(ex, nameof(ex));
+
             context.Error(ex.Message);
             context.Debug(ex.ToString());
         }
@@ -748,30 +802,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // Do not add a format string overload. See comment on ExecutionContext.Write().
         public static void Error(this IExecutionContext context, string message)
         {
+            ArgUtil.NotNull(context, nameof(context));
             context.AddIssue(new Issue() { Type = IssueType.Error, Message = message });
         }
 
         // Do not add a format string overload. See comment on ExecutionContext.Write().
         public static void Warning(this IExecutionContext context, string message)
         {
+            ArgUtil.NotNull(context, nameof(context));
             context.AddIssue(new Issue() { Type = IssueType.Warning, Message = message });
         }
 
         // Do not add a format string overload. See comment on ExecutionContext.Write().
         public static void Output(this IExecutionContext context, string message)
         {
+            ArgUtil.NotNull(context, nameof(context));
             context.Write(null, message);
         }
 
         // Do not add a format string overload. See comment on ExecutionContext.Write().
         public static void Command(this IExecutionContext context, string message)
         {
+            ArgUtil.NotNull(context, nameof(context));
             context.Write(WellKnownTags.Command, message);
         }
 
         // Do not add a format string overload. See comment on ExecutionContext.Write().
         public static void Section(this IExecutionContext context, string message)
         {
+            ArgUtil.NotNull(context, nameof(context));
             context.Write(WellKnownTags.Section, message);
         }
 
@@ -783,6 +842,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // Do not add a format string overload. See comment on ExecutionContext.Write().
         public static void Debug(this IExecutionContext context, string message)
         {
+            ArgUtil.NotNull(context, nameof(context));
             if (context.WriteDebug)
             {
                 context.Write(WellKnownTags.Debug, message);

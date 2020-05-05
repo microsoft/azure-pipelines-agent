@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -32,7 +33,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         void Extract(IExecutionContext executionContext, Pipelines.TaskStep task);
     }
 
-    public sealed class TaskManager : AgentService, ITaskManager
+    public class TaskManager : AgentService, ITaskManager
     {
         private const int _defaultFileStreamBufferSize = 4096;
 
@@ -76,7 +77,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public Definition Load(Pipelines.TaskStep task)
+        public virtual Definition Load(Pipelines.TaskStep task)
         {
             // Validate args.
             Trace.Entering();
@@ -122,11 +123,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void Extract(IExecutionContext executionContext, Pipelines.TaskStep task)
         {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+            ArgUtil.NotNull(task, nameof(task));
+
             String zipFile = GetTaskZipPath(task.Reference);
             String destinationDirectory = GetDirectory(task.Reference);
-            
+
             executionContext.Debug($"Extracting task {task.Name} from {zipFile} to {destinationDirectory}.");
-            
+
             Trace.Verbose("Deleting task destination folder: {0}", destinationDirectory);
             IOUtil.DeleteDirectory(destinationDirectory, executionContext.CancellationToken);
 
@@ -150,7 +154,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             var configurationStore = HostContext.GetService<IConfigurationStore>();
             AgentSettings settings = configurationStore.GetSettings();
-            Boolean signingEnabled = !String.IsNullOrEmpty(settings.Fingerprint);
+            Boolean signingEnabled = (settings.SignatureVerification != null && settings.SignatureVerification.Mode != SignatureVerificationMode.None);
 
             if (File.Exists(destDirectory + ".completed") && !signingEnabled)
             {
@@ -196,10 +200,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Allow up to 20 * 60s for any task to be downloaded from service.
                 // Base on Kusto, the longest we have on the service today is over 850 seconds.
                 // Timeout limit can be overwrite by environment variable
-                if (!int.TryParse(Environment.GetEnvironmentVariable("VSTS_TASK_DOWNLOAD_TIMEOUT") ?? string.Empty, out int timeoutSeconds))
-                {
-                    timeoutSeconds = 20 * 60;
-                }
+                var timeoutSeconds = AgentKnobs.TaskDownloadTimeout.GetValue(UtilKnobValueContext.Instance()).AsInt();
 
                 while (retryCount < 3)
                 {
@@ -541,6 +542,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void ReplaceMacros(IHostContext context, Definition definition)
         {
+            ArgUtil.NotNull(definition, nameof(definition));
             var handlerVariables = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             handlerVariables["currentdirectory"] = definition.Directory;
             VarUtil.ExpandValues(context, source: handlerVariables, target: Inputs);

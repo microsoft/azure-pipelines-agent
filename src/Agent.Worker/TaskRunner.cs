@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -77,15 +78,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Verify task signatures if a fingerprint is configured for the Agent.
                 var configurationStore = HostContext.GetService<IConfigurationStore>();
                 AgentSettings settings = configurationStore.GetSettings();
-                
-                if (!String.IsNullOrEmpty(settings.Fingerprint))
+                SignatureVerificationMode verificationMode = SignatureVerificationMode.None;
+                if (settings.SignatureVerification != null)
+                {
+                    verificationMode = settings.SignatureVerification.Mode;
+                }
+
+                if (verificationMode != SignatureVerificationMode.None)
                 {
                     ISignatureService signatureService = HostContext.CreateService<ISignatureService>();
                     Boolean verificationSuccessful =  await signatureService.VerifyAsync(definition, ExecutionContext.CancellationToken);
 
-                    if (verificationSuccessful) 
+                    if (verificationSuccessful)
                     {
-                        ExecutionContext.Output("Task signature verification successful.");
+                        ExecutionContext.Output(StringUtil.Loc("TaskSignatureVerificationSucceeeded"));
 
                         // Only extract if it's not the checkout task.
                         if (!String.IsNullOrEmpty(definition.ZipPath))
@@ -93,9 +99,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             taskManager.Extract(ExecutionContext, Task);
                         }
                     }
-                    else 
+                    else
                     {
-                        throw new Exception("Task signature verification failed.");
+                        String message = StringUtil.Loc("TaskSignatureVerificationFailed");
+
+                        if (verificationMode == SignatureVerificationMode.Error)
+                        {
+                            throw new InvalidOperationException(message);
+                        }
+                        else
+                        {
+                            ExecutionContext.Warning(message);
+                        }
                     }
                 }
 
@@ -116,42 +131,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         break;
                 };
 
-                if ((currentExecution?.All.Any(x => x is PowerShell3HandlerData)).Value &&
-                    (currentExecution?.All.Any(x => x is PowerShellHandlerData && x.Platforms != null && x.Platforms.Contains("windows", StringComparer.OrdinalIgnoreCase))).Value)
-                {
-                    // When task contains both PS and PS3 implementations, we will always prefer PS3 over PS regardless of the platform pinning.
-                    Trace.Info("Ignore platform pinning for legacy PowerShell execution handler.");
-                    var legacyPShandler = currentExecution?.All.Where(x => x is PowerShellHandlerData).FirstOrDefault();
-                    legacyPShandler.Platforms = null;
-                }
+                HandlerData handlerData = GetHandlerData(ExecutionContext, currentExecution, PlatformUtil.HostOS);
 
-                var targetOS = PlatformUtil.HostOS;
-                var stepTarget = ExecutionContext.StepTarget();
-                if (stepTarget != null)
-                {
-                    targetOS = stepTarget.ExecutionOS;
-                }
-                Trace.Info($"Get handler data for target platform {targetOS.ToString()}");
-
-                HandlerData handlerData =
-                    currentExecution?.All
-                    .OrderBy(x => !x.PreferredOnPlatform(targetOS)) // Sort true to false.
-                    .ThenBy(x => x.Priority)
-                    .FirstOrDefault();
                 if (handlerData == null)
                 {
                     if (PlatformUtil.RunningOnWindows)
                     {
-                        throw new Exception(StringUtil.Loc("SupportedTaskHandlerNotFoundWindows", $"{PlatformUtil.HostOS}({PlatformUtil.HostArchitecture})"));
+                        throw new InvalidOperationException(StringUtil.Loc("SupportedTaskHandlerNotFoundWindows", $"{PlatformUtil.HostOS}({PlatformUtil.HostArchitecture})"));
                     }
 
-                    throw new Exception(StringUtil.Loc("SupportedTaskHandlerNotFoundLinux"));
+                    throw new InvalidOperationException(StringUtil.Loc("SupportedTaskHandlerNotFoundLinux"));
                 }
-
+                Trace.Info($"Handler data is of type {handlerData}");
 
                 Variables runtimeVariables = ExecutionContext.Variables;
                 IStepHost stepHost = HostContext.CreateService<IDefaultStepHost>();
-
+                var stepTarget = ExecutionContext.StepTarget();
                 // Setup container stephost and the right runtime variables for running job inside container.
                 if (stepTarget is ContainerInfo containerTarget)
                 {
@@ -349,8 +344,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                 }
 
-            // translate inputs
-            inputs = inputs.ToDictionary(kvp => kvp.Key, kvp => ExecutionContext.TranslatePathForStepTarget(kvp.Value));
+                // translate inputs
+                inputs = inputs.ToDictionary(kvp => kvp.Key, kvp => ExecutionContext.TranslatePathForStepTarget(kvp.Value));
 
                 // Create the handler.
                 IHandler handler = handlerFactory.Create(
@@ -368,6 +363,47 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Run the task.
                 await handler.RunAsync();
             }
+        }
+
+        public HandlerData GetHandlerData(IExecutionContext ExecutionContext, ExecutionData currentExecution, PlatformUtil.OS hostOS)
+        {
+            ArgUtil.NotNull(ExecutionContext, nameof(ExecutionContext));
+            if (currentExecution == null)
+            {
+                return null;
+            }
+
+            if ((currentExecution.All.Any(x => x is PowerShell3HandlerData)) &&
+                (currentExecution.All.Any(x => x is PowerShellHandlerData && x.Platforms != null && x.Platforms.Contains("windows", StringComparer.OrdinalIgnoreCase))))
+            {
+                // When task contains both PS and PS3 implementations, we will always prefer PS3 over PS regardless of the platform pinning.
+                Trace.Info("Ignore platform pinning for legacy PowerShell execution handler.");
+                var legacyPShandler = currentExecution.All.Where(x => x is PowerShellHandlerData).FirstOrDefault();
+                legacyPShandler.Platforms = null;
+            }
+
+            var targetOS = hostOS;
+
+            var stepTarget = ExecutionContext.StepTarget();
+            var preferPowershellHandler = true;
+            if (!AgentKnobs.PreferPowershellHandlerOnContainers.GetValue(ExecutionContext).AsBoolean() && stepTarget != null)
+            {
+                targetOS = stepTarget.ExecutionOS;
+                if (stepTarget is ContainerInfo)
+                {
+                    if ((currentExecution.All.Any(x => x is PowerShell3HandlerData)) &&
+                        (currentExecution.All.Any(x => x is NodeHandlerData || x is Node10HandlerData)))
+                        {
+                            Trace.Info($"Since we are targeting a container, we will prefer a node handler if one is available");
+                            preferPowershellHandler = false;
+                        }
+                }
+            }
+            Trace.Info($"Get handler data for target platform {targetOS.ToString()}");
+            return currentExecution.All
+                    .OrderBy(x => !(x.PreferredOnPlatform(targetOS) && (preferPowershellHandler || !(x is PowerShell3HandlerData)))) // Sort true to false.
+                    .ThenBy(x => x.Priority)
+                    .FirstOrDefault();
         }
 
         private string TranslateFilePathInput(string inputValue)

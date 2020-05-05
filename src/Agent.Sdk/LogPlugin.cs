@@ -281,6 +281,8 @@ namespace Agent.Sdk
             int shortCircuitThreshold = 1000, // output queue depth >= 1000 lines
             int shortCircuitMonitorFrequency = 10000) // check all output queues every 10 sec
         {
+            ArgUtil.NotNull(plugins, nameof(plugins));
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
             _steps = hostContext.Steps;
             _plugins = plugins;
             _trace = trace ?? new AgentLogPluginTrace();

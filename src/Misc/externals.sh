@@ -1,20 +1,26 @@
 #!/bin/bash
 PACKAGERUNTIME=$1
 PRECACHE=$2
+LAYOUT_DIR=$3
+L1_MODE=$4
 
 CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
 NODE_URL=https://nodejs.org/dist
 NODE_VERSION="6.17.1"
-NODE10_VERSION="10.17.0"
-MINGIT_VERSION="2.24.0.2"
+NODE10_VERSION="10.19.0"
+MINGIT_VERSION="2.26.2"
 
 get_abs_path() {
   # exploits the fact that pwd will print abs path when no args
   echo "$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 }
 
-LAYOUT_DIR=$(get_abs_path "$(dirname $0)/../../_layout/$PACKAGERUNTIME")
 DOWNLOAD_DIR="$(get_abs_path "$(dirname $0)/../../_downloads")/$PACKAGERUNTIME/netcore2x"
+if [[ "$LAYOUT_DIR" == "" ]]; then
+    LAYOUT_DIR=$(get_abs_path "$(dirname $0)/../../_layout/$PACKAGERUNTIME")
+else
+    LAYOUT_DIR=$(get_abs_path "$(dirname $0)/../../$LAYOUT_DIR")
+fi
 
 function failed() {
    local error=${1:-Undefined error}
@@ -36,6 +42,7 @@ function acquireExternalTool() {
                             # directly contains only a nested directory TEE-CLC-14.0.4. When this flag is set, the contents
                             # of the nested TEE-CLC-14.0.4 directory are moved up one directory, and then the empty directory
                             # TEE-CLC-14.0.4 is removed.
+    local dont_uncompress=$4
 
     # Extract the portion of the URL after the protocol. E.g. vstsagenttools.blob.core.windows.net/tools/pdbstr/1/pdbstr.zip
     local relative_url="${download_source#*://}"
@@ -90,7 +97,7 @@ function acquireExternalTool() {
         # Extract to layout.
         mkdir -p "$target_dir" || checkRC 'mkdir'
         local nested_dir=""
-        if [[ "$download_basename" == *.zip ]]; then
+        if [[ "$download_basename" == *.zip && "$dont_uncompress" != "dont_uncompress" ]]; then
             # Extract the zip.
             echo "Extracting zip from $download_target to $target_dir"
             unzip "$download_target" -d "$target_dir" > /dev/null
@@ -103,7 +110,7 @@ function acquireExternalTool() {
             if [[ "$fix_nested_dir" == "fix_nested_dir" ]]; then
                 nested_dir="${download_basename%.zip}" # Remove the trailing ".zip".
             fi
-        elif [[ "$download_basename" == *.tar.gz ]]; then
+        elif [[ "$download_basename" == *.tar.gz && "$dont_uncompress" != "dont_uncompress" ]]; then
             # Extract the tar gz.
             echo "Extracting tar gz from $download_target to $target_dir"
             tar xzf "$download_target" -C "$target_dir" > /dev/null || checkRC 'tar'
@@ -165,7 +172,7 @@ if [[ "$PACKAGERUNTIME" == "osx-x64" ]]; then
 fi
 
 # Download the external tools common across OSX and Linux PACKAGERUNTIMEs.
-if [[ "$PACKAGERUNTIME" == "linux-x64" || "$PACKAGERUNTIME" == "linux-arm" || "$PACKAGERUNTIME" == "osx-x64" || "$PACKAGERUNTIME" == "rhel.6-x64" ]]; then
+if [[ "$PACKAGERUNTIME" == "linux-x64" || "$PACKAGERUNTIME" == "linux-arm" || "$PACKAGERUNTIME" == "linux-arm64" || "$PACKAGERUNTIME" == "osx-x64" || "$PACKAGERUNTIME" == "rhel.6-x64" ]]; then
     acquireExternalTool "$CONTAINER_URL/tee/14_134_0/TEE-CLC-14.134.0.zip" tee fix_nested_dir
     acquireExternalTool "$CONTAINER_URL/vso-task-lib/0.5.5/vso-task-lib.tar.gz" vso-task-lib
 fi
@@ -179,4 +186,21 @@ fi
 if [[ "$PACKAGERUNTIME" == "linux-arm" ]]; then
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-armv7l.tar.gz" node fix_nested_dir
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-linux-armv7l.tar.gz" node10 fix_nested_dir
+fi
+
+if [[ "$PACKAGERUNTIME" == "linux-arm64" ]]; then
+    acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-arm64.tar.gz" node fix_nested_dir
+    acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-linux-arm64.tar.gz" node10 fix_nested_dir
+fi
+
+if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
+    # cmdline task
+    acquireExternalTool "$CONTAINER_URL/l1Tasks/d9bafed4-0b18-4f58-968d-86655b4d2ce9.zip" "Tasks" false dont_uncompress
+
+    # with the current setup of this package there are backslashes so it fails to extract on non-windows at runtime
+    # we may need to fix this in the Agent
+    if [[ "$PACKAGERUNTIME" == "win-x64" || "$PACKAGERUNTIME" == "win-x86" ]]; then
+        # signed service tree task
+        acquireExternalTool "$CONTAINER_URL/l1Tasks/5515f72c-5faa-4121-8a46-8f42a8f42132.zip" "Tasks" false dont_uncompress
+    fi
 fi

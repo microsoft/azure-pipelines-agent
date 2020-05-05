@@ -85,6 +85,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider
 
         public async Task<Stream> GetFileTask(ContainerItem ticketedItem, CancellationToken cancellationToken)
         {
+            ArgUtil.NotNull(ticketedItem, nameof(ticketedItem));
+
             this._executionContext.Debug(StringUtil.Format("Get file container client for file {0}", ticketedItem.Path));
 
             VssConnection vssConnection = await GetVssConnection();

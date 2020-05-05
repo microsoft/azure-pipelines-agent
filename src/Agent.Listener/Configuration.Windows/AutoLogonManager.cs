@@ -27,6 +27,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public override void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
             base.Initialize(hostContext);
             _terminal = hostContext.GetService<ITerminal>();
             _windowsServiceHelper = hostContext.GetService<INativeWindowsServiceHelper>();
@@ -36,6 +37,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public async Task ConfigureAsync(CommandSettings command)
         {
+            ArgUtil.NotNull(command, nameof(command));
             if (!_windowsServiceHelper.IsRunningInElevatedMode())
             {
                 Trace.Error("Needs Administrator privileges to configure agent with AutoLogon capability.");
@@ -66,7 +68,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     break;
                 }
 
-                if (command.Unattended)
+                if (command.Unattended())
                 {
                     throw new SecurityException(StringUtil.Loc("InvalidAutoLogonCredential"));
                 }
@@ -91,7 +93,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 if (!command.GetOverwriteAutoLogon(currentAutoLogonAccount))
                 {
                     Trace.Error("Marking the agent configuration as failed due to the denial of autologon setting overwriting by the user.");
-                    throw new Exception(StringUtil.Loc("AutoLogonOverwriteDeniedError", currentAutoLogonAccount));
+                    throw new InvalidOperationException(StringUtil.Loc("AutoLogonOverwriteDeniedError", currentAutoLogonAccount));
                 }
                 Trace.Info($"Continuing with the autologon configuration.");
             }

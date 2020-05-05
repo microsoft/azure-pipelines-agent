@@ -16,6 +16,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         public async Task<Boolean> VerifyAsync(Definition definition, CancellationToken token)
         {
+            ArgUtil.NotNull(definition, nameof(definition));
+
             // This is used for the Checkout task.
             // We can consider it verified since it's embedded in the Agent code.
             if (String.IsNullOrEmpty(definition.ZipPath))
@@ -28,18 +30,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             var configurationStore = HostContext.GetService<IConfigurationStore>();
             AgentSettings settings = configurationStore.GetSettings();
-            String fingerprint = settings.Fingerprint;
+            SignatureVerificationSettings verificationSettings = settings.SignatureVerification;
             String taskZipPath = definition.ZipPath;
             String taskNugetPath = definition.ZipPath.Replace(".zip", ".nupkg");
 
             // Rename .zip to .nupkg
             File.Move(taskZipPath, taskNugetPath);
 
-            String arguments = $"verify -Signatures \"{taskNugetPath}\" -CertificateFingerprint {fingerprint} -Verbosity Detailed";
+            String arguments = $"verify -Signatures \"{taskNugetPath}\" -Verbosity Detailed";
+
+            if (verificationSettings?.Fingerprints != null && verificationSettings.Fingerprints.Count > 0)
+            {
+                String fingerprint = String.Join(";", verificationSettings.Fingerprints);
+                arguments += $" -CertificateFingerprint \"{fingerprint}\"";
+            }
+
+            Trace.Info($"nuget arguments: {arguments}");
 
             // Run nuget verify
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
             {
+                processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+                {
+                    if (!string.IsNullOrEmpty(args.Data))
+                    {
+                        Trace.Info(args.Data);
+                    }
+                };
                 int exitCode = await processInvoker.ExecuteAsync(workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Root),
                                                                  fileName: nugetPath,
                                                                  arguments: arguments,

@@ -36,6 +36,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public override void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
             base.Initialize(hostContext);
             Trace.Verbose("Creating _store");
             _store = hostContext.GetService<IConfigurationStore>();
@@ -66,6 +67,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public async Task ConfigureAsync(CommandSettings command)
         {
+            ArgUtil.NotNull(command, nameof(command));
             Trace.Info(nameof(ConfigureAsync));
             if (IsConfigured())
             {
@@ -174,15 +176,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             // Create the configuration provider as per agent type.
             string agentType;
-            if (command.DeploymentGroup)
+            if (command.GetDeploymentOrMachineGroup())
             {
                 agentType = Constants.Agent.AgentConfigurationProvider.DeploymentAgentConfiguration;
             }
-            else if (command.DeploymentPool)
+            else if (command.GetDeploymentPool())
             {
                 agentType = Constants.Agent.AgentConfigurationProvider.SharedDeploymentAgentConfiguration;
             }
-            else if (command.EnvironmentVMResource)
+            else if (command.GetEnvironmentVMResource())
             {
                 agentType = Constants.Agent.AgentConfigurationProvider.EnvironmentVMResourceConfiguration;
             }
@@ -224,7 +226,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     Trace.Info("Test Connection complete.");
                     break;
                 }
-                catch (Exception e) when (!command.Unattended)
+                catch (Exception e) when (!command.Unattended())
                 {
                     _term.WriteError(e);
                     _term.WriteError(StringUtil.Loc("FailedToConnect"));
@@ -250,7 +252,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     await agentProvider.GetPoolIdAndName(agentSettings, command);
                     break;
                 }
-                catch (Exception e) when (!command.Unattended)
+                catch (Exception e) when (!command.Unattended())
                 {
                     _term.WriteError(e);
                     _term.WriteError(agentProvider.GetFailedToFindPoolErrorString());
@@ -282,13 +284,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                             _term.WriteLine(StringUtil.Loc("AgentReplaced"));
                             break;
                         }
-                        catch (Exception e) when (!command.Unattended)
+                        catch (Exception e) when (!command.Unattended())
                         {
                             _term.WriteError(e);
                             _term.WriteError(StringUtil.Loc("FailedToReplaceAgent"));
                         }
                     }
-                    else if (command.Unattended)
+                    else if (command.Unattended())
                     {
                         // if not replace and it is unattended config.
                         agentProvider.ThrowTaskAgentExistException(agentSettings);
@@ -305,7 +307,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                         _term.WriteLine(StringUtil.Loc("AgentAddedSuccessfully"));
                         break;
                     }
-                    catch (Exception e) when (!command.Unattended)
+                    catch (Exception e) when (!command.Unattended())
                     {
                         _term.WriteError(e);
                         _term.WriteError(StringUtil.Loc("AddAgentFailed"));
@@ -406,7 +408,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 // 2. The bearer token is not valid until {jwt.ValidFrom}. Current server time is {DateTime.UtcNow}.
                 Trace.Error("Catch exception during test agent connection.");
                 Trace.Error(ex);
-                throw new Exception(StringUtil.Loc("LocalClockSkewed"));
+                throw new InvalidOperationException(StringUtil.Loc("LocalClockSkewed"));
             }
 
             // We will Combine() what's stored with root.  Defaults to string a relative path
@@ -437,7 +439,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             bool saveRuntimeOptions = false;
             var runtimeOptions = new AgentRuntimeOptions();
-            if (PlatformUtil.RunningOnWindows && command.GitUseSChannel)
+            if (PlatformUtil.RunningOnWindows && command.GetGitUseSChannel())
             {
                 saveRuntimeOptions = true;
                 runtimeOptions.GitUseSecureChannel = true;
@@ -484,6 +486,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public async Task UnconfigureAsync(CommandSettings command)
         {
+            ArgUtil.NotNull(command, nameof(command));
             string currentAction = string.Empty;
             try
             {
@@ -501,12 +504,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     else if (PlatformUtil.RunningOnLinux)
                     {
                         // unconfig systemd service first
-                        throw new Exception(StringUtil.Loc("UnconfigureServiceDService"));
+                        throw new InvalidOperationException(StringUtil.Loc("UnconfigureServiceDService"));
                     }
                     else if (PlatformUtil.RunningOnMacOS)
                     {
                         // unconfig macOS service first
-                        throw new Exception(StringUtil.Loc("UnconfigureOSXService"));
+                        throw new InvalidOperationException(StringUtil.Loc("UnconfigureOSXService"));
                     }
                 }
                 else
@@ -651,7 +654,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             // Create the credential.
             Trace.Info("Creating credential for auth: {0}", authType);
             var provider = credentialManager.GetCredentialProvider(authType);
-            if (provider.RequireInteractive && command.Unattended)
+            if (provider.RequireInteractive && command.Unattended())
             {
                 throw new NotSupportedException($"Authentication type '{authType}' is not supported for unattended configuration.");
             }
@@ -708,6 +711,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _term.WriteLine();
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "locationServer")]
         private async Task<bool> IsHostedServer(string serverUrl, VssCredentials credentials)
         {
             // Determine the service deployment type based on connection data. (Hosted/OnPremises)

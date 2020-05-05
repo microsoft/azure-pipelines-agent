@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Concurrent;
@@ -22,7 +23,7 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
-    public interface IHostContext : IDisposable
+    public interface IHostContext : IDisposable, IKnobValueContext
     {
         StartupType StartupType { get; set; }
         CancellationToken AgentShutdownToken { get; }
@@ -49,14 +50,28 @@ namespace Microsoft.VisualStudio.Services.Agent
         AutoStartup
     }
 
-    public sealed class HostContext : EventListener, IObserver<DiagnosticListener>, IObserver<KeyValuePair<string, object>>, IHostContext, IDisposable
+    public class HostContext : EventListener, IObserver<DiagnosticListener>, IObserver<KeyValuePair<string, object>>, IHostContext
     {
         private const int _defaultLogPageSize = 8;  //MB
+
+        // URLs can contain secrets if they have a userinfo part
+        // in the authority. example: https://user:pass@example.com
+        // (see https://tools.ietf.org/html/rfc3986#section-3.2)
+        // This regex will help filter those out of the output.
+        // It uses a zero-width positive lookbehind to find the scheme,
+        // the user, and the ":" and skip them. Similarly, it uses
+        // a zero-width positive lookahead to find the "@".
+        // It only matches on the password part.
+        private const string _urlSecretMaskerPattern
+            = "(?<=//[^:/?#\\n]+:)" // lookbehind
+            + "[^@\n]+"             // actual match
+            + "(?=@)";              // lookahead
+
         private static int _defaultLogRetentionDays = 30;
         private static int[] _vssHttpMethodEventIds = new int[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 24 };
         private static int[] _vssHttpCredentialEventIds = new int[] { 11, 13, 14, 15, 16, 17, 18, 20, 21, 22, 27, 29 };
         private readonly ConcurrentDictionary<Type, object> _serviceInstances = new ConcurrentDictionary<Type, object>();
-        private readonly ConcurrentDictionary<Type, Type> _serviceTypes = new ConcurrentDictionary<Type, Type>();
+        protected readonly ConcurrentDictionary<Type, Type> ServiceTypes = new ConcurrentDictionary<Type, Type>();
         private readonly ISecretMasker _secretMasker = new SecretMasker();
         private readonly ProductInfoHeaderValue _userAgent = new ProductInfoHeaderValue($"VstsAgentCore-{BuildConstants.AgentPackage.PackageName}", BuildConstants.AgentPackage.Version);
         private CancellationTokenSource _agentShutdownTokenSource = new CancellationTokenSource();
@@ -70,7 +85,6 @@ namespace Microsoft.VisualStudio.Services.Agent
         private IDisposable _diagListenerSubscription;
         private StartupType _startupType;
         private string _perfFile;
-
         public event EventHandler Unloading;
         public CancellationToken AgentShutdownToken => _agentShutdownTokenSource.Token;
         public ShutdownReason AgentShutdownReason { get; private set; }
@@ -86,6 +100,8 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             this.SecretMasker.AddValueEncoder(ValueEncoders.JsonStringEscape);
             this.SecretMasker.AddValueEncoder(ValueEncoders.UriDataEscape);
+            this.SecretMasker.AddValueEncoder(ValueEncoders.BackslashEscape);
+            this.SecretMasker.AddRegex(_urlSecretMaskerPattern);
 
             // Create the trace manager.
             if (string.IsNullOrEmpty(logFile))
@@ -117,8 +133,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             _vssTrace = GetTrace(nameof(VisualStudio) + nameof(VisualStudio.Services));  // VisualStudioService
 
             // Enable Http trace
-            bool enableHttpTrace;
-            if (bool.TryParse(Environment.GetEnvironmentVariable("VSTS_AGENT_HTTPTRACE"), out enableHttpTrace) && enableHttpTrace)
+            if (AgentKnobs.HttpTrace.GetValue(this).AsBoolean())
             {
                 _trace.Warning("*****************************************************************************************");
                 _trace.Warning("**                                                                                     **");
@@ -132,7 +147,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
 
             // Enable perf counter trace
-            string perfCounterLocation = Environment.GetEnvironmentVariable("VSTS_AGENT_PERFLOG");
+            string perfCounterLocation = AgentKnobs.AgentPerflog.GetValue(this).AsString();
             if (!string.IsNullOrEmpty(perfCounterLocation))
             {
                 try
@@ -147,7 +162,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        public string GetDirectory(WellKnownDirectory directory)
+        public virtual string GetDirectory(WellKnownDirectory directory)
         {
             string path;
             switch (directory)
@@ -215,7 +230,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     break;
 
                 case WellKnownDirectory.Tools:
-                    path = Environment.GetEnvironmentVariable("AGENT_TOOLSDIRECTORY") ?? Environment.GetEnvironmentVariable(Constants.Variables.Agent.ToolsDirectory);
+                    path = AgentKnobs.AgentToolsDirectory.GetValue(this).AsString();
                     if (string.IsNullOrEmpty(path))
                     {
                         path = Path.Combine(
@@ -327,6 +342,13 @@ namespace Microsoft.VisualStudio.Services.Agent
                         GetDirectory(WellKnownDirectory.Root),
                         ".options");
                     break;
+
+                case WellKnownConfigFile.SetupInfo:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        ".setup_info");
+                    break;
+
                 default:
                     throw new NotSupportedException($"Unexpected well known config file: '{configFile}'");
             }
@@ -354,7 +376,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             Type defaultTarget = null;
             Type platformTarget = null;
 
-            if (!_serviceTypes.TryGetValue(typeof(T), out target))
+            if (!ServiceTypes.TryGetValue(typeof(T), out target))
             {
                 // Infer the concrete type from the ServiceLocatorAttribute.
                 CustomAttributeData attribute = typeof(T)
@@ -395,8 +417,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                     throw new KeyNotFoundException(string.Format(CultureInfo.InvariantCulture, "Service mapping not found for key '{0}'.", typeof(T).FullName));
                 }
 
-                _serviceTypes.TryAdd(typeof(T), target);
-                target = _serviceTypes[typeof(T)];
+                ServiceTypes.TryAdd(typeof(T), target);
+                target = ServiceTypes[typeof(T)];
             }
 
             // Create a new instance.
@@ -468,7 +490,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             return containerInfo;
         }
 
-        public override void Dispose()
+        public sealed override void Dispose()
         {
             Dispose(true);
             GC.SuppressFinalize(this);
@@ -488,6 +510,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public void WritePerfCounter(string counter)
         {
+            ArgUtil.NotNull(counter, nameof(counter));
             if (!string.IsNullOrEmpty(_perfFile))
             {
                 string normalizedCounter = counter.Replace(':', '_');
@@ -505,7 +528,17 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        private void Dispose(bool disposing)
+        string IKnobValueContext.GetVariableValueOrDefault(string variableName)
+        {
+            throw new NotSupportedException("Method not supported for Microsoft.VisualStudio.Services.Agent.HostContext");
+        }
+
+        IScopedEnvironment IKnobValueContext.GetScopedEnvironment()
+        {
+            return new SystemEnvironment();
+        }
+
+        protected virtual void Dispose(bool disposing)
         {
             // TODO: Dispose the trace listener also.
             if (disposing)
@@ -519,6 +552,12 @@ namespace Microsoft.VisualStudio.Services.Agent
                 _diagListenerSubscription?.Dispose();
                 _traceManager?.Dispose();
                 _traceManager = null;
+                _vssTrace?.Dispose();
+                _vssTrace = null;
+                _trace?.Dispose();
+                _trace = null;
+                _httpTrace?.Dispose();
+                _httpTrace = null;
 
                 _agentShutdownTokenSource?.Dispose();
                 _agentShutdownTokenSource = null;
@@ -570,6 +609,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         protected override void OnEventSourceCreated(EventSource source)
         {
+            ArgUtil.NotNull(source, nameof(source));
             if (source.Name.Equals("Microsoft-VSS-Http"))
             {
                 EnableEvents(source, EventLevel.Verbose);
@@ -649,6 +689,7 @@ namespace Microsoft.VisualStudio.Services.Agent
     {
         public static HttpClientHandler CreateHttpClientHandler(this IHostContext context)
         {
+            ArgUtil.NotNull(context, nameof(context));
             HttpClientHandler clientHandler = new HttpClientHandler();
             var agentWebProxy = context.GetService<IVstsAgentWebProxy>();
             clientHandler.Proxy = agentWebProxy.WebProxy;

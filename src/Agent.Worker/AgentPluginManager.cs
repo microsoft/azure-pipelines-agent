@@ -22,11 +22,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         Task RunPluginTaskAsync(IExecutionContext context, string plugin, Dictionary<string, string> inputs, Dictionary<string, string> environment, Variables runtimeVariables, EventHandler<ProcessDataReceivedEventArgs> outputHandler);
     }
 
-    public sealed class AgentPluginManager : AgentService, IAgentPluginManager
+    public class AgentPluginManager : AgentService, IAgentPluginManager
     {
         private readonly Dictionary<Guid, List<string>> _supportedTasks = new Dictionary<Guid, List<string>>();
 
-        private readonly HashSet<string> _taskPlugins = new HashSet<string>()
+        protected readonly HashSet<string> _taskPlugins = new HashSet<string>()
         {
             "Agent.Plugins.Repository.CheckoutTask, Agent.Plugins",
             "Agent.Plugins.Repository.CleanupTask, Agent.Plugins",
@@ -90,6 +90,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public AgentTaskPluginExecutionContext GeneratePluginExecutionContext(IExecutionContext context, Dictionary<string, string> inputs, Variables runtimeVariables)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(inputs, nameof(inputs));
+            ArgUtil.NotNull(runtimeVariables, nameof(runtimeVariables));
+
             // construct plugin context
             var target = context.StepTarget();
             Variables.TranslationMethod translateToHostPath = Variables.DefaultStringTranslator;
@@ -146,8 +150,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var pluginContext = GeneratePluginExecutionContext(context, inputs, runtimeVariables);
 
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
+            using (var redirectStandardIn = new InputQueue<string>())
             {
-                var redirectStandardIn = new InputQueue<string>();
                 redirectStandardIn.Enqueue(JsonUtility.ToString(pluginContext));
 
                 processInvoker.OutputDataReceived += outputHandler;
@@ -156,7 +160,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Execute the process. Exit code 0 should always be returned.
                 // A non-zero exit code indicates infrastructural failure.
                 // Task failure should be communicated over STDOUT using ## commands.
-                
+
                 // Agent.PluginHost's arguments
                 string arguments = $"task \"{plugin}\"";
                 await processInvoker.ExecuteAsync(workingDirectory: workingDirectory,
