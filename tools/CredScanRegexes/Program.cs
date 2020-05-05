@@ -1,14 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using Microsoft.Security.CredScan.KnowledgeBase.Ruleset;
-using Microsoft.Security.CredScan.KnowledgeBase.Client.DataFormat.Json;
-using Microsoft.Security.CredScan.KnowledgeBase;
 
 namespace CredScanRegexes
 {
@@ -16,46 +9,19 @@ namespace CredScanRegexes
     {
         static void Main(string[] args)
         {
-            var version = GetVersion();
-            var regexes = ExtractRegexes();
+            var extractor = new CredScanPatternExtractor();
+            var version = extractor.GetCredScanVersion();
 
             StringBuilder sb = new StringBuilder();
-            string sp = "                ";
-            foreach (var regex in regexes)
+            string tab = "                ";
+            foreach (var (name, pattern) in extractor.GetPatterns())
             {
-                sb.Append($"{sp}// {regex.Key}\n");
+                sb.Append($"{tab}// {name}\n");
 
-                foreach (var pattern in regex.Value)
-                {
-                    string[] subPatterns;
-                    if (unprocessedPatternNames.Contains(regex.Key))
-                    {
-                        subPatterns = new string[] { pattern };
-                    }
-                    else
-                    {
-                        subPatterns = PreprocessPattern(pattern);
-                    }
-
-                    var escapedPatterns =
-                        from p in subPatterns
-                        select p.Replace("\"", "\"\"");
-                    
-                    if (escapedPatterns.Count() > 0)
-                    {
-                        sb.Append($"{sp}@\"{escapedPatterns.First()}\"");
-                        foreach (var ep in escapedPatterns.Skip(1))
-                        {
-                            sb.Append($"\n{sp}+ @\"{ep}\"");
-                        }
-                        sb.Append(",\n");
-                    }
-                    else
-                    {
-                        sb.Append($"{sp}// skipped pattern: {pattern}\n");
-                    }
-                }
-
+                var processedPattern = PatternProcessor.Convert(name, pattern);
+                sb.Append($"{tab}  @\"{processedPattern.Prematch}\" // pre-match\n");
+                sb.Append($"{tab}+ @\"{processedPattern.Match}\" // match\n");
+                sb.Append($"{tab}+ @\"{processedPattern.Postmatch}\", // post-match\n");
                 sb.Append("\n");
             }
 
@@ -64,117 +30,6 @@ namespace CredScanRegexes
                 sb.ToString(),
                 version));
         }
-
-        private static Dictionary<string, List<string>> ExtractRegexes()
-        {
-            string searchConfig = RulesetHelper.GetPredefinedSearchConfiguration("FullTextProvider");
-            var kbf = new JsonKnowledgeBaseFactory(JsonConvert.DeserializeObject(searchConfig) as JObject);
-            var kb = kbf.CreateKnowledgeBase();
-
-            var result = new Dictionary<string, List<string>>();
-
-            // CredScan has some patterns that should not be exported publicly
-            // and there are a few patterns which over-match
-            var publicPatterns = kb.Patterns.Where(p =>
-                !p.Tags.Contains(PatternTag.ProviderType_ContainsSecret)
-                && !skippedPatternNames.Contains(p.Name));
-
-            foreach (var pattern in publicPatterns)
-            {
-                List<string> regexes = new List<string>();
-
-                if (pattern.ScannerMatchingExpression is object)
-                {
-                    regexes.Add(new MatchingExpression(pattern.ScannerMatchingExpression).Argument);
-                }
-
-                if (pattern.ScannerMatchingExpressions is object)
-                {
-                    foreach (var sme in pattern.ScannerMatchingExpressions)
-                    {
-                        regexes.Add(new MatchingExpression(sme).Argument);
-                    }
-                }
-
-                result[pattern.Name] = regexes;
-            }
-
-            return result;
-        }
-
-        private static string GetVersion()
-        {
-            Assembly assembly = Assembly.GetAssembly(typeof(RulesetHelper));
-            return assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion;
-        }
-
-        // if a CredScan pattern has a named group, then the credential
-        // is assumed to be in that group. otherwise, the entire pattern
-        // is the credential. the azure pipelines agent assumes the whole
-        // pattern is the credential to suppress, so we need to doctor up
-        // CredScan patterns with non-matching groups.
-        private static string[] PreprocessPattern(string pattern)
-        {
-            // TODO: "(?<" also starts things other than named groups
-            // so this should probably be a regex looking for that
-            // pattern followed by [A-Za-z]
-            if (pattern.IndexOf("(?<") > -1)
-            {
-                // finding the beginning of the named capture group is easy
-                int startNamedGroup = pattern.IndexOf("(?<");
-
-                // finding the end means looking for the matching close-paren
-                int parenCount = 1;
-                int endNamedGroup = startNamedGroup + 1;
-                while(parenCount > 0 && endNamedGroup < pattern.Length)
-                {
-                    string letter = pattern.Substring(endNamedGroup, 1);
-                    if (letter == "(")
-                    {
-                        parenCount++;
-                    }
-                    else if (letter == ")")
-                    {
-                        parenCount--;
-                    }
-                    endNamedGroup++;
-                }
-                
-                List<string> result = new List<string>();
-                if (startNamedGroup > 0)
-                {
-                    // nonmatching lookbehind
-                    result.Add($"(?<={pattern.Substring(0, startNamedGroup)})");
-                }
-
-                // the matching group
-                result.Add($"{pattern.Substring(startNamedGroup, endNamedGroup-startNamedGroup)}");
-
-                if (endNamedGroup < pattern.Length)
-                {
-                    // nonmatching lookahead
-                    result.Add($"(?={pattern.Substring(endNamedGroup)})");
-                }
-
-                return result.ToArray();
-            }
-
-            return new string[] { pattern };
-        }
-
-        private static List<string> skippedPatternNames = new List<string>
-        {
-            "PasswordContextInCode",
-            "PasswordContextInXml",
-        };
-
-        private static List<string> unprocessedPatternNames = new List<string>
-        {
-            // uses a named capture group twice, which confuses the rudimentary
-            // processing implemented here. JsonWebToken doesn't over-match, so
-            // no need to process it
-            "JsonWebToken",
-        };
 
         private static string fileTemplate = @"// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
