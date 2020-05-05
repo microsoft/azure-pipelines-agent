@@ -27,7 +27,16 @@ namespace CredScanRegexes
 
                 foreach (var pattern in regex.Value)
                 {
-                    string[] subPatterns = PreprocessPattern(pattern);
+                    string[] subPatterns;
+                    if (unprocessedPatternNames.Contains(regex.Key))
+                    {
+                        subPatterns = new string[] { pattern };
+                    }
+                    else
+                    {
+                        subPatterns = PreprocessPattern(pattern);
+                    }
+
                     var escapedPatterns =
                         from p in subPatterns
                         select p.Replace("\"", "\"\"");
@@ -65,7 +74,10 @@ namespace CredScanRegexes
             var result = new Dictionary<string, List<string>>();
 
             // CredScan has some patterns that should not be exported publicly
-            var publicPatterns = kb.Patterns.Where(p => !p.Tags.Contains(PatternTag.ProviderType_ContainsSecret));
+            // and there are a few patterns which over-match
+            var publicPatterns = kb.Patterns.Where(p =>
+                !p.Tags.Contains(PatternTag.ProviderType_ContainsSecret)
+                && !skippedPatternNames.Contains(p.Name));
 
             foreach (var pattern in publicPatterns)
             {
@@ -96,19 +108,6 @@ namespace CredScanRegexes
             return assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion;
         }
 
-        private static int CountOccurrences(string needle, string haystack)
-        {
-            int count = 0;
-            int start = haystack.IndexOf(needle);
-            while (start > -1)
-            {
-                count++;
-                haystack = haystack.Substring(start + needle.Length);
-                start = haystack.IndexOf(needle);
-            }
-            return count;
-        }
-
         // if a CredScan pattern has a named group, then the credential
         // is assumed to be in that group. otherwise, the entire pattern
         // is the credential. the azure pipelines agent assumes the whole
@@ -116,12 +115,9 @@ namespace CredScanRegexes
         // CredScan patterns with non-matching groups.
         private static string[] PreprocessPattern(string pattern)
         {
-            // multiple named groups confuses things, so skip them for now
-            if (CountOccurrences("(?<", pattern) > 1)
-            {
-                return new string[] { };
-            }
-
+            // TODO: "(?<" also starts things other than named groups
+            // so this should probably be a regex looking for that
+            // pattern followed by [A-Za-z]
             if (pattern.IndexOf("(?<") > -1)
             {
                 // finding the beginning of the named capture group is easy
@@ -165,6 +161,20 @@ namespace CredScanRegexes
 
             return new string[] { pattern };
         }
+
+        private static List<string> skippedPatternNames = new List<string>
+        {
+            "PasswordContextInCode",
+            "PasswordContextInXml",
+        };
+
+        private static List<string> unprocessedPatternNames = new List<string>
+        {
+            // uses a named capture group twice, which confuses the rudimentary
+            // processing implemented here. JsonWebToken doesn't over-match, so
+            // no need to process it
+            "JsonWebToken",
+        };
 
         private static string fileTemplate = @"// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
