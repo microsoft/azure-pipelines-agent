@@ -243,7 +243,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 
                 bool changeTestRunTitle = resultFiles.Count > 1;
                 TestRunSummary testRunSummary = new TestRunSummary();
-                DoIt().GetAwaiter().GetResult();
                 foreach (var files in groupedFiles)
                 {
                     // Publish separate test run for each result file that has results.
