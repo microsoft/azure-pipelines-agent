@@ -223,9 +223,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                     StoreTestRunSummaryInEnvVar(testRunSummary);
                 }
             }
-            catch (Exception ex) when (!(ex is OperationCanceledException))
+            catch (Exception ex) when (!(ex is OperationCanceledException && _executionContext.CancellationToken.IsCancellationRequested))
             {
-                //Do not fail the task.
+                // Not catching all the operationcancelled exceptions, as the pipeline cancellation should cancel the command as well.
+                // Do not fail the task.
                 LogPublishTestResultsFailureWarning(ex);
             }
             return isTestRunOutcomeFailed;
@@ -263,7 +264,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 
                 bool changeTestRunTitle = resultFiles.Count > 1;
                 TestRunSummary testRunSummary = new TestRunSummary();
-
                 foreach (var files in groupedFiles)
                 {
                     // Publish separate test run for each result file that has results.
@@ -325,9 +325,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 
                 StoreTestRunSummaryInEnvVar(testRunSummary);
             }
-            catch (Exception ex) when (!(ex is OperationCanceledException))
+            catch (Exception ex) when (!(ex is OperationCanceledException && _executionContext.CancellationToken.IsCancellationRequested))
             {
-                //Do not fail the task.
+                // Not catching all the operationcancelled exceptions, as the pipeline cancellation should cancel the command as well.
+                // Do not fail the task.
                 LogPublishTestResultsFailureWarning(ex);
             }
             return isTestRunOutcomeFailed;
