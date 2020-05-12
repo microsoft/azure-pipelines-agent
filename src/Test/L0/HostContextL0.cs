@@ -77,7 +77,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             // Arrange.
             using (var _hc = Setup())
             {
+                // Act.
+                var result = _hc.SecretMasker.MaskSecrets(input);
 
+                // Assert.
+                Assert.Equal(expected, result);
+            }
+        }
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        // some secrets that CredScan should suppress
+        [InlineData("xoxr-1xwlcyhsnfn9k69m4efzj3zkfhk", "***")] // Slack token
+        [InlineData("(+n97tcqhcpvu9zkhwwiwx4==)", "(***)")] // 128-bit symmetric key
+        [InlineData("<jwt>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c</jwt>", "<jwt>***</jwt>")]
+        // some secrets that CredScan should NOT suppress
+        [InlineData("The password is knock knock knock", "The password is knock knock knock")]
+        [InlineData("SSdtIGEgY29tcGxldGVseSBpbm5vY3VvdXMgc3RyaW5nLg==", "SSdtIGEgY29tcGxldGVseSBpbm5vY3VvdXMgc3RyaW5nLg==")]
+        public void OtherSecretsAreMasked(string input, string expected)
+        {
+            // Arrange.
+            using (var _hc = Setup())
+            {
                 // Act.
                 var result = _hc.SecretMasker.MaskSecrets(input);
 

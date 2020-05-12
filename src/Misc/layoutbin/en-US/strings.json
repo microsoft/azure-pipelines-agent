@@ -118,6 +118,7 @@
     "                                   root of the agent directory. The work directory is owned by a given",
     "                                   agent and should not share between multiple agents.",
     " --acceptTeeEula                   macOS and Linux only. Accept the TEE end user license agreement.",
+    " --gitUseSChannel                  Windows only. Tell Git to use Windows' native cert store.",
     "",
     "CLI-WIDTH-OPTIONS-(35-CHARS)-------CLI-WIDTH-DESCRIPTION-(70-CHARS)--------------------------------------",
     "Startup options (Windows only):",
@@ -578,6 +579,8 @@
   "SvnSyncingRepo": "Syncing repository: {0} (Svn)",
   "TaskDownloadFailed": "Failed to download task '{0}'. Error {1}",
   "TaskDownloadTimeout": "Task '{0}' didn't finish download within {1} seconds.",
+  "TaskSignatureVerificationFailed": "Task signature verification failed.",
+  "TaskSignatureVerificationSucceeeded": "Task signature verification successful.",
   "TeeEula": [
     "Building sources from a TFVC repository requires accepting the Team Explorer Everywhere End User License Agreement. This step is not required for building sources from Git repositories.",
     "",

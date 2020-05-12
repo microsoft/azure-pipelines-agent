@@ -1,0 +1,190 @@
+parameters:
+- name: preBuildStages
+  type: stageList
+  default: []
+- name: postBuildStages
+  type: stageList
+  default: []
+- name: componentDetection
+  type: boolean
+  default: false
+- name: test
+  type: boolean
+  default: true
+- name: sign
+  type: boolean
+  default: false
+- name: publishArtifacts
+  type: boolean
+  default: false
+- name: branch
+  type: string
+  default: ''
+
+# Targets
+- name: win_x64
+  type: boolean
+  default: true
+- name: win_x86
+  type: boolean
+  default: true
+- name: linux_x64
+  type: boolean
+  default: true
+- name: linux_arm
+  type: boolean
+  default: true
+- name: linux_arm64
+  type: boolean
+  default: true
+- name: rhel6_x64
+  type: boolean
+  default: true
+- name: macOS_x64
+  type: boolean
+  default: true
+
+resources:
+  containers:
+  - container: dotnetcore_arm
+    image: azpagentinfra/arm:latest
+  - container: dotnetcore_centos6
+    image: azpagentinfra/centos6:latest
+
+stages:
+
+- ${{ parameters.preBuildStages }}
+
+- stage: build
+  displayName: Build
+  jobs:
+
+  # Windows x64
+  - ${{ if parameters.win_x64 }}:
+    - template: build-job.yml
+      parameters:
+        jobName: build_windows_x64_agent
+        displayName: Windows Agent (x64)
+        pool:
+          vmImage: vs2017-win2016
+        os: win
+        arch: x64
+        branch: ${{ parameters.branch }}
+        codeCoverage: true
+        componentDetection: ${{ parameters.componentDetection }}
+        unitTests: ${{ parameters.test }}
+        functionalTests: ${{ parameters.test }}
+        sign: ${{ parameters.sign }}
+        verifySigning: ${{ parameters.sign }}
+        publishArtifact: ${{ parameters.publishArtifacts }}
+
+  # Windows (x86)
+  - ${{ if parameters.win_x86 }}:
+    - template: build-job.yml
+      parameters:
+        jobName: build_windows_x86_agent
+        displayName: Windows Agent (x86)
+        pool:
+          name: buildDevs
+          demands: 'Agent.OSArchitecture -equals X86'
+        os: win
+        arch: x86
+        branch: ${{ parameters.branch }}
+        componentDetection: false
+        unitTests: ${{ parameters.test }}
+        functionalTests: ${{ parameters.test }}
+        sign: ${{ parameters.sign }}
+        publishArtifact: ${{ parameters.publishArtifacts }}
+
+  # Linux (x64)
+  - ${{ if parameters.linux_x64 }}:
+    - template: build-job.yml
+      parameters:
+        jobName: build_linux_x64_agent
+        displayName: Linux Agent (x64)
+        pool:
+          vmImage: ubuntu-16.04
+        os: linux
+        arch: x64
+        branch: ${{ parameters.branch }}
+        componentDetection: ${{ parameters.componentDetection }}
+        unitTests: ${{ parameters.test }}
+        functionalTests: ${{ parameters.test }}
+        sign: ${{ parameters.sign }}
+        publishArtifact: ${{ parameters.publishArtifacts }}
+
+  # Linux (ARM)
+  - ${{ if parameters.linux_arm }}:
+    - template: build-job.yml
+      parameters:
+        jobName: build_linux_arm_agent
+        displayName: Linux Agent (ARM)
+        pool:
+          name: buildDevs
+          demands: 'Agent.OSArchitecture -equals ARM'
+        container: dotnetcore_arm
+        timeoutInMinutes: 75
+        os: linux
+        arch: arm
+        branch: ${{ parameters.branch }}
+        componentDetection: false
+        unitTests: ${{ parameters.test }}
+        functionalTests: false
+        sign: false
+        publishArtifact: ${{ parameters.publishArtifacts }}
+
+  # Linux (ARM64)
+  - ${{ if parameters.linux_arm64 }}:
+    - template: build-job.yml
+      parameters:
+        jobName: build_linux_arm64_agent
+        displayName: Linux Agent (ARM64)
+        pool:
+          name: buildDevs
+          demands: 'Agent.OSArchitecture -equals ARM64'
+        timeoutInMinutes: 75
+        os: linux
+        arch: arm64
+        branch: ${{ parameters.branch }}
+        componentDetection: false
+        unitTests: ${{ parameters.test }}
+        functionalTests: ${{ parameters.test }}
+        sign: false
+        publishArtifact: ${{ parameters.publishArtifacts }}
+
+  # RHEL6 Agent (x64)
+  - ${{ if parameters.rhel6_x64 }}:
+    - template: build-job.yml
+      parameters:
+        jobName: build_rhel6_x64_agent
+        displayName: RHEL6 Agent (x64)
+        pool:
+          vmImage: ubuntu-16.04
+        container: dotnetcore_centos6
+        os: rhel.6
+        arch: x64
+        branch: ${{ parameters.branch }}
+        componentDetection: false
+        unitTests: ${{ parameters.test }}
+        functionalTests: ${{ parameters.test }}
+        sign: false
+        publishArtifact: ${{ parameters.publishArtifacts }}
+
+  # macOS x64
+  - ${{ if parameters.macOS_x64 }}:
+    - template: build-job.yml
+      parameters:
+        jobName: build_osx_agent
+        displayName: macOS Agent (x64)
+        pool:
+          vmImage: macOS-10.14
+        os: osx
+        arch: x64
+        branch: ${{ parameters.branch }}
+        componentDetection: ${{ parameters.componentDetection }}
+        unitTests: ${{ parameters.test }}
+        functionalTests: ${{ parameters.test }}
+        sign: ${{ parameters.sign }}
+        publishArtifact: ${{ parameters.publishArtifacts }}
+
+- ${{ parameters.postBuildStages }}

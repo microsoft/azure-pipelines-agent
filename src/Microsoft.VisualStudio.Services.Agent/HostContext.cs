@@ -54,19 +54,6 @@ namespace Microsoft.VisualStudio.Services.Agent
     {
         private const int _defaultLogPageSize = 8;  //MB
 
-        // URLs can contain secrets if they have a userinfo part
-        // in the authority. example: https://user:pass@example.com
-        // (see https://tools.ietf.org/html/rfc3986#section-3.2)
-        // This regex will help filter those out of the output.
-        // It uses a zero-width positive lookbehind to find the scheme,
-        // the user, and the ":" and skip them. Similarly, it uses
-        // a zero-width positive lookahead to find the "@".
-        // It only matches on the password part.
-        private const string _urlSecretMaskerPattern
-            = "(?<=//[^:/?#\\n]+:)" // lookbehind
-            + "[^@\n]+"             // actual match
-            + "(?=@)";              // lookahead
-
         private static int _defaultLogRetentionDays = 30;
         private static int[] _vssHttpMethodEventIds = new int[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 24 };
         private static int[] _vssHttpCredentialEventIds = new int[] { 11, 13, 14, 15, 16, 17, 18, 20, 21, 22, 27, 29 };
@@ -101,7 +88,14 @@ namespace Microsoft.VisualStudio.Services.Agent
             this.SecretMasker.AddValueEncoder(ValueEncoders.JsonStringEscape);
             this.SecretMasker.AddValueEncoder(ValueEncoders.UriDataEscape);
             this.SecretMasker.AddValueEncoder(ValueEncoders.BackslashEscape);
-            this.SecretMasker.AddRegex(_urlSecretMaskerPattern);
+            this.SecretMasker.AddRegex(AdditionalMaskingRegexes.UrlSecretPattern);
+            if (AgentKnobs.MaskUsingCredScanRegexes.GetValue(this).AsBoolean())
+            {
+                foreach (var pattern in AdditionalMaskingRegexes.CredScanPatterns)
+                {
+                    this.SecretMasker.AddRegex(pattern);
+                }
+            }
 
             // Create the trace manager.
             if (string.IsNullOrEmpty(logFile))
@@ -133,7 +127,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             _vssTrace = GetTrace(nameof(VisualStudio) + nameof(VisualStudio.Services));  // VisualStudioService
 
             // Enable Http trace
-            bool enableHttpTrace;
             if (AgentKnobs.HttpTrace.GetValue(this).AsBoolean())
             {
                 _trace.Warning("*****************************************************************************************");
@@ -343,6 +336,13 @@ namespace Microsoft.VisualStudio.Services.Agent
                         GetDirectory(WellKnownDirectory.Root),
                         ".options");
                     break;
+
+                case WellKnownConfigFile.SetupInfo:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        ".setup_info");
+                    break;
+
                 default:
                     throw new NotSupportedException($"Unexpected well known config file: '{configFile}'");
             }

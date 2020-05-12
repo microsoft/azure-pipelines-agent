@@ -8,7 +8,7 @@ CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
 NODE_URL=https://nodejs.org/dist
 NODE_VERSION="6.17.1"
 NODE10_VERSION="10.19.0"
-MINGIT_VERSION="2.25.1"
+MINGIT_VERSION="2.26.2"
 
 get_abs_path() {
   # exploits the fact that pwd will print abs path when no args
@@ -18,6 +18,8 @@ get_abs_path() {
 DOWNLOAD_DIR="$(get_abs_path "$(dirname $0)/../../_downloads")/$PACKAGERUNTIME/netcore2x"
 if [[ "$LAYOUT_DIR" == "" ]]; then
     LAYOUT_DIR=$(get_abs_path "$(dirname $0)/../../_layout/$PACKAGERUNTIME")
+else
+    LAYOUT_DIR=$(get_abs_path "$(dirname $0)/../../$LAYOUT_DIR")
 fi
 
 function failed() {

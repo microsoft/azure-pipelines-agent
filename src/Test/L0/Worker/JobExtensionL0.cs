@@ -100,6 +100,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             _config.Setup(x => x.GetSettings())
                 .Returns(settings);
 
+            _config.Setup(x => x.GetSetupInfo())
+                .Returns(new List<SetupInfo>());
+
             _proxy.Setup(x => x.ProxyAddress)
                             .Returns(string.Empty);
 
@@ -273,6 +276,40 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             _jobEc.Initialize(hc);
             _jobEc.InitializeJob(_message, _tokenSource.Token);
             return hc;
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task JobExtensionSetupInfo()
+        {
+            using (var tokenSource = new CancellationTokenSource())
+            using (TestHostContext hc = CreateTestContext(tokenSource))
+            {
+                var config = hc.GetService<IConfigurationStore>();
+                var setupInfo = (List<SetupInfo>)config.GetSetupInfo();
+                setupInfo.Add(new SetupInfo()
+                {
+                    Group = "Test Group",
+                    Detail = "Test Detail"
+                });
+                setupInfo.Add(new SetupInfo()
+                {
+                    Detail = "Environment: test\nVersion: 123"
+                });
+
+
+                TestJobExtension testExtension = new TestJobExtension();
+                testExtension.Initialize(hc);
+                await testExtension.InitializeJob(_jobEc, _message);
+
+                _jobServerQueue.Verify(x => x.QueueWebConsoleLine(It.IsAny<Guid>(), "##[group]Test Group", It.IsAny<long>()), Times.Exactly(1));
+                _jobServerQueue.Verify(x => x.QueueWebConsoleLine(It.IsAny<Guid>(), "Test Detail", It.IsAny<long>()), Times.Exactly(1));
+
+                _jobServerQueue.Verify(x => x.QueueWebConsoleLine(It.IsAny<Guid>(), "##[group]Machine Setup Info", It.IsAny<long>()), Times.Exactly(1));
+                _jobServerQueue.Verify(x => x.QueueWebConsoleLine(It.IsAny<Guid>(), "Environment: test", It.IsAny<long>()), Times.Exactly(1));
+                _jobServerQueue.Verify(x => x.QueueWebConsoleLine(It.IsAny<Guid>(), "Version: 123", It.IsAny<long>()), Times.Exactly(1));
+            }
         }
 
         [Fact]

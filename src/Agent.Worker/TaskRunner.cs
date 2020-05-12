@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -77,15 +78,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Verify task signatures if a fingerprint is configured for the Agent.
                 var configurationStore = HostContext.GetService<IConfigurationStore>();
                 AgentSettings settings = configurationStore.GetSettings();
+                SignatureVerificationMode verificationMode = SignatureVerificationMode.None;
+                if (settings.SignatureVerification != null)
+                {
+                    verificationMode = settings.SignatureVerification.Mode;
+                }
 
-                if (!String.IsNullOrEmpty(settings.Fingerprint))
+                if (verificationMode != SignatureVerificationMode.None)
                 {
                     ISignatureService signatureService = HostContext.CreateService<ISignatureService>();
                     Boolean verificationSuccessful =  await signatureService.VerifyAsync(definition, ExecutionContext.CancellationToken);
 
                     if (verificationSuccessful)
                     {
-                        ExecutionContext.Output("Task signature verification successful.");
+                        ExecutionContext.Output(StringUtil.Loc("TaskSignatureVerificationSucceeeded"));
 
                         // Only extract if it's not the checkout task.
                         if (!String.IsNullOrEmpty(definition.ZipPath))
@@ -95,7 +101,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                     else
                     {
-                        throw new InvalidOperationException("Task signature verification failed.");
+                        String message = StringUtil.Loc("TaskSignatureVerificationFailed");
+
+                        if (verificationMode == SignatureVerificationMode.Error)
+                        {
+                            throw new InvalidOperationException(message);
+                        }
+                        else
+                        {
+                            ExecutionContext.Warning(message);
+                        }
                     }
                 }
 
@@ -371,9 +386,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             var stepTarget = ExecutionContext.StepTarget();
             var preferPowershellHandler = true;
-            var preferPowershellHandlerOnContainers = ExecutionContext.Variables.GetBoolean("agent.preferPowerShellOnContainers")
-                ?? StringUtil.ConvertToBoolean(System.Environment.GetEnvironmentVariable("AGENT_PREFER_POWERSHELL_ON_CONTAINERS"), false);
-            if (!preferPowershellHandlerOnContainers && stepTarget != null)
+            if (!AgentKnobs.PreferPowershellHandlerOnContainers.GetValue(ExecutionContext).AsBoolean() && stepTarget != null)
             {
                 targetOS = stepTarget.ExecutionOS;
                 if (stepTarget is ContainerInfo)

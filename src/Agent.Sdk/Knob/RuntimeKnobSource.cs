@@ -24,7 +24,7 @@ namespace Agent.Sdk.Knob
             }
             catch (NotSupportedException)
             {
-                throw new NotSupportedException($"RuntimeKnobSource not supported for context type {context.GetType()}");
+                throw new NotSupportedException($"{nameof(RuntimeKnobSource)} not supported for context type {context.GetType()}");
             }
 
             if (!string.IsNullOrEmpty(value))

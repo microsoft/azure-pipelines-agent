@@ -213,10 +213,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     }
 
                     // Allow a 15-minute package download timeout, which is good enough to update the agent from a 1 Mbit/s ADSL connection.
-                    if (!int.TryParse(Environment.GetEnvironmentVariable("AZP_AGENT_DOWNLOAD_TIMEOUT") ?? string.Empty, out int timeoutSeconds))
-                    {
-                        timeoutSeconds = 15 * 60;
-                    }
+                    var timeoutSeconds = AgentKnobs.AgentDownloadTimeout.GetValue(_knobContext).AsInt();
 
                     Trace.Info($"Attempt {attempt}: save latest agent into {archiveFile}.");
 

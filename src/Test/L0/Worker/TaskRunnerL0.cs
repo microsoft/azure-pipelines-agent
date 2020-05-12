@@ -37,6 +37,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             {
                 var _ec = new Mock<IExecutionContext>();
                 _ec.Setup(x => x.StepTarget()).Returns(StepTarget);
+                _ec.Setup(x => x.GetScopedEnvironment()).Returns(new SystemEnvironment());
+                _ec.Setup(x => x.GetVariableValueOrDefault("agent.preferPowerShellOnContainers")).Returns(variables?["agent.preferPowerShellOnContainers"]?.Value ?? string.Empty);
 
                 if (variables is null)
                 {
@@ -123,7 +125,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 new GetHandlerTest() { Name="PowerShell3 Only on Windows", Input=ps3OnlyExecutionData,  Expected=powerShell3Data, HostOS=PlatformUtil.OS.Windows, StepTarget=containerInfo },
                 new GetHandlerTest() { Name="PowerShell3 Only on Linux",   Input=ps3OnlyExecutionData,  Expected=powerShell3Data, HostOS=PlatformUtil.OS.Linux, StepTarget=containerInfo },
                 new GetHandlerTest() { Name="PowerShell3 Only on OSX",     Input=ps3OnlyExecutionData,  Expected=powerShell3Data, HostOS=PlatformUtil.OS.OSX, StepTarget=containerInfo },
-                new GetHandlerTest() { Name="Mixed on Windows",            Input=mixedExecutionData,    Expected=nodeData,        HostOS=PlatformUtil.OS.Windows, StepTarget=containerInfo },
+                new GetHandlerTest() { Name="Mixed on Windows",            Input=mixedExecutionData,    Expected=powerShell3Data, HostOS=PlatformUtil.OS.Windows, StepTarget=containerInfo },
                 new GetHandlerTest() { Name="Mixed on Linux",              Input=mixedExecutionData,    Expected=nodeData,        HostOS=PlatformUtil.OS.Linux, StepTarget=containerInfo },
                 new GetHandlerTest() { Name="Mixed on OSX",                Input=mixedExecutionData,    Expected=nodeData,        HostOS=PlatformUtil.OS.OSX, StepTarget=containerInfo },
             })
