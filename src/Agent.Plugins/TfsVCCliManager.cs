@@ -113,7 +113,7 @@ namespace Agent.Plugins.Repository
                 string arguments = FormatArguments(formatFlags, args);
                 ExecutionContext.Command($@"tf {arguments}");
 
-                for (int attempt = 1; attempt < retriesOnFailure; attempt++)
+                for (int attempt = 0; attempt < retriesOnFailure; attempt++)
                 {
                     int exitCode = await processInvoker.ExecuteAsync(
                         workingDirectory: SourcesDirectory,
@@ -128,7 +128,8 @@ namespace Agent.Plugins.Repository
                     {
                         return;
                     }
-                    ExecutionContext.Output($@"Retrying. Attempt ${attempt+1}/${retriesOnFailure}");
+                    // Use attempt+2 since we're using 0 based indexing and we're displaying this for the next attempt.
+                    ExecutionContext.Output($@"Retrying. Attempt ${attempt+2}/${retriesOnFailure}");
                 }
                 await processInvoker.ExecuteAsync(
                     workingDirectory: SourcesDirectory,
