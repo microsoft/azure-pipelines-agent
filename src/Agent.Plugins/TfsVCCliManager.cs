@@ -131,6 +131,8 @@ namespace Agent.Plugins.Repository
                     // Use attempt+2 since we're using 0 based indexing and we're displaying this for the next attempt.
                     ExecutionContext.Output($@"Retrying. Attempt ${attempt+2}/${retriesOnFailure}");
                 }
+
+                // Perform one last try and fail on non-zero exit code
                 await processInvoker.ExecuteAsync(
                     workingDirectory: SourcesDirectory,
                     fileName: "tf",
