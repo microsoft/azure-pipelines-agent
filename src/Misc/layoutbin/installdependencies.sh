@@ -63,11 +63,11 @@ then
             
             # ubuntu 18 uses libcurl4
             # ubuntu 14, 16 and other linux use libcurl3
-            if [ $(lsb_release -rs) = "18.04" ]
+            if [ $(lsb_release -rs) = "14.04" ] || [ $(lsb_release -rs) = "16.04" ]
             then 
-                apt install -y libcurl4
-            else
                 apt install -y libcurl3
+            else
+                apt install -y libcurl4
             fi
             if [ $? -ne 0 ]
             then
@@ -109,11 +109,11 @@ then
                 
                 # ubuntu 18 uses libcurl4
                 # ubuntu 14, 16 and other linux use libcurl3
-                if [ $(lsb_release -rs) = "18.04" ]
+                if [ $(lsb_release -rs) = "14.04" ] || [ $(lsb_release -rs) = "16.04" ]
                 then 
-                    apt-install install -y libcurl4
-                else
                     apt-install install -y libcurl3
+                else
+                    apt-install install -y libcurl4
                 fi
                 if [ $? -ne 0 ]
                 then
