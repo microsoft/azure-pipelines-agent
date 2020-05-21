@@ -79,10 +79,12 @@ function acquireExternalTool() {
             # Extract to current directory
             # Ensure we can extract those files
             # We might use them during dev.sh
+            local extract_dir="$download_dir/$download_basename.extract" 
+            mkdir -p "$extract_dir" || checkRC 'mkdir'
             if [[ "$download_basename" == *.zip ]]; then
                 # Extract the zip.
                 echo "Testing zip"
-                unzip "$download_target" -d "$download_dir" > /dev/null
+                unzip "$download_target" -d "$extract_dir" > /dev/null
                 local rc=$?
                 if [[ $rc -ne 0 && $rc -ne 1 ]]; then
                     failed "unzip failed with return code $rc"
@@ -90,7 +92,7 @@ function acquireExternalTool() {
             elif [[ "$download_basename" == *.tar.gz ]]; then
                 # Extract the tar gz.
                 echo "Testing tar gz"
-                tar xzf "$download_target" -C "$download_dir" > /dev/null || checkRC 'tar'
+                tar xzf "$download_target" -C "$extract_dir" > /dev/null || checkRC 'tar'
             fi
         fi
     else
