@@ -74,7 +74,12 @@ namespace Agent.Plugins.Repository
             return RunCommandAsync(formatFlags, false, args);
         }
 
-        protected async Task RunCommandAsync(FormatFlags formatFlags, bool quiet, params string[] args)
+        protected Task RunCommandAsync(FormatFlags formatFlags, bool quiet, params string[] args)
+        {
+            return RunCommandAsync(formatFlags, quiet, 0, args);
+        }
+
+        protected async Task RunCommandAsync(FormatFlags formatFlags, bool quiet, int retriesOnFailure, params string[] args)
         {
             // Validation.
             ArgUtil.NotNull(args, nameof(args));
@@ -107,6 +112,33 @@ namespace Agent.Plugins.Repository
                 };
                 string arguments = FormatArguments(formatFlags, args);
                 ExecutionContext.Command($@"tf {arguments}");
+
+                for (int attempt = 0; attempt < retriesOnFailure; attempt++)
+                {
+                    int exitCode = await processInvoker.ExecuteAsync(
+                        workingDirectory: SourcesDirectory,
+                        fileName: "tf",
+                        arguments: arguments,
+                        environment: AdditionalEnvironmentVariables,
+                        requireExitCodeZero: false,
+                        outputEncoding: OutputEncoding,
+                        cancellationToken: CancellationToken);
+
+                    if (exitCode == 0)
+                    {
+                        return;
+                    }
+
+                    int sleep = Math.Min(200 * (int)Math.Pow(5, attempt), 30000);
+                    ExecutionContext.Output($"Sleeping for {sleep} ms");
+                    Thread.Sleep(sleep);
+
+                    // Use attempt+2 since we're using 0 based indexing and we're displaying this for the next attempt.
+                    ExecutionContext.Output($@"Retrying. Attempt ${attempt+2}/${retriesOnFailure}");
+
+                }
+
+                // Perform one last try and fail on non-zero exit code
                 await processInvoker.ExecuteAsync(
                     workingDirectory: SourcesDirectory,
                     fileName: "tf",
