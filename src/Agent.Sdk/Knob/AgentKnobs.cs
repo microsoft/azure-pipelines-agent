@@ -160,9 +160,9 @@ namespace Agent.Sdk.Knob
         
         public static readonly Knob MaskUsingCredScanRegexes = new Knob(
             nameof(MaskUsingCredScanRegexes),
-            "Use the CredScan regexes for masking secrets. CredScan is an internal tool developed at Microsoft to keep passwords and authentication keys from being checked in. This defaults to enabled, but can be turned off if it masks too much.",
+            "Use the CredScan regexes for masking secrets. CredScan is an internal tool developed at Microsoft to keep passwords and authentication keys from being checked in. This defaults to disabled, as there are performance problems with some task outputs.",
             new EnvironmentKnobSource("AZP_USE_CREDSCAN_REGEXES"),
-            new BuiltInDefaultKnobSource("true"));
+            new BuiltInDefaultKnobSource("false"));
 
         // Misc
         public static readonly Knob DisableAgentDowngrade = new Knob(
