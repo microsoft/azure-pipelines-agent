@@ -36,7 +36,7 @@
     </ServicingStep>
     <ServicingStep name="Add x64 Redhat 6 agent package" stepPerformer="DistributedTask" stepType="AddTaskPackage">
       <StepData>
-        <AddTaskPackageData packageType="agent" platform="rhel.6-x64" version="<AGENT_VERSION>" downloadUrl="https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-rhel.6-x64-<AGENT_VERSION>.zip" infoUrl="https://go.microsoft.com/fwlink/?LinkId=798199" filename="vsts-agent-rhel.6-x64-<AGENT_VERSION>.zip" />
+        <AddTaskPackageData packageType="agent" platform="rhel.6-x64" version="<AGENT_VERSION>" downloadUrl="https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-rhel.6-x64-<AGENT_VERSION>.tar.gz" infoUrl="https://go.microsoft.com/fwlink/?LinkId=798199" filename="vsts-agent-rhel.6-x64-<AGENT_VERSION>.tar.gz" />
       </StepData>
     </ServicingStep>
   </Steps>
