@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System;
 using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -98,13 +99,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         public void OtherSecretsAreMasked(string input, string expected)
         {
             // Arrange.
-            using (var _hc = Setup())
+            try
             {
-                // Act.
-                var result = _hc.SecretMasker.MaskSecrets(input);
+                Environment.SetEnvironmentVariable("AZP_USE_CREDSCAN_REGEXES", "true");
 
-                // Assert.
-                Assert.Equal(expected, result);
+                using (var _hc = Setup())
+                {
+                    // Act.
+                    var result = _hc.SecretMasker.MaskSecrets(input);
+
+                    // Assert.
+                    Assert.Equal(expected, result);
+                }
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("AZP_USE_CREDSCAN_REGEXES", null);
             }
         }
 
