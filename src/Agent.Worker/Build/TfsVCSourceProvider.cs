@@ -273,9 +273,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                             break;
                         case DefinitionMappingType.Map:
                             // Add the mapping.
-                            await tf.WorkfoldMapAsync(
-                                serverPath: definitionMapping.ServerPath,
-                                localPath: definitionMapping.GetRootedLocalPath(sourcesDirectory));
+                            int retryLimit = 5;
+                            int currentRetry = 1;
+                            TimeSpan delay = TimeSpan.FromSeconds(1);
+                            while (currentRetry < retryLimit)
+                            {
+                                try
+                                {
+                                    executionContext.Output($"Started #{currentRetry} attempt of WorkfoldMapAsync.");
+                                    await tf.WorkfoldMapAsync(
+                                        serverPath: definitionMapping.ServerPath,
+                                        localPath: definitionMapping.GetRootedLocalPath(sourcesDirectory));
+                                    return;
+                                }
+                                catch (Exception ex)
+                                {
+                                    executionContext.Debug($"Failed #{currentRetry} attempt of WorkfoldMapAsync.");
+                                    executionContext.Debug(ex.ToString());
+                                    currentRetry++;
+
+                                    if (currentRetry > retryLimit)
+                                    {
+                                        throw;
+                                    }
+                                }
+                                await Task.Delay(delay);
+                            }
                             break;
                         default:
                             throw new NotSupportedException();
