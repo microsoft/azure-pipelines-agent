@@ -479,7 +479,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         public bool GetRunOnce()
         {
-            return TestFlag(Run?.RunOnce, Constants.Agent.CommandLine.Flags.Once);
+            return TestFlag(Configure?.RunOnce, Constants.Agent.CommandLine.Flags.Once) ||
+                   TestFlag(Run?.RunOnce, Constants.Agent.CommandLine.Flags.Once);
         }
 
         public bool GetDeploymentPool()
