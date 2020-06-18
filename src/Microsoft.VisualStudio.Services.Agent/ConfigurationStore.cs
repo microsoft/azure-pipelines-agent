@@ -78,6 +78,9 @@ namespace Microsoft.VisualStudio.Services.Agent
         public SignatureVerificationSettings SignatureVerification { get; set; }
 
         [DataMember(EmitDefaultValue = false)]
+        public bool DisableLogUploads { get; set; }
+
+        [DataMember(EmitDefaultValue = false)]
         public int PoolId { get; set; }
 
         [DataMember(EmitDefaultValue = false)]

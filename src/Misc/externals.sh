@@ -79,10 +79,12 @@ function acquireExternalTool() {
             # Extract to current directory
             # Ensure we can extract those files
             # We might use them during dev.sh
+            local extract_dir="$download_dir/$download_basename.extract" 
+            mkdir -p "$extract_dir" || checkRC 'mkdir'
             if [[ "$download_basename" == *.zip ]]; then
                 # Extract the zip.
                 echo "Testing zip"
-                unzip "$download_target" -d "$download_dir" > /dev/null
+                unzip "$download_target" -d "$extract_dir" > /dev/null
                 local rc=$?
                 if [[ $rc -ne 0 && $rc -ne 1 ]]; then
                     failed "unzip failed with return code $rc"
@@ -90,7 +92,7 @@ function acquireExternalTool() {
             elif [[ "$download_basename" == *.tar.gz ]]; then
                 # Extract the tar gz.
                 echo "Testing tar gz"
-                tar xzf "$download_target" -C "$download_dir" > /dev/null || checkRC 'tar'
+                tar xzf "$download_target" -C "$extract_dir" > /dev/null || checkRC 'tar'
             fi
         fi
     else
@@ -144,7 +146,7 @@ if [[ "$PACKAGERUNTIME" == "win-x64" ]]; then
     acquireExternalTool "$CONTAINER_URL/vstshost/m122_887c6659/vstshost.zip" vstshost
     acquireExternalTool "$CONTAINER_URL/vstsom/m122_887c6659/vstsom.zip" vstsom
     acquireExternalTool "$CONTAINER_URL/vstsom/m153_d91bed0b/vstsom.zip" tf
-    acquireExternalTool "$CONTAINER_URL/vswhere/1_0_62/vswhere.zip" vswhere
+    acquireExternalTool "$CONTAINER_URL/vswhere/2_8_4/vswhere.zip" vswhere
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/win-x64/node.exe" node/bin
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/win-x64/node.lib" node/bin
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x64/node.exe" node10/bin
@@ -157,7 +159,7 @@ if [[ "$PACKAGERUNTIME" == "win-x86" ]]; then
     acquireExternalTool "$CONTAINER_URL/mingit/${MINGIT_VERSION}/MinGit-${MINGIT_VERSION}-32-bit.zip" git
     acquireExternalTool "$CONTAINER_URL/symstore/1/symstore.zip" symstore
     acquireExternalTool "$CONTAINER_URL/vstsom/m153_d91bed0b/vstsom.zip" tf
-    acquireExternalTool "$CONTAINER_URL/vswhere/1_0_62/vswhere.zip" vswhere
+    acquireExternalTool "$CONTAINER_URL/vswhere/2_8_4/vswhere.zip" vswhere
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/win-x86/node.exe" node/bin
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/win-x86/node.lib" node/bin
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x86/node.exe" node10/bin

@@ -139,12 +139,12 @@ extends:
             Invoke-RestMethod @assetsParams
           displayName: Create agent release on Github
 
-    - stage: CreatePRs
+    - stage: CreatePR
       jobs:
       ################################################################################
-      - job: create_ado_prs
+      - job: create_ado_pr
       ################################################################################
-        displayName: Create PRs in AzureDevOps
+        displayName: Create PR in AzureDevOps
         pool:
           vmImage: ubuntu-18.04
 
@@ -160,8 +160,8 @@ extends:
             cd release
             npm install
             ls
-            node createAdoPrs.js ${{ parameters.version }}
-          displayName: Create PRs in AzureDevOps and AzureDevOps.ConfigChange
+            node createAdoPr.js ${{ parameters.version }}
+          displayName: Create PR in AzureDevOps
           env:
             USER: $(User)
             PAT: $(AdoPAT)

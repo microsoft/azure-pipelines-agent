@@ -45,6 +45,7 @@
   "BuildDirLastUseTIme": "The last time build directory '{0}' been used is: {1}",
   "BuildIdIsNotAvailable": "Trying to download pipeline artifact in '{0}' environment but build id is not present. Can only download a pipeline artifact in '{1}' environment if the artifact is a build.",
   "BuildIdIsNotValid": "Build Id is not valid: {0}",
+  "BuildLogsMessage": "The agent has disabled uploading logs. After the job completes, you can retrieve this step's logs at {0} on the agent.",
   "BuildNumberRequired": "Build number is required.",
   "BuildsDoesNotExist": "No builds currently exist in the pipeline definition supplied.",
   "BuildTagAddFailed": "Build tag '{0}' was not added successfully.",
