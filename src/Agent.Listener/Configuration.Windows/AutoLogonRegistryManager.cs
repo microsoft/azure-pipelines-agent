@@ -286,7 +286,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             //User specific
             string subKeyName = $"{securityId}\\{RegistryConstants.UserSettings.SubKeys.StartupProcess}";
-            _registryManager.SetValue(RegistryHive.Users, subKeyName, RegistryConstants.UserSettings.ValueNames.StartupProcess, GetStartupCommand(command.GetRunOnce()));
+            _registryManager.SetValue(RegistryHive.Users, subKeyName, RegistryConstants.UserSettings.ValueNames.StartupProcess, GetStartupCommand(runOnce: command.GetRunOnce()));
         }
 
         private void UpdateScreenSaverSettings(CommandSettings command, string securityId)
