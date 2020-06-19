@@ -131,7 +131,7 @@ namespace Agent.Plugins.Repository
 
                     int sleep = Math.Min(200 * (int)Math.Pow(5, attempt), 30000);
                     ExecutionContext.Output($"Sleeping for {sleep} ms");
-                    Thread.Sleep(sleep);
+                    await Task.Delay(sleep);
 
                     // Use attempt+2 since we're using 0 based indexing and we're displaying this for the next attempt.
                     ExecutionContext.Output($@"Retrying. Attempt ${attempt+2}/${retriesOnFailure}");
