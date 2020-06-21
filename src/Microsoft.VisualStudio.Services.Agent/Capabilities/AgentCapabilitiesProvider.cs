@@ -28,6 +28,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
             {
                 Add(capabilities, "Agent.OSVersion", GetOSVersionString());
                 Add(capabilities, "Cmd", Environment.GetEnvironmentVariable("comspec"));
+            } 
+            else if (PlatformUtil.RunningOnMacOS)
+            {
+                Add(capabilities, "Agent.OSVersion", DarwinUtil.GetOSVersionString());
             }
             Add(capabilities, "InteractiveSession", (HostContext.StartupType != StartupType.Service).ToString());
             Add(capabilities, "Agent.Version", BuildConstants.AgentPackage.Version);
