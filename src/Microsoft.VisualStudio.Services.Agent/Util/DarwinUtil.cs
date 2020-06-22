@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.InteropServices;
 
 namespace Microsoft.VisualStudio.Services.Agent.Util
 {
