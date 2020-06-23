@@ -278,7 +278,7 @@ namespace Agent.Plugins.Repository
             args.Add("-format:xml");
 
             // Run the command.
-            TfsVCPorcelainCommandResult result = await TryRunPorcelainCommandAsync(FormatFlags.None, args.ToArray());
+            TfsVCPorcelainCommandResult result = await TryRunPorcelainCommandAsync(FormatFlags.None, 3, args.ToArray());
             ArgUtil.NotNull(result, nameof(result));
             if (result.Exception != null)
             {
