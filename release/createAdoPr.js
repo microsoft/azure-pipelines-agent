@@ -64,8 +64,9 @@ async function commitADOL2Changes(directory, release)
     
     if (!fs.existsSync(directory))
     {
-        sparseClone(directory, gitUrl);    
-        util.execInForeground(`${GIT} sparse-checkout set ${targetDirectory}`, directory, opt.dryrun);
+        // sparseClone(directory, gitUrl);
+        // util.execInForeground(`${GIT} sparse-checkout set ${targetDirectory}`, directory, opt.dryrun);
+        util.execInForeground(`${GIT} clone --depth 1 ${gitUrl} ${directory}`, null, opt.dryrun);
     }
 
     if (opt.options.dryrun)

@@ -479,7 +479,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         public bool GetRunOnce()
         {
-            return TestFlag(Run?.RunOnce, Constants.Agent.CommandLine.Flags.Once);
+            return TestFlag(Configure?.RunOnce, Constants.Agent.CommandLine.Flags.Once) ||
+                   TestFlag(Run?.RunOnce, Constants.Agent.CommandLine.Flags.Once);
         }
 
         public bool GetDeploymentPool()
@@ -496,6 +497,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             }
 
             return false;
+        }
+
+        public bool GetDisableLogUploads()
+        {
+            return TestFlag(Configure?.DisableLogUploads, Constants.Agent.CommandLine.Flags.DisableLogUploads);
         }
 
         public bool Unattended()

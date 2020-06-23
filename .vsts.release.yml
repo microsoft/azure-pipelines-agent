@@ -161,7 +161,7 @@ extends:
             npm install
             ls
             node createAdoPr.js ${{ parameters.version }}
-          displayName: Create PRs in AzureDevOps and AzureDevOps.ConfigChange
+          displayName: Create PR in AzureDevOps
           env:
             USER: $(User)
             PAT: $(AdoPAT)

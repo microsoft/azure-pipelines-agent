@@ -138,6 +138,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public const string OverwriteAutoLogon = "overwriteautologon";
                     public const string GitUseSChannel = "gituseschannel";
                     public const string Help = "help";
+                    public const string DisableLogUploads = "disableloguploads";
                     public const string MachineGroup = "machinegroup";
                     public const string Replace = "replace";
                     public const string NoRestart = "norestart";
