@@ -14,6 +14,7 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
 using Newtonsoft.Json;
+using Agent.Sdk.Knob;
 
 namespace Agent.Sdk
 {
@@ -66,7 +67,7 @@ namespace Agent.Sdk
 #if DEBUG
             Debug(message);
 #else
-            string vstsAgentTrace = Environment.GetEnvironmentVariable("VSTSAGENT_TRACE");
+            string vstsAgentTrace = AgentKnobs.TraceVerbose.GetValue(UtilKnobValueContext.Instance()).AsString();
             if (!string.IsNullOrEmpty(vstsAgentTrace))
             {
                 Debug(message);

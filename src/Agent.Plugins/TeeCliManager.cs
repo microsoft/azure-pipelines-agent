@@ -42,7 +42,7 @@ namespace Agent.Plugins.Repository
         public async Task GetAsync(string localPath, bool quiet = false)
         {
             ArgUtil.NotNullOrEmpty(localPath, nameof(localPath));
-            await RunCommandAsync(FormatFlags.OmitCollectionUrl, quiet, "get", $"-version:{SourceVersion}", "-recursive", "-overwrite", localPath);
+            await RunCommandAsync(FormatFlags.OmitCollectionUrl, quiet, 3, "get", $"-version:{SourceVersion}", "-recursive", "-overwrite", localPath);
         }
 
         public string ResolvePath(string serverPath)
@@ -278,7 +278,7 @@ namespace Agent.Plugins.Repository
             args.Add("-format:xml");
 
             // Run the command.
-            TfsVCPorcelainCommandResult result = await TryRunPorcelainCommandAsync(FormatFlags.None, args.ToArray());
+            TfsVCPorcelainCommandResult result = await TryRunPorcelainCommandAsync(FormatFlags.None, 3, args.ToArray());
             ArgUtil.NotNull(result, nameof(result));
             if (result.Exception != null)
             {

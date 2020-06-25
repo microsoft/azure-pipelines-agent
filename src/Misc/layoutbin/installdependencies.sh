@@ -63,7 +63,7 @@ then
             
             # ubuntu 18 uses libcurl4
             # ubuntu 14, 16 and other linux use libcurl3
-            apt install -y libcurl3 || apt install -y libcurl4
+            apt install -y libcurl4 || apt install -y libcurl3
             if [ $? -ne 0 ]
             then
                 echo "'apt' failed with exit code '$?'"
@@ -104,7 +104,7 @@ then
                 
                 # ubuntu 18 uses libcurl4
                 # ubuntu 14, 16 and other linux use libcurl3
-                apt-get install -y libcurl3 || apt-get install -y libcurl4
+                apt-get install -y libcurl4 || apt-get install -y libcurl3
                 if [ $? -ne 0 ]
                 then
                     echo "'apt-get' failed with exit code '$?'"

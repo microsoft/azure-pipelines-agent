@@ -13,7 +13,7 @@ var opt = require('node-getopt').create([
     ['h', 'help',                 'Display this help'],
   ])
   .setHelp(
-    'Usage: node createAdoPrs.js [OPTION] <version>\n' +
+    'Usage: node createAdoPr.js [OPTION] <version>\n' +
     '\n' +
     '[[OPTIONS]]\n'
   )
@@ -26,34 +26,8 @@ const connection = new azdev.WebApi('https://dev.azure.com/mseng', authHandler);
 function createIntegrationFiles(newRelease, callback)
 {
     fs.mkdirSync(INTEGRATION_DIR, { recursive: true });
-    fs.readdirSync(INTEGRATION_DIR).forEach( function(entry) {
-        if (entry.startsWith('PublishVSTSAgent-'))
-        {
-            // node 12 has recursive support in rmdirSync
-            // but since most of us are still on node 10
-            // remove the files manually first
-            var dirToDelete = path.join(INTEGRATION_DIR, entry);
-            fs.readdirSync(dirToDelete).forEach( function(file) {
-                fs.unlinkSync(path.join(dirToDelete, file));
-            });
-            fs.rmdirSync(dirToDelete, { recursive: true });
-        }
-    });
-
     util.versionifySync(path.join(__dirname, '..', 'src', 'Misc', 'InstallAgentPackage.template.xml'),
         path.join(INTEGRATION_DIR, 'InstallAgentPackage.xml'),
-        newRelease
-    );
-    var agentVersionPath=newRelease.replace(/\./g, '-');
-    var publishDir = path.join(INTEGRATION_DIR, `PublishVSTSAgent-${agentVersionPath}`);
-    fs.mkdirSync(publishDir, { recursive: true });
-
-    util.versionifySync(path.join(__dirname, '..', 'src', 'Misc', 'PublishVSTSAgent.template.ps1'),
-        path.join(publishDir, `PublishVSTSAgent-${agentVersionPath}.ps1`),
-        newRelease
-    );
-    util.versionifySync(path.join(__dirname, '..', 'src', 'Misc', 'UnpublishVSTSAgent.template.ps1'),
-        path.join(publishDir, `UnpublishVSTSAgent-${agentVersionPath}.ps1`),
         newRelease
     );
 }
@@ -90,8 +64,9 @@ async function commitADOL2Changes(directory, release)
     
     if (!fs.existsSync(directory))
     {
-        sparseClone(directory, gitUrl);    
-        util.execInForeground(`${GIT} sparse-checkout set ${targetDirectory}`, directory, opt.dryrun);
+        // sparseClone(directory, gitUrl);
+        // util.execInForeground(`${GIT} sparse-checkout set ${targetDirectory}`, directory, opt.dryrun);
+        util.execInForeground(`${GIT} clone --depth 1 ${gitUrl} ${directory}`, null, opt.dryrun);
     }
 
     if (opt.options.dryrun)
@@ -117,51 +92,6 @@ async function commitADOL2Changes(directory, release)
     }, 'AzureDevOps', 'AzureDevOps');
 }
 
-async function commitADOConfigChange(directory, release)
-{
-    var gitUrl =  `https://${process.env.PAT}@dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps.ConfigChange`
-
-    sparseClone(directory, gitUrl);
-    util.execInForeground(`${GIT} sparse-checkout set tfs`, directory, opt.dryrun);
-    var agentVersionPath=release.replace(/\./g, '-');
-    var milestoneDir = 'mXXX';
-    var tfsDir = path.join(directory, 'tfs');
-    if (fs.existsSync(tfsDir))
-    {
-        var dirs = fs.readdirSync(tfsDir, { withFileTypes: true })
-        .filter(dirent => dirent.isDirectory() && dirent.name.startsWith('m'))
-        .map(dirent => dirent.name)
-        .sort(naturalSort({direction: 'desc'}))
-        milestoneDir = dirs[0];
-    }
-    var targetDir = `PublishVSTSAgent-${agentVersionPath}`;
-    if (opt.options.dryrun)
-    {
-        console.log(`Copy file from ${path.join(INTEGRATION_DIR, targetDir)} to ${tfsDir}${milestoneDir}`);
-    }
-    else
-    {
-        fs.mkdirSync(path.join(tfsDir, milestoneDir, targetDir));
-        fs.readdirSync(path.join(INTEGRATION_DIR, targetDir)).forEach( function (file) {
-            fs.copyFileSync(path.join(INTEGRATION_DIR, targetDir, file), path.join(tfsDir, milestoneDir, file));
-        });
-    }
-
-    var newBranch = `users/${process.env.USER}/agent-${release}`;
-    util.execInForeground(`${GIT} add ${path.join('tfs', milestoneDir)}`, directory, opt.dryrun);
-    commitAndPush(directory, release, newBranch);
-
-    console.log(`Creating pr from refs/heads/${newBranch} into refs/heads/master in the AzureDevOps.ConfigChange repo`);
-
-    const gitApi = await connection.getGitApi();
-    await gitApi.createPullRequest({
-        sourceRefName: `refs/heads/${newBranch}`,
-        targetRefName: 'refs/heads/master',
-        title: 'Update agent',
-        description: `Update agent to version ${release}`
-    }, 'AzureDevOps.ConfigChange', 'AzureDevOps');
-}
-
 async function main()
 {
     try {
@@ -172,14 +102,12 @@ async function main()
             process.exit(-1);
         }
         var pathToAdo = path.join(INTEGRATION_DIR, 'AzureDevOps');
-        var pathToConfigChange = path.join(INTEGRATION_DIR, 'AzureDevOps.ConfigChange');
         util.verifyMinimumNodeVersion();
         util.verifyMinimumGitVersion();
         createIntegrationFiles(newRelease);
         util.execInForeground(`${GIT} config --global user.email "${process.env.USER}@microsoft.com"`, null, opt.dryrun);
         util.execInForeground(`${GIT} config --global user.name "${process.env.USER}"`, null, opt.dryrun);
         await commitADOL2Changes(pathToAdo, newRelease);
-        await commitADOConfigChange(pathToConfigChange, newRelease);
         console.log('done.');
     }
     catch (err) {

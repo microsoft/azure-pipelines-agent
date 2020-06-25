@@ -23,6 +23,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         Task<TestAttachmentReference> CreateTestRunAttachmentAsync(TestAttachmentRequestModel reqModel, string projectName, int testRunId, CancellationToken cancellationToken = default(CancellationToken));
         Task<TestAttachmentReference> CreateTestResultAttachmentAsync(TestAttachmentRequestModel reqModel, string projectName, int testRunId, int testCaseResultId, CancellationToken cancellationToken = default(CancellationToken));
         Task<TestAttachmentReference> CreateTestSubResultAttachmentAsync(TestAttachmentRequestModel reqModel, string projectName, int testRunId, int testCaseResultId, int testSubResultId, CancellationToken cancellationToken = default(CancellationToken));
+        Task<TestResultsSettings> GetTestResultsSettingsAsync(string project, TestResultsSettingsType? settingsType = null, object userState = null, CancellationToken cancellationToken = default(CancellationToken));
+        Task<TestRunStatistic> GetTestRunStatisticsAsync(string project,int runId,object userState = null,
+            CancellationToken cancellationToken = default(CancellationToken));
+        Task<TestRunStatistic> GetTestRunSummaryByOutcomeAsync(string project,int runId,object userState = null,
+            CancellationToken cancellationToken = default);
     }
 
     public class TestResultsServer : AgentService, ITestResultsServer
@@ -100,6 +105,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
             CancellationToken cancellationToken = default(CancellationToken))
         {
             return await TestHttpClient.CreateTestSubResultAttachmentAsync(reqModel, projectName, testRunId, testCaseResultId, testSubResultId, cancellationToken);
+        }
+
+        public async Task<TestResultsSettings> GetTestResultsSettingsAsync(string project, TestResultsSettingsType? settingsType = null, object userState = null, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            return await TestHttpClient.GetTestResultsSettingsAsync(project, settingsType);
+        }
+
+        public async Task<TestRunStatistic> GetTestRunStatisticsAsync(
+            string project,
+            int runId,
+            object userState = null,
+            CancellationToken cancellationToken = default(CancellationToken))
+        {
+            return await TestHttpClient.GetTestRunStatisticsAsync(project, runId, cancellationToken);
+        }
+
+        public async Task<TestRunStatistic> GetTestRunSummaryByOutcomeAsync(string project, int runId, object userState = null,
+            CancellationToken cancellationToken = default)
+        {
+            return await TestHttpClient.GetTestRunSummaryByOutcomeAsync(project, runId, cancellationToken: cancellationToken);
         }
 
         private static bool GetFeatureFlagState(IExecutionContext executionContext, VssConnection connection, string FFName)

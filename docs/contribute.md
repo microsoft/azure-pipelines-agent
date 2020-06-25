@@ -39,3 +39,11 @@ cd ./src
 
 We use the dotnet foundation and CoreCLR style guidelines [located here](
 https://github.com/dotnet/corefx/blob/master/Documentation/coding-guidelines/coding-style.md)
+
+## Troubleshooting build or test problems
+
+'unzip' not found
+- if you see this while building or testing on Windows, you need to install unzip for the Windows bash shell
+- open a command window, run bash, and run `sudo apt install unzip` to get that tool installed
+
+

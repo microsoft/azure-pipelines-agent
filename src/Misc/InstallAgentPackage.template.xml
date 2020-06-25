@@ -19,6 +19,11 @@
         <AddTaskPackageData packageType="agent" platform="linux-arm" version="<AGENT_VERSION>" downloadUrl="https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-linux-arm-<AGENT_VERSION>.tar.gz" infoUrl="https://go.microsoft.com/fwlink/?LinkId=798199" filename="vsts-agent-linux-arm-<AGENT_VERSION>.tar.gz" />
       </StepData>
     </ServicingStep>
+    <ServicingStep name="Add ARM64 Linux agent package" stepPerformer="DistributedTask" stepType="AddTaskPackage">
+      <StepData>
+        <AddTaskPackageData packageType="agent" platform="linux-arm64" version="<AGENT_VERSION>" downloadUrl="https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-linux-arm64-<AGENT_VERSION>.tar.gz" infoUrl="https://go.microsoft.com/fwlink/?LinkId=798199" filename="vsts-agent-linux-arm64-<AGENT_VERSION>.tar.gz" />
+      </StepData>
+    </ServicingStep>
     <ServicingStep name="Add x64 Windows agent package" stepPerformer="DistributedTask" stepType="AddTaskPackage">
       <StepData>
         <AddTaskPackageData packageType="agent" platform="win-x64" version="<AGENT_VERSION>" downloadUrl="https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-win-x64-<AGENT_VERSION>.zip" infoUrl="https://go.microsoft.com/fwlink/?LinkId=798199" filename="vsts-agent-win-x64-<AGENT_VERSION>.zip" />
@@ -31,7 +36,7 @@
     </ServicingStep>
     <ServicingStep name="Add x64 Redhat 6 agent package" stepPerformer="DistributedTask" stepType="AddTaskPackage">
       <StepData>
-        <AddTaskPackageData packageType="agent" platform="rhel.6-x64" version="<AGENT_VERSION>" downloadUrl="https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-rhel.6-x64-<AGENT_VERSION>.zip" infoUrl="https://go.microsoft.com/fwlink/?LinkId=798199" filename="vsts-agent-rhel.6-x64-<AGENT_VERSION>.zip" />
+        <AddTaskPackageData packageType="agent" platform="rhel.6-x64" version="<AGENT_VERSION>" downloadUrl="https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-rhel.6-x64-<AGENT_VERSION>.tar.gz" infoUrl="https://go.microsoft.com/fwlink/?LinkId=798199" filename="vsts-agent-rhel.6-x64-<AGENT_VERSION>.tar.gz" />
       </StepData>
     </ServicingStep>
   </Steps>
