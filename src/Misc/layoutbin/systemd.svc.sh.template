@@ -66,7 +66,7 @@ function install()
     # unit file should not be executable and world writable
     chmod 664 "${UNIT_PATH}" || failed "failed to set permissions on ${UNIT_PATH}"
     
-    which sestatus && sestatus | grep "SELinux status: *enabled"
+    command -v sestatus && sestatus | grep "SELinux status: *enabled"
     is_selinux_enabled=$?
     if [ $is_selinux_enabled -eq 0 ]; then
         # SELinux is enabled, we must ensure the system context for the unit file matches the expected systemd_unit_file context.
