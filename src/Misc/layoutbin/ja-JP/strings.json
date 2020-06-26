@@ -435,7 +435,7 @@
     "ReadOnlyVariable":  "読み取り専用変数 \u0027{0}\u0027 を上書きすることは許可されていません。詳細については、https://github.com/microsoft/azure-pipelines-yaml/blob/master/design/readonly-variables.md を参照してください。",
     "ReadOnlyVariableWarning":  "読み取り専用変数 \u0027{0}\u0027 を上書きしています。今後、この動作は無効になります。詳細については、https://github.com/microsoft/azure-pipelines-yaml/blob/master/design/readonly-variables.md を参照してください。",
     "RegisterAgentSectionHeader":  "エージェントを登録する",
-    "ReleaseDirLastUseTIme":  "リリース ディレクトリ \u0027{0}\u0027 が前回使用されたのは {1} です",
+    "ReleaseDirLastUseTime":  "リリース ディレクトリ \u0027{0}\u0027 が前回使用されたのは {1} です",
     "RenameIndexFileCoberturaFailed":  "\u0027{2}\u0027 のコード カバレッジ ファイルを公開中に \u0027{0}\u0027 を \u0027{1}\u0027 に名前変更できませんでした。内部例外: \u0027{3}\u0027",
     "Replace":  "置き換えますか? (Y/N)",
     "RepositoryNotExist":  "リポジトリを更新できません。リポジトリが存在しません。",

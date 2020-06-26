@@ -435,7 +435,7 @@
     "ReadOnlyVariable":  "읽기 전용 변수 \u0027{0}\u0027을(를) 덮어쓸 수 없습니다. 자세한 내용은 https://github.com/microsoft/azure-pipelines-yaml/blob/master/design/readonly-variables.md를 참조하세요.",
     "ReadOnlyVariableWarning":  "읽기 전용 변수 \u0027{0}\u0027을(를) 덮어쓰는 중입니다. 이 동작은 향후에는 사용할 수 없습니다. 자세한 내용은 https://github.com/microsoft/azure-pipelines-yaml/blob/master/design/readonly-variables.md를 참조하세요.",
     "RegisterAgentSectionHeader":  "에이전트 등록",
-    "ReleaseDirLastUseTIme":  "\u0027{0}\u0027 릴리스 디렉터리가 마지막으로 사용된 시간: {1}",
+    "ReleaseDirLastUseTime":  "\u0027{0}\u0027 릴리스 디렉터리가 마지막으로 사용된 시간: {1}",
     "RenameIndexFileCoberturaFailed":  "\u0027{2}\u0027에 대한 코드 검사 파일을 게시하는 동안 \u0027{0}\u0027의 이름을 \u0027{1}\u0027(으)로 바꾸지 못했습니다. 내부 예외: \u0027{3}\u0027",
     "Replace":  "바꾸시겠습니까? (Y/N)",
     "RepositoryNotExist":  "리포지토리를 업데이트할 수 없습니다. 리포지토리가 없습니다.",

@@ -445,7 +445,7 @@
   "ReadOnlyVariable": "Overwriting readonly variable '{0}' is not permitted. See https://github.com/microsoft/azure-pipelines-yaml/blob/master/design/readonly-variables.md for details.",
   "ReadOnlyVariableWarning": "Overwriting readonly variable '{0}'. This behavior will be disabled in the future. See https://github.com/microsoft/azure-pipelines-yaml/blob/master/design/readonly-variables.md for details.",
   "RegisterAgentSectionHeader": "Register Agent",
-  "ReleaseDirLastUseTIme": "The last time release directory '{0}' been used is: {1}",
+  "ReleaseDirLastUseTime": "The last time release directory '{0}' has been used is: {1}",
   "RenameIndexFileCoberturaFailed": "Renaming '{0}' to '{1}' failed while publishing code coverage files for '{2}'. Inner Exception: '{3}'",
   "Replace": "replace? (Y/N)",
   "RepositoryNotExist": "Can't update repository, the repository does not exist.",
