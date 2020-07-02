@@ -69,6 +69,11 @@ namespace Agent.Plugins.Repository
             return RunCommandAsync(FormatFlags.None, args);
         }
 
+        protected Task RunCommandAsync(int retriesOnFailure, params string[] args)
+        {
+            return RunCommandAsync(FormatFlags.None, false, retriesOnFailure, args);
+        }
+
         protected Task RunCommandAsync(FormatFlags formatFlags, params string[] args)
         {
             return RunCommandAsync(formatFlags, false, args);
