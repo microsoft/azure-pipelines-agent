@@ -190,7 +190,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     string key = input?.Name?.Trim() ?? string.Empty;
                     if (!string.IsNullOrEmpty(key))
                     {
-                        inputs[key] = input.DefaultValue?.Trim() ?? string.Empty;
+                        inputs[key] = input.DefaultValue?.Trim(' ') ?? string.Empty;
                     }
                 }
 
@@ -201,7 +201,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     string key = input.Key?.Trim() ?? string.Empty;
                     if (!string.IsNullOrEmpty(key))
                     {
-                        inputs[key] = input.Value?.Trim() ?? string.Empty;
+                        inputs[key] = input.Value?.Trim(' ') ?? string.Empty;
                     }
                 }
 

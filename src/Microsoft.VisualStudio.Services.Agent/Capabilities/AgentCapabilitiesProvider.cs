@@ -28,6 +28,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
             {
                 Add(capabilities, "Agent.OSVersion", GetOSVersionString());
                 Add(capabilities, "Cmd", Environment.GetEnvironmentVariable("comspec"));
+            } 
+            else if (PlatformUtil.RunningOnMacOS)
+            {
+                Add(capabilities, "Agent.OSVersion", GetDarwinVersionString());
             }
             Add(capabilities, "InteractiveSession", (HostContext.StartupType != StartupType.Service).ToString());
             Add(capabilities, "Agent.Version", BuildConstants.AgentPackage.Version);
@@ -87,5 +91,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
             string build = GetHklmValue(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion", "CurrentBuildNumber") as string;
             return StringUtil.Format("{0}.{1}", majorMinorString, build);
         }
+        
+       // 10.0 covers all versions prior to Darwin 5
+       // Mac OS X 10.1 mapped to Darwin 5.x, and the mapping continues that way
+       // So just subtract 4 from the Darwin version.
+       // https://en.wikipedia.org/wiki/Darwin_%28operating_system%29
+        private static string GetDarwinVersionString()
+            => Environment.OSVersion.Version.Major < 5 ? "10.0" : $"10.{Environment.OSVersion.Version.Major - 4}";
     }
 }

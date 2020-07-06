@@ -124,6 +124,41 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         [Fact]
         [Trait("Level", "L1")]
         [Trait("Category", "Worker")]
+        public async Task Input_HandlesTrailingSpace()
+        {
+            try
+            {
+                // Arrange
+                SetupL1();
+                var message = LoadTemplateMessage();
+                // Remove all tasks
+                message.Steps.Clear();
+                // Add variable setting tasks
+                message.Steps.Add(CreateScriptTask("echo \\r\\n"));
+
+                // Act
+                var results = await RunWorker(message);
+
+                // Assert
+                AssertJobCompleted();
+                Assert.Equal(TaskResult.Succeeded, results.Result);
+
+                var steps = GetSteps();
+                Assert.Equal(3, steps.Count()); // Init, CmdLine, CmdLine, Finalize
+                var outputStep = steps[1];
+                var log = GetTimelineLogLines(outputStep);
+
+                Assert.True(log.Where(x => x.Contains("\\r\\n")).Count() > 0);
+            }
+            finally
+            {
+                TearDown();
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L1")]
+        [Trait("Category", "Worker")]
         public async Task Conditions_Failed()
         {
             try
