@@ -54,7 +54,7 @@ namespace Agent.Plugins.PipelineArtifact
 
             if (Directory.Exists(fileSharePath))
             {
-                FileShareProvider provider = new FileShareProvider(context, connection, new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information));
+                FileShareProvider provider = new FileShareProvider(context, connection, context.CreateArtifactsTracer());
                 await provider.PublishArtifactAsync(targetPath, artifactPath, parallelCount, token);
                 context.Output(StringUtil.Loc("CopyFileComplete", artifactPath));
             }
