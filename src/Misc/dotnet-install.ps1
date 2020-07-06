@@ -160,7 +160,7 @@ function Get-Machine-Architecture() {
     # Possible values: amd64, x64, x86, arm64, arm
 
     if( $ENV:PROCESSOR_ARCHITEW6432 -ne $null )
-    {
+    {    
         return $ENV:PROCESSOR_ARCHITEW6432
     }
 
