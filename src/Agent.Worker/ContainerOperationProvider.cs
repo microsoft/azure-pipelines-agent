@@ -14,7 +14,7 @@ using Microsoft.VisualStudio.Services.Common;
 using Microsoft.Win32;
 using Agent.Sdk;
 using Agent.Sdk.Knob;
-
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -110,6 +110,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 await StartContainerAsync(executionContext, container);
             }
+
+            // Build JSON to expose docker container name mapping to env
+            var containerMapping = new JObject();
+            foreach (var container in containers) {
+                var containerInfo = new JObject();
+                containerInfo["id"] = container.ContainerId;
+                containerMapping[container.ContainerName] = containerInfo;
+            }
+            executionContext.Variables.Set(Constants.Variables.Agent.ContainerMapping, containerMapping.ToString());
 
             foreach (var container in containers.Where(c => !c.IsJobContainer))
             {

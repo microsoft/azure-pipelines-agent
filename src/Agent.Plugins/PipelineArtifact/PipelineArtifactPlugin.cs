@@ -27,8 +27,8 @@ namespace Agent.Plugins.PipelineArtifact
             // Path
             // TODO: Translate targetPath from container to host (Ting)
             string targetPath = context.GetInput(ArtifactEventProperties.TargetPath, required: true);
-
-            this.tracer = new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information);
+            
+            this.tracer = context.CreateArtifactsTracer();
 
             await ProcessCommandInternalAsync(context, targetPath, token);
         }
