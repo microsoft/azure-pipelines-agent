@@ -153,11 +153,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
                 if (disableInputTrimming)
                 {
-                    Assert.True(log.ToString() + " should contain \"echo   \"", log.Where(x => x.Contains("echo   ")).Count() > 0);
+                    Assert.True(log.Where(x => x.Contains("echo   ")).Count() > 0, log.ToString() + " should contain \"echo   \"");
                 }
                 else
                 {
-                    Assert.False(log.ToString() + " should not contain \"echo   \"", log.Where(x => x.Contains("echo   ")).Count() > 0);
+                    Assert.False(log.Where(x => x.Contains("echo   ")).Count() > 0, log.ToString() + " should not contain \"echo   \"");
                 }
             }
             finally
