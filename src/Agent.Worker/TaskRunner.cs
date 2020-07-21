@@ -362,7 +362,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 inputs = inputs.ToDictionary(kvp => kvp.Key, kvp => ExecutionContext.TranslatePathForStepTarget(kvp.Value));
 
                 Trace.Verbose("TEST INPUTS:");
-                Trace.Verbose(inputs.Values.ToList().Join(","));
+                Trace.Verbose(String.Join(",", inputs.Values.ToList()));
 
                 // Create the handler.
                 IHandler handler = handlerFactory.Create(
