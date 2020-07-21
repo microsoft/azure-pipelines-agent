@@ -176,6 +176,12 @@ namespace Agent.Sdk.Knob
             "Maximum depth of file permitted in directory hierarchy when checking permissions. Check to avoid accidentally entering infinite loops.",
             new EnvironmentKnobSource("AGENT_TEST_VALIDATE_EXECUTE_PERMISSIONS_FAILSAFE"),
             new BuiltInDefaultKnobSource("100"));
+
+        public static readonly Knob DisableInputTrimming = new Knob(
+            nameof(DisableInputTrimming),
+            "By default, the agent trims whitespace and new line characters from all task inputs. Setting this to true disables this behavior.",
+            new EnvironmentKnobSource("DISABLE_INPUT_TRIMMING"),
+            new BuiltInDefaultKnobSource("false"));
     }
 
 }
