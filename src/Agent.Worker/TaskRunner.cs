@@ -235,10 +235,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                 }
 
-                Trace.Verbose("TEST INPUTS:");
-                Trace.Verbose("knob: " + AgentKnobs.DisableInputTrimming.GetValue(ExecutionContext).AsBoolean());
-                Trace.Verbose(String.Join(",", inputs.Values.ToList()));
-
                 // Load the task environment.
                 Trace.Verbose("Loading task environment.");
                 var environment = new Dictionary<string, string>(VarUtil.EnvironmentVariableKeyComparer);
@@ -364,6 +360,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 // translate inputs
                 inputs = inputs.ToDictionary(kvp => kvp.Key, kvp => ExecutionContext.TranslatePathForStepTarget(kvp.Value));
+
+                Trace.Verbose("TEST INPUTS:");
+                Trace.Verbose(inputs.Values.ToList().Join(","));
 
                 // Create the handler.
                 IHandler handler = handlerFactory.Create(
