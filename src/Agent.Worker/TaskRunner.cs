@@ -235,6 +235,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                 }
 
+                Trace.Verbose("TEST INPUTS:");
+                Trace.Verbose("knob: " + AgentKnobs.DisableInputTrimming.GetValue(ExecutionContext).AsBoolean());
+                Trace.Verbose(String.Join(",", inputs.Values.ToList()));
+
                 // Load the task environment.
                 Trace.Verbose("Loading task environment.");
                 var environment = new Dictionary<string, string>(VarUtil.EnvironmentVariableKeyComparer);
