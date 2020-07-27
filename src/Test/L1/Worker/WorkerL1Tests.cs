@@ -121,10 +121,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             }
         }
 
-        [Fact]
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
         [Trait("Level", "L1")]
+        // TODO - this test currently doesn't work on Linux/Mac because the node task-lib trims the values it reads.
+        // Remove these SkipOn traits once the task-lib is updated.
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
         [Trait("Category", "Worker")]
-        public async Task Input_HandlesTrailingSpace()
+        public async Task Input_HandlesTrailingSpace(bool disableInputTrimming)
         {
             try
             {
@@ -134,21 +140,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 // Remove all tasks
                 message.Steps.Clear();
                 // Add variable setting tasks
-                message.Steps.Add(CreateScriptTask("echo \\r\\n"));
+                var scriptTask = CreateScriptTask("echo   ");
+                Environment.SetEnvironmentVariable("DISABLE_INPUT_TRIMMING", disableInputTrimming.ToString());
+                message.Steps.Add(scriptTask);
 
                 // Act
                 var results = await RunWorker(message);
 
                 // Assert
                 AssertJobCompleted();
-                Assert.Equal(TaskResult.Succeeded, results.Result);
 
                 var steps = GetSteps();
                 Assert.Equal(3, steps.Count()); // Init, CmdLine, CmdLine, Finalize
                 var outputStep = steps[1];
                 var log = GetTimelineLogLines(outputStep);
 
-                Assert.True(log.Where(x => x.Contains("\\r\\n")).Count() > 0);
+                if (disableInputTrimming)
+                {
+                    Assert.True(log.Where(x => x.Contains("echo   ")).Count() > 0, String.Join("\n", log) + " should contain \"echo   \"");
+                }
+                else
+                {
+                    Assert.False(log.Where(x => x.Contains("echo   ")).Count() > 0, String.Join("\n", log) + " should not contain \"echo   \"");
+                }
             }
             finally
             {

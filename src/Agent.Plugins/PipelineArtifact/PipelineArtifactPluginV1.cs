@@ -24,12 +24,12 @@ namespace Agent.Plugins.PipelineArtifact
         public abstract Guid Id { get; }
         protected virtual string TargetPath => "targetPath";
         protected virtual string PipelineId => "pipelineId";
-        protected CallbackAppTraceSource tracer;
+        protected IAppTraceSource tracer;
         public string Stage => "main";
 
         public Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
-            this.tracer = new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information);
+            this.tracer = context.CreateArtifactsTracer();
             return this.ProcessCommandInternalAsync(context, token);
         }
 

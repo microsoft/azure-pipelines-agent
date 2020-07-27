@@ -6,6 +6,7 @@ using CommandLine;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -87,6 +88,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     {
                         terminal.WriteError(StringUtil.Loc("MinimumNetFramework"));
                         // warn only, like configurationmanager.cs does. this enables windows edition with just .netcore to work
+                    }
+
+                    // Upgrade process priority to avoid Listener starvation
+                    using (Process p = Process.GetCurrentProcess())
+                    {
+                        try
+                        {
+                            p.PriorityClass = ProcessPriorityClass.AboveNormal;
+                        }
+                        catch(Exception e)
+                        {
+                            trace.Warning("Unable to change Windows process priority");
+                            trace.Warning(e.Message);
+                        }
                     }
                 }
 

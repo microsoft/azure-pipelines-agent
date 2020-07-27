@@ -65,12 +65,23 @@ function install()
     
     # unit file should not be executable and world writable
     chmod 664 "${UNIT_PATH}" || failed "failed to set permissions on ${UNIT_PATH}"
+    
+    command -v sestatus && sestatus | grep "SELinux status: *enabled"
+    is_selinux_enabled=$?
+    if [ $is_selinux_enabled -eq 0 ]; then
+        # SELinux is enabled, we must ensure the system context for the unit file matches the expected systemd_unit_file context.
+        chcon system_u:object_r:systemd_unit_file_t:s0 "${UNIT_PATH}"
+    fi
     systemctl daemon-reload || failed "failed to reload daemons"
     
     # Since we started with sudo, runsvc.sh will be owned by root. Change this to current login user.    
     cp ./bin/runsvc.sh ./runsvc.sh || failed "failed to copy runsvc.sh"
     chown ${run_as_uid}:${run_as_gid} ./runsvc.sh || failed "failed to set owner for runsvc.sh"
     chmod 755 ./runsvc.sh || failed "failed to set permission for runsvc.sh"
+    if [ $is_selinux_enabled -eq 0 ]; then
+        # SELinux is enabled, we must ensure the shell scripts matches the expected context.
+        chcon system_u:object_r:usr_t:s0 runsvc.sh
+    fi
 
     systemctl enable ${SVC_NAME} || failed "failed to enable ${SVC_NAME}"
 
