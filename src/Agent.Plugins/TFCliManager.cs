@@ -11,6 +11,7 @@ using System.Xml.Serialization;
 using System.Text;
 using System.Xml;
 using System.Security.Cryptography.X509Certificates;
+using Microsoft.VisualStudio.Services.Agent;
 using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Agent.Plugins.Repository
@@ -303,7 +304,7 @@ namespace Agent.Plugins.Repository
             args.Add("/format:xml");
 
             // Run the command.
-            string xml = await RunPorcelainCommandAsync(3, args.ToArray()) ?? string.Empty;
+            string xml = await RunPorcelainCommandAsync(Constants.Variables.Pipeline.RetriesOnFailure, args.ToArray()) ?? string.Empty;
 
             // Deserialize the XML.
             var serializer = new XmlSerializer(typeof(TFWorkspaces));

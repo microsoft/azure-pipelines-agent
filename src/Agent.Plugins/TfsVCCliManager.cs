@@ -191,8 +191,9 @@ namespace Agent.Plugins.Repository
                 result = await TryRunPorcelainCommandAsync(formatFlags, args);
                 if (result.Exception != null)
                 {
+                    ExecutionContext.Warning($"{result.Exception.Message}");
                     int sleep = Math.Min(200 * (int)Math.Pow(5, attempt), 30000);
-                    ExecutionContext.Output($"Sleeping for {sleep} ms");
+                    ExecutionContext.Output($"Sleeping for {sleep} ms before starting {attempt + 1}/{retriesOnFailure} retry");
                     await Task.Delay(sleep);
                 };
                 attempt++;
