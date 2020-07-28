@@ -10,7 +10,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
-using Microsoft.VisualStudio.Services.Agent;
 using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Agent.Plugins.Repository
@@ -20,6 +19,8 @@ namespace Agent.Plugins.Repository
         public override TfsVCFeatures Features => TfsVCFeatures.Eula;
 
         protected override string Switch => "-";
+
+        public static readonly int RetriesOnFailure = 3;
 
         public string FilePath => Path.Combine(ExecutionContext.Variables.GetValueOrDefault("agent.homedirectory")?.Value, "externals", "tee", "tf");
 
@@ -279,7 +280,7 @@ namespace Agent.Plugins.Repository
             args.Add("-format:xml");
 
             // Run the command.
-            TfsVCPorcelainCommandResult result = await TryRunPorcelainCommandAsync(FormatFlags.None, Constants.Variables.Pipeline.RetriesOnFailure, args.ToArray());
+            TfsVCPorcelainCommandResult result = await TryRunPorcelainCommandAsync(FormatFlags.None, RetriesOnFailure, args.ToArray());
             ArgUtil.NotNull(result, nameof(result));
             if (result.Exception != null)
             {

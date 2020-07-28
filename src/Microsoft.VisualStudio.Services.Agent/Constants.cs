@@ -358,7 +358,6 @@ namespace Microsoft.VisualStudio.Services.Agent
                 //
                 // Keep alphabetical. If you add or remove a variable here, do the same in ReadOnlyVariables
                 //
-                public static readonly int RetriesOnFailure = 3;
                 public static readonly string Workspace = "pipeline.workspace";
             }
 

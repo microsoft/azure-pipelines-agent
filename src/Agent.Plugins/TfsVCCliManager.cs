@@ -185,19 +185,14 @@ namespace Agent.Plugins.Repository
         protected async Task<TfsVCPorcelainCommandResult> TryRunPorcelainCommandAsync(FormatFlags formatFlags, int retriesOnFailure, params string[] args)
         {
             var result = await TryRunPorcelainCommandAsync(formatFlags, args);
-            int attempt = 0;
-            while (attempt < retriesOnFailure && result.Exception != null)
+            for (int attempt = 0; attempt < retriesOnFailure && result.Exception != null && result.Exception?.ExitCode != 1; attempt++)
             {
+                ExecutionContext.Warning($"{result.Exception.Message}");
+                int sleep = Math.Min(200 * (int)Math.Pow(5, attempt), 30000);
+                ExecutionContext.Output($"Sleeping for {sleep} ms before starting {attempt + 1}/{retriesOnFailure} retry");
+                await Task.Delay(sleep);
                 result = await TryRunPorcelainCommandAsync(formatFlags, args);
-                if (result.Exception != null)
-                {
-                    ExecutionContext.Warning($"{result.Exception.Message}");
-                    int sleep = Math.Min(200 * (int)Math.Pow(5, attempt), 30000);
-                    ExecutionContext.Output($"Sleeping for {sleep} ms before starting {attempt + 1}/{retriesOnFailure} retry");
-                    await Task.Delay(sleep);
-                };
-                attempt++;
-            };
+            }
             return result;
         }
 
