@@ -57,7 +57,7 @@ namespace Agent.Sdk
             this.MapDockerSocket = container.Properties.Get<bool>("mapDockerSocket", !PlatformUtil.RunningOnWindows);
             this._imageOS = PlatformUtil.HostOS;
            _pathMappings = new Dictionary<string, string>( PlatformUtil.RunningOnWindows ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
-           this._readOnlyVolumes = new List<string>(container.ReadOnlyMounts);
+           this._readOnlyVolumes = container.ReadOnlyMounts != null ? new List<string>(container.ReadOnlyMounts) : null;
 
             if (container.Ports?.Count > 0)
             {

@@ -307,23 +307,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 executionContext.Debug($"Mount Working Directory {mountWorkingDirectory}");
                 if (!string.IsNullOrEmpty(workingDirectory))
                 {
-                    container.MountVolumes.Add(new MountVolume(mountWorkingDirectory, workingDirectory, readOnly: container.isReadOnlyVolume("work")));
+                    container.MountVolumes.Add(new MountVolume(mountWorkingDirectory, workingDirectory, readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Work)));
                 }
 
                 container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Temp), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Temp))));
                 container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tasks), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tasks)),
-                    readOnly: container.isReadOnlyVolume("tasks")));
+                    readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Tasks)));
             }
             else
             {
                 container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Work), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Work)),
-                    readOnly: container.isReadOnlyVolume("work")));
+                    readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Work)));
             }
 
             container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tools), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tools)),
-                readOnly: container.isReadOnlyVolume("tools")));
+                readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Tools)));
 
-            bool externalReadOnly = container.ImageOS != PlatformUtil.OS.Windows || container.isReadOnlyVolume("externals"); // This code was refactored to use PlatformUtils. The previous implementation did not have the externals directory mounted read-only for Windows.
+            bool externalReadOnly = container.ImageOS != PlatformUtil.OS.Windows || container.isReadOnlyVolume(Constants.DefaultContainerMounts.Externals); // This code was refactored to use PlatformUtils. The previous implementation did not have the externals directory mounted read-only for Windows.
                                                                     // That seems wrong, but to prevent any potential backwards compatibility issues, we are keeping the same logic
             container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Externals), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Externals)), externalReadOnly));
 

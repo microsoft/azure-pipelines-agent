@@ -61,6 +61,14 @@ namespace Microsoft.VisualStudio.Services.Agent
         // store the version of the image
         public static readonly string ImageVersionVariable = "ImageVersion";
 
+        public static class DefaultContainerMounts
+        {
+            public static readonly string Externals = "externals";
+            public static readonly string Work = "work";
+            public static readonly string Tasks = "tasks";
+            public static readonly string Tools = "tools";
+        }
+
         public static class Agent
         {
             public static readonly TimeSpan ExitOnUnloadTimeout = TimeSpan.FromSeconds(30);
