@@ -258,7 +258,7 @@ namespace Agent.Plugins.Repository
         {
             ArgUtil.NotNullOrEmpty(serverPath, nameof(serverPath));
             ArgUtil.NotNullOrEmpty(localPath, nameof(localPath));
-            await RunCommandAsync("vc", "workfold", "/map", $"/workspace:{WorkspaceName}", serverPath, localPath);
+            await RunCommandAsync(3, "vc", "workfold", "/map", $"/workspace:{WorkspaceName}", serverPath, localPath);
         }
 
         public async Task WorkfoldUnmapAsync(string serverPath)
