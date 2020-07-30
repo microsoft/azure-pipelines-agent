@@ -16,6 +16,7 @@ namespace Agent.Sdk
         private List<MountVolume> _mountVolumes;
         private IDictionary<string, string> _userPortMappings;
         private List<PortMapping> _portMappings;
+        private List<string> _readOnlyVolumes;
         private Dictionary<string, string> _environmentVariables;
         private Dictionary<string, string> _pathMappings;
         private PlatformUtil.OS _imageOS;
@@ -56,6 +57,7 @@ namespace Agent.Sdk
             this.MapDockerSocket = container.Properties.Get<bool>("mapDockerSocket", !PlatformUtil.RunningOnWindows);
             this._imageOS = PlatformUtil.HostOS;
            _pathMappings = new Dictionary<string, string>( PlatformUtil.RunningOnWindows ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+           this._readOnlyVolumes = new List<string>(container.ReadOnlyMounts);
 
             if (container.Ports?.Count > 0)
             {
@@ -180,6 +182,12 @@ namespace Agent.Sdk
 
                 return _portMappings;
             }
+        }
+
+
+        public bool isReadOnlyVolume(string volumeName)
+        {
+            return _readOnlyVolumes != null ? _readOnlyVolumes.Contains(volumeName) : false;
         }
 
         public Dictionary<string, string> PathMappings
