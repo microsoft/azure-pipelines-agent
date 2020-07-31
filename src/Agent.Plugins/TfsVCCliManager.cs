@@ -152,15 +152,25 @@ namespace Agent.Plugins.Repository
             }
         }
 
-        protected Task<string> RunPorcelainCommandAsync(params string[] args)
+        protected Task<string> RunPorcelainCommandAsync(FormatFlags formatFlags, params string[] args)
         {
-            return RunPorcelainCommandAsync(FormatFlags.None, args);
+            return RunPorcelainCommandAsync(formatFlags, 0, args);
         }
 
-        protected async Task<string> RunPorcelainCommandAsync(FormatFlags formatFlags, params string[] args)
+        protected Task<string> RunPorcelainCommandAsync(params string[] args)
+        {
+            return RunPorcelainCommandAsync(FormatFlags.None, 0, args);
+        }
+
+        protected Task<string> RunPorcelainCommandAsync(int retriesOnFailure, params string[] args)
+        {
+            return RunPorcelainCommandAsync(FormatFlags.None, retriesOnFailure, args);
+        }
+
+        protected async Task<string> RunPorcelainCommandAsync(FormatFlags formatFlags, int retriesOnFailure, params string[] args)
         {
             // Run the command.
-            TfsVCPorcelainCommandResult result = await TryRunPorcelainCommandAsync(formatFlags, args);
+            TfsVCPorcelainCommandResult result = await TryRunPorcelainCommandAsync(formatFlags, retriesOnFailure, args);
             ArgUtil.NotNull(result, nameof(result));
             if (result.Exception != null)
             {
@@ -172,6 +182,20 @@ namespace Agent.Plugins.Repository
             // Return the output.
             // Note, string.join gracefully handles a null element within the IEnumerable<string>.
             return string.Join(Environment.NewLine, result.Output ?? new List<string>());
+        }
+
+        protected async Task<TfsVCPorcelainCommandResult> TryRunPorcelainCommandAsync(FormatFlags formatFlags, int retriesOnFailure, params string[] args)
+        {
+            var result = await TryRunPorcelainCommandAsync(formatFlags, args);
+            for (int attempt = 0; attempt < retriesOnFailure && result.Exception != null && result.Exception?.ExitCode != 1; attempt++)
+            {
+                ExecutionContext.Warning($"{result.Exception.Message}");
+                int sleep = Math.Min(200 * (int)Math.Pow(5, attempt), 30000);
+                ExecutionContext.Output($"Sleeping for {sleep} ms before starting {attempt + 1}/{retriesOnFailure} retry");
+                await Task.Delay(sleep);
+                result = await TryRunPorcelainCommandAsync(formatFlags, args);
+            }
+            return result;
         }
 
         protected async Task<TfsVCPorcelainCommandResult> TryRunPorcelainCommandAsync(FormatFlags formatFlags, params string[] args)

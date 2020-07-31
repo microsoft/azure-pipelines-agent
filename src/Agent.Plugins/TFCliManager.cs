@@ -35,6 +35,8 @@ namespace Agent.Plugins.Repository
 
         protected override string Switch => "/";
 
+        public static readonly int RetriesOnFailure = 3;
+
         public string FilePath => Path.Combine(ExecutionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value, "externals", "tf", "tf.exe");
 
         private string AppConfigFile => Path.Combine(ExecutionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value, "externals", "tf", "tf.exe.config");
@@ -303,7 +305,7 @@ namespace Agent.Plugins.Repository
             args.Add("/format:xml");
 
             // Run the command.
-            string xml = await RunPorcelainCommandAsync(args.ToArray()) ?? string.Empty;
+            string xml = await RunPorcelainCommandAsync(RetriesOnFailure, args.ToArray()) ?? string.Empty;
 
             // Deserialize the XML.
             var serializer = new XmlSerializer(typeof(TFWorkspaces));
