@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
