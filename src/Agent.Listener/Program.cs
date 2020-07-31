@@ -6,6 +6,7 @@ using CommandLine;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -18,10 +19,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
     {
         public static int Main(string[] args)
         {
-            // We can't use the new SocketsHttpHandler for now for both Windows and Linux
-            // On linux, Negotiate auth is not working if the TFS url is behind Https
-            // On windows, Proxy is not working
-            AppContext.SetSwitch("System.Net.Http.UseSocketsHttpHandler", false);
+            if (PlatformUtil.UseLegacyHttpHandler)
+            {
+                AppContext.SetSwitch("System.Net.Http.UseSocketsHttpHandler", false);
+            }
+
             using (HostContext context = new HostContext("Agent"))
             {
                 return MainAsync(context, args).GetAwaiter().GetResult();
@@ -86,6 +88,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     {
                         terminal.WriteError(StringUtil.Loc("MinimumNetFramework"));
                         // warn only, like configurationmanager.cs does. this enables windows edition with just .netcore to work
+                    }
+
+                    // Upgrade process priority to avoid Listener starvation
+                    using (Process p = Process.GetCurrentProcess())
+                    {
+                        try
+                        {
+                            p.PriorityClass = ProcessPriorityClass.AboveNormal;
+                        }
+                        catch(Exception e)
+                        {
+                            trace.Warning("Unable to change Windows process priority");
+                            trace.Warning(e.Message);
+                        }
                     }
                 }
 

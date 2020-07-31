@@ -9,12 +9,14 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Build;
 using Microsoft.VisualStudio.Services.Agent.Worker.Release;
 using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.VisualStudio.Services.WebApi;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -58,14 +60,52 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             return jobService.LogLines.GetValueOrDefault(record.Log.Id);
         }
 
-        protected void AssertJobCompleted()
+        protected void AssertJobCompleted(int buildCount = 1)
         {
-            Assert.Equal(1, GetMockedService<FakeJobServer>().RecordedEvents.Where(x => x is JobCompletedEvent).Count());
+            Assert.Equal(buildCount, GetMockedService<FakeJobServer>().RecordedEvents.Where(x => x is JobCompletedEvent).Count());
         }
 
-        protected static Pipelines.AgentJobRequestMessage LoadTemplateMessage()
+        protected static Pipelines.AgentJobRequestMessage LoadTemplateMessage(string jobId = "12f1170f-54f2-53f3-20dd-22fc7dff55f9", string jobName = "__default", string jobDisplayName = "Job", string checkoutRepoAlias = "self", int additionalRepos = 1)
         {
-            return LoadJobMessageFromJSON(JobMessageTemplate);
+            var template = JobMessageTemplate;
+            template = template.Replace("$$PLANID$$", Guid.NewGuid().ToString());
+            template = template.Replace("$$JOBID$$", jobId, StringComparison.OrdinalIgnoreCase);
+            template = template.Replace("$$JOBNAME$$", jobName, StringComparison.OrdinalIgnoreCase);
+            template = template.Replace("$$JOBDISPLAYNAME$$", jobDisplayName, StringComparison.OrdinalIgnoreCase);
+            template = template.Replace("$$CHECKOUTREPOALIAS$$", checkoutRepoAlias, StringComparison.OrdinalIgnoreCase);
+            var sb = new StringBuilder();
+            for (int i = 0; i < additionalRepos; i++)
+            {
+                sb.Append(GetRepoJson("Repo" + (i + 2)));
+            }
+            template = template.Replace("$$ADDITIONALREPOS$$", sb.ToString(), StringComparison.OrdinalIgnoreCase);
+            return LoadJobMessageFromJSON(template);
+        }
+
+        private static string GetRepoJson(string repoAlias)
+        {
+            return String.Format(@",
+      {{
+        'properties': {{
+          'id': '{0}',
+          'type': 'Git',
+          'version': 'cf64a69d29ae2e01a655956f67ee0332ffb730a3',
+          'name': '{1}',
+          'project': '6302cb6f-c9d9-44c2-ae60-84eff8845059',
+          'defaultBranch': 'refs/heads/master',
+          'ref': 'refs/heads/master',
+          'url': 'https://alpeck@codedev.ms/alpeck/MyFirstProject/_git/{1}',
+          'versionInfo': {{
+            'author': '[PII]'
+          }},
+          'checkoutOptions': {{ }}
+        }},
+        'alias': '{1}',
+        'endpoint': {{
+          'name': 'SystemVssConnection'
+        }}
+      }}", 
+            Guid.NewGuid(), repoAlias);
         }
 
         protected static Pipelines.AgentJobRequestMessage LoadJobMessageFromJSON(string message)
@@ -92,10 +132,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             return step;
         }
 
+        protected static TaskStep CreateCheckoutTask(string repoAlias)
+        {
+            var step = new TaskStep
+            {
+                Reference = new TaskStepDefinitionReference
+                {
+                    Id = Guid.Parse("6d15af64-176c-496d-b583-fd2ae21d4df4"),
+                    Name = "Checkout",
+                    Version = "1.0.0"
+                },
+                Name = "Checkout",
+                DisplayName = "Checkout",
+                Id = Guid.NewGuid()
+            };
+            step.Inputs.Add("repository", repoAlias);
+
+            return step;
+        }
+
         public void SetupL1([CallerMemberName] string testName = "")
         {
             // Clear working directory
-            var path = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "/TestRuns/" + testName;
+            string path = GetWorkingDirectory(testName);
             if (File.Exists(path))
             {
                 File.Delete(path);
@@ -112,6 +171,40 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             // Use different working directories for each test
             var config = GetMockedService<FakeConfigurationStore>(); // TODO: Need to update this. can hack it for now.
             config.WorkingDirectoryName = testName;
+        }
+
+        public string GetWorkingDirectory([CallerMemberName] string testName = "")
+        {
+            return Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "/TestRuns/" + testName + "/w";
+        }
+
+        public TrackingConfig GetTrackingConfig(Pipelines.AgentJobRequestMessage message, [CallerMemberName] string testName = "")
+        {
+            message.Variables.TryGetValue("system.collectionId", out VariableValue collectionIdVar);
+            message.Variables.TryGetValue("system.definitionId", out VariableValue definitionIdVar);
+
+            string filename;
+            if (message.Variables.TryGetValue("agent.useWorkspaceIds", out _))
+            {
+                var repoTrackingInfos = message.Resources.Repositories.Select(repo => new RepositoryTrackingInfo(repo, "/")).ToList();
+                var workspaceIdentifier = TrackingConfigHashAlgorithm.ComputeHash(collectionIdVar?.Value, definitionIdVar?.Value, repoTrackingInfos);
+                filename = Path.Combine(GetWorkingDirectory(testName),
+                    Constants.Build.Path.SourceRootMappingDirectory,
+                    collectionIdVar.Value,
+                    definitionIdVar.Value,
+                    workspaceIdentifier,
+                    Constants.Build.Path.TrackingConfigFile);
+            }
+            else
+            {
+                filename = Path.Combine(GetWorkingDirectory(testName),
+                    Constants.Build.Path.SourceRootMappingDirectory,
+                    collectionIdVar.Value,
+                    definitionIdVar.Value,
+                    Constants.Build.Path.TrackingConfigFile);
+            }
+            string content = File.ReadAllText(filename);
+            return JsonConvert.DeserializeObject<TrackingConfig>(content);
         }
 
         protected L1HostContext _l1HostContext;
@@ -247,7 +340,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
   'steps': [
     {
       'inputs': {
-        'repository': 'self'
+        'repository': '$$CHECKOUTREPOALIAS$$'
       },
       'type': 'task',
       'reference': {
@@ -417,11 +510,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
       'isReadOnly': true
     },
     'system.planId': {
-      'value': 'c7a42561-d84c-4972-b78f-ec97a3b63d53',
+      'value': '$$PLANID$$',
       'isReadOnly': true
     },
     'system.timelineId': {
-      'value': 'c7a42561-d84c-4972-b78f-ec97a3b63d53',
+      'value': '$$PLANID$$',
       'isReadOnly': true
     },
     'system.stageDisplayName': {
@@ -457,7 +550,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
       'isReadOnly': true
     },
     'system.jobIdentifier': {
-      'value': 'Job.__default',
+      'value': 'Job.$$JOBNAME$$',
       'isReadOnly': true
     },
     'system.jobAttempt': {
@@ -477,11 +570,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
       'isReadOnly': true
     },
     'system.jobId': {
-      'value': '12f1170f-54f2-53f3-20dd-22fc7dff55f9',
+      'value': '$$JOBID$$',
       'isReadOnly': true
     },
     'system.jobName': {
-      'value': '__default',
+      'value': '$$JOBNAME$$',
       'isReadOnly': true
     },
     'system.accessToken': {
@@ -530,7 +623,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
     'scopeIdentifier': '6302cb6f-c9d9-44c2-ae60-84eff8845059',
     'planType': 'Build',
     'version': 9,
-    'planId': 'c7a42561-d84c-4972-b78f-ec97a3b63d53',
+    'planId': '$$PLANID$$',
     'planGroup': 'Build:6302cb6f-c9d9-44c2-ae60-84eff8845059:5',
     'artifactUri': 'vstfs:///Build/Build/5',
     'artifactLocation': null,
@@ -560,13 +653,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
     }
   },
   'timeline': {
-    'id': 'c7a42561-d84c-4972-b78f-ec97a3b63d53',
+    'id': '$$PLANID$$',
     'changeId': 5,
     'location': null
   },
-  'jobId': '12f1170f-54f2-53f3-20dd-22fc7dff55f9',
+  'jobId': '$$JOBID$$',
   'jobDisplayName': 'Job',
-  'jobName': '__default',
+  'jobName': '$$JOBNAME$$',
   'jobContainer': null,
   'requestId': 0,
   'lockedUntil': '0001-01-01T00:00:00',
@@ -610,6 +703,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
           'name': 'SystemVssConnection'
         }
       }
+      $$ADDITIONALREPOS$$
     ]
   },
   'workspace': {}

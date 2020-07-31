@@ -38,6 +38,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         ProxyBypass,
         Autologon,
         Options,
+        SetupInfo
     }
 
     public static class Constants
@@ -54,6 +55,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         public static string ProcessLookupId = "VSTS_PROCESS_LOOKUP_ID";
         public static string PluginTracePrefix = "##[plugin.trace]";
         public static readonly int AgentDownloadRetryMaxAttempts = 3;
+        public const string projectName = "projectName";
 
         // Environment variable set on hosted Azure Pipelines images to
         // store the version of the image
@@ -136,6 +138,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public const string OverwriteAutoLogon = "overwriteautologon";
                     public const string GitUseSChannel = "gituseschannel";
                     public const string Help = "help";
+                    public const string DisableLogUploads = "disableloguploads";
                     public const string MachineGroup = "machinegroup";
                     public const string Replace = "replace";
                     public const string NoRestart = "norestart";
@@ -264,10 +267,9 @@ namespace Microsoft.VisualStudio.Services.Agent
                 // Keep alphabetical. If you add or remove a variable here, do the same in ReadOnlyVariables
                 //
                 public static readonly string AcceptTeeEula = "agent.acceptteeeula";
-                public static readonly string AllowAllEndpoints = "agent.allowAllEndpoints"; // remove after sprint 120 or so.
-                public static readonly string AllowAllSecureFiles = "agent.allowAllSecureFiles"; // remove after sprint 121 or so.
                 public static readonly string BuildDirectory = "agent.builddirectory";
                 public static readonly string ContainerId = "agent.containerid";
+                public static readonly string ContainerMapping = "agent.containermapping";
                 public static readonly string ContainerNetwork = "agent.containernetwork";
                 public static readonly string Diagnostic = "agent.diagnostic";
                 public static readonly string HomeDirectory = "agent.homedirectory";
@@ -428,10 +430,9 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static List<string> ReadOnlyVariables = new List<string>(){
                 // Agent variables
                 Agent.AcceptTeeEula,
-                Agent.AllowAllEndpoints,
-                Agent.AllowAllSecureFiles,
                 Agent.BuildDirectory,
                 Agent.ContainerId,
+                Agent.ContainerMapping,
                 Agent.ContainerNetwork,
                 Agent.Diagnostic,
                 Agent.HomeDirectory,

@@ -37,18 +37,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             String alias;
             if (!eventProperties.TryGetValue(PluginInternalUpdateRepositoryEventProperties.Alias, out alias) || String.IsNullOrEmpty(alias))
             {
-                throw new Exception(StringUtil.Loc("MissingRepositoryAlias"));
+                throw new ArgumentNullException(StringUtil.Loc("MissingRepositoryAlias"));
             }
 
             var repository = context.Repositories.FirstOrDefault(x => string.Equals(x.Alias, alias, StringComparison.OrdinalIgnoreCase));
             if (repository == null)
             {
-                throw new Exception(StringUtil.Loc("RepositoryNotExist"));
+                throw new ArgumentNullException(StringUtil.Loc("RepositoryNotExist"));
             }
 
             if (string.IsNullOrEmpty(data))
             {
-                throw new Exception(StringUtil.Loc("MissingRepositoryPath"));
+                throw new ArgumentNullException(StringUtil.Loc("MissingRepositoryPath"));
             }
 
             var currentPath = repository.Properties.Get<string>(RepositoryPropertyNames.Path);

@@ -9,6 +9,7 @@ using System.IO;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -136,16 +137,12 @@ namespace Microsoft.VisualStudio.Services.Agent
                 }
             }
 
-            foreach (var envVar in new string[] { "no_proxy" })
-            {
-                Trace.Verbose($"Try reading proxy bypass list from environment variable: '{envVar}'.");
-                var proxyBypassEnv = Environment.GetEnvironmentVariable(envVar) ?? string.Empty;
+            var proxyBypassEnv = AgentKnobs.NoProxy.GetValue(HostContext).AsString();
 
-                foreach (string bypass in proxyBypassEnv.Split(new [] {',', ';'}).Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim()))
-                {
-                    Trace.Info($"Bypass proxy for: {bypass}.");
-                    ProxyBypassList.Add(bypass);
-                }
+            foreach (string bypass in proxyBypassEnv.Split(new [] {',', ';'}).Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim()))
+            {
+                Trace.Info($"Bypass proxy for: {bypass}.");
+                ProxyBypassList.Add(bypass);
             }
         }
 
@@ -163,17 +160,8 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             if (string.IsNullOrEmpty(ProxyAddress))
             {
-                foreach (var envVar in new string[] { "VSTS_HTTP_PROXY", "http_proxy" })
-                {
-                    Trace.Verbose($"Try reading proxy setting from environment variable: '{envVar}'.");
-                    ProxyAddress = Environment.GetEnvironmentVariable(envVar) ?? string.Empty;
-                    ProxyAddress = ProxyAddress.Trim();
-                    Trace.Verbose($"{ProxyAddress}");
-                    if (!string.IsNullOrEmpty(ProxyAddress))
-                    {
-                        break;
-                    }
-                }
+                ProxyAddress = AgentKnobs.ProxyAddress.GetValue(HostContext).AsString();
+                Trace.Verbose($"Proxy address: {ProxyAddress}");
             }
 
             if (!string.IsNullOrEmpty(ProxyAddress) && !Uri.IsWellFormedUriString(ProxyAddress, UriKind.Absolute))
@@ -201,12 +189,12 @@ namespace Microsoft.VisualStudio.Services.Agent
 
                 if (string.IsNullOrEmpty(ProxyUsername))
                 {
-                    ProxyUsername = Environment.GetEnvironmentVariable("VSTS_HTTP_PROXY_USERNAME");
+                    ProxyUsername = AgentKnobs.ProxyUsername.GetValue(HostContext).AsString();
                 }
 
                 if (string.IsNullOrEmpty(ProxyPassword))
                 {
-                    ProxyPassword = Environment.GetEnvironmentVariable("VSTS_HTTP_PROXY_PASSWORD");
+                    ProxyPassword = AgentKnobs.ProxyPassword.GetValue(HostContext).AsString();
                 }
 
                 if (!string.IsNullOrEmpty(ProxyPassword))

@@ -1,15 +1,10 @@
 parameters:
-  layoutRoot: ''
-  flavor: ''
-  condition: ''
+- name: layoutRoot
+  type: string
+- name: flavor
+  type: string
 
 steps:
-# Guard against missing parameters
-- ${{ if or(eq(parameters.layoutRoot, ''), eq(parameters.flavor, '')) }}:
-  - |
-      Badly configured build; an expected parameter is missing. //
-      layoutRoot: ${{ parameters.layoutRoot }} //
-      flavor: ${{ parameters.flavor }}
 
 # Package .NET Core Windows dependency (VC++ Redistributable)
 - powershell: |
@@ -25,5 +20,3 @@ steps:
     $agentLayoutBin = Join-Path -Path $(Build.SourcesDirectory) -ChildPath "${{ parameters.layoutRoot }}\bin"
     Copy-Item -Path $unzipDir -Destination $agentLayoutBin -Force
   displayName: Package UCRT
-  ${{ if ne(parameters.condition, '') }}:
-    condition: ${{ parameters.condition }}

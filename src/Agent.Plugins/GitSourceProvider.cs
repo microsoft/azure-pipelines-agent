@@ -318,9 +318,7 @@ namespace Agent.Plugins.Repository
             bool exposeCred = StringUtil.ConvertToBoolean(executionContext.GetInput(Pipelines.PipelineConstants.CheckoutTaskInputs.PersistCredentials));
 
             // Read 'disable fetch by commit' value from the execution variable first, then from the environment variable if the first one is not set
-            bool fetchByCommit = GitSupportsFetchingCommitBySha1Hash && !StringUtil.ConvertToBoolean(
-                executionContext.Variables.GetValueOrDefault("VSTS.DisableFetchByCommit")?.Value ??
-                System.Environment.GetEnvironmentVariable("VSTS_DISABLEFETCHBYCOMMIT"), false);
+            bool fetchByCommit = GitSupportsFetchingCommitBySha1Hash && !AgentKnobs.DisableFetchByCommit.GetValue(executionContext).AsBoolean();
 
             executionContext.Debug($"repository url={repositoryUrl}");
             executionContext.Debug($"targetPath={targetPath}");
@@ -344,15 +342,7 @@ namespace Agent.Plugins.Repository
             // system.prefergitfrompath=true will cause the agent to find Git.exe from %PATH%
             if (PlatformUtil.RunningOnWindows)
             {
-                var definitionSetting = executionContext.Variables.GetValueOrDefault("system.prefergitfrompath");
-                if (definitionSetting != null)
-                {
-                    preferGitFromPath = StringUtil.ConvertToBoolean(definitionSetting.Value);
-                }
-                else
-                {
-                    bool.TryParse(Environment.GetEnvironmentVariable("system.prefergitfrompath"), out preferGitFromPath);
-                }
+                preferGitFromPath = AgentKnobs.PreferGitFromPath.GetValue(executionContext).AsBoolean();
             }
 
             // Determine do we need to provide creds to git operation
@@ -889,7 +879,8 @@ namespace Agent.Plugins.Repository
 
                     // git lfs fetch failed, get lfs log, the log is critical for debug.
                     int exitCode_lfsLogs = await gitCommandManager.GitLFSLogs(executionContext, targetPath);
-                    throw new InvalidOperationException($"Git lfs fetch failed with exit code: {exitCode_lfsFetch}. Git lfs logs returned with exit code: {exitCode_lfsLogs}.");
+                    executionContext.Output($"Git lfs fetch failed with exit code: {exitCode_lfsFetch}. Git lfs logs returned with exit code: {exitCode_lfsLogs}.");
+                    executionContext.Output($"Checkout will continue.  \"git checkout\" will fetch lfs files, however this could cause poor performance on old versions of git.");
                 }
             }
 

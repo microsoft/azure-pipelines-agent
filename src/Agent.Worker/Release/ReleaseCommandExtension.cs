@@ -54,7 +54,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                 }
                 else
                 {
-                    throw new Exception(StringUtil.Loc("RMReleaseNameRequired"));
+                    throw new ArgumentNullException(StringUtil.Loc("RMReleaseNameRequired"));
                 }
             }
 

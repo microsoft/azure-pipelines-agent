@@ -111,16 +111,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 description: "binaries directory",
                 path: Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), newConfig.BuildDirectory, Constants.Build.Path.BinariesDirectory),
                 deleteExisting: cleanOption == BuildCleanOption.Binary);
+
+            var defaultSourceDirectory = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), newConfig.SourcesDirectory);
             CreateDirectory(
                 executionContext,
                 description: "source directory",
-                path: Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), newConfig.SourcesDirectory),
+                path: defaultSourceDirectory,
                 deleteExisting: cleanOption == BuildCleanOption.Source);
 
             // Set the default clone path for each repository (the Checkout task may override this later)
             foreach (var repository in repositories)
             {
                 var repoPath = GetDefaultRepositoryPath(executionContext, repository, newConfig.SourcesDirectory);
+
+                if (!string.Equals(repoPath, defaultSourceDirectory, StringComparison.Ordinal))
+                {
+                    CreateDirectory(
+                        executionContext,
+                        description: "repository source directory",
+                        path: repoPath,
+                        deleteExisting: cleanOption == BuildCleanOption.Source);
+                }
+
                 Trace.Info($"Set repository path for repository {repository.Alias} to '{repoPath}'");
                 repository.Properties.Set<string>(RepositoryPropertyNames.Path, repoPath);
             }

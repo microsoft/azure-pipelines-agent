@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -77,15 +78,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Verify task signatures if a fingerprint is configured for the Agent.
                 var configurationStore = HostContext.GetService<IConfigurationStore>();
                 AgentSettings settings = configurationStore.GetSettings();
+                SignatureVerificationMode verificationMode = SignatureVerificationMode.None;
+                if (settings.SignatureVerification != null)
+                {
+                    verificationMode = settings.SignatureVerification.Mode;
+                }
 
-                if (!String.IsNullOrEmpty(settings.Fingerprint))
+                if (verificationMode != SignatureVerificationMode.None)
                 {
                     ISignatureService signatureService = HostContext.CreateService<ISignatureService>();
                     Boolean verificationSuccessful =  await signatureService.VerifyAsync(definition, ExecutionContext.CancellationToken);
 
                     if (verificationSuccessful)
                     {
-                        ExecutionContext.Output("Task signature verification successful.");
+                        ExecutionContext.Output(StringUtil.Loc("TaskSignatureVerificationSucceeeded"));
 
                         // Only extract if it's not the checkout task.
                         if (!String.IsNullOrEmpty(definition.ZipPath))
@@ -95,7 +101,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                     else
                     {
-                        throw new Exception("Task signature verification failed.");
+                        String message = StringUtil.Loc("TaskSignatureVerificationFailed");
+
+                        if (verificationMode == SignatureVerificationMode.Error)
+                        {
+                            throw new InvalidOperationException(message);
+                        }
+                        else
+                        {
+                            ExecutionContext.Warning(message);
+                        }
                     }
                 }
 
@@ -122,10 +137,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     if (PlatformUtil.RunningOnWindows)
                     {
-                        throw new Exception(StringUtil.Loc("SupportedTaskHandlerNotFoundWindows", $"{PlatformUtil.HostOS}({PlatformUtil.HostArchitecture})"));
+                        throw new InvalidOperationException(StringUtil.Loc("SupportedTaskHandlerNotFoundWindows", $"{PlatformUtil.HostOS}({PlatformUtil.HostArchitecture})"));
                     }
 
-                    throw new Exception(StringUtil.Loc("SupportedTaskHandlerNotFoundLinux"));
+                    throw new InvalidOperationException(StringUtil.Loc("SupportedTaskHandlerNotFoundLinux"));
                 }
                 Trace.Info($"Handler data is of type {handlerData}");
 
@@ -175,7 +190,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     string key = input?.Name?.Trim() ?? string.Empty;
                     if (!string.IsNullOrEmpty(key))
                     {
-                        inputs[key] = input.DefaultValue?.Trim() ?? string.Empty;
+                        if (AgentKnobs.DisableInputTrimming.GetValue(ExecutionContext).AsBoolean())
+                        {
+                            inputs[key] = input.DefaultValue ?? string.Empty;
+                        }
+                        else
+                        {
+                            inputs[key] = input.DefaultValue?.Trim() ?? string.Empty;
+                        }
                     }
                 }
 
@@ -186,7 +208,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     string key = input.Key?.Trim() ?? string.Empty;
                     if (!string.IsNullOrEmpty(key))
                     {
-                        inputs[key] = input.Value?.Trim() ?? string.Empty;
+                        if (AgentKnobs.DisableInputTrimming.GetValue(ExecutionContext).AsBoolean())
+                        {
+                            inputs[key] = input.Value ?? string.Empty;
+                        }
+                        else
+                        {
+                            inputs[key] = input.Value?.Trim() ?? string.Empty;
+                        }
                     }
                 }
 
@@ -371,9 +400,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             var stepTarget = ExecutionContext.StepTarget();
             var preferPowershellHandler = true;
-            var preferPowershellHandlerOnContainers = ExecutionContext.Variables.GetBoolean("agent.preferPowerShellOnContainers")
-                ?? StringUtil.ConvertToBoolean(System.Environment.GetEnvironmentVariable("AGENT_PREFER_POWERSHELL_ON_CONTAINERS"), false);
-            if (!preferPowershellHandlerOnContainers && stepTarget != null)
+            if (!AgentKnobs.PreferPowershellHandlerOnContainers.GetValue(ExecutionContext).AsBoolean() && stepTarget != null)
             {
                 targetOS = stepTarget.ExecutionOS;
                 if (stepTarget is ContainerInfo)

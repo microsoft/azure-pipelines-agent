@@ -10,6 +10,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using Agent.Plugins;
 using Agent.Plugins.PipelineArtifact;
 using Agent.Sdk;
 using Microsoft.TeamFoundation.Build.WebApi;
@@ -45,7 +46,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 context.Variables.Add("system.hosttype", "build");
-                var provider = new FileShareProvider(context, null, new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information), new MockDedupManifestArtifactClientFactory());
+                var provider = new FileShareProvider(context, null, context.CreateArtifactsTracer(), new MockDedupManifestArtifactClientFactory());
 
                 // Get source directory path and destination directory path
                 string sourcePath = Path.Combine(Directory.GetCurrentDirectory(), TestSourceFolder);
@@ -79,7 +80,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using(var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
-                var provider = new FileShareProvider(context, null, new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information), new MockDedupManifestArtifactClientFactory());
+                var provider = new FileShareProvider(context, null, context.CreateArtifactsTracer(), new MockDedupManifestArtifactClientFactory());
                 
                 string sourcePath = Path.Combine(Directory.GetCurrentDirectory(), TestDownloadSourceFolder);
                 string destPath = Path.Combine(Directory.GetCurrentDirectory(), TestDestFolder);
@@ -121,7 +122,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using(var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
-                var provider = new FileShareProvider(context, null, new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information), new MockDedupManifestArtifactClientFactory());
+                var provider = new FileShareProvider(context, null, context.CreateArtifactsTracer(), new MockDedupManifestArtifactClientFactory());
                 
                 string sourcePath = Path.Combine(Directory.GetCurrentDirectory(), TestDownloadSourceFolder);
                 string destPath = Path.Combine(Directory.GetCurrentDirectory(), TestDestFolder);
