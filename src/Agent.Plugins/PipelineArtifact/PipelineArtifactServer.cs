@@ -52,19 +52,17 @@ namespace Agent.Plugins.PipelineArtifact
 
                 PublishResult result = await clientTelemetry.MeasureActionAsync(
                     record: uploadRecord,
-                    actionAsync: async () =>
-                    {
-                        return await AsyncHttpRetryHelper.InvokeAsync(
+                    actionAsync: async () => await AsyncHttpRetryHelper.InvokeAsync(
                             async () => 
                             {
                                 return await dedupManifestClient.PublishAsync(source, cancellationToken);
                             },
                             maxRetries: 3,
                             tracer: tracer,
-                            canRetryDelegate: true, // this isn't great, but failing on upload stinks, so just try a couple of times
+                            canRetryDelegate: e => true, // this isn't great, but failing on upload stinks, so just try a couple of times
                             cancellationToken: cancellationToken,
-                            continueOnCapturedContext: false);
-                    }
+                            continueOnCapturedContext: false)
+                    
                 );
                 // Send results to CustomerIntelligence
                 context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: uploadRecord);
