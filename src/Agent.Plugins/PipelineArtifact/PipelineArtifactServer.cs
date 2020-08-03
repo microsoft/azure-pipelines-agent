@@ -54,7 +54,16 @@ namespace Agent.Plugins.PipelineArtifact
                     record: uploadRecord,
                     actionAsync: async () =>
                     {
-                        return await dedupManifestClient.PublishAsync(source, cancellationToken);
+                        return await AsyncHttpRetryHelper.InvokeAsync(
+                            async () => 
+                            {
+                                return await dedupManifestClient.PublishAsync(source, cancellationToken);
+                            },
+                            maxRetries: 3,
+                            tracer: tracer,
+                            canRetryDelegate: true, // this isn't great, but failing on upload stinks, so just try a couple of times
+                            cancellationToken: cancellationToken,
+                            continueOnCapturedContext: false);
                     }
                 );
                 // Send results to CustomerIntelligence
