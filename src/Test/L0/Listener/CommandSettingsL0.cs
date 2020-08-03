@@ -11,6 +11,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using Xunit;
 using Agent.Sdk;
+using System.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
@@ -28,7 +29,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[] { "--agent", "some agent" });
+                var command = new CommandSettings(hc, args: new string[] { "configure", "--agent", "some agent" });
+
+                // Act.
+                string actual = command.GetAgentName();
+
+                // Assert.
+                Assert.Equal("some agent", actual);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", nameof(CommandSettings))]
+        public void GetsArgCaseInsensitive()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            {
+                // Arrange.
+                var command = new CommandSettings(hc, args: new string[] { "configure", "--AgenT", "some agent" });
 
                 // Act.
                 string actual = command.GetAgentName();
@@ -50,7 +69,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 var environment = new LocalEnvironment();
                 // Arrange.
                 environment.SetEnvironmentVariable(envVarName, expected);
-                var command = new CommandSettings(hc, args: new string[0], environmentScope: environment);
+                var command = new CommandSettings(hc, args: new string[] { "configure" }, environmentScope: environment);
 
                 // Act.
                 var actual = command.GetAgentName();
@@ -74,7 +93,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 var environment = new LocalEnvironment();
                 // Arrange.
                 environment.SetEnvironmentVariable(envVarName, expected);
-                var command = new CommandSettings(hc, args: new string[0], environmentScope: environment);
+                var command = new CommandSettings(hc, args: new string[] { "configure" }, environmentScope: environment);
 
                 // Act.
                 var actual = command.GetToken();
@@ -97,7 +116,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 var command = new CommandSettings(hc, args: new string[] { "configure" });
 
                 // Act.
-                bool actual = command.Configure;
+                bool actual = command.IsConfigureCommand();
 
                 // Assert.
                 Assert.True(actual);
@@ -115,7 +134,61 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 var command = new CommandSettings(hc, args: new string[] { "run" });
 
                 // Act.
-                bool actual = command.Run;
+                bool actual = command.IsRunCommand();
+
+                // Assert.
+                Assert.True(actual);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", nameof(CommandSettings))]
+        public void GetsCommandDiagnostics()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            {
+                // Arrange.
+                var command = new CommandSettings(hc, args: new string[] { "--diagnostics" });
+
+                // Act.
+                bool actual = command.IsDiagnostics();
+
+                // Assert.
+                Assert.True(actual);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", nameof(CommandSettings))]
+        public void GetsCommandRunWithoutRun()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            {
+                // Arrange.
+                var command = new CommandSettings(hc, args: new string[0]);
+
+                // Act.
+                bool actual = command.IsRunCommand();
+
+                // Assert.
+                Assert.True(actual);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", nameof(CommandSettings))]
+        public void GetsCommandIsRunWithFlag()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            {
+                // Arrange.
+                var command = new CommandSettings(hc, args: new string[] { "--version" });
+
+                // Act.
+                bool actual = command.IsRunCommand();
 
                 // Assert.
                 Assert.True(actual);
@@ -133,7 +206,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 var command = new CommandSettings(hc, args: new string[] { "remove" });
 
                 // Act.
-                bool actual = command.Remove;
+                bool actual = command.IsRemoveCommand();
+
+                // Assert.
+                Assert.True(actual);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", nameof(CommandSettings))]
+        public void GetsCommandWarmup()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            {
+                // Arrange.
+                var command = new CommandSettings(hc, args: new string[] { "warmup" });
+
+                // Act.
+                bool actual = command.IsWarmupCommand();
 
                 // Assert.
                 Assert.True(actual);
@@ -148,7 +239,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[] { "--acceptteeeula" });
+                var command = new CommandSettings(hc, args: new string[] { "configure", "--acceptteeeula" });
 
                 // Act.
                 bool actual = command.GetAcceptTeeEula();
@@ -166,10 +257,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[] { "--commit" });
+                var command = new CommandSettings(hc, args: new string[] { "run", "--commit" });
 
                 // Act.
-                bool actual = command.Commit;
+                bool actual = command.IsCommit();
 
                 // Assert.
                 Assert.True(actual);
@@ -184,10 +275,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[] { "--help" });
+                var command = new CommandSettings(hc, args: new string[] { "run", "--help" });
 
                 // Act.
-                bool actual = command.Help;
+                bool actual = command.IsHelp();
 
                 // Assert.
                 Assert.True(actual);
@@ -202,7 +293,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[] { "--replace" });
+                var command = new CommandSettings(hc, args: new string[] { "configure", "--replace" });
 
                 // Act.
                 bool actual = command.GetReplace();
@@ -215,12 +306,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", nameof(CommandSettings))]
+        public void GetsStartUpType()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            {
+                string expected = "test";
+
+                // Arrange.
+                var command = new CommandSettings(hc, args: new string[] { "run", "--startuptype", expected });
+
+                // Act.
+                string actual = command.GetStartupType();
+
+                // Assert.
+                Assert.Equal(expected, actual);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", nameof(CommandSettings))]
         public void GetsFlagRunAsService()
         {
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[] { "--runasservice" });
+                var command = new CommandSettings(hc, args: new string[] { "configure", "--runasservice" });
 
                 // Act.
                 bool actual = command.GetRunAsService();
@@ -238,10 +349,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[] { "--unattended" });
+                var command = new CommandSettings(hc, args: new string[] { "configure","--unattended" });
 
                 // Act.
-                bool actual = command.Unattended;
+                bool actual = command.Unattended();
 
                 // Assert.
                 Assert.True(actual);
@@ -259,10 +370,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 var environment = new LocalEnvironment();
                 // Arrange.
                 environment.SetEnvironmentVariable(envVarName, "true");
-                var command = new CommandSettings(hc, args: new string[0], environmentScope: environment);
+                var command = new CommandSettings(hc, args: new string[] { "configure" }, environmentScope: environment);
 
                 // Act.
-                bool actual = command.Unattended;
+                bool actual = command.Unattended();
 
                 // Assert.
                 Assert.Equal(true, actual);
@@ -278,10 +389,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[] { "--version" });
+                var command = new CommandSettings(hc, args: new string[] { "run", "--version" });
 
                 // Act.
-                bool actual = command.Version;
+                bool actual = command.IsVersion();
 
                 // Assert.
                 Assert.True(actual);
@@ -296,7 +407,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[] { "--unattended" });
+                var command = new CommandSettings(hc, args: new string[] { "configure", "--unattended" });
                 _promptManager
                     .Setup(x => x.ReadBool(
                         Constants.Agent.CommandLine.Flags.AcceptTeeEula, // argName
@@ -321,7 +432,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[] { "--unattended" });
+                var command = new CommandSettings(hc, args: new string[] { "configure", "--unattended" });
                 _promptManager
                     .Setup(x => x.ReadValue(
                         Constants.Agent.CommandLine.Args.Agent, // argName
@@ -348,7 +459,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[0]);
+                var command = new CommandSettings(hc, args: new string[] { "configure" });
                 _promptManager
                     .Setup(x => x.ReadBool(
                         Constants.Agent.CommandLine.Flags.AcceptTeeEula, // argName
@@ -373,7 +484,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[0]);
+                var command = new CommandSettings(hc, args: new string[] { "configure" });
                 _promptManager
                     .Setup(x => x.ReadValue(
                         Constants.Agent.CommandLine.Args.Agent, // argName
@@ -400,7 +511,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[0]);
+                var command = new CommandSettings(hc, args: new string[] { "configure"});
                 _promptManager
                     .Setup(x => x.ReadValue(
                         Constants.Agent.CommandLine.Args.Auth, // argName
@@ -427,7 +538,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[0]);
+                var command = new CommandSettings(hc, args: new string[] { "configure" });
                 _promptManager
                     .Setup(x => x.ReadValue(
                         Constants.Agent.CommandLine.Args.Password, // argName
@@ -454,7 +565,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[0]);
+                var command = new CommandSettings(hc, args: new string[] { "configure" });
                 _promptManager
                     .Setup(x => x.ReadValue(
                         Constants.Agent.CommandLine.Args.Pool, // argName
@@ -481,7 +592,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[0]);
+                var command = new CommandSettings(hc, args: new string[] { "configure" });
                 _promptManager
                     .Setup(x => x.ReadBool(
                         Constants.Agent.CommandLine.Flags.Replace, // argName
@@ -506,7 +617,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[0]);
+                var command = new CommandSettings(hc, args: new string[] { "configure" });
                 _promptManager
                     .Setup(x => x.ReadBool(
                         Constants.Agent.CommandLine.Flags.RunAsService, // argName
@@ -531,7 +642,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[0]);
+                var command = new CommandSettings(hc, args: new string[] { "configure" });
                 _promptManager
                     .Setup(x => x.ReadValue(
                         Constants.Agent.CommandLine.Args.Token, // argName
@@ -558,7 +669,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[0]);
+                var command = new CommandSettings(hc, args: new string[] { "configure" });
                 _promptManager
                     .Setup(x => x.ReadValue(
                         Constants.Agent.CommandLine.Args.Url, // argName
@@ -585,7 +696,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[0]);
+                var command = new CommandSettings(hc, args: new string[] { "configure" });
                 _promptManager
                     .Setup(x => x.ReadValue(
                         Constants.Agent.CommandLine.Args.UserName, // argName
@@ -612,7 +723,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[0]);
+                var command = new CommandSettings(hc, args: new string[] { "configure" });
                 _promptManager
                     .Setup(x => x.ReadValue(
                         Constants.Agent.CommandLine.Args.WindowsLogonAccount, // argName
@@ -639,7 +750,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[0]);
+                var command = new CommandSettings(hc, args: new string[] { "configure" });
                 string accountName = "somewindowsaccount";
                 _promptManager
                     .Setup(x => x.ReadValue(
@@ -667,7 +778,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[0]);
+                var command = new CommandSettings(hc, args: new string[] { "configure" });
                 _promptManager
                     .Setup(x => x.ReadValue(
                         Constants.Agent.CommandLine.Args.Work, // argName
@@ -696,7 +807,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[] { "--url", "" });
+                var command = new CommandSettings(hc, args: new string[] { "configure", "--url", "" });
                 _promptManager
                     .Setup(x => x.ReadValue(
                         Constants.Agent.CommandLine.Args.Url, // argName
@@ -725,7 +836,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[] { "--url", "notValid" });
+                var command = new CommandSettings(hc, args: new string[] { "configure", "--url", "notValid" });
                 _promptManager
                     .Setup(x => x.ReadValue(
                         Constants.Agent.CommandLine.Args.Url, // argName
@@ -756,10 +867,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[] { "--machinegroup" });
+                var command = new CommandSettings(hc, args: new string[] { "configure", "--machinegroup" });
 
                 // Act.
-                bool actual = command.DeploymentGroup;
+                bool actual = command.GetDeploymentOrMachineGroup();
 
                 // Assert.
                 Assert.True(actual);
@@ -774,10 +885,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[] { "--deploymentgroup" });
+                var command = new CommandSettings(hc, args: new string[] { "configure", "--deploymentgroup" });
 
                 // Act.
-                bool actual = command.DeploymentGroup;
+                bool actual = command.GetDeploymentOrMachineGroup();
 
                 // Assert.
                 Assert.True(actual);
@@ -792,7 +903,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[] { "--addmachinegrouptags" });
+                var command = new CommandSettings(hc, args: new string[] { "configure", "--addmachinegrouptags" });
 
                 // Act.
                 bool actual = command.GetDeploymentGroupTagsRequired();
@@ -810,7 +921,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[] { "--adddeploymentgrouptags" });
+                var command = new CommandSettings(hc, args: new string[] { "configure", "--adddeploymentgrouptags" });
 
                 // Act.
                 bool actual = command.GetDeploymentGroupTagsRequired();
@@ -828,7 +939,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[0]);
+                var command = new CommandSettings(hc, args: new string[] { "configure" });
                 _promptManager
                     .Setup(x => x.ReadValue(
                         Constants.Agent.CommandLine.Args.ProjectName, // argName
@@ -855,7 +966,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[0]);
+                var command = new CommandSettings(hc, args: new string[] { "configure" });
                 _promptManager
                     .Setup(x => x.ReadValue(
                         Constants.Agent.CommandLine.Args.CollectionName, // argName
@@ -882,7 +993,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[0]);
+                var command = new CommandSettings(hc, args: new string[] { "configure" });
                 _promptManager
                     .Setup(x => x.ReadValue(
                         Constants.Agent.CommandLine.Args.DeploymentGroupName, // argName
@@ -909,7 +1020,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[0]);
+                var command = new CommandSettings(hc, args: new string[] { "configure" });
                 _promptManager
                     .Setup(x => x.ReadValue(
                         Constants.Agent.CommandLine.Args.DeploymentPoolName, // argName
@@ -940,6 +1051,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                               hc,
                               new[]
                               {
+                                  "configure",
                                   "--machinegroupname", "Test-MachineGroupName",
                                   "--deploymentgroupname", "Test-DeploymentGroupName"
                               });
@@ -973,7 +1085,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[0]);
+                var command = new CommandSettings(hc, args: new string[] { "configure" });
                 _promptManager
                     .Setup(x => x.ReadValue(
                         Constants.Agent.CommandLine.Args.DeploymentGroupTags, // argName
@@ -1004,6 +1116,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                               hc,
                               new[]
                               {
+                                  "configure",
                                   "--machinegrouptags", "Test-MachineGrouptag1,Test-MachineGrouptag2",
                                   "--deploymentgrouptags", "Test-DeploymentGrouptag1,Test-DeploymentGrouptag2"
                               });
@@ -1040,7 +1153,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 var command = new CommandSettings(hc, args: new string[] { "badcommand" });
 
                 // Assert.
-                Assert.True(command.Validate().Contains("badcommand"));
+                Assert.True(command.ParseErrors.Count() > 0);
             }
         }
 
@@ -1055,7 +1168,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 var command = new CommandSettings(hc, args: new string[] { "--badflag" });
 
                 // Assert.
-                Assert.True(command.Validate().Contains("badflag"));
+                Assert.True(command.ParseErrors.Count() > 0);
             }
         }
 
@@ -1070,7 +1183,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 var command = new CommandSettings(hc, args: new string[] { "--badargname", "bad arg value" });
 
                 // Assert.
-                Assert.True(command.Validate().Contains("badargname"));
+                Assert.True(command.ParseErrors.Count() > 0);
             }
         }
 
@@ -1090,7 +1203,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                         "test agent" });
 
                 // Assert.
-                Assert.True(command.Validate().Count == 0);
+                Assert.True(command.ParseErrors == null);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", nameof(CommandSettings))]
+        public void ValidatePasswordCanStartWithDash()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            {
+                string password = "-pass^word";
+
+                // Arrange.
+                var command = new CommandSettings(hc,
+                    args: new string[] {
+                        "configure",
+                        "--windowslogonpassword=" + password});
+
+                // Assert.
+                Assert.Equal(password, command.GetWindowsLogonPassword(string.Empty));
+                Assert.True(command.ParseErrors == null);
             }
         }
 

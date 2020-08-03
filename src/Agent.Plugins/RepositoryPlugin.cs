@@ -90,12 +90,6 @@ namespace Agent.Plugins.Repository
         {
             return executionContext != null && RepositoryUtil.HasMultipleCheckouts(executionContext.JobSettings);
         }
-
-        protected bool ShouldUpdateRepositoryPath(AgentTaskPluginExecutionContext executionContext, string repositoryAlias)
-        {
-            // Only update the repo path if this is the only checkout task or this checkout task is for the 'self' repo
-            return !HasMultipleCheckouts(executionContext) || RepositoryUtil.IsPrimaryRepositoryName(repositoryAlias);
-        }
     }
 
     public class CheckoutTask : RepositoryTask
@@ -158,11 +152,8 @@ namespace Agent.Plugins.Repository
                 expectRepoPath = Path.Combine(buildDirectory, sourcesDirectory);
             }
 
-            // Don't update the repository path for every checkout task (it should only be updated once)
-            if (ShouldUpdateRepositoryPath(executionContext, repo.Alias))
-            {
-                executionContext.UpdateRepositoryPath(repoAlias, expectRepoPath);
-            }
+            // Update the repository path in the worker process
+            executionContext.UpdateRepositoryPath(repoAlias, expectRepoPath);
 
             executionContext.Debug($"Repository requires to be placed at '{expectRepoPath}', current location is '{currentRepoPath}'");
             if (!string.Equals(currentRepoPath.Trim(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), expectRepoPath.Trim(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), IOUtil.FilePathStringComparison))
@@ -223,9 +214,9 @@ namespace Agent.Plugins.Repository
         ISourceProvider GetSourceProvider(string repositoryType);
     }
 
-    public sealed class SourceProviderFactory : ISourceProviderFactory
+    public class SourceProviderFactory : ISourceProviderFactory
     {
-        public ISourceProvider GetSourceProvider(string repositoryType)
+        public virtual ISourceProvider GetSourceProvider(string repositoryType)
         {
             ISourceProvider sourceProvider = null;
 

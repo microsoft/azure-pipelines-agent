@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
@@ -26,6 +27,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
     {
         private static string _packageType = "agent";
         private static string _platform = BuildConstants.AgentPackage.PackageName;
+        private static UpdaterKnobValueContext _knobContext = new UpdaterKnobValueContext();
 
         private PackageMetadata _targetPackage;
         private ITerminal _terminal;
@@ -35,6 +37,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         public override void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
             base.Initialize(hostContext);
 
             _terminal = hostContext.GetService<ITerminal>();
@@ -45,8 +48,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             _agentId = settings.AgentId;
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "invokeScript")]
         public async Task<bool> SelfUpdate(AgentRefreshMessage updateMessage, IJobDispatcher jobDispatcher, bool restartInteractiveAgent, CancellationToken token)
         {
+            ArgUtil.NotNull(updateMessage, nameof(updateMessage));
+            ArgUtil.NotNull(jobDispatcher, nameof(jobDispatcher));
             if (!await UpdateNeeded(updateMessage.TargetVersion, token))
             {
                 Trace.Info($"Can't find available update package.");
@@ -128,7 +134,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Trace.Info($"Current running agent version is {BuildConstants.AgentPackage.Version}");
             PackageVersion agentVersion = new PackageVersion(BuildConstants.AgentPackage.Version);
 
-            return serverVersion.CompareTo(agentVersion) > 0;
+            if (serverVersion.CompareTo(agentVersion) > 0)
+            {
+                return true;
+            }
+
+            if (AgentKnobs.DisableAgentDowngrade.GetValue(_knobContext).AsBoolean())
+            {
+                Trace.Info("Agent downgrade disabled, skipping update");
+                return false;
+            }
+
+            // Always return true for newer agent versions unless they're exactly equal to enable auto rollback (this feature was introduced after 2.165.0)
+            if (serverVersion.CompareTo(agentVersion) != 0)
+            {
+                _terminal.WriteLine(StringUtil.Loc("AgentDowngrade"));
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -189,10 +213,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     }
 
                     // Allow a 15-minute package download timeout, which is good enough to update the agent from a 1 Mbit/s ADSL connection.
-                    if (!int.TryParse(Environment.GetEnvironmentVariable("AZP_AGENT_DOWNLOAD_TIMEOUT") ?? string.Empty, out int timeoutSeconds))
-                    {
-                        timeoutSeconds = 15 * 60;
-                    }
+                    var timeoutSeconds = AgentKnobs.AgentDownloadTimeout.GetValue(_knobContext).AsInt();
 
                     Trace.Info($"Attempt {attempt}: save latest agent into {archiveFile}.");
 
@@ -204,11 +225,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             Trace.Info($"Download agent: begin download");
 
                             //open zip stream in async mode
-                            using (HttpClient httpClient = new HttpClient(HostContext.CreateHttpClientHandler()))
-                            using (FileStream fs = new FileStream(archiveFile, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true))
-                            using (Stream result = await httpClient.GetStreamAsync(_targetPackage.DownloadUrl))
+                            using (var handler = HostContext.CreateHttpClientHandler())
+                            using (var httpClient = new HttpClient(handler))
+                            using (var fs = new FileStream(archiveFile, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true))
+                            using (var result = await httpClient.GetStreamAsync(_targetPackage.DownloadUrl))
                             {
-                                //81920 is the default used by System.IO.Stream.CopyTo and is under the large object heap threshold (85k). 
+                                //81920 is the default used by System.IO.Stream.CopyTo and is under the large object heap threshold (85k).
                                 await result.CopyToAsync(fs, 81920, downloadCts.Token);
                                 await fs.FlushAsync(downloadCts.Token);
                             }
@@ -247,7 +269,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 else if (archiveFile.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase))
                 {
                     string tar = WhichUtil.Which("tar", trace: Trace);
-                    
+
                     if (string.IsNullOrEmpty(tar))
                     {
                         throw new NotSupportedException($"tar -xzf");
@@ -488,6 +510,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 Trace.Error(ex);
                 Trace.Info($"Catch exception during report update state, ignore this error and continue auto-update.");
             }
+        }
+    }
+
+    public class UpdaterKnobValueContext : IKnobValueContext
+    {
+        public string GetVariableValueOrDefault(string variableName)
+        {
+            return null;
+        }
+
+        public IScopedEnvironment GetScopedEnvironment()
+        {
+            return new SystemEnvironment();
         }
     }
 }

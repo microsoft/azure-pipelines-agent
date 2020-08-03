@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -146,9 +147,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Directory.CreateDirectory(toolsDirectory);
                 jobContext.SetVariable(Constants.Variables.Agent.ToolsDirectory, toolsDirectory, isFilePath: true);
 
-                bool disableGitPrompt = jobContext.Variables.GetBoolean("VSTS_DISABLE_GIT_PROMPT") ?? StringUtil.ConvertToBoolean(Environment.GetEnvironmentVariable("VSTS_DISABLE_GIT_PROMPT"), true);
-                if (disableGitPrompt &&
-                    string.IsNullOrEmpty(jobContext.Variables.Get("GIT_TERMINAL_PROMPT")))
+                if (AgentKnobs.DisableGitPrompt.GetValue(jobContext).AsBoolean())
                 {
                     jobContext.SetVariable("GIT_TERMINAL_PROMPT", "0");
                 }
@@ -178,7 +177,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
 
                 // for back compat TFS 2015 RTM/QU1, we may need to switch the task server url to agent config url
-                if (!string.Equals(message.Variables.GetValueOrDefault(Constants.Variables.System.ServerType)?.Value, "Hosted", StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(message?.Variables.GetValueOrDefault(Constants.Variables.System.ServerType)?.Value, "Hosted", StringComparison.OrdinalIgnoreCase))
                 {
                     if (taskServerUri == null || !await taskServer.TaskDefinitionEndpointExist())
                     {
@@ -266,7 +265,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // trace out all steps
                 Trace.Info($"Total job steps: {jobSteps.Count}.");
                 Trace.Verbose($"Job steps: '{string.Join(", ", jobSteps.Select(x => x.DisplayName))}'");
-                HostContext.WritePerfCounter($"WorkerJobInitialized_{message.RequestId.ToString()}");
+                HostContext.WritePerfCounter($"WorkerJobInitialized_{message?.RequestId.ToString()}");
 
                 // Run all job steps
                 Trace.Info("Run all job steps.");
@@ -329,6 +328,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void ExpandProperties(ContainerInfo container, Variables variables)
         {
+            if (container == null || variables == null)
+            {
+                return;
+            }
             // Expand port mapping
             variables.ExpandValues(container.UserPortMappings);
 
@@ -350,6 +353,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private async Task<TaskResult> CompleteJobAsync(IJobServer jobServer, IExecutionContext jobContext, Pipelines.AgentJobRequestMessage message, TaskResult? taskResult = null)
         {
+            ArgUtil.NotNull(message, nameof(message));
             jobContext.Section(StringUtil.Loc("StepFinishing", message.JobDisplayName));
             TaskResult result = jobContext.Complete(taskResult);
 
@@ -375,7 +379,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             Trace.Info("Raising job completed event.");
-            var jobCompletedEvent = new JobCompletedEvent(message.RequestId, message.JobId, result);
+            var jobCompletedEvent = new JobCompletedEvent(message.RequestId, message.JobId, result,
+                jobContext.Variables.Get(Constants.Variables.Agent.RunMode) == Constants.Agent.CommandLine.Flags.Once);
 
             var completeJobRetryLimit = 5;
             var exceptions = new List<Exception>();

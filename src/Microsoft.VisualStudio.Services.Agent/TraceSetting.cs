@@ -5,19 +5,23 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.Serialization;
+using Agent.Sdk.Knob;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
     [DataContract]
     public class TraceSetting
     {
+        private static UtilKnobValueContext _knobContext = UtilKnobValueContext.Instance();
+
         public TraceSetting()
         {
             DefaultTraceLevel = TraceLevel.Info;
 #if DEBUG
             DefaultTraceLevel = TraceLevel.Verbose;
 #endif            
-            string vstsAgentTrace = Environment.GetEnvironmentVariable("VSTSAGENT_TRACE");
+            string vstsAgentTrace = AgentKnobs.TraceVerbose.GetValue(_knobContext).AsString();
             if (!string.IsNullOrEmpty(vstsAgentTrace))
             {
                 DefaultTraceLevel = TraceLevel.Verbose;

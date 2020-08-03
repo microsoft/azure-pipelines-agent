@@ -124,7 +124,7 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
                         // Validate "checkout" is only used as the first step within a phase.
                         if (phase.Steps.Any(x => x is CheckoutStep))
                         {
-                            throw new Exception($"Step '{YamlConstants.Checkout}' is currently only supported as the first step within a phase.");
+                            throw new InvalidOperationException($"Step '{YamlConstants.Checkout}' is currently only supported as the first step within a phase.");
                         }
                     }
                 }

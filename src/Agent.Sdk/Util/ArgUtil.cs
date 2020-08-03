@@ -10,7 +10,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 {
     public static class ArgUtil
     {
-        public static void Directory(string directory, string name)
+        public static void Directory([ValidatedNotNull] string directory, string name)
         {
             ArgUtil.NotNullOrEmpty(directory, name);
             if (!System.IO.Directory.Exists(directory))
@@ -48,7 +48,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
-        public static void NotNull(object value, string name)
+        public static void NotNull([ValidatedNotNull] object value, string name)
         {
             if (object.ReferenceEquals(value, null))
             {
@@ -56,7 +56,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
-        public static void NotNullOrEmpty(string value, string name)
+        public static void NotNullOrEmpty([ValidatedNotNull] string value, string name)
         {
             if (string.IsNullOrEmpty(value))
             {
@@ -64,7 +64,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
-        public static void ListNotNullOrEmpty<T>(IEnumerable<T> value, string name)
+        public static void ListNotNullOrEmpty<T>([ValidatedNotNull] IEnumerable<T> value, string name)
         {
             if (object.ReferenceEquals(value, null))
             {
@@ -91,5 +91,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 throw new ArgumentException(message: $"{name} should be null.", paramName: name);
             }
         }
+    }
+
+    [AttributeUsage(AttributeTargets.Parameter)]
+    sealed class ValidatedNotNullAttribute : Attribute
+    {
     }
 }

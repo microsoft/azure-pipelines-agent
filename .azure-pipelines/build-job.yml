@@ -1,0 +1,208 @@
+parameters:
+
+- name: jobName
+  type: string
+
+- name: displayName
+  type: string
+
+- name: pool
+  type: object
+
+- name: container
+  type: string
+  default: ''
+
+- name: timeoutInMinutes
+  type: number
+  default: 60
+
+- name: branch
+  type: string
+  default: ''
+
+- name: os
+  type: string
+  values:
+  - win
+  - linux
+  - osx
+  - rhel.6
+
+- name: arch
+  type: string
+  values:
+  - arm
+  - arm64
+  - x64
+  - x86
+
+- name: unitTests
+  type: boolean
+  default: true
+
+- name: functionalTests
+  type: boolean
+  default: true
+
+- name: codeCoverage
+  type: boolean
+  default: false
+
+- name: componentDetection
+  type: boolean
+
+- name: sign
+  type: boolean
+
+- name: verifySigning
+  type: boolean
+  default: false
+
+- name: publishArtifact
+  type: boolean
+
+- name: enableADOLogIssue
+  type: boolean
+  default: false
+
+
+jobs:
+
+- job: ${{ parameters.jobName }}
+  displayName: ${{ parameters.displayName }}
+  pool: ${{ parameters.pool }}
+  timeoutInMinutes: ${{ parameters.timeoutInMinutes }}
+
+  ${{ if ne(parameters.container, '') }}:
+    container: ${{ parameters.container }}
+
+  variables:
+    ${{ if eq(parameters.os, 'win') }}:
+      devCommand: dev.cmd
+    ${{ if ne(parameters.os, 'win') }}:
+      devCommand: ./dev.sh
+    layoutRoot: '_layout/${{ parameters.os }}-${{ parameters.arch }}'
+
+  steps:
+
+  # Component detection
+  - ${{ if eq(parameters.componentDetection, true) }}:
+    - task: ms.vss-governance-buildtask.governance-build-task-component-detection.ComponentGovernanceComponentDetection@0
+      displayName: 'Component Detection'
+
+  # Clean
+  - checkout: self
+    clean: true
+
+  # Switch to branch if set
+  - ${{ if ne(parameters.branch, '') }}:
+    - template: switch-branch.yml
+      parameters:
+        branch: ${{ parameters.branch }}
+
+  # Build agent layout
+  - script: ${{ variables.devCommand }} layout Release
+    workingDirectory: src
+    displayName: Build & Layout Release
+    ${{ if eq(parameters.enableADOLogIssue, true) }}:
+      env:
+        ADO_ENABLE_LOGISSUE: true
+
+  # Run l0 tests
+  - ${{ if parameters.unitTests }}:
+    - script: ${{ variables.devCommand }} testl0
+      workingDirectory: src
+      displayName: Unit tests
+
+  # Install nuget
+  - ${{ if eq(parameters.os, 'win') }}:
+    - task: NuGetToolInstaller@1
+      displayName: Install NuGet for signing tests
+
+  # Run l1 tests
+  - ${{ if parameters.functionalTests }}:
+    - script: ${{ variables.devCommand }} testl1
+      workingDirectory: src
+      displayName: Functional tests
+
+  - ${{ if or(parameters.unitTests, parameters.functionalTests) }}:
+    # Publish test results
+    - task: PublishTestResults@2
+      displayName: Publish Test Results **/*.trx
+      inputs:
+        testRunner: VSTest
+        testResultsFiles: '**/*.trx'
+        testRunTitle: 'Agent Tests - ${{ parameters.os }}-${{ parameters.arch }}'
+      condition: always()
+
+    # Upload test log
+    - task: PublishBuildArtifacts@1
+      displayName: Publish Test logs
+      inputs:
+        pathToPublish: src/Test/TestLogs
+        artifactName: ${{ parameters.os }}-${{ parameters.arch }}-$(System.JobId)
+        artifactType: container
+      condition: always()
+
+  # Code coverage
+  - ${{ if parameters.codeCoverage }}:
+    - script: dotnet tool install --global dotnet-reportgenerator-globaltool
+      displayName: Install Report Generator
+
+    - script: ${{ variables.devCommand }} report
+      displayName: Generate Code Coverage report
+      workingDirectory: src
+
+    - task: PublishCodeCoverageResults@1
+      inputs:
+        codeCoverageTool: 'cobertura'
+        summaryFileLocation: _reports/**/Cobertura.xml
+        pathToSources: src
+
+  - ${{ if parameters.sign }}:
+    # Signing steps
+    - template: signing.yml
+      parameters:
+        layoutRoot: ${{ variables.layoutRoot }}
+        isWindows: ${{ eq(parameters.os, 'win') }}
+
+  # Publish artifacts
+  - ${{ if parameters.publishArtifact }}:
+
+    # Package .NET Core Windows dependency (VC++ Redistributable)
+    - ${{ if eq(parameters.os, 'win') }}:
+      - template: package-vcredist.yml
+        parameters:
+          layoutRoot: ${{ variables.layoutRoot }}
+          flavor: ${{ parameters.arch }}
+
+    # Create agent package zip
+    - script: "${{ variables.devCommand }} package Release"
+      workingDirectory: src
+      displayName: Package Release
+
+    # Upload agent package zip as build artifact
+    - task: PublishBuildArtifacts@1
+      displayName: Publish Artifact
+      inputs:
+        pathToPublish: _package
+        artifactName: agent
+        artifactType: container
+
+  # Signing verification
+  - ${{ if parameters.verifySigning }}:
+
+    # Verify all binaries are signed (generate report)
+    - task: securedevelopmentteam.vss-secure-development-tools.build-task-codesignvalidation.CodesignValidation@0
+      displayName: 'Generate Codesign Report'
+      inputs:
+        path: ${{ variables.layoutRoot }}
+
+    # Verify all binaries are signed (check report)
+    - task: securedevelopmentteam.vss-secure-development-tools.build-task-postanalysis.PostAnalysis@1
+      displayName: 'Verify Codesign Report'
+      inputs:
+        CodesignValidation: true
+        CodesignValidationBreakOn: WarningAbove
+        ToolLogsNotFoundAction: Error

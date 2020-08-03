@@ -85,6 +85,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public override void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
             base.Initialize(hostContext);
             _term = hostContext.GetService<ITerminal>();
         }
@@ -125,7 +126,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                         throw new UnauthorizedAccessException(StringUtil.Loc("AccessDenied"));
 
                     default:
-                        throw new Exception(StringUtil.Loc("OperationFailed", nameof(NetLocalGroupGetInfo), returnCode));
+                        throw new InvalidOperationException(StringUtil.Loc("OperationFailed", nameof(NetLocalGroupGetInfo), returnCode));
                 }
             }
             finally
@@ -149,9 +150,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             groupInfo.Comment = StringUtil.Format("Built-in group used by Team Foundation Server.");
 
             int returnCode = NetLocalGroupAdd(null,               // computer name
-                                              1,                  // 1 means include comment 
+                                              1,                  // 1 means include comment
                                               ref groupInfo,
-                                              0);                 // param error number 
+                                              0);                 // param error number
 
             // return on success
             if (returnCode == ReturnCode.S_OK)
@@ -174,14 +175,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     throw new ArgumentException(StringUtil.Loc("InvalidGroupName", groupName));
 
                 default:
-                    throw new Exception(StringUtil.Loc("OperationFailed", nameof(NetLocalGroupAdd), returnCode));
+                    throw new InvalidOperationException(StringUtil.Loc("OperationFailed", nameof(NetLocalGroupAdd), returnCode));
             }
         }
 
         public void DeleteLocalGroup(string groupName)
         {
             Trace.Entering();
-            int returnCode = NetLocalGroupDel(null,  // computer name 
+            int returnCode = NetLocalGroupDel(null,  // computer name
                                               groupName);
 
             // return on success
@@ -203,7 +204,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     throw new UnauthorizedAccessException(StringUtil.Loc("AccessDenied"));
 
                 default:
-                    throw new Exception(StringUtil.Loc("OperationFailed", nameof(NetLocalGroupDel), returnCode));
+                    throw new InvalidOperationException(StringUtil.Loc("OperationFailed", nameof(NetLocalGroupDel), returnCode));
             }
         }
 
@@ -246,7 +247,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     throw new UnauthorizedAccessException(StringUtil.Loc("AccessDenied"));
 
                 default:
-                    throw new Exception(StringUtil.Loc("OperationFailed", nameof(NetLocalGroupAddMembers), returnCode));
+                    throw new InvalidOperationException(StringUtil.Loc("OperationFailed", nameof(NetLocalGroupAddMembers), returnCode));
             }
         }
 
@@ -484,7 +485,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 scmHndl = OpenSCManager(null, null, ServiceManagerRights.AllAccess);
                 if (scmHndl.ToInt64() <= 0)
                 {
-                    throw new Exception(StringUtil.Loc("FailedToOpenSCM"));
+                    throw new InvalidOperationException(StringUtil.Loc("FailedToOpenSCM"));
                 }
 
                 Trace.Verbose(StringUtil.Format("Opened SCManager. Trying to create service {0}", serviceName));
@@ -521,7 +522,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 svcLock = LockServiceDatabase(scmHndl);
                 if (svcLock.ToInt64() <= 0)
                 {
-                    throw new Exception(StringUtil.Loc("FailedToLockServiceDB"));
+                    throw new InvalidOperationException(StringUtil.Loc("FailedToLockServiceDB"));
                 }
 
                 int[] actions = new int[failureActions.Count * 2];
@@ -635,7 +636,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             if (scmHndl.ToInt64() <= 0)
             {
-                throw new Exception(StringUtil.Loc("FailedToOpenSCManager"));
+                throw new InvalidOperationException(StringUtil.Loc("FailedToOpenSCManager"));
             }
 
             try
@@ -869,6 +870,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public void GrantDirectoryPermissionForAccount(string accountName, IList<string> folders)
         {
+            ArgUtil.NotNull(folders, nameof(folders));
             Trace.Entering();
             string groupName = GetUniqueBuildGroupName();
             Trace.Info(StringUtil.Format("Calculated unique group name {0}", groupName));
@@ -895,6 +897,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public void RevokeDirectoryPermissionForAccount(IList<string> folders)
         {
+            ArgUtil.NotNull(folders, nameof(folders));
             Trace.Entering();
             string groupName = GetUniqueBuildGroupName();
             Trace.Info(StringUtil.Format("Calculated unique group name {0}", groupName));
@@ -993,7 +996,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 uint hr = LsaOpenPolicy(ref system, ref attrib, (uint)access, out handle);
                 if (hr != 0 || handle == IntPtr.Zero)
                 {
-                    throw new Exception(StringUtil.Loc("OperationFailed", nameof(LsaOpenPolicy), hr));
+                    throw new InvalidOperationException(StringUtil.Loc("OperationFailed", nameof(LsaOpenPolicy), hr));
                 }
 
                 Handle = handle;
@@ -1030,7 +1033,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 uint winErrorCode = LsaNtStatusToWinError(result);
                 if (winErrorCode != 0)
                 {
-                    throw new Exception(StringUtil.Loc("OperationFailed", nameof(LsaNtStatusToWinError), winErrorCode));
+                    throw new InvalidOperationException(StringUtil.Loc("OperationFailed", nameof(LsaNtStatusToWinError), winErrorCode));
                 }
             }
 
@@ -1111,7 +1114,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             public const int S_OK = 0;
             public const int ERROR_ACCESS_DENIED = 5;
             public const int ERROR_INVALID_PARAMETER = 87;
-            public const int ERROR_MEMBER_NOT_IN_ALIAS = 1377; // member not in a group            
+            public const int ERROR_MEMBER_NOT_IN_ALIAS = 1377; // member not in a group
             public const int ERROR_MEMBER_IN_ALIAS = 1378; // member already exists
             public const int ERROR_ALIAS_EXISTS = 1379;  // group already exists
             public const int ERROR_NO_SUCH_ALIAS = 1376;

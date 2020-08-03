@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -24,7 +25,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     }
 
     [ServiceLocator(Default = typeof(ExecutionContext))]
-    public interface IExecutionContext : IAgentService
+    public interface IExecutionContext : IAgentService, IKnobValueContext
     {
         Guid Id { get; }
         Task ForceCompleted { get; }
@@ -74,7 +75,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         IHostContext GetHostContext();
     }
 
-    public sealed class ExecutionContext : AgentService, IExecutionContext
+    public sealed class ExecutionContext : AgentService, IExecutionContext, IDisposable
     {
         private const int _maxIssueCount = 10;
 
@@ -83,6 +84,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private readonly object _loggerLock = new object();
         private readonly List<IAsyncCommandContext> _asyncCommands = new List<IAsyncCommandContext>();
         private readonly HashSet<string> _outputvariables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly string _buildLogsFolderName = "buildlogs";
         private IAgentLogPlugin _logPlugin;
         private IPagingLogger _logger;
         private IJobServerQueue _jobServerQueue;
@@ -96,6 +98,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private bool _throttlingReported = false;
         private ExecutionTargetInfo _defaultStepTarget;
         private ExecutionTargetInfo _currentStepTarget;
+        private bool _disableLogUploads;
+        private string _buildLogsFolderPath;
+        private string _buildLogsFile;
+        private FileStream _buildLogsData;
+        private StreamWriter _buildLogsWriter;
 
         // only job level ExecutionContext will track throttling delay.
         private long _totalThrottlingDelayInMilliseconds = 0;
@@ -149,6 +156,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public override void Initialize(IHostContext hostContext)
         {
             base.Initialize(hostContext);
+
+            _disableLogUploads = HostContext.GetService<IConfigurationStore>().GetSettings().DisableLogUploads;
+
+            if (_disableLogUploads)
+            {
+                _buildLogsFolderPath = Path.Combine(hostContext.GetDirectory(WellKnownDirectory.Diag), _buildLogsFolderName);
+                Directory.CreateDirectory(_buildLogsFolderPath);
+            }
 
             _jobServerQueue = HostContext.GetService<IJobServerQueue>();
         }
@@ -211,6 +226,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             _record.State = TimelineRecordState.InProgress;
 
             _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
+
+            if (_disableLogUploads)
+            {
+                var buildLogsJobFolder = Path.Combine(_buildLogsFolderPath, _mainTimelineId.ToString());
+                Directory.CreateDirectory(buildLogsJobFolder);
+
+                _buildLogsFile = Path.Combine(buildLogsJobFolder, $"{_record.Name}-{_record.Id.ToString()}.log");
+                _buildLogsData = new FileStream(_buildLogsFile, FileMode.CreateNew);
+                _buildLogsWriter = new StreamWriter(_buildLogsData, System.Text.Encoding.UTF8);
+
+                _logger.Write(StringUtil.Loc("BuildLogsMessage", _buildLogsFile));
+            }
         }
 
         public TaskResult Complete(TaskResult? result = null, string currentOperation = null, string resultCode = null)
@@ -218,6 +245,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             if (result != null)
             {
                 Result = result;
+            }
+
+            if (_disableLogUploads)
+            {
+                _buildLogsWriter.Flush();
+                _buildLogsData.Flush();
+                //The StreamWriter object calls Dispose() on the provided Stream object when StreamWriter.Dispose is called.
+                _buildLogsWriter.Dispose();
+                _buildLogsWriter = null;
+                _buildLogsData.Dispose();
+                _buildLogsData = null;
             }
 
             // report total delay caused by server throttling.
@@ -409,13 +447,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Repositories = message.Resources.Repositories;
 
             // JobSettings
+            var checkouts = message.Steps?.Where(x => Pipelines.PipelineConstants.IsCheckoutTask(x)).ToList();
             JobSettings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            JobSettings[WellKnownJobSettings.HasMultipleCheckouts] = message.Steps?.Where(x => Pipelines.PipelineConstants.IsCheckoutTask(x)).Count() > 1 ? Boolean.TrueString : Boolean.FalseString;
+            JobSettings[WellKnownJobSettings.HasMultipleCheckouts] = Boolean.FalseString;
+            if (checkouts != null && checkouts.Count > 0)
+            {
+                JobSettings[WellKnownJobSettings.HasMultipleCheckouts] = checkouts.Count > 1 ? Boolean.TrueString : Boolean.FalseString;
+                var firstCheckout = checkouts.First() as Pipelines.TaskStep;
+                if (firstCheckout != null && Repositories != null && firstCheckout.Inputs.TryGetValue(Pipelines.PipelineConstants.CheckoutTaskInputs.Repository, out string repoAlias))
+                {
+                    JobSettings[WellKnownJobSettings.FirstRepositoryCheckedOut] = repoAlias;
+                    var repo = Repositories.Find(r => String.Equals(r.Alias, repoAlias, StringComparison.OrdinalIgnoreCase));
+                    if (repo != null)
+                    {
+                        repo.Properties.Set<bool>(RepositoryUtil.IsPrimaryRepository, true);
+                    }
+                }
+            }
 
             // Variables (constructor performs initial recursive expansion)
             List<string> warnings;
             Variables = new Variables(HostContext, message.Variables, out warnings);
             Variables.StringTranslator = TranslatePathForStepTarget;
+
+            if (Variables.GetBoolean("agent.useWorkspaceIds") == true)
+            {
+                // We need an identifier that represents which repos make up the workspace.
+                // This allows similar jobs in the same definition to reuse that workspace and other jobs to have their own.
+                JobSettings[WellKnownJobSettings.WorkspaceIdentifier] = GetWorkspaceIdentifier(message);
+            }
 
             // Prepend Path
             PrependPath = new List<string>();
@@ -557,6 +617,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             _jobServerQueue.JobServerQueueThrottling += JobServerQueueThrottling_EventReceived;
         }
 
+        private string GetWorkspaceIdentifier(Pipelines.AgentJobRequestMessage message)
+        {
+            Variables.TryGetValue(Constants.Variables.System.CollectionId, out string collectionId);
+            Variables.TryGetValue(Constants.Variables.System.DefinitionId, out string definitionId);
+            var repoTrackingInfos = message.Resources.Repositories.Select(repo => new Build.RepositoryTrackingInfo(repo, "/")).ToList();
+            var workspaceIdentifier = Build.TrackingConfigHashAlgorithm.ComputeHash(collectionId, definitionId, repoTrackingInfos);
+
+            Trace.Info($"WorkspaceIdentifier '{workspaceIdentifier}' created for repos {String.Join(',', repoTrackingInfos)}");
+            return workspaceIdentifier;
+        }
+
         // Do not add a format string overload. In general, execution context messages are user facing and
         // therefore should be localized. Use the Loc methods from the StringUtil class. The exception to
         // the rule is command messages - which should be crafted using strongly typed wrapper methods.
@@ -567,17 +638,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             lock (_loggerLock)
             {
                 totalLines = _logger.TotalLines + 1;
-                _logger.Write(msg);
+
+                if (_disableLogUploads)
+                {
+                    _buildLogsWriter.WriteLine(msg);
+                }
+                else
+                {
+                    _logger.Write(msg);
+                }
             }
 
-            // write to job level execution context's log file.
-            var parentContext = _parentExecutionContext as ExecutionContext;
-            if (parentContext != null)
+            if (!_disableLogUploads)
             {
-                lock (parentContext._loggerLock)
+                // write to job level execution context's log file.
+                var parentContext = _parentExecutionContext as ExecutionContext;
+                if (parentContext != null)
                 {
-                    parentContext._logger.Write(msg);
+                    lock (parentContext._loggerLock)
+                    {
+                        parentContext._logger.Write(msg);
+                    }
                 }
+
+                _jobServerQueue.QueueWebConsoleLine(_record.Id, msg, totalLines);
             }
 
             // write to plugin daemon,
@@ -591,7 +675,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 _logPlugin.Write(_record.Id, msg);
             }
 
-            _jobServerQueue.QueueWebConsoleLine(_record.Id, msg, totalLines);
             return totalLines;
         }
 
@@ -733,6 +816,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 _currentStepTarget = Containers.FirstOrDefault(x => string.Equals(x.ContainerName, target?.Target, StringComparison.OrdinalIgnoreCase));
             }
         }
+
+        public string GetVariableValueOrDefault(string variableName)
+        {
+            string value = null;
+            Variables.TryGetValue(variableName, out value);
+            return value;
+        }
+
+        public IScopedEnvironment GetScopedEnvironment()
+        {
+            return new SystemEnvironment();
+        }
+
+        public void Dispose()
+        {
+            _cancellationTokenSource?.Dispose();
+
+            _buildLogsWriter?.Dispose();
+            _buildLogsWriter = null;
+            _buildLogsData?.Dispose();
+            _buildLogsData = null;
+        }
     }
 
     // The Error/Warning/etc methods are created as extension methods to simplify unit testing.
@@ -741,6 +846,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         public static void Error(this IExecutionContext context, Exception ex)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(ex, nameof(ex));
+
             context.Error(ex.Message);
             context.Debug(ex.ToString());
         }
@@ -748,30 +856,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // Do not add a format string overload. See comment on ExecutionContext.Write().
         public static void Error(this IExecutionContext context, string message)
         {
+            ArgUtil.NotNull(context, nameof(context));
             context.AddIssue(new Issue() { Type = IssueType.Error, Message = message });
         }
 
         // Do not add a format string overload. See comment on ExecutionContext.Write().
         public static void Warning(this IExecutionContext context, string message)
         {
+            ArgUtil.NotNull(context, nameof(context));
             context.AddIssue(new Issue() { Type = IssueType.Warning, Message = message });
         }
 
         // Do not add a format string overload. See comment on ExecutionContext.Write().
         public static void Output(this IExecutionContext context, string message)
         {
+            ArgUtil.NotNull(context, nameof(context));
             context.Write(null, message);
         }
 
         // Do not add a format string overload. See comment on ExecutionContext.Write().
         public static void Command(this IExecutionContext context, string message)
         {
+            ArgUtil.NotNull(context, nameof(context));
             context.Write(WellKnownTags.Command, message);
         }
 
         // Do not add a format string overload. See comment on ExecutionContext.Write().
         public static void Section(this IExecutionContext context, string message)
         {
+            ArgUtil.NotNull(context, nameof(context));
             context.Write(WellKnownTags.Section, message);
         }
 
@@ -783,6 +896,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // Do not add a format string overload. See comment on ExecutionContext.Write().
         public static void Debug(this IExecutionContext context, string message)
         {
+            ArgUtil.NotNull(context, nameof(context));
             if (context.WriteDebug)
             {
                 context.Write(WellKnownTags.Debug, message);

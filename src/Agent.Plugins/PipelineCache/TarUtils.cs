@@ -18,6 +18,8 @@ namespace Agent.Plugins.PipelineCache
 {
     public static class TarUtils
     {
+        public const string TarLocationEnvironmentVariableName = "VSTS_TAR_EXECUTABLE";
+
         private readonly static bool isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         private const string archive = "archive.tar";
 
@@ -165,11 +167,11 @@ namespace Agent.Plugins.PipelineCache
 
         private static ProcessStartInfo GetCreateTarProcessInfo(AgentTaskPluginExecutionContext context, string archiveFileName, string inputPath)
         {
-            var processFileName = "tar";
+            var processFileName = GetTar(context);
             inputPath = inputPath.TrimEnd(Path.DirectorySeparatorChar).TrimEnd(Path.AltDirectorySeparatorChar);
             var processArguments = $"-cf \"{archiveFileName}\" -C \"{inputPath}\" ."; // If given the absolute path for the '-cf' option, the GNU tar fails. The workaround is to start the tarring process in the temp directory, and simply speficy 'archive.tar' for that option.
 
-            if (IsSystemDebugTrue(context))
+            if (context.IsSystemDebugTrue())
             {
                 processArguments = "-v " + processArguments;
             }
@@ -183,6 +185,13 @@ namespace Agent.Plugins.PipelineCache
             return processStartInfo;
         }
 
+        private static string GetTar(AgentTaskPluginExecutionContext context)
+        {   
+            // check if the user specified the tar executable to use:
+            string location = Environment.GetEnvironmentVariable(TarLocationEnvironmentVariableName);
+            return String.IsNullOrWhiteSpace(location) ? "tar"  : location;
+        }
+
         private static ProcessStartInfo GetExtractStartProcessInfo(AgentTaskPluginExecutionContext context, string targetDirectory)
         {
             string processFileName, processArguments;
@@ -190,16 +199,16 @@ namespace Agent.Plugins.PipelineCache
             {
                 processFileName = "7z";
                 processArguments = $"x -si -aoa -o\"{targetDirectory}\" -ttar";
-                if (IsSystemDebugTrue(context))
+                if (context.IsSystemDebugTrue())
                 {
                     processArguments = "-bb1 " + processArguments;
                 }
             }
             else
             {
-                processFileName = "tar";
+                processFileName = GetTar(context);
                 processArguments = $"-xf - -C ."; // Instead of targetDirectory, we are providing . to tar, because the tar process is being started from targetDirectory.
-                if (IsSystemDebugTrue(context))
+                if (context.IsSystemDebugTrue())
                 {
                     processArguments = "-v " + processArguments;
                 }
@@ -233,15 +242,6 @@ namespace Agent.Plugins.PipelineCache
         private static string CreateArchiveFileName()
         {
             return $"{Guid.NewGuid().ToString("N")}_{archive}";
-        }
-
-        private static bool IsSystemDebugTrue(AgentTaskPluginExecutionContext context)
-        {
-             if (context.Variables.TryGetValue("system.debug", out VariableValue systemDebugVar))
-            {
-                return string.Equals(systemDebugVar?.Value, "true", StringComparison.OrdinalIgnoreCase);
-            }
-            return false;
         }
 
         private static bool CheckIf7ZExists()

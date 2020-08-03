@@ -35,6 +35,8 @@ namespace Agent.Plugins.Repository
 
         protected override string Switch => "/";
 
+        public static readonly int RetriesOnFailure = 3;
+
         public string FilePath => Path.Combine(ExecutionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value, "externals", "tf", "tf.exe");
 
         private string AppConfigFile => Path.Combine(ExecutionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value, "externals", "tf", "tf.exe.config");
@@ -64,7 +66,7 @@ namespace Agent.Plugins.Repository
         public async Task GetAsync(string localPath, bool quiet = false)
         {
             ArgUtil.NotNullOrEmpty(localPath, nameof(localPath));
-            await RunCommandAsync(FormatFlags.OmitCollectionUrl, quiet, "vc", "get", $"/version:{SourceVersion}", "/recursive", "/overwrite", localPath);
+            await RunCommandAsync(FormatFlags.OmitCollectionUrl, quiet, 3, "vc", "get", $"/version:{SourceVersion}", "/recursive", "/overwrite", localPath);
         }
 
         public string ResolvePath(string serverPath)
@@ -258,7 +260,7 @@ namespace Agent.Plugins.Repository
         {
             ArgUtil.NotNullOrEmpty(serverPath, nameof(serverPath));
             ArgUtil.NotNullOrEmpty(localPath, nameof(localPath));
-            await RunCommandAsync("vc", "workfold", "/map", $"/workspace:{WorkspaceName}", serverPath, localPath);
+            await RunCommandAsync(3, "vc", "workfold", "/map", $"/workspace:{WorkspaceName}", serverPath, localPath);
         }
 
         public async Task WorkfoldUnmapAsync(string serverPath)
@@ -303,7 +305,7 @@ namespace Agent.Plugins.Repository
             args.Add("/format:xml");
 
             // Run the command.
-            string xml = await RunPorcelainCommandAsync(args.ToArray()) ?? string.Empty;
+            string xml = await RunPorcelainCommandAsync(RetriesOnFailure, args.ToArray()) ?? string.Empty;
 
             // Deserialize the XML.
             var serializer = new XmlSerializer(typeof(TFWorkspaces));

@@ -20,7 +20,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
     public sealed class TrackingManagerL0
     {
         private const string CollectionId = "226466ab-342b-4ca4-bbee-0b87154d4936";
-        private const string CollectionName = "Some collection name";
         // TODO: Add a test for collection in the domain.
         private const string CollectionUrl = "http://contoso:8080/tfs/DefaultCollection/";
         private const string DefinitionId = "1234";
@@ -142,11 +141,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 string sourceFolder = Path.Combine(_workFolder, "b00335b6");
 
                 // It doesn't matter for this test whether the line endings are CRLF or just LF.
-                string Contents = @"{ 
-    ""system"" : ""build"", 
-    ""collectionId"" = ""7aee6dde-6381-4098-93e7-50a8264cf066"", 
-    ""definitionId"" = ""7"", 
-    ""repositoryUrl"" = ""http://contoso:8080/tfs/DefaultCollection/_git/gitTest"", 
+                string Contents = @"{
+    ""system"" : ""build"",
+    ""collectionId"" = ""7aee6dde-6381-4098-93e7-50a8264cf066"",
+    ""definitionId"" = ""7"",
+    ""repositoryUrl"" = ""http://contoso:8080/tfs/DefaultCollection/_git/gitTest"",
     ""sourceFolder"" = """ + sourceFolder + @""",
     ""hashKey"" = ""b00335b6923adfa64f46f3abb7da1cdc0d9bae6c""
 }";
@@ -177,11 +176,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 string sourceFolder = Path.Combine(_workFolder, "b00335b6");
 
                 // It doesn't matter for this test whether the line endings are CRLF or just LF.
-                string contents = @"{ 
-    ""system"" : ""build"", 
-    ""collectionId"" = ""7aee6dde-6381-4098-93e7-50a8264cf066"", 
-    ""definitionId"" = ""7"", 
-    ""repositoryUrl"" = ""http://contoso:8080/tfs/DefaultCollection/_git/gitTest"", 
+                string contents = @"{
+    ""system"" : ""build"",
+    ""collectionId"" = ""7aee6dde-6381-4098-93e7-50a8264cf066"",
+    ""definitionId"" = ""7"",
+    ""repositoryUrl"" = ""http://contoso:8080/tfs/DefaultCollection/_git/gitTest"",
     ""sourceFolder"" = """ + sourceFolder + @""",
     ""hashKey"" = """"
 }";
@@ -208,11 +207,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 string sourceFolder = Path.Combine(_workFolder, "b00335b6");
 
                 // It doesn't matter for this test whether the line endings are CRLF or just LF.
-                string contents = @"{ 
-    ""system"" : ""build"", 
-    ""collectionId"" = ""7aee6dde-6381-4098-93e7-50a8264cf066"", 
-    ""definitionId"" = ""7"", 
-    ""repositoryUrl"" = ""http://contoso:8080/tfs/DefaultCollection/_git/gitTest"", 
+                string contents = @"{
+    ""system"" : ""build"",
+    ""collectionId"" = ""7aee6dde-6381-4098-93e7-50a8264cf066"",
+    ""definitionId"" = ""7"",
+    ""repositoryUrl"" = ""http://contoso:8080/tfs/DefaultCollection/_git/gitTest"",
     ""sourceFolder"" = """ + sourceFolder + @""",
     ""hashKey"" = ""b00335b6923adfa64f46f3abb7da1cdc0d9bae6c""
 }";
@@ -466,6 +465,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
   ""agent_builddirectory"": ""b00335b6"",
   ""collectionUrl"": ""http://contoso:8080/tfs/DefaultCollection/"",
   ""definitionName"": ""M87_PrintEnvVars"",
+  ""repositoryTrackingInfo"": [
+    {
+      ""identifier"": ""self"",
+      ""repositoryType"": ""tfsgit"",
+      ""repositoryUrl"": ""http://contoso:8080/tfs/DefaultCollection/_git/gitTest"",
+      ""sourcesDirectory"": ""b00335b6\\gitTest""
+    }
+  ],
   ""fileFormatVersion"": 3,
   ""lastRunOn"": ""09/16/2015 23:56:46 -04:00"",
   ""repositoryType"": ""tfsgit"",
@@ -520,10 +527,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
 
                 // It doesn't matter for this test whether the line endings are CRLF or just LF.
                 string trackingContents = @"{
-    ""system"" : ""build"", 
-    ""collectionId"" = ""7aee6dde-6381-4098-93e7-50a8264cf066"", 
-    ""definitionId"" = ""7"", 
-    ""repositoryUrl"" = ""http://contoso:8080/tfs/DefaultCollection/_git/gitTest"", 
+    ""system"" : ""build"",
+    ""collectionId"" = ""7aee6dde-6381-4098-93e7-50a8264cf066"",
+    ""definitionId"" = ""7"",
+    ""repositoryUrl"" = ""http://contoso:8080/tfs/DefaultCollection/_git/gitTest"",
     ""sourceFolder"" = """ + sourceFolder + @""",
     ""hashKey"" = ""b00335b6923adfa64f46f3abb7da1cdc0d9bae6c""
 }";

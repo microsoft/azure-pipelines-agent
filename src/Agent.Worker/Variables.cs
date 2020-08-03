@@ -80,11 +80,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public Variables(IHostContext hostContext, IDictionary<string, VariableValue> copy, out List<string> warnings)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
+
             // Store/Validate args.
             _hostContext = hostContext;
             _secretMasker = _hostContext.SecretMasker;
             _trace = _hostContext.GetTrace(nameof(Variables));
-            ArgUtil.NotNull(hostContext, nameof(hostContext));
 
             // Validate the dictionary, remove any variable with empty variable name.
             ArgUtil.NotNull(copy, nameof(copy));
@@ -260,6 +261,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void ExpandValues(IDictionary<string, string> target)
         {
+            ArgUtil.NotNull(target, nameof(target));
             _trace.Entering();
             var source = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (Variable variable in _expanded.Values)
@@ -424,11 +426,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public bool IsReadOnly(string name)
         {
-            if (!Read_Only_Variables)
-            {
-                return false;
-            }
-
             Variable existingVariable = null;
             if (!_expanded.TryGetValue(name, out existingVariable)) {
                 _nonexpanded.TryGetValue(name, out existingVariable);
@@ -539,7 +536,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                     }
 
                                     stack.Push(state);
-                                    state = new RecursionState(name: nestedName, value: nestedVariable.Value ?? string.Empty);
+                                    state = new RecursionState(name: nestedName, value: StringTranslator(nestedVariable.Value ?? string.Empty));
                                 }
                             }
                             else

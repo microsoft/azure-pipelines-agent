@@ -16,6 +16,7 @@ namespace Agent.Sdk
         private List<MountVolume> _mountVolumes;
         private IDictionary<string, string> _userPortMappings;
         private List<PortMapping> _portMappings;
+        private List<string> _readOnlyVolumes;
         private Dictionary<string, string> _environmentVariables;
         private Dictionary<string, string> _pathMappings;
         private PlatformUtil.OS _imageOS;
@@ -37,6 +38,8 @@ namespace Agent.Sdk
 
         public ContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true)
         {
+            ArgUtil.NotNull(container, nameof(container));
+
             this.ContainerName = container.Alias;
 
             string containerImage = container.Properties.Get<string>("image");
@@ -50,8 +53,11 @@ namespace Agent.Sdk
             _environmentVariables = container.Environment != null ? new Dictionary<string, string>(container.Environment) : new Dictionary<string, string>();
             this.ContainerCommand = container.Properties.Get<string>("command", defaultValue: "");
             this.IsJobContainer = isJobContainer;
+            // Windows has never automatically enabled Docker.Sock, but Linux does. So we need to set the default here based on OS.
+            this.MapDockerSocket = container.Properties.Get<bool>("mapDockerSocket", !PlatformUtil.RunningOnWindows);
             this._imageOS = PlatformUtil.HostOS;
            _pathMappings = new Dictionary<string, string>( PlatformUtil.RunningOnWindows ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+           this._readOnlyVolumes = container.ReadOnlyMounts != null ? new List<string>(container.ReadOnlyMounts) : new List<string>();
 
             if (container.Ports?.Count > 0)
             {
@@ -83,6 +89,7 @@ namespace Agent.Sdk
         public string CurrentUserName { get; set; }
         public string CurrentUserId { get; set; }
         public bool IsJobContainer { get; set; }
+        public bool MapDockerSocket { get; set; }
         public PlatformUtil.OS ImageOS {
             get
             {
@@ -175,6 +182,12 @@ namespace Agent.Sdk
 
                 return _portMappings;
             }
+        }
+
+
+        public bool isReadOnlyVolume(string volumeName)
+        {
+            return _readOnlyVolumes.Contains(volumeName);
         }
 
         public Dictionary<string, string> PathMappings
@@ -271,6 +284,7 @@ namespace Agent.Sdk
 
         public void AddPortMappings(List<PortMapping> portMappings)
         {
+            ArgUtil.NotNull(portMappings, nameof(portMappings));
             foreach (var port in portMappings)
             {
                 PortMappings.Add(port);
@@ -279,6 +293,7 @@ namespace Agent.Sdk
 
         public void AddPathMappings(Dictionary<string, string> pathMappings)
         {
+            ArgUtil.NotNull(pathMappings, nameof(pathMappings));
             foreach (var path in pathMappings)
             {
                 PathMappings.Add(path.Key, path.Value);
@@ -286,5 +301,5 @@ namespace Agent.Sdk
         }
     }
 
-    
+
 }

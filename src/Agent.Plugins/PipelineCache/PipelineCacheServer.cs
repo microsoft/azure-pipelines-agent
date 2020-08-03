@@ -168,7 +168,7 @@ namespace Agent.Plugins.PipelineCache
             AgentTaskPluginExecutionContext context,
             VssConnection connection)
         {
-            var tracer = new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information);
+            var tracer = context.CreateArtifactsTracer();
             IClock clock = UtcClock.Instance;
             var pipelineCacheHttpClient = connection.GetClient<PipelineCacheHttpClient>();
             var pipelineCacheClient = new PipelineCacheClient(blobStoreClientTelemetry, pipelineCacheHttpClient, clock, tracer);

@@ -5,41 +5,71 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.ReleaseManagement.WebApi.Clients;
 using Microsoft.VisualStudio.Services.ReleaseManagement.WebApi.Contracts;
 using Microsoft.VisualStudio.Services.WebApi;
 using RMContracts = Microsoft.VisualStudio.Services.ReleaseManagement.WebApi;
 
-namespace Agent.Worker.Release
+namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 {
-    public class ReleaseServer
+    [ServiceLocator(Default = typeof(ReleaseServer))]
+    public interface IReleaseServer : IAgentService
+    {
+        Task ConnectAsync(VssConnection jobConnection);
+        IEnumerable<AgentArtifactDefinition> GetReleaseArtifactsFromService(
+            int releaseId,
+            Guid projectId,
+            CancellationToken cancellationToken = default(CancellationToken));
+        Task<RMContracts.Release> UpdateReleaseName(
+            string releaseId,
+            Guid projectId,
+            string releaseName,
+            CancellationToken cancellationToken = default(CancellationToken));
+    }
+    public class ReleaseServer : AgentService, IReleaseServer
     {
         private VssConnection _connection;
-        private Guid _projectId;
 
-        private ReleaseHttpClient _releaseHttpClient { get; }
+        private ReleaseHttpClient _releaseHttpClient;
 
-        public ReleaseServer(VssConnection connection, Guid projectId)
+        public async Task ConnectAsync(VssConnection jobConnection)
         {
-            ArgUtil.NotNull(connection, nameof(connection));
+            ArgUtil.NotNull(jobConnection, nameof(jobConnection));
 
-            _connection = connection;
-            _projectId = projectId;
+            _connection = jobConnection;
+            int attemptCount = 5;
+            while (!_connection.HasAuthenticated && attemptCount-- > 0)
+            {
+                try
+                {
+                    await _connection.ConnectAsync();
+                    break;
+                }
+                catch (Exception ex) when (attemptCount > 0)
+                {
+                    Trace.Info($"Catch exception during connect. {attemptCount} attemp left.");
+                    Trace.Error(ex);
+                }
+
+                await Task.Delay(100);
+            }
 
             _releaseHttpClient = _connection.GetClient<ReleaseHttpClient>();
         }
 
-        public IEnumerable<AgentArtifactDefinition> GetReleaseArtifactsFromService(int releaseId, CancellationToken cancellationToken = default(CancellationToken))
+        public IEnumerable<AgentArtifactDefinition> GetReleaseArtifactsFromService(
+            int releaseId,
+            Guid projectId,
+            CancellationToken cancellationToken = default(CancellationToken))
         {
-            var artifacts = _releaseHttpClient.GetAgentArtifactDefinitionsAsync(_projectId, releaseId, cancellationToken: cancellationToken).Result;
+            var artifacts = _releaseHttpClient.GetAgentArtifactDefinitionsAsync(projectId, releaseId, cancellationToken: cancellationToken).Result;
             return artifacts;
         }
 
         public async Task<RMContracts.Release> UpdateReleaseName(
             string releaseId,
+            Guid projectId,
             string releaseName,
             CancellationToken cancellationToken = default(CancellationToken))
         {
@@ -48,8 +78,8 @@ namespace Agent.Worker.Release
                 Name = releaseName,
                 Comment = StringUtil.Loc("RMUpdateReleaseNameForReleaseComment", releaseName)
             };
-            
-            return await _releaseHttpClient.UpdateReleaseResourceAsync(updateMetadata, _projectId, int.Parse(releaseId), cancellationToken: cancellationToken);
+
+            return await _releaseHttpClient.UpdateReleaseResourceAsync(updateMetadata, projectId, int.Parse(releaseId), cancellationToken: cancellationToken);
         }
     }
 }

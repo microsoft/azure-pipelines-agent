@@ -224,6 +224,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Results
             Assert.Equal("2019-01-03T12:21:19.0000000Z", _testRunData.StartDate);
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "TestHostContext")]
         private void SetupMocks([CallerMemberName] string name = "")
         {
             TestHostContext hc = new TestHostContext(this, name);
@@ -244,13 +245,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Results
 
         public void Dispose()
         {
-            try
+            Dispose(true);
+        }
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
             {
-                File.Delete(_fileName);
-            }
-            catch
-            {
+                try
+                {
+                    File.Delete(_fileName);
+                }
+                catch
+                {
 
+                }
             }
         }
 

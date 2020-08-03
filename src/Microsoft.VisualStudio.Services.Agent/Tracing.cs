@@ -52,6 +52,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public void Error(Exception exception)
         {
+            ArgUtil.NotNull(exception, nameof(exception));
             Trace(TraceEventType.Error, exception.ToString());
         }
 

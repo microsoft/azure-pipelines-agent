@@ -37,16 +37,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEng
 
         public void Dispose()
         {
-            if (_downloadedFiles > 0)
-            {
-                ExecutionLogger.Output(StringUtil.Loc("RMDownloadComplete"));
-            }
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
 
-            LogStatistics();
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                if (_downloadedFiles > 0)
+                {
+                    ExecutionLogger.Output(StringUtil.Loc("RMDownloadComplete"));
+                }
+
+                LogStatistics();
+            }
         }
 
         protected async Task FetchItemsAsync(IEnumerable<ContainerItem> containerItems, CancellationToken token)
         {
+            ArgUtil.NotNull(containerItems, nameof(containerItems));
+
             var itemsToDownload = new List<ContainerItem>();
 
             foreach (ContainerItem item in containerItems)
@@ -87,49 +98,49 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEng
 
             if (itemsToDownload.Count > 0)
             {
-                var cancellationTokenSource = new CancellationTokenSource();
-                CancellationToken cancellationToken =
-                    CancellationTokenSource.CreateLinkedTokenSource(token, cancellationTokenSource.Token).Token;
-
-                // Used to limit the number of concurrent downloads.
-                SemaphoreSlim downloadThrottle = new SemaphoreSlim(ContainerFetchEngineOptions.ParallelDownloadLimit);
-                Stopwatch watch = Stopwatch.StartNew();
-                LinkedList<Task> remainingDownloads = new LinkedList<Task>();
-
-                foreach (ContainerItem ticketedItem in itemsToDownload)
+                using (var cancellationTokenSource = new CancellationTokenSource())
+                using (var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(token, cancellationTokenSource.Token))
+                using (var downloadThrottle = new SemaphoreSlim(ContainerFetchEngineOptions.ParallelDownloadLimit))
                 {
-                    _bytesDownloaded += ticketedItem.FileLength;
-                    Task downloadTask = DownloadItemAsync(downloadThrottle, ticketedItem, cancellationToken);
+                    CancellationToken cancellationToken = linkedTokenSource.Token;
 
-                    if (downloadTask.IsCompleted)
+                    // Used to limit the number of concurrent downloads.
+                    Stopwatch watch = Stopwatch.StartNew();
+                    LinkedList<Task> remainingDownloads = new LinkedList<Task>();
+
+                    foreach (ContainerItem ticketedItem in itemsToDownload)
                     {
-                        // don't wait to throw for faulted tasks.
-                        await downloadTask.ConfigureAwait(false);
+                        _bytesDownloaded += ticketedItem.FileLength;
+                        Task downloadTask = DownloadItemAsync(downloadThrottle, ticketedItem, cancellationToken);
+
+                        if (downloadTask.IsCompleted)
+                        {
+                            // don't wait to throw for faulted tasks.
+                            await downloadTask.ConfigureAwait(false);
+                        }
+                        else
+                        {
+                            remainingDownloads.AddLast(downloadTask);
+                        }
                     }
-                    else
+
+                    try
                     {
-                        remainingDownloads.AddLast(downloadTask);
+                        // Monitor and log the progress of the download tasks if they take over a few seconds.
+                        await LogProgressAsync(remainingDownloads).ConfigureAwait(false);
                     }
+                    catch (Exception)
+                    {
+                        cancellationTokenSource.Cancel();
+                        await Task.WhenAll(remainingDownloads);
+                        throw;
+                    }
+
+                    _elapsedDownloadTime += watch.Elapsed;
                 }
 
-                try
-                {
-                    // Monitor and log the progress of the download tasks if they take over a few seconds.
-                    await LogProgressAsync(remainingDownloads).ConfigureAwait(false);
-                    cancellationTokenSource.Dispose();
-                }
-                catch (Exception)
-                {
-                    cancellationTokenSource.Cancel();
-                    await Task.WhenAll(remainingDownloads);
-                    cancellationTokenSource.Dispose();
-                    throw;
-                }
-
-                _elapsedDownloadTime += watch.Elapsed;
+                _downloadedFiles += itemsToDownload.Count;
             }
-
-            _downloadedFiles += itemsToDownload.Count;
         }
 
         private void LogStatistics()
@@ -324,7 +335,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEng
 
                     if (lastAttempt)
                     {
-                        throw new Exception(StringUtil.Loc("RMErrorDownloadingContainerItem", tmpDownloadPath, exception));
+                        throw new InvalidOperationException(StringUtil.Loc("RMErrorDownloadingContainerItem", tmpDownloadPath, exception));
                     }
 
                     lock (_lock)
@@ -363,7 +374,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEng
             if (string.IsNullOrEmpty(localRelativePath) && item.ItemType == ItemType.File)
             {
                 //
-                // This will only happen when item path matches the RootItemPath.  For directory that is fine (it happens for the root directly) but 
+                // This will only happen when item path matches the RootItemPath.  For directory that is fine (it happens for the root directly) but
                 // for a file it is a little misleading.  When the RootItemPath is a directory we want everything under it (but not the directory itself),
                 // but when it is a file, we want the file.
                 localRelativePath = FileSystemManager.GetFileName(item.Path);

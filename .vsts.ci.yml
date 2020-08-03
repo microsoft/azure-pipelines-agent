@@ -1,3 +1,33 @@
+parameters:
+- name: win_x64
+  type: boolean
+  displayName: Windows (x64)
+  default: true
+- name: win_x86
+  type: boolean
+  displayName: Windows (x86)
+  default: true
+- name: linux_x64
+  type: boolean
+  displayName: Linux (x64)
+  default: true
+- name: linux_arm
+  type: boolean
+  displayName: Linux (ARM)
+  default: true
+- name: linux_arm64
+  type: boolean
+  displayName: Linux (ARM64)
+  default: false
+- name: rhel6_x64
+  type: boolean
+  displayName: RHEL 6 (x64)
+  default: true
+- name: macOS_x64
+  type: boolean
+  displayName: macOS (x64)
+  default: true
+
 pr:
   branches:
     include:
@@ -6,202 +36,15 @@ pr:
     exclude:
     - 'docs/*'
 
-resources:
-  containers:
-  - container: dotnetcore_arm
-    image: huangtingluo/azure-pipelines-agent-eng:arm
-  
-  - container: dotnetcore_centos6
-    image: huangtingluo/azure-pipelines-agent-eng:centos6
-
-jobs:
-
-################################################################################
-- job: build_windows_x64_agent
-################################################################################
-  displayName: Windows Agent (x64)
-  pool:
-    vmImage: vs2017-win2016
-  steps:
-
-  # Steps template for windows platform
-  - template: .vsts.template.windows.yml
-    parameters:
-      componentDetection: 'true'
-      testLogTitle: 'Windows-x64'
-
-  # Package .NET Core Windows dependency (VC++ Redistributable)
-  - template: .azure-pipelines/package-vcredist.yml
-    parameters:
-      layoutRoot: '_layout/win-x64'
-      flavor: 'x64'
-      condition: and(succeeded(), ne(variables['build.reason'], 'PullRequest'))
-
-  # Create agent package zip
-  - script: dev.cmd package Release
-    workingDirectory: src
-    displayName: Package Release
-    condition: and(succeeded(), ne(variables['build.reason'], 'PullRequest'))
-
-  # Upload agent package zip as build artifact
-  - task: PublishBuildArtifacts@1
-    displayName: Publish Artifact (Windows x64)
-    condition: and(succeeded(), ne(variables['build.reason'], 'PullRequest'))
-    inputs:
-      pathToPublish: _package
-      artifactName: agent
-      artifactType: container
-
-################################################################################
-- job: build_windows_x86_agent
-################################################################################
-  displayName: Windows Agent (x86)
-  pool:
-    name: buildDevs
-    demands: 'Agent.OSArchitecture -equals X86'
-  steps:
-
-  # Steps template for windows platform
-  - template: .vsts.template.windows.yml
-    parameters:
-      testLogTitle: 'Windows-x86'
-
-  # Package .NET Core Windows dependency (VC++ Redistributable)
-  - template: .azure-pipelines/package-vcredist.yml
-    parameters:
-      layoutRoot: '_layout/win-x86'
-      flavor: 'x86'
-      condition: and(succeeded(), ne(variables['build.reason'], 'PullRequest'))
-
-  # Create agent package zip
-  - script: dev.cmd package Release
-    workingDirectory: src
-    displayName: Package Release
-    condition: and(succeeded(), ne(variables['build.reason'], 'PullRequest'))
-
-  # Upload agent package zip as build artifact
-  - task: PublishBuildArtifacts@1
-    displayName: Publish Artifact (Windows x86)
-    condition: and(succeeded(), ne(variables['build.reason'], 'PullRequest'))
-    inputs:
-      pathToPublish: _package
-      artifactName: agent
-      artifactType: container
-
-################################################################################
-- job: build_linux_x64_agent
-################################################################################
-  displayName: Linux Agent (x64)
-  pool:
-    vmImage: ubuntu-16.04
-  steps:
-
-  # Steps template for non-windows platform
-  - template: .vsts.template.nonwindows.yml
-    parameters:
-      componentDetection: 'true'
-      testLogTitle: 'Linux-x64'
-
-  # Create agent package zip
-  - script: ./dev.sh package Release
-    workingDirectory: src
-    displayName: Package Release
-    condition: and(succeeded(), ne(variables['build.reason'], 'PullRequest'))
-
-  # Upload agent package zip as build artifact
-  - task: PublishBuildArtifacts@1
-    displayName: Publish Artifact (Linux x64)
-    condition: and(succeeded(), ne(variables['build.reason'], 'PullRequest'))
-    inputs:
-      pathToPublish: _package
-      artifactName: agent
-      artifactType: container
-
-################################################################################
-- job: build_linux_arm_agent
-################################################################################
-  displayName: Linux Agent (ARM)
-  pool:
-    name: buildDevs
-    demands: 'Agent.OSArchitecture -equals ARM'
-  container: dotnetcore_arm
-  timeoutInMinutes: 75
-  steps:
-
-  # Steps template for non-windows platform
-  - template: .vsts.template.nonwindows.yml
-    parameters:
-      testLogTitle: 'Linux-ARM'
-
-  # Create agent package zip
-  - script: ./dev.sh package Release
-    workingDirectory: src
-    displayName: Package Release
-    condition: and(succeeded(), ne(variables['build.reason'], 'PullRequest'))
-
-  # Upload agent package zip as build artifact
-  - task: PublishBuildArtifacts@1
-    displayName: Publish Artifact (Linux ARM)
-    condition: and(succeeded(), ne(variables['build.reason'], 'PullRequest'))
-    inputs:
-      pathToPublish: _package
-      artifactName: agent
-      artifactType: container
-
-################################################################################
-- job: build_rhel6_x64_agent
-################################################################################
-  displayName: RHEL6 Agent (x64)
-  pool:
-    vmImage: ubuntu-16.04  
-  container: dotnetcore_centos6
-  steps:
-
-  # Steps template for non-windows platform
-  - template: .vsts.template.nonwindows.yml
-    parameters:
-      testLogTitle: 'RHEL-x64'
-
-  # Create agent package zip
-  - script: ./dev.sh package Release
-    workingDirectory: src
-    displayName: Package Release
-    condition: and(succeeded(), ne(variables['build.reason'], 'PullRequest'))
-
-  # Upload agent package zip as build artifact
-  - task: PublishBuildArtifacts@1
-    displayName: Publish Artifact (RHEL6 x64)
-    condition: and(succeeded(), ne(variables['build.reason'], 'PullRequest'))
-    inputs:
-      pathToPublish: _package
-      artifactName: agent
-      artifactType: container
-
-################################################################################
-- job: build_osx_agent
-################################################################################
-  displayName: macOS Agent (x64)
-  pool:
-    vmImage: macOS-10.13
-  steps:
-
-  # Steps template for non-windows platform
-  - template: .vsts.template.nonwindows.yml
-    parameters:
-      componentDetection: 'true'
-      testLogTitle: 'macOS-x64'
-  
-  # Create agent package zip
-  - script: ./dev.sh package Release
-    workingDirectory: src
-    displayName: Package Release
-    condition: and(succeeded(), ne(variables['build.reason'], 'PullRequest'))
-
-  # Upload agent package zip as build artifact
-  - task: PublishBuildArtifacts@1
-    displayName: Publish Artifact (OSX)
-    condition: and(succeeded(), ne(variables['build.reason'], 'PullRequest'))
-    inputs:
-      pathToPublish: _package
-      artifactName: agent
-      artifactType: container
+extends:
+  template: .azure-pipelines/pipeline.yml
+  parameters:
+    componentDetection: ${{ eq(variables['Build.Reason'], 'PullRequest') }}
+    publishArtifacts: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    win_x64: ${{ parameters.win_x64 }}
+    win_x86: ${{ parameters.win_x86 }}
+    linux_x64: ${{ parameters.linux_x64 }}
+    linux_arm: ${{ parameters.linux_arm }}
+    linux_arm64: ${{ parameters.linux_arm64 }}
+    rhel6_x64: ${{ parameters.rhel6_x64 }}
+    macOS_x64: ${{ parameters.macOS_x64 }}

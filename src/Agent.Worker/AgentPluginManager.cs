@@ -11,6 +11,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 using System.Text;
 using Microsoft.TeamFoundation.Framework.Common;
+using System.Runtime.Loader;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -21,39 +22,57 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         Task RunPluginTaskAsync(IExecutionContext context, string plugin, Dictionary<string, string> inputs, Dictionary<string, string> environment, Variables runtimeVariables, EventHandler<ProcessDataReceivedEventArgs> outputHandler);
     }
 
-    public sealed class AgentPluginManager : AgentService, IAgentPluginManager
+    public class AgentPluginManager : AgentService, IAgentPluginManager
     {
         private readonly Dictionary<Guid, List<string>> _supportedTasks = new Dictionary<Guid, List<string>>();
 
-        private HashSet<string> _taskPlugins = new HashSet<string>();
+        protected readonly HashSet<string> _taskPlugins = new HashSet<string>()
+        {
+            "Agent.Plugins.Repository.CheckoutTask, Agent.Plugins",
+            "Agent.Plugins.Repository.CleanupTask, Agent.Plugins",
+            "Agent.Plugins.PipelineArtifact.DownloadPipelineArtifactTask, Agent.Plugins",
+            "Agent.Plugins.PipelineArtifact.PublishPipelineArtifactTask, Agent.Plugins",
+            "Agent.Plugins.PipelineArtifact.PublishPipelineArtifactTaskV1, Agent.Plugins",
+            "Agent.Plugins.PipelineArtifact.DownloadPipelineArtifactTaskV1, Agent.Plugins",
+            "Agent.Plugins.PipelineArtifact.DownloadPipelineArtifactTaskV1_1_0, Agent.Plugins",
+            "Agent.Plugins.PipelineCache.SavePipelineCacheV0, Agent.Plugins",
+            "Agent.Plugins.PipelineCache.RestorePipelineCacheV0, Agent.Plugins",
+            "Agent.Plugins.PipelineArtifact.DownloadPipelineArtifactTaskV1_1_1, Agent.Plugins",
+            "Agent.Plugins.PipelineArtifact.DownloadPipelineArtifactTaskV1_1_2, Agent.Plugins",
+            "Agent.Plugins.PipelineArtifact.DownloadPipelineArtifactTaskV1_1_3, Agent.Plugins",
+            "Agent.Plugins.PipelineArtifact.DownloadPipelineArtifactTaskV2_0_0, Agent.Plugins",
+            "Agent.Plugins.PipelineArtifact.PublishPipelineArtifactTaskV0_140_0, Agent.Plugins"
+        };
 
         public override void Initialize(IHostContext hostContext)
         {
             base.Initialize(hostContext);
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            // Load task plugins
+            foreach (var pluginTypeName in _taskPlugins)
             {
-                if (assembly.FullName.StartsWith("Agent.Plugins", StringComparison.OrdinalIgnoreCase))
+                IAgentTaskPlugin taskPlugin = null;
+                AssemblyLoadContext.Default.Resolving += ResolveAssembly;
+                try
                 {
-                    foreach (var type in assembly.GetTypes())
-                    {
-                        if (typeof(IAgentTaskPlugin).IsAssignableFrom(type) && !type.IsInterface && !type.IsAbstract)
-                        {
-                            IAgentTaskPlugin taskPlugin = Activator.CreateInstance(type) as IAgentTaskPlugin;
-                            ArgUtil.NotNull(taskPlugin, nameof(taskPlugin));
-                            ArgUtil.NotNull(taskPlugin.Id, nameof(taskPlugin.Id));
-                            ArgUtil.NotNullOrEmpty(taskPlugin.Stage, nameof(taskPlugin.Stage));
-                            if (!_supportedTasks.ContainsKey(taskPlugin.Id))
-                            {
-                                _supportedTasks[taskPlugin.Id] = new List<string>();
-                            }
-
-                            Trace.Info($"Loaded task plugin id '{taskPlugin.Id}' ({taskPlugin.Stage}).");
-                            var pluginTypeName = $"{type.FullName}, {assembly.FullName.Split(',')[0]}";
-                            _taskPlugins.Add(pluginTypeName);
-                            _supportedTasks[taskPlugin.Id].Add(pluginTypeName);
-                        }
-                    }
+                    Trace.Info($"Load task plugin from '{pluginTypeName}'.");
+                    Type type = Type.GetType(pluginTypeName, throwOnError: true);
+                    taskPlugin = Activator.CreateInstance(type) as IAgentTaskPlugin;
                 }
+                finally
+                {
+                    AssemblyLoadContext.Default.Resolving -= ResolveAssembly;
+                }
+
+                ArgUtil.NotNull(taskPlugin, nameof(taskPlugin));
+                ArgUtil.NotNull(taskPlugin.Id, nameof(taskPlugin.Id));
+                ArgUtil.NotNullOrEmpty(taskPlugin.Stage, nameof(taskPlugin.Stage));
+                if (!_supportedTasks.ContainsKey(taskPlugin.Id))
+                {
+                    _supportedTasks[taskPlugin.Id] = new List<string>();
+                }
+
+                Trace.Info($"Loaded task plugin id '{taskPlugin.Id}' ({taskPlugin.Stage}).");
+                _supportedTasks[taskPlugin.Id].Add(pluginTypeName);
             }
         }
 
@@ -69,26 +88,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public async Task RunPluginTaskAsync(IExecutionContext context, string plugin, Dictionary<string, string> inputs, Dictionary<string, string> environment, Variables runtimeVariables, EventHandler<ProcessDataReceivedEventArgs> outputHandler)
+        public AgentTaskPluginExecutionContext GeneratePluginExecutionContext(IExecutionContext context, Dictionary<string, string> inputs, Variables runtimeVariables)
         {
-            ArgUtil.NotNullOrEmpty(plugin, nameof(plugin));
-
-            // Only allow plugins we defined
-            if (!_taskPlugins.Contains(plugin))
-            {
-                throw new NotSupportedException(plugin);
-            }
-
-            // Resolve the working directory.
-            string workingDirectory = HostContext.GetDirectory(WellKnownDirectory.Work);
-            ArgUtil.Directory(workingDirectory, nameof(workingDirectory));
-
-            // Agent.PluginHost
-            string file = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), $"Agent.PluginHost{Util.IOUtil.ExeExtension}");
-            ArgUtil.File(file, $"Agent.PluginHost{Util.IOUtil.ExeExtension}");
-
-            // Agent.PluginHost's arguments
-            string arguments = $"task \"{plugin}\"";
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(inputs, nameof(inputs));
+            ArgUtil.NotNull(runtimeVariables, nameof(runtimeVariables));
 
             // construct plugin context
             var target = context.StepTarget();
@@ -122,9 +126,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             runtimeVariables.CopyInto(pluginContext.Variables, translateToHostPath);
             context.TaskVariables.CopyInto(pluginContext.TaskVariables, translateToHostPath);
 
-            using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
+            return pluginContext;
+        }
+
+        public async Task RunPluginTaskAsync(IExecutionContext context, string plugin, Dictionary<string, string> inputs, Dictionary<string, string> environment, Variables runtimeVariables, EventHandler<ProcessDataReceivedEventArgs> outputHandler)
+        {
+            ArgUtil.NotNullOrEmpty(plugin, nameof(plugin));
+
+            // Only allow plugins we defined
+            if (!_taskPlugins.Contains(plugin))
             {
-                var redirectStandardIn = new InputQueue<string>();
+                throw new NotSupportedException(plugin);
+            }
+
+            // Resolve the working directory.
+            string workingDirectory = HostContext.GetDirectory(WellKnownDirectory.Work);
+            ArgUtil.Directory(workingDirectory, nameof(workingDirectory));
+
+            // Agent.PluginHost
+            string file = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), $"Agent.PluginHost{Util.IOUtil.ExeExtension}");
+            ArgUtil.File(file, $"Agent.PluginHost{Util.IOUtil.ExeExtension}");
+
+            var pluginContext = GeneratePluginExecutionContext(context, inputs, runtimeVariables);
+
+            using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
+            using (var redirectStandardIn = new InputQueue<string>())
+            {
                 redirectStandardIn.Enqueue(JsonUtility.ToString(pluginContext));
 
                 processInvoker.OutputDataReceived += outputHandler;
@@ -133,6 +160,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Execute the process. Exit code 0 should always be returned.
                 // A non-zero exit code indicates infrastructural failure.
                 // Task failure should be communicated over STDOUT using ## commands.
+
+                // Agent.PluginHost's arguments
+                string arguments = $"task \"{plugin}\"";
                 await processInvoker.ExecuteAsync(workingDirectory: workingDirectory,
                                                   fileName: file,
                                                   arguments: arguments,
@@ -143,6 +173,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                                   redirectStandardIn: redirectStandardIn,
                                                   cancellationToken: context.CancellationToken);
             }
+        }
+
+        private Assembly ResolveAssembly(AssemblyLoadContext context, AssemblyName assembly)
+        {
+            string assemblyFilename = assembly.Name + ".dll";
+            return context.LoadFromAssemblyPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), assemblyFilename));
         }
     }
 }

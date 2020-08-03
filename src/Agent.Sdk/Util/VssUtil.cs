@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -18,6 +19,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 {
     public static class VssUtil
     {
+        private static UtilKnobValueContext _knobContext = UtilKnobValueContext.Instance();
+
         public static void InitializeVssClientSettings(ProductInfoHeaderValue additionalUserAgent, IWebProxy proxy, IVssClientCertificateManager clientCert)
         {
             var headerValues = new List<ProductInfoHeaderValue>();
@@ -43,26 +46,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             VssHttpMessageHandler.DefaultWebProxy = proxy;
         }
 
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "connection")]
         public static VssConnection CreateConnection(Uri serverUri, VssCredentials credentials, IEnumerable<DelegatingHandler> additionalDelegatingHandler = null, TimeSpan? timeout = null)
         {
             VssClientHttpRequestSettings settings = VssClientHttpRequestSettings.Default.Clone();
 
-            int maxRetryRequest;
-            if (!int.TryParse(Environment.GetEnvironmentVariable("VSTS_HTTP_RETRY") ?? string.Empty, out maxRetryRequest))
-            {
-                maxRetryRequest = 3;
-            }
-
             // make sure MaxRetryRequest in range [3, 10]
+            int maxRetryRequest = AgentKnobs.HttpRetryCount.GetValue(_knobContext).AsInt();
             settings.MaxRetryRequest = Math.Min(Math.Max(maxRetryRequest, 3), 10);
 
-            int httpRequestTimeoutSeconds;
-            if (!int.TryParse(Environment.GetEnvironmentVariable("VSTS_HTTP_TIMEOUT") ?? string.Empty, out httpRequestTimeoutSeconds))
-            {
-                httpRequestTimeoutSeconds = 100;
-            }
-
             // prefer parameter, otherwise use httpRequestTimeoutSeconds and make sure httpRequestTimeoutSeconds in range [100, 1200]
+            int httpRequestTimeoutSeconds = AgentKnobs.HttpTimeout.GetValue(_knobContext).AsInt();
             settings.SendTimeout = timeout ?? TimeSpan.FromSeconds(Math.Min(Math.Max(httpRequestTimeoutSeconds, 100), 1200));
 
             // Remove Invariant from the list of accepted languages.

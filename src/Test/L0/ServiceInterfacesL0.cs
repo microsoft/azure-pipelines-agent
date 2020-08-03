@@ -19,6 +19,7 @@ using Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage;
 using Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts.Definition;
 using Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEngine;
 using Microsoft.VisualStudio.Services.Agent.Worker.Maintenance;
+using Microsoft.VisualStudio.Services.Agent.Listener.Diagnostics;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
@@ -34,7 +35,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             var whitelist = new[]
             {
                 typeof(ICredentialProvider),
-                typeof(IConfigurationProvider)
+                typeof(IConfigurationProvider),
+                typeof(IDiagnosticInfo),
+                typeof(IDiagnosticTest)
             };
             Validate(
                 assembly: typeof(IMessageListener).GetTypeInfo().Assembly,

@@ -6,6 +6,7 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Build;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
@@ -27,24 +28,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public List<string> Aliases => null;
         public void Execute(IExecutionContext context, Command command)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
+
             var eventProperties = command.Properties;
             var data = command.Data;
 
             String alias;
             if (!eventProperties.TryGetValue(PluginInternalUpdateRepositoryEventProperties.Alias, out alias) || String.IsNullOrEmpty(alias))
             {
-                throw new Exception(StringUtil.Loc("MissingRepositoryAlias"));
+                throw new ArgumentNullException(StringUtil.Loc("MissingRepositoryAlias"));
             }
 
             var repository = context.Repositories.FirstOrDefault(x => string.Equals(x.Alias, alias, StringComparison.OrdinalIgnoreCase));
             if (repository == null)
             {
-                throw new Exception(StringUtil.Loc("RepositoryNotExist"));
+                throw new ArgumentNullException(StringUtil.Loc("RepositoryNotExist"));
             }
 
             if (string.IsNullOrEmpty(data))
             {
-                throw new Exception(StringUtil.Loc("MissingRepositoryPath"));
+                throw new ArgumentNullException(StringUtil.Loc("MissingRepositoryPath"));
             }
 
             var currentPath = repository.Properties.Get<string>(RepositoryPropertyNames.Path);
@@ -53,24 +57,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 string repositoryPath = data.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 repository.Properties.Set<string>(RepositoryPropertyNames.Path, repositoryPath);
 
-                var directoryManager = context.GetHostContext().GetService<IBuildDirectoryManager>();
-                string _workDirectory = context.GetHostContext().GetDirectory(WellKnownDirectory.Work);
+                bool isSelfRepo = RepositoryUtil.IsPrimaryRepositoryName(repository.Alias);
+                bool hasMultipleCheckouts = RepositoryUtil.HasMultipleCheckouts(context.JobSettings);
 
-                var trackingConfig = directoryManager.UpdateDirectory(context, repository);
-                if (RepositoryUtil.HasMultipleCheckouts(context.JobSettings))
+                if (isSelfRepo || !hasMultipleCheckouts)
                 {
-                    // In Multi-checkout, we don't want to reset sources dir or default working dir.
-                    // So, we will just reset the repo local path
-                    string buildDirectory = context.Variables.Get(Constants.Variables.Pipeline.Workspace);
-                    string repoRelativePath = directoryManager.GetRelativeRepositoryPath(buildDirectory, repositoryPath);
-                    context.SetVariable(Constants.Variables.Build.RepoLocalPath, Path.Combine(_workDirectory, repoRelativePath), isFilePath: true);
-                }
-                else
-                {
-                    // If we only have a single repository, then update all the paths to point to it.
-                    context.SetVariable(Constants.Variables.Build.SourcesDirectory, Path.Combine(_workDirectory, trackingConfig.SourcesDirectory), isFilePath: true);
-                    context.SetVariable(Constants.Variables.Build.RepoLocalPath, Path.Combine(_workDirectory, trackingConfig.SourcesDirectory), isFilePath: true);
-                    context.SetVariable(Constants.Variables.System.DefaultWorkingDirectory, Path.Combine(_workDirectory, trackingConfig.SourcesDirectory), isFilePath: true);
+                    var directoryManager = context.GetHostContext().GetService<IBuildDirectoryManager>();
+                    string _workDirectory = context.GetHostContext().GetDirectory(WellKnownDirectory.Work);
+
+                    var trackingConfig = directoryManager.UpdateDirectory(context, repository);
+                    if (hasMultipleCheckouts)
+                    {
+                        // In Multi-checkout, we don't want to reset sources dir or default working dir.
+                        // So, we will just reset the repo local path
+                        string buildDirectory = context.Variables.Get(Constants.Variables.Pipeline.Workspace);
+                        string repoRelativePath = directoryManager.GetRelativeRepositoryPath(buildDirectory, repositoryPath);
+                        context?.SetVariable(Constants.Variables.Build.RepoLocalPath, Path.Combine(_workDirectory, repoRelativePath), isFilePath: true);
+                    }
+                    else
+                    {
+                        // If we only have a single repository, then update all the paths to point to it.
+                        context.SetVariable(Constants.Variables.Build.SourcesDirectory, repositoryPath, isFilePath: true);
+                        context.SetVariable(Constants.Variables.Build.RepoLocalPath, repositoryPath, isFilePath: true);
+                        context.SetVariable(Constants.Variables.System.DefaultWorkingDirectory, repositoryPath, isFilePath: true);
+                    }
                 }
             }
 
