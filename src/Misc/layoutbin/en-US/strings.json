@@ -273,6 +273,7 @@
   "EulasSectionHeader": "End User License Agreements",
   "EvaluateReleaseTrackingFile": "Evaluate ReleaseDirectory tracking file: {0}",
   "EvaluateTrackingFile": "Evaluate BuildDirectory tracking file: {0}",
+  "Exiting": "Exiting...",
   "ExpectedMappingCloak": "Expected mapping[{0}] cloak: '{1}'. Actual: '{2}'",
   "ExpectedMappingLocalPath": "Expected mapping[{0}] local path: '{1}'. Actual: '{2}'",
   "ExpectedMappingRecursive": "Expected mapping[{0}] recursive: '{1}'. Actual: '{2}'",
