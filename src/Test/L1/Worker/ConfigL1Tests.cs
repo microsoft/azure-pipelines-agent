@@ -98,15 +98,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 SetupL1();
                 FakeConfigurationStore fakeConfigurationStore = GetMockedService<FakeConfigurationStore>();
                 var message1 = LoadTemplateMessage(additionalRepos: 2);
-                message1.Variables.Add("agent.useWorkspaceIds", new VariableValue(Boolean.TrueString, false, true));
+                message1.Variables.Add("agent.useWorkspaceId", new VariableValue(Boolean.TrueString, false, true));
 
                 // second message is the same definition but a different job with a different order of the repos being checked out in a different order
                 var message2 = LoadTemplateMessage(jobId: "642e8db6-0794-4b7b-8fd9-33ee9202a795", jobName: "__default2", jobDisplayName: "Job2", checkoutRepoAlias: "Repo2", additionalRepos: 1);
-                message2.Variables.Add("agent.useWorkspaceIds", new VariableValue(Boolean.TrueString, false, true));
+                message2.Variables.Add("agent.useWorkspaceId", new VariableValue(Boolean.TrueString, false, true));
 
                 // third message uses the same repos as the first
                 var message3 = LoadTemplateMessage(additionalRepos: 2);
-                message3.Variables.Add("agent.useWorkspaceIds", new VariableValue(Boolean.TrueString, false, true));
+                message3.Variables.Add("agent.useWorkspaceId", new VariableValue(Boolean.TrueString, false, true));
 
                 // Act
                 var results1 = await RunWorker(message1);
