@@ -288,7 +288,7 @@ namespace Agent.Plugins.PipelineArtifact
             {
                 try
                 {
-                    definition = (await buildHttpClient.GetDefinitionsAsync(new System.Guid(project), pipelineDefinition, cancellationToken: cancellationToken)).FirstOrDefault().Id;
+                    definition = (await buildHttpClient.GetDefinitionsAsync(new System.Guid(project), pipelineDefinition, cancellationToken: cancellationToken)).First().Id;
                 }
                 catch (Exception ex)
                 {
