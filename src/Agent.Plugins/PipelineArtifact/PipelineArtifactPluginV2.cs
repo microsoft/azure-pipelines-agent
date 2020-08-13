@@ -284,15 +284,16 @@ namespace Agent.Plugins.PipelineArtifact
             BuildHttpClient buildHttpClient = connection.GetClient<BuildHttpClient>();
 
             var isDefinitionNum = Int32.TryParse(pipelineDefinition, out int definition);
-            if(!isDefinitionNum) 
+            if (!isDefinitionNum)
             {
-                try
-                {
-                    definition = (await buildHttpClient.GetDefinitionsAsync(new System.Guid(project), pipelineDefinition, cancellationToken: cancellationToken)).First().Id;
-                }
-                catch (Exception ex)
+                var definitionRef = (await buildHttpClient.GetDefinitionsAsync(new System.Guid(project), pipelineDefinition, cancellationToken: cancellationToken)).FirstOrDefault();
+                if (definitionRef == null)
                 {
                     throw new ArgumentException(StringUtil.Loc("PipelineDoesNotExist", pipelineDefinition));
+                }
+                else
+                {
+                    definition = definitionRef.Id;
                 }
             }
             var definitions = new List<int>() { definition };
