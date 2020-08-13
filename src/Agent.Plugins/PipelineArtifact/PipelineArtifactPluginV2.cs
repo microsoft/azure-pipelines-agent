@@ -286,7 +286,14 @@ namespace Agent.Plugins.PipelineArtifact
             var isDefinitionNum = Int32.TryParse(pipelineDefinition, out int definition);
             if(!isDefinitionNum) 
             {
-                definition = (await buildHttpClient.GetDefinitionsAsync(new System.Guid(project), pipelineDefinition, cancellationToken: cancellationToken)).FirstOrDefault().Id;
+                try
+                {
+                    definition = (await buildHttpClient.GetDefinitionsAsync(new System.Guid(project), pipelineDefinition, cancellationToken: cancellationToken)).FirstOrDefault().Id;
+                }
+                catch (Exception ex)
+                {
+                    throw new ArgumentException(StringUtil.Loc("PipelineDoesNotExist", pipelineDefinition));
+                }
             }
             var definitions = new List<int>() { definition };
 

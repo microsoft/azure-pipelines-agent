@@ -411,6 +411,7 @@
   "Password": "password",
   "PathDoesNotExist": "Path does not exist: {0}",
   "PersonalAccessToken": "personal access token",
+  "PipelineDoesNotExist": "The following pipeline does not exist: {0}. Please verify the name of the pipeline.",
   "PoolNotFound": "Agent pool not found: '{0}'",
   "PostJob": "Post-job: {0}",
   "PowerOptionsConfigError": "Error occurred while configuring power options. Please refer logs for more details.",
