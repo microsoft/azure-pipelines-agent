@@ -676,7 +676,7 @@ namespace Agent.Plugins.Repository
             int exitCode_configHttp = await gitCommandManager.GitConfig(executionContext, targetPath, "http.version", "HTTP/1.1");
             if (exitCode_configHttp != 0)
             {
-                throw new InvalidOperationException($"Git config failed with exit code: {exitCode_configHttp}");
+                executionContext.Warning($"Forcing Git to HTTP/1.1 failed with exit code: {exitCode_configHttp}");
             }
 
             if (!selfManageGitCreds)
