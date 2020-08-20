@@ -670,6 +670,15 @@ namespace Agent.Plugins.Repository
 
             List<string> additionalFetchArgs = new List<string>();
             List<string> additionalLfsFetchArgs = new List<string>();
+
+            // Force Git to HTTP/1.1. Otherwise IIS will reject large pushes to Azure Repos due to the large content-length header
+            // This is caused by these header limits - https://docs.microsoft.com/en-us/iis/configuration/system.webserver/security/requestfiltering/requestlimits/headerlimits/
+            int exitCode_configHttp = await gitCommandManager.GitConfig(executionContext, targetPath, "http.version", "HTTP/1.1");
+            if (exitCode_configHttp != 0)
+            {
+                executionContext.Warning($"Forcing Git to HTTP/1.1 failed with exit code: {exitCode_configHttp}");
+            }
+
             if (!selfManageGitCreds)
             {
                 // v2.9 git support provide auth header as cmdline arg.
