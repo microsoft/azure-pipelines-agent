@@ -146,7 +146,7 @@ jobs:
       condition: always()
 
   # Code coverage
-  - ${{ if parameters.codeCoverage }}:
+  - ${{ if and(parameters.codeCoverage, parameters.unitTests, parameters.functionalTests) }}:
     - script: dotnet tool install --global dotnet-reportgenerator-globaltool
       displayName: Install Report Generator
 
