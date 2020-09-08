@@ -56,10 +56,10 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("VSTS_DISABLE_GIT_PROMPT"),
             new EnvironmentKnobSource("VSTS_DISABLE_GIT_PROMPT"),
             new BuiltInDefaultKnobSource("true"));
-        
+
         public const string QuietCheckoutRuntimeVarName = "agent.source.checkout.quiet";
         public const string QuietCheckoutEnvVarName = "AGENT_SOURCE_CHECKOUT_QUIET";
-        
+
         public static readonly Knob QuietCheckout = new Knob(
             nameof(QuietCheckout),
             "Aggressively reduce what gets logged to the console when checking out source.",
@@ -72,6 +72,13 @@ namespace Agent.Sdk.Knob
             "Forces the agent to use Node 10 handler for all Node-based tasks",
             new RuntimeKnobSource("AGENT_USE_NODE10"),
             new EnvironmentKnobSource("AGENT_USE_NODE10"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseNode14 = new Knob(
+            nameof(UseNode14),
+            "Forces the agent to use Node 14 handler for all Node-based tasks",
+            new RuntimeKnobSource("AGENT_USE_NODE14"),
+            new EnvironmentKnobSource("AGENT_USE_NODE14"),
             new BuiltInDefaultKnobSource("false"));
 
         // Agent logging
@@ -157,7 +164,7 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("SYSTEM_UNSAFEALLOWMULTILINESECRET"),
             new EnvironmentKnobSource("SYSTEM_UNSAFEALLOWMULTILINESECRET"),
             new BuiltInDefaultKnobSource("false"));
-        
+
         public static readonly Knob MaskUsingCredScanRegexes = new Knob(
             nameof(MaskUsingCredScanRegexes),
             "Use the CredScan regexes for masking secrets. CredScan is an internal tool developed at Microsoft to keep passwords and authentication keys from being checked in. This defaults to disabled, as there are performance problems with some task outputs.",

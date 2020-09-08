@@ -547,6 +547,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             ""target"": ""Some Node10 target"",
             ""extraNodeArg"": ""Extra node10 arg value""
         },
+        ""Node14"": {
+            ""target"": ""Some Node14 target"",
+            ""extraNodeArg"": ""Extra node14 arg value""
+        },
         ""Process"": {
             ""target"": ""Some process target"",
             ""argumentFormat"": ""Some process argument format"",
@@ -604,6 +608,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     Assert.NotNull(definition.Data.Execution.Node10); // execution.Node10
                     Assert.Equal(definition.Data.Execution.Node10, definition.Data.Execution.All[1]);
                     Assert.Equal("Some Node10 target", definition.Data.Execution.Node10.Target);
+
+                    // Node14 handler should always be deserialized.
+                    Assert.NotNull(definition.Data.Execution.Node14); // execution.Node14
+                    Assert.Equal(definition.Data.Execution.Node14, definition.Data.Execution.All[2]);
+                    Assert.Equal("Some Node14 target", definition.Data.Execution.Node14.Target);
 
                     if (TestUtil.IsWindows())
                     {
