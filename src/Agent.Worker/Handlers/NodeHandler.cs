@@ -116,6 +116,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
 
             ExecutionContext.Debug("Using node path: " + file);
+            if (!File.Exists(file)) {
+                throw new FileNotFoundException("This step requires a node version that does not exist in the agent filesystem.", file);
+            }
 
             // Format the arguments passed to node.
             // 1) Wrap the script file path in double quotes.
