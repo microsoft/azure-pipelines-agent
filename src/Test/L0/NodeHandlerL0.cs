@@ -101,7 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
             finally
             {
-                Environment.SetEnvironmentVariable("AGENT_USE_NODE10", null);
+                Environment.SetEnvironmentVariable(nodeVersion == "node14" ? "AGENT_USE_NODE14" : "AGENT_USE_NODE10", null);
             }
         }
 
