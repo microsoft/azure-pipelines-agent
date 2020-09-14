@@ -280,11 +280,11 @@ namespace Agent.Plugins.Repository
 
             if (useServerWorkspace)
             {
-                await RunCommandAsync("vc", "workspace", "/new", "/location:server", "/permission:Public", WorkspaceName);
+                await RunCommandAsync(RetriesOnFailure, "vc", "workspace", "/new", "/location:server", "/permission:Public", WorkspaceName);
             }
             else
             {
-                await RunCommandAsync("vc", "workspace", "/new", "/location:local", "/permission:Public", WorkspaceName);
+                await RunCommandAsync(RetriesOnFailure, "vc", "workspace", "/new", "/location:local", "/permission:Public", WorkspaceName);
             }
         }
 
