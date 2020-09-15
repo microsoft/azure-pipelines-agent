@@ -384,6 +384,7 @@
   "MissingEndpointField": "Required field 'field' is missing in ##vso[task.setendpoint] command.",
   "MissingEndpointId": "Required field 'id' is missing in ##vso[task.setendpoint] command.",
   "MissingEndpointKey": "Required field 'key' is missing in ##vso[task.setendpoint] command.",
+  "MissingNodePath": "This step requires a node version that does not exist in the agent filesystem. Path: {0}",
   "MissingRepositoryAlias": "Can't update repository, repository alias is not provided.",
   "MissingRepositoryPath": "Can't update repository, repository path is not provided.",
   "MissingTaskVariableName": "Required field 'variable' is missing in ##vso[task.settaskvariable] command.",
