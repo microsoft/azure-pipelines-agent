@@ -5,6 +5,8 @@ if ($pwd -notlike '*tfsgheus20' ) {
 
     Remove-DistributedTaskPackage -PackageType agent -Platform win-x86 -Version <AGENT_VERSION>
 
+    Remove-DistributedTaskPackage -PackageType agent -Platform win-arm64 -Version <AGENT_VERSION>
+
     Remove-DistributedTaskPackage -PackageType agent -Platform osx-x64 -Version <AGENT_VERSION>
 
     Remove-DistributedTaskPackage -PackageType agent -Platform linux-x64 -Version <AGENT_VERSION>

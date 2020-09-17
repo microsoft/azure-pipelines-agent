@@ -37,6 +37,10 @@ parameters:
   - x64
   - x86
 
+- name: forcePlatform
+  type: boolean
+  default: false
+
 - name: unitTests
   type: boolean
   default: true
@@ -83,6 +87,10 @@ jobs:
     ${{ if ne(parameters.os, 'win') }}:
       devCommand: ./dev.sh
     layoutRoot: '_layout/${{ parameters.os }}-${{ parameters.arch }}'
+    ${{ if eq(parameters.forcePlatform, true) }}:
+      platform: ${{ parameters.os }}-${{ parameters.arch }}
+    ${{ if ne(parameters.forcePlatform, true) }}:
+      platform: 
 
   steps:
 
@@ -102,7 +110,7 @@ jobs:
         branch: ${{ parameters.branch }}
 
   # Build agent layout
-  - script: ${{ variables.devCommand }} layout Release
+  - script: ${{ variables.devCommand }} layout Release ${{ variables.platform }}
     workingDirectory: src
     displayName: Build & Layout Release
     ${{ if eq(parameters.enableADOLogIssue, true) }}:
@@ -111,7 +119,7 @@ jobs:
 
   # Run l0 tests
   - ${{ if parameters.unitTests }}:
-    - script: ${{ variables.devCommand }} testl0
+    - script: ${{ variables.devCommand }} testl0 Debug ${{ variables.platform }}
       workingDirectory: src
       displayName: Unit tests
 
@@ -122,7 +130,7 @@ jobs:
 
   # Run l1 tests
   - ${{ if parameters.functionalTests }}:
-    - script: ${{ variables.devCommand }} testl1
+    - script: ${{ variables.devCommand }} testl1 Debug ${{ variables.platform }}
       workingDirectory: src
       displayName: Functional tests
 
@@ -150,7 +158,7 @@ jobs:
     - script: dotnet tool install --global dotnet-reportgenerator-globaltool
       displayName: Install Report Generator
 
-    - script: ${{ variables.devCommand }} report
+    - script: ${{ variables.devCommand }} report Debug ${{ variables.platform }}
       displayName: Generate Code Coverage report
       workingDirectory: src
 
@@ -178,7 +186,7 @@ jobs:
           flavor: ${{ parameters.arch }}
 
     # Create agent package zip
-    - script: "${{ variables.devCommand }} package Release"
+    - script: "${{ variables.devCommand }} package Release ${{ variables.platform }}"
       workingDirectory: src
       displayName: Package Release
 
