@@ -435,7 +435,7 @@
     "ReadOnlyVariable":  "Перезапись переменной \"{0}\", доступной только для чтения, не допускается. Дополнительные сведения см. на странице https://github.com/microsoft/azure-pipelines-yaml/blob/master/design/readonly-variables.md.",
     "ReadOnlyVariableWarning":  "Перезапись переменной \"{0}\", доступной только для чтения. Это поведение будет отключено в будущем. Дополнительные сведения см. на странице https://github.com/microsoft/azure-pipelines-yaml/blob/master/design/readonly-variables.md.",
     "RegisterAgentSectionHeader":  "Регистрация агента",
-    "ReleaseDirLastUseTIme":  "Последнее использования каталога выпуска \"{0}\": {1}.",
+    "ReleaseDirLastUseTime":  "Последнее использования каталога выпуска \"{0}\": {1}.",
     "RenameIndexFileCoberturaFailed":  "Сбой переименования \"{0}\" в \"{1}\" при публикации файлов с данными об объеме протестированного кода для \"{2}\". Внутреннее исключение: \"{3}\".",
     "Replace":  "заменить? ([Д]а/[Н]ет)",
     "RepositoryNotExist":  "Не удается обновить репозиторий, так как репозиторий не существует.",

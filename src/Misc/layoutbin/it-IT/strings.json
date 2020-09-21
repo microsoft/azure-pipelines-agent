@@ -435,7 +435,7 @@
     "ReadOnlyVariable":  "La sovrascrittura della variabile di sola lettura \u0027{0}\u0027 non è consentita. Per dettagli, vedere https://github.com/microsoft/azure-pipelines-yaml/blob/master/design/readonly-variables.md.",
     "ReadOnlyVariableWarning":  "La variabile di sola lettura \u0027{0}\u0027 verrà sovrascritta. Questo comportamento verrà disabilitato in futuro. Per dettagli, vedere https://github.com/microsoft/azure-pipelines-yaml/blob/master/design/readonly-variables.md.",
     "RegisterAgentSectionHeader":  "Registra agente",
-    "ReleaseDirLastUseTIme":  "Data dell\u0027ultimo utilizzo della directory di versione \u0027{0}\u0027: {1}",
+    "ReleaseDirLastUseTime":  "Data dell\u0027ultimo utilizzo della directory di versione \u0027{0}\u0027: {1}",
     "RenameIndexFileCoberturaFailed":  "La ridenominazione di \u0027{0}\u0027 in \u0027{1}\u0027 non è riuscita durante la pubblicazione dei file di code coverage per \u0027{2}\u0027. Eccezione interna: \u0027{3}\u0027",
     "Replace":  "sostituire? (S/N)",
     "RepositoryNotExist":  "Non è possibile aggiornare il repository. Il repository non esiste.",

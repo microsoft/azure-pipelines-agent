@@ -435,7 +435,7 @@
     "ReadOnlyVariable":  "不允許覆寫唯讀變數 \u0027{0}\u0027。如需詳細資料，請參閱 https://github.com/microsoft/azure-pipelines-yaml/blob/master/design/readonly-variables.md。",
     "ReadOnlyVariableWarning":  "正在覆寫唯讀變數 \u0027{0}\u0027。未來將會停用此行為。如需詳細資料，請參閱 https://github.com/microsoft/azure-pipelines-yaml/blob/master/design/readonly-variables.md。",
     "RegisterAgentSectionHeader":  "註冊代理程式",
-    "ReleaseDirLastUseTIme":  "上次使用版本目錄 \u0027{0}\u0027 的時間為: {1}",
+    "ReleaseDirLastUseTime":  "上次使用版本目錄 \u0027{0}\u0027 的時間為: {1}",
     "RenameIndexFileCoberturaFailed":  "發佈 \u0027{2}\u0027 的程式碼涵蓋範圍檔案時，無法將 \u0027{0}\u0027 重新命名為 \u0027{1}\u0027。內部例外狀況: \u0027{3}\u0027",
     "Replace":  "取代嗎? (Y/N)",
     "RepositoryNotExist":  "無法更新存放庫，該存放庫不存在。",

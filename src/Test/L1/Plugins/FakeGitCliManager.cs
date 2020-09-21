@@ -1,8 +1,10 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Generic;
 using Agent.Plugins.Repository;
 using Agent.Sdk;
-using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Common;
 using System.Threading.Tasks;
 using System.Threading;
@@ -13,7 +15,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
     {
         public FakeGitCliManager(Dictionary<string, string> envs = null) : base(envs)
         { }
-        
+
         public override async Task LoadGitExecutionInfo(AgentTaskPluginExecutionContext context, bool useBuiltInGit)
         {
             // There is no built-in git for OSX/Linux

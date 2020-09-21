@@ -171,7 +171,7 @@ namespace Agent.Plugins.PipelineCache
             inputPath = inputPath.TrimEnd(Path.DirectorySeparatorChar).TrimEnd(Path.AltDirectorySeparatorChar);
             var processArguments = $"-cf \"{archiveFileName}\" -C \"{inputPath}\" ."; // If given the absolute path for the '-cf' option, the GNU tar fails. The workaround is to start the tarring process in the temp directory, and simply speficy 'archive.tar' for that option.
 
-            if (IsSystemDebugTrue(context))
+            if (context.IsSystemDebugTrue())
             {
                 processArguments = "-v " + processArguments;
             }
@@ -199,7 +199,7 @@ namespace Agent.Plugins.PipelineCache
             {
                 processFileName = "7z";
                 processArguments = $"x -si -aoa -o\"{targetDirectory}\" -ttar";
-                if (IsSystemDebugTrue(context))
+                if (context.IsSystemDebugTrue())
                 {
                     processArguments = "-bb1 " + processArguments;
                 }
@@ -208,7 +208,7 @@ namespace Agent.Plugins.PipelineCache
             {
                 processFileName = GetTar(context);
                 processArguments = $"-xf - -C ."; // Instead of targetDirectory, we are providing . to tar, because the tar process is being started from targetDirectory.
-                if (IsSystemDebugTrue(context))
+                if (context.IsSystemDebugTrue())
                 {
                     processArguments = "-v " + processArguments;
                 }
@@ -242,15 +242,6 @@ namespace Agent.Plugins.PipelineCache
         private static string CreateArchiveFileName()
         {
             return $"{Guid.NewGuid().ToString("N")}_{archive}";
-        }
-
-        private static bool IsSystemDebugTrue(AgentTaskPluginExecutionContext context)
-        {
-             if (context.Variables.TryGetValue("system.debug", out VariableValue systemDebugVar))
-            {
-                return string.Equals(systemDebugVar?.Value, "true", StringComparison.OrdinalIgnoreCase);
-            }
-            return false;
         }
 
         private static bool CheckIf7ZExists()

@@ -255,7 +255,7 @@ namespace Agent.Plugins.Repository
                     if (++retryCount < 3)
                     {
                         var backOff = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
-                        context.Warning($"Git lfs fetch failed with exit code {fetchExitCode}, back off {backOff.TotalSeconds} seconds before retry.");
+                        context.Output($"Git lfs fetch failed with exit code {fetchExitCode}, back off {backOff.TotalSeconds} seconds before retry.");
                         await Task.Delay(backOff);
                     }
                 }
