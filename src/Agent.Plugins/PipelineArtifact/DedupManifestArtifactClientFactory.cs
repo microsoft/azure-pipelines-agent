@@ -28,7 +28,7 @@ namespace Agent.Plugins.PipelineArtifact
         
         public DedupManifestArtifactClient CreateDedupManifestClient(AgentTaskPluginExecutionContext context, VssConnection connection, CancellationToken cancellationToken, out BlobStoreClientTelemetry telemetry)
         {
-            var tracer = new CallbackAppTraceSource(str => context.Output(str), SourceLevels.Information);
+            var tracer = context.CreateArtifactsTracer();
 
             ArtifactHttpClientFactory factory = new ArtifactHttpClientFactory(
                 connection.Credentials,

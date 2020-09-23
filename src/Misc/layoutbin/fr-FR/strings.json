@@ -435,7 +435,7 @@
     "ReadOnlyVariable":  "Le remplacement de la variable en lecture seule \u0027{0}\u0027 n\u0027est pas autorisé. Pour plus d\u0027informations, consultez https://github.com/microsoft/azure-pipelines-yaml/blob/master/design/readonly-variables.md.",
     "ReadOnlyVariableWarning":  "Remplacement de la variable en lecture seule \u0027{0}\u0027. Ce comportement va être désactivé à l\u0027avenir. Pour plus d\u0027informations, consultez https://github.com/microsoft/azure-pipelines-yaml/blob/master/design/readonly-variables.md.",
     "RegisterAgentSectionHeader":  "Inscrire l\u0027agent",
-    "ReleaseDirLastUseTIme":  "Dernière utilisation du répertoire de mise en production \u0027{0}\u0027 : {1}",
+    "ReleaseDirLastUseTime":  "Dernière utilisation du répertoire de mise en production \u0027{0}\u0027 : {1}",
     "RenameIndexFileCoberturaFailed":  "Échec du renommage de \u0027{0}\u0027 en \u0027{1}\u0027 durant la publication des fichiers de couverture du code pour \u0027{2}\u0027. Exception interne : \u0027{3}\u0027",
     "Replace":  "remplacer ? (O/N)",
     "RepositoryNotExist":  "Impossible de mettre à jour le dépôt, car celui-ci n\u0027existe pas.",

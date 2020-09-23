@@ -435,7 +435,7 @@
     "ReadOnlyVariable":  "Das Überschreiben der schreibgeschützten Variablen \"{0}\" ist unzulässig. Weitere Informationen finden Sie unter https://github.com/microsoft/azure-pipelines-yaml/blob/master/design/readonly-variables.md.",
     "ReadOnlyVariableWarning":  "Die schreibgeschützte Variable \"{0}\" wird überschrieben. Dieses Verhalten wird in Zukunft deaktiviert. Weitere Informationen finden Sie unter https://github.com/microsoft/azure-pipelines-yaml/blob/master/design/readonly-variables.md.",
     "RegisterAgentSectionHeader":  "Agent registrieren",
-    "ReleaseDirLastUseTIme":  "Zeitpunkt der letzten Verwendung des Versionsverzeichnisses \u0027{0}\u0027: {1}",
+    "ReleaseDirLastUseTime":  "Zeitpunkt der letzten Verwendung des Versionsverzeichnisses \u0027{0}\u0027: {1}",
     "RenameIndexFileCoberturaFailed":  "Fehler beim Umbenennen von {0} in {1} beim Veröffentlichen von Code Coverage-Dateien für {2}. Innere Ausnahme: {3}",
     "Replace":  "Ersetzen? (J/N)",
     "RepositoryNotExist":  "Das Repository kann nicht aktualisiert werden, das Repository ist nicht vorhanden.",

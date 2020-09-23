@@ -142,14 +142,19 @@ steps:
       bin\NCrontab.Signed.dll
       bin\Newtonsoft.Json.dll
       bin\Newtonsoft.Json.Bson.dll
+      bin\RocksDbNative.dll
+      bin\RocksDbSharp.dll
       bin\RuntimeContracts.dll
       bin\System.Interactive.Async.dll
       bin\System.IO.Abstractions.dll
+      bin\System.Linq.Async.dll
       bin\YamlDotNet.dll
+      bin\native\amd64\rocksdb.dll
       externals\git\**\*.dll
       externals\git\**\*.exe
       externals\node\bin\node.exe
       externals\node10\bin\node.exe
+      externals\node14\bin\node.exe
       externals\vstshost\Minimatch.dll
       externals\vstsom\Newtonsoft.Json.dll
       externals\tf\Newtonsoft.Json.dll

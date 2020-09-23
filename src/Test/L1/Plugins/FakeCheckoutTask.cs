@@ -1,9 +1,9 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using Agent.Plugins.Repository;
-using Agent.Sdk;
 using System.Collections.Generic;
-using System.Threading.Tasks;
-using System.Threading;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 {

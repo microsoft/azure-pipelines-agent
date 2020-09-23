@@ -470,11 +470,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Variables = new Variables(HostContext, message.Variables, out warnings);
             Variables.StringTranslator = TranslatePathForStepTarget;
 
-            if (Variables.GetBoolean("agent.useWorkspaceIds") == true)
+            if (Variables.GetBoolean("agent.useWorkspaceId") == true)
             {
-                // We need an identifier that represents which repos make up the workspace.
-                // This allows similar jobs in the same definition to reuse that workspace and other jobs to have their own.
-                JobSettings[WellKnownJobSettings.WorkspaceIdentifier] = GetWorkspaceIdentifier(message);
+                try
+                {
+                    // We need an identifier that represents which repos make up the workspace.
+                    // This allows similar jobs in the same definition to reuse that workspace and other jobs to have their own.
+                    JobSettings[WellKnownJobSettings.WorkspaceIdentifier] = GetWorkspaceIdentifier(message);
+                }
+                catch (Exception ex)
+                {
+                    Trace.Warning($"Unable to generate workspace ID: {ex.Message}");
+                }
             }
 
             // Prepend Path
