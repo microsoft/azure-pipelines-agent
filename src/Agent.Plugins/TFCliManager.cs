@@ -66,7 +66,7 @@ namespace Agent.Plugins.Repository
         public async Task GetAsync(string localPath, bool quiet = false)
         {
             ArgUtil.NotNullOrEmpty(localPath, nameof(localPath));
-            await RunCommandAsync(FormatFlags.OmitCollectionUrl, quiet, 3, "vc", "get", $"/version:{SourceVersion}", "/recursive", "/overwrite", localPath);
+            await RunCommandAsync(FormatFlags.OmitCollectionUrl, quiet, RetriesOnFailure, "vc", "get", $"/version:{SourceVersion}", "/recursive", "/overwrite", localPath);
         }
 
         public string ResolvePath(string serverPath)
@@ -253,20 +253,20 @@ namespace Agent.Plugins.Repository
         public async Task WorkfoldCloakAsync(string serverPath)
         {
             ArgUtil.NotNullOrEmpty(serverPath, nameof(serverPath));
-            await RunCommandAsync(3, "vc", "workfold", "/cloak", $"/workspace:{WorkspaceName}", serverPath);
+            await RunCommandAsync(RetriesOnFailure, "vc", "workfold", "/cloak", $"/workspace:{WorkspaceName}", serverPath);
         }
 
         public async Task WorkfoldMapAsync(string serverPath, string localPath)
         {
             ArgUtil.NotNullOrEmpty(serverPath, nameof(serverPath));
             ArgUtil.NotNullOrEmpty(localPath, nameof(localPath));
-            await RunCommandAsync(3, "vc", "workfold", "/map", $"/workspace:{WorkspaceName}", serverPath, localPath);
+            await RunCommandAsync(RetriesOnFailure, "vc", "workfold", "/map", $"/workspace:{WorkspaceName}", serverPath, localPath);
         }
 
         public async Task WorkfoldUnmapAsync(string serverPath)
         {
             ArgUtil.NotNullOrEmpty(serverPath, nameof(serverPath));
-            await RunCommandAsync("vc", "workfold", "/unmap", $"/workspace:{WorkspaceName}", serverPath);
+            await RunCommandAsync(RetriesOnFailure, "vc", "workfold", "/unmap", $"/workspace:{WorkspaceName}", serverPath);
         }
 
         public async Task WorkspaceDeleteAsync(ITfsVCWorkspace workspace)
