@@ -135,11 +135,13 @@ namespace Agent.Sdk
             // On Linux, negotiate auth didn't work if the TFS URL was HTTPS
             // On Windows, proxy was not working
             // But on ARM/ARM64 Linux, the legacy curl dependency is problematic
-            // (see https://github.com/dotnet/runtime/issues/28891)
+            // (see https://github.com/dotnet/runtime/issues/28891), so we slowly
+            // started to use the new handler.
             //
             // The legacy handler is going away in .NET 5.0, so we'll go ahead
             // and remove its usage now. In case this breaks anyone, adding
             // a temporary knob so they can re-enable it.
+            // https://github.com/dotnet/runtime/issues/35365#issuecomment-667467706
             get => AgentKnobs.UseLegacyHttpHandler.GetValue(_knobContext).AsBoolean();
         }
     }

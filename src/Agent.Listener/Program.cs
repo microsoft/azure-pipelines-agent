@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using CommandLine;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
@@ -66,6 +67,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     terminal.WriteError(StringUtil.Loc("ErrorOccurred", e.Message));
                     trace.Error(e);
                     return Constants.Agent.ReturnCode.TerminatedError;
+                }
+
+                if (PlatformUtil.UseLegacyHttpHandler)
+                {
+                    trace.Warning($"You are using the legacy HTTP handler because you set ${AgentKnobs.LegacyHttpVariableName}.");
+                    trace.Warning($"This feature will go away with .NET 5.0, and we recommend you don't use it.");
+                    trace.Warning($"If you continue using it, you must ensure libcurl is installed on your system.");
                 }
 
                 if (PlatformUtil.RunningOnWindows)
