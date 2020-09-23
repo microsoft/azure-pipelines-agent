@@ -35,6 +35,8 @@ namespace Agent.Plugins.Repository
 
         protected override string Switch => "/";
 
+        public static readonly int RetriesOnFailure = 3;
+
         public string FilePath => Path.Combine(ExecutionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value, "externals", "tf", "tf.exe");
 
         private string AppConfigFile => Path.Combine(ExecutionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value, "externals", "tf", "tf.exe.config");
@@ -242,10 +244,10 @@ namespace Agent.Plugins.Repository
             await RunCommandAsync(FormatFlags.OmitCollectionUrl, "vc", "undo", "/recursive", localPath);
         }
 
-        public async Task UnshelveAsync(string shelveset)
+        public async Task UnshelveAsync(string shelveset, bool failOnNonZeroExitCode = true)
         {
             ArgUtil.NotNullOrEmpty(shelveset, nameof(shelveset));
-            await RunCommandAsync(FormatFlags.OmitCollectionUrl, "vc", "unshelve", shelveset);
+            await RunCommandAsync(FormatFlags.OmitCollectionUrl, false, failOnNonZeroExitCode, "vc", "unshelve", shelveset);
         }
 
         public async Task WorkfoldCloakAsync(string serverPath)
@@ -280,11 +282,11 @@ namespace Agent.Plugins.Repository
 
             if (useServerWorkspace)
             {
-                await RunCommandAsync("vc", "workspace", "/new", "/location:server", "/permission:Public", WorkspaceName);
+                await RunCommandAsync(RetriesOnFailure, "vc", "workspace", "/new", "/location:server", "/permission:Public", WorkspaceName);
             }
             else
             {
-                await RunCommandAsync("vc", "workspace", "/new", "/location:local", "/permission:Public", WorkspaceName);
+                await RunCommandAsync(RetriesOnFailure, "vc", "workspace", "/new", "/location:local", "/permission:Public", WorkspaceName);
             }
         }
 
@@ -303,7 +305,7 @@ namespace Agent.Plugins.Repository
             args.Add("/format:xml");
 
             // Run the command.
-            string xml = await RunPorcelainCommandAsync(args.ToArray()) ?? string.Empty;
+            string xml = await RunPorcelainCommandAsync(RetriesOnFailure, args.ToArray()) ?? string.Empty;
 
             // Deserialize the XML.
             var serializer = new XmlSerializer(typeof(TFWorkspaces));

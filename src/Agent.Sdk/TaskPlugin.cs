@@ -212,6 +212,15 @@ namespace Agent.Sdk
             }
         }
 
+        public bool IsSystemDebugTrue()
+        {
+             if (Variables.TryGetValue("system.debug", out VariableValue systemDebugVar))
+            {
+                return string.Equals(systemDebugVar?.Value, "true", StringComparison.OrdinalIgnoreCase);
+            }
+            return false;
+        }
+
         public void PrependPath(string directory)
         {
             ArgUtil.NotNull(directory, nameof(directory));

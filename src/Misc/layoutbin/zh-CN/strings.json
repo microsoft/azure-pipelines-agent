@@ -435,7 +435,7 @@
     "ReadOnlyVariable":  "不允许覆盖只读变量“{0}”。有关详细信息，请参阅 https://github.com/microsoft/azure-pipelines-yaml/blob/master/design/readonly-variables.md for details。",
     "ReadOnlyVariableWarning":  "正在覆盖只读变量“{0}”。之后将禁用此行为。有关详细信息，请参阅 https://github.com/microsoft/azure-pipelines-yaml/blob/master/design/readonly-variables.md for details。",
     "RegisterAgentSectionHeader":  "注册代理",
-    "ReleaseDirLastUseTIme":  "上次使用发布目录“{0}”的时间为: {1}",
+    "ReleaseDirLastUseTime":  "上次使用发布目录“{0}”的时间为: {1}",
     "RenameIndexFileCoberturaFailed":  "为“{2}”发布代码覆盖率文件时，将“{0}”重命名为“{1}”失败。内部异常:“{3}”",
     "Replace":  "替换? (Y/N)",
     "RepositoryNotExist":  "存储库不存在，因此无法更新它。",

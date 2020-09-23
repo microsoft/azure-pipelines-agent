@@ -254,7 +254,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         private void CtrlCHandler(object sender, EventArgs e)
         {
-            _term.WriteLine("Exiting...");
+            _term.WriteLine(StringUtil.Loc("Exiting"));
             if (_inConfigStage)
             {
                 HostContext.Dispose();

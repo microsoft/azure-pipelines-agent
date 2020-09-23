@@ -31,6 +31,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         private string _sidForDifferentUser = "007";
         private string _userName = "ironMan";
         private string _domainName = "avengers";
+        private string _runOnce = "";
 
         private bool _powerCfgCalledForACOption = false;
         private bool _powerCfgCalledForDCOption = false;
@@ -43,6 +44,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             using (var hc = new TestHostContext(this))
             {
                 _domainName = "avengers";
+                _runOnce = "";
                 SetupTestEnv(hc, _sid);
 
                 var iConfigManager = new AutoLogonManager();
@@ -58,12 +60,38 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
+        public async void TestAutoLogonRunOnce()
+        {
+            using (var hc = new TestHostContext(this))
+            {
+                _domainName = "avengers";
+                _runOnce = "--once";
+                SetupTestEnv(hc, _sid);
+                SetupRegistrySettings(_sid);
+
+                var iConfigManager = new AutoLogonManager();
+                iConfigManager.Initialize(hc);
+                await iConfigManager.ConfigureAsync(_command);
+
+                VerifyRegistryChanges(_sid);
+
+                iConfigManager.Unconfigure();
+
+                //original values were reverted
+                RegistryVerificationForUnConfigure(_sid);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Agent")]
         public async void TestAutoLogonConfigurationForDotAsDomainName()
         {
             using (var hc = new TestHostContext(this))
             {
                 // Set the domain name to '.'
                 _domainName = ".";
+                _runOnce = "";
                 SetupTestEnv(hc, _sid);
 
                 var iConfigManager = new AutoLogonManager();
@@ -230,7 +258,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     "configure",
                     "--windowslogonaccount", "wont be honored",
                     "--windowslogonpassword", "sssh",
-                    "--norestart"
+                    "--norestart",
+                    _runOnce
                 });
 
             _store = new Mock<IConfigurationStore>();
@@ -289,6 +318,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                                     $"{securityId}\\{RegistryConstants.UserSettings.SubKeys.ScreenSaver}",
                                     RegistryConstants.UserSettings.ValueNames.ScreenSaver,
                                     "0");
+
+            // verify the startup process key is defined and contains --once if appropriate
+            var startup = _mockRegManager.GetValue(
+                RegistryHive.Users,
+                $"{securityId}\\{RegistryConstants.UserSettings.SubKeys.StartupProcess}",
+                RegistryConstants.UserSettings.ValueNames.StartupProcess);
+            Assert.False(String.IsNullOrEmpty(startup), "Startup key should not be empty");
+
+            Assert.True(startup.Contains(_runOnce), "Startup key should match the runOnce setting");
         }
 
         public void ValidateRegistryValue(RegistryHive hive, string subKeyName, string name, string expectedValue)

@@ -1,9 +1,11 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System;
 using Microsoft.VisualStudio.Services.WebApi;
-using System.Linq;
 using Microsoft.VisualStudio.Services.Agent.Worker.Build;
 using Build2 = Microsoft.TeamFoundation.Build.WebApi;
 

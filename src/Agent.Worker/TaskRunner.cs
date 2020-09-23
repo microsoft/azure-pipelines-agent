@@ -167,9 +167,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         runtimeVariables = new Variables(HostContext, variableCopy, out expansionWarnings);
                         expansionWarnings?.ForEach(x => ExecutionContext.Warning(x));
                     }
-                    else if (handlerData is NodeHandlerData || handlerData is Node10HandlerData || handlerData is PowerShell3HandlerData)
+                    else if (handlerData is BaseNodeHandlerData || handlerData is PowerShell3HandlerData)
                     {
-                        // Only the node, node10, and powershell3 handlers support running inside container.
+                        // Only the node, node10, node14, and powershell3 handlers support running inside container.
                         // Make sure required container is already created.
                         ArgUtil.NotNullOrEmpty(containerTarget.ContainerId, nameof(containerTarget.ContainerId));
                         var containerStepHost = HostContext.CreateService<IContainerStepHost>();
@@ -190,7 +190,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     string key = input?.Name?.Trim() ?? string.Empty;
                     if (!string.IsNullOrEmpty(key))
                     {
-                        inputs[key] = input.DefaultValue?.Trim() ?? string.Empty;
+                        if (AgentKnobs.DisableInputTrimming.GetValue(ExecutionContext).AsBoolean())
+                        {
+                            inputs[key] = input.DefaultValue ?? string.Empty;
+                        }
+                        else
+                        {
+                            inputs[key] = input.DefaultValue?.Trim() ?? string.Empty;
+                        }
                     }
                 }
 
@@ -201,7 +208,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     string key = input.Key?.Trim() ?? string.Empty;
                     if (!string.IsNullOrEmpty(key))
                     {
-                        inputs[key] = input.Value?.Trim() ?? string.Empty;
+                        if (AgentKnobs.DisableInputTrimming.GetValue(ExecutionContext).AsBoolean())
+                        {
+                            inputs[key] = input.Value ?? string.Empty;
+                        }
+                        else
+                        {
+                            inputs[key] = input.Value?.Trim() ?? string.Empty;
+                        }
                     }
                 }
 
@@ -392,7 +406,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 if (stepTarget is ContainerInfo)
                 {
                     if ((currentExecution.All.Any(x => x is PowerShell3HandlerData)) &&
-                        (currentExecution.All.Any(x => x is NodeHandlerData || x is Node10HandlerData)))
+                        (currentExecution.All.Any(x => x is BaseNodeHandlerData)))
                         {
                             Trace.Info($"Since we are targeting a container, we will prefer a node handler if one is available");
                             preferPowershellHandler = false;

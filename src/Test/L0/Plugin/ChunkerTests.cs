@@ -20,17 +20,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [InlineData(2 * 64 * 1024 - 1, "540770B3F5DF9DD459319164D2AFCAD1B942CB24B41985AA1E0F081D6AC16639")]
         [InlineData(2 * 64 * 1024 + 0, "3175B5C2595B419DBE5BDA9554208A4E39EFDBCE1FC6F7C7CB959E5B39DF2DF0")]
         [InlineData(2 * 64 * 1024 + 1, "B39D401B85748FDFC41980A0ABE838BA05805BFFAE16344CE74EA638EE42DEA5")]
-        [InlineData(Chunker.MinPushBufferSize - 1, "82CB11C6FBF387D4EF798C419C7F5660CAF6729742F0A5ECC37F9B5AE4AC0A11")]
-        [InlineData(Chunker.MinPushBufferSize + 0, "3C7D506720601D668D8AD9DE23112591876F3021D411D51F377BF6CF7B2A453C")]
-        [InlineData(Chunker.MinPushBufferSize + 1, "39FB7E365F622543D01DE46F1BE4F51E870E9CDF4C93A633BD29EE4A24BEDBB0")]
-        [InlineData(2 * Chunker.MinPushBufferSize - 1, "63B06CEB8ECAA6747F974450446E5072A48E3F26B4AE0192FEC41DDF61B83364")]
-        [InlineData(2 * Chunker.MinPushBufferSize + 0, "27032B90442309EE9C4098F64AECC9BACD9B481C7A969EECFE2C56D2BDD7CA2B")]
-        [InlineData(2 * Chunker.MinPushBufferSize + 1, "F1AB48587008EC813EC4B69F7A938EA448CA362497D9EE4A24DEA88D8E92812B")]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
         public void ChunkerIsStable(int byteCount, string expectedHash)
         {
-            var bytes = new byte[byteCount]; 
+            var bytes = new byte[byteCount];
             FillBufferWithTestContent(seed: 0, bytes);
 
             using (var hasher = new DedupNodeHashAlgorithm())

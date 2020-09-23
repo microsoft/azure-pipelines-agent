@@ -436,7 +436,7 @@
     "ReadOnlyVariable":  "No se permite sobrescribir la variable readonly \"{0}\". Consulte https://github.com/microsoft/azure-pipelines-yaml/blob/master/design/readonly-variables.md para obtener más detalles.",
     "ReadOnlyVariableWarning":  "Sobrescribiendo la variable readonly \"{0}\". Este comportamiento se deshabilitará en el futuro. Consulte https://github.com/microsoft/azure-pipelines-yaml/blob/master/design/readonly-variables.md para obtener más detalles.",
     "RegisterAgentSectionHeader":  "Registrar agente",
-    "ReleaseDirLastUseTIme":  "La última vez que se usó el directorio de versión \"{0}\" fue: {1}",
+    "ReleaseDirLastUseTime":  "La última vez que se usó el directorio de versión \"{0}\" fue: {1}",
     "RenameIndexFileCoberturaFailed":  "Error al cambiar el nombre de \u0027{0}\u0027 a \u0027{1}\u0027 al publicar archivos de cobertura de código para \u0027{2}\u0027. Excepción interna: \u0027{3}\u0027",
     "Replace":  "¿Reemplazar? (S/N)",
     "RepositoryNotExist":  "No se puede actualizar el repositorio porque no existe.",

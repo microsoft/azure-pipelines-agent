@@ -287,7 +287,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 
                         if (testRunData != null)
                         {
-                            if (testRunData.Results != null && testRunData.Results.Length > 0)
+                            if (testRunData.Results != null)
                             {
                                 testRunData.AddCustomField(_testRunSystemCustomFieldName, runContext.TestRunSystem);
                                 AddTargetBranchInfoToRunCreateModel(testRunData, runContext.TargetBranchName);

@@ -53,17 +53,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             // Create the handler.
             IHandler handler;
-            if (data is NodeHandlerData)
+            if (data is BaseNodeHandlerData)
             {
-                // Node.
+                // Node 6, 10, and 14.
                 handler = HostContext.CreateService<INodeHandler>();
-                (handler as INodeHandler).Data = data as NodeHandlerData;
-            }
-            else if (data is Node10HandlerData)
-            {
-                // Node10.
-                handler = HostContext.CreateService<INodeHandler>();
-                (handler as INodeHandler).Data = data as Node10HandlerData;
+                (handler as INodeHandler).Data = data as BaseNodeHandlerData;
             }
             else if (data is PowerShell3HandlerData)
             {
