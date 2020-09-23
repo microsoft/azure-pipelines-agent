@@ -264,7 +264,7 @@ namespace Agent.Plugins.Repository
         public async Task WorkfoldUnmapAsync(string serverPath)
         {
             ArgUtil.NotNullOrEmpty(serverPath, nameof(serverPath));
-            await RunCommandAsync("vc", "workfold", "/unmap", $"/workspace:{WorkspaceName}", serverPath);
+            await RunCommandAsync(3, "vc", "workfold", "/unmap", $"/workspace:{WorkspaceName}", serverPath);
         }
 
         public async Task WorkspaceDeleteAsync(ITfsVCWorkspace workspace)
