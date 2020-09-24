@@ -4,11 +4,15 @@
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using Agent.Sdk.Knob;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Agent.Sdk
 {
     public static class PlatformUtil
     {
+        private static UtilKnobValueContext _knobContext = UtilKnobValueContext.Instance();
+        
         // System.Runtime.InteropServices.OSPlatform is a struct, so it is
         // not suitable for switch statements.
         public enum OS
@@ -125,16 +129,20 @@ namespace Agent.Sdk
             get => PlatformUtil.HostArchitecture == Architecture.Arm64;
         }
 
-        // remove this after addressing
-        // https://github.com/microsoft/azure-pipelines-agent/issues/2875
         public static bool UseLegacyHttpHandler
         {
             // In .NET Core 2.1, we couldn't use the new SocketsHttpHandler for Windows or Linux
             // On Linux, negotiate auth didn't work if the TFS URL was HTTPS
             // On Windows, proxy was not working
             // But on ARM/ARM64 Linux, the legacy curl dependency is problematic
-            // (see https://github.com/dotnet/runtime/issues/28891)
-            get => !(PlatformUtil.RunningOnLinux && (PlatformUtil.IsArm || PlatformUtil.IsArm64));
+            // (see https://github.com/dotnet/runtime/issues/28891), so we slowly
+            // started to use the new handler.
+            //
+            // The legacy handler is going away in .NET 5.0, so we'll go ahead
+            // and remove its usage now. In case this breaks anyone, adding
+            // a temporary knob so they can re-enable it.
+            // https://github.com/dotnet/runtime/issues/35365#issuecomment-667467706
+            get => AgentKnobs.UseLegacyHttpHandler.GetValue(_knobContext).AsBoolean();
         }
     }
 }

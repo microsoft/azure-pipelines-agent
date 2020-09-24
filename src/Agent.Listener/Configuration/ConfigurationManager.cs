@@ -423,6 +423,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             agentSettings.DisableLogUploads = command.GetDisableLogUploads();
 
+            agentSettings.AlwaysExtractTask = command.GetAlwaysExtractTask();
+            
             _store.SaveSettings(agentSettings);
 
             if (saveProxySetting)

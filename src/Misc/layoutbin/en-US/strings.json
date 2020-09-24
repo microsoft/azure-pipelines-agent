@@ -23,6 +23,7 @@
   "AgentWithSameNameAlreadyExistInPool": "Pool {0} already contains an agent with name {1}.",
   "AllowContainerUserRunDocker": "Allow user '{0}' run any docker command without SUDO.",
   "AlreadyConfiguredError": "Cannot configure the agent because it is already configured. To reconfigure the agent, run 'config.cmd remove' or './config.sh remove' first.",
+  "AlwaysExtractTask": "Perform an unzip for tasks for each step.",
   "ArgumentNeeded": "'{0}' has to be specified.",
   "ArtifactDownloadFailed": "Failed to download the artifact from {0}.",
   "ArtifactLocationRequired": "Artifact location is required.",

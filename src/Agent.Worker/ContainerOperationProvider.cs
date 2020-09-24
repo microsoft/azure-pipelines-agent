@@ -336,7 +336,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     File.WriteAllText(taskKeyFile, string.Empty);
                 }
-                container.MountVolumes.Add(new MountVolume(taskKeyFile, container.TranslateToContainerPath(taskKeyFile), readOnly: true));
+                container.MountVolumes.Add(new MountVolume(taskKeyFile, container.TranslateToContainerPath(taskKeyFile)));
             }
 
             if (container.IsJobContainer)

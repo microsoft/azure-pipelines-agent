@@ -41,6 +41,9 @@ namespace Microsoft.VisualStudio.Services.Agent
         [DataMember(EmitDefaultValue = false)]
         public string AgentName { get; set; }
 
+        [DataMember(EmitDefaultValue = false)]
+        public bool AlwaysExtractTask { get; set; }
+
         [IgnoreDataMember]
         public bool IsHosted => !string.IsNullOrEmpty(NotificationPipeName) || !string.IsNullOrEmpty(NotificationSocketAddress);
 
