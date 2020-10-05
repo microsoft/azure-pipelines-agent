@@ -21,12 +21,9 @@ namespace Agent.Plugins.Repository
 {
     public class ExternalGitSourceProvider : GitSourceProvider
     {
-        public override bool GitSupportsFetchingCommitBySha1Hash
+        public override bool GitSupportsFetchingCommitBySha1Hash(GitCliManager gitCommandManager)
         {
-            get
-            {
-                return false;
-            }
+            return false;
         }
 
         // external git repository won't use auth header cmdline arg, since we don't know the auth scheme.
@@ -78,34 +75,31 @@ namespace Agent.Plugins.Repository
 
     public class BitbucketGitSourceProvider : AuthenticatedGitSourceProvider
     {
-        public override bool GitSupportsFetchingCommitBySha1Hash
+        public override bool GitSupportsFetchingCommitBySha1Hash(GitCliManager gitCommandManager)
         {
-            get
-            {
-                return true;
-            }
+            return true;
         }
     }
 
     public class GitHubSourceProvider : AuthenticatedGitSourceProvider
     {
-        public override bool GitSupportsFetchingCommitBySha1Hash
+        public override bool GitSupportsFetchingCommitBySha1Hash(GitCliManager gitCommandManager)
         {
-            get
+            if (gitCommandManager.EnsureGitVersion(_minGitVersionDefaultV2, throwOnNotMatch: false))
             {
-                return false;
+
+                return true;
             }
+
+            return false;
         }
     }
 
     public class TfsGitSourceProvider : GitSourceProvider
     {
-        public override bool GitSupportsFetchingCommitBySha1Hash
+        public override bool GitSupportsFetchingCommitBySha1Hash(GitCliManager gitCommandManager)
         {
-            get
-            {
-                return true;
-            }
+            return true;
         }
 
         public override bool UseBearerAuthenticationForOAuth()
@@ -186,11 +180,13 @@ namespace Agent.Plugins.Repository
         // min git-lfs version that support add extra auth header.
         protected Version _minGitLfsVersionSupportAuthHeader = new Version(2, 1);
 
+        // min git version where v2 is defaulted
+        protected Version _minGitVersionDefaultV2 = new Version(2, 26);
+
         public abstract bool GitSupportUseAuthHeader(AgentTaskPluginExecutionContext executionContext, GitCliManager gitCommandManager);
         public abstract bool GitLfsSupportUseAuthHeader(AgentTaskPluginExecutionContext executionContext, GitCliManager gitCommandManager);
         public abstract void RequirementCheck(AgentTaskPluginExecutionContext executionContext, Pipelines.RepositoryResource repository, GitCliManager gitCommandManager);
-
-        public abstract bool GitSupportsFetchingCommitBySha1Hash { get; }
+        public abstract bool GitSupportsFetchingCommitBySha1Hash(GitCliManager gitCommandManager);
 
         public virtual bool UseBearerAuthenticationForOAuth()
         {
@@ -317,9 +313,6 @@ namespace Agent.Plugins.Repository
 
             bool exposeCred = StringUtil.ConvertToBoolean(executionContext.GetInput(Pipelines.PipelineConstants.CheckoutTaskInputs.PersistCredentials));
 
-            // Read 'disable fetch by commit' value from the execution variable first, then from the environment variable if the first one is not set
-            bool fetchByCommit = GitSupportsFetchingCommitBySha1Hash && !AgentKnobs.DisableFetchByCommit.GetValue(executionContext).AsBoolean();
-
             executionContext.Debug($"repository url={repositoryUrl}");
             executionContext.Debug($"targetPath={targetPath}");
             executionContext.Debug($"sourceBranch={sourceBranch}");
@@ -373,6 +366,9 @@ namespace Agent.Plugins.Repository
 
             GitCliManager gitCommandManager = GetCliManager(gitEnv);
             await gitCommandManager.LoadGitExecutionInfo(executionContext, useBuiltInGit: !preferGitFromPath);
+
+            // Read 'disable fetch by commit' value from the execution variable first, then from the environment variable if the first one is not set
+            bool fetchByCommit = GitSupportsFetchingCommitBySha1Hash(gitCommandManager) && !AgentKnobs.DisableFetchByCommit.GetValue(executionContext).AsBoolean();
 
             bool gitSupportAuthHeader = GitSupportUseAuthHeader(executionContext, gitCommandManager);
 
@@ -847,6 +843,19 @@ namespace Agent.Plugins.Repository
             if (exitCode_fetch != 0)
             {
                 throw new InvalidOperationException($"Git fetch failed with exit code: {exitCode_fetch}");
+            }
+
+            // If checking out by commit, explicity fetch it
+            // This is done as a separate fetch rather than adding an additional refspec on the proceeding fetch to prevent overriding previous behavior which may have dependencies in other tasks
+            // i.e. "git fetch origin" versus "git fetch origin commit"
+            if (fetchByCommit && !string.IsNullOrEmpty(sourceVersion))
+            {
+                List<string> commitFetchSpecs = new List<string>() { $"+{sourceVersion}:{_remoteRefsPrefix}{sourceVersion}" };
+                exitCode_fetch = await gitCommandManager.GitFetch(executionContext, targetPath, "origin", fetchDepth, commitFetchSpecs, string.Join(" ", additionalFetchArgs), cancellationToken);
+                if (exitCode_fetch != 0)
+                {
+                    throw new InvalidOperationException($"Git fetch failed with exit code: {exitCode_fetch}");
+                }
             }
 
             // Checkout
