@@ -22,6 +22,7 @@ namespace Agent.Plugins.PipelineCache
 {
     public class PipelineCacheServer
     {
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1068: CancellationToken parameters must come last")]
         internal async Task UploadAsync(
             AgentTaskPluginExecutionContext context,
             Fingerprint fingerprint,

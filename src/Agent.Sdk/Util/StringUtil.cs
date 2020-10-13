@@ -74,6 +74,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1720: Identifiers should not contain type")]
         public static string ConvertToJson(object obj, Formatting formatting = Formatting.Indented)
         {
             return JsonConvert.SerializeObject(obj, formatting, s_serializerSettings.Value);

@@ -162,6 +162,7 @@ namespace Agent.Plugins.Repository
         }
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA1505: Avoid unmaintainable code")]
     public abstract class GitSourceProvider : ISourceProvider
     {
         // refs prefix

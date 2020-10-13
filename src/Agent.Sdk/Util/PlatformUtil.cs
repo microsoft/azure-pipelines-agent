@@ -15,6 +15,7 @@ namespace Agent.Sdk
         
         // System.Runtime.InteropServices.OSPlatform is a struct, so it is
         // not suitable for switch statements.
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1717: Only FlagsAttribute enums should have plural names")]
         public enum OS
         {
             Linux,
@@ -24,6 +25,7 @@ namespace Agent.Sdk
 
         public static OS HostOS
         {
+            [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1065: Do not raise exceptions in unexpected")]
             get
             {
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))

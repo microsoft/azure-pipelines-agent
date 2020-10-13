@@ -191,6 +191,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         }
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA1505: Avoid unmaintainable code")]
     public abstract class GitSourceProvider : SourceProvider, ISourceProvider
     {
         // refs prefix
