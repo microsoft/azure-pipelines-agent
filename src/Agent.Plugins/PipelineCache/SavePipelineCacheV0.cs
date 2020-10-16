@@ -83,7 +83,7 @@ namespace Agent.Plugins.PipelineCache
                 contentFormat = Enum.Parse<ContentFormat>(contentFormatValue, ignoreCase: true);
             }
 
-            PipelineCacheServer server = new PipelineCacheServer();
+            PipelineCacheServer server = new PipelineCacheServer(context);
             await server.UploadAsync(
                 context,
                 keyFingerprint,

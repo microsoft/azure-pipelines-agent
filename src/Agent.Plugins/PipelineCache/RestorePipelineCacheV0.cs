@@ -25,7 +25,7 @@ namespace Agent.Plugins.PipelineCache
             context.SetTaskVariable(RestoreStepRanVariableName, RestoreStepRanVariableValue);
             context.SetTaskVariable(ResolvedFingerPrintVariableName, fingerprint.ToString());
 
-            var server = new PipelineCacheServer();
+            var server = new PipelineCacheServer(context);
             Fingerprint[] restoreFingerprints = restoreKeysGenerator();
             await server.DownloadAsync(
                 context,

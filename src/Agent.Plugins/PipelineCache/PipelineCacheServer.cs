@@ -22,6 +22,13 @@ namespace Agent.Plugins.PipelineCache
 {
     public class PipelineCacheServer
     {
+        private readonly IAppTraceSource tracer;
+
+        public PipelineCacheServer(AgentTaskPluginExecutionContext context)
+        {
+            this.tracer = context.CreateArtifactsTracer();
+        }
+
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1068: CancellationToken parameters must come last")]
         internal async Task UploadAsync(
             AgentTaskPluginExecutionContext context,
@@ -60,12 +67,21 @@ namespace Agent.Plugins.PipelineCache
                 //Upload the pipeline artifact.
                 PipelineCacheActionRecord uploadRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
                     new PipelineCacheActionRecord(level, uri, type, nameof(dedupManifestClient.PublishAsync), context));
+
                 PublishResult result = await clientTelemetry.MeasureActionAsync(
                     record: uploadRecord,
-                    actionAsync: async () =>
-                    {
-                        return await dedupManifestClient.PublishAsync(uploadPath, cancellationToken);
-                    });
+                    actionAsync: async () => 
+                        await AsyncHttpRetryHelper.InvokeAsync(
+                            async () => 
+                            {
+                                return await dedupManifestClient.PublishAsync(uploadPath, cancellationToken);
+                            },
+                            maxRetries: 3,
+                            tracer: tracer,
+                            canRetryDelegate: e => true, // this isn't great, but failing on upload stinks, so just try a couple of times
+                            cancellationToken: cancellationToken,
+                            continueOnCapturedContext: false)
+                );
 
                 CreatePipelineCacheArtifactContract options = new CreatePipelineCacheArtifactContract
                 {
@@ -214,7 +230,19 @@ namespace Agent.Plugins.PipelineCache
             if (contentFormat == ContentFormat.SingleTar)
             {
                 string manifestPath = Path.Combine(Path.GetTempPath(), $"{nameof(DedupManifestArtifactClient)}.{Path.GetRandomFileName()}.manifest");
-                await dedupManifestClient.DownloadFileToPathAsync(manifestId, manifestPath, proxyUri: null, cancellationToken: cancellationToken);
+
+                await AsyncHttpRetryHelper.InvokeVoidAsync(
+                    async () =>
+                    {
+                        await dedupManifestClient.DownloadFileToPathAsync(manifestId, manifestPath, proxyUri: null, cancellationToken: cancellationToken);
+                    },
+                    maxRetries: 3,
+                    tracer: tracer,
+                    canRetryDelegate: e => true,
+                    context: nameof(DownloadPipelineCacheAsync),
+                    cancellationToken: cancellationToken,
+                    continueOnCapturedContext: false);
+
                 Manifest manifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(manifestPath));
                 var (tarWorkingDirectory, _) = GetTarWorkingDirectory(pathSegments, workspaceRoot);
                 await TarUtils.DownloadAndExtractTarAsync(context, manifest, dedupManifestClient, tarWorkingDirectory, cancellationToken);
@@ -234,7 +262,18 @@ namespace Agent.Plugins.PipelineCache
                     pathSegments[0],
                     proxyUri: null,
                     minimatchPatterns: null);
-                await dedupManifestClient.DownloadAsync(options, cancellationToken);
+
+                await AsyncHttpRetryHelper.InvokeVoidAsync(
+                    async () =>
+                    {
+                        await dedupManifestClient.DownloadAsync(options, cancellationToken);
+                    },
+                    maxRetries: 3,
+                    tracer: tracer,
+                    canRetryDelegate: e => true,
+                    context: nameof(DownloadPipelineCacheAsync),
+                    cancellationToken: cancellationToken,
+                    continueOnCapturedContext: false);
             }
         }
 
