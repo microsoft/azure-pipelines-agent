@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using System;
 using System.Net;
 using System.Net.Http;
@@ -52,11 +53,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                     request.Version = HttpVersion.Version11;
                 }
 
-                int httpRequestTimeoutSeconds;
-                if (!int.TryParse(Environment.GetEnvironmentVariable("VSTS_HTTP_TIMEOUT") ?? string.Empty, out httpRequestTimeoutSeconds))
-                {
-                    httpRequestTimeoutSeconds = 100;
-                }
+                int httpRequestTimeoutSeconds = AgentKnobs.HttpTimeout.GetValue(HostContext).AsInt();
 
                 using (var httpClientHandler = HostContext.CreateHttpClientHandler())
                 using (var httpClient = new HttpClient(httpClientHandler) { Timeout = new TimeSpan(0, 0, httpRequestTimeoutSeconds) })

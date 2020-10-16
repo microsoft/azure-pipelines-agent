@@ -84,7 +84,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
             string[] resourceUris = {};
             try
             {
-                var resourceUrisEnvVar = System.Environment.GetEnvironmentVariable("RESOURCE_URIS");
+                var resourceUrisEnvVar = executionContext.GetVariableValueOrDefault("RESOURCE_URIS");
                 executionContext.Debug("RESOURCE_URIS:" + resourceUrisEnvVar);
 
                 if (!string.IsNullOrEmpty(resourceUrisEnvVar))

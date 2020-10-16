@@ -52,10 +52,17 @@ namespace Agent.Plugins.PipelineArtifact
 
                 PublishResult result = await clientTelemetry.MeasureActionAsync(
                     record: uploadRecord,
-                    actionAsync: async () =>
-                    {
-                        return await dedupManifestClient.PublishAsync(source, cancellationToken);
-                    }
+                    actionAsync: async () => await AsyncHttpRetryHelper.InvokeAsync(
+                            async () => 
+                            {
+                                return await dedupManifestClient.PublishAsync(source, cancellationToken);
+                            },
+                            maxRetries: 3,
+                            tracer: tracer,
+                            canRetryDelegate: e => true, // this isn't great, but failing on upload stinks, so just try a couple of times
+                            cancellationToken: cancellationToken,
+                            continueOnCapturedContext: false)
+                    
                 );
                 // Send results to CustomerIntelligence
                 context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: uploadRecord);
@@ -272,19 +279,19 @@ namespace Agent.Plugins.PipelineArtifact
                 if (buildArtifacts.Any())
                 {
                     FileContainerProvider provider = new FileContainerProvider(connection, this.tracer);
-                    await provider.DownloadMultipleArtifactsAsync(downloadParameters, buildArtifacts, cancellationToken);
+                    await provider.DownloadMultipleArtifactsAsync(downloadParameters, buildArtifacts, cancellationToken, context);
                 }
 
                 if (pipelineArtifacts.Any())
                 {
                     PipelineArtifactProvider provider = new PipelineArtifactProvider(context, connection, this.tracer);
-                    await provider.DownloadMultipleArtifactsAsync(downloadParameters, pipelineArtifacts, cancellationToken);
+                    await provider.DownloadMultipleArtifactsAsync(downloadParameters, pipelineArtifacts, cancellationToken, context);
                 }
 
                 if(fileShareArtifacts.Any()) 
                 {
                     FileShareProvider provider = new FileShareProvider(context, connection, this.tracer);
-                    await provider.DownloadMultipleArtifactsAsync(downloadParameters, fileShareArtifacts, cancellationToken);
+                    await provider.DownloadMultipleArtifactsAsync(downloadParameters, fileShareArtifacts, cancellationToken, context);
                 }
             }
             else if (downloadOptions == DownloadOptions.SingleDownload)
@@ -314,7 +321,7 @@ namespace Agent.Plugins.PipelineArtifact
                 ArtifactProviderFactory factory = new ArtifactProviderFactory(context, connection, this.tracer);
                 IArtifactProvider provider = factory.GetProvider(buildArtifact);
                 
-                await provider.DownloadSingleArtifactAsync(downloadParameters, buildArtifact, cancellationToken);
+                await provider.DownloadSingleArtifactAsync(downloadParameters, buildArtifact, cancellationToken, context);
             }
             else
             {

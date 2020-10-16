@@ -1,8 +1,6 @@
-using System.Threading;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using System;
-using System.Linq;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 

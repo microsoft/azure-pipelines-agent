@@ -15,6 +15,7 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 namespace Microsoft.VisualStudio.Services.Agent
 {
     [ServiceLocator(Default = typeof(JobServerQueue))]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1711: Identifiers should not have incorrect suffix")]
     public interface IJobServerQueue : IAgentService, IThrottlingReporter
     {
         event EventHandler<ThrottlingEventArgs> JobServerQueueThrottling;
@@ -25,6 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         void QueueTimelineRecordUpdate(Guid timelineId, TimelineRecord timelineRecord);
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1711: Identifiers should not have incorrect suffix")]
     public sealed class JobServerQueue : AgentService, IJobServerQueue
     {
         // Default delay for Dequeue process

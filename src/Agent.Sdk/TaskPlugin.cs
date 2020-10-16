@@ -16,6 +16,7 @@ using Microsoft.VisualStudio.Services.Content.Common.Telemetry;
 using Microsoft.VisualStudio.Services.WebApi;
 using Newtonsoft.Json;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using Agent.Sdk.Knob;
 
 namespace Agent.Sdk
 {
@@ -30,9 +31,10 @@ namespace Agent.Sdk
     {
         public static readonly string HasMultipleCheckouts = "HasMultipleCheckouts";
         public static readonly string FirstRepositoryCheckedOut = "FirstRepositoryCheckedOut";
+        public static readonly string WorkspaceIdentifier = "WorkspaceIdentifier";
     }
 
-    public class AgentTaskPluginExecutionContext : ITraceWriter
+    public class AgentTaskPluginExecutionContext : ITraceWriter, IKnobValueContext
     {
         private VssConnection _connection;
         private readonly object _stdoutLock = new object();
@@ -155,7 +157,7 @@ namespace Agent.Sdk
 #if DEBUG
             Debug(message);
 #else
-            string vstsAgentTrace = Environment.GetEnvironmentVariable("VSTSAGENT_TRACE");
+            string vstsAgentTrace = AgentKnobs.TraceVerbose.GetValue(UtilKnobValueContext.Instance()).AsString();
             if (!string.IsNullOrEmpty(vstsAgentTrace))
             {
                 Debug(message);
@@ -208,6 +210,15 @@ namespace Agent.Sdk
                     _trace.Info(message);
                 }
             }
+        }
+
+        public bool IsSystemDebugTrue()
+        {
+             if (Variables.TryGetValue("system.debug", out VariableValue systemDebugVar))
+            {
+                return string.Equals(systemDebugVar?.Value, "true", StringComparison.OrdinalIgnoreCase);
+            }
+            return false;
         }
 
         public void PrependPath(string directory)
@@ -328,6 +339,16 @@ namespace Agent.Sdk
             }
 
             return input;
+        }
+
+        string IKnobValueContext.GetVariableValueOrDefault(string variableName)
+        {
+            return Variables.GetValueOrDefault(variableName)?.Value;
+        }
+
+        IScopedEnvironment IKnobValueContext.GetScopedEnvironment()
+        {
+            return new SystemEnvironment();
         }
 
         private Dictionary<string, string> _commandEscapeMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)

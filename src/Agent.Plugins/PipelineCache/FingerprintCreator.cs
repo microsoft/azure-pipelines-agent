@@ -395,7 +395,6 @@ namespace Agent.Plugins.PipelineCache
                         details = matchedDirectories.Values.ToArray();
                         resolvedSegments.AddRange(matchedDirectories.Values);
 
-                        // TODO: Is it the right behavior to throw an exception if a path segment isn't resolveable?
                         if (!matchedDirectories.Any())
                         {
                             var message = patternSegment ? $"No matching directories found for pattern: {displaySegment}" : $"Directory not found: {displaySegment}";

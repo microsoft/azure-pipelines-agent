@@ -22,6 +22,7 @@ namespace Agent.Plugins.PipelineCache
 {
     public class PipelineCacheServer
     {
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1068: CancellationToken parameters must come last")]
         internal async Task UploadAsync(
             AgentTaskPluginExecutionContext context,
             Fingerprint keyFingerprint,
@@ -175,7 +176,7 @@ namespace Agent.Plugins.PipelineCache
             AgentTaskPluginExecutionContext context,
             VssConnection connection)
         {
-            var tracer = new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information);
+            var tracer = context.CreateArtifactsTracer();
             IClock clock = UtcClock.Instance;
             var pipelineCacheHttpClient = connection.GetClient<PipelineCacheHttpClient>();
             var pipelineCacheClient = new PipelineCacheClient(blobStoreClientTelemetry, pipelineCacheHttpClient, clock, tracer);
@@ -197,7 +198,7 @@ namespace Agent.Plugins.PipelineCache
                     cancellationToken
                 );
             }
-            // TODO: what is the right way to handle !ContentFormat.SingleTar
+
             return Task.FromResult(pathFingerprint.Segments[0]);
         }
 
@@ -230,7 +231,7 @@ namespace Agent.Plugins.PipelineCache
             {
                 DownloadDedupManifestArtifactOptions options = DownloadDedupManifestArtifactOptions.CreateWithManifestId(
                     manifestId,
-                    pathSegments[0], // TODO: is this the right format here
+                    pathSegments[0],
                     proxyUri: null,
                     minimatchPatterns: null);
                 await dedupManifestClient.DownloadAsync(options, cancellationToken);

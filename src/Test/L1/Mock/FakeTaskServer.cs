@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,19 +19,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
         public Task<Stream> GetTaskContentZipAsync(Guid taskId, TaskVersion taskVersion, CancellationToken token)
         {
-            String baseDirectory = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
-            String taskZipsPath = Path.Join(baseDirectory, "TaskZips");
-
-            foreach (String zip in Directory.GetFiles(taskZipsPath))
+            String taskZip = Path.Join(HostContext.GetDirectory(WellKnownDirectory.Externals), "Tasks", taskId.ToString() + ".zip");
+            if (File.Exists(taskZip))
             {
-                String zipName = Path.GetFileNameWithoutExtension(zip);
-                if (zipName.Equals(taskId.ToString()))
-                {
-                    return Task.FromResult<Stream>(new FileStream(zip, FileMode.Open));
-                }
+                return Task.FromResult<Stream>(new FileStream(taskZip, FileMode.Open, FileAccess.Read, FileShare.Read));
             }
-
-            return Task.FromResult<Stream>(null);
+            else
+            {
+                throw new Exception("A step specified a task which does not exist in the L1 test framework. Any tasks used by L1 tests must be added manually.");
+            }
         }
 
         public Task<bool> TaskDefinitionEndpointExist()

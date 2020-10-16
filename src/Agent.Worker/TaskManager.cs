@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -153,27 +154,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             var configurationStore = HostContext.GetService<IConfigurationStore>();
             AgentSettings settings = configurationStore.GetSettings();
-            Boolean signingEnabled = !String.IsNullOrEmpty(settings.Fingerprint);
+            Boolean signingEnabled = (settings.SignatureVerification != null && settings.SignatureVerification.Mode != SignatureVerificationMode.None);
+            Boolean alwaysExtractTask = signingEnabled || settings.AlwaysExtractTask;
 
-            if (File.Exists(destDirectory + ".completed") && !signingEnabled)
+            if (File.Exists(destDirectory + ".completed") && !alwaysExtractTask)
             {
                 executionContext.Debug($"Task '{task.Name}' already downloaded at '{destDirectory}'.");
                 return;
             }
 
             String taskZipPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.TaskZips), $"{task.Name}_{task.Id}_{task.Version}.zip");
-            if (signingEnabled && File.Exists(taskZipPath))
+            if (alwaysExtractTask && File.Exists(taskZipPath))
             {
                 executionContext.Debug($"Task '{task.Name}' already downloaded at '{taskZipPath}'.");
 
-                // We need to extract the zip now because the task.json metadata for the task is used in JobExtension.InitializeJob.
-                // This is fine because we overwrite the contents at task run time.
-                if (!File.Exists(destDirectory + ".completed"))
-                {
-                    // The zip exists but it hasn't been extracted yet.
-                    IOUtil.DeleteDirectory(destDirectory, executionContext.CancellationToken);
-                    ExtractZip(taskZipPath, destDirectory);
-                }
+                // Extract a new zip every time
+                IOUtil.DeleteDirectory(destDirectory, executionContext.CancellationToken);
+                ExtractZip(taskZipPath, destDirectory);
 
                 return;
             }
@@ -199,10 +196,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Allow up to 20 * 60s for any task to be downloaded from service.
                 // Base on Kusto, the longest we have on the service today is over 850 seconds.
                 // Timeout limit can be overwrite by environment variable
-                if (!int.TryParse(Environment.GetEnvironmentVariable("VSTS_TASK_DOWNLOAD_TIMEOUT") ?? string.Empty, out int timeoutSeconds))
-                {
-                    timeoutSeconds = 20 * 60;
-                }
+                var timeoutSeconds = AgentKnobs.TaskDownloadTimeout.GetValue(UtilKnobValueContext.Instance()).AsInt();
 
                 while (retryCount < 3)
                 {
@@ -257,7 +251,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                 }
 
-                if (signingEnabled)
+                if (alwaysExtractTask)
                 {
                     Directory.CreateDirectory(HostContext.GetDirectory(WellKnownDirectory.TaskZips));
 
@@ -356,6 +350,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private AzurePowerShellHandlerData _azurePowerShell;
         private NodeHandlerData _node;
         private Node10HandlerData _node10;
+        private Node14HandlerData _node14;
         private PowerShellHandlerData _powerShell;
         private PowerShell3HandlerData _powerShell3;
         private PowerShellExeHandlerData _powerShellExe;
@@ -407,6 +402,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             set
             {
                 _node10 = value;
+                Add(value);
+            }
+        }
+
+        public Node14HandlerData Node14
+        {
+            get
+            {
+                return _node14;
+            }
+
+            set
+            {
+                _node14 = value;
                 Add(value);
             }
         }
@@ -585,17 +594,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
     public sealed class NodeHandlerData : BaseNodeHandlerData
     {
-        public override int Priority => 2;
+        public override int Priority => 3;
     }
 
     public sealed class Node10HandlerData : BaseNodeHandlerData
+    {
+        public override int Priority => 2;
+    }
+
+    public sealed class Node14HandlerData : BaseNodeHandlerData
     {
         public override int Priority => 1;
     }
 
     public sealed class PowerShell3HandlerData : HandlerData
     {
-        public override int Priority => 3;
+        public override int Priority => 4;
     }
 
     public sealed class PowerShellHandlerData : HandlerData
@@ -613,7 +627,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 4;
+        public override int Priority => 5;
 
         public string WorkingDirectory
         {
@@ -644,7 +658,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 5;
+        public override int Priority => 6;
 
         public string WorkingDirectory
         {
@@ -701,7 +715,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 5;
+        public override int Priority => 6;
 
         public string ScriptType
         {
@@ -758,7 +772,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 6;
+        public override int Priority => 7;
 
         public string WorkingDirectory
         {

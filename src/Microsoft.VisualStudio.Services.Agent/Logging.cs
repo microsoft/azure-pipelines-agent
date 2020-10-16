@@ -15,6 +15,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         void Write(string message);
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1716: Identifiers should not match keywords")]
         void End();
     }
 

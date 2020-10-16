@@ -11,6 +11,7 @@ namespace Agent.Plugins.PipelineArtifact.Telemetry
     /// <summary>
     /// Generic telemetry record for use with FileShare Artifact events.
     /// </summary>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA1501: Avoid excessive inheritance")]
     public class FileShareActionRecord : PipelineArtifactActionRecord
     {
         public int TotalFile { get; private set; }

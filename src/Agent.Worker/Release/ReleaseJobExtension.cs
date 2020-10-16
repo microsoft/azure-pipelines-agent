@@ -130,20 +130,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
             }
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "releaseServer")]
         private IList<AgentArtifactDefinition> GetReleaseArtifacts(IExecutionContext executionContext)
         {
             try
             {
-                using (var connection = WorkerUtilities.GetVssConnection(executionContext))
-                {
-                    var releaseServer = executionContext.GetHostContext().GetService<IReleaseServer>();
-                    releaseServer.ConnectAsync(connection).GetAwaiter().GetResult();
+                var connection = WorkerUtilities.GetVssConnection(executionContext);
+                var releaseServer = executionContext.GetHostContext().GetService<IReleaseServer>();
+                releaseServer.ConnectAsync(connection).GetAwaiter().GetResult();
 
-                    IList<AgentArtifactDefinition> releaseArtifacts = releaseServer.GetReleaseArtifactsFromService(ReleaseId, TeamProjectId).ToList();
-                    IList<AgentArtifactDefinition> filteredReleaseArtifacts = FilterArtifactDefintions(releaseArtifacts);
-                    filteredReleaseArtifacts.ToList().ForEach(x => Trace.Info($"Found Artifact = {x.Alias} of type {x.ArtifactType}"));
-                    return filteredReleaseArtifacts;
-                }
+                IList<AgentArtifactDefinition> releaseArtifacts = releaseServer.GetReleaseArtifactsFromService(ReleaseId, TeamProjectId).ToList();
+                IList<AgentArtifactDefinition> filteredReleaseArtifacts = FilterArtifactDefintions(releaseArtifacts);
+                filteredReleaseArtifacts.ToList().ForEach(x => Trace.Info($"Found Artifact = {x.Alias} of type {x.ArtifactType}"));
+                return filteredReleaseArtifacts;
             }
             catch (Exception ex)
             {

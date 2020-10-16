@@ -126,7 +126,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                         throw new UnauthorizedAccessException(StringUtil.Loc("AccessDenied"));
 
                     default:
-                        throw new Exception(StringUtil.Loc("OperationFailed", nameof(NetLocalGroupGetInfo), returnCode));
+                        throw new InvalidOperationException(StringUtil.Loc("OperationFailed", nameof(NetLocalGroupGetInfo), returnCode));
                 }
             }
             finally
@@ -175,7 +175,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     throw new ArgumentException(StringUtil.Loc("InvalidGroupName", groupName));
 
                 default:
-                    throw new Exception(StringUtil.Loc("OperationFailed", nameof(NetLocalGroupAdd), returnCode));
+                    throw new InvalidOperationException(StringUtil.Loc("OperationFailed", nameof(NetLocalGroupAdd), returnCode));
             }
         }
 
@@ -204,7 +204,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     throw new UnauthorizedAccessException(StringUtil.Loc("AccessDenied"));
 
                 default:
-                    throw new Exception(StringUtil.Loc("OperationFailed", nameof(NetLocalGroupDel), returnCode));
+                    throw new InvalidOperationException(StringUtil.Loc("OperationFailed", nameof(NetLocalGroupDel), returnCode));
             }
         }
 
@@ -247,7 +247,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     throw new UnauthorizedAccessException(StringUtil.Loc("AccessDenied"));
 
                 default:
-                    throw new Exception(StringUtil.Loc("OperationFailed", nameof(NetLocalGroupAddMembers), returnCode));
+                    throw new InvalidOperationException(StringUtil.Loc("OperationFailed", nameof(NetLocalGroupAddMembers), returnCode));
             }
         }
 
@@ -485,7 +485,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 scmHndl = OpenSCManager(null, null, ServiceManagerRights.AllAccess);
                 if (scmHndl.ToInt64() <= 0)
                 {
-                    throw new Exception(StringUtil.Loc("FailedToOpenSCM"));
+                    throw new InvalidOperationException(StringUtil.Loc("FailedToOpenSCM"));
                 }
 
                 Trace.Verbose(StringUtil.Format("Opened SCManager. Trying to create service {0}", serviceName));
@@ -522,7 +522,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 svcLock = LockServiceDatabase(scmHndl);
                 if (svcLock.ToInt64() <= 0)
                 {
-                    throw new Exception(StringUtil.Loc("FailedToLockServiceDB"));
+                    throw new InvalidOperationException(StringUtil.Loc("FailedToLockServiceDB"));
                 }
 
                 int[] actions = new int[failureActions.Count * 2];
@@ -636,7 +636,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             if (scmHndl.ToInt64() <= 0)
             {
-                throw new Exception(StringUtil.Loc("FailedToOpenSCManager"));
+                throw new InvalidOperationException(StringUtil.Loc("FailedToOpenSCManager"));
             }
 
             try
@@ -996,7 +996,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 uint hr = LsaOpenPolicy(ref system, ref attrib, (uint)access, out handle);
                 if (hr != 0 || handle == IntPtr.Zero)
                 {
-                    throw new Exception(StringUtil.Loc("OperationFailed", nameof(LsaOpenPolicy), hr));
+                    throw new InvalidOperationException(StringUtil.Loc("OperationFailed", nameof(LsaOpenPolicy), hr));
                 }
 
                 Handle = handle;
@@ -1033,7 +1033,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 uint winErrorCode = LsaNtStatusToWinError(result);
                 if (winErrorCode != 0)
                 {
-                    throw new Exception(StringUtil.Loc("OperationFailed", nameof(LsaNtStatusToWinError), winErrorCode));
+                    throw new InvalidOperationException(StringUtil.Loc("OperationFailed", nameof(LsaNtStatusToWinError), winErrorCode));
                 }
             }
 

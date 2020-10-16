@@ -1,41 +1,40 @@
 parameters:
-  layoutRoot: ''
+- name: layoutRoot
+  type: string
+- name: isWindows
+  type: boolean
+  default: true
 
 steps:
-# Guard against missing parameters
-- ${{ if eq(parameters.layoutRoot, '') }}:
-  - |
-      Badly configured build; an expected parameter is missing. //
-      layoutRoot: ${{ parameters.layoutRoot }}
+- ${{ if parameters.isWindows }}:
+  - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@1
+    inputs:
+      ConnectedServiceName: VSTSAgentESRP
+      FolderPath: '${{ parameters.layoutRoot }}/bin'
+      Pattern: AgentService.exe
+      signConfigType: inlineSignParams
+      inlineOperation: |
+        [{
+        "keyCode": "CP-235845-SN",
+        "operationSetCode": "StrongNameSign",
+        "parameters": [],
+        "toolName": "sign",
+        "toolVersion": "1.0"
+        },
+        {
+        "keyCode": "CP-235845-SN",
+        "operationSetCode": "StrongNameVerify",
+        "parameters": [],
+        "toolName": "sign",
+        "toolVersion": "1.0"
+        }
+        ]
+    displayName: Sign Agent Assemblies (Strong Name Signing)
 
 - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@1
   inputs:
     ConnectedServiceName: VSTSAgentESRP
-    FolderPath: '${{ parameters.layoutRoot }}\bin'
-    Pattern: AgentService.exe
-    signConfigType: inlineSignParams
-    inlineOperation: |
-      [{
-      "keyCode": "CP-235845-SN",
-      "operationSetCode": "StrongNameSign",
-      "parameters": [],
-      "toolName": "sign",
-      "toolVersion": "1.0"
-      },
-      {
-      "keyCode": "CP-235845-SN",
-      "operationSetCode": "StrongNameVerify",
-      "parameters": [],
-      "toolName": "sign",
-      "toolVersion": "1.0"
-      }
-      ]
-  displayName: Sign Agent Assemblies (Strong Name Signing)
-
-- task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@1
-  inputs:
-    ConnectedServiceName: VSTSAgentESRP
-    FolderPath: '${{ parameters.layoutRoot }}\bin'
+    FolderPath: '${{ parameters.layoutRoot }}/bin'
     Pattern: |
       Agent.*.dll
       Agent.*.exe
@@ -137,19 +136,25 @@ steps:
     FolderPath: '${{ parameters.layoutRoot }}'
     Pattern: |
       bin\Ben.Demystifier.dll
+      bin\CommandLine.dll
       bin\DotNet.Glob.dll
       bin\Minimatch.dll
       bin\NCrontab.Signed.dll
       bin\Newtonsoft.Json.dll
       bin\Newtonsoft.Json.Bson.dll
+      bin\RocksDbNative.dll
+      bin\RocksDbSharp.dll
       bin\RuntimeContracts.dll
       bin\System.Interactive.Async.dll
       bin\System.IO.Abstractions.dll
+      bin\System.Linq.Async.dll
       bin\YamlDotNet.dll
+      bin\native\amd64\rocksdb.dll
       externals\git\**\*.dll
       externals\git\**\*.exe
       externals\node\bin\node.exe
       externals\node10\bin\node.exe
+      externals\node14\bin\node.exe
       externals\vstshost\Minimatch.dll
       externals\vstsom\Newtonsoft.Json.dll
       externals\tf\Newtonsoft.Json.dll

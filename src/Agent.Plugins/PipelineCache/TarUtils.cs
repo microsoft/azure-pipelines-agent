@@ -214,7 +214,7 @@ namespace Agent.Plugins.PipelineCache
             // The list of input files is piped in through the 'additionalTaskToExecuteWhilstRunningProcess' parameter
             var processArguments = $"-cf \"{archiveFileName}\" -C \"{tarWorkingDirectory}\" -T -";
 
-            if (IsSystemDebugTrue(context))
+            if (context.IsSystemDebugTrue())
             {
                 processArguments = "-v " + processArguments;
             }
@@ -244,7 +244,7 @@ namespace Agent.Plugins.PipelineCache
             {
                 processFileName = "7z";
                 processArguments = $"x -si -aoa -o\"{tarWorkingDirectory}\" -ttar";
-                if (IsSystemDebugTrue(context))
+                if (context.IsSystemDebugTrue())
                 {
                     processArguments = "-bb1 " + processArguments;
                 }
@@ -254,7 +254,7 @@ namespace Agent.Plugins.PipelineCache
                 processFileName = GetTar(context);
                 // Instead of targetDirectory, we are providing . to tar, because the tar process is being started from workingDirectory.
                 processArguments = $"-xf - -C .";
-                if (IsSystemDebugTrue(context))
+                if (context.IsSystemDebugTrue())
                 {
                     processArguments = "-v " + processArguments;
                 }
@@ -289,15 +289,6 @@ namespace Agent.Plugins.PipelineCache
         private static string CreateArchiveFileName()
         {
             return $"{Guid.NewGuid().ToString("N")}_{archive}";
-        }
-
-        private static bool IsSystemDebugTrue(AgentTaskPluginExecutionContext context)
-        {
-            if (context.Variables.TryGetValue("system.debug", out VariableValue systemDebugVar))
-            {
-                return string.Equals(systemDebugVar?.Value, "true", StringComparison.OrdinalIgnoreCase);
-            }
-            return false;
         }
 
         private static bool CheckIf7ZExists()

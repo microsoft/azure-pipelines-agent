@@ -130,7 +130,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Add mask hints for secret variables
             foreach (var variable in (message.Variables ?? new Dictionary<string, VariableValue>()))
             {
-                if (variable.Value.IsSecret && !string.IsNullOrEmpty(variable.Value.Value))
+                // Skip secrets which are just white spaces.
+                if (variable.Value.IsSecret && !string.IsNullOrWhiteSpace(variable.Value.Value))
                 {
                     AddUserSuppliedSecret(variable.Value.Value);
                     // also, we escape some characters for variables when we print them out in debug mode. We need to

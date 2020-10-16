@@ -42,10 +42,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
-        [Fact]
+        [Theory]
+        [InlineData("node10")]
+        [InlineData("node14")]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public void UseNode10ForNode10Handler()
+        public void UseNewNodeForNewNodeHandler(string nodeVersion)
         {
             using (TestHostContext thc = CreateTestHostContext())
             {
@@ -56,25 +58,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 nodeHandler.Initialize(thc);
                 nodeHandler.ExecutionContext = CreateTestExecutionContext(thc);
-                nodeHandler.Data = new Node10HandlerData();
+                nodeHandler.Data = nodeVersion == "node14" ? (BaseNodeHandlerData) new Node14HandlerData() :  (BaseNodeHandlerData) new Node10HandlerData();
 
                 string actualLocation = nodeHandler.GetNodeLocation();
                 string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
-                    "node10",
+                    nodeVersion,
                     "bin",
                     $"node{IOUtil.ExeExtension}");
                 Assert.Equal(expectedLocation, actualLocation);
             }
         }
 
-        [Fact]
+        [Theory]
+        [InlineData("node10")]
+        [InlineData("node14")]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public void UseNode10ForNodeHandlerEnvVarSet()
+        public void UseNewNodeForNodeHandlerEnvVarSet(string nodeVersion)
         {
             try
             {
-                Environment.SetEnvironmentVariable("AGENT_USE_NODE10", "true");
+                Environment.SetEnvironmentVariable(nodeVersion == "node14" ? "AGENT_USE_NODE14" : "AGENT_USE_NODE10", "true");
 
                 using (TestHostContext thc = CreateTestHostContext())
                 {
@@ -85,11 +89,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                     nodeHandler.Initialize(thc);
                     nodeHandler.ExecutionContext = CreateTestExecutionContext(thc);
-                    nodeHandler.Data = new Node10HandlerData();
+                    nodeHandler.Data = nodeVersion == "node14" ? (BaseNodeHandlerData) new Node14HandlerData() :  (BaseNodeHandlerData) new Node10HandlerData();
 
                     string actualLocation = nodeHandler.GetNodeLocation();
                     string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
-                        "node10",
+                        nodeVersion,
                         "bin",
                         $"node{IOUtil.ExeExtension}");
                     Assert.Equal(expectedLocation, actualLocation);
@@ -97,14 +101,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
             finally
             {
-                Environment.SetEnvironmentVariable("AGENT_USE_NODE10", null);
+                Environment.SetEnvironmentVariable(nodeVersion == "node14" ? "AGENT_USE_NODE14" : "AGENT_USE_NODE10", null);
             }
         }
 
-        [Fact]
+        [Theory]
+        [InlineData("node10")]
+        [InlineData("node14")]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public void UseNode10ForNodeHandlerHostContextVarSet()
+        public void UseNewNodeForNodeHandlerHostContextVarSet(string nodeVersion)
         {
             using (TestHostContext thc = CreateTestHostContext())
             {
@@ -113,27 +119,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 var variables = new Dictionary<string, VariableValue>();
 
-                variables.Add("AGENT_USE_NODE10", new VariableValue("true"));
+                variables.Add(nodeVersion == "node14" ? "AGENT_USE_NODE14" : "AGENT_USE_NODE10", new VariableValue("true"));
 
                 NodeHandler nodeHandler = new NodeHandler();
 
                 nodeHandler.Initialize(thc);
                 nodeHandler.ExecutionContext = CreateTestExecutionContext(thc, variables);
-                nodeHandler.Data = new NodeHandlerData();
+                nodeHandler.Data = nodeVersion == "node14" ? (BaseNodeHandlerData) new Node14HandlerData() :  (BaseNodeHandlerData) new Node10HandlerData();
 
                 string actualLocation = nodeHandler.GetNodeLocation();
                 string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
-                    "node10",
+                    nodeVersion,
                     "bin",
                     $"node{IOUtil.ExeExtension}");
                 Assert.Equal(expectedLocation, actualLocation);
             }
         }
 
-        [Fact]
+        [Theory]
+        [InlineData("node10")]
+        [InlineData("node14")]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public void UseNode10ForNode10HandlerHostContextVarUnset()
+        public void UseNewNodeForNewNodeHandlerHostContextVarUnset(string nodeVersion)
         {
             using (TestHostContext thc = CreateTestHostContext())
             {
@@ -142,19 +150,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 var variables = new Dictionary<string, VariableValue>();
 
-                // Explicitly set 'AGENT_USE_NODE10' feature flag to false
-                variables.Add("AGENT_USE_NODE10", new VariableValue("false"));
+                // Explicitly set variable feature flag to false
+                variables.Add(nodeVersion == "node14" ? "AGENT_USE_NODE14" : "AGENT_USE_NODE10", new VariableValue("false"));
 
                 NodeHandler nodeHandler = new NodeHandler();
 
                 nodeHandler.Initialize(thc);
                 nodeHandler.ExecutionContext = CreateTestExecutionContext(thc, variables);
-                nodeHandler.Data = new Node10HandlerData();
+                nodeHandler.Data = nodeVersion == "node14" ? (BaseNodeHandlerData) new Node14HandlerData() :  (BaseNodeHandlerData) new Node10HandlerData();
 
-                // Node10 handler is unaffected by the 'AGENT_USE_NODE10' feature flag, so folder name should be 'node10'
+                // Node version handler is unaffected by the variable feature flag, so folder name should be 'node10 or node14'
                 string actualLocation = nodeHandler.GetNodeLocation();
                 string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
-                    "node10",
+                    nodeVersion,
                     "bin",
                     $"node{IOUtil.ExeExtension}");
                 Assert.Equal(expectedLocation, actualLocation);

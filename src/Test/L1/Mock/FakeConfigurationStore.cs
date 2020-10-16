@@ -1,3 +1,7 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 
@@ -8,6 +12,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         public string WorkingDirectoryName { get; set; }
 
         public string RootFolder => Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "/TestRuns/" + WorkingDirectoryName;
+
+        public List<SetupInfo> SetupInfo => new List<SetupInfo>();
+
+        private AgentSettings _agentSettings;
 
         public bool IsConfigured()
         {
@@ -34,13 +42,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             return null;
         }
 
+        public IEnumerable<SetupInfo> GetSetupInfo()
+        {
+            return SetupInfo;
+        }
+
         public AgentSettings GetSettings()
         {
-            return new AgentSettings
+            if (_agentSettings == null)
             {
-                AgentName = "TestAgent",
-                WorkFolder = RootFolder + "/w"
-            };
+                _agentSettings = new AgentSettings
+                {
+                    AgentName = "TestAgent",
+                    WorkFolder = RootFolder + "/w"
+                };
+            }
+
+            return _agentSettings;
+        }
+
+        public void UpdateSettings(AgentSettings agentSettings)
+        {
+            _agentSettings = agentSettings;
         }
 
         public void SaveCredential(CredentialData credential)

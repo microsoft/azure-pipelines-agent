@@ -408,7 +408,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 // 2. The bearer token is not valid until {jwt.ValidFrom}. Current server time is {DateTime.UtcNow}.
                 Trace.Error("Catch exception during test agent connection.");
                 Trace.Error(ex);
-                throw new Exception(StringUtil.Loc("LocalClockSkewed"));
+                throw new InvalidOperationException(StringUtil.Loc("LocalClockSkewed"));
             }
 
             // We will Combine() what's stored with root.  Defaults to string a relative path
@@ -421,6 +421,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             agentSettings.NotificationSocketAddress = command.GetNotificationSocketAddress();
 
+            agentSettings.DisableLogUploads = command.GetDisableLogUploads();
+
+            agentSettings.AlwaysExtractTask = command.GetAlwaysExtractTask();
+            
             _store.SaveSettings(agentSettings);
 
             if (saveProxySetting)
@@ -504,12 +508,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     else if (PlatformUtil.RunningOnLinux)
                     {
                         // unconfig systemd service first
-                        throw new Exception(StringUtil.Loc("UnconfigureServiceDService"));
+                        throw new InvalidOperationException(StringUtil.Loc("UnconfigureServiceDService"));
                     }
                     else if (PlatformUtil.RunningOnMacOS)
                     {
                         // unconfig macOS service first
-                        throw new Exception(StringUtil.Loc("UnconfigureOSXService"));
+                        throw new InvalidOperationException(StringUtil.Loc("UnconfigureOSXService"));
                     }
                 }
                 else
@@ -692,6 +696,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     PublicKey = new TaskAgentPublicKey(publicKey.Exponent, publicKey.Modulus),
                 },
                 MaxParallelism = 1,
+                ProvisioningState = TaskAgentProvisioningStateConstants.Provisioned,
                 Version = BuildConstants.AgentPackage.Version,
                 OSDescription = RuntimeInformation.OSDescription,
             };
@@ -711,26 +716,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _term.WriteLine();
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "locationServer")]
         private async Task<bool> IsHostedServer(string serverUrl, VssCredentials credentials)
         {
             // Determine the service deployment type based on connection data. (Hosted/OnPremises)
             var locationServer = HostContext.GetService<ILocationServer>();
-            using (var connection = VssUtil.CreateConnection(new Uri(serverUrl), credentials))
+            VssConnection connection = VssUtil.CreateConnection(new Uri(serverUrl), credentials);
+            await locationServer.ConnectAsync(connection);
+            try
             {
-                await locationServer.ConnectAsync(connection);
-                try
-                {
-                    var connectionData = await locationServer.GetConnectionDataAsync();
-                    Trace.Info($"Server deployment type: {connectionData.DeploymentType}");
-                    return connectionData.DeploymentType.HasFlag(DeploymentFlags.Hosted);
-                }
-                catch (Exception ex)
-                {
-                    // Since the DeploymentType is Enum, deserialization exception means there is a new Enum member been added.
-                    // It's more likely to be Hosted since OnPremises is always behind and customer can update their agent if are on-prem
-                    Trace.Error(ex);
-                    return true;
-                }
+                var connectionData = await locationServer.GetConnectionDataAsync();
+                Trace.Info($"Server deployment type: {connectionData.DeploymentType}");
+                return connectionData.DeploymentType.HasFlag(DeploymentFlags.Hosted);
+            }
+            catch (Exception ex)
+            {
+                // Since the DeploymentType is Enum, deserialization exception means there is a new Enum member been added.
+                // It's more likely to be Hosted since OnPremises is always behind and customer can update their agent if are on-prem
+                Trace.Error(ex);
+                return true;
             }
         }
     }

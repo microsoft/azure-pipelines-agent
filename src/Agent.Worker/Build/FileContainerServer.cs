@@ -32,6 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         private int _filesProcessed = 0;
         private string _sourceParentDirectory;
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "fileContainerClientConnection")]
         public FileContainerServer(
             VssConnection connection,
             Guid projectId,
@@ -51,10 +52,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 fileContainerClientConnectionSetting.SendTimeout = TimeSpan.FromSeconds(600);
             }
 
-            using (var fileContainerClientConnection = new VssConnection(connection.Uri, connection.Credentials, fileContainerClientConnectionSetting))
-            {
-                _fileContainerHttpClient = fileContainerClientConnection.GetClient<FileContainerHttpClient>();
-            }
+            var fileContainerClientConnection = new VssConnection(connection.Uri, connection.Credentials, fileContainerClientConnectionSetting);
+            _fileContainerHttpClient = fileContainerClientConnection.GetClient<FileContainerHttpClient>();
         }
 
         public async Task<long> CopyToContainerAsync(
@@ -277,7 +276,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 catch (Exception ex)
                 {
                     context.Output(StringUtil.Loc("FileUploadFileOpenFailed", ex.Message, fileToUpload));
-                    throw ex;
+                    throw;
                 }
             }
 

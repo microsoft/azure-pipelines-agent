@@ -93,7 +93,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 if (!command.GetOverwriteAutoLogon(currentAutoLogonAccount))
                 {
                     Trace.Error("Marking the agent configuration as failed due to the denial of autologon setting overwriting by the user.");
-                    throw new Exception(StringUtil.Loc("AutoLogonOverwriteDeniedError", currentAutoLogonAccount));
+                    throw new InvalidOperationException(StringUtil.Loc("AutoLogonOverwriteDeniedError", currentAutoLogonAccount));
                 }
                 Trace.Info($"Continuing with the autologon configuration.");
             }

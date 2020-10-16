@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk.Knob;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -59,11 +60,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             _agentSetting = configurationStore.GetSettings();
             _poolId = _agentSetting.PoolId;
 
-            int channelTimeoutSeconds;
-            if (!int.TryParse(Environment.GetEnvironmentVariable("VSTS_AGENT_CHANNEL_TIMEOUT") ?? string.Empty, out channelTimeoutSeconds))
-            {
-                channelTimeoutSeconds = 30;
-            }
+            int channelTimeoutSeconds = AgentKnobs.AgentChannelTimeout.GetValue(UtilKnobValueContext.Instance()).AsInt();
 
             // _channelTimeout should in range [30,  300] seconds
             _channelTimeout = TimeSpan.FromSeconds(Math.Min(Math.Max(channelTimeoutSeconds, 30), 300));
@@ -474,8 +471,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     // send notification to machine provisioner.
                     var systemConnection = message.Resources.Endpoints.SingleOrDefault(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
                     var accessToken = systemConnection?.Authorization?.Parameters["AccessToken"];
-                    VariableValue identifier = new VariableValue("0");
-                    VariableValue definitionId = new VariableValue("0");
+                    VariableValue identifier = null;
+                    VariableValue definitionId = null;
 
                     if (message.Plan.PlanType == "Build")
                     {
@@ -488,7 +485,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         message.Variables.TryGetValue("release.definitionId", out definitionId);
                     }
 
-                    await notification.JobStarted(message.JobId, accessToken, systemConnection.Url, message.Plan.PlanId, identifier.Value, definitionId.Value, message.Plan.PlanType);
+                    await notification.JobStarted(message.JobId, accessToken, systemConnection.Url, message.Plan.PlanId, (identifier?.Value ?? "0"), (definitionId?.Value ?? "0"), message.Plan.PlanType);
 
                     HostContext.WritePerfCounter($"SentJobToWorker_{requestId.ToString()}");
 
@@ -794,6 +791,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         }
 
         // log an error issue to job level timeline record
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "jobServer")]
         private async Task LogWorkerProcessUnhandledException(Pipelines.AgentJobRequestMessage message, string errorMessage)
         {
             try
@@ -832,17 +830,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     }
                 }
 
-                using (var jobConnection = VssUtil.CreateConnection(jobServerUrl, jobServerCredential))
-                {
-                    await jobServer.ConnectAsync(jobConnection);
-                    var timeline = await jobServer.GetTimelineAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, CancellationToken.None);
-                    ArgUtil.NotNull(timeline, nameof(timeline));
-                    TimelineRecord jobRecord = timeline.Records.FirstOrDefault(x => x.Id == message.JobId && x.RecordType == "Job");
-                    ArgUtil.NotNull(jobRecord, nameof(jobRecord));
-                    jobRecord.ErrorCount++;
-                    jobRecord.Issues.Add(new Issue() { Type = IssueType.Error, Message = errorMessage });
-                    await jobServer.UpdateTimelineRecordsAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, new TimelineRecord[] { jobRecord }, CancellationToken.None);
-                }
+                var jobConnection = VssUtil.CreateConnection(jobServerUrl, jobServerCredential);
+                await jobServer.ConnectAsync(jobConnection);
+                var timeline = await jobServer.GetTimelineAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, CancellationToken.None);
+                ArgUtil.NotNull(timeline, nameof(timeline));
+                TimelineRecord jobRecord = timeline.Records.FirstOrDefault(x => x.Id == message.JobId && x.RecordType == "Job");
+                ArgUtil.NotNull(jobRecord, nameof(jobRecord));
+                jobRecord.ErrorCount++;
+                jobRecord.Issues.Add(new Issue() { Type = IssueType.Error, Message = errorMessage });
+                await jobServer.UpdateTimelineRecordsAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, new TimelineRecord[] { jobRecord }, CancellationToken.None);
             }
             catch (Exception ex)
             {

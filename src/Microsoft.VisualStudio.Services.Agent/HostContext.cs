@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Concurrent;
@@ -22,7 +23,7 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
-    public interface IHostContext : IDisposable
+    public interface IHostContext : IDisposable, IKnobValueContext
     {
         StartupType StartupType { get; set; }
         CancellationToken AgentShutdownToken { get; }
@@ -52,19 +53,6 @@ namespace Microsoft.VisualStudio.Services.Agent
     public class HostContext : EventListener, IObserver<DiagnosticListener>, IObserver<KeyValuePair<string, object>>, IHostContext
     {
         private const int _defaultLogPageSize = 8;  //MB
-
-        // URLs can contain secrets if they have a userinfo part
-        // in the authority. example: https://user:pass@example.com
-        // (see https://tools.ietf.org/html/rfc3986#section-3.2)
-        // This regex will help filter those out of the output.
-        // It uses a zero-width positive lookbehind to find the scheme,
-        // the user, and the ":" and skip them. Similarly, it uses
-        // a zero-width positive lookahead to find the "@".
-        // It only matches on the password part.
-        private const string _urlSecretMaskerPattern
-            = "(?<=//[^:/?#\\n]+:)" // lookbehind
-            + "[^@\n]+"             // actual match
-            + "(?=@)";              // lookahead
 
         private static int _defaultLogRetentionDays = 30;
         private static int[] _vssHttpMethodEventIds = new int[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 24 };
@@ -100,7 +88,14 @@ namespace Microsoft.VisualStudio.Services.Agent
             this.SecretMasker.AddValueEncoder(ValueEncoders.JsonStringEscape);
             this.SecretMasker.AddValueEncoder(ValueEncoders.UriDataEscape);
             this.SecretMasker.AddValueEncoder(ValueEncoders.BackslashEscape);
-            this.SecretMasker.AddRegex(_urlSecretMaskerPattern);
+            this.SecretMasker.AddRegex(AdditionalMaskingRegexes.UrlSecretPattern);
+            if (AgentKnobs.MaskUsingCredScanRegexes.GetValue(this).AsBoolean())
+            {
+                foreach (var pattern in AdditionalMaskingRegexes.CredScanPatterns)
+                {
+                    this.SecretMasker.AddRegex(pattern);
+                }
+            }
 
             // Create the trace manager.
             if (string.IsNullOrEmpty(logFile))
@@ -132,8 +127,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             _vssTrace = GetTrace(nameof(VisualStudio) + nameof(VisualStudio.Services));  // VisualStudioService
 
             // Enable Http trace
-            bool enableHttpTrace;
-            if (bool.TryParse(Environment.GetEnvironmentVariable("VSTS_AGENT_HTTPTRACE"), out enableHttpTrace) && enableHttpTrace)
+            if (AgentKnobs.HttpTrace.GetValue(this).AsBoolean())
             {
                 _trace.Warning("*****************************************************************************************");
                 _trace.Warning("**                                                                                     **");
@@ -147,7 +141,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
 
             // Enable perf counter trace
-            string perfCounterLocation = Environment.GetEnvironmentVariable("VSTS_AGENT_PERFLOG");
+            string perfCounterLocation = AgentKnobs.AgentPerflog.GetValue(this).AsString();
             if (!string.IsNullOrEmpty(perfCounterLocation))
             {
                 try
@@ -230,7 +224,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     break;
 
                 case WellKnownDirectory.Tools:
-                    path = Environment.GetEnvironmentVariable("AGENT_TOOLSDIRECTORY") ?? Environment.GetEnvironmentVariable(Constants.Variables.Agent.ToolsDirectory);
+                    path = AgentKnobs.AgentToolsDirectory.GetValue(this).AsString();
                     if (string.IsNullOrEmpty(path))
                     {
                         path = Path.Combine(
@@ -342,6 +336,13 @@ namespace Microsoft.VisualStudio.Services.Agent
                         GetDirectory(WellKnownDirectory.Root),
                         ".options");
                     break;
+
+                case WellKnownConfigFile.SetupInfo:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        ".setup_info");
+                    break;
+
                 default:
                     throw new NotSupportedException($"Unexpected well known config file: '{configFile}'");
             }
@@ -519,6 +520,16 @@ namespace Microsoft.VisualStudio.Services.Agent
                     }
                 }
             }
+        }
+
+        string IKnobValueContext.GetVariableValueOrDefault(string variableName)
+        {
+            throw new NotSupportedException("Method not supported for Microsoft.VisualStudio.Services.Agent.HostContext");
+        }
+
+        IScopedEnvironment IKnobValueContext.GetScopedEnvironment()
+        {
+            return new SystemEnvironment();
         }
 
         protected virtual void Dispose(bool disposing)
