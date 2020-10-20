@@ -205,6 +205,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public bool Value { get; set; }
         public string Trace { get; set; }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2225: Operator overloads have named")]
         public static implicit operator ConditionResult(bool value)
         {
             return new ConditionResult(value);

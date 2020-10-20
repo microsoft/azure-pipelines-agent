@@ -183,6 +183,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             });
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1721: Property names should not match get methods")]
         public IHostContext GetHostContext()
         {
             return HostContext;

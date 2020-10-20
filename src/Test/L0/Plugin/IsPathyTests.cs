@@ -15,7 +15,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         public void Fingerprint_IsPath()
         {
             Action<string,bool> assertPath = (path, isPath) =>
-                Assert.True(isPath == FingerprintCreator.IsPathyKeySegment(path), $"IsPathy({path}) should have returned {isPath}.");
+                Assert.True(isPath == FingerprintCreator.IsPathySegment(path), $"IsPathy({path}) should have returned {isPath}.");
             assertPath(@"''", false);
             assertPath(@"Windows_NT", false);
             assertPath(@"README.md", true);

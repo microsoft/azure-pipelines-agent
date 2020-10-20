@@ -9,7 +9,7 @@ using Agent.Sdk;
 using Microsoft.VisualStudio.Services.PipelineCache.WebApi;
 
 namespace Agent.Plugins.PipelineCache
-{    
+{
     public class RestorePipelineCacheV0 : PipelineCacheTaskPluginBase
     {
         public override string Stage => "main";
@@ -18,7 +18,8 @@ namespace Agent.Plugins.PipelineCache
             AgentTaskPluginExecutionContext context,
             Fingerprint fingerprint,
             Func<Fingerprint[]> restoreKeysGenerator,
-            string path,
+            string[] pathSegments,
+            string workspaceRoot,
             CancellationToken token)
         {
             context.SetTaskVariable(RestoreStepRanVariableName, RestoreStepRanVariableValue);
@@ -27,10 +28,11 @@ namespace Agent.Plugins.PipelineCache
             var server = new PipelineCacheServer();
             Fingerprint[] restoreFingerprints = restoreKeysGenerator();
             await server.DownloadAsync(
-                context, 
-                (new [] { fingerprint}).Concat(restoreFingerprints).ToArray(),
-                path,
+                context,
+                (new[] { fingerprint }).Concat(restoreFingerprints).ToArray(),
+                pathSegments,
                 context.GetInput(PipelineCacheTaskPluginConstants.CacheHitVariable, required: false),
+                workspaceRoot,
                 token);
         }
     }

@@ -162,6 +162,7 @@ namespace Agent.Plugins.Repository
         }
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA1505: Avoid unmaintainable code")]
     public abstract class GitSourceProvider : ISourceProvider
     {
         // refs prefix
@@ -815,9 +816,9 @@ namespace Agent.Plugins.Repository
 
             if (IsPullRequest(sourceBranch))
             {
-                // Build a 'fetch-by-commit' refspec iff the server allows us to do so
+                // Build a 'fetch-by-commit' refspec iff the server allows us to do so in the shallow fetch scenario
                 // Otherwise, fall back to fetch all branches and pull request ref
-                if (fetchByCommit && !string.IsNullOrEmpty(sourceVersion))
+                if (fetchDepth > 0 && fetchByCommit && !string.IsNullOrEmpty(sourceVersion))
                 {
                     refFetchedByCommit = $"{_remoteRefsPrefix}{sourceVersion}";
                     additionalFetchSpecs.Add($"+{sourceVersion}:{refFetchedByCommit}");
@@ -830,9 +831,9 @@ namespace Agent.Plugins.Repository
             }
             else
             {
-                // Build a refspec iff the server allows us to fetch a specific commit
+                // Build a refspec iff the server allows us to fetch a specific commit in the shallow fetch scenario
                 // Otherwise, use the default fetch behavior (i.e. with no refspecs)
-                if (fetchByCommit && !string.IsNullOrEmpty(sourceVersion))
+                if (fetchDepth > 0 && fetchByCommit && !string.IsNullOrEmpty(sourceVersion))
                 {
                     refFetchedByCommit = $"{_remoteRefsPrefix}{sourceVersion}";
                     additionalFetchSpecs.Add($"+{sourceVersion}:{refFetchedByCommit}");
@@ -843,6 +844,19 @@ namespace Agent.Plugins.Repository
             if (exitCode_fetch != 0)
             {
                 throw new InvalidOperationException($"Git fetch failed with exit code: {exitCode_fetch}");
+            }
+
+            // If checking out by commit, explicity fetch it
+            // This is done as a separate fetch rather than adding an additional refspec on the proceeding fetch to prevent overriding previous behavior which may have dependencies in other tasks
+            // i.e. "git fetch origin" versus "git fetch origin commit"
+            if (fetchByCommit && !string.IsNullOrEmpty(sourceVersion))
+            {
+                List<string> commitFetchSpecs = new List<string>() { $"+{sourceVersion}:{_remoteRefsPrefix}{sourceVersion}" };
+                exitCode_fetch = await gitCommandManager.GitFetch(executionContext, targetPath, "origin", fetchDepth, commitFetchSpecs, string.Join(" ", additionalFetchArgs), cancellationToken);
+                if (exitCode_fetch != 0)
+                {
+                    throw new InvalidOperationException($"Git fetch failed with exit code: {exitCode_fetch}");
+                }
             }
 
             // Checkout

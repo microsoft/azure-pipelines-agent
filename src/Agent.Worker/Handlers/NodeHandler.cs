@@ -113,12 +113,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             else
             {
                 file = GetNodeLocation();
-            }
 
-            ExecutionContext.Debug("Using node path: " + file);
-            if (!File.Exists(file))
-            {
-                throw new FileNotFoundException(StringUtil.Loc("MissingNodePath", file));
+                ExecutionContext.Debug("Using node path: " + file);
+                if (!File.Exists(file))
+                {
+                    throw new FileNotFoundException(StringUtil.Loc("MissingNodePath", file));
+                }
             }
 
             // Format the arguments passed to node.

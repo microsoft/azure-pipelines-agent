@@ -330,7 +330,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                         //Act
                         //first invocation will download and unzip the task from mocked IJobServer
                         await _taskManager.DownloadAsync(_ec.Object, tasks);
-                        //second and third invocations should find the task in the cache and do nothing
+                        //second and third invocations should find the task in the cache and only unzip
                         await _taskManager.DownloadAsync(_ec.Object, tasks);
                         await _taskManager.DownloadAsync(_ec.Object, tasks);
 
@@ -356,129 +356,36 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public async void PreservesTaskZipTaskWhenInSignatureVerificationMode()
+        public void PreservesTaskZipTaskWhenInSignatureVerification()
         {
-            try
-            {
-                //Arrange
-                using (var tokenSource = new CancellationTokenSource())
-                using (var _hc = Setup(tokenSource, signatureVerificationEnabled: true))
-                {
-                    var bingGuid = Guid.NewGuid();
-                    string bingTaskName = "Bing";
-                    string bingVersion = "1.21.2";
-                    var tasks = new List<Pipelines.TaskStep>
-                    {
-                        new Pipelines.TaskStep()
-                        {
-                            Enabled = true,
-                            Reference = new Pipelines.TaskStepDefinitionReference()
-                            {
-                                Name = bingTaskName,
-                                Version = bingVersion,
-                                Id = bingGuid
-                            }
-                        },
-                        new Pipelines.TaskStep()
-                        {
-                            Enabled = true,
-                            Reference = new Pipelines.TaskStepDefinitionReference()
-                            {
-                                Name = bingTaskName,
-                                Version = bingVersion,
-                                Id = bingGuid
-                            }
-                        }
-                    };
-                    using (var stream = GetZipStream())
-                    {
-                        _taskServer
-                            .Setup(x => x.GetTaskContentZipAsync(
-                                bingGuid,
-                                It.Is<TaskVersion>(y => string.Equals(y.ToString(), bingVersion, StringComparison.Ordinal)),
-                                It.IsAny<CancellationToken>()))
-                            .Returns(Task.FromResult<Stream>(stream));
+            PreservesTaskZipTask(signatureVerification: true);
+        }
 
-                        //Act
-                        //first invocation will download and unzip the task from mocked IJobServer
-                        await _taskManager.DownloadAsync(_ec.Object, tasks);
-                        //second and third invocations should find the task in the cache and do nothing
-                        await _taskManager.DownloadAsync(_ec.Object, tasks);
-                        await _taskManager.DownloadAsync(_ec.Object, tasks);
-
-                        //Assert
-                        //see if the task.json was downloaded
-                        string destDirectory = Path.Combine(
-                            _hc.GetDirectory(WellKnownDirectory.Tasks),
-                            $"{bingTaskName}_{bingGuid}",
-                            bingVersion);
-                        string zipDestDirectory = Path.Combine(_hc.GetDirectory(WellKnownDirectory.TaskZips), $"{bingTaskName}_{bingGuid}_{bingVersion}.zip");
-                        // task.json should exist since we need it for JobExtension.InitializeJob
-                        Assert.True(File.Exists(Path.Combine(destDirectory, Constants.Path.TaskJsonFile)));
-                        // the zip for the task should exist on disk
-                        Assert.True(File.Exists(zipDestDirectory));
-                        //assert download has happened only once, because disabled, duplicate and cached tasks are not downloaded
-                        _taskServer
-                            .Verify(x => x.GetTaskContentZipAsync(It.IsAny<Guid>(), It.IsAny<TaskVersion>(), It.IsAny<CancellationToken>()), Times.Once());
-                    }
-                }
-            }
-            finally
-            {
-                Teardown();
-            }
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void PreservesTaskZipTaskWhenAlwaysExtractTask()
+        {
+            PreservesTaskZipTask(alwaysExtractTask: true);
         }
 
         // TODO: Add test for Extract
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void ExtractsAnAlreadyDownloadedZipToTheCorrectLocation()
+        public void ExtractsAnAlreadyDownloadedZipToTheCorrectLocationWhenInSignatureVerification()
         {
-            try
-            {
-                // Arrange
-                using (var tokenSource = new CancellationTokenSource())
-                using (var _hc = Setup(tokenSource, signatureVerificationEnabled: true))
-                {
-                    var bingGuid = Guid.NewGuid();
-                    string bingTaskName = "Bing";
-                    string bingVersion = "1.21.2";
-                    var taskStep = new Pipelines.TaskStep
-                    {
-                        Name = bingTaskName,
-                        Reference = new Pipelines.TaskStepDefinitionReference
-                        {
-                            Id = bingGuid,
-                            Name = bingTaskName,
-                            Version = bingVersion
-                        }
-                    };
-                    string zipDestDirectory = Path.Combine(_hc.GetDirectory(WellKnownDirectory.TaskZips), $"{bingTaskName}_{bingGuid}_{bingVersion}.zip");
-                    Directory.CreateDirectory(_hc.GetDirectory(WellKnownDirectory.TaskZips));
-                    // write stream to file
-                    using (Stream zipStream = GetZipStream())
-                    using (var fileStream = new FileStream(zipDestDirectory, FileMode.Create, FileAccess.Write))
-                    {
-                        zipStream.CopyTo(fileStream);
-                    }
-
-                    // Act
-                    _taskManager.Extract(_ec.Object, taskStep);
-
-                    // Assert
-                    string destDirectory = Path.Combine(
-                        _hc.GetDirectory(WellKnownDirectory.Tasks),
-                        $"{bingTaskName}_{bingGuid}",
-                        bingVersion);
-                    Assert.True(File.Exists(Path.Combine(destDirectory, Constants.Path.TaskJsonFile)));
-                }
-            }
-            finally
-            {
-                Teardown();
-            }
+            ExtractsAnAlreadyDownloadedZipToTheCorrectLocation(signatureVerification: true);
         }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ExtractsAnAlreadyDownloadedZipToTheCorrectLocationWhenExtractTask()
+        {
+            ExtractsAnAlreadyDownloadedZipToTheCorrectLocation(alwaysExtractTask: true);
+        }
+
 
         [Fact]
         [Trait("Level", "L0")]
@@ -801,7 +708,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             return new FileStream(zipFile, FileMode.Open);
         }
 
-        private TestHostContext Setup(CancellationTokenSource _ecTokenSource, [CallerMemberName] string name = "", bool signatureVerificationEnabled = false)
+        private TestHostContext Setup(
+            CancellationTokenSource _ecTokenSource,
+            [CallerMemberName] string name = "",
+            bool signatureVerificationEnabled = false,
+            bool alwaysExtractTaskEnabled = false)
         {
 
             // Mocks.
@@ -832,8 +743,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     new AgentSettings
                     {
                         Fingerprint = fingerprint,
-                        WorkFolder = _workFolder
+                        WorkFolder = _workFolder,
+                        AlwaysExtractTask = alwaysExtractTaskEnabled
                     });
+
             _hc.SetSingleton<IConfigurationStore>(_configurationStore.Object);
 
             // Instance to test.
@@ -849,6 +762,138 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             if (!string.IsNullOrEmpty(_workFolder) && Directory.Exists(_workFolder))
             {
                 Directory.Delete(_workFolder, recursive: true);
+            }
+        }
+
+        private async void PreservesTaskZipTask(bool signatureVerification = false, bool alwaysExtractTask = false)
+        {
+            try
+            {
+                //Arrange
+                using (var tokenSource = new CancellationTokenSource())
+                using (var _hc = Setup(tokenSource, signatureVerificationEnabled: signatureVerification, alwaysExtractTaskEnabled: alwaysExtractTask))
+                {
+                    var bingGuid = Guid.NewGuid();
+                    string bingTaskName = "Bing";
+                    string bingVersion = "1.21.2";
+                    var tasks = new List<Pipelines.TaskStep>
+                    {
+                        new Pipelines.TaskStep()
+                        {
+                            Enabled = true,
+                            Reference = new Pipelines.TaskStepDefinitionReference()
+                            {
+                                Name = bingTaskName,
+                                Version = bingVersion,
+                                Id = bingGuid
+                            }
+                        },
+                        new Pipelines.TaskStep()
+                        {
+                            Enabled = true,
+                            Reference = new Pipelines.TaskStepDefinitionReference()
+                            {
+                                Name = bingTaskName,
+                                Version = bingVersion,
+                                Id = bingGuid
+                            }
+                        }
+                    };
+                    using (var stream = GetZipStream())
+                    {
+                        _taskServer
+                            .Setup(x => x.GetTaskContentZipAsync(
+                                bingGuid,
+                                It.Is<TaskVersion>(y => string.Equals(y.ToString(), bingVersion, StringComparison.Ordinal)),
+                                It.IsAny<CancellationToken>()))
+                            .Returns(Task.FromResult<Stream>(stream));
+
+                        //Act
+                        //first invocation will download and unzip the task from mocked IJobServer
+                        await _taskManager.DownloadAsync(_ec.Object, tasks);
+
+                        string destDirectory = Path.Combine(
+                            _hc.GetDirectory(WellKnownDirectory.Tasks),
+                            $"{bingTaskName}_{bingGuid}",
+                            bingVersion);
+ 
+                        //see if the task.json was downloaded
+                        string zipDestDirectory = Path.Combine(_hc.GetDirectory(WellKnownDirectory.TaskZips), $"{bingTaskName}_{bingGuid}_{bingVersion}.zip");
+
+                        // task.json should exist since we need it for JobExtension.InitializeJob
+                        Assert.True(File.Exists(Path.Combine(destDirectory, Constants.Path.TaskJsonFile)));
+
+                        // Write a test file
+                        string testFile = Path.Combine(destDirectory, "test.txt");
+                        using (File.Create(testFile)) { } 
+                        Assert.True(File.Exists(testFile));
+
+                        //second and third invocations should find the task in the cache and do nothing
+                        await _taskManager.DownloadAsync(_ec.Object, tasks);
+
+                        // Test file should no longer exist due to a fresh unzip
+                        Assert.False(File.Exists(testFile));
+
+                        await _taskManager.DownloadAsync(_ec.Object, tasks);
+
+                        // the zip for the task should exist on disk
+                        Assert.True(File.Exists(zipDestDirectory));
+                        //assert download has happened only once, because disabled, duplicate and cached tasks are not downloaded
+                        _taskServer
+                            .Verify(x => x.GetTaskContentZipAsync(It.IsAny<Guid>(), It.IsAny<TaskVersion>(), It.IsAny<CancellationToken>()), Times.Once());
+                    }
+                }
+            }
+            finally
+            {
+                Teardown();
+            }
+        }
+
+        private void ExtractsAnAlreadyDownloadedZipToTheCorrectLocation(bool signatureVerification = true, bool alwaysExtractTask = true)
+        {
+            try
+            {
+                // Arrange
+                using (var tokenSource = new CancellationTokenSource())
+                using (var _hc = Setup(tokenSource, signatureVerificationEnabled: signatureVerification, alwaysExtractTaskEnabled: alwaysExtractTask))
+                {
+                    var bingGuid = Guid.NewGuid();
+                    string bingTaskName = "Bing";
+                    string bingVersion = "1.21.2";
+                    var taskStep = new Pipelines.TaskStep
+                    {
+                        Name = bingTaskName,
+                        Reference = new Pipelines.TaskStepDefinitionReference
+                        {
+                            Id = bingGuid,
+                            Name = bingTaskName,
+                            Version = bingVersion
+                        }
+                    };
+                    string zipDestDirectory = Path.Combine(_hc.GetDirectory(WellKnownDirectory.TaskZips), $"{bingTaskName}_{bingGuid}_{bingVersion}.zip");
+                    Directory.CreateDirectory(_hc.GetDirectory(WellKnownDirectory.TaskZips));
+                    // write stream to file
+                    using (Stream zipStream = GetZipStream())
+                    using (var fileStream = new FileStream(zipDestDirectory, FileMode.Create, FileAccess.Write))
+                    {
+                        zipStream.CopyTo(fileStream);
+                    }
+
+                    // Act
+                    _taskManager.Extract(_ec.Object, taskStep);
+
+                    // Assert
+                    string destDirectory = Path.Combine(
+                        _hc.GetDirectory(WellKnownDirectory.Tasks),
+                        $"{bingTaskName}_{bingGuid}",
+                        bingVersion);
+                    Assert.True(File.Exists(Path.Combine(destDirectory, Constants.Path.TaskJsonFile)));
+                }
+            }
+            finally
+            {
+                Teardown();
             }
         }
 

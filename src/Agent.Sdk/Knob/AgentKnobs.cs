@@ -114,6 +114,13 @@ namespace Agent.Sdk.Knob
             new BuiltInDefaultKnobSource("1200")); // 20*60
 
         // HTTP
+        public const string LegacyHttpVariableName = "AZP_AGENT_USE_LEGACY_HTTP";
+        public static readonly Knob UseLegacyHttpHandler = new DeprecatedKnob(
+            nameof(UseLegacyHttpHandler),
+            "Use the libcurl-based HTTP handler rather than .NET's native HTTP handler, as we did on .NET Core 2.1",
+            new EnvironmentKnobSource(LegacyHttpVariableName),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob HttpRetryCount = new Knob(
             nameof(HttpRetryCount),
             "Number of times to retry Http requests",

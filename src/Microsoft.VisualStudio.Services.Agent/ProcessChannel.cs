@@ -10,8 +10,10 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1711: Identifiers should not have incorrect suffix")]
     public delegate void StartProcessDelegate(string pipeHandleOut, string pipeHandleIn);
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1008: Enums should have zero value")]
     public enum MessageType
     {
         NotInitialized = -1,

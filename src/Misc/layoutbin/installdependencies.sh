@@ -61,16 +61,6 @@ then
                 exit 1
             fi
             
-            # ubuntu 18 uses libcurl4
-            # ubuntu 14, 16 and other linux use libcurl3
-            apt install -y libcurl4 || apt install -y libcurl3
-            if [ $? -ne 0 ]
-            then
-                echo "'apt' failed with exit code '$?'"
-                print_errormessage
-                exit 1
-            fi
-
 	        # debian 10 uses libssl1.1
             # debian 9 uses libssl1.0.2
             # other debian linux use libssl1.0.0
@@ -102,16 +92,6 @@ then
                     exit 1
                 fi
                 
-                # ubuntu 18 uses libcurl4
-                # ubuntu 14, 16 and other linux use libcurl3
-                apt-get install -y libcurl4 || apt-get install -y libcurl3
-                if [ $? -ne 0 ]
-                then
-                    echo "'apt-get' failed with exit code '$?'"
-                    print_errormessage
-                    exit 1
-                fi
-
                 # debian 10 uses libssl1.1
                 # debian 9 uses libssl1.0.2
                 # other debian linux use libssl1.0.0
@@ -190,7 +170,7 @@ then
                     fi
                 fi       
 
-                dnf install -y lttng-ust libcurl krb5-libs zlib libicu
+                dnf install -y lttng-ust krb5-libs zlib libicu
                 if [ $? -ne 0 ]
                 then
                     echo "'dnf' failed with exit code '$?'"
@@ -206,7 +186,7 @@ then
             command -v yum
             if [ $? -eq 0 ]
             then
-                yum install -y openssl-libs libcurl krb5-libs zlib libicu
+                yum install -y openssl-libs krb5-libs zlib libicu
                 if [ $? -ne 0 ]
                 then                    
                     echo "'yum' failed with exit code '$?'"
@@ -238,7 +218,7 @@ then
             command -v zypper
             if [ $? -eq 0 ]
             then
-                zypper -n install lttng-ust libopenssl1_0_0 libcurl4 krb5 zlib libicu52_1
+                zypper -n install lttng-ust libopenssl1_0_0 krb5 zlib libicu52_1
                 if [ $? -ne 0 ]
                 then
                     echo "'zypper' failed with exit code '$?'"
