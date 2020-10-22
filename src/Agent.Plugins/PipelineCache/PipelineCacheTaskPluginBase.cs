@@ -31,26 +31,28 @@ namespace Agent.Plugins.PipelineCache
         public abstract String Stage { get; }
         public const string ResolvedFingerPrintVariableName = "RESTORE_STEP_RESOLVED_FINGERPRINT";
 
-        internal static (bool isOldFormat, string[] keySegments,IEnumerable<string[]> restoreKeys) ParseIntoSegments(string salt, string key, string restoreKeysBlock)
+        internal static (bool isOldFormat, string[] keySegments, IEnumerable<string[]> restoreKeys, string[] pathSegments) ParseIntoSegments(string salt, string key, string restoreKeysBlock, string path)
         {
-            Func<string,string[]> splitAcrossPipes = (s) => {
-                var segments = s.Split(new [] {'|'},StringSplitOptions.RemoveEmptyEntries).Select(segment => segment.Trim());
-                if(!string.IsNullOrWhiteSpace(salt))
+            Func<string, string[]> splitAcrossPipes = (s) =>
+            {
+                var segments = s.Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries).Select(segment => segment.Trim());
+                if (!string.IsNullOrWhiteSpace(salt))
                 {
-                    segments = (new [] { $"{SaltVariableName}={salt}"}).Concat(segments);
+                    segments = (new[] { $"{SaltVariableName}={salt}" }).Concat(segments);
                 }
                 return segments.ToArray();
             };
 
-            Func<string,string[]> splitAcrossNewlines = (s) => 
+            Func<string, string[]> splitAcrossNewlines = (s) =>
                 s.Replace("\r\n", "\n") //normalize newlines
-                 .Split(new [] {'\n'}, StringSplitOptions.RemoveEmptyEntries)
+                 .Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries)
                  .Select(line => line.Trim())
                  .ToArray();
-            
+
             string[] keySegments;
+            string[] pathSegments;
             bool isOldFormat = key.Contains('\n');
-            
+
             IEnumerable<string[]> restoreKeys;
             bool hasRestoreKeys = !string.IsNullOrWhiteSpace(restoreKeysBlock);
 
@@ -58,7 +60,7 @@ namespace Agent.Plugins.PipelineCache
             {
                 throw new ArgumentException(OldKeyFormatMessage);
             }
-            
+
             if (isOldFormat)
             {
                 keySegments = splitAcrossNewlines(key);
@@ -67,7 +69,9 @@ namespace Agent.Plugins.PipelineCache
             {
                 keySegments = splitAcrossPipes(key);
             }
-            
+
+            // Path can be a list of path segments to include in cache
+            pathSegments = splitAcrossPipes(path);
 
             if (hasRestoreKeys)
             {
@@ -78,9 +82,9 @@ namespace Agent.Plugins.PipelineCache
                 restoreKeys = Enumerable.Empty<string[]>();
             }
 
-            return (isOldFormat, keySegments, restoreKeys);
+            return (isOldFormat, keySegments, restoreKeys, pathSegments);
         }
-        
+
         public async virtual Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
             ArgUtil.NotNull(context, nameof(context));
@@ -93,8 +97,10 @@ namespace Agent.Plugins.PipelineCache
 
             string key = context.GetInput(PipelineCacheTaskPluginConstants.Key, required: true);
             string restoreKeysBlock = context.GetInput(PipelineCacheTaskPluginConstants.RestoreKeys, required: false);
+            // TODO: Translate path from container to host (Ting)
+            string path = context.GetInput(PipelineCacheTaskPluginConstants.Path, required: true);
 
-            (bool isOldFormat, string[] keySegments, IEnumerable<string[]> restoreKeys) = ParseIntoSegments(salt, key, restoreKeysBlock);
+            (bool isOldFormat, string[] keySegments, IEnumerable<string[]> restoreKeys, string[] pathSegments) = ParseIntoSegments(salt, key, restoreKeysBlock, path);
 
             if (isOldFormat)
             {
@@ -102,26 +108,26 @@ namespace Agent.Plugins.PipelineCache
             }
 
             context.Output("Resolving key:");
-            Fingerprint keyFp = FingerprintCreator.EvaluateKeyToFingerprint(context, workspaceRoot, keySegments);
+            Fingerprint keyFp = FingerprintCreator.EvaluateToFingerprint(context, workspaceRoot, keySegments, FingerprintType.Key);
             context.Output($"Resolved to: {keyFp}");
 
-            Func<Fingerprint[]> restoreKeysGenerator = () => 
-                restoreKeys.Select(restoreKey => {
+            Func<Fingerprint[]> restoreKeysGenerator = () =>
+                restoreKeys.Select(restoreKey =>
+                {
                     context.Output("Resolving restore key:");
-                    Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, workspaceRoot, restoreKey);
-                    f.Segments = f.Segments.Concat(new [] { Fingerprint.Wildcard} ).ToArray();
+                    Fingerprint f = FingerprintCreator.EvaluateToFingerprint(context, workspaceRoot, restoreKey, FingerprintType.Key);
+                    f.Segments = f.Segments.Concat(new[] { Fingerprint.Wildcard }).ToArray();
                     context.Output($"Resolved to: {f}");
                     return f;
                 }).ToArray();
 
-            // TODO: Translate path from container to host (Ting)
-            string path = context.GetInput(PipelineCacheTaskPluginConstants.Path, required: true);
 
             await ProcessCommandInternalAsync(
                 context,
                 keyFp,
                 restoreKeysGenerator,
-                path,
+                pathSegments,
+                workspaceRoot,
                 token);
         }
 
@@ -130,7 +136,8 @@ namespace Agent.Plugins.PipelineCache
             AgentTaskPluginExecutionContext context,
             Fingerprint fingerprint,
             Func<Fingerprint[]> restoreKeysGenerator,
-            string path,
+            string[] pathSegments,
+            string workspaceRoot,
             CancellationToken token);
 
         // Properties set by tasks
