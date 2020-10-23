@@ -66,6 +66,9 @@ parameters:
   type: boolean
   default: false
 
+- name: useNode10
+  type: boolean
+  default: false
 
 jobs:
 
@@ -78,6 +81,8 @@ jobs:
     container: ${{ parameters.container }}
 
   variables:
+    ${{ if parameters.useNode10 }}:
+      AGENT_USE_NODE10: true
     ${{ if eq(parameters.os, 'win') }}:
       devCommand: dev.cmd
     ${{ if ne(parameters.os, 'win') }}:

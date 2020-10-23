@@ -132,6 +132,7 @@ stages:
         functionalTests: false
         sign: false
         publishArtifact: ${{ parameters.publishArtifacts }}
+        useNode10: true
 
   # Linux (ARM64)
   - ${{ if parameters.linux_arm64 }}:
@@ -169,6 +170,7 @@ stages:
         functionalTests: ${{ parameters.test }}
         sign: false
         publishArtifact: ${{ parameters.publishArtifacts }}
+        useNode10: true
 
   # macOS x64
   - ${{ if parameters.macOS_x64 }}:
