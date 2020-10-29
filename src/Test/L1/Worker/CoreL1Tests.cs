@@ -58,7 +58,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
                 message.Steps.Clear();
                 // Add variable setting tasks
-                message.Steps.Add(CreateScriptTask("echo Hey!"));
+                message.Steps.Add(CreateNode10ScriptTask("echo Hey!"));
 
                 // Act
                 var results = await RunWorker(message);
@@ -83,7 +83,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                     var log = GetTimelineLogLines(steps[1]);
                     Assert.Equal(1, log.Where(x => x.Contains("Using node path:") && x.Contains("node10")).Count());
                 }
-
             }
             finally
             {
