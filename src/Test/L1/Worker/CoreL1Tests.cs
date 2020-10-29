@@ -4,6 +4,7 @@
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using System;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -73,6 +74,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 {
                     Assert.Equal(expectedSteps[idx], steps[idx].Name);
                 }
+
+                // CmdLineV2 runs on powershell on windows
+                if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    // Assert we used Node 10 from debug logs
+                    System.Diagnostics.Debugger.Launch();
+                    var log = GetTimelineLogLines(steps[1]);
+                    Assert.Equal(1, log.Where(x => x.Contains("Using node path:") && x.Contains("node10")).Count());
+                }
+
             }
             finally
             {
