@@ -44,7 +44,43 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             }
         }
 
-                [Theory]
+        [Fact]
+        [Trait("Level", "L1")]
+        [Trait("Category", "Worker")]
+        public async Task Test_Base_Node10()
+        {
+            try
+            {
+                // Arrange
+                SetupL1();
+                var message = LoadTemplateMessage();
+
+                message.Steps.Clear();
+                // Add variable setting tasks
+                message.Steps.Add(CreateScriptTask("echo Hey!"));
+
+                // Act
+                var results = await RunWorker(message);
+
+                // Assert
+                AssertJobCompleted();
+                Assert.Equal(TaskResult.Succeeded, results.Result);
+
+                var steps = GetSteps();
+                var expectedSteps = new[] { "Initialize job", "CmdLine", "Finalize Job" };
+                Assert.Equal(3, steps.Count()); // Init, CmdLine, Finalize
+                for (var idx = 0; idx < steps.Count; idx++)
+                {
+                    Assert.Equal(expectedSteps[idx], steps[idx].Name);
+                }
+            }
+            finally
+            {
+                TearDown();
+            }
+        }
+
+        [Theory]
         [InlineData(false)]
         [InlineData(true)]
         [Trait("Level", "L1")]

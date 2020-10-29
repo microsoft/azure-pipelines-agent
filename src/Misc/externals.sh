@@ -207,6 +207,8 @@ fi
 if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
     # cmdline task
     acquireExternalTool "$CONTAINER_URL/l1Tasks/d9bafed4-0b18-4f58-968d-86655b4d2ce9.zip" "Tasks" false dont_uncompress
+    # cmdline node10 task
+    acquireExternalTool "$CONTAINER_URL/l1Tasks/e9bafed4-0b18-4f58-968d-86655b4d2ce9.zip" "Tasks" false dont_uncompress
 
     # with the current setup of this package there are backslashes so it fails to extract on non-windows at runtime
     # we may need to fix this in the Agent
