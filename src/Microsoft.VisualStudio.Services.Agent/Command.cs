@@ -36,7 +36,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public string Data { get; set; }
 
-        public static bool TryParse(IExecutionContext context, string message, out Command command)
+        public static bool TryParse(string message, out Command command)
         {
             command = null;
             if (string.IsNullOrEmpty(message))
@@ -94,12 +94,12 @@ namespace Microsoft.VisualStudio.Services.Agent
                         string[] pair = propertyStr.Split(new[] { '=' }, count: 2, options: StringSplitOptions.RemoveEmptyEntries);
                         if (pair.Length == 2)
                         {
-                            command.Properties[pair[0]] = Unescape(context, pair[1]);
+                            command.Properties[pair[0]] = Unescape(pair[1]);
                         }
                     }
                 }
 
-                command.Data = Unescape(context, message.Substring(rbIndex + 1));
+                command.Data = Unescape(message.Substring(rbIndex + 1));
                 return true;
             }
             catch
@@ -109,7 +109,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        private static string Unescape(IExecutionContext context, string escaped)
+        private static string Unescape(string escaped)
         {
             if (string.IsNullOrEmpty(escaped))
             {
@@ -122,11 +122,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 unescaped = unescaped.Replace(mapping.Replacement, mapping.Token);
             }
 
-            if (AgentKnobs.DecodePercents.GetValue(UtilKnobValueContext.Instance()).ToString() == "")
-            {
-                context.Warning("%25 detected in ##vso command. In January 2021, the agent command parser will be updated to unescape this to %. To opt out of this behavior, set environment variable DECODE_PERCENTS to false. More information can be found at https://github.com/microsoft/azure-pipelines-agent/blob/master/docs/design/percentEncoding.md");
-            }
-            else if (AgentKnobs.DecodePercents.GetValue(UtilKnobValueContext.Instance()).AsBoolean())
+            if (AgentKnobs.DecodePercents.GetValue(UtilKnobValueContext.Instance()).AsBoolean())
             {
                 unescaped = unescaped.Replace("%25", "%");
             }
