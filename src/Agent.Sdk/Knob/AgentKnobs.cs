@@ -74,13 +74,6 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_USE_NODE10"),
             new BuiltInDefaultKnobSource("false"));
 
-        public static readonly Knob UseNode14 = new Knob(
-            nameof(UseNode14),
-            "Forces the agent to use Node 14 handler for all Node-based tasks",
-            new RuntimeKnobSource("AGENT_USE_NODE14"),
-            new EnvironmentKnobSource("AGENT_USE_NODE14"),
-            new BuiltInDefaultKnobSource("false"));
-
         // Agent logging
         public static readonly Knob AgentPerflog = new Knob(
             nameof(AgentPerflog),
