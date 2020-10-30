@@ -8,6 +8,8 @@ CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
 NODE_URL=https://nodejs.org/dist
 NODE_VERSION="6.17.1"
 NODE10_VERSION="10.21.0"
+# Node 14 is currently disabled and will not be downloaded.
+# To enable Node 14, uncomment the relevant acquireExternalTool lines below
 NODE14_VERSION="14.11.0"
 MINGIT_VERSION="2.28.0"
 
@@ -152,8 +154,8 @@ if [[ "$PACKAGERUNTIME" == "win-x64" ]]; then
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/win-x64/node.lib" node/bin
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x64/node.exe" node10/bin
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x64/node.lib" node10/bin
-    acquireExternalTool "$NODE_URL/v${NODE14_VERSION}/win-x64/node.exe" node14/bin
-    acquireExternalTool "$NODE_URL/v${NODE14_VERSION}/win-x64/node.lib" node14/bin
+    #acquireExternalTool "$NODE_URL/v${NODE14_VERSION}/win-x64/node.exe" node14/bin
+    #acquireExternalTool "$NODE_URL/v${NODE14_VERSION}/win-x64/node.lib" node14/bin
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v3.3.0/nuget.exe" nuget
 fi
 
@@ -167,8 +169,8 @@ if [[ "$PACKAGERUNTIME" == "win-x86" ]]; then
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/win-x86/node.lib" node/bin
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x86/node.exe" node10/bin
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x86/node.lib" node10/bin
-    acquireExternalTool "$NODE_URL/v${NODE14_VERSION}/win-x86/node.exe" node14/bin
-    acquireExternalTool "$NODE_URL/v${NODE14_VERSION}/win-x86/node.lib" node14/bin
+    #acquireExternalTool "$NODE_URL/v${NODE14_VERSION}/win-x86/node.exe" node14/bin
+    #acquireExternalTool "$NODE_URL/v${NODE14_VERSION}/win-x86/node.lib" node14/bin
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v3.3.0/nuget.exe" nuget
 fi
 
@@ -176,7 +178,7 @@ fi
 if [[ "$PACKAGERUNTIME" == "osx-x64" ]]; then
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-darwin-x64.tar.gz" node fix_nested_dir
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-darwin-x64.tar.gz" node10 fix_nested_dir
-    acquireExternalTool "$NODE_URL/v${NODE14_VERSION}/node-v${NODE14_VERSION}-darwin-x64.tar.gz" node14 fix_nested_dir
+    #acquireExternalTool "$NODE_URL/v${NODE14_VERSION}/node-v${NODE14_VERSION}-darwin-x64.tar.gz" node14 fix_nested_dir
 fi
 
 # Download the external tools common across OSX and Linux PACKAGERUNTIMEs.
@@ -189,19 +191,19 @@ fi
 if [[ "$PACKAGERUNTIME" == "linux-x64" || "$PACKAGERUNTIME" == "rhel.6-x64" ]]; then
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz" node fix_nested_dir
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-linux-x64.tar.gz" node10 fix_nested_dir
-    acquireExternalTool "$NODE_URL/v${NODE14_VERSION}/node-v${NODE14_VERSION}-linux-x64.tar.gz" node14 fix_nested_dir
+    #acquireExternalTool "$NODE_URL/v${NODE14_VERSION}/node-v${NODE14_VERSION}-linux-x64.tar.gz" node14 fix_nested_dir
 fi
 
 if [[ "$PACKAGERUNTIME" == "linux-arm" ]]; then
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-armv7l.tar.gz" node fix_nested_dir
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-linux-armv7l.tar.gz" node10 fix_nested_dir
-    acquireExternalTool "$NODE_URL/v${NODE14_VERSION}/node-v${NODE14_VERSION}-linux-armv7l.tar.gz" node14 fix_nested_dir
+    #acquireExternalTool "$NODE_URL/v${NODE14_VERSION}/node-v${NODE14_VERSION}-linux-armv7l.tar.gz" node14 fix_nested_dir
 fi
 
 if [[ "$PACKAGERUNTIME" == "linux-arm64" ]]; then
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-arm64.tar.gz" node fix_nested_dir
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-linux-arm64.tar.gz" node10 fix_nested_dir
-    acquireExternalTool "$NODE_URL/v${NODE14_VERSION}/node-v${NODE14_VERSION}-linux-arm64.tar.gz" node14 fix_nested_dir
+    #acquireExternalTool "$NODE_URL/v${NODE14_VERSION}/node-v${NODE14_VERSION}-linux-arm64.tar.gz" node14 fix_nested_dir
 fi
 
 if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
