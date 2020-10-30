@@ -4,6 +4,7 @@
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using System;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -44,7 +45,52 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             }
         }
 
-                [Theory]
+        [Fact]
+        [Trait("Level", "L1")]
+        [Trait("Category", "Worker")]
+        public async Task Test_Base_Node10()
+        {
+            try
+            {
+                // Arrange
+                SetupL1();
+                var message = LoadTemplateMessage();
+
+                message.Steps.Clear();
+                // Add variable setting tasks
+                message.Steps.Add(CreateNode10ScriptTask("echo Hey!"));
+
+                // Act
+                var results = await RunWorker(message);
+
+                // Assert
+                AssertJobCompleted();
+                Assert.Equal(TaskResult.Succeeded, results.Result);
+
+                var steps = GetSteps();
+                var expectedSteps = new[] { "Initialize job", "CmdLine", "Finalize Job" };
+                Assert.Equal(3, steps.Count()); // Init, CmdLine, Finalize
+                for (var idx = 0; idx < steps.Count; idx++)
+                {
+                    Assert.Equal(expectedSteps[idx], steps[idx].Name);
+                }
+
+                // CmdLineV2 runs on powershell on windows
+                if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    // Assert we used Node 10 from debug logs
+                    System.Diagnostics.Debugger.Launch();
+                    var log = GetTimelineLogLines(steps[1]);
+                    Assert.Equal(1, log.Where(x => x.Contains("Using node path:") && x.Contains("node10")).Count());
+                }
+            }
+            finally
+            {
+                TearDown();
+            }
+        }
+
+        [Theory]
         [InlineData(false)]
         [InlineData(true)]
         [Trait("Level", "L1")]

@@ -104,7 +104,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         'endpoint': {{
           'name': 'SystemVssConnection'
         }}
-      }}", 
+      }}",
             Guid.NewGuid(), repoAlias);
         }
 
@@ -122,6 +122,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                     Id = Guid.Parse("d9bafed4-0b18-4f58-968d-86655b4d2ce9"),
                     Name = "CmdLine",
                     Version = "2.164.0"
+                },
+                Name = "CmdLine",
+                DisplayName = "CmdLine",
+                Id = Guid.NewGuid()
+            };
+            step.Inputs.Add("script", script);
+
+            return step;
+        }
+
+        protected static TaskStep CreateNode10ScriptTask(string script)
+        {
+            var step = new TaskStep
+            {
+                Reference = new TaskStepDefinitionReference
+                {
+                    Id = Guid.Parse("e9bafed4-0b18-4f58-968d-86655b4d2ce9"),
+                    Name = "CmdLine",
+                    Version = "2.177.3"
                 },
                 Name = "CmdLine",
                 DisplayName = "CmdLine",
