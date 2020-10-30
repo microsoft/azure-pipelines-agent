@@ -4,6 +4,7 @@
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -15,8 +16,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             new EscapeMapping(token: ";", replacement: "%3B"),
             new EscapeMapping(token: "\r", replacement: "%0D"),
             new EscapeMapping(token: "\n", replacement: "%0A"),
-            new EscapeMapping(token: "]", replacement: "%5D"),
-            new EscapeMapping(token: "%", replacement: "%25")
+            new EscapeMapping(token: "]", replacement: "%5D")
         };
         private readonly Dictionary<string, string> _properties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
@@ -120,6 +120,11 @@ namespace Microsoft.VisualStudio.Services.Agent
             foreach (EscapeMapping mapping in s_escapeMappings)
             {
                 unescaped = unescaped.Replace(mapping.Replacement, mapping.Token);
+            }
+
+            if (AgentKnobs.DecodePercents.GetValue(UtilKnobValueContext.Instance()).ToBoolean())
+            {
+                unescaped = unescaped.Replace("%25", "%");
             }
 
             return unescaped;

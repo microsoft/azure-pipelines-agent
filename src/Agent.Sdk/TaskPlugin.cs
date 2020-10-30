@@ -333,6 +333,10 @@ namespace Agent.Sdk
 
         private string Escape(string input)
         {
+            if (AgentKnobs.DecodePercents.GetValue(UtilKnobValueContext.Instance()).ToBoolean())
+            {
+                input = input.Replace("%", "%25");
+            }
             foreach (var mapping in _commandEscapeMappings)
             {
                 input = input.Replace(mapping.Key, mapping.Value);
