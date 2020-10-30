@@ -351,8 +351,11 @@ namespace Agent.Sdk
             return new SystemEnvironment();
         }
 
-        private Dictionary<string, string> _commandEscapeMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        private Dictionary<string, string> _commandEscapeMappings = new OrderedDictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
+            {
+                "%", "%25"
+            },
             {
                 ";", "%3B"
             },

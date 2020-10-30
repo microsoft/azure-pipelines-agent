@@ -12,11 +12,11 @@ namespace Microsoft.VisualStudio.Services.Agent
         private const string LoggingCommandPrefix = "##vso[";
         private static readonly EscapeMapping[] s_escapeMappings = new[]
         {
-            // TODO: What about %?
             new EscapeMapping(token: ";", replacement: "%3B"),
             new EscapeMapping(token: "\r", replacement: "%0D"),
             new EscapeMapping(token: "\n", replacement: "%0A"),
             new EscapeMapping(token: "]", replacement: "%5D"),
+            new EscapeMapping(token: "%", replacement: "%25")
         };
         private readonly Dictionary<string, string> _properties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
