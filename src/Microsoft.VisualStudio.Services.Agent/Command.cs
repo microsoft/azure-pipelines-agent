@@ -122,7 +122,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 unescaped = unescaped.Replace(mapping.Replacement, mapping.Token);
             }
 
-            if (AgentKnobs.DecodePercents.GetValue(UtilKnobValueContext.Instance()).ToBoolean())
+            if (AgentKnobs.DecodePercents.GetValue(UtilKnobValueContext.Instance()).AsBoolean())
             {
                 unescaped = unescaped.Replace("%25", "%");
             }

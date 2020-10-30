@@ -333,7 +333,7 @@ namespace Agent.Sdk
 
         private string Escape(string input)
         {
-            if (AgentKnobs.DecodePercents.GetValue(UtilKnobValueContext.Instance()).ToBoolean())
+            if (AgentKnobs.DecodePercents.GetValue(UtilKnobValueContext.Instance()).AsBoolean())
             {
                 input = input.Replace("%", "%25");
             }
