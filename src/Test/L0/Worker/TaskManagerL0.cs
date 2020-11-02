@@ -516,7 +516,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     {
                         // Process handler should only be deserialized on Windows.
                         Assert.NotNull(definition.Data.Execution.Process); // execution.Process
-                        Assert.Equal(definition.Data.Execution.Process, definition.Data.Execution.All[3]);
+                        Assert.Equal(definition.Data.Execution.Process, definition.Data.Execution.All[2]);
                         Assert.Equal("Some process argument format", definition.Data.Execution.Process.ArgumentFormat);
                         Assert.NotNull(definition.Data.Execution.Process.Platforms);
                         Assert.Equal(1, definition.Data.Execution.Process.Platforms.Length);
