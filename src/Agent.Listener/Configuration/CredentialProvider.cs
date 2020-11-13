@@ -84,6 +84,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             LoggerCallbackHandler.UseDefaultLogging = false;
             AuthenticationContext ctx = new AuthenticationContext(tenantAuthorityUrl.AbsoluteUri);
             var queryParameters = $"redirect_uri={Uri.EscapeDataString(new Uri(serverUrl).GetLeftPart(UriPartial.Authority))}";
+            if (PlatformUtil.RunningOnMacOS)
+            {
+                throw new Exception("AAD isn't supported for MacOS");
+            }
             DeviceCodeResult codeResult = ctx.AcquireDeviceCodeAsync("https://management.core.windows.net/", _azureDevOpsClientId, queryParameters).GetAwaiter().GetResult();
 
             var term = context.GetService<ITerminal>();
@@ -99,10 +103,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     else if (PlatformUtil.RunningOnLinux)
                     {
                         Process.Start(new ProcessStartInfo() { FileName = "xdg-open", Arguments = codeResult.VerificationUrl });
-                    }
-                    else if (PlatformUtil.RunningOnMacOS)
-                    {
-                        Process.Start(new ProcessStartInfo() { FileName = "open", Arguments = codeResult.VerificationUrl });
                     }
                     else
                     {
