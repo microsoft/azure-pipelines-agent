@@ -169,7 +169,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                     else if (handlerData is BaseNodeHandlerData || handlerData is PowerShell3HandlerData)
                     {
-                        // Only the node, node10, node14, and powershell3 handlers support running inside container.
+                        // Only the node, node10, and powershell3 handlers support running inside container.
                         // Make sure required container is already created.
                         ArgUtil.NotNullOrEmpty(containerTarget.ContainerId, nameof(containerTarget.ContainerId));
                         var containerStepHost = HostContext.CreateService<IContainerStepHost>();

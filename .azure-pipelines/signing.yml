@@ -154,7 +154,6 @@ steps:
       externals\git\**\*.exe
       externals\node\bin\node.exe
       externals\node10\bin\node.exe
-      externals\node14\bin\node.exe
       externals\vstshost\Minimatch.dll
       externals\vstsom\Newtonsoft.Json.dll
       externals\tf\Newtonsoft.Json.dll

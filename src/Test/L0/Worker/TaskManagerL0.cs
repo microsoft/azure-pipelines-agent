@@ -454,10 +454,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             ""target"": ""Some Node10 target"",
             ""extraNodeArg"": ""Extra node10 arg value""
         },
-        ""Node14"": {
-            ""target"": ""Some Node14 target"",
-            ""extraNodeArg"": ""Extra node14 arg value""
-        },
         ""Process"": {
             ""target"": ""Some process target"",
             ""argumentFormat"": ""Some process argument format"",
@@ -498,12 +494,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     if (TestUtil.IsWindows())
                     {
                         // Process handler should only be deserialized on Windows.
-                        Assert.Equal(4, definition.Data.Execution.All.Count);
+                        Assert.Equal(3, definition.Data.Execution.All.Count);
                     }
                     else
                     {
                         // Only the Node handlers should be deserialized on non-Windows.
-                        Assert.Equal(3, definition.Data.Execution.All.Count);
+                        Assert.Equal(2, definition.Data.Execution.All.Count);
                     }
 
                     // Node handler should always be deserialized.
@@ -516,16 +512,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     Assert.Equal(definition.Data.Execution.Node10, definition.Data.Execution.All[1]);
                     Assert.Equal("Some Node10 target", definition.Data.Execution.Node10.Target);
 
-                    // Node14 handler should always be deserialized.
-                    Assert.NotNull(definition.Data.Execution.Node14); // execution.Node14
-                    Assert.Equal(definition.Data.Execution.Node14, definition.Data.Execution.All[2]);
-                    Assert.Equal("Some Node14 target", definition.Data.Execution.Node14.Target);
-
                     if (TestUtil.IsWindows())
                     {
                         // Process handler should only be deserialized on Windows.
                         Assert.NotNull(definition.Data.Execution.Process); // execution.Process
-                        Assert.Equal(definition.Data.Execution.Process, definition.Data.Execution.All[3]);
+                        Assert.Equal(definition.Data.Execution.Process, definition.Data.Execution.All[2]);
                         Assert.Equal("Some process argument format", definition.Data.Execution.Process.ArgumentFormat);
                         Assert.NotNull(definition.Data.Execution.Process.Platforms);
                         Assert.Equal(1, definition.Data.Execution.Process.Platforms.Length);
@@ -816,7 +807,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                             _hc.GetDirectory(WellKnownDirectory.Tasks),
                             $"{bingTaskName}_{bingGuid}",
                             bingVersion);
- 
+
                         //see if the task.json was downloaded
                         string zipDestDirectory = Path.Combine(_hc.GetDirectory(WellKnownDirectory.TaskZips), $"{bingTaskName}_{bingGuid}_{bingVersion}.zip");
 
@@ -825,7 +816,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
                         // Write a test file
                         string testFile = Path.Combine(destDirectory, "test.txt");
-                        using (File.Create(testFile)) { } 
+                        using (File.Create(testFile)) { }
                         Assert.True(File.Exists(testFile));
 
                         //second and third invocations should find the task in the cache and do nothing

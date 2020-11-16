@@ -195,7 +195,7 @@ function Get-CLIArchitecture-From-Architecture([string]$Architecture) {
         { $_ -eq "x86" } { return "x86" }
         { $_ -eq "arm" } { return "arm" }
         { $_ -eq "arm64" } { return "arm64" }
-        default { throw "Architecture not supported. If you think this is a bug, report it at https://github.com/dotnet/sdk/issues" }
+        default { throw "Architecture '$Architecture' not supported. If you think this is a bug, report it at https://github.com/dotnet/install-scripts/issues" }
     }
 }
 
@@ -395,17 +395,20 @@ function Get-Specific-Version-From-Version([string]$AzureFeed, [string]$Channel,
 function Get-Download-Link([string]$AzureFeed, [string]$SpecificVersion, [string]$CLIArchitecture) {
     Say-Invocation $MyInvocation
 
+    # If anything fails in this lookup it will default to $SpecificVersion
+    $SpecificProductVersion = Get-Product-Version -AzureFeed $AzureFeed -SpecificVersion $SpecificVersion
+
     if ($Runtime -eq "dotnet") {
-        $PayloadURL = "$AzureFeed/Runtime/$SpecificVersion/dotnet-runtime-$SpecificVersion-win-$CLIArchitecture.zip"
+        $PayloadURL = "$AzureFeed/Runtime/$SpecificVersion/dotnet-runtime-$SpecificProductVersion-win-$CLIArchitecture.zip"
     }
     elseif ($Runtime -eq "aspnetcore") {
-        $PayloadURL = "$AzureFeed/aspnetcore/Runtime/$SpecificVersion/aspnetcore-runtime-$SpecificVersion-win-$CLIArchitecture.zip"
+        $PayloadURL = "$AzureFeed/aspnetcore/Runtime/$SpecificVersion/aspnetcore-runtime-$SpecificProductVersion-win-$CLIArchitecture.zip"
     }
     elseif ($Runtime -eq "windowsdesktop") {
-        $PayloadURL = "$AzureFeed/Runtime/$SpecificVersion/windowsdesktop-runtime-$SpecificVersion-win-$CLIArchitecture.zip"
+        $PayloadURL = "$AzureFeed/Runtime/$SpecificVersion/windowsdesktop-runtime-$SpecificProductVersion-win-$CLIArchitecture.zip"
     }
     elseif (-not $Runtime) {
-        $PayloadURL = "$AzureFeed/Sdk/$SpecificVersion/dotnet-sdk-$SpecificVersion-win-$CLIArchitecture.zip"
+        $PayloadURL = "$AzureFeed/Sdk/$SpecificVersion/dotnet-sdk-$SpecificProductVersion-win-$CLIArchitecture.zip"
     }
     else {
         throw "Invalid value for `$Runtime"
@@ -413,7 +416,7 @@ function Get-Download-Link([string]$AzureFeed, [string]$SpecificVersion, [string
 
     Say-Verbose "Constructed primary named payload URL: $PayloadURL"
 
-    return $PayloadURL
+    return $PayloadURL, $SpecificProductVersion
 }
 
 function Get-LegacyDownload-Link([string]$AzureFeed, [string]$SpecificVersion, [string]$CLIArchitecture) {
@@ -432,6 +435,51 @@ function Get-LegacyDownload-Link([string]$AzureFeed, [string]$SpecificVersion, [
     Say-Verbose "Constructed legacy named payload URL: $PayloadURL"
 
     return $PayloadURL
+}
+
+function Get-Product-Version([string]$AzureFeed, [string]$SpecificVersion) {
+    Say-Invocation $MyInvocation
+
+    if ($Runtime -eq "dotnet") {
+        $ProductVersionTxtURL = "$AzureFeed/Runtime/$SpecificVersion/productVersion.txt"
+    }
+    elseif ($Runtime -eq "aspnetcore") {
+        $ProductVersionTxtURL = "$AzureFeed/aspnetcore/Runtime/$SpecificVersion/productVersion.txt"
+    }
+    elseif ($Runtime -eq "windowsdesktop") {
+        $ProductVersionTxtURL = "$AzureFeed/Runtime/$SpecificVersion/productVersion.txt"
+    }
+    elseif (-not $Runtime) {
+        $ProductVersionTxtURL = "$AzureFeed/Sdk/$SpecificVersion/productVersion.txt"
+    }
+    else {
+        throw "Invalid value '$Runtime' specified for `$Runtime"
+    }
+
+    Say-Verbose "Checking for existence of $ProductVersionTxtURL"
+
+    try {
+        $productVersionResponse = GetHTTPResponse($productVersionTxtUrl)
+
+        if ($productVersionResponse.StatusCode -eq 200) {
+            $productVersion = $productVersionResponse.Content.ReadAsStringAsync().Result.Trim()
+            if ($productVersion -ne $SpecificVersion)
+            {
+                Say "Using alternate version $productVersion found in $ProductVersionTxtURL"
+            }
+
+            return $productVersion
+        }
+        else {
+            Say-Verbose "Got StatusCode $($productVersionResponse.StatusCode) trying to get productVersion.txt at $productVersionTxtUrl, so using default value of $SpecificVersion"
+            $productVersion = $SpecificVersion
+        }
+    } catch {
+        Say-Verbose "Could not read productVersion.txt at $productVersionTxtUrl, so using default value of $SpecificVersion (Exception: '$($_.Exception.Message)' )"
+        $productVersion = $SpecificVersion
+    }
+
+    return $productVersion
 }
 
 function Get-User-Share-Path() {
@@ -587,9 +635,14 @@ function Prepend-Sdk-InstallRoot-To-Path([string]$InstallRoot, [string]$BinFolde
     }
 }
 
+Say "Note that the intended use of this script is for Continuous Integration (CI) scenarios, where:"
+Say "- The SDK needs to be installed without user interaction and without admin rights."
+Say "- The SDK installation doesn't need to persist across multiple CI runs."
+Say "To set up a development environment or to run apps, use installers rather than this script. Visit https://dotnet.microsoft.com/download to get the installer.`r`n"
+
 $CLIArchitecture = Get-CLIArchitecture-From-Architecture $Architecture
 $SpecificVersion = Get-Specific-Version-From-Version -AzureFeed $AzureFeed -Channel $Channel -Version $Version -JSonFile $JSonFile
-$DownloadLink = Get-Download-Link -AzureFeed $AzureFeed -SpecificVersion $SpecificVersion -CLIArchitecture $CLIArchitecture
+$DownloadLink, $EffectiveVersion = Get-Download-Link -AzureFeed $AzureFeed -SpecificVersion $SpecificVersion -CLIArchitecture $CLIArchitecture
 $LegacyDownloadLink = Get-LegacyDownload-Link -AzureFeed $AzureFeed -SpecificVersion $SpecificVersion -CLIArchitecture $CLIArchitecture
 
 $InstallRoot = Resolve-Installation-Path $InstallDir
@@ -615,6 +668,11 @@ if ($DryRun) {
         }
     }
     Say "Repeatable invocation: $RepeatableCommand"
+    if ($SpecificVersion -ne $EffectiveVersion)
+    {
+        Say "NOTE: Due to finding a version manifest with this runtime, it would actually install with version '$EffectiveVersion'"
+    }
+
     exit 0
 }
 
@@ -636,6 +694,12 @@ elseif (-not $Runtime) {
 }
 else {
     throw "Invalid value for `$Runtime"
+}
+
+if ($SpecificVersion -ne $EffectiveVersion)
+{
+   Say "Performing installation checks for effective version: $EffectiveVersion"
+   $SpecificVersion = $EffectiveVersion
 }
 
 #  Check if the SDK version is already installed.
@@ -714,14 +778,15 @@ Remove-Item $ZipPath
 
 Prepend-Sdk-InstallRoot-To-Path -InstallRoot $InstallRoot -BinFolderRelativePath $BinFolderRelativePath
 
+Say "Note that the script does not resolve dependencies during installation."
+Say "To check the list of dependencies, go to https://docs.microsoft.com/dotnet/core/install/windows#dependencies"
 Say "Installation finished"
 exit 0
-
 # SIG # Begin signature block
 # MIIjlgYJKoZIhvcNAQcCoIIjhzCCI4MCAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCCXdb9pJ+MI1iFd
-# 2hUVOaNmZYt6e48+bQNJm9/Rbj3u3qCCDYUwggYDMIID66ADAgECAhMzAAABiK9S
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCA+isugNMwZSGLd
+# kfBd0C2Ud//U2Nbj31s1jg3Yf9gh4KCCDYUwggYDMIID66ADAgECAhMzAAABiK9S
 # 1rmSbej5AAAAAAGIMA0GCSqGSIb3DQEBCwUAMH4xCzAJBgNVBAYTAlVTMRMwEQYD
 # VQQIEwpXYXNoaW5ndG9uMRAwDgYDVQQHEwdSZWRtb25kMR4wHAYDVQQKExVNaWNy
 # b3NvZnQgQ29ycG9yYXRpb24xKDAmBgNVBAMTH01pY3Jvc29mdCBDb2RlIFNpZ25p
@@ -798,50 +863,50 @@ exit 0
 # b25kMR4wHAYDVQQKExVNaWNyb3NvZnQgQ29ycG9yYXRpb24xKDAmBgNVBAMTH01p
 # Y3Jvc29mdCBDb2RlIFNpZ25pbmcgUENBIDIwMTECEzMAAAGIr1LWuZJt6PkAAAAA
 # AYgwDQYJYIZIAWUDBAIBBQCgga4wGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQw
-# HAYKKwYBBAGCNwIBCzEOMAwGCisGAQQBgjcCARUwLwYJKoZIhvcNAQkEMSIEIM9C
-# NU8DMdIjlVSldghA1uP8Jf60AlCYNoHBHHW3pscjMEIGCisGAQQBgjcCAQwxNDAy
+# HAYKKwYBBAGCNwIBCzEOMAwGCisGAQQBgjcCARUwLwYJKoZIhvcNAQkEMSIEIK4I
+# CDH7/r/eeMqTtDETJ67ogfneVRo0/P6ogV2vy4tXMEIGCisGAQQBgjcCAQwxNDAy
 # oBSAEgBNAGkAYwByAG8AcwBvAGYAdKEagBhodHRwOi8vd3d3Lm1pY3Jvc29mdC5j
-# b20wDQYJKoZIhvcNAQEBBQAEggEAFwdPmnUSAnwqMM8b4QthX44z3UnhPYm1EtjC
-# /PnpTA5xkFMaoOUhGdiR5tpGPWNgiNRqD5ZSL1JVUqUOpNfybZZqZPz/LnZdS1XB
-# +aj4Orh1Lkbaqq74PQxgRrUR3eyOVHcNTcohPNIb/ZYHqr6cwhqZitGuNEHNtqCk
-# lSRCrfiNlW8PNrpPvUWwIC1Fd+OpgRdGhKFIHTx31if1BH8omViGm4iFdlb5dGz3
-# ibeOm6FfXWwmKJVqVb/vhhemMel8tYNONTl2e+UjPOCy4f7myLiD61irA5T1a0vn
-# vcIV0dRSwh8U5h8JYOEJxn4nydVKlJ5UGMS8eQiKdd42CGs93KGCEvEwghLtBgor
+# b20wDQYJKoZIhvcNAQEBBQAEggEAOnmVmILEjI6ZiuuSOvvTvijidkBez61Vz97A
+# jV3AOsfmUvLpVaTVa1Mt2iPDuq1QLqRPaT7BD8PAUwr91pYllVgEd8NqivCIaCZg
+# QyIRiTmHQxbozWsLcjxMvX2VxSmNKDw7IOHzUbXtmiEGhygyZpdh/uiCj7ziSxp3
+# lQBR8mUE1NL9dxaxKWLhGeORqAepw6nId9oO+mHRh4JRK7uqZOFAES7/21M9vPZi
+# XYilJLgIoyMkvqYSdoouzn6+m74kgzkNkyK9GYz2mmO2BCMnai9Njze2d0+kY+37
+# kt10BmJDw3FHaZ+/fH/TMTgo0ZcAOicP9ccdIh/CzzpU52o+Q6GCEvEwghLtBgor
 # BgEEAYI3AwMBMYIS3TCCEtkGCSqGSIb3DQEHAqCCEsowghLGAgEDMQ8wDQYJYIZI
 # AWUDBAIBBQAwggFVBgsqhkiG9w0BCRABBKCCAUQEggFAMIIBPAIBAQYKKwYBBAGE
-# WQoDATAxMA0GCWCGSAFlAwQCAQUABCCVM7LRYercP7cfHmTrb7lPfKaZCdVbtga7
-# UOM/oLAsHgIGXxb9UghEGBMyMDIwMDgxMzEyMjIwNS40NjZaMASAAgH0oIHUpIHR
+# WQoDATAxMA0GCWCGSAFlAwQCAQUABCBSbhMJwNER+BICn3iLUnPrP8dptyUphcFC
+# A/NsIgnPLwIGX4hEzP6WGBMyMDIwMTEwOTE0NDY1Mi4yMzNaMASAAgH0oIHUpIHR
 # MIHOMQswCQYDVQQGEwJVUzETMBEGA1UECBMKV2FzaGluZ3RvbjEQMA4GA1UEBxMH
 # UmVkbW9uZDEeMBwGA1UEChMVTWljcm9zb2Z0IENvcnBvcmF0aW9uMSkwJwYDVQQL
 # EyBNaWNyb3NvZnQgT3BlcmF0aW9ucyBQdWVydG8gUmljbzEmMCQGA1UECxMdVGhh
-# bGVzIFRTUyBFU046RjdBNi1FMjUxLTE1MEExJTAjBgNVBAMTHE1pY3Jvc29mdCBU
-# aW1lLVN0YW1wIFNlcnZpY2Wggg5EMIIE9TCCA92gAwIBAgITMwAAASWL3otsciYx
-# 3QAAAAABJTANBgkqhkiG9w0BAQsFADB8MQswCQYDVQQGEwJVUzETMBEGA1UECBMK
+# bGVzIFRTUyBFU046MEE1Ni1FMzI5LTRENEQxJTAjBgNVBAMTHE1pY3Jvc29mdCBU
+# aW1lLVN0YW1wIFNlcnZpY2Wggg5EMIIE9TCCA92gAwIBAgITMwAAAScvbqPvkagZ
+# qAAAAAABJzANBgkqhkiG9w0BAQsFADB8MQswCQYDVQQGEwJVUzETMBEGA1UECBMK
 # V2FzaGluZ3RvbjEQMA4GA1UEBxMHUmVkbW9uZDEeMBwGA1UEChMVTWljcm9zb2Z0
 # IENvcnBvcmF0aW9uMSYwJAYDVQQDEx1NaWNyb3NvZnQgVGltZS1TdGFtcCBQQ0Eg
-# MjAxMDAeFw0xOTEyMTkwMTE0NThaFw0yMTAzMTcwMTE0NThaMIHOMQswCQYDVQQG
+# MjAxMDAeFw0xOTEyMTkwMTE0NTlaFw0yMTAzMTcwMTE0NTlaMIHOMQswCQYDVQQG
 # EwJVUzETMBEGA1UECBMKV2FzaGluZ3RvbjEQMA4GA1UEBxMHUmVkbW9uZDEeMBwG
 # A1UEChMVTWljcm9zb2Z0IENvcnBvcmF0aW9uMSkwJwYDVQQLEyBNaWNyb3NvZnQg
 # T3BlcmF0aW9ucyBQdWVydG8gUmljbzEmMCQGA1UECxMdVGhhbGVzIFRTUyBFU046
-# RjdBNi1FMjUxLTE1MEExJTAjBgNVBAMTHE1pY3Jvc29mdCBUaW1lLVN0YW1wIFNl
-# cnZpY2UwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDQex9jdmBb7OHJ
-# wSYmMUorZNwAcv8Vy36TlJuzcVx7G+lFqt2zjWOMlSOMkm1XoAuJ8VZ5ShBedADX
-# DGDKxHNZhLu3EW8x5ot/IOk6izLTlAFtvIXOgzXs/HaOM72XHKykMZHAdL/fpZtA
-# SM5PalmsXX4Ol8lXkm9jR55K56C7q9+hDU+2tjGHaE1ZWlablNUXBhaZgtCJCd60
-# UyZvgI7/uNzcafj0/Vw2bait9nDAVd24yt/XCZnHY3yX7ZsHjIuHpsl+PpDXai1D
-# we9p0ryCZsl9SOMHextIHe9qlTbtWYJ8WtWLoH9dEMQxVLnmPPDOVmBj7LZhSji3
-# 8N9Vpz/FAgMBAAGjggEbMIIBFzAdBgNVHQ4EFgQU86rK5Qcm+QE5NBXGCPIiCBdD
-# JPgwHwYDVR0jBBgwFoAU1WM6XIoxkPNDe3xGG8UzaFqFbVUwVgYDVR0fBE8wTTBL
+# MEE1Ni1FMzI5LTRENEQxJTAjBgNVBAMTHE1pY3Jvc29mdCBUaW1lLVN0YW1wIFNl
+# cnZpY2UwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQD4Ad5xEZ5On0uN
+# L71ng9xwoDPRKeMUyEIj5yVxPRPh5GVbU7D3pqDsoXzQMhfeRP61L1zlU1HCRS+1
+# 29eo0yj1zjbAlmPAwosUgyIonesWt9E4hFlXCGUcIg5XMdvQ+Ouzk2r+awNRuk8A
+# BGOa0I4VBy6zqCYHyX2pGauiB43frJSNP6pcrO0CBmpBZNjgepof5Z/50vBuJDUS
+# ug6OIMQ7ZwUhSzX4bEmZUUjAycBb62dhQpGqHsXe6ypVDTgAEnGONdSBKkHiNT8H
+# 0Zt2lm0vCLwHyTwtgIdi67T/LCp+X2mlPHqXsY3u72X3GYn/3G8YFCkrSc6m3b0w
+# TXPd5/2fAgMBAAGjggEbMIIBFzAdBgNVHQ4EFgQU5fSWVYBfOTEkW2JTiV24WNNt
+# lfIwHwYDVR0jBBgwFoAU1WM6XIoxkPNDe3xGG8UzaFqFbVUwVgYDVR0fBE8wTTBL
 # oEmgR4ZFaHR0cDovL2NybC5taWNyb3NvZnQuY29tL3BraS9jcmwvcHJvZHVjdHMv
 # TWljVGltU3RhUENBXzIwMTAtMDctMDEuY3JsMFoGCCsGAQUFBwEBBE4wTDBKBggr
 # BgEFBQcwAoY+aHR0cDovL3d3dy5taWNyb3NvZnQuY29tL3BraS9jZXJ0cy9NaWNU
 # aW1TdGFQQ0FfMjAxMC0wNy0wMS5jcnQwDAYDVR0TAQH/BAIwADATBgNVHSUEDDAK
-# BggrBgEFBQcDCDANBgkqhkiG9w0BAQsFAAOCAQEAkxxZPGEgIgAhsqZNTZk58V1v
-# QiJ5ja2xHl5TqGA6Hwj5SioLg3FSLiTmGV+BtFlpYUtkneB4jrZsuNpMtfbTMdG7
-# p/xAyIVtwvXnTXqKlCD1T9Lcr94pVedzHGJzL1TYNQyZJBouCfzkgkzccOuFOfeW
-# PfnMTiI5UBW5OdmoyHPQWDSGHoboW1dTKqXeJtuVDTYbHTKs4zjfCBMFjmylRu52
-# Zpiz+9MBeRj4iAeou0F/3xvIzepoIKgUWCZ9mmViWEkVwCtTGbV8eK73KeEE0tfM
-# U/YY2UmoGPc8YwburDEfelegLW+YHkfrcGAGlftCmqtOdOLeghLoG0Ubx/B7sTCC
+# BggrBgEFBQcDCDANBgkqhkiG9w0BAQsFAAOCAQEACsqNfNFVxwalZ42cEMuzZc12
+# 6Nvluanx8UewDVeUQZEZHRmppMFHAzS/g6RzmxTyR2tKE3mChNGW5dTL730vEbRh
+# nYRmBgiX/gT3f4AQrOPnZGXY7zszcrlbgzxpakOX+x0u4rkP3Ashh3B2CdJ11XsB
+# di5PiZa1spB6U5S8D15gqTUfoIniLT4v1DBdkWExsKI1vsiFcDcjGJ4xRlMRF+fw
+# 7SY0WZoOzwRzKxDTdg4DusAXpaeKbch9iithLFk/vIxQrqCr/niW8tEA+eSzeX/E
+# q1D0ZyvOn4e2lTnwoJUKH6OQAWSBogyK4OCbFeJOqdKAUiBTgHKkQIYh/tbKQjCC
 # BnEwggRZoAMCAQICCmEJgSoAAAAAAAIwDQYJKoZIhvcNAQELBQAwgYgxCzAJBgNV
 # BAYTAlVTMRMwEQYDVQQIEwpXYXNoaW5ndG9uMRAwDgYDVQQHEwdSZWRtb25kMR4w
 # HAYDVQQKExVNaWNyb3NvZnQgQ29ycG9yYXRpb24xMjAwBgNVBAMTKU1pY3Jvc29m
@@ -880,32 +945,32 @@ exit 0
 # VQQGEwJVUzETMBEGA1UECBMKV2FzaGluZ3RvbjEQMA4GA1UEBxMHUmVkbW9uZDEe
 # MBwGA1UEChMVTWljcm9zb2Z0IENvcnBvcmF0aW9uMSkwJwYDVQQLEyBNaWNyb3Nv
 # ZnQgT3BlcmF0aW9ucyBQdWVydG8gUmljbzEmMCQGA1UECxMdVGhhbGVzIFRTUyBF
-# U046RjdBNi1FMjUxLTE1MEExJTAjBgNVBAMTHE1pY3Jvc29mdCBUaW1lLVN0YW1w
-# IFNlcnZpY2WiIwoBATAHBgUrDgMCGgMVAEXTL+FQbc2G+3MXXvIRKVr2oXCnoIGD
+# U046MEE1Ni1FMzI5LTRENEQxJTAjBgNVBAMTHE1pY3Jvc29mdCBUaW1lLVN0YW1w
+# IFNlcnZpY2WiIwoBATAHBgUrDgMCGgMVALOVuE5sgxzETO4s+poBqI6r1x8zoIGD
 # MIGApH4wfDELMAkGA1UEBhMCVVMxEzARBgNVBAgTCldhc2hpbmd0b24xEDAOBgNV
 # BAcTB1JlZG1vbmQxHjAcBgNVBAoTFU1pY3Jvc29mdCBDb3Jwb3JhdGlvbjEmMCQG
 # A1UEAxMdTWljcm9zb2Z0IFRpbWUtU3RhbXAgUENBIDIwMTAwDQYJKoZIhvcNAQEF
-# BQACBQDi3yR1MCIYDzIwMjAwODEzMDYzMTE3WhgPMjAyMDA4MTQwNjMxMTdaMHcw
-# PQYKKwYBBAGEWQoEATEvMC0wCgIFAOLfJHUCAQAwCgIBAAICKbYCAf8wBwIBAAIC
-# EkQwCgIFAOLgdfUCAQAwNgYKKwYBBAGEWQoEAjEoMCYwDAYKKwYBBAGEWQoDAqAK
-# MAgCAQACAwehIKEKMAgCAQACAwGGoDANBgkqhkiG9w0BAQUFAAOBgQBI2hPSmSPK
-# XurK36pE46s0uBEW23aGxotfubZR3iQCxDZ+dcZEN83t2JE4wh4a9HGpzXta/1Yz
-# fgoIxgsI5wogRQF20sCD7x7ZTbpMweqxFCQSGRE8Z2B0FmntXXrEvQtS1ee0PC/1
-# +eD7oAsVwmsSWdQHKfOVBqz51g2S+ImuzTGCAw0wggMJAgEBMIGTMHwxCzAJBgNV
+# BQACBQDjU7byMCIYDzIwMjAxMTA5MTYzOTE0WhgPMjAyMDExMTAxNjM5MTRaMHcw
+# PQYKKwYBBAGEWQoEATEvMC0wCgIFAONTtvICAQAwCgIBAAICIt0CAf8wBwIBAAIC
+# EcQwCgIFAONVCHICAQAwNgYKKwYBBAGEWQoEAjEoMCYwDAYKKwYBBAGEWQoDAqAK
+# MAgCAQACAwehIKEKMAgCAQACAwGGoDANBgkqhkiG9w0BAQUFAAOBgQAQhyIIAC/A
+# P+VJdbhL9IQgm8WTa1DmPPE+BQSuRbBy2MmzC1KostixdEkr2OaNSjcYuZBNIJgv
+# vE8CWhVDD+sbBpVcOdoSfoBwHXKfvqSTiWvovoexkF0X5aon7yr3PkJ/kEqoLyUM
+# xRvdWKJdHOL1sT0/aWHn048c6aGin/zc8DGCAw0wggMJAgEBMIGTMHwxCzAJBgNV
 # BAYTAlVTMRMwEQYDVQQIEwpXYXNoaW5ndG9uMRAwDgYDVQQHEwdSZWRtb25kMR4w
 # HAYDVQQKExVNaWNyb3NvZnQgQ29ycG9yYXRpb24xJjAkBgNVBAMTHU1pY3Jvc29m
-# dCBUaW1lLVN0YW1wIFBDQSAyMDEwAhMzAAABJYvei2xyJjHdAAAAAAElMA0GCWCG
+# dCBUaW1lLVN0YW1wIFBDQSAyMDEwAhMzAAABJy9uo++RqBmoAAAAAAEnMA0GCWCG
 # SAFlAwQCAQUAoIIBSjAaBgkqhkiG9w0BCQMxDQYLKoZIhvcNAQkQAQQwLwYJKoZI
-# hvcNAQkEMSIEIJICFqJn2Gtkce4xbJqSJCqpNLdz4fjym2OW0Ac8zI+nMIH6Bgsq
-# hkiG9w0BCRACLzGB6jCB5zCB5DCBvQQgXd/Gsi5vMF/6iX2CDh+VfmL5RvqaFkFw
-# luiyje9B9w4wgZgwgYCkfjB8MQswCQYDVQQGEwJVUzETMBEGA1UECBMKV2FzaGlu
+# hvcNAQkEMSIEIJZkrbvF4R8oqYYpN6ZPGOj+QEZTQriEi/Yw9gW6zMqRMIH6Bgsq
+# hkiG9w0BCRACLzGB6jCB5zCB5DCBvQQgG5LoSxKGHWoW/wVMlbMztlQ4upAdzEmq
+# H//vLu0jPiIwgZgwgYCkfjB8MQswCQYDVQQGEwJVUzETMBEGA1UECBMKV2FzaGlu
 # Z3RvbjEQMA4GA1UEBxMHUmVkbW9uZDEeMBwGA1UEChMVTWljcm9zb2Z0IENvcnBv
 # cmF0aW9uMSYwJAYDVQQDEx1NaWNyb3NvZnQgVGltZS1TdGFtcCBQQ0EgMjAxMAIT
-# MwAAASWL3otsciYx3QAAAAABJTAiBCBSjc2CBOdr7iaTswYVN8f7KwiN5s4uBEO+
-# JVI8WLhgFzANBgkqhkiG9w0BAQsFAASCAQCfsvzXMzAN1kylt4eAKSH4ryFIJqBH
-# O7jcx7iIA9X6OPTuUmBniZGf2fmFG61V4HlmRgGOXuisJdpU3kiC7EZyFX6ZJoIj
-# kgvCQf4BPu/cLtn2w6odZ68OrTHs7BfBKBr6eQKKcZ/kgRSsjMNinh8tHPlrxE63
-# Zha3mUFfsnX5bi+F4VPhluGvRuA7q3IqMzfA/dTxON9WH5L+t3TwW61VebBaSPkT
-# YevYlj0TTlCw1B3zk0ztU37uulqDi4rFr67VaoR3qrhL/xZ/DsaNXg1V/RXqQRrw
-# eCag1OFRASAQOUOlWSi0QtYgUDl5FKKzxaJTEd946+6mJIkNXZB3nmA1
+# MwAAAScvbqPvkagZqAAAAAABJzAiBCDwhEViCRvqKwQV3MxociF2iGYrDP4p1BK+
+# s4tStO4vSDANBgkqhkiG9w0BAQsFAASCAQAkgmDo8lVmar0ZIqTG1it3skG8PZC9
+# iqEEC1vxcz8OSfsjl2QSkQ5T2+3xWpxWA4uy2+Byv0bi8EsfQEnnn4vtdthS6/kb
+# vB/LLQiqoMhJ0rasf3/y/4KnQZEtztpg1+cCaNwFUgI6o+E8YEFt1frhLwFs/0WH
+# 5pyBFx9ECEs0M22SLIpW13gexv9fgk6ZboIfSreAI28DLveeJpkgwggxHRpuVOVD
+# 4D7QQJAvJ0VU6p+yJlbvQXR9iltwb1REhlsJ5mADJ/FkzPVX/swMSUIoyE2inlxK
+# LEiPkkZYwiFYCifFYUTnQjWU1Ls0EV+ysosL+jhzCxO8S6oRdp5TAi4F
 # SIG # End signature block

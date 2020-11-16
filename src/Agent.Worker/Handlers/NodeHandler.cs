@@ -16,7 +16,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
     [ServiceLocator(Default = typeof(NodeHandler))]
     public interface INodeHandler : IHandler
     {
-        // Data can be of these three types: NodeHandlerData, Node10HandlerData, and Node14HandlerData
+        // Data can be of these two types: NodeHandlerData and Node10HandlerData
         BaseNodeHandlerData Data { get; set; }
     }
 
@@ -163,17 +163,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         public string GetNodeLocation()
         {
             bool useNode10 = AgentKnobs.UseNode10.GetValue(ExecutionContext).AsBoolean();
-            bool useNode14 = AgentKnobs.UseNode14.GetValue(ExecutionContext).AsBoolean();
             bool taskHasNode10Data = Data is Node10HandlerData;
-            bool taskHasNode14Data = Data is Node14HandlerData;
 
             string nodeFolder = "node";
-            if (useNode14 || taskHasNode14Data)
-            {
-                Trace.Info($"Task.json has node14 handler data: {taskHasNode14Data}, use node14 for node tasks: {useNode14}");
-                nodeFolder = "node14";
-            }
-            else if (taskHasNode10Data || useNode10)
+            if (taskHasNode10Data || useNode10)
             {
                 Trace.Info($"Task.json has node10 handler data: {taskHasNode10Data}, use node10 for node tasks: {useNode10}");
                 nodeFolder = "node10";

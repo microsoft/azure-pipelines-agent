@@ -55,7 +55,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             IHandler handler;
             if (data is BaseNodeHandlerData)
             {
-                // Node 6, 10, and 14.
+                // Node 6 and 10.
                 handler = HostContext.CreateService<INodeHandler>();
                 (handler as INodeHandler).Data = data as BaseNodeHandlerData;
             }

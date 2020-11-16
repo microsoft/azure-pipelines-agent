@@ -74,13 +74,6 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_USE_NODE10"),
             new BuiltInDefaultKnobSource("false"));
 
-        public static readonly Knob UseNode14 = new Knob(
-            nameof(UseNode14),
-            "Forces the agent to use Node 14 handler for all Node-based tasks",
-            new RuntimeKnobSource("AGENT_USE_NODE14"),
-            new EnvironmentKnobSource("AGENT_USE_NODE14"),
-            new BuiltInDefaultKnobSource("false"));
-
         // Agent logging
         public static readonly Knob AgentPerflog = new Knob(
             nameof(AgentPerflog),
@@ -196,6 +189,12 @@ namespace Agent.Sdk.Knob
             "By default, the agent trims whitespace and new line characters from all task inputs. Setting this to true disables this behavior.",
             new EnvironmentKnobSource("DISABLE_INPUT_TRIMMING"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob DecodePercents = new Knob(
+            nameof(DecodePercents),
+            "By default, the agent does not decodes %25 as % which may be needed to allow users to work around reserved values. Setting this to true enables this behavior.",
+            new EnvironmentKnobSource("DECODE_PERCENTS"),
+            new BuiltInDefaultKnobSource(""));
     }
 
 }
