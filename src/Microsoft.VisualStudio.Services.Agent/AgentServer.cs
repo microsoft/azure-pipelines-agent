@@ -69,14 +69,17 @@ namespace Microsoft.VisualStudio.Services.Agent
         public async Task ConnectAsync(Uri serverUrl, VssCredentials credentials)
         {
 
-            // Perf: Kick off these 3 outbound calls in parallel and wait for all of them to finish.
-            Task<VssConnection> task1 = EstablishVssConnection(serverUrl, credentials, TimeSpan.FromSeconds(60));
+            // Establish the first connection before doing the rest in parallel to eliminate the redundant 401s.
+            // issue: https://github.com/microsoft/azure-pipelines-agent/issues/3149
+            Task<VssConnection> task1 = EstablishVssConnection(serverUrl, credentials, TimeSpan.FromSeconds(100));
+
+            _genericConnection = await task1;
+
             Task<VssConnection> task2 = EstablishVssConnection(serverUrl, credentials, TimeSpan.FromSeconds(60));
             Task<VssConnection> task3 = EstablishVssConnection(serverUrl, credentials, TimeSpan.FromSeconds(60));
 
-            await Task.WhenAll(task1, task2, task3);
+            await Task.WhenAll(task2, task3);
 
-            _genericConnection = task1.Result;
             _messageConnection = task2.Result;
             _requestConnection = task3.Result;
 
