@@ -8,7 +8,6 @@ CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
 NODE_URL=https://nodejs.org/dist
 NODE_VERSION="6.17.1"
 NODE10_VERSION="10.23.0"
-NODE14_VERSION="14.11.0"
 MINGIT_VERSION="2.28.0"
 
 get_abs_path() {
