@@ -151,7 +151,7 @@ if [[ "$PACKAGERUNTIME" == "win-x64" ]]; then
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/win-x64/node.lib" node/bin
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x64/node.exe" node10/bin
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x64/node.lib" node10/bin
-    acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v3.3.0/nuget.exe" nuget
+    acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v3.4.4/nuget.exe" nuget
 fi
 
 if [[ "$PACKAGERUNTIME" == "win-x86" ]]; then
@@ -164,7 +164,7 @@ if [[ "$PACKAGERUNTIME" == "win-x86" ]]; then
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/win-x86/node.lib" node/bin
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x86/node.exe" node10/bin
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x86/node.lib" node10/bin
-    acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v3.3.0/nuget.exe" nuget
+    acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v3.4.4/nuget.exe" nuget
 fi
 
 # Download the external tools only for OSX.
