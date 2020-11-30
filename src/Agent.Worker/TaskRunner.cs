@@ -113,6 +113,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
                 }
+                else if (settings.AlwaysExtractTask)
+                {
+                    // Only extract if it's not the checkout task.
+                    if (!String.IsNullOrEmpty(definition.ZipPath))
+                    {
+                        taskManager.Extract(ExecutionContext, Task);
+                    }
+                }
 
                 // Print out task metadata
                 PrintTaskMetaData(definition);
