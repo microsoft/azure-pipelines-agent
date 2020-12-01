@@ -178,5 +178,49 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 }
             }
         }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void VerifyTasksTests()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            {
+                // Setup 
+                var taskRunner = new TaskRunner();
+                Mock<IConfigurationStore> store = new Mock<IConfigurationStore>();
+                AgentSettings settings = new AgentSettings();
+                settings.AlwaysExtractTask = true;
+                store.Setup(x => x.GetSettings()).Returns(settings);
+                hc.SetSingleton(store.Object);
+                taskRunner.Initialize(hc);
+                Definition definition = new Definition() { ZipPath = "test" };
+                Mock<ITaskManager> taskManager = new Mock<ITaskManager>();
+                taskManager.Setup(x => x.Extract(It.IsAny<IExecutionContext>(), It.IsAny<Pipelines.TaskStep>()));
+
+                // Each Verify call should Extract since the ZipPath is given and AlwaysExtract = True
+                taskRunner.VerifyTask(taskManager.Object, definition);
+                taskManager.Verify(x => x.Extract(It.IsAny<IExecutionContext>(), It.IsAny<Pipelines.TaskStep>()), Times.Exactly(1));
+                taskRunner.VerifyTask(taskManager.Object, definition);
+                taskManager.Verify(x => x.Extract(It.IsAny<IExecutionContext>(), It.IsAny<Pipelines.TaskStep>()), Times.Exactly(2));
+                taskRunner.VerifyTask(taskManager.Object, definition);
+                taskManager.Verify(x => x.Extract(It.IsAny<IExecutionContext>(), It.IsAny<Pipelines.TaskStep>()), Times.Exactly(3));
+
+                // Verify call should not Extract since AlwaysExtract = False
+                settings.AlwaysExtractTask = false;
+                taskRunner.VerifyTask(taskManager.Object, definition);
+                taskManager.Verify(x => x.Extract(It.IsAny<IExecutionContext>(), It.IsAny<Pipelines.TaskStep>()), Times.Exactly(3));
+
+                // Setting back to AlwaysExtract = true causes Extract to be called
+                settings.AlwaysExtractTask = true;
+                taskRunner.VerifyTask(taskManager.Object, definition);
+                taskManager.Verify(x => x.Extract(It.IsAny<IExecutionContext>(), It.IsAny<Pipelines.TaskStep>()), Times.Exactly(4));
+
+                // Clearing the ZipPath should not Extract
+                definition.ZipPath = null;
+                taskRunner.VerifyTask(taskManager.Object, definition);
+                taskManager.Verify(x => x.Extract(It.IsAny<IExecutionContext>(), It.IsAny<Pipelines.TaskStep>()), Times.Exactly(4));
+            }
+        }
     }
 }
