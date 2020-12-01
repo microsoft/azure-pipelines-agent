@@ -61,16 +61,6 @@ then
                 exit 1
             fi
 
-            # ubuntu 18 uses libcurl4
-            # ubuntu 14, 16 and other linux use libcurl3
-            apt install -y libcurl4 || apt install -y libcurl3
-            if [ $? -ne 0 ]
-            then
-                echo "'apt' failed with exit code '$?'"
-                print_errormessage
-                exit 1
-            fi
-
 	        # debian 10 uses libssl1.1
             # debian 9 uses libssl1.0.2
             # other debian linux use libssl1.0.0
@@ -95,16 +85,6 @@ then
             if [ $? -eq 0 ]
             then
                 apt-get update && apt-get install -y liblttng-ust0 libkrb5-3 zlib1g
-                if [ $? -ne 0 ]
-                then
-                    echo "'apt-get' failed with exit code '$?'"
-                    print_errormessage
-                    exit 1
-                fi
-
-                # ubuntu 18 uses libcurl4
-                # ubuntu 14, 16 and other linux use libcurl3
-                apt-get install -y libcurl4 || apt-get install -y libcurl3
                 if [ $? -ne 0 ]
                 then
                     echo "'apt-get' failed with exit code '$?'"
