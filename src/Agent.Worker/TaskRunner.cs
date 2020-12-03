@@ -76,7 +76,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 ArgUtil.NotNull(definition, nameof(definition));
 
                 // Verify Signatures and Re-Extract Tasks if neccessary
-                VerifyTask(taskManager, definition);
+                await VerifyTask(taskManager, definition);
 
                 // Print out task metadata
                 PrintTaskMetaData(definition);
@@ -343,7 +343,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public async void VerifyTask(ITaskManager taskManager, Definition definition)
+        public async Task VerifyTask(ITaskManager taskManager, Definition definition)
         {
             // Verify task signatures if a fingerprint is configured for the Agent.
             var configurationStore = HostContext.GetService<IConfigurationStore>();
