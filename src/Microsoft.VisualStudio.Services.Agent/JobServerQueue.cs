@@ -78,6 +78,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         private const int _webConsoleLineAggressiveDequeueLimit = 4 * 60;
         private bool _webConsoleLineAggressiveDequeue = true;
         private bool _firstConsoleOutputs = true;
+        private bool _writeToBlobstorageService = false;
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -104,6 +105,11 @@ namespace Microsoft.VisualStudio.Services.Agent
             _planId = jobRequest.Plan.PlanId;
             _jobTimelineId = jobRequest.Timeline.Id;
             _jobTimelineRecordId = jobRequest.JobId;
+
+            if (jobRequest.Variables.TryGetValue("agent.LogToBlobstorageService", out var val))
+            {
+                Boolean.TryParse(val.Value, out _writeToBlobstorageService);
+            }
 
             // Server already create the job timeline
             _timelineUpdateQueue[_jobTimelineId] = new ConcurrentQueue<TimelineRecord>();
@@ -602,10 +608,22 @@ namespace Microsoft.VisualStudio.Services.Agent
                     // Create the log
                     var taskLog = await _jobServer.CreateLogAsync(_scopeIdentifier, _hubName, _planId, new TaskLog(String.Format(@"logs\{0:D}", file.TimelineRecordId)), default(CancellationToken));
 
-                    // Upload the contents
-                    using (FileStream fs = File.Open(file.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    if (_writeToBlobstorageService)
                     {
-                        var logUploaded = await _jobServer.AppendLogContentAsync(_scopeIdentifier, _hubName, _planId, taskLog.Id, fs, default(CancellationToken));
+                        var logUploaded = await _jobServer.UploadLogToBlobstorageService(file.Path, default(CancellationToken));
+
+                        // TODO - remove this, this is just a POC that we can download these
+                        await _jobServer.DownloadAsync(logUploaded.ManifestId, "C:\\Users\\damccorm\\Documents\\trash\\logs\\" + Guid.NewGuid().ToString(), default(CancellationToken));
+
+                        // TODO - Send update to DT (need new client first)
+                    }
+                    else
+                    {
+                        // Upload the contents
+                        using (FileStream fs = File.Open(file.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                        {
+                            var logUploaded = await _jobServer.AppendLogContentAsync(_scopeIdentifier, _hubName, _planId, taskLog.Id, fs, default(CancellationToken));
+                        }
                     }
 
                     // Create a new record and only set the Log field
