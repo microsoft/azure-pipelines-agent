@@ -22,7 +22,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         Task ShutdownAsync();
         void Start(Pipelines.AgentJobRequestMessage jobRequest);
         void QueueWebConsoleLine(Guid stepRecordId, string line, long lineNumber);
-        void QueueFileUpload(Guid timelineId, Guid timelineRecordId, string type, string name, string path, bool deleteSource);
+        void QueueFileUpload(Guid timelineId, Guid timelineRecordId, string type, string name, string path, bool deleteSource, int totalLines = -1);
         void QueueTimelineRecordUpdate(Guid timelineId, TimelineRecord timelineRecord);
     }
 
@@ -173,7 +173,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             _webConsoleLineQueue.Enqueue(new ConsoleLineInfo(stepRecordId, line, lineNumber));
         }
 
-        public void QueueFileUpload(Guid timelineId, Guid timelineRecordId, string type, string name, string path, bool deleteSource)
+        public void QueueFileUpload(Guid timelineId, Guid timelineRecordId, string type, string name, string path, bool deleteSource, int totalLines = -1)
         {
             ArgUtil.NotEmpty(timelineId, nameof(timelineId));
             ArgUtil.NotEmpty(timelineRecordId, nameof(timelineRecordId));
@@ -186,7 +186,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Type = type,
                 Name = name,
                 Path = path,
-                DeleteSource = deleteSource
+                DeleteSource = deleteSource,
+                TotalLines = totalLines
             };
 
             Trace.Verbose("Enqueue file upload queue: file '{0}' attach to record {1}", newFile.Path, timelineRecordId);
@@ -615,7 +616,15 @@ namespace Microsoft.VisualStudio.Services.Agent
                         // TODO - remove this, this is just a POC that we can download these
                         await _jobServer.DownloadAsync(logUploaded.ManifestId, "C:\\Users\\damccorm\\Documents\\trash\\logs\\" + Guid.NewGuid().ToString(), default(CancellationToken));
 
-                        // TODO - Send update to DT (need new client first)
+                        int lineCount = file.TotalLines;
+
+                        // Means no line count was calculated, we need to do this ourselves
+                        if (lineCount <= 0)
+                        {
+                            lineCount = File.ReadLines(file.Path).Count();
+                        }
+
+                        await _jobServer.AssociateLogAsync(_scopeIdentifier, _hubName, _planId, taskLog.Id, logUploaded.ManifestId.ToString(), lineCount, default(CancellationToken));
                     }
                     else
                     {
@@ -673,6 +682,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         public string Name { get; set; }
         public string Path { get; set; }
         public bool DeleteSource { get; set; }
+        public int TotalLines { get; set; }
     }
 
 

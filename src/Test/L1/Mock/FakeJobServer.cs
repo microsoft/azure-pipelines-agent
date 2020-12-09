@@ -10,6 +10,10 @@ using System;
 using Microsoft.VisualStudio.Services.WebApi;
 using System.Linq;
 using Microsoft.VisualStudio.Services.Common;
+using Microsoft.VisualStudio.Services.BlobStore.Common;
+using Microsoft.VisualStudio.Services.BlobStore.WebApi;
+using Microsoft.VisualStudio.Services.Content.Common;
+using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 {
@@ -90,6 +94,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             }
             timeline.Records.AddRange(recordDictionary.Values);
             return Task.FromResult(records.ToList());
+        }
+
+        public Task<TaskLog> AssociateLogAsync(Guid scopeIdentifier, string hubName, Guid planId, int logId, string blobFileId, int lineCount, CancellationToken cancellationToken)
+        {
+            // TODO
+            return null;
+        }
+
+        public Task<PublishResult> UploadLogToBlobstorageService(string sourceFilePath, CancellationToken cancellationToken)
+        {
+            // TODO
+            return null;
+        }
+
+        // TODO - remove this function (here and above)
+        public Task DownloadAsync(DedupIdentifier manifestId, string targetDirectory, CancellationToken cancellationToken)
+        {
+            return null;
         }
 
         public Task RaisePlanEventAsync<T>(Guid scopeIdentifier, string hubName, Guid planId, T eventData, CancellationToken cancellationToken) where T : JobEvent

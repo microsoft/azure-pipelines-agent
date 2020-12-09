@@ -30,6 +30,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         Task<List<TimelineRecord>> UpdateTimelineRecordsAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, IEnumerable<TimelineRecord> records, CancellationToken cancellationToken);
         Task RaisePlanEventAsync<T>(Guid scopeIdentifier, string hubName, Guid planId, T eventData, CancellationToken cancellationToken) where T : JobEvent;
         Task<Timeline> GetTimelineAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, CancellationToken cancellationToken);
+        Task<TaskLog> AssociateLogAsync(Guid scopeIdentifier, string hubName, Guid planId, int logId, string blobFileId, int lineCount, CancellationToken cancellationToken);
         Task<PublishResult> UploadLogToBlobstorageService(string sourceFilePath, CancellationToken cancellationToken);
         Task DownloadAsync(DedupIdentifier manifestId, string targetDirectory, CancellationToken cancellationToken);
     }
@@ -124,6 +125,14 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             CheckConnection();
             return _taskClient.GetTimelineAsync(scopeIdentifier, hubName, planId, timelineId, includeRecords: true, cancellationToken: cancellationToken);
+        }
+
+        // TODO - depending on what we hear back from the Artifacts team, we probably want blobFileId to be changed to a DedupeIdentifier object named manifestId
+        public Task<TaskLog> AssociateLogAsync(Guid scopeIdentifier, string hubName, Guid planId, int logId, string blobFileId, int lineCount, CancellationToken cancellationToken)
+        {
+            CheckConnection();
+            // TODO - add call to new _taskClient method here and return it instead of null
+            return null;
         }
 
         public Task<PublishResult> UploadLogToBlobstorageService(string sourceFilePath, CancellationToken cancellationToken)
