@@ -98,8 +98,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
        // https://en.wikipedia.org/wiki/Darwin_%28operating_system%29
        // with Big Sur Apple made the jump from 10.* to 11.* that means that
        // the version reported from that point is 20.1.0.0 for 11.0.1
-        private static string GetDarwinVersionString() {
+        private static string GetDarwinVersionString()
+        {
+            // from .net 5 onwards the runtime returns the product version instead of the darwin kernel version
             var version = Environment.OSVersion.Version;
+            if (Environment.Version.Major >= 5)
+            {
+                return $"{version.Major}.{version.Minor}";
+            }
+
             if (version.Major < 5)
             {
                 return "10.0";
