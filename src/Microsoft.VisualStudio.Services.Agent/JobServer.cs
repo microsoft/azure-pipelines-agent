@@ -31,8 +31,8 @@ namespace Microsoft.VisualStudio.Services.Agent
         Task RaisePlanEventAsync<T>(Guid scopeIdentifier, string hubName, Guid planId, T eventData, CancellationToken cancellationToken) where T : JobEvent;
         Task<Timeline> GetTimelineAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, CancellationToken cancellationToken);
         Task<TaskLog> AssociateLogAsync(Guid scopeIdentifier, string hubName, Guid planId, int logId, string blobFileId, int lineCount, CancellationToken cancellationToken);
-        Task<PublishResult> UploadLogToBlobstorageService(string sourceFilePath, CancellationToken cancellationToken);
-        Task DownloadAsync(DedupIdentifier manifestId, string targetDirectory, CancellationToken cancellationToken);
+        Task<BlobIdentifier> UploadLogToBlobstorageService(Stream blob, string hubName, Guid planId, int logId);
+        Task DownloadAsync(BlobIdentifier manifestId, string targetDirectory, CancellationToken cancellationToken);
     }
 
     public sealed class JobServer : AgentService, IJobServer
@@ -40,7 +40,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         private bool _hasConnection;
         private VssConnection _connection;
         private TaskHttpClient _taskClient;
-        private const int DefaultDedupStoreClientMaxParallelism = 192;
+        private const string BuildLogScope = "buildlogs";
 
         public async Task ConnectAsync(VssConnection jobConnection)
         {
@@ -127,7 +127,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             return _taskClient.GetTimelineAsync(scopeIdentifier, hubName, planId, timelineId, includeRecords: true, cancellationToken: cancellationToken);
         }
 
-        // TODO - depending on what we hear back from the Artifacts team, we probably want blobFileId to be changed to a DedupeIdentifier object named manifestId
         public Task<TaskLog> AssociateLogAsync(Guid scopeIdentifier, string hubName, Guid planId, int logId, string blobFileId, int lineCount, CancellationToken cancellationToken)
         {
             CheckConnection();
@@ -135,27 +134,83 @@ namespace Microsoft.VisualStudio.Services.Agent
             return null;
         }
 
-        public Task<PublishResult> UploadLogToBlobstorageService(string sourceFilePath, CancellationToken cancellationToken)
+        public async Task<BlobIdentifier> UploadLogToBlobstorageService(Stream blob, string hubName, Guid planId, int logId)
         {
-            // TODO - it seems like it would be better to not have to create this client every time
             CheckConnection();
-            using(var dedupManifestClient = CreateDedupManifestClient(_connection, cancellationToken))
-            {
-                return dedupManifestClient.PublishAsync(sourceFilePath, cancellationToken);
+
+            BlobIdentifier blobId = await CalculateBlobIdentifier(blob);
+            var referenceId = $"{planId.ToString()}/{logId}/{Guid.NewGuid().ToString()}";
+            var reference = new BlobReference(referenceId, BuildLogScope);
+
+            using(var blobClient = CreateArtifactsClient(_connection, default(CancellationToken)))
+            {   
+                using (var semaphore = new SemaphoreSlim(4, 4))
+                {
+                    var domainId = WellKnownDomainIds.OriginalDomainId;
+                    await VsoHash.WalkBlocksAsync(
+                            blob,
+                            blockActionSemaphore: semaphore,
+                            multiBlocksInParallel: true,
+                            singleBlockCallback: (blockBuffer, blockLength, blobIdWithBlocks) => 
+                                {
+                                    return blobClient.PutSingleBlockBlobAndReferenceAsync(blobId, blockBuffer, blockLength, reference, default(CancellationToken));
+                                },
+                            multiBlockCallback: (blockBuffer, blockLength, blockHash, isFinalBlock) =>
+                                {
+                                    return blobClient.PutBlobBlockAsync(blobId, blockBuffer, blockLength, default(CancellationToken));
+                                },
+                            multiBlockSealCallback: (blobIdWithBlocks) =>
+                                {
+                                    return blobClient.TryReferenceWithBlocksAsync(blobIdAndBlocks: blobIdWithBlocks, reference: reference, cancellationToken: default(CancellationToken));
+                                });
+                }
             }
+
+            return blobId;
+        }
+
+        private async Task<BlobIdentifier> CalculateBlobIdentifier(Stream blob)
+        {
+            BlobIdentifierWithBlocks result = null;
+
+            await VsoHash.WalkBlocksAsync(
+                blob,
+                blockActionSemaphore: null,
+                multiBlocksInParallel: false,
+                singleBlockCallback: (block, blockLength, blobIdWithBlocks) =>
+                {
+                    result = blobIdWithBlocks;
+                    return Task.FromResult(0);
+                },
+                multiBlockCallback: (block, blockLength, blockHash, isFinalBlock) => Task.FromResult(0),
+                multiBlockSealCallback: (blobIdWithBlocks) =>
+                {
+                    result = blobIdWithBlocks;
+                    return Task.FromResult(0);
+                }).ConfigureAwait(false);
+
+            if (result == null)
+            {
+                throw new InvalidOperationException("Program error: CalculateBlobIdentifier did not calculate a value.");
+            }
+
+            return result.BlobId;
         }
 
         // TODO - remove this function (here and above)
-        public Task DownloadAsync(DedupIdentifier manifestId, string targetDirectory, CancellationToken cancellationToken)
+        public async Task DownloadAsync(BlobIdentifier manifestId, string targetDirectory, CancellationToken cancellationToken)
         {
             CheckConnection();
-            using(var dedupManifestClient = CreateDedupManifestClient(_connection, cancellationToken))
+            using(var client =  CreateArtifactsClient(_connection, cancellationToken))
             {
-                return dedupManifestClient.DownloadAsync(manifestId, targetDirectory, cancellationToken);
+                var stream = await client.GetBlobAsync(manifestId, cancellationToken);
+                using(FileStream outputFileStream = new FileStream(targetDirectory, FileMode.Create)) {  
+                    stream.CopyTo(outputFileStream);  
+                }
             }
         }
 
-        private DedupManifestArtifactClient CreateDedupManifestClient(VssConnection connection, CancellationToken cancellationToken){
+        private IBlobStoreHttpClient CreateArtifactsClient(VssConnection connection, CancellationToken cancellationToken){
             var tracer = new CallbackAppTraceSource(str => Trace.Info(str), System.Diagnostics.SourceLevels.Information);
 
             ArtifactHttpClientFactory factory = new ArtifactHttpClientFactory(
@@ -164,10 +219,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             tracer,
             default(CancellationToken));
 
-            var dedupStoreHttpClient = factory.CreateVssHttpClient<IDedupStoreHttpClient, DedupStoreHttpClient>(connection.GetClient<DedupStoreHttpClient>().BaseAddress);
-        
-            var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, DefaultDedupStoreClientMaxParallelism);
-            return new DedupManifestArtifactClient(client, tracer);
+            return factory.CreateVssHttpClient<IBlobStoreHttpClient, BlobStore2HttpClient>(connection.GetClient<DedupStoreHttpClient>().BaseAddress);
         }
     }
 }

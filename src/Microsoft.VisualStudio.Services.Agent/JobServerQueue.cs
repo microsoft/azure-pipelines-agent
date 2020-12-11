@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using Microsoft.VisualStudio.Services.BlobStore.Common;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -611,10 +612,15 @@ namespace Microsoft.VisualStudio.Services.Agent
 
                     if (_writeToBlobstorageService)
                     {
-                        var logUploaded = await _jobServer.UploadLogToBlobstorageService(file.Path, default(CancellationToken));
+                        System.Diagnostics.Debugger.Launch();
+                        BlobIdentifier id = null;
+                        using (FileStream fs = File.Open(file.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                        {
+                            id = await _jobServer.UploadLogToBlobstorageService(fs, _hubName, _planId, taskLog.Id);
+                        }
 
                         // TODO - remove this, this is just a POC that we can download these
-                        await _jobServer.DownloadAsync(logUploaded.ManifestId, "C:\\Users\\damccorm\\Documents\\trash\\logs\\" + Guid.NewGuid().ToString(), default(CancellationToken));
+                        await _jobServer.DownloadAsync(id, "C:\\Users\\damccorm\\Documents\\trash\\logs\\" + Guid.NewGuid().ToString(), default(CancellationToken));
 
                         int lineCount = file.TotalLines;
 
@@ -624,7 +630,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                             lineCount = File.ReadLines(file.Path).Count();
                         }
 
-                        await _jobServer.AssociateLogAsync(_scopeIdentifier, _hubName, _planId, taskLog.Id, logUploaded.ManifestId.ToString(), lineCount, default(CancellationToken));
+                        //await _jobServer.AssociateLogAsync(_scopeIdentifier, _hubName, _planId, taskLog.Id, logUploaded.ManifestId.ToString(), lineCount, default(CancellationToken));
                     }
                     else
                     {
