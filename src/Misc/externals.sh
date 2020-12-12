@@ -167,6 +167,22 @@ if [[ "$PACKAGERUNTIME" == "win-x86" ]]; then
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v3.4.4/nuget.exe" nuget
 fi
 
+# These need to be updated once we have ARM64 native binaries
+if [[ "$PACKAGERUNTIME" == "win-arm64" ]]; then
+    acquireExternalTool "$CONTAINER_URL/pdbstr/1/pdbstr.zip" pdbstr
+    acquireExternalTool "$CONTAINER_URL/mingit/${MINGIT_VERSION}/MinGit-${MINGIT_VERSION}-32-bit.zip" git
+    acquireExternalTool "$CONTAINER_URL/symstore/1/symstore.zip" symstore
+    acquireExternalTool "$CONTAINER_URL/vstsom/m153_d91bed0b/vstsom.zip" tf
+    acquireExternalTool "$CONTAINER_URL/vswhere/2_8_4/vswhere.zip" vswhere
+    acquireExternalTool "$NODE_URL/v${NODE_VERSION}/win-x86/node.exe" node/bin
+    acquireExternalTool "$NODE_URL/v${NODE_VERSION}/win-x86/node.lib" node/bin
+    acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x86/node.exe" node10/bin
+    acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x86/node.lib" node10/bin
+    acquireExternalTool "$NODE_URL/v${NODE14_VERSION}/win-x86/node.exe" node14/bin
+    acquireExternalTool "$NODE_URL/v${NODE14_VERSION}/win-x86/node.lib" node14/bin
+    acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v3.3.0/nuget.exe" nuget
+fi
+
 # Download the external tools only for OSX.
 if [[ "$PACKAGERUNTIME" == "osx-x64" ]]; then
     acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-darwin-x64.tar.gz" node fix_nested_dir
@@ -203,7 +219,7 @@ if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
 
     # with the current setup of this package there are backslashes so it fails to extract on non-windows at runtime
     # we may need to fix this in the Agent
-    if [[ "$PACKAGERUNTIME" == "win-x64" || "$PACKAGERUNTIME" == "win-x86" ]]; then
+    if [[ "$PACKAGERUNTIME" == "win-x64" || "$PACKAGERUNTIME" == "win-x86" || "$PACKAGERUNTIME" == "win-arm64" ]]; then
         # signed service tree task
         acquireExternalTool "$CONTAINER_URL/l1Tasks/5515f72c-5faa-4121-8a46-8f42a8f42132.zip" "Tasks" false dont_uncompress
     fi

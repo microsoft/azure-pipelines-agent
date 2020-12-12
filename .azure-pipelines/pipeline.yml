@@ -28,6 +28,9 @@ parameters:
 - name: win_x86
   type: boolean
   default: true
+- name: win_arm64
+  type: boolean
+  default: true
 - name: linux_x64
   type: boolean
   default: true
@@ -94,6 +97,28 @@ stages:
         unitTests: ${{ parameters.test }}
         functionalTests: ${{ parameters.test }}
         sign: ${{ parameters.sign }}
+        publishArtifact: ${{ parameters.publishArtifacts }}
+
+  # Windows ARM64
+  - ${{ if parameters.win_arm64 }}:
+    - template: build-job.yml
+      parameters:
+        jobName: build_windows_arm64_agent
+        displayName: Windows Agent (ARM64)
+        pool:
+          vmImage: vs2017-win2016
+        os: win
+        arch: arm64
+        forcePlatform: true
+        branch: ${{ parameters.branch }}
+        codeCoverage: true
+        componentDetection: ${{ parameters.componentDetection }}
+        unitTests: ${{ parameters.test }}
+        # Disable ARM64 functionalTests since the will fail on x64 CI server
+        # functionalTests: ${{ parameters.test }}
+        functionalTests: false
+        sign: ${{ parameters.sign }}
+        verifySigning: ${{ parameters.sign }}
         publishArtifact: ${{ parameters.publishArtifacts }}
 
   # Linux (x64)

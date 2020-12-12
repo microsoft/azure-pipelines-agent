@@ -47,6 +47,8 @@ function detect_platform_and_runtime_id ()
         DETECTED_RUNTIME_ID='win-x64'
         if [[ "$PROCESSOR_ARCHITECTURE" == 'x86' ]]; then
             DETECTED_RUNTIME_ID='win-x86'
+        elif [[ "$PROCESSOR_ARCHITECTURE" == 'arm64' ]]; then
+            DETECTED_RUNTIME_ID='win-arm64'
         fi
     elif [[ "$CURRENT_PLATFORM" == 'linux' ]]; then
         DETECTED_RUNTIME_ID="linux-x64"
@@ -259,7 +261,7 @@ else
     RUNTIME_ID=$DETECTED_RUNTIME_ID
 fi
 
-_VALID_RIDS='linux-x64:linux-arm:linux-arm64:rhel.6-x64:osx-x64:win-x64:win-x86'
+_VALID_RIDS='linux-x64:linux-arm:linux-arm64:rhel.6-x64:osx-x64:win-x64:win-x86:win-arm64'
 if [[ ":$_VALID_RIDS:" != *:$RUNTIME_ID:* ]]; then
     failed "must specify a valid target runtime ID (one of: $_VALID_RIDS)"
 fi

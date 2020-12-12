@@ -17,6 +17,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             {
                 "win-x64",
                 "win-x86",
+                "win-arm64",
                 "linux-x64",
                 "linux-arm",
                 "linux-arm64",
