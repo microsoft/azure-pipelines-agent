@@ -9,7 +9,7 @@ INCLUDE_NODE6=${INCLUDE_NODE6:-true}
 CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
 NODE_URL=https://nodejs.org/dist
 NODE_VERSION="6.17.1"
-NODE10_VERSION="10.21.0"
+NODE10_VERSION="10.23.0"
 MINGIT_VERSION="2.28.0"
 
 get_abs_path() {
@@ -155,7 +155,7 @@ if [[ "$PACKAGERUNTIME" == "win-x64" ]]; then
     fi
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x64/node.exe" node10/bin
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x64/node.lib" node10/bin
-    acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v3.3.0/nuget.exe" nuget
+    acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v3.4.4/nuget.exe" nuget
 fi
 
 if [[ "$PACKAGERUNTIME" == "win-x86" ]]; then
@@ -170,7 +170,7 @@ if [[ "$PACKAGERUNTIME" == "win-x86" ]]; then
     fi
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x86/node.exe" node10/bin
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x86/node.lib" node10/bin
-    acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v3.3.0/nuget.exe" nuget
+    acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v3.4.4/nuget.exe" nuget
 fi
 
 # Download the external tools only for OSX.

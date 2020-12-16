@@ -18,6 +18,8 @@
   "AgentName": "agent name",
   "AgentNameLog": "Agent name: '{0}'",
   "AgentReplaced": "Successfully replaced the agent",
+  "agentRootFolderCheckError": "Unable to check access rules of the agent root folder. Please examine the log for more details.",
+  "agentRootFolderInsecure": "Security warning! The group {0} has access to write/modify the agent folder. Please examine the log for more details.",
   "AgentRunningBehindProxy": "Agent is running behind proxy server: '{0}'",
   "AgentVersion": "Current agent version: '{0}'",
   "AgentWithSameNameAlreadyExistInPool": "Pool {0} already contains an agent with name {1}.",

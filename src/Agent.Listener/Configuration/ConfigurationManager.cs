@@ -16,6 +16,8 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
+using System.Security.AccessControl;
+using System.Security.Principal;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
@@ -68,6 +70,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public async Task ConfigureAsync(CommandSettings command)
         {
             ArgUtil.NotNull(command, nameof(command));
+
+            if (PlatformUtil.RunningOnWindows)
+            { 
+                CheckAgentRootDirectorySecure();
+            }
+
             Trace.Info(nameof(ConfigureAsync));
             if (IsConfigured())
             {
@@ -714,6 +722,54 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _term.WriteLine();
             _term.WriteLine($">> {message}:");
             _term.WriteLine();
+        }
+
+        private void CheckAgentRootDirectorySecure()
+        {
+            Trace.Info(nameof(CheckAgentRootDirectorySecure));
+
+            try
+            {
+                string rootDirPath = HostContext.GetDirectory(WellKnownDirectory.Root);
+
+                if (!String.IsNullOrEmpty(rootDirPath))
+                {
+                    // Get info about root folder
+                    DirectoryInfo dirInfo = new DirectoryInfo(rootDirPath);
+
+                    // Get directory access control list 
+                    DirectorySecurity directorySecurityInfo = dirInfo.GetAccessControl();
+                    AuthorizationRuleCollection dirAccessRules = directorySecurityInfo.GetAccessRules(true, true, typeof(NTAccount));
+
+
+                    // Get identity reference of the BUILTIN\Users group
+                    IdentityReference bulitInUsersGroup = new SecurityIdentifier(WellKnownSidType.BuiltinUsersSid, null).Translate(typeof(NTAccount));
+
+                    // Check if BUILTIN\Users group have modify/write rights for the agent root folder
+                    List<FileSystemAccessRule> potentiallyInsecureRules = dirAccessRules.OfType<FileSystemAccessRule>().AsParallel()
+                                                                          .Where(rule => rule.IdentityReference == bulitInUsersGroup && (rule.FileSystemRights.HasFlag(FileSystemRights.Write) || rule.FileSystemRights.HasFlag(FileSystemRights.Modify)))
+                                                                          .ToList<FileSystemAccessRule>();
+
+                    // Notify user if there are some potentially insecure access rules for the agent root folder
+                    if (potentiallyInsecureRules.Count != 0)
+                    {
+                        Trace.Warning("The {0} group have the following permissions to the agent root folder: ", bulitInUsersGroup.ToString());
+
+                        potentiallyInsecureRules.ForEach(accessRule => Trace.Warning("- {0}", accessRule.FileSystemRights.ToString()));
+
+                        _term.Write(StringUtil.Loc("agentRootFolderInsecure", bulitInUsersGroup.ToString()));
+                    }
+                }
+                else 
+                {
+                    Trace.Warning("Can't get path to the agent root folder, check was skipped.");
+                }
+            }
+            catch (Exception ex) {
+                Trace.Warning("Can't check permissions for agent root folder:");
+                Trace.Warning(ex.Message);
+                _term.Write(StringUtil.Loc("agentRootFolderCheckError"));
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "locationServer")]
