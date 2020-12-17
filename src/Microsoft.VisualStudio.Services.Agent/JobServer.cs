@@ -31,7 +31,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         Task RaisePlanEventAsync<T>(Guid scopeIdentifier, string hubName, Guid planId, T eventData, CancellationToken cancellationToken) where T : JobEvent;
         Task<Timeline> GetTimelineAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, CancellationToken cancellationToken);
         Task<TaskLog> AssociateLogAsync(Guid scopeIdentifier, string hubName, Guid planId, int logId, string blobFileId, int lineCount, CancellationToken cancellationToken);
-        Task<BlobIdentifier> UploadLogToBlobstorageService(Stream blob, string hubName, Guid planId, int logId);
+        Task<BlobIdentifierWithBlocks> UploadLogToBlobstorageService(Stream blob, string hubName, Guid planId, int logId);
         Task DownloadAsync(BlobIdentifier manifestId, string targetDirectory, CancellationToken cancellationToken);
     }
 
@@ -40,7 +40,6 @@ namespace Microsoft.VisualStudio.Services.Agent
         private bool _hasConnection;
         private VssConnection _connection;
         private TaskHttpClient _taskClient;
-        private const string BuildLogScope = "buildlogs";
 
         public async Task ConnectAsync(VssConnection jobConnection)
         {
@@ -134,67 +133,16 @@ namespace Microsoft.VisualStudio.Services.Agent
             return null;
         }
 
-        public async Task<BlobIdentifier> UploadLogToBlobstorageService(Stream blob, string hubName, Guid planId, int logId)
+        public async Task<BlobIdentifierWithBlocks> UploadLogToBlobstorageService(Stream blob, string hubName, Guid planId, int logId)
         {
             CheckConnection();
 
-            BlobIdentifier blobId = await CalculateBlobIdentifier(blob);
-            var referenceId = $"{planId.ToString()}/{logId}/{Guid.NewGuid().ToString()}";
-            var reference = new BlobReference(referenceId, BuildLogScope);
+            BlobIdentifier blobId = VsoHash.CalculateBlobIdentifier(blob);
 
             using(var blobClient = CreateArtifactsClient(_connection, default(CancellationToken)))
             {   
-                using (var semaphore = new SemaphoreSlim(4, 4))
-                {
-                    var domainId = WellKnownDomainIds.OriginalDomainId;
-                    await VsoHash.WalkBlocksAsync(
-                            blob,
-                            blockActionSemaphore: semaphore,
-                            multiBlocksInParallel: true,
-                            singleBlockCallback: (blockBuffer, blockLength, blobIdWithBlocks) => 
-                                {
-                                    return blobClient.PutSingleBlockBlobAndReferenceAsync(blobId, blockBuffer, blockLength, reference, default(CancellationToken));
-                                },
-                            multiBlockCallback: (blockBuffer, blockLength, blockHash, isFinalBlock) =>
-                                {
-                                    return blobClient.PutBlobBlockAsync(blobId, blockBuffer, blockLength, default(CancellationToken));
-                                },
-                            multiBlockSealCallback: (blobIdWithBlocks) =>
-                                {
-                                    return blobClient.TryReferenceWithBlocksAsync(blobIdAndBlocks: blobIdWithBlocks, reference: reference, cancellationToken: default(CancellationToken));
-                                });
-                }
+                return await blobClient.UploadBlocksForBlobAsync(blobId, blob, default(CancellationToken));
             }
-
-            return blobId;
-        }
-
-        private async Task<BlobIdentifier> CalculateBlobIdentifier(Stream blob)
-        {
-            BlobIdentifierWithBlocks result = null;
-
-            await VsoHash.WalkBlocksAsync(
-                blob,
-                blockActionSemaphore: null,
-                multiBlocksInParallel: false,
-                singleBlockCallback: (block, blockLength, blobIdWithBlocks) =>
-                {
-                    result = blobIdWithBlocks;
-                    return Task.FromResult(0);
-                },
-                multiBlockCallback: (block, blockLength, blockHash, isFinalBlock) => Task.FromResult(0),
-                multiBlockSealCallback: (blobIdWithBlocks) =>
-                {
-                    result = blobIdWithBlocks;
-                    return Task.FromResult(0);
-                }).ConfigureAwait(false);
-
-            if (result == null)
-            {
-                throw new InvalidOperationException("Program error: CalculateBlobIdentifier did not calculate a value.");
-            }
-
-            return result.BlobId;
         }
 
         // TODO - remove this function (here and above)

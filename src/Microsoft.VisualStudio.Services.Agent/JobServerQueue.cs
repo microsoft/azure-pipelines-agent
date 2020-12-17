@@ -613,14 +613,14 @@ namespace Microsoft.VisualStudio.Services.Agent
                     if (_writeToBlobstorageService)
                     {
                         System.Diagnostics.Debugger.Launch();
-                        BlobIdentifier id = null;
+                        BlobIdentifierWithBlocks id = null;
                         using (FileStream fs = File.Open(file.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                         {
                             id = await _jobServer.UploadLogToBlobstorageService(fs, _hubName, _planId, taskLog.Id);
                         }
 
                         // TODO - remove this, this is just a POC that we can download these
-                        await _jobServer.DownloadAsync(id, "C:\\Users\\damccorm\\Documents\\trash\\logs\\" + Guid.NewGuid().ToString(), default(CancellationToken));
+                        await _jobServer.DownloadAsync(id.BlobId, "C:\\Users\\damccorm\\Documents\\trash\\logs\\" + Guid.NewGuid().ToString(), default(CancellationToken));
 
                         int lineCount = file.TotalLines;
 
