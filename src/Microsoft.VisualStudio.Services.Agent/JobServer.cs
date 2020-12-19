@@ -167,7 +167,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             tracer,
             default(CancellationToken));
 
-            return factory.CreateVssHttpClient<IBlobStoreHttpClient, BlobStore2HttpClient>(connection.GetClient<DedupStoreHttpClient>().BaseAddress);
+            return factory.CreateVssHttpClient<IBlobStoreHttpClient, BlobStore2HttpClient>(connection.GetClient<BlobStore2HttpClient>().BaseAddress);
         }
     }
 }
