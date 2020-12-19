@@ -32,7 +32,6 @@ namespace Microsoft.VisualStudio.Services.Agent
         Task<Timeline> GetTimelineAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, CancellationToken cancellationToken);
         Task<TaskLog> AssociateLogAsync(Guid scopeIdentifier, string hubName, Guid planId, int logId, string blobFileId, int lineCount, CancellationToken cancellationToken);
         Task<BlobIdentifierWithBlocks> UploadLogToBlobstorageService(Stream blob, string hubName, Guid planId, int logId);
-        Task DownloadAsync(BlobIdentifier manifestId, string targetDirectory, CancellationToken cancellationToken);
     }
 
     public sealed class JobServer : AgentService, IJobServer
@@ -142,19 +141,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             using(var blobClient = CreateArtifactsClient(_connection, default(CancellationToken)))
             {   
                 return await blobClient.UploadBlocksForBlobAsync(blobId, blob, default(CancellationToken));
-            }
-        }
-
-        // TODO - remove this function (here and above)
-        public async Task DownloadAsync(BlobIdentifier manifestId, string targetDirectory, CancellationToken cancellationToken)
-        {
-            CheckConnection();
-            using(var client =  CreateArtifactsClient(_connection, cancellationToken))
-            {
-                var stream = await client.GetBlobAsync(manifestId, cancellationToken);
-                using(FileStream outputFileStream = new FileStream(targetDirectory, FileMode.Create)) {  
-                    stream.CopyTo(outputFileStream);  
-                }
             }
         }
 

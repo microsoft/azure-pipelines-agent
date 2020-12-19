@@ -619,9 +619,6 @@ namespace Microsoft.VisualStudio.Services.Agent
                             id = await _jobServer.UploadLogToBlobstorageService(fs, _hubName, _planId, taskLog.Id);
                         }
 
-                        // TODO - remove this, this is just a POC that we can download these
-                        await _jobServer.DownloadAsync(id.BlobId, "C:\\Users\\damccorm\\Documents\\trash\\logs\\" + Guid.NewGuid().ToString(), default(CancellationToken));
-
                         int lineCount = file.TotalLines;
 
                         // Means no line count was calculated, we need to do this ourselves
@@ -630,6 +627,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                             lineCount = File.ReadLines(file.Path).Count();
                         }
 
+                        // Notify TFS - TODO this should include the id
                         //await _jobServer.AssociateLogAsync(_scopeIdentifier, _hubName, _planId, taskLog.Id, logUploaded.ManifestId.ToString(), lineCount, default(CancellationToken));
                     }
                     else
