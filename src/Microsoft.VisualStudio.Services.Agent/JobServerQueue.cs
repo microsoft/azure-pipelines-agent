@@ -627,6 +627,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                             lineCount = File.ReadLines(file.Path).Count();
                         }
 
+                        var abc = await _jobServer.DownloadLog(id);
+
                         // Notify TFS - TODO this should include the id
                         //await _jobServer.AssociateLogAsync(_scopeIdentifier, _hubName, _planId, taskLog.Id, logUploaded.ManifestId.ToString(), lineCount, default(CancellationToken));
                     }

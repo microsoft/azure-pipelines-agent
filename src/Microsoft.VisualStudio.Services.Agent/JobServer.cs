@@ -32,6 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         Task<Timeline> GetTimelineAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, CancellationToken cancellationToken);
         Task<TaskLog> AssociateLogAsync(Guid scopeIdentifier, string hubName, Guid planId, int logId, string blobFileId, int lineCount, CancellationToken cancellationToken);
         Task<BlobIdentifierWithBlocks> UploadLogToBlobstorageService(Stream blob, string hubName, Guid planId, int logId);
+        Task<String> DownloadLog(BlobIdentifierWithBlocks blobIdWithBlocks);
     }
 
     public sealed class JobServer : AgentService, IJobServer
@@ -132,16 +133,51 @@ namespace Microsoft.VisualStudio.Services.Agent
             return null;
         }
 
+        public async Task<String> DownloadLog(BlobIdentifierWithBlocks blobIdWithBlocks)
+        {
+            using(var blobClient = CreateArtifactsClient(_connection, default(CancellationToken)))
+            {
+                Stream a = await blobClient.GetBlobAsync(blobIdWithBlocks.BlobId, default(CancellationToken));
+                using(StreamReader reader = new StreamReader( a ))
+                {
+                    return reader.ReadToEnd();
+                }
+            }
+        }
+
         public async Task<BlobIdentifierWithBlocks> UploadLogToBlobstorageService(Stream blob, string hubName, Guid planId, int logId)
         {
             CheckConnection();
 
-            BlobIdentifier blobId = VsoHash.CalculateBlobIdentifier(blob);
+            BlobIdentifierWithBlocks blobIdWithBlocks = VsoHash.CalculateBlobIdentifierWithBlocks(blob);
+            BlobIdentifier blobId = blobIdWithBlocks.BlobId;
 
             using(var blobClient = CreateArtifactsClient(_connection, default(CancellationToken)))
             {   
-                return await blobClient.UploadBlocksForBlobAsync(blobId, blob, default(CancellationToken));
+                // return await blobClient.UploadBlocksForBlobAsync(blobId, blob, default(CancellationToken));
+
+                using (var semaphore = new SemaphoreSlim(4, 4))
+                {
+                    VsoHash.WalkBlocksAsync(
+                        blob,
+                        blockActionSemaphore: semaphore,
+                        multiBlocksInParallel: true,
+                        singleBlockCallback: (blockBuffer, blockLength, blobIdWithBlocks) => 
+                        {
+                            return blobClient.PutBlobBlockAsync(blobId, blockBuffer, blockLength, default(CancellationToken));
+                        },
+                        multiBlockCallback: (blockBuffer, blockLength, blockHash, isFinalBlock) =>
+                        {
+                            return blobClient.PutBlobBlockAsync(blobId, blockBuffer, blockLength, default(CancellationToken));
+                        },
+                        multiBlockSealCallback: (blobIdWithBlocks) => 
+                        {
+                            return null;
+                        });
+                }
             }
+
+            return blobIdWithBlocks;
         }
 
         private IBlobStoreHttpClient CreateArtifactsClient(VssConnection connection, CancellationToken cancellationToken){
