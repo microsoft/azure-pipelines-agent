@@ -154,30 +154,8 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             using(var blobClient = CreateArtifactsClient(_connection, default(CancellationToken)))
             {   
-                // return await blobClient.UploadBlocksForBlobAsync(blobId, blob, default(CancellationToken));
-
-                using (var semaphore = new SemaphoreSlim(4, 4))
-                {
-                    VsoHash.WalkBlocksAsync(
-                        blob,
-                        blockActionSemaphore: semaphore,
-                        multiBlocksInParallel: true,
-                        singleBlockCallback: (blockBuffer, blockLength, blobIdWithBlocks) => 
-                        {
-                            return blobClient.PutBlobBlockAsync(blobId, blockBuffer, blockLength, default(CancellationToken));
-                        },
-                        multiBlockCallback: (blockBuffer, blockLength, blockHash, isFinalBlock) =>
-                        {
-                            return blobClient.PutBlobBlockAsync(blobId, blockBuffer, blockLength, default(CancellationToken));
-                        },
-                        multiBlockSealCallback: (blobIdWithBlocks) => 
-                        {
-                            return null;
-                        });
-                }
+                return await blobClient.UploadBlocksForBlobAsync(blobId, blob, default(CancellationToken));
             }
-
-            return blobIdWithBlocks;
         }
 
         private IBlobStoreHttpClient CreateArtifactsClient(VssConnection connection, CancellationToken cancellationToken){
