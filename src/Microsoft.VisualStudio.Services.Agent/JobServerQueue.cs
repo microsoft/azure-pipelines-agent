@@ -612,10 +612,10 @@ namespace Microsoft.VisualStudio.Services.Agent
 
                     if (_writeToBlobstorageService)
                     {
-                        BlobIdentifierWithBlocks id = null;
+                        BlobIdentifierWithBlocks blobBlockId = null;
                         using (FileStream fs = File.Open(file.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                         {
-                            id = await _jobServer.UploadLogToBlobstorageService(fs, _hubName, _planId, taskLog.Id);
+                            blobBlockId = await _jobServer.UploadLogToBlobstorageService(fs, _hubName, _planId, taskLog.Id);
                         }
 
                         int lineCount = file.TotalLines;
@@ -626,10 +626,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                             lineCount = File.ReadLines(file.Path).Count();
                         }
 
-                        var abc = await _jobServer.DownloadLog(id);
-
-                        // Notify TFS - TODO this should include the id
-                        //await _jobServer.AssociateLogAsync(_scopeIdentifier, _hubName, _planId, taskLog.Id, logUploaded.ManifestId.ToString(), lineCount, default(CancellationToken));
+                        // Notify TFS
+                        await _jobServer.AssociateLogAsync(_scopeIdentifier, _hubName, _planId, taskLog.Id, blobBlockId, lineCount, default(CancellationToken));
                     }
                     else
                     {

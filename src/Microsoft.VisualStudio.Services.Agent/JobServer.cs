@@ -30,9 +30,8 @@ namespace Microsoft.VisualStudio.Services.Agent
         Task<List<TimelineRecord>> UpdateTimelineRecordsAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, IEnumerable<TimelineRecord> records, CancellationToken cancellationToken);
         Task RaisePlanEventAsync<T>(Guid scopeIdentifier, string hubName, Guid planId, T eventData, CancellationToken cancellationToken) where T : JobEvent;
         Task<Timeline> GetTimelineAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, CancellationToken cancellationToken);
-        Task<TaskLog> AssociateLogAsync(Guid scopeIdentifier, string hubName, Guid planId, int logId, string blobFileId, int lineCount, CancellationToken cancellationToken);
+        Task<TaskLog> AssociateLogAsync(Guid scopeIdentifier, string hubName, Guid planId, int logId, BlobIdentifierWithBlocks blobBlockId, int lineCount, CancellationToken cancellationToken);
         Task<BlobIdentifierWithBlocks> UploadLogToBlobstorageService(Stream blob, string hubName, Guid planId, int logId);
-        Task<String> DownloadLog(BlobIdentifierWithBlocks blobIdWithBlocks);
     }
 
     public sealed class JobServer : AgentService, IJobServer
@@ -126,23 +125,11 @@ namespace Microsoft.VisualStudio.Services.Agent
             return _taskClient.GetTimelineAsync(scopeIdentifier, hubName, planId, timelineId, includeRecords: true, cancellationToken: cancellationToken);
         }
 
-        public Task<TaskLog> AssociateLogAsync(Guid scopeIdentifier, string hubName, Guid planId, int logId, string blobFileId, int lineCount, CancellationToken cancellationToken)
+        public Task<TaskLog> AssociateLogAsync(Guid scopeIdentifier, string hubName, Guid planId, int logId, BlobIdentifierWithBlocks blobBlockId, int lineCount, CancellationToken cancellationToken)
         {
             CheckConnection();
-            // TODO - add call to new _taskClient method here and return it instead of null
-            return null;
-        }
-
-        public async Task<String> DownloadLog(BlobIdentifierWithBlocks blobIdWithBlocks)
-        {
-            using(var blobClient = CreateArtifactsClient(_connection, default(CancellationToken)))
-            {
-                Stream a = await blobClient.GetBlobAsync(blobIdWithBlocks.BlobId, default(CancellationToken));
-                using(StreamReader reader = new StreamReader( a ))
-                {
-                    return reader.ReadToEnd();
-                }
-            }
+            
+            return _taskClient.AssociateLogAsync(scopeIdentifier, hubName, planId, logId, blobBlockId.Serialize(), lineCount, cancellationToken: cancellationToken);
         }
 
         public async Task<BlobIdentifierWithBlocks> UploadLogToBlobstorageService(Stream blob, string hubName, Guid planId, int logId)
