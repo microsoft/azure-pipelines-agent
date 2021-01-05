@@ -55,8 +55,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     int totalBytes = PagesToWrite * PagingLogger.PageSize;
                     int bytesWritten = 0;
                     int logDataSize = System.Text.Encoding.UTF8.GetByteCount(LogData);
-                    _jobServerQueue.Setup(x => x.QueueFileUpload(timeLineId, timeLineRecordId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), true, It.IsAny<int>()))
-                        .Callback((Guid timelineId, Guid timelineRecordId, string type, string name, string path, bool deleteSource, int totalLines) =>
+                    _jobServerQueue.Setup(x => x.QueueFileUpload(timeLineId, timeLineRecordId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), true))
+                        .Callback((Guid timelineId, Guid timelineRecordId, string type, string name, string path, bool deleteSource) =>
                         {
                             bool fileExists = File.Exists(path);
                             Assert.True(fileExists);
@@ -84,7 +84,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     pagingLogger.End();
 
                     //Assert
-                    _jobServerQueue.Verify(x => x.QueueFileUpload(timeLineId, timeLineRecordId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), true, It.IsAny<int>()), Times.AtLeast(PagesToWrite));
+                    _jobServerQueue.Verify(x => x.QueueFileUpload(timeLineId, timeLineRecordId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), true), Times.AtLeast(PagesToWrite));
                     Assert.Equal(bytesSent, bytesWritten);
                 }
             }
@@ -113,14 +113,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     pagingLogger.Initialize(hc);
                     Guid timeLineId = Guid.NewGuid();
                     Guid timeLineRecordId = Guid.NewGuid();
-                    _jobServerQueue.Setup(x => x.QueueFileUpload(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), true, It.IsAny<int>()));
+                    _jobServerQueue.Setup(x => x.QueueFileUpload(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), true));
 
                     //Act
                     pagingLogger.Setup(timeLineId, timeLineRecordId);
                     pagingLogger.End();
 
                     //Assert
-                    _jobServerQueue.Verify(x => x.QueueFileUpload(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), true, It.IsAny<int>()), Times.Exactly(0));
+                    _jobServerQueue.Verify(x => x.QueueFileUpload(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), true), Times.Exactly(0));
                 }
             }
             finally

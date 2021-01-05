@@ -23,7 +23,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         Task ShutdownAsync();
         void Start(Pipelines.AgentJobRequestMessage jobRequest);
         void QueueWebConsoleLine(Guid stepRecordId, string line, long lineNumber);
-        void QueueFileUpload(Guid timelineId, Guid timelineRecordId, string type, string name, string path, bool deleteSource, int totalLines = -1);
+        void QueueFileUpload(Guid timelineId, Guid timelineRecordId, string type, string name, string path, bool deleteSource);
         void QueueTimelineRecordUpdate(Guid timelineId, TimelineRecord timelineRecord);
     }
 
@@ -174,7 +174,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             _webConsoleLineQueue.Enqueue(new ConsoleLineInfo(stepRecordId, line, lineNumber));
         }
 
-        public void QueueFileUpload(Guid timelineId, Guid timelineRecordId, string type, string name, string path, bool deleteSource, int totalLines = -1)
+        public void QueueFileUpload(Guid timelineId, Guid timelineRecordId, string type, string name, string path, bool deleteSource)
         {
             ArgUtil.NotEmpty(timelineId, nameof(timelineId));
             ArgUtil.NotEmpty(timelineRecordId, nameof(timelineRecordId));
@@ -187,8 +187,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Type = type,
                 Name = name,
                 Path = path,
-                DeleteSource = deleteSource,
-                TotalLines = totalLines
+                DeleteSource = deleteSource
             };
 
             Trace.Verbose("Enqueue file upload queue: file '{0}' attach to record {1}", newFile.Path, timelineRecordId);
@@ -618,13 +617,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                             blobBlockId = await _jobServer.UploadLogToBlobstorageService(fs, _hubName, _planId, taskLog.Id);
                         }
 
-                        int lineCount = file.TotalLines;
-
-                        // Means no line count was calculated, we need to do this ourselves
-                        if (lineCount <= 0)
-                        {
-                            lineCount = File.ReadLines(file.Path).Count();
-                        }
+                        int lineCount = File.ReadLines(file.Path).Count();
 
                         // Notify TFS
                         await _jobServer.AssociateLogAsync(_scopeIdentifier, _hubName, _planId, taskLog.Id, blobBlockId, lineCount, default(CancellationToken));
@@ -685,7 +678,6 @@ namespace Microsoft.VisualStudio.Services.Agent
         public string Name { get; set; }
         public string Path { get; set; }
         public bool DeleteSource { get; set; }
-        public int TotalLines { get; set; }
     }
 
 

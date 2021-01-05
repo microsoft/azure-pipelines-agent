@@ -123,7 +123,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 _pageWriter = null;
                 _pageData.Dispose();
                 _pageData = null;
-                _jobServerQueue.QueueFileUpload(_timelineId, _timelineRecordId, "DistributedTask.Core.Log", "CustomToolLog", _dataFileName, true, (int)_totalLines);
+                _jobServerQueue.QueueFileUpload(_timelineId, _timelineRecordId, "DistributedTask.Core.Log", "CustomToolLog", _dataFileName, true);
             }
         }
         public void Dispose()
