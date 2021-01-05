@@ -612,7 +612,6 @@ namespace Microsoft.VisualStudio.Services.Agent
 
                     if (_writeToBlobstorageService)
                     {
-                        System.Diagnostics.Debugger.Launch();
                         BlobIdentifierWithBlocks id = null;
                         using (FileStream fs = File.Open(file.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                         {

@@ -149,11 +149,13 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             CheckConnection();
 
-            BlobIdentifierWithBlocks blobIdWithBlocks = VsoHash.CalculateBlobIdentifierWithBlocks(blob);
-            BlobIdentifier blobId = blobIdWithBlocks.BlobId;
+            BlobIdentifier blobId = VsoHash.CalculateBlobIdentifierWithBlocks(blob).BlobId;
+
+            // Since we read this while calculating the hash, the position needs to be reset before we send this 
+            blob.Position = 0;
 
             using(var blobClient = CreateArtifactsClient(_connection, default(CancellationToken)))
-            {   
+            {
                 return await blobClient.UploadBlocksForBlobAsync(blobId, blob, default(CancellationToken));
             }
         }
