@@ -12,10 +12,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
     [Collection("Worker L1 Tests")]
     public class ContainerL1Tests : L1TestBase
     {
-        [Fact]
+        [Theory]
         [Trait("Level", "L1")]
         [Trait("Category", "Worker")]
-        public async Task StepTarget_RestrictedMode()
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task StepTarget_RestrictedMode(bool writeToBlobstorageService)
         {
             try
             {
@@ -30,6 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                     Commands = "restricted"
                 };
                 message.Steps.Add(tagStep);
+                message.Variables.Add("agent.LogToBlobstorageService", writeToBlobstorageService.ToString());
 
                 // Act
                 var results = await RunWorker(message);
