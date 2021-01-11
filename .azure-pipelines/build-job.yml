@@ -11,15 +11,12 @@ parameters:
 
 - name: container
   type: string
-  default: ''
 
 - name: timeoutInMinutes
   type: number
-  default: 60
 
 - name: branch
   type: string
-  default: ''
 
 - name: os
   type: string
@@ -39,15 +36,12 @@ parameters:
 
 - name: unitTests
   type: boolean
-  default: true
 
 - name: functionalTests
   type: boolean
-  default: true
 
 - name: codeCoverage
   type: boolean
-  default: false
 
 - name: componentDetection
   type: boolean
@@ -57,7 +51,6 @@ parameters:
 
 - name: verifySigning
   type: boolean
-  default: false
 
 - name: publishArtifact
   type: boolean
@@ -66,6 +59,12 @@ parameters:
   type: boolean
   default: false
 
+- name: packageType
+  type: string
+  default: agent
+  values:
+  - agent
+  - pipelines-agent
 
 jobs:
 
@@ -78,6 +77,7 @@ jobs:
     container: ${{ parameters.container }}
 
   variables:
+    PACKAGE_TYPE: ${{ parameters.packageType }}
     ${{ if eq(parameters.os, 'win') }}:
       devCommand: dev.cmd
     ${{ if ne(parameters.os, 'win') }}:
@@ -87,7 +87,7 @@ jobs:
   steps:
 
   # Component detection
-  - ${{ if eq(parameters.componentDetection, true) }}:
+  - ${{ if parameters.componentDetection }}:
     - task: ms.vss-governance-buildtask.governance-build-task-component-detection.ComponentGovernanceComponentDetection@0
       displayName: 'Component Detection'
 
@@ -105,7 +105,7 @@ jobs:
   - script: ${{ variables.devCommand }} layout Release
     workingDirectory: src
     displayName: Build & Layout Release
-    ${{ if eq(parameters.enableADOLogIssue, true) }}:
+    ${{ if parameters.enableADOLogIssue }}:
       env:
         ADO_ENABLE_LOGISSUE: true
 
