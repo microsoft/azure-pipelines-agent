@@ -128,7 +128,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         public Task<TaskLog> AssociateLogAsync(Guid scopeIdentifier, string hubName, Guid planId, int logId, BlobIdentifierWithBlocks blobBlockId, int lineCount, CancellationToken cancellationToken)
         {
             CheckConnection();
-            
+
             return _taskClient.AssociateLogAsync(scopeIdentifier, hubName, planId, logId, blobBlockId.Serialize(), lineCount, cancellationToken: cancellationToken);
         }
 
@@ -151,10 +151,10 @@ namespace Microsoft.VisualStudio.Services.Agent
             var tracer = new CallbackAppTraceSource(str => Trace.Info(str), System.Diagnostics.SourceLevels.Information);
 
             ArtifactHttpClientFactory factory = new ArtifactHttpClientFactory(
-            connection.Credentials,
-            TimeSpan.FromSeconds(50),
-            tracer,
-            default(CancellationToken));
+                connection.Credentials,
+                TimeSpan.FromSeconds(50),
+                tracer,
+                default(CancellationToken));
 
             return factory.CreateVssHttpClient<IBlobStoreHttpClient, BlobStore2HttpClient>(connection.GetClient<BlobStore2HttpClient>().BaseAddress);
         }
