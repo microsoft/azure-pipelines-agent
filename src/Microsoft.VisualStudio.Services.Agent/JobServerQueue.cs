@@ -624,6 +624,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                             }
                             catch {
                                 // Fall back to FCS
+                                fs.Position = 0;
                                 await _jobServer.AppendLogContentAsync(_scopeIdentifier, _hubName, _planId, taskLog.Id, fs, default(CancellationToken));
                             }
                         }
