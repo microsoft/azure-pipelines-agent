@@ -25,7 +25,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
     public class SelfUpdater : AgentService, ISelfUpdater
     {
-        private static string _packageType = "agent";
+        private static string _packageType = BuildConstants.AgentPackage.PackageType;
         private static string _platform = BuildConstants.AgentPackage.PackageName;
         private static UpdaterKnobValueContext _knobContext = new UpdaterKnobValueContext();
 
