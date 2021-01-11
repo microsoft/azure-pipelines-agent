@@ -609,32 +609,33 @@ namespace Microsoft.VisualStudio.Services.Agent
                     // Create the log
                     var taskLog = await _jobServer.CreateLogAsync(_scopeIdentifier, _hubName, _planId, new TaskLog(String.Format(@"logs\{0:D}", file.TimelineRecordId)), default(CancellationToken));
 
-                    if (_writeToBlobstorageService)
+                    
+                    using (FileStream fs = File.Open(file.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                     {
-                        BlobIdentifierWithBlocks blobBlockId = null;
-                        using (FileStream fs = File.Open(file.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                        if (_writeToBlobstorageService)
                         {
-                            try {
-                                blobBlockId = await _jobServer.UploadLogToBlobstorageService(fs, _hubName, _planId, taskLog.Id);
+                            BlobIdentifierWithBlocks blobBlockId = null;
+                                try {
+                                    blobBlockId = await _jobServer.UploadLogToBlobstorageService(fs, _hubName, _planId, taskLog.Id);
 
-                                int lineCount = File.ReadLines(file.Path).Count();
+                                    int lineCount = File.ReadLines(file.Path).Count();
 
-                                // Notify TFS
-                                await _jobServer.AssociateLogAsync(_scopeIdentifier, _hubName, _planId, taskLog.Id, blobBlockId, lineCount, default(CancellationToken));
-                            }
-                            catch {
-                                // Fall back to FCS
-                                fs.Position = 0;
+                                    // Notify TFS
+                                    await _jobServer.AssociateLogAsync(_scopeIdentifier, _hubName, _planId, taskLog.Id, blobBlockId, lineCount, default(CancellationToken));
+                                }
+                                catch {
+                                    // Fall back to FCS
+                                    fs.Position = 0;
+                                    await _jobServer.AppendLogContentAsync(_scopeIdentifier, _hubName, _planId, taskLog.Id, fs, default(CancellationToken));
+                                }
+                        }
+                        else
+                        {
+                            // Upload the contents
+                            using (FileStream fs = File.Open(file.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                            {
                                 await _jobServer.AppendLogContentAsync(_scopeIdentifier, _hubName, _planId, taskLog.Id, fs, default(CancellationToken));
                             }
-                        }
-                    }
-                    else
-                    {
-                        // Upload the contents
-                        using (FileStream fs = File.Open(file.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                        {
-                            await _jobServer.AppendLogContentAsync(_scopeIdentifier, _hubName, _planId, taskLog.Id, fs, default(CancellationToken));
                         }
                     }
 
