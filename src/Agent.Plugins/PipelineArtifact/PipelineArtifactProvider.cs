@@ -14,6 +14,7 @@ using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.WebApi;
+using Microsoft.VisualStudio.Services.Content.Common;
 
 namespace Agent.Plugins.PipelineArtifact
 {
@@ -51,7 +52,7 @@ namespace Agent.Plugins.PipelineArtifact
             var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, parallelism);
         }
 
-        public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken)
+        public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
             DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClient(
                 this.context, this.connection, cancellationToken, out BlobStoreClientTelemetry clientTelemetry);
@@ -70,14 +71,24 @@ namespace Agent.Plugins.PipelineArtifact
                     record: downloadRecord,
                     actionAsync: async () =>
                     {
-                        await dedupManifestClient.DownloadAsync(options, cancellationToken);
+                        await AsyncHttpRetryHelper.InvokeVoidAsync(
+                            async () =>
+                            {
+                                await dedupManifestClient.DownloadAsync(options, cancellationToken);
+                            },
+                            maxRetries: 3,
+                            tracer: tracer,
+                            canRetryDelegate: e => true,
+                            context: nameof(DownloadSingleArtifactAsync),
+                            cancellationToken: cancellationToken,
+                            continueOnCapturedContext: false);
                     });
                 // Send results to CustomerIntelligence
                 this.context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: downloadRecord);
             }
         }
 
-        public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken)
+        public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
             DedupManifestArtifactClient dedupManifestClient = DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClient(
                 this.context, this.connection, cancellationToken, out BlobStoreClientTelemetry clientTelemetry);
@@ -100,7 +111,17 @@ namespace Agent.Plugins.PipelineArtifact
                     record: downloadRecord,
                     actionAsync: async () =>
                     {
-                        await dedupManifestClient.DownloadAsync(options, cancellationToken);
+                        await AsyncHttpRetryHelper.InvokeVoidAsync(
+                            async () =>
+                            {
+                                await dedupManifestClient.DownloadAsync(options, cancellationToken);
+                            },
+                            maxRetries: 3,
+                            tracer: tracer,
+                            canRetryDelegate: e => true,
+                            context: nameof(DownloadMultipleArtifactsAsync),
+                            cancellationToken: cancellationToken,
+                            continueOnCapturedContext: false);
                     });
                 // Send results to CustomerIntelligence
                 this.context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: downloadRecord);

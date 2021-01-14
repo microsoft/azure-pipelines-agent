@@ -36,7 +36,7 @@ namespace Agent.Plugins.Repository
         Task AddAsync(string localPath);
         Task ShelveAsync(string shelveset, string commentFile, bool move);
         Task<ITfsVCShelveset> ShelvesetsAsync(string shelveset);
-        Task UnshelveAsync(string shelveset);
+        Task UnshelveAsync(string shelveset, bool failOnNonZeroExitCode);
         void CleanupProxySetting();
     }
 }

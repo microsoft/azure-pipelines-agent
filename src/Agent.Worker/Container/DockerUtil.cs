@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using Agent.Sdk;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 {
@@ -12,6 +13,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
     {
         public static List<PortMapping> ParseDockerPort(IList<string> portMappingLines)
         {
+            ArgUtil.NotNull(portMappingLines, nameof(portMappingLines));
+
             const string targetPort = "targetPort";
             const string proto = "proto";
             const string host = "host";

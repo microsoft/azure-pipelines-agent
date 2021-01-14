@@ -214,9 +214,9 @@ namespace Agent.Plugins.Repository
         ISourceProvider GetSourceProvider(string repositoryType);
     }
 
-    public sealed class SourceProviderFactory : ISourceProviderFactory
+    public class SourceProviderFactory : ISourceProviderFactory
     {
-        public ISourceProvider GetSourceProvider(string repositoryType)
+        public virtual ISourceProvider GetSourceProvider(string repositoryType)
         {
             ISourceProvider sourceProvider = null;
 

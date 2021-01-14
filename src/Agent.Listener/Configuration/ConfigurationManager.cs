@@ -16,6 +16,8 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
+using System.Security.AccessControl;
+using System.Security.Principal;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
@@ -36,6 +38,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public override void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
             base.Initialize(hostContext);
             Trace.Verbose("Creating _store");
             _store = hostContext.GetService<IConfigurationStore>();
@@ -66,6 +69,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public async Task ConfigureAsync(CommandSettings command)
         {
+            ArgUtil.NotNull(command, nameof(command));
+
+            if (PlatformUtil.RunningOnWindows)
+            { 
+                CheckAgentRootDirectorySecure();
+            }
+
             Trace.Info(nameof(ConfigureAsync));
             if (IsConfigured())
             {
@@ -174,15 +184,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             // Create the configuration provider as per agent type.
             string agentType;
-            if (command.DeploymentGroup)
+            if (command.GetDeploymentOrMachineGroup())
             {
                 agentType = Constants.Agent.AgentConfigurationProvider.DeploymentAgentConfiguration;
             }
-            else if (command.DeploymentPool)
+            else if (command.GetDeploymentPool())
             {
                 agentType = Constants.Agent.AgentConfigurationProvider.SharedDeploymentAgentConfiguration;
             }
-            else if (command.EnvironmentVMResource)
+            else if (command.GetEnvironmentVMResource())
             {
                 agentType = Constants.Agent.AgentConfigurationProvider.EnvironmentVMResourceConfiguration;
             }
@@ -224,7 +234,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     Trace.Info("Test Connection complete.");
                     break;
                 }
-                catch (Exception e) when (!command.Unattended)
+                catch (Exception e) when (!command.Unattended())
                 {
                     _term.WriteError(e);
                     _term.WriteError(StringUtil.Loc("FailedToConnect"));
@@ -250,7 +260,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     await agentProvider.GetPoolIdAndName(agentSettings, command);
                     break;
                 }
-                catch (Exception e) when (!command.Unattended)
+                catch (Exception e) when (!command.Unattended())
                 {
                     _term.WriteError(e);
                     _term.WriteError(agentProvider.GetFailedToFindPoolErrorString());
@@ -282,13 +292,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                             _term.WriteLine(StringUtil.Loc("AgentReplaced"));
                             break;
                         }
-                        catch (Exception e) when (!command.Unattended)
+                        catch (Exception e) when (!command.Unattended())
                         {
                             _term.WriteError(e);
                             _term.WriteError(StringUtil.Loc("FailedToReplaceAgent"));
                         }
                     }
-                    else if (command.Unattended)
+                    else if (command.Unattended())
                     {
                         // if not replace and it is unattended config.
                         agentProvider.ThrowTaskAgentExistException(agentSettings);
@@ -305,7 +315,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                         _term.WriteLine(StringUtil.Loc("AgentAddedSuccessfully"));
                         break;
                     }
-                    catch (Exception e) when (!command.Unattended)
+                    catch (Exception e) when (!command.Unattended())
                     {
                         _term.WriteError(e);
                         _term.WriteError(StringUtil.Loc("AddAgentFailed"));
@@ -406,7 +416,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 // 2. The bearer token is not valid until {jwt.ValidFrom}. Current server time is {DateTime.UtcNow}.
                 Trace.Error("Catch exception during test agent connection.");
                 Trace.Error(ex);
-                throw new Exception(StringUtil.Loc("LocalClockSkewed"));
+                throw new InvalidOperationException(StringUtil.Loc("LocalClockSkewed"));
             }
 
             // We will Combine() what's stored with root.  Defaults to string a relative path
@@ -419,6 +429,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             agentSettings.NotificationSocketAddress = command.GetNotificationSocketAddress();
 
+            agentSettings.DisableLogUploads = command.GetDisableLogUploads();
+
+            agentSettings.AlwaysExtractTask = command.GetAlwaysExtractTask();
+            
             _store.SaveSettings(agentSettings);
 
             if (saveProxySetting)
@@ -437,7 +451,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             bool saveRuntimeOptions = false;
             var runtimeOptions = new AgentRuntimeOptions();
-            if (PlatformUtil.RunningOnWindows && command.GitUseSChannel)
+            if (PlatformUtil.RunningOnWindows && command.GetGitUseSChannel())
             {
                 saveRuntimeOptions = true;
                 runtimeOptions.GitUseSecureChannel = true;
@@ -484,6 +498,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public async Task UnconfigureAsync(CommandSettings command)
         {
+            ArgUtil.NotNull(command, nameof(command));
             string currentAction = string.Empty;
             try
             {
@@ -501,12 +516,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     else if (PlatformUtil.RunningOnLinux)
                     {
                         // unconfig systemd service first
-                        throw new Exception(StringUtil.Loc("UnconfigureServiceDService"));
+                        throw new InvalidOperationException(StringUtil.Loc("UnconfigureServiceDService"));
                     }
                     else if (PlatformUtil.RunningOnMacOS)
                     {
                         // unconfig macOS service first
-                        throw new Exception(StringUtil.Loc("UnconfigureOSXService"));
+                        throw new InvalidOperationException(StringUtil.Loc("UnconfigureOSXService"));
                     }
                 }
                 else
@@ -651,7 +666,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             // Create the credential.
             Trace.Info("Creating credential for auth: {0}", authType);
             var provider = credentialManager.GetCredentialProvider(authType);
-            if (provider.RequireInteractive && command.Unattended)
+            if (provider.RequireInteractive && command.Unattended())
             {
                 throw new NotSupportedException($"Authentication type '{authType}' is not supported for unattended configuration.");
             }
@@ -689,6 +704,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     PublicKey = new TaskAgentPublicKey(publicKey.Exponent, publicKey.Modulus),
                 },
                 MaxParallelism = 1,
+                ProvisioningState = TaskAgentProvisioningStateConstants.Provisioned,
                 Version = BuildConstants.AgentPackage.Version,
                 OSDescription = RuntimeInformation.OSDescription,
             };
@@ -708,6 +724,55 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _term.WriteLine();
         }
 
+        private void CheckAgentRootDirectorySecure()
+        {
+            Trace.Info(nameof(CheckAgentRootDirectorySecure));
+
+            try
+            {
+                string rootDirPath = HostContext.GetDirectory(WellKnownDirectory.Root);
+
+                if (!String.IsNullOrEmpty(rootDirPath))
+                {
+                    // Get info about root folder
+                    DirectoryInfo dirInfo = new DirectoryInfo(rootDirPath);
+
+                    // Get directory access control list 
+                    DirectorySecurity directorySecurityInfo = dirInfo.GetAccessControl();
+                    AuthorizationRuleCollection dirAccessRules = directorySecurityInfo.GetAccessRules(true, true, typeof(NTAccount));
+
+
+                    // Get identity reference of the BUILTIN\Users group
+                    IdentityReference bulitInUsersGroup = new SecurityIdentifier(WellKnownSidType.BuiltinUsersSid, null).Translate(typeof(NTAccount));
+
+                    // Check if BUILTIN\Users group have modify/write rights for the agent root folder
+                    List<FileSystemAccessRule> potentiallyInsecureRules = dirAccessRules.OfType<FileSystemAccessRule>().AsParallel()
+                                                                          .Where(rule => rule.IdentityReference == bulitInUsersGroup && (rule.FileSystemRights.HasFlag(FileSystemRights.Write) || rule.FileSystemRights.HasFlag(FileSystemRights.Modify)))
+                                                                          .ToList<FileSystemAccessRule>();
+
+                    // Notify user if there are some potentially insecure access rules for the agent root folder
+                    if (potentiallyInsecureRules.Count != 0)
+                    {
+                        Trace.Warning("The {0} group have the following permissions to the agent root folder: ", bulitInUsersGroup.ToString());
+
+                        potentiallyInsecureRules.ForEach(accessRule => Trace.Warning("- {0}", accessRule.FileSystemRights.ToString()));
+
+                        _term.Write(StringUtil.Loc("agentRootFolderInsecure", bulitInUsersGroup.ToString()));
+                    }
+                }
+                else 
+                {
+                    Trace.Warning("Can't get path to the agent root folder, check was skipped.");
+                }
+            }
+            catch (Exception ex) {
+                Trace.Warning("Can't check permissions for agent root folder:");
+                Trace.Warning(ex.Message);
+                _term.Write(StringUtil.Loc("agentRootFolderCheckError"));
+            }
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "locationServer")]
         private async Task<bool> IsHostedServer(string serverUrl, VssCredentials credentials)
         {
             // Determine the service deployment type based on connection data. (Hosted/OnPremises)

@@ -46,8 +46,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             {
                 //Arrange
                 using (var hc = new TestHostContext(this))
+                using ( var pagingLogger = new PagingLogger())
                 {
-                    var pagingLogger = new PagingLogger();
                     hc.SetSingleton<IJobServerQueue>(_jobServerQueue.Object);
                     pagingLogger.Initialize(hc);
                     Guid timeLineId = Guid.NewGuid();
@@ -107,8 +107,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             {
                 //Arrange
                 using (var hc = new TestHostContext(this))
+                using ( var pagingLogger = new PagingLogger())
                 {
-                    var pagingLogger = new PagingLogger();
                     hc.SetSingleton<IJobServerQueue>(_jobServerQueue.Object);
                     pagingLogger.Initialize(hc);
                     Guid timeLineId = Guid.NewGuid();

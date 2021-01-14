@@ -13,7 +13,7 @@ using System.IO;
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
     /// <summary>
-    /// This class is used to keep track of which repositories are being fetched and 
+    /// This class is used to keep track of which repositories are being fetched and
     /// where they will be fetched to.
     /// This information is tracked per definition.
     /// </summary>
@@ -35,6 +35,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             bool useNewArtifactsDirectoryName = false)
             : this()
         {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+            ArgUtil.NotNull(copy, nameof(copy));
+
             // Set the directories.
             BuildDirectory = Path.GetFileName(copy.BuildDirectory); // Just take the portion after _work folder.
             string artifactsDirectoryNameOnly =
@@ -72,6 +75,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNull(repositories, nameof(repositories));
 
+            // Get the repo that we are going to checkout first to create the tracking info from.
             var primaryRepository = RepositoryUtil.GetPrimaryRepository(repositories);
 
             // Set the directories.
@@ -90,13 +94,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             foreach (var repo in repositories)
             {
-                RepositoryTrackingInfo.Add(new Build.RepositoryTrackingInfo
-                {
-                    Identifier = repo.Alias,
-                    RepositoryType = repo.Type,
-                    RepositoryUrl = repo.Url.AbsoluteUri,
-                    SourcesDirectory = Path.Combine(SourcesDirectory, RepositoryUtil.GetCloneDirectory(repo)),
-                });
+                RepositoryTrackingInfo.Add(new Build.RepositoryTrackingInfo(repo, SourcesDirectory));
             }
 
             // Now that we have all the repositories set up, we can compute the config hash
@@ -129,6 +127,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             get
             {
+                // Any time this gets updated, the agent cannot be rolled back.
+                // Back compat is guaranteed here, forward compat is not.
                 return 3;
             }
 
@@ -231,6 +231,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public void UpdateJobRunProperties(IExecutionContext executionContext)
         {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+
             CollectionUrl = executionContext.Variables.System_TFCollectionUrl;
             DefinitionName = executionContext.Variables.Build_DefinitionName;
             LastRunOn = DateTimeOffset.Now;
@@ -239,6 +241,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
     public class RepositoryTrackingInfo
     {
+        public RepositoryTrackingInfo(RepositoryResource repositoryResource, string sourcesDirectoryRoot)
+        {
+            if (repositoryResource != null)
+            {
+                Identifier = repositoryResource.Alias;
+                RepositoryType = repositoryResource.Type;
+                RepositoryUrl = repositoryResource.Url.AbsoluteUri;
+                SourcesDirectory = Path.Combine(sourcesDirectoryRoot, RepositoryUtil.GetCloneDirectory(repositoryResource));
+            }
+        }
+
+        public RepositoryTrackingInfo() { }
+
         public string Identifier { get; set; }
         public string RepositoryType { get; set; }
         public string RepositoryUrl { get; set; }

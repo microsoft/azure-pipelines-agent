@@ -23,13 +23,14 @@ namespace Agent.Plugins.PipelineArtifact
         public abstract Guid Id { get; }
         protected virtual string DownloadPath => "path";
         protected virtual string RunId => "runId";
-        protected CallbackAppTraceSource tracer;
+        protected IAppTraceSource tracer;
 
         public string Stage => "main";
 
         public Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
-            this.tracer = new CallbackAppTraceSource(str => context.Output(str), System.Diagnostics.SourceLevels.Information);
+            this.tracer = context.CreateArtifactsTracer();
+
             return this.ProcessCommandInternalAsync(context, token);
         }
 
@@ -283,9 +284,17 @@ namespace Agent.Plugins.PipelineArtifact
             BuildHttpClient buildHttpClient = connection.GetClient<BuildHttpClient>();
 
             var isDefinitionNum = Int32.TryParse(pipelineDefinition, out int definition);
-            if(!isDefinitionNum) 
+            if (!isDefinitionNum)
             {
-                definition = (await buildHttpClient.GetDefinitionsAsync(new System.Guid(project), pipelineDefinition, cancellationToken: cancellationToken)).FirstOrDefault().Id;
+                var definitionRef = (await buildHttpClient.GetDefinitionsAsync(new System.Guid(project), pipelineDefinition, cancellationToken: cancellationToken)).FirstOrDefault();
+                if (definitionRef == null)
+                {
+                    throw new ArgumentException(StringUtil.Loc("PipelineDoesNotExist", pipelineDefinition));
+                }
+                else
+                {
+                    definition = definitionRef.Id;
+                }
             }
             var definitions = new List<int>() { definition };
 

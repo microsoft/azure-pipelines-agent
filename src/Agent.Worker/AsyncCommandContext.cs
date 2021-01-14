@@ -16,6 +16,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         void Output(string message);
         void Debug(string message);
         Task WaitAsync();
+        IHostContext GetHostContext();
     }
 
     public class AsyncCommandContext : AgentService, IAsyncCommandContext
@@ -48,6 +49,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             _executionContext = context;
             Name = name;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1721: Property names should not match get methods")]
+        public IHostContext GetHostContext()
+        {
+            return _executionContext.GetHostContext();
         }
 
         public void Output(string message)

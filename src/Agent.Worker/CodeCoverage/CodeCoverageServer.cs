@@ -22,6 +22,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
         Task PublishCoverageSummaryAsync(IAsyncCommandContext context, VssConnection connection, string project, int buildId, IEnumerable<CodeCoverageStatistics> coverageData, CancellationToken cancellationToken);
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1812: Avoid uninstantiated internal classes")]
     internal sealed class CodeCoverageServer : AgentService, ICodeCoverageServer
     {
         public async Task PublishCoverageSummaryAsync(IAsyncCommandContext context, VssConnection connection, string project, int buildId, IEnumerable<CodeCoverageStatistics> coverageData, CancellationToken cancellationToken)

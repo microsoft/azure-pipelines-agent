@@ -13,6 +13,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
     {
         public static bool GetFeatureFlagState(FeatureAvailabilityHttpClient featureAvailabilityHttpClient, string FFName, IAsyncCommandContext context)
         {
+            ArgUtil.NotNull(context, nameof(context));
+
             try
             {
                 var featureFlag = featureAvailabilityHttpClient?.GetFeatureFlagByNameAsync(FFName).Result;

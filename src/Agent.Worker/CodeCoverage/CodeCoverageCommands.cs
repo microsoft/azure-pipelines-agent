@@ -36,9 +36,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
         private List<string> _additionalCodeCoverageFiles;
         private string _codeCoverageTool;
         private string _reportDirectory;
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "GetVssConnection")]
         public void Execute(IExecutionContext context, Command command)
         {
             ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
 
             var eventProperties = command.Properties;
             _buildId = context.Variables.Build_BuildId ?? -1;

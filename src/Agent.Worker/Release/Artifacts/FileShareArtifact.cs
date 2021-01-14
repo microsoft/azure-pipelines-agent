@@ -20,6 +20,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
         {
             ArgUtil.NotNull(artifactDefinition, nameof(artifactDefinition));
             ArgUtil.NotNull(executionContext, nameof(executionContext));
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
             ArgUtil.NotNullOrEmpty(localFolderPath, nameof(localFolderPath));
             ArgUtil.NotNullOrEmpty(dropLocation, nameof(dropLocation));
 
@@ -39,7 +40,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             var trimChars = new[] { '\\', '/' };
             var relativePath = artifactDefinition.Details.RelativePath;
 
-            // If user has specified a relative folder in the drop, change the drop location itself. 
+            // If user has specified a relative folder in the drop, change the drop location itself.
             dropLocation = Path.Combine(dropLocation.TrimEnd(trimChars), relativePath.Trim(trimChars));
 
             var fileSystemManager = hostContext.CreateService<IReleaseFileSystemManager>();

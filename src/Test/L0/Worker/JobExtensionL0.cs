@@ -61,8 +61,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         private Mock<IPagingLogger> _logger;
         private Mock<IExpressionManager> _express;
         private Mock<IContainerOperationProvider> _containerProvider;
-        private CancellationTokenSource _tokenSource;
-        private TestHostContext CreateTestContext([CallerMemberName] String testName = "")
+        private TestHostContext CreateTestContext(CancellationTokenSource _tokenSource, [CallerMemberName] String testName = "")
         {
             var hc = new TestHostContext(this, testName);
             _jobEc = new Agent.Worker.ExecutionContext();
@@ -101,16 +100,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             _config.Setup(x => x.GetSettings())
                 .Returns(settings);
 
+            _config.Setup(x => x.GetSetupInfo())
+                .Returns(new List<SetupInfo>());
+
             _proxy.Setup(x => x.ProxyAddress)
                             .Returns(string.Empty);
 
-            if (_tokenSource != null)
-            {
-                _tokenSource.Dispose();
-                _tokenSource = null;
-            }
-
-            _tokenSource = new CancellationTokenSource();
             TaskOrchestrationPlanReference plan = new TaskOrchestrationPlanReference();
             TimelineReference timeline = new Timeline(Guid.NewGuid());
             JobEnvironment environment = new JobEnvironment();
@@ -286,9 +281,44 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        public async Task JobExtensionSetupInfo()
+        {
+            using (var tokenSource = new CancellationTokenSource())
+            using (TestHostContext hc = CreateTestContext(tokenSource))
+            {
+                var config = hc.GetService<IConfigurationStore>();
+                var setupInfo = (List<SetupInfo>)config.GetSetupInfo();
+                setupInfo.Add(new SetupInfo()
+                {
+                    Group = "Test Group",
+                    Detail = "Test Detail"
+                });
+                setupInfo.Add(new SetupInfo()
+                {
+                    Detail = "Environment: test\nVersion: 123"
+                });
+
+
+                TestJobExtension testExtension = new TestJobExtension();
+                testExtension.Initialize(hc);
+                await testExtension.InitializeJob(_jobEc, _message);
+
+                _jobServerQueue.Verify(x => x.QueueWebConsoleLine(It.IsAny<Guid>(), "##[group]Test Group", It.IsAny<long>()), Times.Exactly(1));
+                _jobServerQueue.Verify(x => x.QueueWebConsoleLine(It.IsAny<Guid>(), "Test Detail", It.IsAny<long>()), Times.Exactly(1));
+
+                _jobServerQueue.Verify(x => x.QueueWebConsoleLine(It.IsAny<Guid>(), "##[group]Machine Setup Info", It.IsAny<long>()), Times.Exactly(1));
+                _jobServerQueue.Verify(x => x.QueueWebConsoleLine(It.IsAny<Guid>(), "Environment: test", It.IsAny<long>()), Times.Exactly(1));
+                _jobServerQueue.Verify(x => x.QueueWebConsoleLine(It.IsAny<Guid>(), "Version: 123", It.IsAny<long>()), Times.Exactly(1));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
         public async Task JobExtensioBuildStepsList()
         {
-            using (TestHostContext hc = CreateTestContext())
+            using (var tokenSource = new CancellationTokenSource())
+            using (TestHostContext hc = CreateTestContext(tokenSource))
             {
                 TestJobExtension testExtension = new TestJobExtension();
                 testExtension.Initialize(hc);
@@ -320,7 +350,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public async Task JobExtensionIntraTaskState()
         {
-            using (TestHostContext hc = CreateTestContext())
+            using (var tokenSource = new CancellationTokenSource())
+            using (TestHostContext hc = CreateTestContext(tokenSource))
             {
                 TestJobExtension testExtension = new TestJobExtension();
                 testExtension.Initialize(hc);
@@ -352,13 +383,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("SkipOn", "linux")]
         public async Task JobExtensionManagementScriptStep()
         {
-            using (TestHostContext hc = CreateTestContext())
+            using (var tokenSource = new CancellationTokenSource())
+            using (TestHostContext hc = CreateTestContext(tokenSource))
             {
                 hc.EnqueueInstance<IPagingLogger>(_logger.Object);
                 hc.EnqueueInstance<IPagingLogger>(_logger.Object);
 
                 Environment.SetEnvironmentVariable("VSTS_AGENT_INIT_INTERNAL_TEMP_HACK", "C:\\init.ps1");
-                Environment.SetEnvironmentVariable("VSTS_AGENT_CLEANUP_INTERNAL_TEMP_HACK", "C:\\clenup.ps1");
+                Environment.SetEnvironmentVariable("VSTS_AGENT_CLEANUP_INTERNAL_TEMP_HACK", "C:\\cleanup.ps1");
 
                 try
                 {

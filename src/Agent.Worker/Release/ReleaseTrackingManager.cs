@@ -81,7 +81,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                 {
                     executionContext.Output(StringUtil.Loc("EvaluateReleaseTrackingFile", trackingFile));
                     ReleaseTrackingConfig tracking = LoadIfExists(executionContext, trackingFile);
-                    
+
                     if (tracking.LastRunOn == null)
                     {
                         Trace.Verbose($"{trackingFile} is a old format tracking file.");
@@ -94,7 +94,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                     {
                         Trace.Verbose($"{trackingFile} is a new format tracking file.");
                         ArgUtil.NotNull(tracking.LastRunOn, nameof(tracking.LastRunOn));
-                        executionContext.Output(StringUtil.Loc("ReleaseDirLastUseTIme", Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), tracking.ReleaseDirectory), tracking.LastRunOn?.ToString("u")));
+                        executionContext.Output(StringUtil.Loc("ReleaseDirLastUseTime", Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), tracking.ReleaseDirectory), tracking.LastRunOn?.ToString("u")));
                         if (DateTime.UtcNow - expiration > tracking.LastRunOn)
                         {
                             executionContext.Output(StringUtil.Loc("GCUnusedTrackingFile", trackingFile, expiration.TotalDays));
@@ -113,6 +113,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 
         public void DisposeCollectedGarbage(IExecutionContext executionContext)
         {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+
             Trace.Entering();
             PrintOutDiskUsage(executionContext);
 

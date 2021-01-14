@@ -84,6 +84,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             LoggerCallbackHandler.UseDefaultLogging = false;
             AuthenticationContext ctx = new AuthenticationContext(tenantAuthorityUrl.AbsoluteUri);
             var queryParameters = $"redirect_uri={Uri.EscapeDataString(new Uri(serverUrl).GetLeftPart(UriPartial.Authority))}";
+            if (PlatformUtil.RunningOnMacOS)
+            {
+                throw new Exception("AAD isn't supported for MacOS");
+            }
             DeviceCodeResult codeResult = ctx.AcquireDeviceCodeAsync("https://management.core.windows.net/", _azureDevOpsClientId, queryParameters).GetAwaiter().GetResult();
 
             var term = context.GetService<ITerminal>();
@@ -99,10 +103,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     else if (PlatformUtil.RunningOnLinux)
                     {
                         Process.Start(new ProcessStartInfo() { FileName = "xdg-open", Arguments = codeResult.VerificationUrl });
-                    }
-                    else if (PlatformUtil.RunningOnMacOS)
-                    {
-                        Process.Start(new ProcessStartInfo() { FileName = "open", Arguments = codeResult.VerificationUrl });
                     }
                     else
                     {
@@ -140,28 +140,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         private Uri GetTenantAuthorityUrl(IHostContext context, string serverUrl)
         {
-            using (var client = new HttpClient(context.CreateHttpClientHandler()))
+            using (var handler = context.CreateHttpClientHandler())
+            using (var client = new HttpClient(handler))
             {
                 client.DefaultRequestHeaders.Accept.Clear();
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 client.DefaultRequestHeaders.Add("X-TFS-FedAuthRedirect", "Suppress");
                 client.DefaultRequestHeaders.UserAgent.Clear();
                 client.DefaultRequestHeaders.UserAgent.AddRange(VssClientHttpRequestSettings.Default.UserAgent);
-                var requestMessage = new HttpRequestMessage(HttpMethod.Head, $"{serverUrl.Trim('/')}/_apis/connectiondata");
-                var response = client.SendAsync(requestMessage).GetAwaiter().GetResult();
-
-                // Get the tenant from the Login URL, MSA backed accounts will not return `Bearer` www-authenticate header.
-                var bearerResult = response.Headers.WwwAuthenticate.Where(p => p.Scheme.Equals("Bearer", StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
-                if (bearerResult != null && bearerResult.Parameter.StartsWith("authorization_uri=", StringComparison.OrdinalIgnoreCase))
+                using (var requestMessage = new HttpRequestMessage(HttpMethod.Head, $"{serverUrl.Trim('/')}/_apis/connectiondata"))
                 {
-                    var authorizationUri = bearerResult.Parameter.Substring("authorization_uri=".Length);
-                    if (Uri.TryCreate(authorizationUri, UriKind.Absolute, out Uri aadTenantUrl))
-                    {
-                        return aadTenantUrl;
-                    }
-                }
+                    var response = client.SendAsync(requestMessage).GetAwaiter().GetResult();
 
-                return null;
+                    // Get the tenant from the Login URL, MSA backed accounts will not return `Bearer` www-authenticate header.
+                    var bearerResult = response.Headers.WwwAuthenticate.Where(p => p.Scheme.Equals("Bearer", StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
+                    if (bearerResult != null && bearerResult.Parameter.StartsWith("authorization_uri=", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var authorizationUri = bearerResult.Parameter.Substring("authorization_uri=".Length);
+                        if (Uri.TryCreate(authorizationUri, UriKind.Absolute, out Uri aadTenantUrl))
+                        {
+                            return aadTenantUrl;
+                        }
+                    }
+
+                    return null;
+                }
             }
         }
     }

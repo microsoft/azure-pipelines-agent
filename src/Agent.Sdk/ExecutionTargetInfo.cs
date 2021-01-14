@@ -3,6 +3,7 @@
 
 namespace Agent.Sdk
 {
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1715: Identifiers should have correct prefix")]
     public interface ExecutionTargetInfo
     {
         PlatformUtil.OS ExecutionOS { get; }

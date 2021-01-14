@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System.IO;
 using System.Text;
@@ -15,7 +16,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
     [ServiceLocator(Default = typeof(NodeHandler))]
     public interface INodeHandler : IHandler
     {
-        // Data can be of these two types: NodeHandlerData, and Node10HandlerData
+        // Data can be of these two types: NodeHandlerData and Node10HandlerData
         BaseNodeHandlerData Data { get; set; }
     }
 
@@ -112,6 +113,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             else
             {
                 file = GetNodeLocation();
+
+                ExecutionContext.Debug("Using node path: " + file);
+                if (!File.Exists(file))
+                {
+                    throw new FileNotFoundException(StringUtil.Loc("MissingNodePath", file));
+                }
             }
 
             // Format the arguments passed to node.
@@ -155,12 +162,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         public string GetNodeLocation()
         {
-            bool useNode10 = ExecutionContext.Variables.GetBoolean("AGENT_USE_NODE10")
-                ?? StringUtil.ConvertToBoolean(System.Environment.GetEnvironmentVariable("AGENT_USE_NODE10"), false);
+            bool useNode10 = AgentKnobs.UseNode10.GetValue(ExecutionContext).AsBoolean();
             bool taskHasNode10Data = Data is Node10HandlerData;
-            string nodeFolder = (taskHasNode10Data || useNode10) ? "node10" : "node";
 
-            Trace.Info($"Task.json has node10 handler data: {taskHasNode10Data}, use node10 for node tasks: {useNode10}");
+            string nodeFolder = "node";
+            if (taskHasNode10Data || useNode10)
+            {
+                Trace.Info($"Task.json has node10 handler data: {taskHasNode10Data}, use node10 for node tasks: {useNode10}");
+                nodeFolder = "node10";
+            }
 
             return Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals),
                 nodeFolder,

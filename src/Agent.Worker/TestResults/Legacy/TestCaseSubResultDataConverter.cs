@@ -4,6 +4,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.TeamFoundation.TestManagement.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 {
@@ -11,6 +12,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
     {
         public static void Convert(TestCaseSubResultData testCaseSubResultData, TestSubResult testSubResultWebApi)
         {
+            ArgUtil.NotNull(testCaseSubResultData, nameof(testCaseSubResultData));
+            ArgUtil.NotNull(testSubResultWebApi, nameof(testSubResultWebApi));
             testSubResultWebApi.CompletedDate = testCaseSubResultData.CompletedDate;
             testSubResultWebApi.Comment = testCaseSubResultData.Comment;
             testSubResultWebApi.ComputerName = testCaseSubResultData.ComputerName;
