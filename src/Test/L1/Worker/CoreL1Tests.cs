@@ -45,10 +45,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             }
         }
 
-        [Fact]
+        [Theory]
         [Trait("Level", "L1")]
         [Trait("Category", "Worker")]
-        public async Task Test_Base_Node10()
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task Test_Base_Node10(bool writeToBlobstorageService)
         {
             try
             {
@@ -59,6 +61,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 message.Steps.Clear();
                 // Add variable setting tasks
                 message.Steps.Add(CreateNode10ScriptTask("echo Hey!"));
+                message.Variables.Add("agent.LogToBlobstorageService", writeToBlobstorageService.ToString());
 
                 // Act
                 var results = await RunWorker(message);
@@ -91,15 +94,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         }
 
         [Theory]
-        [InlineData(false)]
-        [InlineData(true)]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
         [Trait("Level", "L1")]
         // TODO - this test currently doesn't work on Linux/Mac because the node task-lib trims the values it reads.
         // Remove these SkipOn traits once the task-lib is updated.
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
         [Trait("Category", "Worker")]
-        public async Task Input_HandlesTrailingSpace(bool disableInputTrimming)
+        public async Task Input_HandlesTrailingSpace(bool disableInputTrimming, bool writeToBlobstorageService)
         {
             try
             {
@@ -112,6 +117,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 var scriptTask = CreateScriptTask("echo   ");
                 Environment.SetEnvironmentVariable("DISABLE_INPUT_TRIMMING", disableInputTrimming.ToString());
                 message.Steps.Add(scriptTask);
+                message.Variables.Add("agent.LogToBlobstorageService", writeToBlobstorageService.ToString());
 
                 // Act
                 var results = await RunWorker(message);

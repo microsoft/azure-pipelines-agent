@@ -144,12 +144,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             }
         }
 
-        [Fact]
+        [Theory]
         [Trait("Level", "L1")]
         [Trait("Category", "Worker")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
-        public async Task SignatureVerification_Warning()
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task SignatureVerification_Warning(bool writeToBlobstorageService)
         {
             try
             {
@@ -166,6 +168,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 var message = LoadTemplateMessage();
                 message.Steps.Clear();
                 message.Steps.Add(GetSignedTask());
+                message.Variables.Add("agent.LogToBlobstorageService", writeToBlobstorageService.ToString());
 
                 // Act
                 var results = await RunWorker(message);

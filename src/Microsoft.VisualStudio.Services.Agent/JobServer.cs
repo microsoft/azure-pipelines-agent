@@ -9,6 +9,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.BlobStore.Common;
+using Microsoft.VisualStudio.Services.BlobStore.WebApi;
+using Microsoft.VisualStudio.Services.Content.Common;
+using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -26,6 +30,8 @@ namespace Microsoft.VisualStudio.Services.Agent
         Task<List<TimelineRecord>> UpdateTimelineRecordsAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, IEnumerable<TimelineRecord> records, CancellationToken cancellationToken);
         Task RaisePlanEventAsync<T>(Guid scopeIdentifier, string hubName, Guid planId, T eventData, CancellationToken cancellationToken) where T : JobEvent;
         Task<Timeline> GetTimelineAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, CancellationToken cancellationToken);
+        Task<TaskLog> AssociateLogAsync(Guid scopeIdentifier, string hubName, Guid planId, int logId, BlobIdentifierWithBlocks blobBlockId, int lineCount, CancellationToken cancellationToken);
+        Task<BlobIdentifierWithBlocks> UploadLogToBlobstorageService(Stream blob, string hubName, Guid planId, int logId);
     }
 
     public sealed class JobServer : AgentService, IJobServer
@@ -117,6 +123,40 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             CheckConnection();
             return _taskClient.GetTimelineAsync(scopeIdentifier, hubName, planId, timelineId, includeRecords: true, cancellationToken: cancellationToken);
+        }
+
+        public Task<TaskLog> AssociateLogAsync(Guid scopeIdentifier, string hubName, Guid planId, int logId, BlobIdentifierWithBlocks blobBlockId, int lineCount, CancellationToken cancellationToken)
+        {
+            CheckConnection();
+
+            return _taskClient.AssociateLogAsync(scopeIdentifier, hubName, planId, logId, blobBlockId.Serialize(), lineCount, cancellationToken: cancellationToken);
+        }
+
+        public async Task<BlobIdentifierWithBlocks> UploadLogToBlobstorageService(Stream blob, string hubName, Guid planId, int logId)
+        {
+            CheckConnection();
+
+            BlobIdentifier blobId = VsoHash.CalculateBlobIdentifierWithBlocks(blob).BlobId;
+
+            // Since we read this while calculating the hash, the position needs to be reset before we send this 
+            blob.Position = 0;
+
+            using(var blobClient = CreateArtifactsClient(_connection, default(CancellationToken)))
+            {
+                return await blobClient.UploadBlocksForBlobAsync(blobId, blob, default(CancellationToken));
+            }
+        }
+
+        private IBlobStoreHttpClient CreateArtifactsClient(VssConnection connection, CancellationToken cancellationToken){
+            var tracer = new CallbackAppTraceSource(str => Trace.Info(str), System.Diagnostics.SourceLevels.Information);
+
+            ArtifactHttpClientFactory factory = new ArtifactHttpClientFactory(
+                connection.Credentials,
+                TimeSpan.FromSeconds(50),
+                tracer,
+                default(CancellationToken));
+
+            return factory.CreateVssHttpClient<IBlobStoreHttpClient, BlobStore2HttpClient>(connection.GetClient<BlobStore2HttpClient>().BaseAddress);
         }
     }
 }

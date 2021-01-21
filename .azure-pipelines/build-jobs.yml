@@ -1,0 +1,101 @@
+parameters:
+
+- name: jobName
+  type: string
+
+- name: displayName
+  type: string
+
+- name: pool
+  type: object
+
+- name: container
+  type: string
+  default: ''
+
+- name: timeoutInMinutes
+  type: number
+  default: 60
+
+- name: branch
+  type: string
+  default: ''
+
+- name: os
+  type: string
+
+- name: arch
+  type: string
+
+- name: unitTests
+  type: boolean
+  default: true
+
+- name: functionalTests
+  type: boolean
+  default: true
+
+- name: codeCoverage
+  type: boolean
+  default: false
+
+- name: componentDetection
+  type: boolean
+
+- name: sign
+  type: boolean
+
+- name: verifySigning
+  type: boolean
+  default: false
+
+- name: publishArtifacts
+  type: boolean
+
+- name: enableADOLogIssue
+  type: boolean
+  default: false
+
+- name: buildAlternatePackage
+  type: boolean
+  default: false
+
+jobs:
+  - template: build-job.yml
+    parameters:
+      jobName: ${{ parameters.jobName }}
+      displayName: ${{ parameters.displayName }}
+      pool: ${{ parameters.pool }}
+      container: ${{ parameters.container }}
+      timeoutInMinutes: ${{ parameters.timeoutInMinutes }}
+      os: ${{ parameters.os }}
+      arch: ${{ parameters.arch }}
+      branch: ${{ parameters.branch }}
+      codeCoverage: ${{ parameters.codeCoverage }}
+      componentDetection: ${{ parameters.componentDetection }}
+      unitTests: ${{ parameters.unitTests }}
+      functionalTests: ${{ parameters.functionalTests }}
+      sign: ${{ parameters.sign }}
+      verifySigning: ${{ parameters.verifySigning }}
+      publishArtifact: ${{ parameters.publishArtifacts }}
+      packageType: agent
+
+  - ${{ if parameters.buildAlternatePackage }}:
+    - template: build-job.yml
+      parameters:
+        jobName: ${{ parameters.jobName }}_alternate
+        displayName: ${{ parameters.displayName }} (without Node 6)
+        pool: ${{ parameters.pool }}
+        container: ${{ parameters.container }}
+        timeoutInMinutes: ${{ parameters.timeoutInMinutes }}
+        os: ${{ parameters.os }}
+        arch: ${{ parameters.arch }}
+        branch: ${{ parameters.branch }}
+        codeCoverage: false
+        componentDetection: ${{ parameters.componentDetection }}
+        unitTests: false
+        functionalTests: false
+        sign: ${{ parameters.sign }}
+        verifySigning: ${{ parameters.verifySigning }}
+        publishArtifact: ${{ parameters.publishArtifacts }}
+        packageType: pipelines-agent

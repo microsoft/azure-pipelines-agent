@@ -41,6 +41,7 @@ extends:
   parameters:
     componentDetection: ${{ eq(variables['Build.Reason'], 'PullRequest') }}
     publishArtifacts: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    buildAlternatePackage: false
     win_x64: ${{ parameters.win_x64 }}
     win_x86: ${{ parameters.win_x86 }}
     linux_x64: ${{ parameters.linux_x64 }}

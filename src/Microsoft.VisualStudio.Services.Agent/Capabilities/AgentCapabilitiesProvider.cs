@@ -96,7 +96,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
        // Mac OS X 10.1 mapped to Darwin 5.x, and the mapping continues that way
        // So just subtract 4 from the Darwin version.
        // https://en.wikipedia.org/wiki/Darwin_%28operating_system%29
+       // with Big Sur Apple made the jump from 10.* to 11.* that means that
+       // the version reported from that point is 20.1.0.0 for 11.0.1
         private static string GetDarwinVersionString()
-            => Environment.OSVersion.Version.Major < 5 ? "10.0" : $"10.{Environment.OSVersion.Version.Major - 4}";
+        {
+            // from .net 5 onwards the runtime returns the product version instead of the darwin kernel version
+            var version = Environment.OSVersion.Version;
+            if (Environment.Version.Major >= 5)
+            {
+                return $"{version.Major}.{version.Minor}";
+            }
+
+            if (version.Major < 5)
+            {
+                return "10.0";
+            }
+            if (version.Major - 4 <= 15)
+            {
+                return $"10.{version.Major - 4}";
+            }
+            else
+            {
+                return $"11.{version.Major - 20}";
+            }
+        }
     }
 }

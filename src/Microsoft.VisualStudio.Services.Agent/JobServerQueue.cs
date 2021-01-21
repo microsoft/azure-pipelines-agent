@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using Microsoft.VisualStudio.Services.BlobStore.Common;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -78,6 +79,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         private const int _webConsoleLineAggressiveDequeueLimit = 4 * 60;
         private bool _webConsoleLineAggressiveDequeue = true;
         private bool _firstConsoleOutputs = true;
+        private bool _writeToBlobstorageService = false;
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -104,6 +106,11 @@ namespace Microsoft.VisualStudio.Services.Agent
             _planId = jobRequest.Plan.PlanId;
             _jobTimelineId = jobRequest.Timeline.Id;
             _jobTimelineRecordId = jobRequest.JobId;
+
+            if (jobRequest.Variables.TryGetValue("agent.LogToBlobstorageService", out var val))
+            {
+                Boolean.TryParse(val.Value, out _writeToBlobstorageService);
+            }
 
             // Server already create the job timeline
             _timelineUpdateQueue[_jobTimelineId] = new ConcurrentQueue<TimelineRecord>();
@@ -602,10 +609,29 @@ namespace Microsoft.VisualStudio.Services.Agent
                     // Create the log
                     var taskLog = await _jobServer.CreateLogAsync(_scopeIdentifier, _hubName, _planId, new TaskLog(String.Format(@"logs\{0:D}", file.TimelineRecordId)), default(CancellationToken));
 
-                    // Upload the contents
                     using (FileStream fs = File.Open(file.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                     {
-                        var logUploaded = await _jobServer.AppendLogContentAsync(_scopeIdentifier, _hubName, _planId, taskLog.Id, fs, default(CancellationToken));
+                        if (_writeToBlobstorageService)
+                        {
+                            BlobIdentifierWithBlocks blobBlockId = null;
+                                try {
+                                    blobBlockId = await _jobServer.UploadLogToBlobstorageService(fs, _hubName, _planId, taskLog.Id);
+
+                                    int lineCount = File.ReadLines(file.Path).Count();
+
+                                    // Notify TFS
+                                    await _jobServer.AssociateLogAsync(_scopeIdentifier, _hubName, _planId, taskLog.Id, blobBlockId, lineCount, default(CancellationToken));
+                                }
+                                catch {
+                                    // Fall back to FCS
+                                    fs.Position = 0;
+                                    await _jobServer.AppendLogContentAsync(_scopeIdentifier, _hubName, _planId, taskLog.Id, fs, default(CancellationToken));
+                                }
+                        }
+                        else
+                        {
+                            await _jobServer.AppendLogContentAsync(_scopeIdentifier, _hubName, _planId, taskLog.Id, fs, default(CancellationToken));
+                        }
                     }
 
                     // Create a new record and only set the Log field
