@@ -25,7 +25,7 @@ namespace Agent.Sdk.Knob
             "If true, allows the user to mount 'tasks' volume read-only on Windows OS",
             new RuntimeKnobSource("VSTS_SETUP_ALLOW_MOUNT_TASKS_READONLY"),
             new EnvironmentKnobSource("VSTS_SETUP_ALLOW_MOUNT_TASKS_READONLY"),
-            new BuiltInDefaultKnobSource("false"));
+            new BuiltInDefaultKnobSource("true"));
 
         // Directory structure
         public static readonly Knob AgentToolsDirectory = new Knob(
