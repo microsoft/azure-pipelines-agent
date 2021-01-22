@@ -57,7 +57,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         protected IList<string> GetTimelineLogLines(TimelineRecord record)
         {
             var jobService = GetMockedService<FakeJobServer>();
-            return jobService.LogLines.GetValueOrDefault(record.Log.Id);
+            var lines = jobService.LogLines.GetValueOrDefault(record.Log.Id).ToList();
+            if (lines.Count <= 0)
+            {
+              lines = new List<string>();
+              // Fall back to blobstore
+              foreach (var blobId in jobService.IdToBlobMapping.GetValueOrDefault(record.Log.Id))
+              {
+                lines.AddRange(jobService.UploadedLogBlobs.GetValueOrDefault(blobId));
+              }
+            }
+            return lines;
         }
 
         protected void AssertJobCompleted(int buildCount = 1)
@@ -104,7 +114,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         'endpoint': {{
           'name': 'SystemVssConnection'
         }}
-      }}", 
+      }}",
             Guid.NewGuid(), repoAlias);
         }
 
@@ -122,6 +132,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                     Id = Guid.Parse("d9bafed4-0b18-4f58-968d-86655b4d2ce9"),
                     Name = "CmdLine",
                     Version = "2.164.0"
+                },
+                Name = "CmdLine",
+                DisplayName = "CmdLine",
+                Id = Guid.NewGuid()
+            };
+            step.Inputs.Add("script", script);
+
+            return step;
+        }
+
+        protected static TaskStep CreateNode10ScriptTask(string script)
+        {
+            var step = new TaskStep
+            {
+                Reference = new TaskStepDefinitionReference
+                {
+                    Id = Guid.Parse("e9bafed4-0b18-4f58-968d-86655b4d2ce9"),
+                    Name = "CmdLine",
+                    Version = "2.177.3"
                 },
                 Name = "CmdLine",
                 DisplayName = "CmdLine",
@@ -184,7 +213,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             message.Variables.TryGetValue("system.definitionId", out VariableValue definitionIdVar);
 
             string filename;
-            if (message.Variables.TryGetValue("agent.useWorkspaceIds", out _))
+            if (message.Variables.TryGetValue("agent.useWorkspaceId", out _))
             {
                 var repoTrackingInfos = message.Resources.Repositories.Select(repo => new RepositoryTrackingInfo(repo, "/")).ToList();
                 var workspaceIdentifier = TrackingConfigHashAlgorithm.ComputeHash(collectionIdVar?.Value, definitionIdVar?.Value, repoTrackingInfos);

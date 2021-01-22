@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
@@ -127,6 +128,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             else
             {
                 context.Warning(StringUtil.Loc("CommandNotFound", command.Area));
+            }
+
+            // Only if we've successfully parsed do we show this warning
+            if (AgentKnobs.DecodePercents.GetValue(UtilKnobValueContext.Instance()).ToString() == "" && input.Contains("%25"))
+            {
+                context.Warning("%25 detected in ##vso command. In January 2021, the agent command parser will be updated to unescape this to %. To opt out of this behavior, set environment variable DECODE_PERCENTS to false. Setting to true will force this behavior immediately. More information can be found at https://github.com/microsoft/azure-pipelines-agent/blob/master/docs/design/percentEncoding.md");
             }
 
             return true;

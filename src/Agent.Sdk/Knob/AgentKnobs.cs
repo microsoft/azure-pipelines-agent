@@ -19,6 +19,13 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("VSTS_SETUP_DOCKERGROUP"),
             new EnvironmentKnobSource("VSTS_SETUP_DOCKERGROUP"),
             new BuiltInDefaultKnobSource("true"));
+        
+        public static readonly Knob AllowMountTasksReadonlyOnWindows = new Knob(
+            nameof(AllowMountTasksReadonlyOnWindows),
+            "If true, allows the user to mount 'tasks' volume read-only on Windows OS",
+            new RuntimeKnobSource("VSTS_SETUP_ALLOW_MOUNT_TASKS_READONLY"),
+            new EnvironmentKnobSource("VSTS_SETUP_ALLOW_MOUNT_TASKS_READONLY"),
+            new BuiltInDefaultKnobSource("true"));
 
         // Directory structure
         public static readonly Knob AgentToolsDirectory = new Knob(
@@ -56,10 +63,10 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("VSTS_DISABLE_GIT_PROMPT"),
             new EnvironmentKnobSource("VSTS_DISABLE_GIT_PROMPT"),
             new BuiltInDefaultKnobSource("true"));
-        
+
         public const string QuietCheckoutRuntimeVarName = "agent.source.checkout.quiet";
         public const string QuietCheckoutEnvVarName = "AGENT_SOURCE_CHECKOUT_QUIET";
-        
+
         public static readonly Knob QuietCheckout = new Knob(
             nameof(QuietCheckout),
             "Aggressively reduce what gets logged to the console when checking out source.",
@@ -107,6 +114,13 @@ namespace Agent.Sdk.Knob
             new BuiltInDefaultKnobSource("1200")); // 20*60
 
         // HTTP
+        public const string LegacyHttpVariableName = "AZP_AGENT_USE_LEGACY_HTTP";
+        public static readonly Knob UseLegacyHttpHandler = new DeprecatedKnob(
+            nameof(UseLegacyHttpHandler),
+            "Use the libcurl-based HTTP handler rather than .NET's native HTTP handler, as we did on .NET Core 2.1",
+            new EnvironmentKnobSource(LegacyHttpVariableName),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob HttpRetryCount = new Knob(
             nameof(HttpRetryCount),
             "Number of times to retry Http requests",
@@ -157,7 +171,7 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("SYSTEM_UNSAFEALLOWMULTILINESECRET"),
             new EnvironmentKnobSource("SYSTEM_UNSAFEALLOWMULTILINESECRET"),
             new BuiltInDefaultKnobSource("false"));
-        
+
         public static readonly Knob MaskUsingCredScanRegexes = new Knob(
             nameof(MaskUsingCredScanRegexes),
             "Use the CredScan regexes for masking secrets. CredScan is an internal tool developed at Microsoft to keep passwords and authentication keys from being checked in. This defaults to disabled, as there are performance problems with some task outputs.",
@@ -182,6 +196,12 @@ namespace Agent.Sdk.Knob
             "By default, the agent trims whitespace and new line characters from all task inputs. Setting this to true disables this behavior.",
             new EnvironmentKnobSource("DISABLE_INPUT_TRIMMING"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob DecodePercents = new Knob(
+            nameof(DecodePercents),
+            "By default, the agent does not decodes %25 as % which may be needed to allow users to work around reserved values. Setting this to true enables this behavior.",
+            new EnvironmentKnobSource("DECODE_PERCENTS"),
+            new BuiltInDefaultKnobSource(""));
     }
 
 }

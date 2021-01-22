@@ -138,6 +138,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public const string AddDeploymentGroupTags = "adddeploymentgrouptags";
                     public const string AddMachineGroupTags = "addmachinegrouptags";
                     public const string AddEnvironmentVirtualMachineResourceTags = "addvirtualmachineresourcetags";
+                    public const string AlwaysExtractTask = "alwaysextracttask";
                     public const string Commit = "commit";
                     public const string DeploymentGroup = "deploymentgroup";
                     public const string DeploymentPool = "deploymentpool";

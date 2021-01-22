@@ -43,12 +43,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 test = null;
                 verify = null;
                 //##vso[area.event k1=%3B=%0D=%0A=%5D;]%3B-%0D-%0A-%5D
-                vso = "##vso[area.event k1=%3B=%0D=%0A=%5D;]%3B-%0D-%0A-%5D";
+                vso = "##vso[area.event k1=%3B=%0D=%0A=%5D%25;]%3B-%0D-%0A-%5D%253B";
                 test = new Command("area", "event")
                 {
-                    Data = ";-\r-\n-]",
+                    Data = ";-\r-\n-]%253B",
                 };
-                test.Properties.Add("k1", ";=\r=\n=]");
+                test.Properties.Add("k1", ";=\r=\n=]%25");
                 Assert.True(Command.TryParse(vso, out verify));
                 Assert.True(IsEqualCommand(hc, test, verify));
 

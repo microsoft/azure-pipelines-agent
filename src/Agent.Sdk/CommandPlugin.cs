@@ -18,6 +18,7 @@ using Agent.Sdk.Knob;
 
 namespace Agent.Sdk
 {
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1716: Identifiers should not match keywords")]
     public interface IAgentCommandPlugin
     {
         String Area { get; }

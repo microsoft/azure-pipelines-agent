@@ -45,7 +45,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public void UseNode10ForNode10Handler()
+        public void UseNewNodeForNewNodeHandler()
         {
             using (TestHostContext thc = CreateTestHostContext())
             {
@@ -70,7 +70,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public void UseNode10ForNodeHandlerEnvVarSet()
+        public void UseNewNodeForNodeHandlerEnvVarSet()
         {
             try
             {
@@ -104,7 +104,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public void UseNode10ForNodeHandlerHostContextVarSet()
+        public void UseNewNodeForNodeHandlerHostContextVarSet()
         {
             using (TestHostContext thc = CreateTestHostContext())
             {
@@ -119,7 +119,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 nodeHandler.Initialize(thc);
                 nodeHandler.ExecutionContext = CreateTestExecutionContext(thc, variables);
-                nodeHandler.Data = new NodeHandlerData();
+                nodeHandler.Data = new Node10HandlerData();
 
                 string actualLocation = nodeHandler.GetNodeLocation();
                 string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
@@ -133,7 +133,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public void UseNode10ForNode10HandlerHostContextVarUnset()
+        public void UseNewNodeForNewNodeHandlerHostContextVarUnset()
         {
             using (TestHostContext thc = CreateTestHostContext())
             {
@@ -142,7 +142,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 var variables = new Dictionary<string, VariableValue>();
 
-                // Explicitly set 'AGENT_USE_NODE10' feature flag to false
+                // Explicitly set variable feature flag to false
                 variables.Add("AGENT_USE_NODE10", new VariableValue("false"));
 
                 NodeHandler nodeHandler = new NodeHandler();
@@ -151,7 +151,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 nodeHandler.ExecutionContext = CreateTestExecutionContext(thc, variables);
                 nodeHandler.Data = new Node10HandlerData();
 
-                // Node10 handler is unaffected by the 'AGENT_USE_NODE10' feature flag, so folder name should be 'node10'
                 string actualLocation = nodeHandler.GetNodeLocation();
                 string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
                     "node10",

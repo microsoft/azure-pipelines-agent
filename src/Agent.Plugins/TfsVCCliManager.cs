@@ -107,7 +107,7 @@ namespace Agent.Plugins.Repository
             await RunCommandAsync(formatFlags, quiet, true, args);
         }
 
-        private async Task<int> RunCommandAsync(FormatFlags formatFlags, bool quiet, bool failOnNonZeroExitCode, params string[] args)
+        protected async Task<int> RunCommandAsync(FormatFlags formatFlags, bool quiet, bool failOnNonZeroExitCode, params string[] args)
         {
             // Validation.
             ArgUtil.NotNull(args, nameof(args));

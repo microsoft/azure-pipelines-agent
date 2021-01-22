@@ -34,6 +34,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 : StringComparison.OrdinalIgnoreCase;
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1720: Identifiers should not contain type")]
         public static void SaveObject(object obj, string path)
         {
             File.WriteAllText(path, StringUtil.ConvertToJson(obj), Encoding.UTF8);

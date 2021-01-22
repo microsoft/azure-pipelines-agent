@@ -52,10 +52,17 @@ namespace Agent.Plugins.PipelineArtifact
 
                 PublishResult result = await clientTelemetry.MeasureActionAsync(
                     record: uploadRecord,
-                    actionAsync: async () =>
-                    {
-                        return await dedupManifestClient.PublishAsync(source, cancellationToken);
-                    }
+                    actionAsync: async () => await AsyncHttpRetryHelper.InvokeAsync(
+                            async () => 
+                            {
+                                return await dedupManifestClient.PublishAsync(source, cancellationToken);
+                            },
+                            maxRetries: 3,
+                            tracer: tracer,
+                            canRetryDelegate: e => true, // this isn't great, but failing on upload stinks, so just try a couple of times
+                            cancellationToken: cancellationToken,
+                            continueOnCapturedContext: false)
+                    
                 );
                 // Send results to CustomerIntelligence
                 context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: uploadRecord);
@@ -176,8 +183,19 @@ namespace Agent.Plugins.PipelineArtifact
                             record: downloadRecord,
                             actionAsync: async () =>
                             {
-                                await dedupManifestClient.DownloadAsync(options, cancellationToken);
+                                await AsyncHttpRetryHelper.InvokeVoidAsync(
+                                    async () =>
+                                    {
+                                        await dedupManifestClient.DownloadAsync(options, cancellationToken);
+                                    },
+                                    maxRetries: 3,
+                                    tracer: tracer,
+                                    canRetryDelegate: e => true,
+                                    context: nameof(DownloadAsync),
+                                    cancellationToken: cancellationToken,
+                                    continueOnCapturedContext: false);
                             });
+
                         // Send results to CustomerIntelligence
                         context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: downloadRecord);
                         }
@@ -219,8 +237,19 @@ namespace Agent.Plugins.PipelineArtifact
                         record: downloadRecord,
                         actionAsync: async () =>
                         {
-                            await dedupManifestClient.DownloadAsync(options, cancellationToken);
+                            await AsyncHttpRetryHelper.InvokeVoidAsync(
+                                async () =>
+                                {
+                                    await dedupManifestClient.DownloadAsync(options, cancellationToken);
+                                },
+                                maxRetries: 3,
+                                tracer: tracer,
+                                canRetryDelegate: e => true,
+                                context: nameof(DownloadAsync),
+                                cancellationToken: cancellationToken,
+                                continueOnCapturedContext: false);
                         });
+
                     // Send results to CustomerIntelligence
                     context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: downloadRecord);
                 }
