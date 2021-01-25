@@ -57,7 +57,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         protected IList<string> GetTimelineLogLines(TimelineRecord record)
         {
             var jobService = GetMockedService<FakeJobServer>();
-            return jobService.LogLines.GetValueOrDefault(record.Log.Id);
+            var lines = jobService.LogLines.GetValueOrDefault(record.Log.Id).ToList();
+            if (lines.Count <= 0)
+            {
+              lines = new List<string>();
+              // Fall back to blobstore
+              foreach (var blobId in jobService.IdToBlobMapping.GetValueOrDefault(record.Log.Id))
+              {
+                lines.AddRange(jobService.UploadedLogBlobs.GetValueOrDefault(blobId));
+              }
+            }
+            return lines;
         }
 
         protected void AssertJobCompleted(int buildCount = 1)

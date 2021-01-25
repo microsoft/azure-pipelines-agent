@@ -12,10 +12,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
     [Collection("Worker L1 Tests")]
     public class VariableL1Tests : L1TestBase
     {
-        [Fact]
+        [Theory]
         [Trait("Level", "L1")]
         [Trait("Category", "Worker")]
-        public async Task SetVariable_ReadVariable()
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task SetVariable_ReadVariable(bool writeToBlobstorageService)
         {
             try
             {
@@ -28,6 +30,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 message.Steps.Add(CreateScriptTask("echo \"##vso[task.setvariable variable=testVar]b\""));
                 message.Steps.Add(CreateScriptTask("echo TestVar=$(testVar)"));
                 message.Variables.Add("testVar", new Pipelines.VariableValue("a", false, false));
+                message.Variables.Add("agent.LogToBlobstorageService", writeToBlobstorageService.ToString());
 
                 // Act
                 var results = await RunWorker(message);
