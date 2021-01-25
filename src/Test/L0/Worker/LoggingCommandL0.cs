@@ -27,7 +27,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     Data = "msg",
                 };
                 test.Properties.Add("k1", "v1");
-                Assert.True(Command.TryParse(vso, out verify));
+                Assert.True(Command.TryParse(vso, true, out verify));
                 Assert.True(IsEqualCommand(hc, test, verify));
 
                 vso = "";
@@ -36,7 +36,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 //##vso[area.event]
                 vso = "##vso[area.event]";
                 test = new Command("area", "event");
-                Assert.True(Command.TryParse(vso, out verify));
+                Assert.True(Command.TryParse(vso, true, out verify));
                 Assert.True(IsEqualCommand(hc, test, verify));
 
                 vso = "";
@@ -49,7 +49,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     Data = ";-\r-\n-]%253B",
                 };
                 test.Properties.Add("k1", ";=\r=\n=]%25");
-                Assert.True(Command.TryParse(vso, out verify));
+                Assert.True(Command.TryParse(vso, false, out verify));
+                Assert.True(IsEqualCommand(hc, test, verify));
+
+                vso = "";
+                test = null;
+                verify = null;
+                //##vso[area.event k1=%3B=%0D=%0A=%5D;]%3B-%0D-%0A-%5D
+                vso = "##vso[area.event k1=%3B=%0D=%0A=%5D%25;]%3B-%0D-%0A-%5D%253B";
+                test = new Command("area", "event")
+                {
+                    Data = ";-\r-\n-]%3B",
+                };
+                test.Properties.Add("k1", ";=\r=\n=]%");
+                Assert.True(Command.TryParse(vso, true, out verify));
                 Assert.True(IsEqualCommand(hc, test, verify));
 
                 vso = "";
@@ -60,7 +73,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 test = new Command("area", "event");
                 test.Properties.Add("k1", "");
                 test.Properties.Add("k2", null);
-                Assert.True(Command.TryParse(vso, out verify));
+                Assert.True(Command.TryParse(vso, true, out verify));
                 test = new Command("area", "event");
                 Assert.True(IsEqualCommand(hc, test, verify));
 
@@ -74,7 +87,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     Data = "msg",
                 };
                 test.Properties.Add("k1", "v1");
-                Assert.True(Command.TryParse(vso, out verify));
+                Assert.True(Command.TryParse(vso, true, out verify));
                 Assert.True(IsEqualCommand(hc, test, verify));
             }
         }

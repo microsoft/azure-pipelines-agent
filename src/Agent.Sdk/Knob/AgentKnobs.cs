@@ -200,6 +200,7 @@ namespace Agent.Sdk.Knob
         public static readonly Knob DecodePercents = new Knob(
             nameof(DecodePercents),
             "By default, the agent does not decodes %25 as % which may be needed to allow users to work around reserved values. Setting this to true enables this behavior.",
+            new RuntimeKnobSource("DECODE_PERCENTS"),
             new EnvironmentKnobSource("DECODE_PERCENTS"),
             new BuiltInDefaultKnobSource(""));
     }

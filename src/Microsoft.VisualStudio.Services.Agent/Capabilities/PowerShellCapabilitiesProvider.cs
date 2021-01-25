@@ -61,7 +61,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
         {
             Command command;
             string name;
-            if (Command.TryParse(input, out command) &&
+            if (Command.TryParse(input, false, out command) &&
                 string.Equals(command.Area, "agent", StringComparison.OrdinalIgnoreCase) &&
                 string.Equals(command.Event, "capability", StringComparison.OrdinalIgnoreCase) &&
                 command.Properties.TryGetValue("name", out name) &&

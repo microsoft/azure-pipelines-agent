@@ -10,4 +10,4 @@ The reason this is impossible is because we escape certain values needed for the
 
 We've introduced encoding for `%` which will map to `%25`. This means that any time the agent receives `%25` as part of a command, it will automatically decode it to `%`. So `##vso[task.setvariable variable=test%25]a%25` will now set a variable `test%: a%`.
 
-This behavior will be enabled by default in January 2021. To disable it, you can set an environment variable DECODE_PERCENTS to false in the appropriate step. To avoid getting warnings about it and opt into the behavior early, set an environment variable DECODE_PERCENTS to true in the appropriate step
+This behavior will be enabled by default in January 2021. To disable it, you can set a job level variable DECODE_PERCENTS to false. To avoid getting warnings about it and opt into the behavior early, set a job level variable DECODE_PERCENTS to true.
