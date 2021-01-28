@@ -51,6 +51,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             ArgUtil.NotNull(executionContext.Variables, nameof(executionContext.Variables));
             ArgUtil.NotNull(repositories, nameof(repositories));
 
+            System.Diagnostics.Debugger.Launch();
             var trackingManager = HostContext.GetService<ITrackingManager>();
 
             // Create the tracking config for this execution of the pipeline
@@ -133,6 +134,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         deleteExisting: cleanOption == BuildCleanOption.Source);
                 }
 
+                executionContext.Debug($"default clone path for each repository {repoPath}");
                 Trace.Info($"Set repository path for repository {repository.Alias} to '{repoPath}'");
                 repository.Properties.Set<string>(RepositoryPropertyNames.Path, repoPath);
             }
@@ -292,15 +294,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             RepositoryResource repository,
             string defaultSourcesDirectory)
         {
+            executionContext.Debug($"WellKnown WD - {HostContext.GetDirectory(WellKnownDirectory.Work)}");
+            executionContext.Debug($"defaultSourcesDirectory - {defaultSourcesDirectory}");
+            executionContext.Debug($"CloneDirectory - {RepositoryUtil.GetCloneDirectory(repository)}");
+
             if (RepositoryUtil.HasMultipleCheckouts(executionContext.JobSettings))
             {
                 // If we have multiple checkouts they should all be rooted to the sources directory (_work/1/s/repo1)
-                return Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), defaultSourcesDirectory, RepositoryUtil.GetCloneDirectory(repository));
+                var path = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), defaultSourcesDirectory, RepositoryUtil.GetCloneDirectory(repository));
+                executionContext.Debug($"HasMultipleCheckouts {path}");
+                return path;
             }
             else
             {
                 // For single checkouts, the repository is rooted to the sources folder (_work/1/s)
-                return Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), defaultSourcesDirectory);
+                var path = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), defaultSourcesDirectory);
+                executionContext.Debug($"Single {path}");
+                return path;
             }
         }
     }

@@ -52,6 +52,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             var currentPath = repository.Properties.Get<string>(RepositoryPropertyNames.Path);
+            
             if (!string.Equals(data.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), currentPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), IOUtil.FilePathStringComparison))
             {
                 string repositoryPath = data.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
