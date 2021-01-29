@@ -15,6 +15,7 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
+using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -91,10 +92,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         currentExecution = definition.Data?.Execution;
                         break;
                     case JobRunStage.PostJob:
+                        //System.Diagnostics.Debugger.Launch();
                         currentExecution = definition.Data?.PostJobExecution;
                         break;
                 };
 
+                
                 HandlerData handlerData = GetHandlerData(ExecutionContext, currentExecution, PlatformUtil.HostOS);
 
                 if (handlerData == null)
@@ -114,6 +117,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Setup container stephost and the right runtime variables for running job inside container.
                 if (stepTarget is ContainerInfo containerTarget)
                 {
+                    if (Stage == JobRunStage.PostJob &&  AgentKnobs.SkipPostStepTaskExeceutionIfTargetContainerStopped.GetValue(ExecutionContext).AsBoolean())
+                    {
+                        // Check that the target contianer is still running, if not Skip task execution
+                        IDockerCommandManager dockerManager = HostContext.GetService<IDockerCommandManager>();
+                        List<string> filteredItems = await dockerManager.DockerPS(ExecutionContext, $"--filter id={containerTarget.ContainerId}");
+                        
+                        if (filteredItems.Count < 2)
+                        {
+                            ExecutionContext.Result = TaskResult.Skipped;
+                            ExecutionContext.ResultCode = "Target container has been stopped, task execution will be skipped";
+                            return;
+                        }
+                    }
+
                     if (handlerData is AgentPluginHandlerData)
                     {
                         // plugin handler always runs on the Host, the runtime variables needs to the variable works on the Host, ex: file path variable System.DefaultWorkingDirectory
