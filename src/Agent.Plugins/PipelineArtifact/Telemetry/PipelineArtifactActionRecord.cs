@@ -4,11 +4,8 @@
 using System;
 using Agent.Sdk;
 using Agent.Sdk.Blob;
-using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common.Telemetry;
-using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
-using Microsoft.VisualStudio.Services.Common;
 
 namespace Agent.Plugins.PipelineArtifact.Telemetry
 {

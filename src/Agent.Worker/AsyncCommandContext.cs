@@ -19,7 +19,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         void Debug(string message);
         Task WaitAsync();
         IHostContext GetHostContext();
-        Variables GetVariables();
     }
 
     public class AsyncCommandContext : AgentService, IAsyncCommandContext
@@ -68,11 +67,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public void Debug(string message)
         {
             _outputQueue.Enqueue(new OutputMessage(OutputType.Debug, message));
-        }
-
-        public Variables GetVariables()
-        {
-            return _executionContext.Variables;
         }
 
         public async Task WaitAsync()

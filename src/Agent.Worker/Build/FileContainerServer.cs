@@ -14,12 +14,9 @@ using System.Diagnostics;
 using Microsoft.VisualStudio.Services.WebApi;
 using System.Net.Http;
 using System.Net;
-using Agent.Sdk;
 using Agent.Sdk.Blob;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
-using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.Content.Common;
-using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -212,9 +209,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         HttpResponseMessage response = null;
                         try
                         {
-                            if (true)
+                            if (true) // TODO: FF check
                             {
-                                Debugger.Launch();
                                 var result = await UploadToBlobStore(context, fileToUpload, fs, token);
                                 response = await  _fileContainerHttpClient.CreateItemForArtifactUpload(_containerId, itemPath, _projectId, result.RootId.ValueString, result.ContentSize, token);
                             }
@@ -302,7 +298,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         private async Task<PublishResult> UploadToBlobStore(IAsyncCommandContext context, string itemPath, Stream fs, CancellationToken cancellationToken)
         {
-            var verbose = context.GetVariables().System_Debug ?? false;
+            var verbose = String.Equals(context.GetVariableValueOrDefault("system.debug"), "true", StringComparison.InvariantCultureIgnoreCase);
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
                 .CreateDedupManifestClientAsync(verbose, (str) => context.Output(str), this._connection, cancellationToken);
 
