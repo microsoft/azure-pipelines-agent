@@ -21,7 +21,7 @@ namespace Agent.Plugins.PipelineArtifact
 {
     internal class PipelineArtifactProvider : IArtifactProvider
     {
-        // Old default for hosted agents was 16*2 cores = 32.
+        // Old default for hosted agents was 16*2 cores = 32. 
         // In my tests of a node_modules folder, this 32x parallelism was consistently around 47 seconds.
         // At 192x it was around 16 seconds and 256x was no faster.
         private const int DefaultDedupStoreClientMaxParallelism = 192;
@@ -36,7 +36,7 @@ namespace Agent.Plugins.PipelineArtifact
             }
             context.Info(string.Format("Dedup parallelism: {0}", parallelism));
             return parallelism;
-        }
+        } 
 
         private readonly IAppTraceSource tracer;
         private readonly AgentTaskPluginExecutionContext context;

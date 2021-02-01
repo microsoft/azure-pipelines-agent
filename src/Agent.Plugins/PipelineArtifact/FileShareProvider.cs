@@ -34,11 +34,11 @@ namespace Agent.Plugins.PipelineArtifact
         // Default stream buffer size set in the existing file share implementation https://github.com/microsoft/azure-pipelines-agent/blob/ffb3a9b3e2eb5a1f34a0f45d0f2b8639740d37d3/src/Agent.Worker/Release/Artifacts/FileShareArtifact.cs#L154
         private const int DefaultStreamBufferSize = 8192;
 
-        public FileShareProvider(AgentTaskPluginExecutionContext context, VssConnection connection, IAppTraceSource tracer) : this(context, connection, tracer, DedupManifestArtifactClientFactory.Instance)
+        public FileShareProvider(AgentTaskPluginExecutionContext context, VssConnection connection, IAppTraceSource tracer) : this(context, connection, tracer, DedupManifestArtifactClientFactory.Instance) 
         {
         }
 
-        internal FileShareProvider(AgentTaskPluginExecutionContext context, VssConnection connection, IAppTraceSource tracer, IDedupManifestArtifactClientFactory factory)
+        internal FileShareProvider(AgentTaskPluginExecutionContext context, VssConnection connection, IAppTraceSource tracer, IDedupManifestArtifactClientFactory factory) 
         {
             this.factory = factory;
             this.context = context;
@@ -88,7 +88,7 @@ namespace Agent.Plugins.PipelineArtifact
                 totalFileCount += record.FileCount;
                 records.Add(record);
             }
-
+            
             return new FileShareDownloadResult(records, totalFileCount, totalContentSize);
         }
 
@@ -96,7 +96,7 @@ namespace Agent.Plugins.PipelineArtifact
             string sourcePath,
             string destPath,
             int parallelCount,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken) 
         {
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
                 .CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, cancellationToken);
@@ -209,7 +209,7 @@ namespace Agent.Plugins.PipelineArtifact
             var actionBlock = NonSwallowingActionBlock.Create<FileInfo>(
                action: async file =>
                 {
-                    if (minimatchFuncs == null || minimatchFuncs.Any(match => match(file.FullName)))
+                    if (minimatchFuncs == null || minimatchFuncs.Any(match => match(file.FullName))) 
                     {
                         string tempPath = Path.Combine(destPath, Path.GetRelativePath(sourcePath, file.FullName));
                         context.Output(StringUtil.Loc("CopyFileToDestination", file, tempPath));
@@ -227,7 +227,7 @@ namespace Agent.Plugins.PipelineArtifact
                     }
                 },
                 dataflowBlockOptions: parallelism);
-
+                
                 await actionBlock.SendAllAndCompleteAsync(files, actionBlock, cancellationToken);
 
             watch.Stop();
