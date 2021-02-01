@@ -34,6 +34,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
         Task<int> DockerExec(IExecutionContext context, string containerId, string options, string command, List<string> outputs);
         Task<string> DockerInspect(IExecutionContext context, string dockerObject, string options);
         Task<List<PortMapping>> DockerPort(IExecutionContext context, string containerId);
+        Task<bool> IsContainerRunning(IExecutionContext context, string containerId);
     }
 
     public class DockerCommandManager : AgentService, IDockerCommandManager
@@ -306,6 +307,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
         {
             List<string> portMappingLines = await ExecuteDockerCommandAsync(context, "port", containerId);
             return DockerUtil.ParseDockerPort(portMappingLines);
+        }
+
+        public async Task<bool> IsContainerRunning(IExecutionContext context, string containerId) {
+            List<string> filteredItems = await DockerPS(context, $"--filter id={containerId}");
+
+            if (filteredItems.Count < 2)
+            {
+                return false;
+            }
+
+            return true;
         }
 
         private Task<int> ExecuteDockerCommandAsync(IExecutionContext context, string command, string options, CancellationToken cancellationToken = default(CancellationToken))

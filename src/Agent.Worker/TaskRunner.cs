@@ -117,13 +117,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Setup container stephost and the right runtime variables for running job inside container.
                 if (stepTarget is ContainerInfo containerTarget)
                 {
-                    if (Stage == JobRunStage.PostJob &&  AgentKnobs.SkipPostStepTaskExeceutionIfTargetContainerStopped.GetValue(ExecutionContext).AsBoolean())
+                    if (Stage == JobRunStage.PostJob
+                        && AgentKnobs.SkipPostStepTaskExeceutionIfTargetContainerStopped.GetValue(ExecutionContext).AsBoolean())
                     {
                         // Check that the target contianer is still running, if not Skip task execution
                         IDockerCommandManager dockerManager = HostContext.GetService<IDockerCommandManager>();
-                        List<string> filteredItems = await dockerManager.DockerPS(ExecutionContext, $"--filter id={containerTarget.ContainerId}");
+                        bool isContainerRunning = await dockerManager.IsContainerRunning(ExecutionContext, containerTarget.ContainerId);
                         
-                        if (filteredItems.Count < 2)
+                        if (!isContainerRunning)
                         {
                             ExecutionContext.Result = TaskResult.Skipped;
                             ExecutionContext.ResultCode = "Target container has been stopped, task execution will be skipped";
