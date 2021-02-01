@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Agent.Plugins.PipelineArtifact;
 using Agent.Plugins.PipelineCache.Telemetry;
 using Agent.Sdk;
+using Agent.Sdk.Blob;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
 using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
@@ -38,7 +39,8 @@ namespace Agent.Plugins.PipelineCache
             ContentFormat contentFormat)
         {
             VssConnection connection = context.VssConnection;
-            var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClientAsync(context, connection, cancellationToken);
+            var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
+                .CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, cancellationToken);
             PipelineCacheClient pipelineCacheClient = this.CreateClient(clientTelemetry, context, connection);
 
             using (clientTelemetry)
@@ -63,9 +65,9 @@ namespace Agent.Plugins.PipelineCache
 
                 PublishResult result = await clientTelemetry.MeasureActionAsync(
                     record: uploadRecord,
-                    actionAsync: async () => 
+                    actionAsync: async () =>
                         await AsyncHttpRetryHelper.InvokeAsync(
-                            async () => 
+                            async () =>
                             {
                                 return await dedupManifestClient.PublishAsync(uploadPath, cancellationToken);
                             },
@@ -97,7 +99,7 @@ namespace Agent.Plugins.PipelineCache
                     }
                     catch { }
                 }
-                
+
                 // Cache the artifact
                 PipelineCacheActionRecord cacheRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
                     new PipelineCacheActionRecord(level, uri, type, PipelineArtifactConstants.SaveCache, context));
@@ -118,7 +120,8 @@ namespace Agent.Plugins.PipelineCache
             CancellationToken cancellationToken)
         {
             VssConnection connection = context.VssConnection;
-            var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClientAsync(context, connection, cancellationToken);
+            var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
+                .CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, cancellationToken);
             PipelineCacheClient pipelineCacheClient = this.CreateClient(clientTelemetry, context, connection);
 
             using (clientTelemetry)
@@ -145,7 +148,7 @@ namespace Agent.Plugins.PipelineCache
 
                     // Send results to CustomerIntelligence
                     context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineCache, record: downloadRecord);
-                    
+
                     context.Output("Cache restored.");
                 }
 
@@ -164,7 +167,7 @@ namespace Agent.Plugins.PipelineCache
                         {
                             context.Verbose($"This fingerprint: `{fingerprint.ToString()}`");
 
-                            if (fingerprint == result.Fingerprint 
+                            if (fingerprint == result.Fingerprint
                                 || result.Fingerprint.Segments.Length == 1 && result.Fingerprint.Segments.Single() == fingerprint.SummarizeForV1())
                             {
                                 foundExact = true;

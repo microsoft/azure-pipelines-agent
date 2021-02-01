@@ -14,6 +14,12 @@ using System.Diagnostics;
 using Microsoft.VisualStudio.Services.WebApi;
 using System.Net.Http;
 using System.Net;
+using Agent.Sdk;
+using Agent.Sdk.Blob;
+using Microsoft.VisualStudio.Services.BlobStore.WebApi;
+using Microsoft.VisualStudio.Services.Content.Common.Tracing;
+using Microsoft.VisualStudio.Services.Content.Common;
+using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -23,6 +29,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         private readonly ConcurrentDictionary<string, ConcurrentQueue<string>> _fileUploadTraceLog = new ConcurrentDictionary<string, ConcurrentQueue<string>>();
         private readonly ConcurrentDictionary<string, ConcurrentQueue<string>> _fileUploadProgressLog = new ConcurrentDictionary<string, ConcurrentQueue<string>>();
         private readonly FileContainerHttpClient _fileContainerHttpClient;
+        private readonly VssConnection _connection;
 
         private CancellationTokenSource _uploadCancellationTokenSource;
         private TaskCompletionSource<int> _uploadFinished;
@@ -40,6 +47,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string containerPath)
         {
             ArgUtil.NotNull(connection, nameof(connection));
+            this._connection = connection;
 
             _projectId = projectId;
             _containerId = containerId;
@@ -204,7 +212,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         HttpResponseMessage response = null;
                         try
                         {
-                            response = await _fileContainerHttpClient.UploadFileAsync(_containerId, itemPath, fs, _projectId, cancellationToken: token, chunkSize: 4 * 1024 * 1024);
+                            if (true)
+                            {
+                                Debugger.Launch();
+                                var result = await UploadToBlobStore(context, fileToUpload, fs, token);
+                                response = await  _fileContainerHttpClient.CreateItemForArtifactUpload(_containerId, itemPath, _projectId, result.RootId.ValueString, result.ContentSize, token);
+                            }
+                            else
+                            {
+                                //response = await _fileContainerHttpClient.UploadFileAsync(_containerId, itemPath, fs, _projectId, cancellationToken: token, chunkSize: 4 * 1024 * 1024);
+                            }
                         }
                         catch (OperationCanceledException) when (token.IsCancellationRequested)
                         {
@@ -281,6 +298,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
 
             return new UploadResult(failedFiles, uploadedSize);
+        }
+
+        private async Task<PublishResult> UploadToBlobStore(IAsyncCommandContext context, string itemPath, Stream fs, CancellationToken cancellationToken)
+        {
+            var verbose = context.GetVariables().System_Debug ?? false;
+            var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
+                .CreateDedupManifestClientAsync(verbose, (str) => context.Output(str), this._connection, cancellationToken);
+
+            BuildArtifactActionRecord uploadRecord = clientTelemetry.CreateRecord<BuildArtifactActionRecord>((level, uri, type) =>
+                new BuildArtifactActionRecord(level, uri, type, nameof(UploadAsync), context));
+
+            var tracer = DedupManifestArtifactClientFactory.CreateArtifactsTracer(verbose, (str) => context.Output(str));
+            return await clientTelemetry.MeasureActionAsync(
+                record: uploadRecord,
+                actionAsync: async () => await AsyncHttpRetryHelper.InvokeAsync(
+                        async () =>
+                        {
+                            return await dedupManifestClient.PublishAsync(itemPath, cancellationToken);
+                        },
+                        maxRetries: 3,
+                        tracer: tracer,
+                        canRetryDelegate: e => true, // this isn't great, but failing on upload stinks, so just try a couple of times
+                        cancellationToken: cancellationToken,
+                        continueOnCapturedContext: false)
+            );
         }
 
         private async Task ReportingAsync(IAsyncCommandContext context, int totalFiles, CancellationToken token)

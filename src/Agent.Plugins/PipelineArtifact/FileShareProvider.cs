@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using Agent.Plugins.PipelineArtifact.Telemetry;
 using Agent.Sdk;
+using Agent.Sdk.Blob;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
@@ -45,15 +46,16 @@ namespace Agent.Plugins.PipelineArtifact
             this.connection = connection;
         }
 
-        public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context) 
+        public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
             await DownloadMultipleArtifactsAsync(downloadParameters, new List<BuildArtifact> { buildArtifact }, cancellationToken, context);
         }
 
-        public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context) 
+        public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
             context.Warning(StringUtil.Loc("DownloadArtifactWarning", "UNC"));
-            var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(context, connection, cancellationToken);
+            var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
+                .CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, cancellationToken);
             using (clientTelemetry)
             {
                 FileShareActionRecord downloadRecord = clientTelemetry.CreateRecord<FileShareActionRecord>((level, uri, type) =>
@@ -86,7 +88,7 @@ namespace Agent.Plugins.PipelineArtifact
                 totalFileCount += record.FileCount;
                 records.Add(record);
             }
-            
+
             return new FileShareDownloadResult(records, totalFileCount, totalContentSize);
         }
 
@@ -94,9 +96,10 @@ namespace Agent.Plugins.PipelineArtifact
             string sourcePath,
             string destPath,
             int parallelCount,
-            CancellationToken cancellationToken) 
+            CancellationToken cancellationToken)
         {
-            var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(context, connection, cancellationToken);
+            var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
+                .CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, cancellationToken);
             using (clientTelemetry)
             {
                 FileShareActionRecord publishRecord = clientTelemetry.CreateRecord<FileShareActionRecord>((level, uri, type) =>
@@ -206,7 +209,7 @@ namespace Agent.Plugins.PipelineArtifact
             var actionBlock = NonSwallowingActionBlock.Create<FileInfo>(
                action: async file =>
                 {
-                    if (minimatchFuncs == null || minimatchFuncs.Any(match => match(file.FullName))) 
+                    if (minimatchFuncs == null || minimatchFuncs.Any(match => match(file.FullName)))
                     {
                         string tempPath = Path.Combine(destPath, Path.GetRelativePath(sourcePath, file.FullName));
                         context.Output(StringUtil.Loc("CopyFileToDestination", file, tempPath));
@@ -224,7 +227,7 @@ namespace Agent.Plugins.PipelineArtifact
                     }
                 },
                 dataflowBlockOptions: parallelism);
-                
+
                 await actionBlock.SendAllAndCompleteAsync(files, actionBlock, cancellationToken);
 
             watch.Stop();

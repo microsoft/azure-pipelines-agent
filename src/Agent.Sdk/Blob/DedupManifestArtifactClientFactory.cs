@@ -6,31 +6,40 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
 
-namespace Agent.Plugins.PipelineArtifact
+namespace Agent.Sdk.Blob
 {
     public interface IDedupManifestArtifactClientFactory
     {
-        Task<(DedupManifestArtifactClient client, BlobStoreClientTelemetry telemetry)> CreateDedupManifestClientAsync(AgentTaskPluginExecutionContext context, VssConnection connection, CancellationToken cancellationToken);
+        Task<(DedupManifestArtifactClient client, BlobStoreClientTelemetry telemetry)> CreateDedupManifestClientAsync(
+            bool verbose,
+            Action<string> traceOutput,
+            VssConnection connection,
+            CancellationToken cancellationToken);
     }
 
     public class DedupManifestArtifactClientFactory : IDedupManifestArtifactClientFactory
     {
         public static readonly DedupManifestArtifactClientFactory Instance = new DedupManifestArtifactClientFactory();
 
-        private DedupManifestArtifactClientFactory() 
+        private DedupManifestArtifactClientFactory()
         {
         }
-        
-        public async Task<(DedupManifestArtifactClient client, BlobStoreClientTelemetry telemetry)> CreateDedupManifestClientAsync(AgentTaskPluginExecutionContext context, VssConnection connection, CancellationToken cancellationToken)
+
+        public async Task<(DedupManifestArtifactClient client, BlobStoreClientTelemetry telemetry)> CreateDedupManifestClientAsync(
+            bool verbose,
+            Action<string> traceOutput,
+            VssConnection connection,
+            CancellationToken cancellationToken)
         {
             const int maxRetries = 5;
-            var tracer = context.CreateArtifactsTracer();
+            var tracer = CreateArtifactsTracer(verbose, traceOutput);
             var dedupStoreHttpClient = await AsyncHttpRetryHelper.InvokeAsync(
                 () =>
                 {
@@ -39,10 +48,10 @@ namespace Agent.Plugins.PipelineArtifact
                         TimeSpan.FromSeconds(50),
                         tracer,
                         cancellationToken);
-                
+
                     // this is actually a hidden network call to the location service:
                      return Task.FromResult(factory.CreateVssHttpClient<IDedupStoreHttpClient, DedupStoreHttpClient>(connection.GetClient<DedupStoreHttpClient>().BaseAddress));
-                
+
                 },
                 maxRetries: maxRetries,
                 tracer: tracer,
@@ -52,8 +61,18 @@ namespace Agent.Plugins.PipelineArtifact
                 continueOnCapturedContext: false);
 
             var telemetry = new BlobStoreClientTelemetry(tracer, dedupStoreHttpClient.BaseAddress);
-            var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, PipelineArtifactProvider.GetDedupStoreClientMaxParallelism(context));
+            var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, 192); // TODO
             return (new DedupManifestArtifactClient(telemetry, client, tracer), telemetry);
+        }
+
+        public static IAppTraceSource CreateArtifactsTracer(bool verbose, Action<string> traceOutput)
+        {
+            return new CallbackAppTraceSource(
+                str => traceOutput(str),
+                verbose
+                    ? System.Diagnostics.SourceLevels.Verbose
+                    : System.Diagnostics.SourceLevels.Information,
+                includeSeverityLevel: verbose);
         }
     }
 }
