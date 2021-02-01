@@ -213,12 +213,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             try
             {
-                System.Diagnostics.Debugger.Break();
                 await step.RunAsync();
             }
             catch (OperationCanceledException ex)
             {
-                System.Diagnostics.Debugger.Break();
                 if (step.ExecutionContext.CancellationToken.IsCancellationRequested &&
                     !jobCancellationToken.IsCancellationRequested)
                 {
@@ -236,7 +234,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debugger.Break();
                 // Log the error and fail the step.
                 Trace.Error($"Caught exception from step: {ex}");
                 step.ExecutionContext.Error(ex);

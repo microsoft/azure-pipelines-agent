@@ -27,11 +27,11 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTS_SETUP_ALLOW_MOUNT_TASKS_READONLY"),
             new BuiltInDefaultKnobSource("true"));
 
-        public static readonly Knob SkipPostStepTaskExeceutionIfTargetContainerStopped = new Knob(
-            nameof(SkipPostStepTaskExeceutionIfTargetContainerStopped),
-            "If true, allows to skip running post execution step for tasks in case the target container stopped",
-            new RuntimeKnobSource("VSTS_SETUP_SKIP_POST_IF_CONTAINER_STOPPED"),
-            new EnvironmentKnobSource("VSTS_SETUP_SKIP_POST_IF_CONTAINER_STOPPED"),
+        public static readonly Knob SkipPostExeceutionIfTargetContainerStopped = new Knob(
+            nameof(SkipPostExeceutionIfTargetContainerStopped),
+            "If true, allows to skip running post-execution step for tasks in case the target container stopped",
+            new RuntimeKnobSource("VSTS_SETUP_SKIP_POST_EXECUTION_IF_CONTAINER_STOPPED"),
+            new EnvironmentKnobSource("VSTS_SETUP_SKIP_POST_EXECUTION_IF_CONTAINER_STOPPED"),
             new BuiltInDefaultKnobSource("true"));
 
         // Directory structure
@@ -190,7 +190,7 @@ namespace Agent.Sdk.Knob
             nameof(DisableAgentDowngrade),
             "Disable agent downgrades. Upgrades will still be allowed.",
             new EnvironmentKnobSource("AZP_AGENT_DOWNGRADE_DISABLED"),
-            new BuiltInDefaultKnobSource("true"));
+            new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob PermissionsCheckFailsafe = new Knob(
             nameof(PermissionsCheckFailsafe),

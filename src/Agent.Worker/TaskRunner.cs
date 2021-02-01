@@ -92,12 +92,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         currentExecution = definition.Data?.Execution;
                         break;
                     case JobRunStage.PostJob:
-                        //System.Diagnostics.Debugger.Launch();
                         currentExecution = definition.Data?.PostJobExecution;
                         break;
                 };
 
-                
                 HandlerData handlerData = GetHandlerData(ExecutionContext, currentExecution, PlatformUtil.HostOS);
 
                 if (handlerData == null)
@@ -118,9 +116,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 if (stepTarget is ContainerInfo containerTarget)
                 {
                     if (Stage == JobRunStage.PostJob
-                        && AgentKnobs.SkipPostStepTaskExeceutionIfTargetContainerStopped.GetValue(ExecutionContext).AsBoolean())
+                        && AgentKnobs.SkipPostExeceutionIfTargetContainerStopped.GetValue(ExecutionContext).AsBoolean())
                     {
-                        // Check that the target contianer is still running, if not Skip task execution
+                        // Check that the target container is still running, if not Skip task execution
                         IDockerCommandManager dockerManager = HostContext.GetService<IDockerCommandManager>();
                         bool isContainerRunning = await dockerManager.IsContainerRunning(ExecutionContext, containerTarget.ContainerId);
                         

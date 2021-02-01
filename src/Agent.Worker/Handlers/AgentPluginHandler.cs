@@ -33,7 +33,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             var agentPlugin = HostContext.GetService<IAgentPluginManager>();
             var taskPlugins = agentPlugin.GetTaskPlugins(Task.Id);
             ArgUtil.NotNull(taskPlugins, $"{Task.Name} ({Task.Id}/{Task.Version})");
-
             if (!taskPlugins.Contains(Data.Target))
             {
                 throw new NotSupportedException(Data.Target);
