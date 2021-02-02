@@ -149,6 +149,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 return uploadResult;
             }
 
+            var uploadToBlob = String.Equals(context.GetVariableValueOrDefault("agent.LogToBlobstorageService"), "true", StringComparison.InvariantCultureIgnoreCase);
+
             // ensure the file upload queue is empty.
             if (!_fileUploadQueue.IsEmpty)
             {
@@ -172,7 +174,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             List<Task<UploadResult>> parallelUploadingTasks = new List<Task<UploadResult>>();
             for (int uploader = 0; uploader < concurrentUploads; uploader++)
             {
-                parallelUploadingTasks.Add(UploadAsync(context, uploader, _uploadCancellationTokenSource.Token));
+                parallelUploadingTasks.Add(UploadAsync(context, uploader, uploadToBlob, _uploadCancellationTokenSource.Token));
             }
 
             // Wait for parallel upload finish.
@@ -190,7 +192,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return uploadResult;
         }
 
-        private async Task<UploadResult> UploadAsync(IAsyncCommandContext context, int uploaderId, CancellationToken token)
+        private async Task<UploadResult> UploadAsync(IAsyncCommandContext context, int uploaderId, bool uploadToBlob, CancellationToken token)
         {
             List<string> failedFiles = new List<string>();
             long uploadedSize = 0;
@@ -201,87 +203,90 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 token.ThrowIfCancellationRequested();
                 try
                 {
-                    using (FileStream fs = File.Open(fileToUpload, FileMode.Open, FileAccess.Read, FileShare.Read))
+                    string itemPath = (_containerPath.TrimEnd('/') + "/" + fileToUpload.Remove(0, _sourceParentDirectory.Length + 1)).Replace('\\', '/');
+                    uploadTimer.Restart();
+                    bool catchExceptionDuringUpload = false;
+                    HttpResponseMessage response = null;
+                    long uploadLength = 0;
+                    try
                     {
-                        string itemPath = (_containerPath.TrimEnd('/') + "/" + fileToUpload.Remove(0, _sourceParentDirectory.Length + 1)).Replace('\\', '/');
-                        uploadTimer.Restart();
-                        bool catchExceptionDuringUpload = false;
-                        HttpResponseMessage response = null;
-                        try
+                        if (uploadToBlob)
                         {
-                            if (true) // TODO: FF check
-                            {
-                                var result = await UploadToBlobStore(context, fileToUpload, fs, token);
-                                response = await  _fileContainerHttpClient.CreateItemForArtifactUpload(_containerId, itemPath, _projectId, result.RootId.ValueString, result.ContentSize, token);
-                            }
-                            else
-                            {
-                                //response = await _fileContainerHttpClient.UploadFileAsync(_containerId, itemPath, fs, _projectId, cancellationToken: token, chunkSize: 4 * 1024 * 1024);
-                            }
-                        }
-                        catch (OperationCanceledException) when (token.IsCancellationRequested)
-                        {
-                            context.Output(StringUtil.Loc("FileUploadCancelled", fileToUpload));
-                            if (response != null)
-                            {
-                                response.Dispose();
-                                response = null;
-                            }
-
-                            throw;
-                        }
-                        catch (Exception ex)
-                        {
-                            catchExceptionDuringUpload = true;
-                            context.Output(StringUtil.Loc("FileUploadFailed", fileToUpload, ex.Message));
-                            context.Output(ex.ToString());
-                        }
-
-                        uploadTimer.Stop();
-                        if (catchExceptionDuringUpload || (response != null && response.StatusCode != HttpStatusCode.Created))
-                        {
-                            if (response != null)
-                            {
-                                context.Output(StringUtil.Loc("FileContainerUploadFailed", response.StatusCode, response.ReasonPhrase, fileToUpload, itemPath));
-                            }
-
-                            // output detail upload trace for the file.
-                            ConcurrentQueue<string> logQueue;
-                            if (_fileUploadTraceLog.TryGetValue(itemPath, out logQueue))
-                            {
-                                context.Output(StringUtil.Loc("FileUploadDetailTrace", itemPath));
-                                string message;
-                                while (logQueue.TryDequeue(out message))
-                                {
-                                    context.Output(message);
-                                }
-                            }
-
-                            // tracking file that failed to upload.
-                            failedFiles.Add(fileToUpload);
+                            var result = await UploadToBlobStore(context, fileToUpload, token);
+                            response = await  _fileContainerHttpClient.CreateItemForArtifactUpload(_containerId, itemPath, _projectId, result.RootId.ValueString, result.ContentSize, token);
+                            uploadLength = result.ContentSize;
                         }
                         else
                         {
-                            context.Debug(StringUtil.Loc("FileUploadFinish", fileToUpload, uploadTimer.ElapsedMilliseconds));
-                            uploadedSize += fs.Length;
-                            // debug detail upload trace for the file.
-                            ConcurrentQueue<string> logQueue;
-                            if (_fileUploadTraceLog.TryGetValue(itemPath, out logQueue))
+                            using (FileStream fs = File.Open(fileToUpload, FileMode.Open, FileAccess.Read, FileShare.Read))
                             {
-                                context.Debug($"Detail upload trace for file: {itemPath}");
-                                string message;
-                                while (logQueue.TryDequeue(out message))
-                                {
-                                    context.Debug(message);
-                                }
+                                response = await _fileContainerHttpClient.UploadFileAsync(_containerId, itemPath, fs, _projectId, cancellationToken: token, chunkSize: 4 * 1024 * 1024);
+                                uploadLength = fs.Length;
                             }
                         }
-
+                    }
+                    catch (OperationCanceledException) when (token.IsCancellationRequested)
+                    {
+                        context.Output(StringUtil.Loc("FileUploadCancelled", fileToUpload));
                         if (response != null)
                         {
                             response.Dispose();
                             response = null;
                         }
+
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        catchExceptionDuringUpload = true;
+                        context.Output(StringUtil.Loc("FileUploadFailed", fileToUpload, ex.Message));
+                        context.Output(ex.ToString());
+                    }
+
+                    uploadTimer.Stop();
+                    if (catchExceptionDuringUpload || (response != null && response.StatusCode != HttpStatusCode.Created))
+                    {
+                        if (response != null)
+                        {
+                            context.Output(StringUtil.Loc("FileContainerUploadFailed", response.StatusCode, response.ReasonPhrase, fileToUpload, itemPath));
+                        }
+
+                        // output detail upload trace for the file.
+                        ConcurrentQueue<string> logQueue;
+                        if (_fileUploadTraceLog.TryGetValue(itemPath, out logQueue))
+                        {
+                            context.Output(StringUtil.Loc("FileUploadDetailTrace", itemPath));
+                            string message;
+                            while (logQueue.TryDequeue(out message))
+                            {
+                                context.Output(message);
+                            }
+                        }
+
+                        // tracking file that failed to upload.
+                        failedFiles.Add(fileToUpload);
+                    }
+                    else
+                    {
+                        context.Debug(StringUtil.Loc("FileUploadFinish", fileToUpload, uploadTimer.ElapsedMilliseconds));
+                        uploadedSize += uploadLength;
+                        // debug detail upload trace for the file.
+                        ConcurrentQueue<string> logQueue;
+                        if (_fileUploadTraceLog.TryGetValue(itemPath, out logQueue))
+                        {
+                            context.Debug($"Detail upload trace for file: {itemPath}");
+                            string message;
+                            while (logQueue.TryDequeue(out message))
+                            {
+                                context.Debug(message);
+                            }
+                        }
+                    }
+
+                    if (response != null)
+                    {
+                        response.Dispose();
+                        response = null;
                     }
 
                     Interlocked.Increment(ref _filesProcessed);
@@ -296,7 +301,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return new UploadResult(failedFiles, uploadedSize);
         }
 
-        private async Task<PublishResult> UploadToBlobStore(IAsyncCommandContext context, string itemPath, Stream fs, CancellationToken cancellationToken)
+        private async Task<PublishResult> UploadToBlobStore(IAsyncCommandContext context, string itemPath, CancellationToken cancellationToken)
         {
             var verbose = String.Equals(context.GetVariableValueOrDefault("system.debug"), "true", StringComparison.InvariantCultureIgnoreCase);
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
