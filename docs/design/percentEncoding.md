@@ -10,4 +10,20 @@ The reason this is impossible is because we escape certain values needed for the
 
 We've introduced encoding for `%` which will map to `%25`. This means that any time the agent receives `%25` as part of a command, it will automatically decode it to `%`. So `##vso[task.setvariable variable=test%25]a%25` will now set a variable `test%: a%`.
 
-This behavior will be enabled by default in January 2021. To disable it, you can set a job level variable DECODE_PERCENTS to false. To avoid getting warnings about it and opt into the behavior early, set a job level variable DECODE_PERCENTS to true.
+This behavior will be enabled by default in March 2021. To disable it, you can set a job level variable DECODE_PERCENTS to false. To avoid getting warnings about it and opt into the behavior early, set a job level variable DECODE_PERCENTS to true.
+
+```
+jobs:
+- job:
+  variables:
+  - name: DECODE_PERCENTS
+    value: true
+
+  steps:
+  - powershell: Write-Host '##vso[task.setvariable variable=test]a%'
+    displayName: 'Set Variable'
+
+  # This will print the a% correctly as the value of test
+  - powershell: 'Get-ChildItem env:'
+    displayName: 'printenv'
+```
