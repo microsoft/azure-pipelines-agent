@@ -118,15 +118,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (Stage == JobRunStage.PostJob
                         && AgentKnobs.SkipPostExeceutionIfTargetContainerStopped.GetValue(ExecutionContext).AsBoolean())
                     {
-                        // Check that the target container is still running, if not Skip task execution
-                        IDockerCommandManager dockerManager = HostContext.GetService<IDockerCommandManager>();
-                        bool isContainerRunning = await dockerManager.IsContainerRunning(ExecutionContext, containerTarget.ContainerId);
-                        
-                        if (!isContainerRunning)
+                        try
                         {
-                            ExecutionContext.Result = TaskResult.Skipped;
-                            ExecutionContext.ResultCode = "Target container has been stopped, task execution will be skipped";
-                            return;
+                            // Check that the target container is still running, if not Skip task execution
+                            IDockerCommandManager dockerManager = HostContext.GetService<IDockerCommandManager>();
+                            bool isContainerRunning = await dockerManager.IsContainerRunning(ExecutionContext, containerTarget.ContainerId);
+                            
+                            if (!isContainerRunning)
+                            {
+                                ExecutionContext.Result = TaskResult.Skipped;
+                                ExecutionContext.ResultCode = $"Target container - {containerTarget.ContainerName} has been stopped, task post-execution will be skipped";
+                                return;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            ExecutionContext.Write(WellKnownTags.Warning, $"Failed to check container state for task post-execution. Exception: {ex}");
                         }
                     }
 

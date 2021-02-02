@@ -29,7 +29,7 @@ namespace Agent.Sdk.Knob
 
         public static readonly Knob SkipPostExeceutionIfTargetContainerStopped = new Knob(
             nameof(SkipPostExeceutionIfTargetContainerStopped),
-            "If true, allows to skip running post-execution step for tasks in case the target container stopped",
+            "If true, skips post-execution step for tasks in case the target container has been stopped",
             new RuntimeKnobSource("VSTS_SETUP_SKIP_POST_EXECUTION_IF_CONTAINER_STOPPED"),
             new EnvironmentKnobSource("VSTS_SETUP_SKIP_POST_EXECUTION_IF_CONTAINER_STOPPED"),
             new BuiltInDefaultKnobSource("true"));

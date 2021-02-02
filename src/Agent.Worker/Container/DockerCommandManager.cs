@@ -309,15 +309,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             return DockerUtil.ParseDockerPort(portMappingLines);
         }
 
+        /// <summary>
+        /// Checks if container with specified id is running
+        /// </summary>
+        /// <param name="context">Current execution context</param>
+        /// <param name="containerId">String representing container id</param>
+        /// <returns
+        /// <c>true</c>, if specified container is running, <c>false</c> otherwise. 
+        /// </returns>
         public async Task<bool> IsContainerRunning(IExecutionContext context, string containerId) {
             List<string> filteredItems = await DockerPS(context, $"--filter id={containerId}");
 
-            if (filteredItems.Count < 2)
-            {
-                return false;
-            }
+            // docker ps function is returning table with containers in Running state.
+            // This table is adding to the list line by line. The first string in List is always table header.
+            // The second string appeared only if container by specified id was found and in Running state.
+            // Therefore, we assume that the container is running if the list contains two elements.
+            var isContainerRunning = (filteredItems.Count == 2);
 
-            return true;
+            return isContainerRunning;
         }
 
         private Task<int> ExecuteDockerCommandAsync(IExecutionContext context, string command, string options, CancellationToken cancellationToken = default(CancellationToken))
