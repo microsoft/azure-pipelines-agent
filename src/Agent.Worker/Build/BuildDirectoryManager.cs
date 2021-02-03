@@ -124,7 +124,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             foreach (var repository in repositories)
             {
                 System.Diagnostics.Debugger.Break();
-                var repoPath = GetDefaultRepositoryPath(executionContext, repository, newConfig.RepositoryTrackingInfo.Where(item => item.Identifier == repository.Alias).Select(item => item.SourcesDirectory).First());
+                var repoSourceDirectory = newConfig.RepositoryTrackingInfo.Where(item => item.Identifier == repository.Alias).Select(item => item.SourcesDirectory).First();
+                var repoPath = GetDefaultRepositoryPath(executionContext, repository, repoSourceDirectory);
 
                 if (!string.Equals(repoPath, defaultSourceDirectory, StringComparison.Ordinal))
                 {
