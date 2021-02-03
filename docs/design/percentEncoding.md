@@ -20,7 +20,7 @@ jobs:
     value: true
 
   steps:
-  - powershell: Write-Host '##vso[task.setvariable variable=test]a%'
+  - powershell: Write-Host '##vso[task.setvariable variable=test]a%25'
     displayName: 'Set Variable'
 
   # This will print the a% correctly as the value of test
