@@ -179,23 +179,18 @@ namespace Agent.Plugins.Repository
                     staging = Path.Combine(tempDirectory, $"_{count}");
                 }
 
-                // Move repo from currentRepoPath only in case when target directory either doesn't exist or expectedRepoPath already contains files
-                // To reduce the probability of deleting already fetched repo, it is related to the case whe we have several checkout jobs with custom paths.
-                if (!Directory.Exists(expectRepoPath) || !Directory.EnumerateFileSystemEntries(expectRepoPath).Any())
+                //System.Diagnostics.Debugger.Launch();
+                try
                 {
-                    //System.Diagnostics.Debugger.Launch();
-                    try
-                    {
-                        executionContext.Debug($"Move existing repository '{currentRepoPath}' to '{expectRepoPath}' via staging directory '{staging}'.");
-                        IOUtil.MoveDirectory(currentRepoPath, expectRepoPath, staging, CancellationToken.None);
-                    }
-                    catch (Exception ex)
-                    {
-                        executionContext.Debug("Catch exception during repository move.");
-                        executionContext.Debug(ex.ToString());
-                        executionContext.Warning("Unable move and reuse existing repository to required location.");
-                        IOUtil.DeleteDirectory(expectRepoPath, CancellationToken.None);
-                    }
+                    executionContext.Debug($"Move existing repository '{currentRepoPath}' to '{expectRepoPath}' via staging directory '{staging}'.");
+                    IOUtil.MoveDirectory(currentRepoPath, expectRepoPath, staging, CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    executionContext.Debug("Catch exception during repository move.");
+                    executionContext.Debug(ex.ToString());
+                    executionContext.Warning("Unable move and reuse existing repository to required location.");
+                    IOUtil.DeleteDirectory(expectRepoPath, CancellationToken.None);
                 }
 
                 executionContext.Output($"Repository will be located at '{expectRepoPath}'.");

@@ -51,11 +51,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             ArgUtil.NotNull(executionContext.Variables, nameof(executionContext.Variables));
             ArgUtil.NotNull(repositories, nameof(repositories));
 
-            System.Diagnostics.Debugger.Launch();
             var trackingManager = HostContext.GetService<ITrackingManager>();
 
             // Create the tracking config for this execution of the pipeline
             var agentSettings = HostContext.GetService<IConfigurationStore>().GetSettings();
+            System.Diagnostics.Debugger.Launch();
             var newConfig = trackingManager.Create(executionContext, repositories, ShouldOverrideBuildDirectory(repositories, agentSettings));
 
             // Load the tracking config from the last execution of the pipeline
@@ -123,7 +123,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // Set the default clone path for each repository (the Checkout task may override this later)
             foreach (var repository in repositories)
             {
-                var repoPath = GetDefaultRepositoryPath(executionContext, repository, newConfig.SourcesDirectory);
+                System.Diagnostics.Debugger.Break();
+                var repoPath = GetDefaultRepositoryPath(executionContext, repository, newConfig.RepositoryTrackingInfo.Where(item => item.Identifier == repository.Alias).Select(item => item.SourcesDirectory).First());
 
                 if (!string.Equals(repoPath, defaultSourceDirectory, StringComparison.Ordinal))
                 {
@@ -178,6 +179,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 trackingConfig.SourcesDirectory = relativeRepoPath;
             }
 
+            executionContext.Debug($"Updating execution context in UpdateDirectory - {HostContext.GetDirectory(WellKnownDirectory.Work)}");
             // Update the tracking config files.
             Trace.Verbose("Updating job run properties.");
             trackingManager.UpdateTrackingConfig(executionContext, trackingConfig);
@@ -301,7 +303,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             if (RepositoryUtil.HasMultipleCheckouts(executionContext.JobSettings))
             {
                 // If we have multiple checkouts they should all be rooted to the sources directory (_work/1/s/repo1)
-                var path = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), defaultSourcesDirectory, RepositoryUtil.GetCloneDirectory(repository));
+                var path = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), defaultSourcesDirectory);
                 executionContext.Debug($"HasMultipleCheckouts {path}");
                 return path;
             }
