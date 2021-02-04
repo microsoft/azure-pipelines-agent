@@ -132,7 +132,6 @@ namespace Agent.Plugins.Repository
             const string sourcesDirectory = "s"; //Constants.Build.Path.SourcesDirectory
             string expectRepoPath;
             var path = executionContext.GetInput("path");
-            executionContext.Debug($"Current repo path - {currentRepoPath}");
             if (!string.IsNullOrEmpty(path))
             {
                 // When the checkout task provides a path, always use that one
@@ -141,33 +140,22 @@ namespace Agent.Plugins.Repository
                 {
                     throw new ArgumentException($"Input path '{path}' should resolve to a directory under '{buildDirectory}', current resolved path '{expectRepoPath}'.");
                 }
-
-                executionContext.Debug($"!string.IsNullOrEmpty(path)  {expectRepoPath}");
-                
             }
             else if (HasMultipleCheckouts(executionContext))
             {
                 // When there are multiple checkout tasks (and this one didn't set the path), default to directory 1/s/<repoName>
                 expectRepoPath = Path.Combine(buildDirectory, sourcesDirectory, RepositoryUtil.GetCloneDirectory(repo));
-
-                executionContext.Debug($"HasMultipleCheckouts(executionContext) {expectRepoPath}");
             }
             else
             {
                 // When there's a single checkout task that doesn't have path set, default to sources directory 1/s
                 expectRepoPath = Path.Combine(buildDirectory, sourcesDirectory);
-
-                executionContext.Debug($"Last else {expectRepoPath}");
             }
 
             // Update the repository path in the worker process
             executionContext.UpdateRepositoryPath(repoAlias, expectRepoPath);
 
-            var clean = executionContext.GetInput("clean");
-            executionContext.Debug($"----------Debug message'{clean}' - '{repo}'------------------------.");
-            System.Diagnostics.Debugger.Launch();
-
-            //executionContext.Debug($"Repository requires to be placed at '{expectRepoPath}', current location is '{currentRepoPath}'");
+            executionContext.Debug($"Repository requires to be placed at '{expectRepoPath}', current location is '{currentRepoPath}'");
             if (!string.Equals(currentRepoPath.Trim(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), expectRepoPath.Trim(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), IOUtil.FilePathStringComparison))
             {
                 executionContext.Output($"Repository is current at '{currentRepoPath}', move to '{expectRepoPath}'.");
@@ -179,7 +167,6 @@ namespace Agent.Plugins.Repository
                     staging = Path.Combine(tempDirectory, $"_{count}");
                 }
 
-                //System.Diagnostics.Debugger.Launch();
                 try
                 {
                     executionContext.Debug($"Move existing repository '{currentRepoPath}' to '{expectRepoPath}' via staging directory '{staging}'.");
@@ -197,7 +184,6 @@ namespace Agent.Plugins.Repository
                 repo.Properties.Set<string>(Pipelines.RepositoryPropertyNames.Path, expectRepoPath);
             }
 
-            // repo.Properties.Set<string>(Pipelines.RepositoryPropertyNames.Path, expectRepoPath);
             ISourceProvider sourceProvider = SourceProviderFactory.GetSourceProvider(repo.Type);
             await sourceProvider.GetSourceAsync(executionContext, repo, token);
         }

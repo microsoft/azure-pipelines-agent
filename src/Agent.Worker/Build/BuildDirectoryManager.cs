@@ -55,7 +55,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             // Create the tracking config for this execution of the pipeline
             var agentSettings = HostContext.GetService<IConfigurationStore>().GetSettings();
-            System.Diagnostics.Debugger.Launch();
             var newConfig = trackingManager.Create(executionContext, repositories, ShouldOverrideBuildDirectory(repositories, agentSettings));
 
             // Load the tracking config from the last execution of the pipeline
@@ -125,7 +124,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             {
                 var repoSourceDirectory = newConfig?.RepositoryTrackingInfo.Where(item => item.Identifier == repository.Alias).Select(item => item.SourcesDirectory).FirstOrDefault();
 
-                if (!repoSourceDirectory)
+                if (repoSourceDirectory == null)
                 {
                     throw new ArgumentNullException($"Repository with alias {repository.Alias} wasn't found in new tracking config");
                 }
@@ -141,7 +140,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         deleteExisting: cleanOption == BuildCleanOption.Source);
                 }
 
-                executionContext.Debug($"default clone path for each repository {repoPath}");
                 Trace.Info($"Set repository path for repository {repository.Alias} to '{repoPath}'");
                 repository.Properties.Set<string>(RepositoryPropertyNames.Path, repoPath);
             }
@@ -185,7 +183,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 trackingConfig.SourcesDirectory = relativeRepoPath;
             }
 
-            executionContext.Debug($"Updating execution context in UpdateDirectory - {HostContext.GetDirectory(WellKnownDirectory.Work)}");
             // Update the tracking config files.
             Trace.Verbose("Updating job run properties.");
             trackingManager.UpdateTrackingConfig(executionContext, trackingConfig);
@@ -302,23 +299,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             RepositoryResource repository,
             string defaultSourcesDirectory)
         {
-            executionContext.Debug($"WellKnown WD - {HostContext.GetDirectory(WellKnownDirectory.Work)}");
-            executionContext.Debug($"defaultSourcesDirectory - {defaultSourcesDirectory}");
-            executionContext.Debug($"CloneDirectory - {RepositoryUtil.GetCloneDirectory(repository)}");
-
             if (RepositoryUtil.HasMultipleCheckouts(executionContext.JobSettings))
             {
                 // If we have multiple checkouts they should all be rooted to the sources directory (_work/1/s/repo1)
-                var path = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), defaultSourcesDirectory);
-                executionContext.Debug($"HasMultipleCheckouts {path}");
-                return path;
+                return Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), defaultSourcesDirectory);
             }
             else
             {
                 // For single checkouts, the repository is rooted to the sources folder (_work/1/s)
-                var path = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), defaultSourcesDirectory);
-                executionContext.Debug($"Single {path}");
-                return path;
+                return Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), defaultSourcesDirectory);
             }
         }
     }

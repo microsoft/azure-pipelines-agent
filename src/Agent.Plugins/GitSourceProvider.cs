@@ -521,10 +521,8 @@ namespace Agent.Plugins.Repository
             // Check the current contents of the root folder to see if there is already a repo
             // If there is a repo, see if it matches the one we are expecting to be there based on the remote fetch url
             // if the repo is not what we expect, remove the folder
-            System.Diagnostics.Debugger.Break();
             if (!await IsRepositoryOriginUrlMatch(executionContext, gitCommandManager, targetPath, repositoryUrl))
             {
-                System.Diagnostics.Debugger.Break();
                 // Delete source folder
                 IOUtil.DeleteDirectory(targetPath, cancellationToken);
             }
@@ -563,10 +561,8 @@ namespace Agent.Plugins.Repository
                 // When repo.clean is selected for a git repo, execute git clean -ffdx and git reset --hard HEAD on the current repo.
                 // This will help us save the time to reclone the entire repo.
                 // If any git commands exit with non-zero return code or any exception happened during git.exe invoke, fall back to delete the repo folder.
-                executionContext.Debug("----------------------------WE_ARE_HERE-1---------------------------");
                 if (clean)
                 {
-                    executionContext.Debug("----------------------------WE_ARE_HERE----------------------------");
                     Boolean softCleanSucceed = true;
 
                     // git clean -ffdx
