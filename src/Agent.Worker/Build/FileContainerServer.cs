@@ -149,7 +149,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 return uploadResult;
             }
 
-            var uploadToBlob = String.Equals(context.GetVariableValueOrDefault("agent.LogToBlobstorageService"), "true", StringComparison.InvariantCultureIgnoreCase);
+            var uploadToBlob = String.Equals(context.GetVariableValueOrDefault("agent.UploadBuildArtifactsToBlob"), "true", StringComparison.InvariantCultureIgnoreCase);
 
             // ensure the file upload queue is empty.
             if (!_fileUploadQueue.IsEmpty)

@@ -12,7 +12,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
     /// </summary>
     public class BuildArtifactActionRecord : PipelineTelemetryRecord
     {
-        public BuildArtifactActionRecord(TelemetryInformationLevel level, Uri baseAddress, string eventNamePrefix, string eventNameSuffix, IAsyncCommandContext context, uint attemptNumber = 1)
+        public BuildArtifactActionRecord(
+            TelemetryInformationLevel level, 
+            Uri baseAddress, 
+            string eventNamePrefix, 
+            string eventNameSuffix, 
+            IAsyncCommandContext context, 
+            uint attemptNumber = 1)
             : base(level, baseAddress, eventNamePrefix, eventNameSuffix, context, attemptNumber)
         {
         }

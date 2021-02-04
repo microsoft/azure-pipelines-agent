@@ -18,7 +18,13 @@ namespace Agent.Sdk.Blob
         public Guid JobId { get; private set; }
         public Guid TaskInstanceId { get; private set; }
 
-        public PipelineTelemetryRecord(TelemetryInformationLevel level, Uri baseAddress, string eventNamePrefix, string eventNameSuffix, IKnobValueContext context, uint attemptNumber = 1)
+        public PipelineTelemetryRecord(
+            TelemetryInformationLevel level, 
+            Uri baseAddress, 
+            string eventNamePrefix, 
+            string eventNameSuffix, 
+            IKnobValueContext context, 
+            uint attemptNumber = 1)
             : base(level, baseAddress, eventNamePrefix, eventNameSuffix, attemptNumber)
         {
             PlanId = new Guid(context.GetVariableValueOrDefault(WellKnownDistributedTaskVariables.PlanId) ?? Guid.Empty.ToString());
