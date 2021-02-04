@@ -123,8 +123,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // Set the default clone path for each repository (the Checkout task may override this later)
             foreach (var repository in repositories)
             {
-                System.Diagnostics.Debugger.Break();
-                var repoSourceDirectory = newConfig.RepositoryTrackingInfo.Where(item => item.Identifier == repository.Alias).Select(item => item.SourcesDirectory).First();
+                var repoSourceDirectory = newConfig?.RepositoryTrackingInfo.Where(item => item.Identifier == repository.Alias).Select(item => item.SourcesDirectory).FirstOrDefault();
+
+                if (!repoSourceDirectory)
+                {
+                    throw new ArgumentNullException($"Repository with alias {repository.Alias} wasn't found in new tracking config");
+                }
+
                 var repoPath = GetDefaultRepositoryPath(executionContext, repository, repoSourceDirectory);
 
                 if (!string.Equals(repoPath, defaultSourceDirectory, StringComparison.Ordinal))
