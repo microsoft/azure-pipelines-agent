@@ -124,7 +124,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             if (unescapePercents)
             {
-                unescaped = unescaped.Replace("%25", "%");
+                unescaped = unescaped.Replace("%VSTS", "%");
             }
 
             return unescaped;

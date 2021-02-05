@@ -132,9 +132,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             // Only if we've successfully parsed do we show this warning
-            if (AgentKnobs.DecodePercents.GetValue(context).AsString() == "" && input.Contains("%25"))
+            if (AgentKnobs.DecodePercents.GetValue(context).AsString() == "" && input.Contains("%VSTS"))
             {
-                context.Warning("%25 detected in ##vso command. In March 2021, the agent command parser will be updated to unescape this to %. To opt out of this behavior, set a job level variable DECODE_PERCENTS to false. Setting to true will force this behavior immediately. More information can be found at https://github.com/microsoft/azure-pipelines-agent/blob/master/docs/design/percentEncoding.md");
+                context.Warning("%VSTS detected in ##vso command. In March 2021, the agent command parser will be updated to unescape this to %. To opt out of this behavior, set a job level variable DECODE_PERCENTS to false. Setting to true will force this behavior immediately. More information can be found at https://github.com/microsoft/azure-pipelines-agent/blob/master/docs/design/percentEncoding.md");
             }
 
             return true;
