@@ -8,9 +8,9 @@ The reason this is impossible is because we escape certain values needed for the
 
 ### Solution
 
-We've introduced encoding for `%` which will map to `%VSTS`. This means that any time the agent receives `%VSTS` as part of a command, it will automatically decode it to `%`. So `##vso[task.setvariable variable=test%VSTS]a%VSTS` will now set a variable `test%: a%`.
+We've introduced encoding for `%` which will map to `%VS_TS`. This means that any time the agent receives `%VS_TS` as part of a command, it will automatically decode it to `%`. So `##vso[task.setvariable variable=test%VS_TS]a%VS_TS` will now set a variable `test%: a%`.
 
-NOTE: This was previously designed to use %25 instead of %VSTS as the escape sequence. We decided to go with %VSTS instead since %25 was used somewhat often
+NOTE: This was previously designed to use %25 instead of %VS_TS as the escape sequence. We decided to go with %VS_TS instead since %25 was used somewhat often
 because of its role in url encoding. Some agents may continue to emit warnings for %25 as this change rolls out (or if you haven't updated to the most recent agent),
 these are safe to ignore.
 
@@ -24,7 +24,7 @@ jobs:
     value: true
 
   steps:
-  - powershell: Write-Host '##vso[task.setvariable variable=test]a%VSTS'
+  - powershell: Write-Host '##vso[task.setvariable variable=test]a%VS_TS'
     displayName: 'Set Variable'
 
   # This will print the a% correctly as the value of test

@@ -136,7 +136,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     AddUserSuppliedSecret(variable.Value.Value);
                     // also, we escape some characters for variables when we print them out in debug mode. We need to
                     // add the escaped version of these secrets as well
-                    var escapedSecret = variable.Value.Value.Replace("%", "%VSTS")
+                    var escapedSecret = variable.Value.Value.Replace("%", "%VS_TS")
                                                             .Replace("\r", "%0D")
                                                             .Replace("\n", "%0A");
                     AddUserSuppliedSecret(escapedSecret);

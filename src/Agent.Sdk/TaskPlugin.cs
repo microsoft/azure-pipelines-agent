@@ -335,7 +335,7 @@ namespace Agent.Sdk
         {
             if (AgentKnobs.DecodePercents.GetValue(this).AsBoolean())
             {
-                input = input.Replace("%", "%VSTS");
+                input = input.Replace("%", "%VS_TS");
             }
             foreach (var mapping in _commandEscapeMappings)
             {
