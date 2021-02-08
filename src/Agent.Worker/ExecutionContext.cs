@@ -46,11 +46,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         List<string> PrependPath { get; }
         List<ContainerInfo> Containers { get; }
         List<ContainerInfo> SidecarContainers { get; }
+        List<TaskRestrictions> Restrictions { get; }
 
         // Initialize
         void InitializeJob(Pipelines.AgentJobRequestMessage message, CancellationToken token);
         void CancelToken();
-        IExecutionContext CreateChild(Guid recordId, string displayName, string refName, Variables taskVariables = null, bool outputForward = false);
+        IExecutionContext CreateChild(Guid recordId, string displayName, string refName, Variables taskVariables = null, bool outputForward = false, List<TaskRestrictions> taskRestrictions = null);
 
         // logging
         bool WriteDebug { get; }
@@ -84,6 +85,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private readonly object _loggerLock = new object();
         private readonly List<IAsyncCommandContext> _asyncCommands = new List<IAsyncCommandContext>();
         private readonly HashSet<string> _outputvariables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly List<TaskRestrictions> _restrictions = new List<TaskRestrictions>();
         private readonly string _buildLogsFolderName = "buildlogs";
         private IAgentLogPlugin _logPlugin;
         private IPagingLogger _logger;
@@ -121,6 +123,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public List<string> PrependPath { get; private set; }
         public List<ContainerInfo> Containers { get; private set; }
         public List<ContainerInfo> SidecarContainers { get; private set; }
+        public List<TaskRestrictions> Restrictions => _restrictions;
         public List<IAsyncCommandContext> AsyncCommands => _asyncCommands;
 
         public TaskResult? Result
@@ -189,7 +192,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return HostContext;
         }
 
-        public IExecutionContext CreateChild(Guid recordId, string displayName, string refName, Variables taskVariables = null, bool outputForward = false)
+        public IExecutionContext CreateChild(Guid recordId, string displayName, string refName, Variables taskVariables = null, bool outputForward = false, List<TaskRestrictions> taskRestrictions = null)
         {
             Trace.Entering();
 
@@ -211,6 +214,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             child._outputForward = outputForward;
             child._defaultStepTarget = _defaultStepTarget;
             child._currentStepTarget = _currentStepTarget;
+
+            if (taskRestrictions != null)
+            {
+                child.Restrictions.AddRange(taskRestrictions);
+            }
 
             child.InitializeTimelineRecord(_mainTimelineId, recordId, _record.Id, ExecutionContextType.Task, displayName, refName, ++_childTimelineRecordOrder);
 
@@ -800,17 +808,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void SetStepTarget(Pipelines.StepTarget target)
         {
-            // Enforce command restriction if set for the step target
-            var commandManager = HostContext.GetService<IWorkerCommandManager>();
-            if (string.Equals(WellKnownStepTargetStrings.Restricted, target?.Commands, StringComparison.OrdinalIgnoreCase))
-            {
-                commandManager.SetCommandRestrictionPolicy(new AttributeBasedWorkerCommandRestrictionPolicy());
-            }
-            else
-            {
-                commandManager.SetCommandRestrictionPolicy(new UnrestricedWorkerCommandRestrictionPolicy());
-            }
-
             // When step targets are set, we need to take over control for translating paths
             // from the job execution context
             Variables.StringTranslator = TranslatePathForStepTarget;

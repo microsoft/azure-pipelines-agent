@@ -5,6 +5,7 @@ using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
+using System.Linq;
 using System.Collections.Generic;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
@@ -14,7 +15,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         void EnablePluginInternalCommand(bool enable);
         bool TryProcessCommand(IExecutionContext context, string input);
-        void SetCommandRestrictionPolicy(IWorkerCommandRestrictionPolicy policy);
     }
 
     public sealed class WorkerCommandManager : AgentService, IWorkerCommandManager
@@ -26,8 +26,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private readonly object _commandSerializeLock = new object();
 
         private bool _invokePluginInternalCommand = false;
-
-        private IWorkerCommandRestrictionPolicy restrictionPolicy = new UnrestricedWorkerCommandRestrictionPolicy();
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -102,6 +100,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     return false;
                 }
 
+                IWorkerCommandRestrictionPolicy restrictionPolicy;
+                if (context.Restrictions.Any(restrictions => restrictions.Commands?.Mode == TaskCommandMode.Restricted))
+                {
+                    restrictionPolicy = new AttributeBasedWorkerCommandRestrictionPolicy();
+                }
+                else
+                {
+                    restrictionPolicy = new UnrestricedWorkerCommandRestrictionPolicy();
+                }
+
                 // process logging command in serialize oreder.
                 lock (_commandSerializeLock)
                 {
@@ -138,12 +146,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             return true;
-        }
-
-        public void SetCommandRestrictionPolicy(IWorkerCommandRestrictionPolicy policy)
-        {
-            ArgUtil.NotNull(policy, nameof(policy));
-            restrictionPolicy = policy;
         }
     }
 

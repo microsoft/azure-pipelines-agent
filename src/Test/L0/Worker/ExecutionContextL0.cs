@@ -159,9 +159,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var jobRequest = new Pipelines.AgentJobRequestMessage(plan, timeline, JobId, jobName, jobName, null, new Dictionary<string, string>(),
                     new Dictionary<string, VariableValue>(), new List<MaskHint>(), resources, new Pipelines.WorkspaceOptions(), steps);
 
-                // Arrange: Setup command manager
-                var commandMock = new Mock<IWorkerCommandManager>();
-                hc.SetSingleton(commandMock.Object);
+                // Arrange
                 var pagingLogger = new Mock<IPagingLogger>();
                 hc.EnqueueInstance(pagingLogger.Object);
 
@@ -171,7 +169,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
                 // Assert.
                 Assert.IsType<ContainerInfo>(ec.StepTarget());
-                commandMock.Verify(x => x.SetCommandRestrictionPolicy(It.IsAny<UnrestricedWorkerCommandRestrictionPolicy>()));
             }
         }
 
@@ -211,9 +208,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var jobRequest = new Pipelines.AgentJobRequestMessage(plan, timeline, JobId, jobName, jobName, null, new Dictionary<string, string>(),
                     new Dictionary<string, VariableValue>(), new List<MaskHint>(), resources, new Pipelines.WorkspaceOptions(), steps);
 
-                // Arrange: Setup command manager
-                var commandMock = new Mock<IWorkerCommandManager>();
-                hc.SetSingleton(commandMock.Object);
+                // Arrange
                 var pagingLogger = new Mock<IPagingLogger>();
                 hc.EnqueueInstance(pagingLogger.Object);
 
@@ -223,7 +218,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
                 // Assert.
                 Assert.IsType<HostInfo>(ec.StepTarget());
-                commandMock.Verify(x => x.SetCommandRestrictionPolicy(It.IsAny<AttributeBasedWorkerCommandRestrictionPolicy>()));
             }
         }
 

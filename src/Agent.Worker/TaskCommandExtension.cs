@@ -4,6 +4,7 @@
 using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Minimatch;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -608,6 +609,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
             }
 
+            if (!context.Restrictions.All(restrictions => restrictions.SetVariableAllowed(name)))
+            {
+                throw new InvalidOperationException(StringUtil.Loc("SetVariableNotAllowed"));
+            }
+
             context.SetVariable(name, data, isSecret: isSecret, isOutput: isOutput, isReadOnly: isReadOnly);
         }
     }
@@ -782,6 +788,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(command, nameof(command));
 
+            if (!context.Restrictions.All(restrictions => restrictions.SetVariableAllowed(Constants.PathVariable)))
+            {
+                throw new InvalidOperationException(StringUtil.Loc("SetVariableNotAllowed"));
+            }
+
             var data = command.Data;
 
             ArgUtil.NotNullOrEmpty(data, this.Name);
@@ -849,5 +860,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public static readonly String EndpointId = "id";
         public static readonly String Field = "field";
         public static readonly String Key = "key";
+    }
+
+    internal static class TaskRestrictionExtension
+    {
+        public static Boolean SetVariableAllowed(this TaskRestrictions restrictions, String variable)
+        {
+            var allowedList = restrictions.SettableVariables?.Allowed;
+            if (allowedList == null)
+            {
+                return true;
+            }
+
+            var opts = new Options() { IgnoreCase = true };
+            foreach (String pattern in allowedList)
+            {
+                if (Minimatcher.Check(variable, pattern, opts))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 }

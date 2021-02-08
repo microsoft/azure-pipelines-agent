@@ -467,6 +467,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             ""target"": ""no such target""
         }
     },
+    ""restrictions"": {
+        ""commands"": {
+            ""mode"": ""restricted""
+        },
+        ""settableVariables"": {
+            ""allowed"": [
+                ""okVar"",
+                ""otherVar""
+            ]
+        }
+    },
     ""someExtraSection"": {
         ""someExtraKey"": ""Some extra value""
     }
@@ -524,6 +535,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                         Assert.Equal("Some process target", definition.Data.Execution.Process.Target);
                         Assert.Equal("Some process working directory", definition.Data.Execution.Process.WorkingDirectory);
                     }
+
+                    // restrictions
+                    Assert.NotNull(definition.Data.Restrictions);
+                    Assert.Equal(TaskCommandMode.Restricted, definition.Data.Restrictions.Commands.Mode);
+                    Assert.Equal(2, definition.Data.Restrictions.SettableVariables.Allowed.Count);
+                    Assert.Equal("okVar", definition.Data.Restrictions.SettableVariables.Allowed[0]);
+                    Assert.Equal("otherVar", definition.Data.Restrictions.SettableVariables.Allowed[1]);
                 }
             }
             finally
