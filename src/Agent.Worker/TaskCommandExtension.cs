@@ -611,7 +611,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             if (!context.Restrictions.All(restrictions => restrictions.SetVariableAllowed(name)))
             {
-                throw new InvalidOperationException(StringUtil.Loc("SetVariableNotAllowed", name));
+                context.Warning(StringUtil.Loc("SetVariableNotAllowed", name));
+                return;
             }
 
             context.SetVariable(name, data, isSecret: isSecret, isOutput: isOutput, isReadOnly: isReadOnly);
@@ -790,7 +791,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             if (!context.Restrictions.All(restrictions => restrictions.SetVariableAllowed(Constants.PathVariable)))
             {
-                throw new InvalidOperationException(StringUtil.Loc("SetVariableNotAllowed", Constants.PathVariable));
+                context.Warning(StringUtil.Loc("SetVariableNotAllowed", Constants.PathVariable));
+                return;
             }
 
             var data = command.Data;

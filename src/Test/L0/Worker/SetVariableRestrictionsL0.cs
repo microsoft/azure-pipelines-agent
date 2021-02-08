@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Worker;
@@ -26,6 +27,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var command = SetVariableCommand(variable, value);
                 setVariable.Execute(_ec.Object, command);
                 Assert.Equal(value, _variables.Get(variable));
+                Assert.Equal(0, _warnings.Count);
             }
         }
 
@@ -43,6 +45,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var command = SetVariableCommand(variable, value);
                 setVariable.Execute(_ec.Object, command);
                 Assert.Equal(value, _variables.Get(variable));
+                Assert.Equal(0, _warnings.Count);
             }
         }
 
@@ -54,8 +57,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             using (TestHostContext hc = CreateTestContext())
             {
                 _ec.Object.Restrictions.Add(new TaskRestrictions() { SettableVariables = new TaskVariableRestrictions() });
-                var command = SetVariableCommand("myVar", "myVal");
-                Assert.Throws<InvalidOperationException>(() => new TaskSetVariableCommand().Execute(_ec.Object, command));
+                var variable = "myVar";
+                var setVariable = new TaskSetVariableCommand();
+                var command = SetVariableCommand(variable, "myVal");
+                setVariable.Execute(_ec.Object, command);
+                Assert.Equal(null, _variables.Get(variable));
+                Assert.Equal(1, _warnings.Count);
+                Assert.Contains("SetVariableNotAllowed", _warnings[0]);
             }
         }
 
@@ -81,12 +89,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     setVariable = new TaskSetVariableCommand();
                     setVariable.Execute(_ec.Object, command);
                     Assert.Equal(value, _variables.Get(variable));
+                    Assert.Equal(0, _warnings.Count);
                 }
 
                 var badVar = "badVar";
                 command = SetVariableCommand(badVar, value);
                 setVariable = new TaskSetVariableCommand();
-                Assert.Throws<InvalidOperationException>(() => setVariable.Execute(_ec.Object, command));
+                setVariable.Execute(_ec.Object, command);
+                Assert.Equal(null, _variables.Get(badVar));
+                Assert.Equal(1, _warnings.Count);
+                Assert.Contains("SetVariableNotAllowed", _warnings[0]);
             }
         }
 
@@ -111,12 +123,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     setVariable = new TaskSetVariableCommand();
                     setVariable.Execute(_ec.Object, command);
                     Assert.Equal(value, _variables.Get(variable));
+                    Assert.Equal(0, _warnings.Count);
                 }
 
                 var badVar = "badVar";
                 command = SetVariableCommand(badVar, value);
                 setVariable = new TaskSetVariableCommand();
-                Assert.Throws<InvalidOperationException>(() => setVariable.Execute(_ec.Object, command));
+                setVariable.Execute(_ec.Object, command);
+                Assert.Equal(null, _variables.Get(badVar));
+                Assert.Equal(1, _warnings.Count);
+                Assert.Contains("SetVariableNotAllowed", _warnings[0]);
             }
         }
 
@@ -149,14 +165,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     setVariable = new TaskSetVariableCommand();
                     setVariable.Execute(_ec.Object, command);
                     Assert.Equal(value, _variables.Get(variable));
+                    Assert.Equal(0, _warnings.Count);
                 }
 
                 // settable in only one
+                int lastCount = _warnings.Count;
                 foreach (String variable in new String[] { "myStuff", "otherVar", "extra", "neither" })
                 {
                     command = SetVariableCommand(variable, value);
                     setVariable = new TaskSetVariableCommand();
-                    Assert.Throws<InvalidOperationException>(() => setVariable.Execute(_ec.Object, command));
+                    setVariable.Execute(_ec.Object, command);
+                    Assert.Equal(null, _variables.Get(variable));
+                    Assert.Equal(lastCount+1, _warnings.Count);
+                    Assert.Contains("SetVariableNotAllowed", _warnings.Last());
+                    lastCount = _warnings.Count;
                 }
             }
         }
@@ -180,11 +202,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var value = "myValue";
 
                 // nothing is settable based on the second, empty allowed list
+                int lastCount = _warnings.Count;
                 foreach (String variable in new String[] { "myVar", "otherVar", "neither" })
                 {
                     command = SetVariableCommand(variable, value);
                     setVariable = new TaskSetVariableCommand();
-                    Assert.Throws<InvalidOperationException>(() => setVariable.Execute(_ec.Object, command));
+                    setVariable.Execute(_ec.Object, command);
+                    Assert.Equal(null, _variables.Get(variable));
+                    Assert.Equal(lastCount+1, _warnings.Count);
+                    Assert.Contains("SetVariableNotAllowed", _warnings.Last());
+                    lastCount = _warnings.Count;
                 }
             }
         }
@@ -201,13 +228,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Command command = PrependPathCommand("path1");
                 prependPath.Execute(_ec.Object, command);
                 Assert.True(_ec.Object.PrependPath.Contains("path1"));
+                Assert.Equal(0, _warnings.Count);
 
                 // disallow path
                 var restrictions = new TaskRestrictions() { SettableVariables = new TaskVariableRestrictions() };
                 _ec.Object.Restrictions.Add(restrictions);
                 prependPath = new TaskPrepandPathCommand();
                 command = PrependPathCommand("path2");
-                Assert.Throws<InvalidOperationException>(() => prependPath.Execute(_ec.Object, command));
+                prependPath.Execute(_ec.Object, command);
+                Assert.False(_ec.Object.PrependPath.Contains("path2"));
+                Assert.Equal(1, _warnings.Count);
 
                 // allow path
                 restrictions.SettableVariables.Allowed.Add("path");
@@ -217,6 +247,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Assert.True(_ec.Object.PrependPath.Contains("path3"));
             }
         }
+
         private TestHostContext CreateTestContext([CallerMemberName] String testName = "")
         {
             var hc = new TestHostContext(this, testName);
@@ -226,6 +257,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 copy: new Dictionary<string, VariableValue>(),
                 warnings: out _);
 
+            _warnings = new List<string>();
+
             _ec = new Mock<IExecutionContext>();
             _ec.SetupAllProperties();
             _ec.Setup(x => x.PrependPath).Returns(new List<string>());
@@ -234,7 +267,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             _ec.Setup(x => x.Variables).Returns(_variables);
             _ec.Setup(x => x.SetVariable(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>()))
                 .Callback<string, string, bool, bool, bool, bool>((name, value, secret, b2, b3, readOnly) => _variables.Set(name, value, secret, readOnly));
-
+            _ec.Setup(x => x.AddIssue(It.IsAny<Issue>()))
+                .Callback<Issue>((issue) =>
+                    {
+                        if (issue.Type == IssueType.Warning)
+                        {
+                            _warnings.Add(issue.Message);
+                        }
+                    });
             return hc;
         }
 
@@ -255,5 +295,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
         private Mock<IExecutionContext> _ec;
         private Variables _variables;
+        private List<string> _warnings;
     }
 }
