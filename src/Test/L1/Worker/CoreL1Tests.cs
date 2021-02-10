@@ -32,8 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 Assert.Equal(TaskResult.Succeeded, results.Result);
 
                 var steps = GetSteps();
-                var separator = System.IO.Path.DirectorySeparatorChar;
-                var expectedSteps = new[] { "Initialize job", $"Checkout MyFirstProject@master to s{separator}MyFirstProject", "CmdLine", $"Post-job: Checkout MyFirstProject@master to s{separator}MyFirstProject", "Finalize Job" };
+                var expectedSteps = new[] { "Initialize job", "Checkout MyFirstProject@master to s", "CmdLine", "Post-job: Checkout MyFirstProject@master to s", "Finalize Job" };
                 Assert.Equal(5, steps.Count()); // Init, Checkout, CmdLine, Post, Finalize
                 for (var idx = 0; idx < steps.Count; idx++)
                 {

@@ -102,8 +102,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
 
                 // Assert.
                 Assert.True(Directory.Exists(sourcesDirectory));
-                Assert.True(Directory.Exists(Path.Combine(_workFolder, _newConfig.BuildDirectory, Constants.Build.Path.SourcesDirectory, "Some endpoint name")));
-                Assert.Equal(1, Directory.GetFileSystemEntries(sourcesDirectory, "*", SearchOption.AllDirectories).Length);
+                Assert.Equal(0, Directory.GetFileSystemEntries(sourcesDirectory, "*", SearchOption.AllDirectories).Length);
             }
         }
 
@@ -154,12 +153,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 _buildDirectoryManager.PrepareDirectory(_ec.Object, _repositories, _workspaceOptions);
 
                 // Assert.
-                Assert.Equal(5, Directory.GetFileSystemEntries(buildDirectory, "*", SearchOption.AllDirectories).Length);
+                Assert.Equal(4, Directory.GetFileSystemEntries(buildDirectory, "*", SearchOption.AllDirectories).Length);
                 Assert.True(Directory.Exists(Path.Combine(_workFolder, _newConfig.BuildDirectory, Constants.Build.Path.ArtifactsDirectory)));
                 Assert.True(Directory.Exists(Path.Combine(_workFolder, _newConfig.BuildDirectory, Constants.Build.Path.BinariesDirectory)));
                 Assert.True(Directory.Exists(Path.Combine(_workFolder, _newConfig.BuildDirectory, Constants.Build.Path.SourcesDirectory)));
                 Assert.True(Directory.Exists(Path.Combine(_workFolder, _newConfig.BuildDirectory, Constants.Build.Path.TestResultsDirectory)));
-                Assert.True(Directory.Exists(Path.Combine(_workFolder, _newConfig.BuildDirectory, Constants.Build.Path.SourcesDirectory, "Some endpoint name")));
             }
         }
 
@@ -197,7 +195,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 _buildDirectoryManager.PrepareDirectory(_ec.Object, _repositories, _workspaceOptions);
 
                 // Assert.
-                Assert.Equal(Path.Combine(_workFolder, _newConfig.RepositoryTrackingInfo[0].SourcesDirectory), _repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path));
+                Assert.Equal(Path.Combine(_workFolder, _newConfig.SourcesDirectory), _repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path));
             }
         }
 
