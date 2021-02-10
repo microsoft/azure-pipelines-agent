@@ -304,22 +304,5 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 }
             }
         }
-
-        private string GetDefaultRepositoryPath(
-            IExecutionContext executionContext,
-            RepositoryResource repository,
-            string defaultSourcesDirectory)
-        {
-            if (RepositoryUtil.HasMultipleCheckouts(executionContext.JobSettings))
-            {
-                // If we have multiple checkouts they should all be rooted to the sources directory (_work/1/s/repo1)
-                return Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), defaultSourcesDirectory, RepositoryUtil.GetCloneDirectory(repository));
-            }
-            else
-            {
-                // For single checkouts, the repository is rooted to the sources folder (_work/1/s)
-                return Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), defaultSourcesDirectory);
-            }
-        }
     }
 }
