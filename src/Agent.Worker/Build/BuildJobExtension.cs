@@ -183,7 +183,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         private void UpdateCheckoutTasksAndVariables(IExecutionContext executionContext, IList<JobStep> steps, string pipelineWorkspaceDirectory)
         {
-            System.Diagnostics.Debugger.Launch();
             bool? submoduleCheckout = null;
             // RepoClean may be set from the server, so start with the server value
             bool? repoClean = executionContext.Variables.GetBoolean(Constants.Variables.Build.RepoClean);
