@@ -187,6 +187,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             bool? submoduleCheckout = null;
             // RepoClean may be set from the server, so start with the server value
             bool? repoClean = executionContext.Variables.GetBoolean(Constants.Variables.Build.RepoClean);
+            bool repoCleanFromServer = repoClean != null;
 
             var checkoutTasks = steps.Where(x => x.IsCheckoutTask()).Select(x => x as TaskStep).ToList();
             var hasOnlyOneCheckoutTask = checkoutTasks.Count == 1;
@@ -200,7 +201,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 }
 
                 // Update the checkout "Clean" property for all repos, if the variable was set by the server.
-                if (repoClean != null)
+                if (repoClean != null && repoCleanFromServer)
                 {
                     checkoutTask.Inputs[PipelineConstants.CheckoutTaskInputs.Clean] = repoClean.Value.ToString();
                 }
@@ -213,7 +214,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 if (hasOnlyOneCheckoutTask || RepositoryUtil.IsPrimaryRepositoryName(repositoryAlias))
                 {
                     submoduleCheckout = checkoutTask.Inputs.ContainsKey(PipelineConstants.CheckoutTaskInputs.Submodules);
-                    repoClean = repoClean ?? checkoutTask.Inputs.ContainsKey(PipelineConstants.CheckoutTaskInputs.Clean);
+                    if (checkoutTask.Inputs.TryGetValue(PipelineConstants.CheckoutTaskInputs.Clean, out string cleanInputValue))
+                    {
+                        repoClean = Boolean.TryParse(cleanInputValue, out bool cleanValue) ? cleanValue : true;
+                    } 
                 }
 
                 // Update the checkout task display name if not already set
