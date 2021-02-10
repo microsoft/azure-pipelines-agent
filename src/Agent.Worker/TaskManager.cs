@@ -336,6 +336,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public ExecutionData PreJobExecution { get; set; }
         public ExecutionData Execution { get; set; }
         public ExecutionData PostJobExecution { get; set; }
+        public TaskRestrictions Restrictions { get; set; }
     }
 
     public sealed class OutputVariable
