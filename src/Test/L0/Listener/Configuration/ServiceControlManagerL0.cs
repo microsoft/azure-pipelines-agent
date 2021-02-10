@@ -22,6 +22,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             public String ServiceDisplayPattern;
             public String AgentName;
             public String PoolName;
+            public String Environment;
             public String ServerUrl;
 
         }
@@ -68,6 +69,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
                         ServerUrl = "https://dev.azure.com/bar",
                         ExpectedServiceName = "vsts.agent.bar.pool-1.foo.service",
                         ExpectedServiceDisplayName = "Azure Pipelines Agent (bar.pool-1.foo)"
+                    },
+                    new ServiceNameTest {
+                        TestName = "Agent For Environment Test",
+                        ServiceNamePattern = "vsts.agent.{0}.{1}.{2}.service",
+                        ServiceDisplayPattern = "Azure Pipelines Agent ({0}.{1}.{2})",
+                        AgentName = new string('X', 80),
+                        ServerUrl = "https://dev.azure.com/bar",
+                        ExpectedServiceName = "vsts.agent.bar..XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.service",
+                        ExpectedServiceDisplayName = "Azure Pipelines Agent (bar..XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX)"
                     },
                 };
                 foreach (var test in tests)
