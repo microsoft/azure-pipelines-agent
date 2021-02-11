@@ -112,7 +112,7 @@ namespace Agent.Sdk.Knob
             nameof(AgentDownloadTimeout),
             "Amount of time in seconds to wait for the agent to download a new version when updating",
             new EnvironmentKnobSource("AZP_AGENT_DOWNLOAD_TIMEOUT"),
-            new BuiltInDefaultKnobSource("900")); // 15*60
+            new BuiltInDefaultKnobSource("1500")); // 25*60
 
         public static readonly Knob TaskDownloadTimeout = new Knob(
             nameof(TaskDownloadTimeout),
