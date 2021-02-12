@@ -10,8 +10,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
-using Microsoft.TeamFoundation.DistributedTask.WebApi;
-using Microsoft.VisualStudio.Services.BlobStore.Common;
+using BuildXL.Cache.ContentStore.Hashing;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 
 namespace Agent.Plugins.PipelineCache

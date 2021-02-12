@@ -15,8 +15,11 @@ using Microsoft.VisualStudio.Services.WebApi;
 using System.Net.Http;
 using System.Net;
 using Agent.Sdk.Blob;
+using BuildXL.Cache.ContentStore.Hashing;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common;
+using Microsoft.VisualStudio.Services.BlobStore.Common;
+using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -27,6 +30,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         private readonly ConcurrentDictionary<string, ConcurrentQueue<string>> _fileUploadProgressLog = new ConcurrentDictionary<string, ConcurrentQueue<string>>();
         private readonly FileContainerHttpClient _fileContainerHttpClient;
         private readonly VssConnection _connection;
+        private DedupStoreClientWithDataport _dedupClient;
+        private BlobStoreClientTelemetry _blobTelemetry;
 
         private CancellationTokenSource _uploadCancellationTokenSource;
         private TaskCompletionSource<int> _uploadFinished;
@@ -150,6 +155,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
 
             var uploadToBlob = String.Equals(context.GetVariableValueOrDefault("agent.UploadBuildArtifactsToBlob"), "true", StringComparison.InvariantCultureIgnoreCase);
+            if (uploadToBlob)
+            {
+                var verbose = String.Equals(context.GetVariableValueOrDefault("system.debug"), "true", StringComparison.InvariantCultureIgnoreCase);
+                var (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
+                    .CreateDedupClientAsync(verbose, (str) => context.Output(str), this._connection, token);
+                
+                _dedupClient = dedupClient;
+                _blobTelemetry = clientTelemetry;
+            }
 
             // ensure the file upload queue is empty.
             if (!_fileUploadQueue.IsEmpty)
@@ -213,8 +227,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         if (uploadToBlob)
                         {
                             var result = await UploadToBlobStore(context, fileToUpload, token);
-                            response = await  _fileContainerHttpClient.CreateItemForArtifactUpload(_containerId, itemPath, _projectId, result.RootId.ValueString, result.ContentSize, token);
-                            uploadLength = result.ContentSize;
+                            response = await  _fileContainerHttpClient.CreateItemForArtifactUpload(_containerId, itemPath, _projectId, 
+                                result.dedupId.ValueString, (long) result.length, token);
+                            uploadLength = (long) result.length;
                         }
                         else
                         {
@@ -301,22 +316,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return new UploadResult(failedFiles, uploadedSize);
         }
 
-        private async Task<PublishResult> UploadToBlobStore(IAsyncCommandContext context, string itemPath, CancellationToken cancellationToken)
+        private async Task<(DedupIdentifier dedupId, ulong length)> UploadToBlobStore(IAsyncCommandContext context, string itemPath, CancellationToken cancellationToken)
         {
+            // Create chunks and identifier
+            var chunk = await ChunkerHelper.CreateFromFileAsync(FileSystem.Instance, itemPath, cancellationToken, false);
+            var rootNode = new DedupNode(new []{ chunk});
+            var dedupId = rootNode.GetDedupIdentifier(HashType.Dedup64K);
+
+            // Setup upload session to keep file for at mimimum one day
             var verbose = String.Equals(context.GetVariableValueOrDefault("system.debug"), "true", StringComparison.InvariantCultureIgnoreCase);
-            var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                .CreateDedupManifestClientAsync(verbose, (str) => context.Output(str), this._connection, cancellationToken);
-
-            BuildArtifactActionRecord uploadRecord = clientTelemetry.CreateRecord<BuildArtifactActionRecord>((level, uri, type) =>
-                new BuildArtifactActionRecord(level, uri, type, nameof(UploadAsync), context));
-
             var tracer = DedupManifestArtifactClientFactory.CreateArtifactsTracer(verbose, (str) => context.Output(str));
-            return await clientTelemetry.MeasureActionAsync(
+            var keepUntulRef = new KeepUntilBlobReference(DateTime.UtcNow.AddDays(1));
+            var uploadSession = _dedupClient.CreateUploadSession(keepUntulRef, tracer, FileSystem.Instance);
+
+            // Upload the chunks
+            var uploadRecord = _blobTelemetry.CreateRecord<BuildArtifactActionRecord>((level, uri, type) =>
+                new BuildArtifactActionRecord(level, uri, type, nameof(UploadAsync), context));
+            await _blobTelemetry.MeasureActionAsync(
                 record: uploadRecord,
                 actionAsync: async () => await AsyncHttpRetryHelper.InvokeAsync(
                         async () =>
                         {
-                            return await dedupManifestClient.PublishAsync(itemPath, cancellationToken);
+                            return await uploadSession.UploadAsync(rootNode, new Dictionary<DedupIdentifier, string>(){ [dedupId] = itemPath }, cancellationToken);
                         },
                         maxRetries: 3,
                         tracer: tracer,
@@ -324,6 +345,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         cancellationToken: cancellationToken,
                         continueOnCapturedContext: false)
             );
+            return (dedupId, rootNode.TransitiveContentBytes);
         }
 
         private async Task ReportingAsync(IAsyncCommandContext context, int totalFiles, CancellationToken token)

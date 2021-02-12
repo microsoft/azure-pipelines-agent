@@ -65,6 +65,38 @@ namespace Agent.Sdk.Blob
             return (new DedupManifestArtifactClient(telemetry, client, tracer), telemetry);
         }
 
+        public async Task<(DedupStoreClientWithDataport client, BlobStoreClientTelemetry telemetry)> CreateDedupClientAsync(
+            bool verbose,
+            Action<string> traceOutput,
+            VssConnection connection,
+            CancellationToken cancellationToken)
+        {
+            const int maxRetries = 5;
+            var tracer = CreateArtifactsTracer(verbose, traceOutput);
+            var dedupStoreHttpClient = await AsyncHttpRetryHelper.InvokeAsync(
+                () =>
+                {
+                    ArtifactHttpClientFactory factory = new ArtifactHttpClientFactory(
+                        connection.Credentials,
+                        TimeSpan.FromSeconds(50),
+                        tracer,
+                        cancellationToken);
+
+                    // this is actually a hidden network call to the location service:
+                     return Task.FromResult(factory.CreateVssHttpClient<IDedupStoreHttpClient, DedupStoreHttpClient>(connection.GetClient<DedupStoreHttpClient>().BaseAddress));
+                },
+                maxRetries: maxRetries,
+                tracer: tracer,
+                canRetryDelegate: e => true,
+                context: nameof(CreateDedupManifestClientAsync),
+                cancellationToken: cancellationToken,
+                continueOnCapturedContext: false);
+
+            var telemetry = new BlobStoreClientTelemetry(tracer, dedupStoreHttpClient.BaseAddress);
+            var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, 192); // TODO
+            return (client, telemetry);
+        }
+
         public static IAppTraceSource CreateArtifactsTracer(bool verbose, Action<string> traceOutput)
         {
             return new CallbackAppTraceSource(
