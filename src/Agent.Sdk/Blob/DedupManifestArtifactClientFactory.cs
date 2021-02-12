@@ -2,11 +2,8 @@
 // Licensed under the MIT License.
 
 using System;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-using Agent.Sdk;
-using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -18,6 +15,13 @@ namespace Agent.Sdk.Blob
     public interface IDedupManifestArtifactClientFactory
     {
         Task<(DedupManifestArtifactClient client, BlobStoreClientTelemetry telemetry)> CreateDedupManifestClientAsync(
+            bool verbose,
+            Action<string> traceOutput,
+            VssConnection connection,
+            CancellationToken cancellationToken);
+
+            
+        Task<(DedupStoreClientWithDataport client, BlobStoreClientTelemetry telemetry)> CreateDedupClientAsync(
             bool verbose,
             Action<string> traceOutput,
             VssConnection connection,

@@ -27,5 +27,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 telemetrySender)));
 
         }
+
+        public Task<(DedupStoreClientWithDataport client, BlobStoreClientTelemetry telemetry)> CreateDedupClientAsync(bool verbose, Action<string> traceOutput, VssConnection connection, CancellationToken cancellationToken)
+        {
+            telemetrySender = new TestTelemetrySender();
+            return Task.FromResult((client: (DedupStoreClientWithDataport)null, telemetry: new BlobStoreClientTelemetry(
+                NoopAppTraceSource.Instance,
+                baseAddress,
+                telemetrySender)));
+
+        }
     }
 }
