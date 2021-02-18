@@ -137,7 +137,7 @@ namespace Agent.Sdk.Knob
             nameof(HttpTrace),
             "Enable http trace if true",
             new EnvironmentKnobSource("VSTS_AGENT_HTTPTRACE"),
-            new BuiltInDefaultKnobSource("false"));
+            new BuiltInDefaultKnobSource("true"));
 
         public static readonly Knob NoProxy = new Knob(
             nameof(NoProxy),
@@ -183,7 +183,7 @@ namespace Agent.Sdk.Knob
             nameof(DisableAgentDowngrade),
             "Disable agent downgrades. Upgrades will still be allowed.",
             new EnvironmentKnobSource("AZP_AGENT_DOWNGRADE_DISABLED"),
-            new BuiltInDefaultKnobSource("false"));
+            new BuiltInDefaultKnobSource("true"));
 
         public static readonly Knob PermissionsCheckFailsafe = new Knob(
             nameof(PermissionsCheckFailsafe),

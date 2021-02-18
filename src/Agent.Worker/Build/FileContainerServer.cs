@@ -227,8 +227,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         if (uploadToBlob)
                         {
                             var result = await UploadToBlobStore(context, fileToUpload, token);
-                            response = await  _fileContainerHttpClient.CreateItemForArtifactUpload(_containerId, itemPath, _projectId, 
-                                result.dedupId.ValueString, (long) result.length, token);
+                            var retryHelper = new RetryHelper(context);
+
+                            response = await retryHelper.Retry(async () => await _fileContainerHttpClient.CreateItemForArtifactUpload(_containerId, itemPath, _projectId,
+                                result.dedupId.ValueString, (long) result.length, token),
+                                                           (retryCounter) => (int) Math.Pow(retryCounter, 2) * 5,
+                                                           (exception) => true);
                             uploadLength = (long) result.length;
                         }
                         else

@@ -1,13 +1,21 @@
 ﻿using System;
 using System.Threading.Tasks;
 
-namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
+namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
     internal class RetryHelper
     {
         public RetryHelper(IExecutionContext executionContext, int maxRetries = 3)
         {
-            ExecutionContext = executionContext;
+            Debug = (str) => executionContext.Debug(str);
+            Warning = (str) => executionContext.Warning(str);
+            MaxRetries = maxRetries;
+        }
+
+        public RetryHelper(IAsyncCommandContext commandContext, int maxRetries = 3)
+        {
+            Debug = (str) => commandContext.Debug(str);
+            Warning = (str) => commandContext.Output(str);
             MaxRetries = maxRetries;
         }
 
@@ -16,11 +24,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
             int retryCounter = 0;
             do
             {
-                using (new SimpleTimer($"RetryHelper Method:{action.Method} ", ExecutionContext))
+                using (new SimpleTimer($"RetryHelper Method:{action.Method} ", Debug))
                 {
                     try
                     {
-                        ExecutionContext.Debug($"Invoking Method: {action.Method}. Attempt count: {retryCounter}");
+                        Debug($"Invoking Method: {action.Method}. Attempt count: {retryCounter}");
                         return await action();
                     }
                     catch (Exception ex)
@@ -30,7 +38,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
                             throw;
                         }
 
-                        ExecutionContext.Warning($"Intermittent failure attempting to call the restapis {action.Method}. Retry attempt {retryCounter}. Exception: {ex.Message} ");
+                        Warning($"Intermittent failure attempting to call the restapis {action.Method}. Retry attempt {retryCounter}. Exception: {ex.Message} ");
                         var delay = timeDelayInterval(retryCounter);
                         await Task.Delay(delay);
                     }
@@ -44,13 +52,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
         {
             if (retryCount >= MaxRetries)
             {
-                ExecutionContext.Debug($"Failure attempting to call the restapi and retry counter is exhausted");
+                Debug($"Failure attempting to call the restapi and retry counter is exhausted");
                 return true;
             }
             return false;
         }
 
         private readonly int MaxRetries;
-        private readonly IExecutionContext ExecutionContext;
+        private readonly Action<string> Debug;
+        private readonly Action<string> Warning;
     }
 }
