@@ -335,7 +335,7 @@ namespace Agent.Sdk
         {
             if (AgentKnobs.DecodePercents.GetValue(this).AsBoolean())
             {
-                input = input.Replace("%", "%25");
+                input = input.Replace("%", "%AZP25");
             }
             foreach (var mapping in _commandEscapeMappings)
             {

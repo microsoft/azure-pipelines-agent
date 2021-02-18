@@ -26,6 +26,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
             "TERM_PROGRAM",
             "TERM_PROGRAM_VERSION",
             "SHLVL",
+            //This some be set by the standard powershell host initialisation. There are some  
+            //tools that set this resulting in the standard powershell initialisation failing
+            "PSMODULEPATH",
             // the agent doesn't set this, but we have seen instances in the wild where
             // a customer has pre-configured this somehow. it's almost certain to contain
             // secrets that shouldn't be exposed as capabilities, so for defense in depth,

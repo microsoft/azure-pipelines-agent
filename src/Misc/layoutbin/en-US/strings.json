@@ -559,6 +559,7 @@
   "SessionExistStopRetry": "Stop retry on SessionConflictException after retried for {0} seconds.",
   "SetBuildVars": "Set build variables.",
   "SetEnvVar": "Setting environment variable {0}",
+  "SetVariableNotAllowed": "Setting variable '{0}' has been disabled by the task or build definition.",
   "ShallowCheckoutFail": "Git checkout failed on shallow repository, this might because of git fetch with depth '{0}' doesn't include the checkout commit '{1}'. Please reference documentation (http://go.microsoft.com/fwlink/?LinkId=829603)",
   "ShallowLfsFetchFail": "Git lfs fetch failed on shallow repository, this might because of git fetch with depth '{0}' doesn't include the lfs fetch commit '{1}'. Please reference documentation (http://go.microsoft.com/fwlink/?LinkId=829603)",
   "ShutdownMessage": "Restarting the machine in order to launch agent in interactive mode.",

@@ -136,10 +136,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     AddUserSuppliedSecret(variable.Value.Value);
                     // also, we escape some characters for variables when we print them out in debug mode. We need to
                     // add the escaped version of these secrets as well
-                    var escapedSecret = variable.Value.Value.Replace("%", "%25")
+                    var escapedSecret = variable.Value.Value.Replace("%", "%AZP25")
                                                             .Replace("\r", "%0D")
                                                             .Replace("\n", "%0A");
                     AddUserSuppliedSecret(escapedSecret);
+
+                    // Since % escaping may be turned off, also mask a version escaped with just newlines
+                    var escapedSecret2 = variable.Value.Value.Replace("\r", "%0D")
+                                                             .Replace("\n", "%0A");
+                    AddUserSuppliedSecret(escapedSecret2);
                 }
             }
 

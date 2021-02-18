@@ -44,6 +44,11 @@ extends:
 
             steps:
             - checkout: self
+          
+            - task: NodeTool@0
+              displayName: Use node 14.15.1
+              inputs:
+                versionSpec: "14.15.1"
 
             - script: |
                 cd release
