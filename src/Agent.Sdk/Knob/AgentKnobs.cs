@@ -190,7 +190,7 @@ namespace Agent.Sdk.Knob
             nameof(DisableAgentDowngrade),
             "Disable agent downgrades. Upgrades will still be allowed.",
             new EnvironmentKnobSource("AZP_AGENT_DOWNGRADE_DISABLED"),
-            new BuiltInDefaultKnobSource("true"));
+            new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob PermissionsCheckFailsafe = new Knob(
             nameof(PermissionsCheckFailsafe),
