@@ -186,6 +186,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             bool? submoduleCheckout = null;
             // RepoClean may be set from the server, so start with the server value
             bool? repoClean = executionContext.Variables.GetBoolean(Constants.Variables.Build.RepoClean);
+            // Check if RepoClean was setuped from the server, this requered to overwrite checkout step clean option only in case this value comes from the server
+            // This flag is requred for handling multi checkout job scenarious
             bool repoCleanFromServer = repoClean != null;
 
             var checkoutTasks = steps.Where(x => x.IsCheckoutTask()).Select(x => x as TaskStep).ToList();
@@ -216,7 +218,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     if (checkoutTask.Inputs.TryGetValue(PipelineConstants.CheckoutTaskInputs.Clean, out string cleanInputValue))
                     {
                         repoClean = Boolean.TryParse(cleanInputValue, out bool cleanValue) ? cleanValue : true;
-                    } 
+                    }
                 }
 
                 // Update the checkout task display name if not already set
