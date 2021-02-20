@@ -215,7 +215,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 if (hasOnlyOneCheckoutTask || RepositoryUtil.IsPrimaryRepositoryName(repositoryAlias))
                 {
                     submoduleCheckout = checkoutTask.Inputs.ContainsKey(PipelineConstants.CheckoutTaskInputs.Submodules);
-                    if (checkoutTask.Inputs.TryGetValue(PipelineConstants.CheckoutTaskInputs.Clean, out string cleanInputValue))
+                    if (repoClean == null && checkoutTask.Inputs.TryGetValue(PipelineConstants.CheckoutTaskInputs.Clean, out string cleanInputValue))
                     {
                         repoClean = Boolean.TryParse(cleanInputValue, out bool cleanValue) ? cleanValue : true;
                     }
