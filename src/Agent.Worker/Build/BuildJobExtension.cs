@@ -185,10 +185,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             bool? submoduleCheckout = null;
             // RepoClean may be set from the server, so start with the server value
-            bool? repoClean = executionContext.Variables.GetBoolean(Constants.Variables.Build.RepoClean);
-            // Check if RepoClean was setuped from the server, this flag is requred for handling multi checkout
-            // job scenarious to overwrite clean option in checkout tasks only in case this value comes from the server
-            bool repoCleanFromServer = repoClean != null;
+            bool? repoCleanFromServer = executionContext.Variables.GetBoolean(Constants.Variables.Build.RepoClean);
+            // The value for the global clean option will be set in this variable based on Self repository clean input if the global value weren't set by the server
+            bool? repoCleanFromSelf = null;
 
             var checkoutTasks = steps.Where(x => x.IsCheckoutTask()).Select(x => x as TaskStep).ToList();
             var hasOnlyOneCheckoutTask = checkoutTasks.Count == 1;
@@ -202,9 +201,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 }
 
                 // Update the checkout "Clean" property for all repos, if the variable was set by the server.
-                if (repoClean != null && repoCleanFromServer)
+                if (repoCleanFromServer.HasValue)
                 {
-                    checkoutTask.Inputs[PipelineConstants.CheckoutTaskInputs.Clean] = repoClean.Value.ToString();
+                    checkoutTask.Inputs[PipelineConstants.CheckoutTaskInputs.Clean] = repoCleanFromServer.Value.ToString();
                 }
 
                 Trace.Info($"Checking repository name {repositoryAlias}");
@@ -215,9 +214,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 if (hasOnlyOneCheckoutTask || RepositoryUtil.IsPrimaryRepositoryName(repositoryAlias))
                 {
                     submoduleCheckout = checkoutTask.Inputs.ContainsKey(PipelineConstants.CheckoutTaskInputs.Submodules);
-                    if (repoClean == null && checkoutTask.Inputs.TryGetValue(PipelineConstants.CheckoutTaskInputs.Clean, out string cleanInputValue))
+                    if (!repoCleanFromServer.HasValue && checkoutTask.Inputs.TryGetValue(PipelineConstants.CheckoutTaskInputs.Clean, out string cleanInputValue))
                     {
-                        repoClean = Boolean.TryParse(cleanInputValue, out bool cleanValue) ? cleanValue : true;
+                        repoCleanFromSelf = Boolean.TryParse(cleanInputValue, out bool cleanValue) ? cleanValue : true;
                     }
                 }
 
@@ -255,9 +254,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 executionContext.SetVariable(Constants.Variables.Build.RepoGitSubmoduleCheckout, submoduleCheckout.Value.ToString());
             }
 
-            if (repoClean.HasValue)
+            if (repoCleanFromSelf.HasValue)
             {
-                executionContext.SetVariable(Constants.Variables.Build.RepoClean, repoClean.Value.ToString());
+                executionContext.SetVariable(Constants.Variables.Build.RepoClean, repoCleanFromSelf.Value.ToString());
             }
         }
 
