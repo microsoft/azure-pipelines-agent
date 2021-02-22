@@ -15,6 +15,7 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
+using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -114,6 +115,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Setup container stephost and the right runtime variables for running job inside container.
                 if (stepTarget is ContainerInfo containerTarget)
                 {
+                    if (Stage == JobRunStage.PostJob
+                        && AgentKnobs.SkipPostExeceutionIfTargetContainerStopped.GetValue(ExecutionContext).AsBoolean())
+                    {
+                        try
+                        {
+                            // Check that the target container is still running, if not Skip task execution
+                            IDockerCommandManager dockerManager = HostContext.GetService<IDockerCommandManager>();
+                            bool isContainerRunning = await dockerManager.IsContainerRunning(ExecutionContext, containerTarget.ContainerId);
+                            
+                            if (!isContainerRunning)
+                            {
+                                ExecutionContext.Result = TaskResult.Skipped;
+                                ExecutionContext.ResultCode = $"Target container - {containerTarget.ContainerName} has been stopped, task post-execution will be skipped";
+                                return;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            ExecutionContext.Write(WellKnownTags.Warning, $"Failed to check container state for task post-execution. Exception: {ex}");
+                        }
+                    }
+
                     if (handlerData is AgentPluginHandlerData)
                     {
                         // plugin handler always runs on the Host, the runtime variables needs to the variable works on the Host, ex: file path variable System.DefaultWorkingDirectory

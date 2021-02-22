@@ -8,6 +8,26 @@ The reason this is impossible is because we escape certain values needed for the
 
 ### Solution
 
-We've introduced encoding for `%` which will map to `%25`. This means that any time the agent receives `%25` as part of a command, it will automatically decode it to `%`. So `##vso[task.setvariable variable=test%25]a%25` will now set a variable `test%: a%`.
+We've introduced encoding for `%` which will map to `%AZP25`. This means that any time the agent receives `%AZP25` as part of a command, it will automatically decode it to `%`. So `##vso[task.setvariable variable=test%AZP25]a%AZP25` will now set a variable `test%: a%`.
 
-This behavior will be enabled by default in January 2021. To disable it, you can set an environment variable DECODE_PERCENTS to false in the appropriate step. To avoid getting warnings about it and opt into the behavior early, set an environment variable DECODE_PERCENTS to true in the appropriate step
+NOTE: This was previously designed to use %25 instead of %AZP25 as the escape sequence. We decided to go with %AZP25 instead since %25 was used somewhat often
+because of its role in url encoding. Some agents may continue to emit warnings for %25 as this change rolls out (or if you haven't updated to the most recent agent).
+These warnings are safe to ignore.
+
+This behavior will be enabled by default in March 2021. To disable it, you can set a job level variable DECODE_PERCENTS to false. To avoid getting warnings about it and opt into the behavior early, set a job level variable DECODE_PERCENTS to true.
+
+```
+jobs:
+- job:
+  variables:
+  - name: DECODE_PERCENTS
+    value: true
+
+  steps:
+  - powershell: Write-Host '##vso[task.setvariable variable=test]a%AZP25'
+    displayName: 'Set Variable'
+
+  # This will print the a% correctly as the value of test
+  - powershell: 'Get-ChildItem env:'
+    displayName: 'printenv'
+```

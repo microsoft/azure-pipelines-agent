@@ -5,6 +5,7 @@ using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
+using System.Linq;
 using System.Collections.Generic;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
@@ -14,7 +15,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         void EnablePluginInternalCommand(bool enable);
         bool TryProcessCommand(IExecutionContext context, string input);
-        void SetCommandRestrictionPolicy(IWorkerCommandRestrictionPolicy policy);
     }
 
     public sealed class WorkerCommandManager : AgentService, IWorkerCommandManager
@@ -26,8 +26,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private readonly object _commandSerializeLock = new object();
 
         private bool _invokePluginInternalCommand = false;
-
-        private IWorkerCommandRestrictionPolicy restrictionPolicy = new UnrestricedWorkerCommandRestrictionPolicy();
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -75,7 +73,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // TryParse input to Command
             Command command;
-            if (!Command.TryParse(input, out command))
+            var unescapePercents = AgentKnobs.DecodePercents.GetValue(context).AsBoolean();
+            if (!Command.TryParse(input, unescapePercents, out command))
             {
                 // if parse fail but input contains ##vso, print warning with DOC link
                 if (input.IndexOf("##vso") >= 0)
@@ -99,6 +98,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     context.Error(StringUtil.Loc("CommandNotSupported", command.Area, context.Variables.System_HostType));
                     context.CommandResult = TaskResult.Failed;
                     return false;
+                }
+
+                IWorkerCommandRestrictionPolicy restrictionPolicy;
+                if (context.Restrictions.Any(restrictions => restrictions.Commands?.Mode == TaskCommandMode.Restricted))
+                {
+                    restrictionPolicy = new AttributeBasedWorkerCommandRestrictionPolicy();
+                }
+                else
+                {
+                    restrictionPolicy = new UnrestricedWorkerCommandRestrictionPolicy();
                 }
 
                 // process logging command in serialize oreder.
@@ -131,18 +140,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             // Only if we've successfully parsed do we show this warning
-            if (AgentKnobs.DecodePercents.GetValue(UtilKnobValueContext.Instance()).ToString() == "" && input.Contains("%25"))
+            if (AgentKnobs.DecodePercents.GetValue(context).AsString() == "" && input.Contains("%AZP25"))
             {
-                context.Warning("%25 detected in ##vso command. In January 2021, the agent command parser will be updated to unescape this to %. To opt out of this behavior, set environment variable DECODE_PERCENTS to false. Setting to true will force this behavior immediately. More information can be found at https://github.com/microsoft/azure-pipelines-agent/blob/master/docs/design/percentEncoding.md");
+                context.Warning("%AZP25 detected in ##vso command. In March 2021, the agent command parser will be updated to unescape this to %. To opt out of this behavior, set a job level variable DECODE_PERCENTS to false. Setting to true will force this behavior immediately. More information can be found at https://github.com/microsoft/azure-pipelines-agent/blob/master/docs/design/percentEncoding.md");
             }
 
             return true;
-        }
-
-        public void SetCommandRestrictionPolicy(IWorkerCommandRestrictionPolicy policy)
-        {
-            ArgUtil.NotNull(policy, nameof(policy));
-            restrictionPolicy = policy;
         }
     }
 

@@ -27,6 +27,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTS_SETUP_ALLOW_MOUNT_TASKS_READONLY"),
             new BuiltInDefaultKnobSource("true"));
 
+        public static readonly Knob SkipPostExeceutionIfTargetContainerStopped = new Knob(
+            nameof(SkipPostExeceutionIfTargetContainerStopped),
+            "If true, skips post-execution step for tasks in case the target container has been stopped",
+            new RuntimeKnobSource("AGENT_SKIP_POST_EXECUTION_IF_CONTAINER_STOPPED"),
+            new EnvironmentKnobSource("AGENT_SKIP_POST_EXECUTION_IF_CONTAINER_STOPPED"),
+            new BuiltInDefaultKnobSource("false"));
+
         // Directory structure
         public static readonly Knob AgentToolsDirectory = new Knob(
             nameof(AgentToolsDirectory),
@@ -105,7 +112,7 @@ namespace Agent.Sdk.Knob
             nameof(AgentDownloadTimeout),
             "Amount of time in seconds to wait for the agent to download a new version when updating",
             new EnvironmentKnobSource("AZP_AGENT_DOWNLOAD_TIMEOUT"),
-            new BuiltInDefaultKnobSource("900")); // 15*60
+            new BuiltInDefaultKnobSource("1500")); // 25*60
 
         public static readonly Knob TaskDownloadTimeout = new Knob(
             nameof(TaskDownloadTimeout),
@@ -199,7 +206,8 @@ namespace Agent.Sdk.Knob
 
         public static readonly Knob DecodePercents = new Knob(
             nameof(DecodePercents),
-            "By default, the agent does not decodes %25 as % which may be needed to allow users to work around reserved values. Setting this to true enables this behavior.",
+            "By default, the agent does not decodes %AZP25 as % which may be needed to allow users to work around reserved values. Setting this to true enables this behavior.",
+            new RuntimeKnobSource("DECODE_PERCENTS"),
             new EnvironmentKnobSource("DECODE_PERCENTS"),
             new BuiltInDefaultKnobSource(""));
     }
