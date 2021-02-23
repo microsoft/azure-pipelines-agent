@@ -7,11 +7,11 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
+using Agent.Sdk.Blob;
 using Agent.Plugins.PipelineArtifact.Telemetry;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
-using Microsoft.VisualStudio.Services.BlobStore.Common;
-using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
+using BuildXL.Cache.ContentStore.Hashing;
 using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
@@ -40,8 +40,9 @@ namespace Agent.Plugins.PipelineArtifact
             CancellationToken cancellationToken)
         {
             VssConnection connection = context.VssConnection;
-            
-            var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClientAsync(context, connection, cancellationToken);
+
+            var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
+                .CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, cancellationToken);
 
             using (clientTelemetry)
             {
@@ -126,7 +127,8 @@ namespace Agent.Plugins.PipelineArtifact
             CancellationToken cancellationToken)
         {
             VssConnection connection = context.VssConnection;
-            var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClientAsync(context, connection, cancellationToken);
+            var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
+                .CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, cancellationToken);
             BuildServer buildServer = new BuildServer(connection);
 
             using (clientTelemetry)

@@ -6,11 +6,11 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Threading;
 using Agent.Sdk;
+using Agent.Sdk.Blob;
 using Agent.Plugins.PipelineArtifact.Telemetry;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
-using Microsoft.VisualStudio.Services.BlobStore.Common;
-using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
+using BuildXL.Cache.ContentStore.Hashing;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -55,7 +55,7 @@ namespace Agent.Plugins.PipelineArtifact
         public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClientAsync(
-                this.context, this.connection, cancellationToken);
+                this.context.IsSystemDebugTrue(), (str) => this.context.Output(str), this.connection, cancellationToken);
 
             using(clientTelemetry) {
                 var manifestId = DedupIdentifier.Create(buildArtifact.Resource.Data);
@@ -91,7 +91,7 @@ namespace Agent.Plugins.PipelineArtifact
         public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClientAsync(
-                this.context, this.connection, cancellationToken);
+                this.context.IsSystemDebugTrue(), (str) => this.context.Output(str), this.connection, cancellationToken);
 
             using(clientTelemetry) {
                 var artifactNameAndManifestIds = buildArtifacts.ToDictionary(

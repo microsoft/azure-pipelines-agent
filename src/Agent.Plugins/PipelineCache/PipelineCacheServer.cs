@@ -9,7 +9,8 @@ using System.Threading.Tasks;
 using Agent.Plugins.PipelineArtifact;
 using Agent.Plugins.PipelineCache.Telemetry;
 using Agent.Sdk;
-using Microsoft.VisualStudio.Services.BlobStore.Common;
+using Agent.Sdk.Blob;
+using BuildXL.Cache.ContentStore.Hashing;
 using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common;
@@ -38,7 +39,8 @@ namespace Agent.Plugins.PipelineCache
             ContentFormat contentFormat)
         {
             VssConnection connection = context.VssConnection;
-            var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClientAsync(context, connection, cancellationToken);
+            var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
+                .CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, cancellationToken);
             PipelineCacheClient pipelineCacheClient = this.CreateClient(clientTelemetry, context, connection);
 
             using (clientTelemetry)
@@ -118,7 +120,8 @@ namespace Agent.Plugins.PipelineCache
             CancellationToken cancellationToken)
         {
             VssConnection connection = context.VssConnection;
-            var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClientAsync(context, connection, cancellationToken);
+            var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
+                .CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, cancellationToken);
             PipelineCacheClient pipelineCacheClient = this.CreateClient(clientTelemetry, context, connection);
 
             using (clientTelemetry)
