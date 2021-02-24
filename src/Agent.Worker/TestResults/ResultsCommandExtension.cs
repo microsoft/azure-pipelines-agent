@@ -257,39 +257,38 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             return publishOptions;
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "connection")]
         private async Task PublishTestRunDataAsync(String teamProject, TestRunContext testRunContext)
         {
             bool isTestRunOutcomeFailed = false;
 
-            using (var connection = WorkerUtilities.GetVssConnection(_executionContext))
-            {
-                var featureFlagService = _executionContext.GetHostContext().GetService<IFeatureFlagService>();
-                featureFlagService.InitializeFeatureService(_executionContext, connection);
-                var publishTestResultsLibFeatureState = featureFlagService.GetFeatureFlagState(TestResultsConstants.UsePublishTestResultsLibFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
-                _telemetryProperties.Add("UsePublishTestResultsLib", publishTestResultsLibFeatureState);
+            var connection = WorkerUtilities.GetVssConnection(_executionContext);
+            var featureFlagService = _executionContext.GetHostContext().GetService<IFeatureFlagService>();
+            featureFlagService.InitializeFeatureService(_executionContext, connection);
+            var publishTestResultsLibFeatureState = featureFlagService.GetFeatureFlagState(TestResultsConstants.UsePublishTestResultsLibFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
+            _telemetryProperties.Add("UsePublishTestResultsLib", publishTestResultsLibFeatureState);
 
-                //This check is to determine to use "Microsoft.TeamFoundation.PublishTestResults" Library or the agent code to parse and publish the test results.
-                if (publishTestResultsLibFeatureState){
-                    var publisher = _executionContext.GetHostContext().GetService<ITestDataPublisher>();
-                    publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner);
+            //This check is to determine to use "Microsoft.TeamFoundation.PublishTestResults" Library or the agent code to parse and publish the test results.
+            if (publishTestResultsLibFeatureState){
+                var publisher = _executionContext.GetHostContext().GetService<ITestDataPublisher>();
+                publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner);
 
-                    isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, GetPublishOptions(), _executionContext.CancellationToken);
-                }
-                else {
-                    var publisher = _executionContext.GetHostContext().GetService<ILegacyTestRunDataPublisher>();
-                    publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner, _publishRunLevelAttachments);
-
-                    isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, _runTitle, _executionContext.Variables.Build_BuildId, _mergeResults);
-                }
-
-                if (isTestRunOutcomeFailed && _failTaskOnFailedTests)
-                {
-                    _executionContext.Result = TaskResult.Failed;
-                    _executionContext.Error(StringUtil.Loc("FailedTestsInResults"));
-                }
-
-                await PublishEventsAsync(connection);
+                isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, GetPublishOptions(), _executionContext.CancellationToken);
             }
+            else {
+                var publisher = _executionContext.GetHostContext().GetService<ILegacyTestRunDataPublisher>();
+                publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner, _publishRunLevelAttachments);
+
+                isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, _runTitle, _executionContext.Variables.Build_BuildId, _mergeResults);
+            }
+
+            if (isTestRunOutcomeFailed && _failTaskOnFailedTests)
+            {
+                _executionContext.Result = TaskResult.Failed;
+                _executionContext.Error(StringUtil.Loc("FailedTestsInResults"));
+            }
+
+            await PublishEventsAsync(connection);
         }
 
         private async Task PublishEventsAsync(VssConnection connection)
