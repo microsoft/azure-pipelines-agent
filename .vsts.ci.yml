@@ -18,7 +18,7 @@ parameters:
 - name: linux_arm64
   type: boolean
   displayName: Linux (ARM64)
-  default: false
+  default: true
 - name: rhel6_x64
   type: boolean
   displayName: RHEL 6 (x64)
