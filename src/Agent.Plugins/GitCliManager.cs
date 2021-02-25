@@ -473,6 +473,15 @@ namespace Agent.Plugins.Repository
             return await ExecuteGitCommandAsync(context, repositoryPath, "prune", "-v");
         }
 
+        // git lfs prune
+        public async Task<int> GitLFSPrune(AgentTaskPluginExecutionContext context, string repositoryPath)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+
+            context.Debug("Deletes local copies of LFS files which are old, thus freeing up disk space. Prune operates by enumerating all the locally stored objects, and then deleting any which are not referenced by at least ONE of the following:");
+            return await ExecuteGitCommandAsync(context, repositoryPath, "lfs", "prune");
+        }
+
         // git count-objects -v -H
         public async Task<int> GitCountObjects(AgentTaskPluginExecutionContext context, string repositoryPath)
         {

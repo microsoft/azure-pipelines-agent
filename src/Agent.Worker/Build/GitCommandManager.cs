@@ -93,6 +93,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         // git prune
         Task<int> GitPrune(IExecutionContext context, string repositoryPath);
 
+        // git lfs prune
+        Task<int> GitLFSPrune(IExecutionContext context, string repositoryPath);
+
         // git count-objects -v -H
         Task<int> GitCountObjects(IExecutionContext context, string repositoryPath);
 
@@ -502,6 +505,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             context.Debug("Delete unreachable objects under .git directory.");
             return await ExecuteGitCommandAsync(context, repositoryPath, "prune", "-v");
+        }
+
+        // git lfs prune
+        public async Task<int> GitLFSPrune(IExecutionContext context, string repositoryPath)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+
+            context.Debug("Deletes local copies of LFS files which are old, thus freeing up disk space. Prune operates by enumerating all the locally stored objects, and then deleting any which are not referenced by at least ONE of the following:");
+            return await ExecuteGitCommandAsync(context, repositoryPath, "lfs", "prune");
         }
 
         // git count-objects -v -H
