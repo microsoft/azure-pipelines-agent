@@ -1116,7 +1116,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
                 // git lfs prune
                 var lfsVersion = _gitCommandManager.GitLfsVersion(executionContext).Result;
-                if (!(lfsVersion is null))
+                if (lfsVersion != null)
                 {
                     int exitCode_lFSPrune = await _gitCommandManager.GitLFSPrune(executionContext, repositoryPath);
                     if (exitCode_lFSPrune != 0)
