@@ -1,14 +1,7 @@
 ## Features
- - Skip task's post-execution step if target container stopped (#3230)
- - Should ignore PSModulePath (#3231)
- - Use %AZP25 instead of %25 for escaping (#3241)
- - Added -y to yum updateinfo command (#3248)
- - Add support for setvariable restrictions (#3249)
- - #3259 Update NodeJS to version 10.23.3 (#3260)
 
 ## Bugs
- - Improving the MaxSubResultLimitReached message (#3227)
- - Self-hosted agent cleaning source folder (#3237)
+ - Revert "Self-hosted agent cleaning source folder (#3237)"
 
 ## Misc
 
