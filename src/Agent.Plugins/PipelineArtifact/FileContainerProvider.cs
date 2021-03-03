@@ -5,6 +5,7 @@ using Agent.Sdk;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
+using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.FileContainer;
@@ -120,24 +121,37 @@ namespace Agent.Plugins.PipelineArtifact
                     var targetPath = ResolveTargetPath(rootPath, item, containerIdAndRoot.Item2);
                     var directory = Path.GetDirectoryName(targetPath);
                     Directory.CreateDirectory(directory);
+                    tracer.Info($"Downloading: {targetPath}");
+
                     await AsyncHttpRetryHelper.InvokeVoidAsync(
-                       async () =>
-                       {
-                           using (var sourceStream = await this.DownloadFileAsync(containerIdAndRoot, projectId, containerClient, item, cancellationToken))
-                           {
-                               tracer.Info($"Downloading: {targetPath}");
-                               using (var targetStream = new FileStream(targetPath, FileMode.Create))
-                               {
-                                   await sourceStream.CopyToAsync(targetStream);
-                               }
-                           }
-                       },
+                        async () =>
+                        {
+                            using (var sourceStream = await this.DownloadFileAsync(containerIdAndRoot, projectId, containerClient, item, cancellationToken))
+                                // this is already wrapped with WrapWithCancellationEnforcement
+                            using (var targetStream = FileStreamUtils.OpenFileStreamForAsync(targetPath, FileMode.Create, FileAccess.Write, FileShare.None)
+                                                                     .WrapWithCancellationEnforcement(targetPath))
+                            {
+                                const int bufferSize = 64*1024; // smaller than LOH
+                                var buffer = new byte[bufferSize];
+                                int bytesRead;
+                                do
+                                {
+                                    using (var bufferReadWriteTimout = new CancellationTokenSource(TimeSpan.FromSeconds(60)))
+                                    using (var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, bufferReadWriteTimout.Token))
+                                    {
+                                        bytesRead = await sourceStream.ReadAsync(buffer, 0, buffer.Length, linkedSource.Token).ConfigureAwait(false);
+                                        await targetStream.WriteAsync(buffer, 0, bytesRead, linkedSource.Token).ConfigureAwait(false);
+                                    }
+                                }
+                                while (bytesRead != 0);
+                            }
+                        },
                         maxRetries: 5,
                         cancellationToken: cancellationToken,
                         tracer: tracer,
                         continueOnCapturedContext: false,
                         canRetryDelegate: exception => exception is IOException,
-                        context: null
+                        context: targetPath
                         );
                 },
                 new ExecutionDataflowBlockOptions()
@@ -145,6 +159,7 @@ namespace Agent.Plugins.PipelineArtifact
                     BoundedCapacity = 5000,
                     MaxDegreeOfParallelism = 8,
                     CancellationToken = cancellationToken,
+                    EnsureOrdered = false,
                 });
 
             await downloadBlock.SendAllAndCompleteSingleBlockNetworkAsync(fileItems, cancellationToken);
@@ -160,8 +175,13 @@ namespace Agent.Plugins.PipelineArtifact
             Stream responseStream = await AsyncHttpRetryHelper.InvokeAsync(
                 async () =>
                 {
-                    Stream internalResponseStream = await containerClient.DownloadFileAsync(containerIdAndRoot.Item1, item.Path, cancellationToken, scopeIdentifier);
-                    return internalResponseStream;
+                    using (var getHeadersTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(60)))
+                    using (var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, getHeadersTimeout.Token))
+                    {
+                        var task = containerClient.DownloadFileAsync(containerIdAndRoot.Item1, item.Path, linkedSource.Token, scopeIdentifier);
+                        Stream stream = await task.EnforceCancellation(linkedSource.Token).ConfigureAwait(false);
+                        return stream.WrapWithCancellationEnforcement(item.Path);
+                    }
                 },
                 maxRetries: 5,
                 cancellationToken: cancellationToken,

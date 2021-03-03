@@ -198,7 +198,8 @@ namespace Agent.Plugins.PipelineArtifact
             {
                 MaxDegreeOfParallelism = parallelCount,
                 BoundedCapacity = 2 * parallelCount,
-                CancellationToken = cancellationToken
+                CancellationToken = cancellationToken,
+                EnsureOrdered = false,
             };
 
             var contentSize = 0;
