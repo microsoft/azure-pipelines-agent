@@ -6,7 +6,7 @@ parameters:
 - name: win_x86
   type: boolean
   displayName: Windows (x86)
-  default: true
+  default: false
 - name: linux_x64
   type: boolean
   displayName: Linux (x64)
@@ -14,11 +14,11 @@ parameters:
 - name: linux_arm
   type: boolean
   displayName: Linux (ARM)
-  default: true
+  default: false
 - name: linux_arm64
   type: boolean
   displayName: Linux (ARM64)
-  default: true
+  default: false
 - name: rhel6_x64
   type: boolean
   displayName: RHEL 6 (x64)
