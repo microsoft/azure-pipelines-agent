@@ -210,6 +210,13 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("DECODE_PERCENTS"),
             new EnvironmentKnobSource("DECODE_PERCENTS"),
             new BuiltInDefaultKnobSource(""));
+
+        public static readonly Knob AllowTfvcUnshelveErrors = new Knob(
+            nameof(AllowTfvcUnshelveErrors),
+            "By default, the TFVC unshelve command does not throw errors e.g. when there's no mapping for one or more files shelved. Setting this to true enables this behavior.",
+            new RuntimeKnobSource("ALLOW_TFVC_UNSHELVE_ERRORS"),
+            new EnvironmentKnobSource("ALLOW_TFVC_UNSHELVE_ERRORS"),
+            new BuiltInDefaultKnobSource("false"));
     }
 
 }
