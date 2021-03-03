@@ -2,6 +2,9 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Blob;
+using Agent.Plugins.PipelineArtifact.Telemetry;
+using BuildXL.Cache.ContentStore.Hashing;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
@@ -14,6 +17,7 @@ using Minimatch;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Runtime.InteropServices;
@@ -22,10 +26,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 
-namespace Agent.Plugins.PipelineArtifact
+namespace Agent.Plugins
 {
     internal class FileContainerProvider : IArtifactProvider
     {
+        private readonly VssConnection connection;
         private readonly FileContainerHttpClient containerClient;
         private readonly IAppTraceSource tracer;
 
@@ -36,27 +41,20 @@ namespace Agent.Plugins.PipelineArtifact
             var connection2 = new VssConnection(buildHttpClient.BaseAddress, connection.Credentials);
             containerClient = connection2.GetClient<FileContainerHttpClient>();
             this.tracer = tracer;
-
+            this.connection = connection;
         }
 
-        public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
+        public async Task DownloadSingleArtifactAsync(ArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
-            context.Warning(StringUtil.Loc("DownloadArtifactWarning", "Build Artifact"));
-            await this.DownloadFileContainerAsync(downloadParameters.ProjectId, buildArtifact, downloadParameters.TargetDirectory, downloadParameters.MinimatchFilters, cancellationToken);
+            await this.DownloadFileContainerAsync(downloadParameters, buildArtifact, downloadParameters.TargetDirectory, context, cancellationToken);
         }
 
-        public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
-        {
-            context.Warning(StringUtil.Loc("DownloadArtifactWarning", "Build Artifact"));
-            await this.DownloadFileContainersAsync(downloadParameters.ProjectId, buildArtifacts, downloadParameters.TargetDirectory, downloadParameters.MinimatchFilters, cancellationToken);
-        }
-
-        public async Task DownloadFileContainersAsync(Guid projectId, IEnumerable<BuildArtifact> buildArtifacts, string targetDirectory, IEnumerable<string> minimatchFilters, CancellationToken cancellationToken)
+        public async Task DownloadMultipleArtifactsAsync(ArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
             foreach (var buildArtifact in buildArtifacts)
             {
-                var dirPath = Path.Combine(targetDirectory, buildArtifact.Name);
-                await DownloadFileContainerAsync(projectId, buildArtifact, dirPath, minimatchFilters, cancellationToken, isSingleArtifactDownload: false);
+                var dirPath = Path.Combine(downloadParameters.TargetDirectory, buildArtifact.Name);
+                await DownloadFileContainerAsync(downloadParameters, buildArtifact, dirPath, context, cancellationToken, isSingleArtifactDownload: false);
             }
         }
 
@@ -86,11 +84,13 @@ namespace Agent.Plugins.PipelineArtifact
             }
         }
 
-        private async Task DownloadFileContainerAsync(Guid projectId, BuildArtifact artifact, string rootPath, IEnumerable<string> minimatchPatterns, CancellationToken cancellationToken, bool isSingleArtifactDownload = true)
+        private async Task DownloadFileContainerAsync(ArtifactDownloadParameters downloadParameters, BuildArtifact artifact, string rootPath, AgentTaskPluginExecutionContext context, CancellationToken cancellationToken, bool isSingleArtifactDownload = true)
         {
             var containerIdAndRoot = ParseContainerId(artifact.Resource.Data);
+            var projectId = downloadParameters.ProjectId;
+            var minimatchPatterns = downloadParameters.MinimatchFilters;
 
-            var items = await containerClient.QueryContainerItemsAsync(containerIdAndRoot.Item1, projectId, containerIdAndRoot.Item2);
+            var items = await containerClient.QueryContainerItemsAsync(containerIdAndRoot.Item1, projectId, isShallow: false, includeBlobMetadata: true, containerIdAndRoot.Item2);
 
             tracer.Info($"Start downloading FCS artifact- {artifact.Name}");
             IEnumerable<Func<string, bool>> minimatcherFuncs = MinimatchHelper.GetMinimatchFuncs(minimatchPatterns, tracer);
@@ -121,18 +121,23 @@ namespace Agent.Plugins.PipelineArtifact
                     var directory = Path.GetDirectoryName(targetPath);
                     Directory.CreateDirectory(directory);
                     await AsyncHttpRetryHelper.InvokeVoidAsync(
-                       async () =>
-                       {
-                           using (var sourceStream = await this.DownloadFileAsync(containerIdAndRoot, projectId, containerClient, item, cancellationToken))
-                           {
-                               tracer.Info($"Downloading: {targetPath}");
-                               using (var targetStream = new FileStream(targetPath, FileMode.Create))
-                               {
-                                   await sourceStream.CopyToAsync(targetStream);
-                               }
-                           }
-                       },
-                        maxRetries: 5,
+                        async () =>
+                        {
+                            tracer.Info($"Downloading: {targetPath}");
+                            if (item.BlobMetadata != null)
+                            {
+                                await this.DownloadFileFromBlobAsync(context, containerIdAndRoot, targetPath, projectId, item, cancellationToken);
+                            }
+                            else
+                            {
+                                using (var sourceStream = await this.DownloadFileAsync(containerIdAndRoot, projectId, containerClient, item, cancellationToken))
+                                using (var targetStream = new FileStream(targetPath, FileMode.Create))
+                                {
+                                    await sourceStream.CopyToAsync(targetStream);
+                                }
+                            }
+                        },
+                        maxRetries: downloadParameters.RetryDownloadCount,
                         cancellationToken: cancellationToken,
                         tracer: tracer,
                         continueOnCapturedContext: false,
@@ -143,11 +148,41 @@ namespace Agent.Plugins.PipelineArtifact
                 new ExecutionDataflowBlockOptions()
                 {
                     BoundedCapacity = 5000,
-                    MaxDegreeOfParallelism = 8,
+                    MaxDegreeOfParallelism = downloadParameters.ParallelizationLimit,
                     CancellationToken = cancellationToken,
                 });
 
             await downloadBlock.SendAllAndCompleteSingleBlockNetworkAsync(fileItems, cancellationToken);
+
+            // check files (will throw an exception if a file is corrupt)
+            if (downloadParameters.CheckDownloadedFiles)
+            {
+                CheckDownloads(context, items, rootPath, containerIdAndRoot.Item2);
+            }
+        }
+
+        private void CheckDownloads(AgentTaskPluginExecutionContext context, IEnumerable<FileContainerItem> items, string rootPath, string artifactName)
+        {
+            context.Info(StringUtil.Loc("BeginArtifactItemsIntegrityCheck"));
+            var corruptedItems = new List<FileContainerItem>();
+            foreach (var item in items.Where(x => x.ItemType == ContainerItemType.File))
+            {
+                var targetPath = ResolveTargetPath(rootPath, item, artifactName);
+                var fileInfo = new FileInfo(targetPath);
+                if (fileInfo.Length != item.FileLength)
+                {
+                    corruptedItems.Add(item);
+                }
+            }
+
+            if (corruptedItems.Count > 0)
+            {
+                context.Warning(StringUtil.Loc("CorruptedArtifactItemsList"));
+                corruptedItems.ForEach(item => context.Warning(item.ItemLocation));
+
+                throw new Exception(StringUtil.Loc("IntegrityCheckNotPassed"));
+            }
+            context.Info(StringUtil.Loc("IntegrityCheckPassed"));
         }
 
         private async Task<Stream> DownloadFileAsync(
@@ -170,6 +205,56 @@ namespace Agent.Plugins.PipelineArtifact
                 );
 
             return responseStream;
+        }
+
+        private async Task DownloadFileFromBlobAsync(
+            AgentTaskPluginExecutionContext context,
+            (long, string) containerIdAndRoot,
+            string destinationPath,
+            Guid scopeIdentifier,
+            FileContainerItem item,
+            CancellationToken cancellationToken)
+        {
+            var (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupClientAsync(
+                false, (str) => this.tracer.Info(str), this.connection, cancellationToken);
+
+            using (clientTelemetry)
+            {
+                var dedupIdentifier = DedupIdentifier.Deserialize(item.BlobMetadata.ArtifactHash);
+                PipelineArtifactActionRecord downloadRecord = clientTelemetry.CreateRecord<PipelineArtifactActionRecord>((level, uri, type) =>
+                    new PipelineArtifactActionRecord(level, uri, type, nameof(DownloadMultipleArtifactsAsync), context));
+                await clientTelemetry.MeasureActionAsync(
+                    record: downloadRecord,
+                    actionAsync: async () =>
+                    {
+                        await AsyncHttpRetryHelper.InvokeVoidAsync(
+                            async () =>
+                            {
+                                using (var targetFileStream = new FileStream(destinationPath, FileMode.Create))
+                                {
+                                    if (item.BlobMetadata.CompressionType == BlobCompressionType.GZip)
+                                    {
+                                        using (GZipStream uncompressStream = new GZipStream(targetFileStream, CompressionMode.Decompress))
+                                        {
+                                            await dedupClient.DownloadToStreamAsync(dedupIdentifier, uncompressStream, null, EdgeCache.Allowed, (size) => {}, (size) => {}, cancellationToken);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        await dedupClient.DownloadToStreamAsync(dedupIdentifier, targetFileStream, null, EdgeCache.Allowed, (size) => {}, (size) => {}, cancellationToken);
+                                    }
+                                }
+                            },
+                            maxRetries: 3,
+                            tracer: tracer,
+                            canRetryDelegate: e => true,
+                            context: nameof(DownloadSingleArtifactAsync),
+                            cancellationToken: cancellationToken,
+                            continueOnCapturedContext: false);
+                    });
+                // Send results to CustomerIntelligence
+                context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: downloadRecord);
+            }
         }
 
         private string ResolveTargetPath(string rootPath, FileContainerItem item, string artifactName)

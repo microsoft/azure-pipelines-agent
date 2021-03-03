@@ -84,7 +84,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 
                 string sourcePath = Path.Combine(Directory.GetCurrentDirectory(), TestDownloadSourceFolder);
                 string destPath = Path.Combine(Directory.GetCurrentDirectory(), TestDestFolder);
-                PipelineArtifactDownloadParameters downloadParameters = new PipelineArtifactDownloadParameters();
+                ArtifactDownloadParameters downloadParameters = new ArtifactDownloadParameters();
                 downloadParameters.TargetDirectory = destPath;
                 downloadParameters.MinimatchFilters = new string[] {"**"};
                 BuildArtifact buildArtifact = new BuildArtifact();
@@ -126,7 +126,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 
                 string sourcePath = Path.Combine(Directory.GetCurrentDirectory(), TestDownloadSourceFolder);
                 string destPath = Path.Combine(Directory.GetCurrentDirectory(), TestDestFolder);
-                PipelineArtifactDownloadParameters downloadParameters = new PipelineArtifactDownloadParameters();
+                ArtifactDownloadParameters downloadParameters = new ArtifactDownloadParameters();
                 downloadParameters.TargetDirectory = destPath;
                 downloadParameters.MinimatchFilters = new string[] {"drop/test2.txt"};
                 BuildArtifact buildArtifact = new BuildArtifact();

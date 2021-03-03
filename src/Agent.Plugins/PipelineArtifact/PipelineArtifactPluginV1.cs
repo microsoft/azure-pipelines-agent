@@ -208,7 +208,7 @@ namespace Agent.Plugins.PipelineArtifact
             );
 
             PipelineArtifactServer server = new PipelineArtifactServer(tracer);
-            PipelineArtifactDownloadParameters downloadParameters;
+            ArtifactDownloadParameters downloadParameters;
 
             if (buildType == buildTypeCurrent)
             {
@@ -244,7 +244,7 @@ namespace Agent.Plugins.PipelineArtifact
                         throw new ArgumentException(StringUtil.Loc("BuildIdIsNotValid", environmentBuildId));
                     }
                 }
-                downloadParameters = new PipelineArtifactDownloadParameters
+                downloadParameters = new ArtifactDownloadParameters
                 {
                     ProjectRetrievalOptions = BuildArtifactRetrievalOptions.RetrieveByProjectId,
                     ProjectId = projectId,
@@ -292,7 +292,7 @@ namespace Agent.Plugins.PipelineArtifact
 
                 context.Output(StringUtil.Loc("DownloadingFromBuild", pipelineId));
 
-                downloadParameters = new PipelineArtifactDownloadParameters
+                downloadParameters = new ArtifactDownloadParameters
                 {
                     ProjectRetrievalOptions = BuildArtifactRetrievalOptions.RetrieveByProjectName,
                     ProjectName = projectName,

@@ -30,7 +30,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         private readonly ConcurrentDictionary<string, ConcurrentQueue<string>> _fileUploadProgressLog = new ConcurrentDictionary<string, ConcurrentQueue<string>>();
         private readonly FileContainerHttpClient _fileContainerHttpClient;
         private readonly VssConnection _connection;
-        private DedupStoreClientWithDataport _dedupClient;
+        private DedupStoreClient _dedupClient;
         private BlobStoreClientTelemetry _blobTelemetry;
 
         private CancellationTokenSource _uploadCancellationTokenSource;
