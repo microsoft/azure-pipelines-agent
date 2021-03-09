@@ -157,13 +157,13 @@ namespace Agent.Plugins
             // check files (will throw an exception if a file is corrupt)
             if (downloadParameters.CheckDownloadedFiles)
             {
-                CheckDownloads(context, items, rootPath, containerIdAndRoot.Item2);
+                CheckDownloads(items, rootPath, containerIdAndRoot.Item2);
             }
         }
 
-        private void CheckDownloads(AgentTaskPluginExecutionContext context, IEnumerable<FileContainerItem> items, string rootPath, string artifactName)
+        private void CheckDownloads(IEnumerable<FileContainerItem> items, string rootPath, string artifactName)
         {
-            context.Info(StringUtil.Loc("BeginArtifactItemsIntegrityCheck"));
+            tracer.Info(StringUtil.Loc("BeginArtifactItemsIntegrityCheck"));
             var corruptedItems = new List<FileContainerItem>();
             foreach (var item in items.Where(x => x.ItemType == ContainerItemType.File))
             {
@@ -177,12 +177,12 @@ namespace Agent.Plugins
 
             if (corruptedItems.Count > 0)
             {
-                context.Warning(StringUtil.Loc("CorruptedArtifactItemsList"));
-                corruptedItems.ForEach(item => context.Warning(item.ItemLocation));
+                tracer.Warn(StringUtil.Loc("CorruptedArtifactItemsList"));
+                corruptedItems.ForEach(item => tracer.Warn(item.ItemLocation));
 
                 throw new Exception(StringUtil.Loc("IntegrityCheckNotPassed"));
             }
-            context.Info(StringUtil.Loc("IntegrityCheckPassed"));
+            tracer.Info(StringUtil.Loc("IntegrityCheckPassed"));
         }
 
         private async Task<Stream> DownloadFileAsync(

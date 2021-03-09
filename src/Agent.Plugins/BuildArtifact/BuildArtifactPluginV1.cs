@@ -75,7 +75,6 @@ namespace Agent.Plugins.BuildArtifacts
             AgentTaskPluginExecutionContext context,
             CancellationToken token)
         {
-            System.Diagnostics.Debugger.Launch();
             ArgUtil.NotNull(context, nameof(context));
             string artifactName = context.GetInput(TaskProperties.ArtifactName, required: false);
             string branchName = context.GetInput(TaskProperties.BranchName, required: false);
