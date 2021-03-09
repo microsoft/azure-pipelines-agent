@@ -209,7 +209,14 @@ namespace Agent.Sdk.Knob
             "By default, the agent does not decodes %AZP25 as % which may be needed to allow users to work around reserved values. Setting this to true enables this behavior.",
             new RuntimeKnobSource("DECODE_PERCENTS"),
             new EnvironmentKnobSource("DECODE_PERCENTS"),
-            new BuiltInDefaultKnobSource(""));
+            new BuiltInDefaultKnobSource("true"));
+
+        public static readonly Knob AllowTfvcUnshelveErrors = new Knob(
+            nameof(AllowTfvcUnshelveErrors),
+            "By default, the TFVC unshelve command does not throw errors e.g. when there's no mapping for one or more files shelved. Setting this to true enables this behavior.",
+            new RuntimeKnobSource("ALLOW_TFVC_UNSHELVE_ERRORS"),
+            new EnvironmentKnobSource("ALLOW_TFVC_UNSHELVE_ERRORS"),
+            new BuiltInDefaultKnobSource("false"));
     }
 
 }
