@@ -192,12 +192,30 @@ namespace Agent.Plugins.PipelineArtifact
                 // Set the default pipelineId to 0, which is an invalid build id and it has to be reassigned to a valid build id.
                 int pipelineId = 0;
 
-                bool pipelineTriggeringBool = false;
+                bool pipelineTriggeringBool;
                 if (bool.TryParse(pipelineTriggering, out pipelineTriggeringBool) && pipelineTriggeringBool)
                 {
-                    string triggeringPipeline = context.Variables.GetValueOrDefault("build.triggeredBy.buildId")?.Value;
+                    string hostType = context.Variables.GetValueOrDefault("system.hostType").Value;
+                    string triggeringPipeline = null;
+                    if (!string.IsNullOrWhiteSpace(hostType) && !hostType.Equals("build", StringComparison.OrdinalIgnoreCase)) // RM env.
+                    {
+                        var releaseAlias = context.Variables.GetValueOrDefault("release.triggeringartifact.alias")?.Value;
+                        var definitionIdTriggered = context.Variables.GetValueOrDefault("release.artifacts." + releaseAlias ?? string.Empty + ".definitionId")?.Value;
+                        if (!string.IsNullOrWhiteSpace(definitionIdTriggered) && definitionIdTriggered.Equals(pipelineDefinition, StringComparison.OrdinalIgnoreCase))
+                        {
+                            triggeringPipeline = context.Variables.GetValueOrDefault("release.artifacts." + releaseAlias ?? string.Empty + ".buildId")?.Value;
+                        }
+                    }
+                    else
+                    {
+                        var definitionIdTriggered = context.Variables.GetValueOrDefault("build.triggeredBy.definitionId")?.Value;
+                        if (!string.IsNullOrWhiteSpace(definitionIdTriggered) && definitionIdTriggered.Equals(pipelineDefinition, StringComparison.OrdinalIgnoreCase))
+                        {
+                            triggeringPipeline = context.Variables.GetValueOrDefault("build.triggeredBy.buildId")?.Value;
+                        }
+                    }
 
-                    if (!string.IsNullOrEmpty(triggeringPipeline))
+                    if (!string.IsNullOrWhiteSpace(triggeringPipeline))
                     {
                         pipelineId = int.Parse(triggeringPipeline);
                     }
