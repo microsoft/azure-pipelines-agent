@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using Agent.Plugins.PipelineArtifact.Telemetry;
 using Agent.Sdk;
+using Agent.Sdk.Blob;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
@@ -53,8 +54,7 @@ namespace Agent.Plugins.PipelineArtifact
         public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context) 
         {
             context.Warning(StringUtil.Loc("DownloadArtifactWarning", "UNC"));
-            BlobStoreClientTelemetry clientTelemetry;
-            DedupManifestArtifactClient dedupManifestClient = this.factory.CreateDedupManifestClient(context, connection, cancellationToken, out clientTelemetry);
+            var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, cancellationToken);
             using (clientTelemetry)
             {
                 FileShareActionRecord downloadRecord = clientTelemetry.CreateRecord<FileShareActionRecord>((level, uri, type) =>
@@ -97,8 +97,7 @@ namespace Agent.Plugins.PipelineArtifact
             int parallelCount,
             CancellationToken cancellationToken) 
         {
-            BlobStoreClientTelemetry clientTelemetry;
-            DedupManifestArtifactClient dedupManifestClient = this.factory.CreateDedupManifestClient(context, connection, cancellationToken, out clientTelemetry);
+            var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, cancellationToken);
             using (clientTelemetry)
             {
                 FileShareActionRecord publishRecord = clientTelemetry.CreateRecord<FileShareActionRecord>((level, uri, type) =>

@@ -50,6 +50,7 @@ namespace Agent.Plugins.PipelineArtifact
             public static readonly string Tags = "tags";
             public static readonly string AllowPartiallySucceededBuilds = "allowPartiallySucceededBuilds";
             public static readonly string AllowFailedBuilds = "allowFailedBuilds";
+            public static readonly string AllowCanceledBuilds = "allowCanceledBuilds";
             public static readonly string ArtifactName = "artifact";
             public static readonly string ItemPattern = "patterns";
         }
@@ -84,6 +85,7 @@ namespace Agent.Plugins.PipelineArtifact
             string tags = context.GetInput(ArtifactEventProperties.Tags, required: false);
             string allowPartiallySucceededBuilds = context.GetInput(ArtifactEventProperties.AllowPartiallySucceededBuilds, required: false);
             string allowFailedBuilds = context.GetInput(ArtifactEventProperties.AllowFailedBuilds, required: false);
+            string allowCanceledBuilds = context.GetInput(ArtifactEventProperties.AllowCanceledBuilds, required: false);
             string userSpecifiedRunId = context.GetInput(RunId, required: false);
             string defaultWorkingDirectory = context.Variables.GetValueOrDefault("system.defaultworkingdirectory").Value;
 
@@ -119,7 +121,11 @@ namespace Agent.Plugins.PipelineArtifact
             {
                 allowFailedBuildsBool = false;
             }
-            var resultFilter = GetResultFilter(allowPartiallySucceededBuildsBool, allowFailedBuildsBool);
+            if (!bool.TryParse(allowCanceledBuilds, out var allowCanceledBuildsBool))
+            {
+                allowCanceledBuildsBool = false;
+            }
+            var resultFilter = GetResultFilter(allowPartiallySucceededBuildsBool, allowFailedBuildsBool, allowCanceledBuildsBool);
 
             PipelineArtifactServer server = new PipelineArtifactServer(tracer);
             PipelineArtifactDownloadParameters downloadParameters;
@@ -186,12 +192,30 @@ namespace Agent.Plugins.PipelineArtifact
                 // Set the default pipelineId to 0, which is an invalid build id and it has to be reassigned to a valid build id.
                 int pipelineId = 0;
 
-                bool pipelineTriggeringBool = false;
+                bool pipelineTriggeringBool;
                 if (bool.TryParse(pipelineTriggering, out pipelineTriggeringBool) && pipelineTriggeringBool)
                 {
-                    string triggeringPipeline = context.Variables.GetValueOrDefault("build.triggeredBy.buildId")?.Value;
+                    string hostType = context.Variables.GetValueOrDefault("system.hostType").Value;
+                    string triggeringPipeline = null;
+                    if (!string.IsNullOrWhiteSpace(hostType) && !hostType.Equals("build", StringComparison.OrdinalIgnoreCase)) // RM env.
+                    {
+                        var releaseAlias = context.Variables.GetValueOrDefault("release.triggeringartifact.alias")?.Value;
+                        var definitionIdTriggered = context.Variables.GetValueOrDefault("release.artifacts." + releaseAlias ?? string.Empty + ".definitionId")?.Value;
+                        if (!string.IsNullOrWhiteSpace(definitionIdTriggered) && definitionIdTriggered.Equals(pipelineDefinition, StringComparison.OrdinalIgnoreCase))
+                        {
+                            triggeringPipeline = context.Variables.GetValueOrDefault("release.artifacts." + releaseAlias ?? string.Empty + ".buildId")?.Value;
+                        }
+                    }
+                    else
+                    {
+                        var definitionIdTriggered = context.Variables.GetValueOrDefault("build.triggeredBy.definitionId")?.Value;
+                        if (!string.IsNullOrWhiteSpace(definitionIdTriggered) && definitionIdTriggered.Equals(pipelineDefinition, StringComparison.OrdinalIgnoreCase))
+                        {
+                            triggeringPipeline = context.Variables.GetValueOrDefault("build.triggeredBy.buildId")?.Value;
+                        }
+                    }
 
-                    if (!string.IsNullOrEmpty(triggeringPipeline))
+                    if (!string.IsNullOrWhiteSpace(triggeringPipeline))
                     {
                         pipelineId = int.Parse(triggeringPipeline);
                     }
@@ -322,7 +346,7 @@ namespace Agent.Plugins.PipelineArtifact
             }
         }
 
-        private BuildResult GetResultFilter(bool allowPartiallySucceededBuilds, bool allowFailedBuilds)
+        private BuildResult GetResultFilter(bool allowPartiallySucceededBuilds, bool allowFailedBuilds, bool allowCanceledBuilds)
         {
             var result = BuildResult.Succeeded;
 
@@ -334,6 +358,11 @@ namespace Agent.Plugins.PipelineArtifact
             if (allowFailedBuilds)
             {
                 result |= BuildResult.Failed;
+            }
+
+            if (allowCanceledBuilds)
+            {
+                result |= BuildResult.Canceled;
             }
 
             return result;

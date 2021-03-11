@@ -45,6 +45,7 @@
         <BuildConstants Include="%20%20%20%20%20%20%20%20}%0A"/>
         <BuildConstants Include="%20%20%20%20%20%20%20%20public static class AgentPackage"/>
         <BuildConstants Include="%20%20%20%20%20%20%20%20{"/>
+        <BuildConstants Include="%20%20%20%20%20%20%20%20%20%20%20%20public static readonly string PackageType = %22$(PackageType)%22%3B"/>
         <BuildConstants Include="%20%20%20%20%20%20%20%20%20%20%20%20public static readonly string PackageName = %22$(PackageRuntime)%22%3B"/>
         <BuildConstants Include="%20%20%20%20%20%20%20%20%20%20%20%20public static readonly string Version = %22$(AgentVersion)%22%3B"/>
         <BuildConstants Include="%20%20%20%20%20%20%20%20}"/>

@@ -46,7 +46,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                 string poolNameSubstring = StringUtil.SubstringPrefix(settings.PoolName, 25);
 
-                exceededCharLength -= settings.PoolName.Length - poolNameSubstring.Length;
+                if (settings.PoolName != null)
+                {
+                    exceededCharLength -= settings.PoolName.Length - poolNameSubstring.Length;
+                }
 
                 string agentNameSubstring = settings.AgentName;
 

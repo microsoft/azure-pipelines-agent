@@ -9,7 +9,7 @@ function Get-PullRequest() {
     return $prInfo.html_url
 }
 
-$openedPR=Get-PullRequest
+$openedPR = Get-PullRequest
 
 if ($openedPR.length -ne 0) {
     throw "A PR from $SourceBranch to master already exists."

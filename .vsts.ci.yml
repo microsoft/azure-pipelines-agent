@@ -6,7 +6,7 @@ parameters:
 - name: win_x86
   type: boolean
   displayName: Windows (x86)
-  default: true
+  default: false
 - name: linux_x64
   type: boolean
   displayName: Linux (x64)
@@ -14,7 +14,7 @@ parameters:
 - name: linux_arm
   type: boolean
   displayName: Linux (ARM)
-  default: true
+  default: false
 - name: linux_arm64
   type: boolean
   displayName: Linux (ARM64)
@@ -41,6 +41,7 @@ extends:
   parameters:
     componentDetection: ${{ eq(variables['Build.Reason'], 'PullRequest') }}
     publishArtifacts: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    buildAlternatePackage: false
     win_x64: ${{ parameters.win_x64 }}
     win_x86: ${{ parameters.win_x86 }}
     linux_x64: ${{ parameters.linux_x64 }}
