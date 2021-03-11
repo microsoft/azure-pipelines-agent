@@ -194,23 +194,28 @@ namespace Agent.Plugins.BuildArtifacts
 
                 if (bool.TryParse(specificBuildWithTriggering, out var specificBuildWithTriggeringBool) && specificBuildWithTriggeringBool)
                 {
-                    string hostType = context.Variables.GetValueOrDefault("system.hosttype")?.Value;
-
+                    string hostType = context.Variables.GetValueOrDefault("system.hostType")?.Value;
                     string triggeringPipeline = null;
-                    if (!String.Equals(hostType, "build", StringComparison.InvariantCultureIgnoreCase))
+                    if (!string.IsNullOrWhiteSpace(hostType) && !hostType.Equals("build", StringComparison.OrdinalIgnoreCase)) // RM env.
                     {
                         var releaseAlias = context.Variables.GetValueOrDefault("release.triggeringartifact.alias")?.Value;
-                        if (Guid.TryParse(context.Variables.GetValueOrDefault("release.artifacts." + releaseAlias + ".projectId")?.Value, out projectId))
+                        var definitionIdTriggered = context.Variables.GetValueOrDefault("release.artifacts." + releaseAlias ?? string.Empty + ".definitionId")?.Value;
+                        if (!string.IsNullOrWhiteSpace(definitionIdTriggered) && definitionIdTriggered.Equals(definition, StringComparison.OrdinalIgnoreCase))
                         {
-                            triggeringPipeline = context.Variables.GetValueOrDefault("release.artifacts." + releaseAlias + ".buildId")?.Value;
+                            triggeringPipeline = context.Variables.GetValueOrDefault("release.artifacts." + releaseAlias ?? string.Empty + ".buildId")?.Value;
                         }
+                        Guid.TryParse(context.Variables.GetValueOrDefault("release.artifacts." + releaseAlias + ".projectId")?.Value, out projectId);
                     }
                     else
                     {
-                        triggeringPipeline = context.Variables.GetValueOrDefault("build.triggeredBy.buildId")?.Value;
+                        var definitionIdTriggered = context.Variables.GetValueOrDefault("build.triggeredBy.definitionId")?.Value;
+                        if (!string.IsNullOrWhiteSpace(definitionIdTriggered) && definitionIdTriggered.Equals(definition, StringComparison.OrdinalIgnoreCase))
+                        {
+                            triggeringPipeline = context.Variables.GetValueOrDefault("build.triggeredBy.buildId")?.Value;
+                        }
                     }
 
-                    if (!string.IsNullOrEmpty(triggeringPipeline))
+                    if (!string.IsNullOrWhiteSpace(triggeringPipeline))
                     {
                         pipelineId = int.Parse(triggeringPipeline);
                     }
