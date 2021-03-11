@@ -18,7 +18,7 @@ if ($openedPR.length -ne 0) {
 $buildUrl = "$env:SYSTEM_TEAMFOUNDATIONCOLLECTIONURI$env:SYSTEM_TEAMPROJECT/_build/results?buildId=$env:BUILD_BUILDID&_a=summary"
 $body = "This PR was auto-generated with [the localization pipeline build]($buildUrl)."
 
-gh pr create --head $SourceBranch --title 'Localization update' --body $body --label "enhancement"
+gh pr create --head $SourceBranch --title 'Localization update' --body $body --label "internal"
 
 # Getting a link to the opened PR
 $env:PR_LINK = Get-PullRequest
