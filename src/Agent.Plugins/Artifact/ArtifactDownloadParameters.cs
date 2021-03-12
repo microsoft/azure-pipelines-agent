@@ -23,11 +23,12 @@ namespace Agent.Plugins
         public string ArtifactName { get; set; }
         public string TargetDirectory { get; set; }
         public string[] MinimatchFilters { get; set; }
-        public bool MinimatchFilterWithArtifactName {get; set;}
+        public bool MinimatchFilterWithArtifactName { get; set; }
+        public bool IncludeArtifactNameInPath { get; set; }
 
-        public int ParallelizationLimit {get; set;} = 8;
-        public int RetryDownloadCount {get; set;} = 4;
-        public bool CheckDownloadedFiles {get; set;} = false;
+        public int ParallelizationLimit { get; set; } = 8;
+        public int RetryDownloadCount { get; set; } = 4;
+        public bool CheckDownloadedFiles { get; set; } = false;
     }
 
     internal enum BuildArtifactRetrievalOptions

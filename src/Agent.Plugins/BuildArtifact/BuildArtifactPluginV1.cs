@@ -271,6 +271,9 @@ namespace Agent.Plugins.BuildArtifacts
 
             var downloadOption = downloadType == "single" ? DownloadOptions.SingleDownload : DownloadOptions.MultiDownload;
 
+            // Build artifacts always includes the artifact in the path name
+            downloadParameters.IncludeArtifactNameInPath = true;
+
             context.Output(StringUtil.Loc("DownloadArtifactTo", targetPath));
             await server.DownloadAsyncV2(context, downloadParameters, downloadOption, token);
             context.Output(StringUtil.Loc("DownloadArtifactFinished"));

@@ -108,7 +108,7 @@ namespace Agent.Plugins
             var folderItems = items.Where(i => i.ItemType == ContainerItemType.Folder);
             Parallel.ForEach(folderItems, (folder) =>
             {
-                var targetPath = ResolveTargetPath(rootPath, folder, containerIdAndRoot.Item2);
+                var targetPath = ResolveTargetPath(rootPath, folder, containerIdAndRoot.Item2, downloadParameters.IncludeArtifactNameInPath);
                 Directory.CreateDirectory(targetPath);
             });
 
@@ -117,7 +117,7 @@ namespace Agent.Plugins
             var downloadBlock = NonSwallowingActionBlock.Create<FileContainerItem>(
                 async item =>
                 {
-                    var targetPath = ResolveTargetPath(rootPath, item, containerIdAndRoot.Item2);
+                    var targetPath = ResolveTargetPath(rootPath, item, containerIdAndRoot.Item2, downloadParameters.IncludeArtifactNameInPath);
                     var directory = Path.GetDirectoryName(targetPath);
                     Directory.CreateDirectory(directory);
                     await AsyncHttpRetryHelper.InvokeVoidAsync(
@@ -157,17 +157,17 @@ namespace Agent.Plugins
             // check files (will throw an exception if a file is corrupt)
             if (downloadParameters.CheckDownloadedFiles)
             {
-                CheckDownloads(items, rootPath, containerIdAndRoot.Item2);
+                CheckDownloads(items, rootPath, containerIdAndRoot.Item2, downloadParameters.IncludeArtifactNameInPath);
             }
         }
 
-        private void CheckDownloads(IEnumerable<FileContainerItem> items, string rootPath, string artifactName)
+        private void CheckDownloads(IEnumerable<FileContainerItem> items, string rootPath, string artifactName, bool includeArtifactName)
         {
             tracer.Info(StringUtil.Loc("BeginArtifactItemsIntegrityCheck"));
             var corruptedItems = new List<FileContainerItem>();
             foreach (var item in items.Where(x => x.ItemType == ContainerItemType.File))
             {
-                var targetPath = ResolveTargetPath(rootPath, item, artifactName);
+                var targetPath = ResolveTargetPath(rootPath, item, artifactName, includeArtifactName);
                 var fileInfo = new FileInfo(targetPath);
                 if (fileInfo.Length != item.FileLength)
                 {
@@ -257,8 +257,12 @@ namespace Agent.Plugins
             }
         }
 
-        private string ResolveTargetPath(string rootPath, FileContainerItem item, string artifactName)
+        private string ResolveTargetPath(string rootPath, FileContainerItem item, string artifactName, bool includeArtifactName)
         {
+            if (includeArtifactName)
+            {
+                return Path.Combine(rootPath, item.Path);
+            }
             //Example of item.Path&artifactName: item.Path = "drop3", "drop3/HelloWorld.exe"; artifactName = "drop3"
             string tempArtifactName;
             if (item.Path.Length == artifactName.Length)
