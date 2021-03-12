@@ -103,6 +103,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
 
         public async Task DownloadCommitsAsync(IExecutionContext context, ArtifactDefinition artifactDefinition, string commitsWorkFolder)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(artifactDefinition, nameof(artifactDefinition));
             Trace.Entering();
 
             var jenkinsDetails = artifactDefinition.Details as JenkinsArtifactDetails;
@@ -133,12 +135,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                             return;
                         }
                     }
-                    else 
+                    else
                     {
                         context.Debug(StringUtil.Loc("JenkinsDownloadingChangeFromCurrentBuild"));
                     }
 
-                    try 
+                    try
                     {
                         IEnumerable<Change> changes = await DownloadCommits(context, jenkinsDetails, startJobId, endJobId);
 
@@ -160,13 +162,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                         return;
                     }
                 }
-                else 
+                else
                 {
                     context.AddIssue(new Issue { Type=IssueType.Warning, Message = StringUtil.Loc("JenkinsCommitsInvalidEndJobId", jenkinsDetails.EndCommitArtifactVersion, jenkinsDetails.Alias) });
                     return;
                 }
             }
-            else 
+            else
             {
                 context.Debug("No commit details found in the agent artifact. Not downloading the commits");
             }
@@ -248,7 +250,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             foreach (JToken token in listOfBuildResult)
             {
                 long value = 0;
-                if (long.TryParse((string)token, out value)) 
+                if (long.TryParse((string)token, out value))
                 {
                     if (value == startJobId)
                     {
@@ -308,13 +310,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             string buildParameter = (startIndex >= 100 || endIndex >= 100) ? "allBuilds" : "builds"; // jenkins by default will return only 100 top builds. Have to use "allBuilds" if we are dealing with build which are older than 100 builds
             string commitsUrl = StringUtil.Format("{0}/job/{1}/api/json?tree={2}[number,result,changeSet[items[commitId,date,msg,author[fullName]]]]{{{3},{4}}}", artifactDetails.Url, artifactDetails.JobName, buildParameter, endIndex, startIndex);
             var changeSetResult = await DownloadCommitsJsonContent(context, commitsUrl, artifactDetails, StringUtil.Format("$.{0}[*].changeSet.items[*]", buildParameter));
-            
+
             string rootUrl;
             bool isGitRepo = IsGitRepo(context, artifactDetails, endJobId, out rootUrl);
             return changeSetResult.Select(x => ConvertCommitToChange(context, x, isGitRepo, rootUrl));
         }
 
-        private async Task<string> DownloadCommitsJsonContent(IExecutionContext executionContext, string url, JenkinsArtifactDetails artifactDetails) 
+        private async Task<string> DownloadCommitsJsonContent(IExecutionContext executionContext, string url, JenkinsArtifactDetails artifactDetails)
         {
             Trace.Entering();
 
@@ -329,7 +331,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             return result;
         }
 
-        private async Task<IEnumerable<JToken>> DownloadCommitsJsonContent(IExecutionContext executionContext, string url, JenkinsArtifactDetails artifactDetails, string jsonPath) 
+        private async Task<IEnumerable<JToken>> DownloadCommitsJsonContent(IExecutionContext executionContext, string url, JenkinsArtifactDetails artifactDetails, string jsonPath)
         {
             Trace.Entering();
 
@@ -355,7 +357,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             if (repoResult != null)
             {
                 executionContext.Debug($"repo query result from Jenkins api {repoResult.ToString()}");
-                
+
                 var repoKindResult = ParseToken(repoResult.ToString(), "$.changeSet.kind");
                 if (repoKindResult != null && repoKindResult.Any()) {
                     string repoKind = repoKindResult.First().ToString();
@@ -390,6 +392,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
 
         public IArtifactDetails GetArtifactDetails(IExecutionContext context, AgentArtifactDefinition agentArtifactDefinition)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(agentArtifactDefinition, nameof(agentArtifactDefinition));
+
             Trace.Entering();
 
             var artifactDetails =

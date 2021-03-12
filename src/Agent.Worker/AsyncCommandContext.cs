@@ -4,11 +4,13 @@
 using System;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
+using Agent.Sdk;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
     [ServiceLocator(Default = typeof(AsyncCommandContext))]
-    public interface IAsyncCommandContext : IAgentService
+    public interface IAsyncCommandContext : IAgentService, IKnobValueContext
     {
         string Name { get; }
         Task Task { get; set; }
@@ -16,6 +18,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         void Output(string message);
         void Debug(string message);
         Task WaitAsync();
+        IHostContext GetHostContext();
     }
 
     public class AsyncCommandContext : AgentService, IAsyncCommandContext
@@ -48,6 +51,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             _executionContext = context;
             Name = name;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1721: Property names should not match get methods")]
+        public IHostContext GetHostContext()
+        {
+            return _executionContext.GetHostContext();
         }
 
         public void Output(string message)
@@ -106,6 +115,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // wait for the async command task
             Trace.Info("Wait till async command task to finish.");
             await Task;
+        }
+
+        string IKnobValueContext.GetVariableValueOrDefault(string variableName)
+        {
+            return _executionContext.Variables.Get(variableName);
+        }
+
+        IScopedEnvironment IKnobValueContext.GetScopedEnvironment()
+        {
+            return new SystemEnvironment();
         }
     }
 }

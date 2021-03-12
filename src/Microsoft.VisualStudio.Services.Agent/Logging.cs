@@ -3,6 +3,7 @@
 
 using System;
 using System.IO;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -14,10 +15,11 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         void Write(string message);
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1716: Identifiers should not match keywords")]
         void End();
     }
 
-    public class PagingLogger : AgentService, IPagingLogger
+    public class PagingLogger : AgentService, IPagingLogger, IDisposable
     {
         public static string PagingFolder = "pages";
 
@@ -40,6 +42,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public override void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
             base.Initialize(hostContext);
             _totalLines = 0;
             _pageId = Guid.NewGuid().ToString();
@@ -118,9 +121,24 @@ namespace Microsoft.VisualStudio.Services.Agent
                 //The StreamWriter object calls Dispose() on the provided Stream object when StreamWriter.Dispose is called.
                 _pageWriter.Dispose();
                 _pageWriter = null;
+                _pageData.Dispose();
                 _pageData = null;
                 _jobServerQueue.QueueFileUpload(_timelineId, _timelineRecordId, "DistributedTask.Core.Log", "CustomToolLog", _dataFileName, true);
             }
         }
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                EndPage();
+            }
+        }
+
     }
 }

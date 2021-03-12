@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -32,7 +33,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         void Extract(IExecutionContext executionContext, Pipelines.TaskStep task);
     }
 
-    public sealed class TaskManager : AgentService, ITaskManager
+    public class TaskManager : AgentService, ITaskManager
     {
         private const int _defaultFileStreamBufferSize = 4096;
 
@@ -76,7 +77,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public Definition Load(Pipelines.TaskStep task)
+        public virtual Definition Load(Pipelines.TaskStep task)
         {
             // Validate args.
             Trace.Entering();
@@ -122,11 +123,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void Extract(IExecutionContext executionContext, Pipelines.TaskStep task)
         {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+            ArgUtil.NotNull(task, nameof(task));
+
             String zipFile = GetTaskZipPath(task.Reference);
             String destinationDirectory = GetDirectory(task.Reference);
-            
+
             executionContext.Debug($"Extracting task {task.Name} from {zipFile} to {destinationDirectory}.");
-            
+
             Trace.Verbose("Deleting task destination folder: {0}", destinationDirectory);
             IOUtil.DeleteDirectory(destinationDirectory, executionContext.CancellationToken);
 
@@ -150,27 +154,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             var configurationStore = HostContext.GetService<IConfigurationStore>();
             AgentSettings settings = configurationStore.GetSettings();
-            Boolean signingEnabled = !String.IsNullOrEmpty(settings.Fingerprint);
+            Boolean signingEnabled = (settings.SignatureVerification != null && settings.SignatureVerification.Mode != SignatureVerificationMode.None);
+            Boolean alwaysExtractTask = signingEnabled || settings.AlwaysExtractTask;
 
-            if (File.Exists(destDirectory + ".completed") && !signingEnabled)
+            if (File.Exists(destDirectory + ".completed") && !alwaysExtractTask)
             {
                 executionContext.Debug($"Task '{task.Name}' already downloaded at '{destDirectory}'.");
                 return;
             }
 
             String taskZipPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.TaskZips), $"{task.Name}_{task.Id}_{task.Version}.zip");
-            if (signingEnabled && File.Exists(taskZipPath))
+            if (alwaysExtractTask && File.Exists(taskZipPath))
             {
                 executionContext.Debug($"Task '{task.Name}' already downloaded at '{taskZipPath}'.");
 
-                // We need to extract the zip now because the task.json metadata for the task is used in JobExtension.InitializeJob.
-                // This is fine because we overwrite the contents at task run time.
-                if (!File.Exists(destDirectory + ".completed"))
-                {
-                    // The zip exists but it hasn't been extracted yet.
-                    IOUtil.DeleteDirectory(destDirectory, executionContext.CancellationToken);
-                    ExtractZip(taskZipPath, destDirectory);
-                }
+                // Extract a new zip every time
+                IOUtil.DeleteDirectory(destDirectory, executionContext.CancellationToken);
+                ExtractZip(taskZipPath, destDirectory);
 
                 return;
             }
@@ -196,10 +196,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Allow up to 20 * 60s for any task to be downloaded from service.
                 // Base on Kusto, the longest we have on the service today is over 850 seconds.
                 // Timeout limit can be overwrite by environment variable
-                if (!int.TryParse(Environment.GetEnvironmentVariable("VSTS_TASK_DOWNLOAD_TIMEOUT") ?? string.Empty, out int timeoutSeconds))
-                {
-                    timeoutSeconds = 20 * 60;
-                }
+                var timeoutSeconds = AgentKnobs.TaskDownloadTimeout.GetValue(UtilKnobValueContext.Instance()).AsInt();
 
                 while (retryCount < 3)
                 {
@@ -254,7 +251,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                 }
 
-                if (signingEnabled)
+                if (alwaysExtractTask)
                 {
                     Directory.CreateDirectory(HostContext.GetDirectory(WellKnownDirectory.TaskZips));
 
@@ -339,6 +336,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public ExecutionData PreJobExecution { get; set; }
         public ExecutionData Execution { get; set; }
         public ExecutionData PostJobExecution { get; set; }
+        public TaskRestrictions Restrictions { get; set; }
     }
 
     public sealed class OutputVariable
@@ -541,6 +539,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void ReplaceMacros(IHostContext context, Definition definition)
         {
+            ArgUtil.NotNull(definition, nameof(definition));
             var handlerVariables = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             handlerVariables["currentdirectory"] = definition.Directory;
             VarUtil.ExpandValues(context, source: handlerVariables, target: Inputs);

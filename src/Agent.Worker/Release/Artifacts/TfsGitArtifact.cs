@@ -50,12 +50,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             tfsGitEndpoint.Data.Add(EndpointData.CheckoutNestedSubmodules, gitArtifactDetails.CheckoutNestedSubmodules);
             tfsGitEndpoint.Data.Add("fetchDepth", gitArtifactDetails.FetchDepth);
             tfsGitEndpoint.Data.Add("GitLfsSupport", gitArtifactDetails.GitLfsSupport);
-			
+
             await sourceProvider.GetSourceAsync(executionContext, tfsGitEndpoint, executionContext.CancellationToken);
         }
 
         public IArtifactDetails GetArtifactDetails(IExecutionContext context, AgentArtifactDefinition agentArtifactDefinition)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(agentArtifactDefinition, nameof(agentArtifactDefinition));
+
             var artifactDetails = JsonConvert.DeserializeObject<Dictionary<string, string>>(agentArtifactDefinition.Details);
             var projectId = string.Empty;
             var repositoryId = string.Empty;

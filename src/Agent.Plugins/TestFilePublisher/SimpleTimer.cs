@@ -9,7 +9,7 @@ namespace Agent.Plugins.Log.TestFilePublisher
 {
     /// <summary>
     /// This is a utitily class used for recording timing
-    /// information. Its usage is 
+    /// information. Its usage is
     /// using (SimpleTimer timer = new SimpleTimer("MyOperation"))
     /// {
     ///     MyOperation...
@@ -49,7 +49,7 @@ namespace Agent.Plugins.Log.TestFilePublisher
             _telemetryWrapper.AddAndAggregate(_timer.Elapsed.TotalMilliseconds);
         }
 
-        private void Dispose(bool disposing)
+        protected virtual void Dispose(bool disposing)
         {
             if (_disposed)
                 return;

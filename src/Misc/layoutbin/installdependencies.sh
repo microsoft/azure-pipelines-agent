@@ -16,7 +16,7 @@ function print_errormessage()
 {
     echo "Can't install dotnet core dependencies."
     echo "You can manually install all required dependencies based on following documentation"
-    echo "https://docs.microsoft.com/en-us/dotnet/core/linux-prerequisites?tabs=netcore2x"
+    echo "https://docs.microsoft.com/en-us/dotnet/core/dependencies?pivots=os-linux&tabs=netcore31"
 }
 
 function print_rhel6message() 
@@ -31,7 +31,7 @@ function print_rhel6errormessage()
 {
     echo "We couldn't install dotnet core dependencies"
     echo "You can manually install all required dependencies based on following documentation"
-    echo "https://docs.microsoft.com/en-us/dotnet/core/linux-prerequisites?tabs=netcore2x"
+    echo "https://docs.microsoft.com/en-us/dotnet/core/dependencies?pivots=os-linux&tabs=netcore31"
     echo "In addition, there are some dependencies which require manual installation. Please follow this documentation" 
     echo "https://github.com/dotnet/core/blob/master/Documentation/build-and-install-rhel6-prerequisites.md"
 }
@@ -60,20 +60,11 @@ then
                 print_errormessage
                 exit 1
             fi
-            
-            # ubuntu 18 uses libcurl4
-            # ubuntu 14, 16 and other linux use libcurl3
-            apt install -y libcurl3 || apt install -y libcurl4
-            if [ $? -ne 0 ]
-            then
-                echo "'apt' failed with exit code '$?'"
-                print_errormessage
-                exit 1
-            fi
 
-            # debian 9 use libssl1.0.2
+	        # debian 10 uses libssl1.1
+            # debian 9 uses libssl1.0.2
             # other debian linux use libssl1.0.0
-            apt install -y libssl1.0.0 || apt install -y libssl1.0.2
+            apt install -y libssl1.1 || apt install -y libssl1.0.2 || apt install -y libssl1.0.0
             if [ $? -ne 0 ]
             then
                 echo "'apt' failed with exit code '$?'"
@@ -81,8 +72,8 @@ then
                 exit 1
             fi
 
-            # libicu version prefer: libicu52 -> libicu55 -> libicu57 -> libicu60
-            apt install -y libicu52 || apt install -y libicu55 || apt install -y libicu57 || apt install -y libicu60
+            # libicu versions: libicu67 -> libicu66 -> libicu63 -> libicu60 -> libicu57 -> libicu55 -> libicu52
+            apt install -y libicu67 || apt install -y libicu66 || apt install -y libicu63 || apt install -y libicu60 || apt install -y libicu57 || apt install -y libicu55 || apt install -y libicu52
             if [ $? -ne 0 ]
             then
                 echo "'apt' failed with exit code '$?'"
@@ -101,19 +92,10 @@ then
                     exit 1
                 fi
                 
-                # ubuntu 18 uses libcurl4
-                # ubuntu 14, 16 and other linux use libcurl3
-                apt-get install -y libcurl3 || apt-get install -y libcurl4
-                if [ $? -ne 0 ]
-                then
-                    echo "'apt-get' failed with exit code '$?'"
-                    print_errormessage
-                    exit 1
-                fi
-
-                # debian 9 use libssl1.0.2
+                # debian 10 uses libssl1.1
+                # debian 9 uses libssl1.0.2
                 # other debian linux use libssl1.0.0
-                apt-get install -y libssl1.0.0 || apt install -y libssl1.0.2
+                apt-get install -y libssl1.1 || apt-get install -y libssl1.0.2 || apt-get install -y libssl1.0.0
                 if [ $? -ne 0 ]
                 then
                     echo "'apt-get' failed with exit code '$?'"
@@ -121,8 +103,8 @@ then
                     exit 1
                 fi
 
-                # libicu version prefer: libicu52 -> libicu55 -> libicu57 -> libicu60
-                apt-get install -y libicu52 || apt install -y libicu55 || apt install -y libicu57 || apt install -y libicu60
+                # libicu versions: libicu67 -> libicu66 -> libicu63 -> libicu60 -> libicu57 -> libicu55 -> libicu52
+                apt-get install -y libicu67 || apt-get install -y libicu66 || apt-get install -y libicu63 || apt-get install -y libicu60 || apt-get install -y libicu57 || apt-get install -y libicu55 || apt-get install -y libicu52
                 if [ $? -ne 0 ]
                 then
                     echo "'apt-get' failed with exit code '$?'"
@@ -188,7 +170,7 @@ then
                     fi
                 fi       
 
-                dnf install -y lttng-ust libcurl krb5-libs zlib libicu
+                dnf install -y lttng-ust krb5-libs zlib libicu
                 if [ $? -ne 0 ]
                 then
                     echo "'dnf' failed with exit code '$?'"
@@ -204,7 +186,7 @@ then
             command -v yum
             if [ $? -eq 0 ]
             then
-                yum install -y openssl-libs libcurl krb5-libs zlib libicu
+                yum install -y openssl-libs krb5-libs zlib libicu
                 if [ $? -ne 0 ]
                 then                    
                     echo "'yum' failed with exit code '$?'"
@@ -213,7 +195,7 @@ then
                 fi
 
                 # install lttng-ust separately since it's not part of offical package repository
-                yum install -y wget && wget -P /etc/yum.repos.d/ https://packages.efficios.com/repo.files/EfficiOS-RHEL7-x86-64.repo && rpmkeys --import https://packages.efficios.com/rhel/repo.key && yum updateinfo && yum install -y lttng-ust
+                yum install -y wget && wget -P /etc/yum.repos.d/ https://packages.efficios.com/repo.files/EfficiOS-RHEL7-x86-64.repo && rpmkeys --import https://packages.efficios.com/rhel/repo.key && yum updateinfo -y && yum install -y lttng-ust
                 if [ $? -ne 0 ]
                 then                    
                     echo "'lttng-ust' installation failed with exit code '$?'"
@@ -236,7 +218,7 @@ then
             command -v zypper
             if [ $? -eq 0 ]
             then
-                zypper -n install lttng-ust libopenssl1_0_0 libcurl4 krb5 zlib libicu52_1
+                zypper -n install lttng-ust libopenssl1_0_0 krb5 zlib libicu52_1
                 if [ $? -ne 0 ]
                 then
                     echo "'zypper' failed with exit code '$?'"

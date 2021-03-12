@@ -342,16 +342,66 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
             }
         }
 
-        private void Setup(TestHostContext hostContext)
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public async Task RepositoryPlugin_MultiCheckout_UpdatePathForAllRepos()
         {
+            using (TestHostContext tc = new TestHostContext(this))
+            {
+                var trace = tc.GetTrace();
+                var repos = new List<Pipelines.RepositoryResource>()
+                {
+                    GetRepository(tc, "self", "self"),
+                    GetRepository(tc, "repo2", "repo2"),
+                    GetRepository(tc, "repo3", "repo3"),
+                };
+
+                Setup(tc, repos);
+
+                foreach (var repository in _executionContext.Repositories)
+                {
+                    var currentPath = repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
+                    Directory.CreateDirectory(currentPath);
+
+                    _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Repository] = repository.Alias;
+                    _executionContext.Inputs["Path"] = Path.Combine("test", repository.Alias);
+                    await _checkoutTask.RunAsync(_executionContext, CancellationToken.None);
+
+                    var actualPath = repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
+
+                    Assert.NotEqual(actualPath, currentPath);
+                    Assert.Equal(actualPath, Path.Combine(tc.GetDirectory(WellKnownDirectory.Work), "1", Path.Combine("test", repository.Alias)));
+                    Assert.True(Directory.Exists(actualPath));
+                    Assert.False(Directory.Exists(currentPath));
+
+                    var temp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+                    File.Copy(tc.TraceFileName, temp);
+                    Assert.True(File.ReadAllText(temp).Contains($"##vso[plugininternal.updaterepositorypath alias={repository.Alias};]{actualPath}"), $"Repo {repository.Alias} did not get updated to {actualPath}. CurrentPath = {currentPath}");
+                }
+            }
+        }
+
+        private Pipelines.RepositoryResource GetRepository(TestHostContext hostContext, String alias, String relativePath)
+        {
+            var workFolder = hostContext.GetDirectory(WellKnownDirectory.Work);
             var repo = new Pipelines.RepositoryResource()
             {
-                Alias = "myRepo",
+                Alias = alias,
                 Type = Pipelines.RepositoryTypes.Git,
             };
+            repo.Properties.Set<string>(Pipelines.RepositoryPropertyNames.Path, Path.Combine(workFolder, "1", relativePath));
 
-            repo.Properties.Set<string>(Pipelines.RepositoryPropertyNames.Path, Path.Combine(hostContext.GetDirectory(WellKnownDirectory.Work), "1", "s"));
+            return repo;
+        }
 
+        private void Setup(TestHostContext hostContext)
+        {
+            Setup(hostContext, new List<Pipelines.RepositoryResource>() { GetRepository(hostContext, "myRepo", "s") });
+        }
+
+        private void Setup(TestHostContext hostContext, List<Pipelines.RepositoryResource> repos)
+        {
             _executionContext = new AgentTaskPluginExecutionContext(hostContext.GetTrace())
             {
                 Endpoints = new List<ServiceEndpoint>(),
@@ -359,10 +409,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                 {
                     { Pipelines.PipelineConstants.CheckoutTaskInputs.Repository, "myRepo" },
                 },
-                Repositories = new List<Pipelines.RepositoryResource>
-                {
-                    repo
-                },
+                Repositories = repos,
                 Variables = new Dictionary<string, VariableValue>(StringComparer.OrdinalIgnoreCase)
                 {
                     {
@@ -377,6 +424,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                         "agent.tempdirectory",
                         hostContext.GetDirectory(WellKnownDirectory.Temp)
                     }
+                },
+                JobSettings = new Dictionary<string, string>() 
+                {
+                    // Set HasMultipleCheckouts to true if the number of repos is greater than 1
+                    { WellKnownJobSettings.HasMultipleCheckouts, (repos.Count > 1).ToString() }
                 },
             };
 

@@ -56,7 +56,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         public void Execute(IExecutionContext context, Command command)
         {
             ArgUtil.NotNull(context, nameof(context));
-
+            ArgUtil.NotNull(command, nameof(command));
             var data = command.Data;
             var eventProperties = command.Properties;
 
@@ -69,12 +69,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
             string teamProject = context.Variables.System_TeamProject;
             TestRunContext runContext = CreateTestRunContext();
-
-            VssConnection connection = WorkerUtilities.GetVssConnection(_executionContext);
-
             var commandContext = context.GetHostContext().CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
-            commandContext.Task = PublishTestRunDataAsync(connection, teamProject, runContext);
+            commandContext.Task = PublishTestRunDataAsync(teamProject, runContext);
             _executionContext.AsyncCommands.Add(commandContext);
 
         }
@@ -260,10 +257,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             return publishOptions;
         }
 
-        private async Task PublishTestRunDataAsync(VssConnection connection, String teamProject, TestRunContext testRunContext)
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "connection")]
+        private async Task PublishTestRunDataAsync(String teamProject, TestRunContext testRunContext)
         {
             bool isTestRunOutcomeFailed = false;
 
+            var connection = WorkerUtilities.GetVssConnection(_executionContext);
             var featureFlagService = _executionContext.GetHostContext().GetService<IFeatureFlagService>();
             featureFlagService.InitializeFeatureService(_executionContext, connection);
             var publishTestResultsLibFeatureState = featureFlagService.GetFeatureFlagState(TestResultsConstants.UsePublishTestResultsLibFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);

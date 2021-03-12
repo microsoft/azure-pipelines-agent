@@ -28,6 +28,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public override void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
             base.Initialize(hostContext);
             _registryManager = hostContext.GetService<IWindowsRegistryManager>();
             _windowsServiceHelper = hostContext.GetService<INativeWindowsServiceHelper>();
@@ -64,7 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 if(string.IsNullOrEmpty(securityId))
                 {
                     Trace.Error($"Could not find the Security ID for the user '{domainName}\\{userName}'. AutoLogon will not be configured.");
-                    throw new Exception(StringUtil.Loc("InvalidSIDForUser", domainName, userName));
+                    throw new ArgumentException(StringUtil.Loc("InvalidSIDForUser", domainName, userName));
                 }
 
                 //check if the registry exists for the user, if not load the user profile
@@ -102,7 +103,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             if(string.IsNullOrEmpty(securityId))
             {
                 Trace.Error($"Could not find the Security ID for the user '{domainName}\\{userName}'. Unconfiguration of AutoLogon is not possible.");
-                throw new Exception(StringUtil.Loc("InvalidSIDForUser", domainName, userName));
+                throw new ArgumentException(StringUtil.Loc("InvalidSIDForUser", domainName, userName));
             }
 
             //machine specific
@@ -285,7 +286,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             //User specific
             string subKeyName = $"{securityId}\\{RegistryConstants.UserSettings.SubKeys.StartupProcess}";
-            _registryManager.SetValue(RegistryHive.Users, subKeyName, RegistryConstants.UserSettings.ValueNames.StartupProcess, GetStartupCommand());
+            _registryManager.SetValue(RegistryHive.Users, subKeyName, RegistryConstants.UserSettings.ValueNames.StartupProcess, GetStartupCommand(runOnce: command.GetRunOnce()));
         }
 
         private void UpdateScreenSaverSettings(CommandSettings command, string securityId)
@@ -319,21 +320,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _registryManager.SetValue(RegistryHive.Users, screenSaverSubKeyName, screenSaverValueName, "0");
         }
 
-        private string GetStartupCommand()
+        private string GetStartupCommand(bool runOnce)
         {
             //startup process
             string cmdExePath = Environment.GetEnvironmentVariable("comspec");
             if (string.IsNullOrEmpty(cmdExePath))
             {
                 Trace.Error("Unable to get the path for cmd.exe.");
-                throw new Exception(StringUtil.Loc("FilePathNotFound", "cmd.exe"));
+                throw new ArgumentException(StringUtil.Loc("FilePathNotFound", "cmd.exe"));
             }
 
             //file to run in cmd.exe
             var filePath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), "run.cmd");
 
+            string once = runOnce ? "--once" : null;
+
             //extra " are to handle the spaces in the file path (if any)
-            var startupCommand = $@"{cmdExePath} /D /S /C start ""Agent with AutoLogon"" ""{filePath}"" --startuptype autostartup";
+            var startupCommand = $@"{cmdExePath} /D /S /C start ""Agent with AutoLogon"" ""{filePath}"" --startuptype autostartup {once}";
             Trace.Info($"Agent auto logon startup command: '{startupCommand}'");
 
             return startupCommand;
@@ -362,10 +365,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         private void DeleteStartupCommand(RegistryHive targetHive, string securityId)
         {
             var startupProcessSubKeyName = $"{securityId}\\{RegistryConstants.UserSettings.SubKeys.StartupProcess}";
-            var expectedStartupCmd = GetStartupCommand();
+            var expectedStartupCmd = GetStartupCommand(runOnce: false);
             var actualStartupCmd = _registryManager.GetValue(targetHive, startupProcessSubKeyName, RegistryConstants.UserSettings.ValueNames.StartupProcess);
 
-            if(string.Equals(actualStartupCmd, expectedStartupCmd, StringComparison.CurrentCultureIgnoreCase))
+            // Use StartWith() instead of Equals() because we don't know if the startupCmd should include the runOnce parameter
+            if(actualStartupCmd != null && 
+               actualStartupCmd.StartsWith(expectedStartupCmd, StringComparison.CurrentCultureIgnoreCase))
             {
                 _registryManager.DeleteValue(RegistryHive.Users, startupProcessSubKeyName, RegistryConstants.UserSettings.ValueNames.StartupProcess);
             }

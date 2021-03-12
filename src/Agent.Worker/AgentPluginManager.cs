@@ -22,11 +22,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         Task RunPluginTaskAsync(IExecutionContext context, string plugin, Dictionary<string, string> inputs, Dictionary<string, string> environment, Variables runtimeVariables, EventHandler<ProcessDataReceivedEventArgs> outputHandler);
     }
 
-    public sealed class AgentPluginManager : AgentService, IAgentPluginManager
+    public class AgentPluginManager : AgentService, IAgentPluginManager
     {
         private readonly Dictionary<Guid, List<string>> _supportedTasks = new Dictionary<Guid, List<string>>();
 
-        private readonly HashSet<string> _taskPlugins = new HashSet<string>()
+        protected readonly HashSet<string> _taskPlugins = new HashSet<string>()
         {
             "Agent.Plugins.Repository.CheckoutTask, Agent.Plugins",
             "Agent.Plugins.Repository.CleanupTask, Agent.Plugins",
@@ -88,26 +88,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public async Task RunPluginTaskAsync(IExecutionContext context, string plugin, Dictionary<string, string> inputs, Dictionary<string, string> environment, Variables runtimeVariables, EventHandler<ProcessDataReceivedEventArgs> outputHandler)
+        public AgentTaskPluginExecutionContext GeneratePluginExecutionContext(IExecutionContext context, Dictionary<string, string> inputs, Variables runtimeVariables)
         {
-            ArgUtil.NotNullOrEmpty(plugin, nameof(plugin));
-
-            // Only allow plugins we defined
-            if (!_taskPlugins.Contains(plugin))
-            {
-                throw new NotSupportedException(plugin);
-            }
-
-            // Resolve the working directory.
-            string workingDirectory = HostContext.GetDirectory(WellKnownDirectory.Work);
-            ArgUtil.Directory(workingDirectory, nameof(workingDirectory));
-
-            // Agent.PluginHost
-            string file = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), $"Agent.PluginHost{Util.IOUtil.ExeExtension}");
-            ArgUtil.File(file, $"Agent.PluginHost{Util.IOUtil.ExeExtension}");
-
-            // Agent.PluginHost's arguments
-            string arguments = $"task \"{plugin}\"";
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(inputs, nameof(inputs));
+            ArgUtil.NotNull(runtimeVariables, nameof(runtimeVariables));
 
             // construct plugin context
             var target = context.StepTarget();
@@ -141,9 +126,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             runtimeVariables.CopyInto(pluginContext.Variables, translateToHostPath);
             context.TaskVariables.CopyInto(pluginContext.TaskVariables, translateToHostPath);
 
-            using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
+            return pluginContext;
+        }
+
+        public async Task RunPluginTaskAsync(IExecutionContext context, string plugin, Dictionary<string, string> inputs, Dictionary<string, string> environment, Variables runtimeVariables, EventHandler<ProcessDataReceivedEventArgs> outputHandler)
+        {
+            ArgUtil.NotNullOrEmpty(plugin, nameof(plugin));
+
+            // Only allow plugins we defined
+            if (!_taskPlugins.Contains(plugin))
             {
-                var redirectStandardIn = new InputQueue<string>();
+                throw new NotSupportedException(plugin);
+            }
+
+            // Resolve the working directory.
+            string workingDirectory = HostContext.GetDirectory(WellKnownDirectory.Work);
+            ArgUtil.Directory(workingDirectory, nameof(workingDirectory));
+
+            // Agent.PluginHost
+            string file = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), $"Agent.PluginHost{Util.IOUtil.ExeExtension}");
+            ArgUtil.File(file, $"Agent.PluginHost{Util.IOUtil.ExeExtension}");
+
+            var pluginContext = GeneratePluginExecutionContext(context, inputs, runtimeVariables);
+
+            using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
+            using (var redirectStandardIn = new InputQueue<string>())
+            {
                 redirectStandardIn.Enqueue(JsonUtility.ToString(pluginContext));
 
                 processInvoker.OutputDataReceived += outputHandler;
@@ -152,6 +160,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Execute the process. Exit code 0 should always be returned.
                 // A non-zero exit code indicates infrastructural failure.
                 // Task failure should be communicated over STDOUT using ## commands.
+
+                // Agent.PluginHost's arguments
+                string arguments = $"task \"{plugin}\"";
                 await processInvoker.ExecuteAsync(workingDirectory: workingDirectory,
                                                   fileName: file,
                                                   arguments: arguments,

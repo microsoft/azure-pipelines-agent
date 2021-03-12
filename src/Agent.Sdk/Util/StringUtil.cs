@@ -74,6 +74,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1720: Identifiers should not contain type")]
         public static string ConvertToJson(object obj, Formatting formatting = Formatting.Indented)
         {
             return JsonConvert.SerializeObject(obj, formatting, s_serializerSettings.Value);
@@ -179,6 +180,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
                 return format;
             }
+        }
+
+        // Used for L1 testing
+        public static void LoadExternalLocalization(string stringsPath)
+        {
+            var locStrings = new Dictionary<string, object>();
+            if (File.Exists(stringsPath))
+            {
+                foreach (KeyValuePair<string, object> pair in IOUtil.LoadObject<Dictionary<string, object>>(stringsPath))
+                {
+                    locStrings[pair.Key] = pair.Value;
+                }
+            }
+            s_locStrings = locStrings;
         }
 
         private static void EnsureLoaded()

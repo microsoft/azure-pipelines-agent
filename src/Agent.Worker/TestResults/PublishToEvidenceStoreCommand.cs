@@ -24,7 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             try
             {
                 ArgUtil.NotNull(context, nameof(context));
-
+                ArgUtil.NotNull(command, nameof(command));
                 var eventProperties = command.Properties;
 
                 _executionContext = context;
@@ -53,7 +53,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             eventProperties.TryGetValue("testrunner", out testRunner);
             eventProperties.TryGetValue("name", out name);
             eventProperties.TryGetValue("testRunSummary", out string testRunSummaryString);
-            if(string.IsNullOrEmpty(testRunSummaryString)) 
+            if(string.IsNullOrEmpty(testRunSummaryString))
             {
                 throw new ArgumentException($"ArgumentNeeded : TestRunSummary");
             }

@@ -27,54 +27,57 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 try
                 {
                     // TODO: this was formerly skipped on Windows - why?
-                    hc.EnqueueInstance<IProcessInvoker>(new ProcessInvokerWrapper());
-
-                    // sleep 15 seconds
-                    string sleepCmd = (TestUtil.IsWindows())
-                        ? "powershell"
-                        : "sleep";
-                    string sleepArgs = (TestUtil.IsWindows())
-                        ? "-Command \"Start-Sleep -s 15\""
-                        : "15s";
-                    var startInfo = new ProcessStartInfo(sleepCmd, sleepArgs);
-                    startInfo.Environment[envName] = envValue;
-                    sleep = Process.Start(startInfo);
-
-                    var timeout = Process.GetProcessById(sleep.Id);
-                    while (timeout == null)
+                    using (var processInvoker = new ProcessInvokerWrapper())
                     {
-                        await Task.Delay(1500);
-                        timeout = Process.GetProcessById(sleep.Id);
-                    }
+                        hc.EnqueueInstance<IProcessInvoker>(processInvoker);
 
-                    try
-                    {
-                        trace.Info($"Read env from {timeout.Id}");
-                        int retries = 5;
-                        while (retries >= 0)
+                        // sleep 15 seconds
+                        string sleepCmd = (TestUtil.IsWindows())
+                            ? "powershell"
+                            : "sleep";
+                        string sleepArgs = (TestUtil.IsWindows())
+                            ? "-Command \"Start-Sleep -s 15\""
+                            : "15s";
+                        var startInfo = new ProcessStartInfo(sleepCmd, sleepArgs);
+                        startInfo.Environment[envName] = envValue;
+                        sleep = Process.Start(startInfo);
+
+                        var timeout = Process.GetProcessById(sleep.Id);
+                        while (timeout == null)
                         {
-                            try
+                            await Task.Delay(1500);
+                            timeout = Process.GetProcessById(sleep.Id);
+                        }
+
+                        try
+                        {
+                            trace.Info($"Read env from {timeout.Id}");
+                            int retries = 5;
+                            while (retries >= 0)
                             {
-                                var value = timeout.GetEnvironmentVariable(hc, envName);
-                                Assert.True(string.Equals(value, envValue, StringComparison.OrdinalIgnoreCase), "Expected environment '" + envValue + "' did not match actual '" + value + "'");
-                                break;
-                            }
-                            catch (Exception ex)
-                            {
-                                retries--;
-                                if (retries < 0)
+                                try
                                 {
-                                    throw ex;
+                                    var value = timeout.GetEnvironmentVariable(hc, envName);
+                                    Assert.True(string.Equals(value, envValue, StringComparison.OrdinalIgnoreCase), "Expected environment '" + envValue + "' did not match actual '" + value + "'");
+                                    break;
                                 }
-                                trace.Info($"Unable to get the environment variable, will retry. {retries} retries remaining");
-                                await Task.Delay(2000);
+                                catch (Exception)
+                                {
+                                    retries--;
+                                    if (retries < 0)
+                                    {
+                                        throw;
+                                    }
+                                    trace.Info($"Unable to get the environment variable, will retry. {retries} retries remaining");
+                                    await Task.Delay(2000);
+                                }
                             }
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        trace.Error(ex);
-                        Assert.True(false, "Fail to retrive process environment variable due to exception: " + ex.Message + "\n" + ex.StackTrace);
+                        catch (Exception ex)
+                        {
+                            trace.Error(ex);
+                            Assert.True(false, "Fail to retrive process environment variable due to exception: " + ex.Message + "\n" + ex.StackTrace);
+                        }
                     }
                 }
                 finally

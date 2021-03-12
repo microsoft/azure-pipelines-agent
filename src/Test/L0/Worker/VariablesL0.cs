@@ -633,6 +633,41 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        public void RecalculateExpanded_PathTranslator()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                // Arrange.
+                var copy = new Dictionary<string, VariableValue>
+                {
+                    { "variable1", "run $(variable2)" },
+                    { "variable2", "/path/to/something" },
+                };
+
+                List<string> warnings;
+                var variables = new Variables(hc, copy, out warnings);
+                variables.StringTranslator = (str) => {
+                    if (str.StartsWith("/path/to")) {
+                        return str.Replace("/path/to", "/another/path");
+                    }
+                    return str;
+                };;
+
+                Assert.Equal(0, warnings.Count);
+
+                // Act.
+                variables.RecalculateExpanded(out warnings);
+
+                // Assert.
+                Assert.Equal(0, warnings.Count);
+                Assert.Equal("run /another/path/something", variables.Get("variable1"));
+                Assert.Equal("/another/path/something", variables.Get("variable2"));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
         public void Set_CanConvertAPublicValueIntoASecretValue()
         {
             using (TestHostContext hc = new TestHostContext(this))
@@ -812,34 +847,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
                 // Assert.
                 Assert.False(variables.IsReadOnly("var1"));
-            }
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Worker")]
-        public void IsReadOnly_AlwaysReturnsFalseWhenOff()
-        {
-            using (TestHostContext hc = new TestHostContext(this))
-            {
-                // Arrange.
-                List<string> warnings;
-                var variables = new Variables(hc, new Dictionary<string, VariableValue>(), out warnings);
-                variables.Set(Constants.Variables.Agent.ReadOnlyVariables, "false");
-                variables.Set(Constants.Variables.System.AccessToken, "abc");
-                variables.Set(Constants.Variables.Agent.BuildDirectory, "abc");
-                variables.Set(Constants.Variables.Build.RepoClean, "abc");
-                variables.Set(Constants.Variables.Common.TestResultsDirectory, "abc");
-                variables.Set("var1", "abc", secret: false, readOnly: true);
-                variables.Set("var2", "abc", secret: false, readOnly: false);
-
-                // Assert.
-                Assert.False(variables.IsReadOnly(Constants.Variables.System.AccessToken));
-                Assert.False(variables.IsReadOnly(Constants.Variables.Agent.BuildDirectory));
-                Assert.False(variables.IsReadOnly(Constants.Variables.Build.RepoClean));
-                Assert.False(variables.IsReadOnly(Constants.Variables.Common.TestResultsDirectory));
-                Assert.False(variables.IsReadOnly("var1"));
-                Assert.False(variables.IsReadOnly("var2"));
             }
         }
 

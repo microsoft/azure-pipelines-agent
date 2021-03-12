@@ -22,7 +22,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         private JobRunner _jobRunner;
         private List<IStep> _initResult = new List<IStep>();
         private Pipelines.AgentJobRequestMessage _message;
-        private CancellationTokenSource _tokenSource;
         private Mock<IJobServer> _jobServer;
         private Mock<IJobServerQueue> _jobServerQueue;
         private Mock<IVstsAgentWebProxy> _proxyConfig;
@@ -55,13 +54,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             _temp = new Mock<ITempDirectoryManager>();
             _diagnosticLogManager = new Mock<IDiagnosticLogManager>();
 
-            if (_tokenSource != null)
-            {
-                _tokenSource.Dispose();
-                _tokenSource = null;
-            }
-
-            _tokenSource = new CancellationTokenSource();
             var expressionManager = new ExpressionManager();
             expressionManager.Initialize(hc);
             hc.SetSingleton<IExpressionManager>(expressionManager);
@@ -134,6 +126,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public async Task JobExtensionInitializeFailure()
         {
+            using (var _tokenSource = new CancellationTokenSource())
             using (TestHostContext hc = CreateTestContext())
             {
                 _jobExtension.Setup(x => x.InitializeJob(It.IsAny<IExecutionContext>(), It.IsAny<Pipelines.AgentJobRequestMessage>()))
@@ -151,6 +144,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public async Task JobExtensionInitializeCancelled()
         {
+            using (var _tokenSource = new CancellationTokenSource())
             using (TestHostContext hc = CreateTestContext())
             {
                 _jobExtension.Setup(x => x.InitializeJob(It.IsAny<IExecutionContext>(), It.IsAny<Pipelines.AgentJobRequestMessage>()))
@@ -169,6 +163,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public async Task UploadDiganosticLogIfEnvironmentVariableSet()
         {
+            using (var _tokenSource = new CancellationTokenSource())
             using (TestHostContext hc = CreateTestContext())
             {
                 _message.Variables[Constants.Variables.Agent.Diagnostic] = "true";
@@ -187,6 +182,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public async Task DontUploadDiagnosticLogIfEnvironmentVariableFalse()
         {
+            using (var _tokenSource = new CancellationTokenSource())
             using (TestHostContext hc = CreateTestContext())
             {
                 _message.Variables[Constants.Variables.Agent.Diagnostic] = "false";
@@ -205,6 +201,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public async Task DontUploadDiagnosticLogIfEnvironmentVariableMissing()
         {
+            using (var _tokenSource = new CancellationTokenSource())
             using (TestHostContext hc = CreateTestContext())
             {
                 await _jobRunner.RunAsync(_message, _tokenSource.Token);

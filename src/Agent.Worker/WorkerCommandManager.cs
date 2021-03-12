@@ -1,9 +1,11 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
+using System.Linq;
 using System.Collections.Generic;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
@@ -13,7 +15,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         void EnablePluginInternalCommand(bool enable);
         bool TryProcessCommand(IExecutionContext context, string input);
-        void SetCommandRestrictionPolicy(IWorkerCommandRestrictionPolicy policy);
     }
 
     public sealed class WorkerCommandManager : AgentService, IWorkerCommandManager
@@ -26,10 +27,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private bool _invokePluginInternalCommand = false;
 
-        private IWorkerCommandRestrictionPolicy restrictionPolicy = new UnrestricedWorkerCommandRestrictionPolicy();
-
         public override void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
+
             base.Initialize(hostContext);
 
             // Register all command extensions
@@ -64,6 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public bool TryProcessCommand(IExecutionContext context, string input)
         {
+            ArgUtil.NotNull(context, nameof(context));
             if (string.IsNullOrEmpty(input))
             {
                 return false;
@@ -71,7 +73,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // TryParse input to Command
             Command command;
-            if (!Command.TryParse(input, out command))
+            var unescapePercents = AgentKnobs.DecodePercents.GetValue(context).AsBoolean();
+            if (!Command.TryParse(input, unescapePercents, out command))
             {
                 // if parse fail but input contains ##vso, print warning with DOC link
                 if (input.IndexOf("##vso") >= 0)
@@ -95,6 +98,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     context.Error(StringUtil.Loc("CommandNotSupported", command.Area, context.Variables.System_HostType));
                     context.CommandResult = TaskResult.Failed;
                     return false;
+                }
+
+                IWorkerCommandRestrictionPolicy restrictionPolicy;
+                if (context.Restrictions.Any(restrictions => restrictions.Commands?.Mode == TaskCommandMode.Restricted))
+                {
+                    restrictionPolicy = new AttributeBasedWorkerCommandRestrictionPolicy();
+                }
+                else
+                {
+                    restrictionPolicy = new UnrestricedWorkerCommandRestrictionPolicy();
                 }
 
                 // process logging command in serialize oreder.
@@ -126,13 +139,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 context.Warning(StringUtil.Loc("CommandNotFound", command.Area));
             }
 
-            return true;
-        }
+            // Only if we've successfully parsed do we show this warning
+            if (AgentKnobs.DecodePercents.GetValue(context).AsString() == "" && input.Contains("%AZP25"))
+            {
+                context.Warning("%AZP25 detected in ##vso command. In March 2021, the agent command parser will be updated to unescape this to %. To opt out of this behavior, set a job level variable DECODE_PERCENTS to false. Setting to true will force this behavior immediately. More information can be found at https://github.com/microsoft/azure-pipelines-agent/blob/master/docs/design/percentEncoding.md");
+            }
 
-        public void SetCommandRestrictionPolicy(IWorkerCommandRestrictionPolicy policy)
-        {
-            ArgUtil.NotNull(policy, nameof(policy));
-            restrictionPolicy = policy;
+            return true;
         }
     }
 
@@ -177,7 +190,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         public bool isCommandAllowed(IWorkerCommand command)
         {
-
+            ArgUtil.NotNull(command, nameof(command));
             foreach (var attr in command.GetType().GetCustomAttributes(typeof(CommandRestrictionAttribute), false))
             {
                 var cra = attr as CommandRestrictionAttribute;
@@ -203,6 +216,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         protected void InstallWorkerCommand(IWorkerCommand commandExecutor)
         {
+            ArgUtil.NotNull(commandExecutor, nameof(commandExecutor));
             if (_commands.ContainsKey(commandExecutor.Name))
             {
                 throw new Exception(StringUtil.Loc("CommandDuplicateDetected", commandExecutor.Name, CommandArea.ToLowerInvariant()));
@@ -230,6 +244,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void ProcessCommand(IExecutionContext context, Command command, IWorkerCommandRestrictionPolicy restrictionPolicy)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
+            ArgUtil.NotNull(restrictionPolicy, nameof(restrictionPolicy));
+
             var commandExecutor = GetWorkerCommand(command.Event);
             if (commandExecutor == null)
             {

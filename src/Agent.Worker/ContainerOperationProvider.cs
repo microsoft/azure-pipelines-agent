@@ -13,7 +13,8 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.Win32;
 using Agent.Sdk;
-
+using Agent.Sdk.Knob;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -109,6 +110,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 await StartContainerAsync(executionContext, container);
             }
+
+            // Build JSON to expose docker container name mapping to env
+            var containerMapping = new JObject();
+            foreach (var container in containers) {
+                var containerInfo = new JObject();
+                containerInfo["id"] = container.ContainerId;
+                containerMapping[container.ContainerName] = containerInfo;
+            }
+            executionContext.Variables.Set(Constants.Variables.Agent.ContainerMapping, containerMapping.ToString());
 
             foreach (var container in containers.Where(c => !c.IsJobContainer))
             {
@@ -297,21 +307,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 executionContext.Debug($"Mount Working Directory {mountWorkingDirectory}");
                 if (!string.IsNullOrEmpty(workingDirectory))
                 {
-                    container.MountVolumes.Add(new MountVolume(mountWorkingDirectory, workingDirectory));
+                    container.MountVolumes.Add(new MountVolume(mountWorkingDirectory, workingDirectory, readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Work)));
                 }
 
                 container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Temp), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Temp))));
-                container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tasks), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tasks))));
-
+                container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tasks), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tasks)),
+                    readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Tasks)));
             }
             else
             {
-                container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Work), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Work))));
+                container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Work), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Work)),
+                    readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Work)));
+
+                if (AgentKnobs.AllowMountTasksReadonlyOnWindows.GetValue(executionContext).AsBoolean())
+                {
+                    container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tasks), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tasks)),
+                        readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Tasks)));
+                }
             }
+            
+            container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tools), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tools)),
+                readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Tools)));
 
-            container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tools), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tools))));
-
-            bool externalReadOnly = container.ImageOS != PlatformUtil.OS.Windows; // This code was refactored to use PlatformUtils. The previous implementation did not have the externals directory mounted read-only for Windows.
+            bool externalReadOnly = container.ImageOS != PlatformUtil.OS.Windows || container.isReadOnlyVolume(Constants.DefaultContainerMounts.Externals); // This code was refactored to use PlatformUtils. The previous implementation did not have the externals directory mounted read-only for Windows.
                                                                     // That seems wrong, but to prevent any potential backwards compatibility issues, we are keeping the same logic
             container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Externals), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Externals)), externalReadOnly));
 
@@ -319,6 +337,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 // Ensure .taskkey file exist so we can mount it.
                 string taskKeyFile = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), ".taskkey");
+
                 if (!File.Exists(taskKeyFile))
                 {
                     File.WriteAllText(taskKeyFile, string.Empty);
@@ -461,7 +480,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     // Create a new user with same UID
                     if (string.IsNullOrEmpty(containerUserName))
                     {
-                        containerUserName = $"{container.CurrentUserName}_azpcontainer";
+                        string userNameSuffix = "_azpcontainer";
+                        // Linux allows for a 32-character username
+                        int keepLength = Math.Min(32 - userNameSuffix.Length, container.CurrentUserName.Length);
+                        containerUserName = $"{container.CurrentUserName.Substring(0, keepLength)}{userNameSuffix}";
                         int execUseraddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"useradd -m -u {container.CurrentUserId} {containerUserName}");
                         if (execUseraddExitCode != 0)
                         {
@@ -492,8 +514,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         throw new InvalidOperationException($"Docker exec fail with exit code {execEchoExitCode}");
                     }
 
-                    bool setupDockerGroup = executionContext.Variables.GetBoolean("VSTS_SETUP_DOCKERGROUP") ?? StringUtil.ConvertToBoolean(Environment.GetEnvironmentVariable("VSTS_SETUP_DOCKERGROUP"), true);
-                    if (setupDockerGroup)
+                    if (AgentKnobs.SetupDockerGroup.GetValue(executionContext).AsBoolean())
                     {
                         executionContext.Output(StringUtil.Loc("AllowContainerUserRunDocker", containerUserName));
                         // Get docker.sock group id on Host

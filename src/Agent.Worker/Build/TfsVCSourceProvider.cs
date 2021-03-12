@@ -32,6 +32,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // Validate args.
             ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNull(endpoint, nameof(endpoint));
+            if (executionContext == null || endpoint == null)
+            {
+                return;
+            }
 
             if (PlatformUtil.RunningOnWindows)
             {
@@ -417,6 +421,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public async Task PostJobCleanupAsync(IExecutionContext executionContext, ServiceEndpoint endpoint)
         {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+            ArgUtil.NotNull(endpoint, nameof(endpoint));
+
             if (_undoShelvesetPendingChanges)
             {
                 string shelvesetName = GetEndpointData(endpoint, Constants.EndpointData.SourceTfvcShelveset);

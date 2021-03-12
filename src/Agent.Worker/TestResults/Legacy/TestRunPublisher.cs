@@ -3,6 +3,7 @@
 
 ﻿using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils;
 using Microsoft.VisualStudio.Services.WebApi;
 using System;
 using System.Collections;
@@ -23,9 +24,45 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         void InitializePublisher(IExecutionContext executionContext, VssConnection connection, string projectName, IResultReader resultReader);
         Task<TestRun> StartTestRunAsync(TestRunData testRunData, CancellationToken cancellationToken = default(CancellationToken));
         Task AddResultsAsync(TestRun testRun, TestCaseResultData[] testResults, CancellationToken cancellationToken = default(CancellationToken));
-        Task EndTestRunAsync(TestRunData testRunData, int testRunId, bool publishAttachmentsAsArchive = false, CancellationToken cancellationToken = default(CancellationToken));
+        Task<TestRun> EndTestRunAsync(TestRunData testRunData, int testRunId, bool publishAttachmentsAsArchive = false, CancellationToken cancellationToken = default(CancellationToken));
         TestRunData ReadResultsFromFile(TestRunContext runContext, string filePath, string runName);
         TestRunData ReadResultsFromFile(TestRunContext runContext, string filePath);
+        /// <summary>
+        /// This method returns whether there are any failures in run or not.
+        /// It takes into account of flaky results also.
+        /// </summary>
+        /// <param name="projectName">Name of the Project whose run to be queried.</param>
+        /// <param name="testRunId">The Id of the TestRun.</param>
+        /// <param name="cancellationToken">Cancellation Token.</param>
+        /// <returns>Returns true if there are failures which are non-flaky</returns>
+        bool IsTestRunFailed(string projectName,
+            int testRunId,
+            CancellationToken cancellationToken);
+
+        /// <summary>
+        /// This method infers whether there are any failures in run summary or not.
+        /// It takes into account of flaky results also.
+        /// </summary>
+        /// <param name="testRunStatistic">TestRunStatistic contains summary by outcome information </param>
+        /// <param name="cancellationToken">Cancellation Token.</param>
+        /// <returns>Returns true if there are failures which are non-flaky</returns>
+        bool IsTestRunFailed(TestRunStatistic testRunStatistics,
+            CancellationToken cancellationToken);
+
+        /// <summary>
+        /// This method returns the test run summary by outcome .
+        /// This method used the vstest task to infer the run if it is failed or passed.
+        /// </summary>
+        /// <param name="projectName">Name of the Project </param>
+        /// <param name="testRunId">The Id of the TestRun</param>
+        /// <param name="cancellationToken">Cancellation Token.</param>
+        /// <returns>test run summary by outcome.</returns>
+        /// <exception cref="TestObjectNotFoundException">throws 404 Not found when test run is not in completed state</exception>
+        /// <exception cref="TestObjectNotFoundException">throws 404 Not found when test run summary is not ready, and it is recommended to retry after some time. Retry should be after 1 sec</exception>
+        Task<TestRunStatistic> GetTestRunSummaryAsync(string projectName,
+            int testRunId,
+            bool allowRetry = false,
+            CancellationToken cancellationToken = default(CancellationToken));
     }
 
     public class TestRunPublisher : AgentService, ITestRunPublisher
@@ -39,11 +76,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         private string _projectName;
         private ITestResultsServer _testResultsServer;
         private IResultReader _resultReader;
+        private PublisherInputValidator _publisherInputValidator;
+        private const int MaxRetries = 3;
         #endregion
 
         #region Public API
         public void InitializePublisher(IExecutionContext executionContext, VssConnection connection, string projectName, IResultReader resultReader)
         {
+            ArgUtil.NotNull(connection, nameof(connection));
             Trace.Entering();
             _executionContext = executionContext;
             _projectName = projectName;
@@ -51,6 +91,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
             connection.InnerHandler.Settings.SendTimeout = TimeSpan.FromSeconds(PUBLISH_TIMEOUT);
             _testResultsServer = HostContext.GetService<ITestResultsServer>();
             _testResultsServer.InitializeServer(connection, executionContext);
+            _publisherInputValidator = new PublisherInputValidator(_executionContext);
             Trace.Leaving();
         }
 
@@ -60,6 +101,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         /// <param name="testResults">Results to be published.</param>
         public async Task AddResultsAsync(TestRun testRun, TestCaseResultData[] testResults, CancellationToken cancellationToken)
         {
+            ArgUtil.NotNull(testRun, nameof(testRun));
+            ArgUtil.NotNull(testResults, nameof(testResults));
             Trace.Entering();
             int noOfResultsToBePublished = BATCH_SIZE;
 
@@ -105,7 +148,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         public async Task<TestRun> StartTestRunAsync(TestRunData testRunData, CancellationToken cancellationToken)
         {
             Trace.Entering();
-
             var testRun = await _testResultsServer.CreateTestRunAsync(_projectName, testRunData, cancellationToken);
             Trace.Leaving();
             return testRun;
@@ -114,8 +156,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         /// <summary>
         /// Mark the test run as completed
         /// </summary>
-        public async Task EndTestRunAsync(TestRunData testRunData, int testRunId, bool publishAttachmentsAsArchive = false, CancellationToken cancellationToken = default(CancellationToken))
+        public async Task<TestRun> EndTestRunAsync(TestRunData testRunData, int testRunId, bool publishAttachmentsAsArchive = false, CancellationToken cancellationToken = default(CancellationToken))
         {
+            ArgUtil.NotNull(testRunData, nameof(testRunData));
             Trace.Entering();
             RunUpdateModel updateModel = new RunUpdateModel(
                 completedDate: testRunData.CompleteDate,
@@ -137,6 +180,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
             }
 
             _executionContext.Output(string.Format(CultureInfo.CurrentCulture, "Published Test Run : {0}", testRun.WebAccessUrl));
+
+            return testRun;
         }
 
         /// <summary>
@@ -158,11 +203,121 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         /// <returns>TestRunData</returns>
         public TestRunData ReadResultsFromFile(TestRunContext runContext, string filePath, string runName)
         {
+            ArgUtil.NotNull(runContext, nameof(runContext));
             Trace.Entering();
             runContext.RunName = runName;
             return _resultReader.ReadResults(_executionContext, filePath, runContext);
         }
+
+        public bool IsTestRunFailed(string projectName,
+           int testRunId,
+           CancellationToken cancellationToken)
+        {
+            Trace.Entering();
+            _publisherInputValidator.CheckTestRunId(testRunId);
+
+            _executionContext.Output(string.Format(CultureInfo.CurrentCulture, $"TestRunPublisher.IsTestRunFailed: Getting test run summary with run id: {testRunId} using stats api"));
+            var stats = _testResultsServer.GetTestRunStatisticsAsync(projectName, testRunId, cancellationToken: cancellationToken).Result;
+            return IsTestRunFailed(stats, cancellationToken);
+        }
+
+        public bool IsTestRunFailed(TestRunStatistic testRunStatistics,
+            CancellationToken cancellationToken)
+        {
+            Trace.Entering();
+
+            _executionContext.Output(string.Format(CultureInfo.CurrentCulture, "TestRunPublisher.IsTestRunFailed: checking if test run is failed using run summary input"));
+            if (testRunStatistics != null && testRunStatistics.RunStatistics?.Count > 0)
+            {
+                foreach (var stat in testRunStatistics.RunStatistics)
+                {
+                    if (stat.Outcome == TestOutcome.Failed.ToString() && stat.Count > 0 && stat.ResultMetadata == ResultMetadata.Flaky)
+                    {
+                        _executionContext.Output(string.Format(CultureInfo.CurrentCulture, "Number of flaky failed tests is: {0}", stat.Count));
+                    }
+
+                    if (stat.Outcome == TestOutcome.Failed.ToString() && stat.Count > 0 && stat.ResultMetadata != ResultMetadata.Flaky)
+                    {
+                        _executionContext.Output(string.Format(CultureInfo.CurrentCulture, "Number of failed tests which are non-flaky is: {0}", stat.Count));
+                        return true;
+                    }
+                }
+            }
+
+            Trace.Leaving();
+
+            return false;
+        }
+
+        public async Task<TestRunStatistic> GetTestRunSummaryAsync(string projectName,
+           int testRunId,
+           bool allowRetry,
+           CancellationToken cancellationToken)
+        {
+            Trace.Entering();
+
+            TestRunStatistic testRunStatistic = null;
+
+            _executionContext.Debug(string.Format(CultureInfo.CurrentCulture, $"TestRunPublisher.GetTestRunSummaryAsync: Getting test run summary with run id: {testRunId} using new summary api. Allow Retry: {allowRetry}"));
+
+            if (allowRetry)
+            {
+                var retryHelper = new RetryHelper(_executionContext, MaxRetries);
+
+                testRunStatistic = await retryHelper.Retry(() => GetTestRunSummaryByOutcome(projectName, testRunId, cancellationToken),
+                                                           (retryCounter) => GetTimeIntervalDelay(retryCounter),
+                                                           (exception) => IsRetriableException(exception));
+            }
+            else
+            {
+                testRunStatistic = await GetTestRunSummaryByOutcome(projectName, testRunId, cancellationToken);
+            }
+
+            Trace.Leaving();
+
+            return testRunStatistic;
+        }
+
         #endregion
+
+        private int GetTimeIntervalDelay(int retryCounter)
+        {
+            //As per Kusto
+            //First Time when api returns exception -it will be 550 ms delay.
+            //First retry -90th percentile comes around after 1.5 seconds therefore delay - 1.5 - .5 = 1 seconds
+            //Second retry execution around - 1.5 to 2.5 seconds = therefore delay = 2.5 - (.5 + 1.0) = 1seconds
+            //Third retry = 2.5 to 3,5 seconds = therefore delay = 3.5 - (0.5 + 1 + 1) = 1 seconds
+            switch (retryCounter)
+            {
+                case 0:
+                    return 500;  // 90th Percentile
+
+                case 1:
+                    return 1 * 1000; // 95th -90th percentile
+
+                case 2:
+                    return 2 * 1000; // 99th-95th percentile
+
+                default:
+                    return 1 * 1000;
+            }
+        }
+
+        private bool IsRetriableException(Exception exception)
+        {
+            var type = exception.GetType();
+            if (type == typeof(TestObjectNotFoundException))
+            {
+                // handle TestObjectNotFoundException for retry
+                return true;
+            }
+            return false;
+        }
+
+        private Task<TestRunStatistic> GetTestRunSummaryByOutcome(string projectName, int testRunId, CancellationToken cancellationToken)
+        {
+            return _testResultsServer.GetTestRunSummaryByOutcomeAsync(projectName, testRunId, cancellationToken: cancellationToken);
+        }
 
         private bool IsMaxLimitReachedForSubresultPreProcessing(string automatedTestName, List<TestCaseSubResultData> subResults, int level = 1)
         {
@@ -261,7 +416,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
             }
 
             string[] attachments = subResultData.AttachmentData.AttachmentsFilePathList?.ToArray();
-            
+
             // remove duplicate entries
             HashSet<string> attachedFiles = GetUniqueTestRunFiles(attachments);
             if (attachedFiles != null && attachedFiles.Any())

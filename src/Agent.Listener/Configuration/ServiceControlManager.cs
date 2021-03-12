@@ -11,6 +11,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
     {
         public void CalculateServiceName(AgentSettings settings, string serviceNamePattern, string serviceDisplayNamePattern, out string serviceName, out string serviceDisplayName)
         {
+            ArgUtil.NotNull(settings, nameof(settings));
             Trace.Entering();
             serviceName = string.Empty;
             serviceDisplayName = string.Empty;
@@ -45,7 +46,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                 string poolNameSubstring = StringUtil.SubstringPrefix(settings.PoolName, 25);
 
-                exceededCharLength -= settings.PoolName.Length - poolNameSubstring.Length;
+                if (settings.PoolName != null)
+                {
+                    exceededCharLength -= settings.PoolName.Length - poolNameSubstring.Length;
+                }
 
                 string agentNameSubstring = settings.AgentName;
 

@@ -67,7 +67,7 @@ namespace Agent.Plugins.PipelineCache
 
             if(!string.IsNullOrWhiteSpace(calculatedFingerPrint) && !fingerprint.ToString().Equals(calculatedFingerPrint, StringComparison.Ordinal))
             {
-                context.Warning($"The given cache key has changed in it's resolved value between restore and save steps;\n"+
+                context.Warning($"The given cache key has changed in its resolved value between restore and save steps;\n"+
                                 $"original key: {calculatedFingerPrint}\n"+
                                 $"modified key: {fingerprint}\n");
             } 
@@ -82,7 +82,7 @@ namespace Agent.Plugins.PipelineCache
                 contentFormat = Enum.Parse<ContentFormat>(contentFormatValue, ignoreCase: true);
             }
 
-            PipelineCacheServer server = new PipelineCacheServer();
+            PipelineCacheServer server = new PipelineCacheServer(context);
             await server.UploadAsync(
                 context,
                 fingerprint, 

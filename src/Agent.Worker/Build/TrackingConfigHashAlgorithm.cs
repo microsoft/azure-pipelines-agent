@@ -10,6 +10,7 @@ using System.Text;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Cryptography", "CA5350: Do Not Use Weak Cryptographic Algorithms")]
     public class TrackingConfigHashAlgorithm
     {
         /// <summary>

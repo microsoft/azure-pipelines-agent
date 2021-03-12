@@ -1,7 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk;
 using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
 using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
@@ -27,21 +29,25 @@ namespace Agent.Plugins.PipelineArtifact
         private readonly FileContainerHttpClient containerClient;
         private readonly IAppTraceSource tracer;
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "connection2")]
         public FileContainerProvider(VssConnection connection, IAppTraceSource tracer)
         {
             BuildHttpClient buildHttpClient = connection.GetClient<BuildHttpClient>();
-            connection = new VssConnection(buildHttpClient.BaseAddress, connection.Credentials);
-            containerClient = connection.GetClient<FileContainerHttpClient>();
+            var connection2 = new VssConnection(buildHttpClient.BaseAddress, connection.Credentials);
+            containerClient = connection2.GetClient<FileContainerHttpClient>();
             this.tracer = tracer;
+
         }
 
-        public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken)
+        public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
+            context.Warning(StringUtil.Loc("DownloadArtifactWarning", "Build Artifact"));
             await this.DownloadFileContainerAsync(downloadParameters.ProjectId, buildArtifact, downloadParameters.TargetDirectory, downloadParameters.MinimatchFilters, cancellationToken);
         }
 
-        public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken)
+        public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
+            context.Warning(StringUtil.Loc("DownloadArtifactWarning", "Build Artifact"));
             await this.DownloadFileContainersAsync(downloadParameters.ProjectId, buildArtifacts, downloadParameters.TargetDirectory, downloadParameters.MinimatchFilters, cancellationToken);
         }
 
@@ -76,7 +82,7 @@ namespace Agent.Plugins.PipelineArtifact
             else
             {
                 var message = $"Resource data value '{resourceData}' is invalid.";
-                throw new ArgumentException(message, "resourceData");
+                throw new ArgumentException(message, nameof(resourceData));
             }
         }
 

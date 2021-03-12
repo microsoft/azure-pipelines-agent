@@ -1,0 +1,19 @@
+{
+  "name": "agent-release",
+  "version": "1.0.0",
+  "description": "Flow for releasing agent",
+  "main": "mkrelease.js",
+  "scripts": {
+    "release": "node mkrelease.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Microsoft Corporation",
+  "license": "MIT",
+  "dependencies": {
+    "@octokit/rest": "^16.43.1",
+    "azure-devops-node-api": "10.0.0",
+    "azure-pipelines-task-lib": "2.9.3",
+    "natural-sort": "^1.0.0",
+    "node-getopt": "^0.3.2"
+  }
+}

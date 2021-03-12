@@ -212,7 +212,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             Assert.Equal("This is standard console output for xunit.", runData.Results[0].AttachmentData.ConsoleLog);
             Assert.Equal("Owner", runData.Results[0].RunBy.DisplayName);
             Assert.Equal("Completed", runData.Results[0].State);
-            Assert.Equal("1042", runData.Results[0].DurationInMs.ToString());
+            Assert.Equal("1042.2319", runData.Results[0].DurationInMs.ToString());
             Assert.Equal("ClassLibrary2.DLL", runData.Results[0].AutomatedTestStorage);
             Assert.Equal("Passed", runData.Results[1].Outcome);
             Assert.Equal("0", runData.Results[1].Priority.ToString());
@@ -291,7 +291,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
                 Assert.Equal("This is standard console output for xunit.", runData.Results[0].AttachmentData.ConsoleLog);
                 Assert.Equal("Owner", runData.Results[0].RunBy.DisplayName);
                 Assert.Equal("Completed", runData.Results[0].State);
-                Assert.Equal("1042", runData.Results[0].DurationInMs.ToString());
+                Assert.Equal("1042,2319", runData.Results[0].DurationInMs.ToString());
                 Assert.Equal("ClassLibrary2.DLL", runData.Results[0].AutomatedTestStorage);
                 Assert.Equal("Passed", runData.Results[1].Outcome);
                 Assert.Equal("0", runData.Results[1].Priority.ToString());
@@ -323,7 +323,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             _xUnitResultFile = "XUnitResults.xml";
             File.WriteAllText(_xUnitResultFile, xunitResults);
             TestRunData runData = reader.ReadResults(_ec.Object, _xUnitResultFile, new TestRunContext("Owner", "any cpu", "debug", 1, "", "releaseUri", "releaseEnvironmentUri"));
-            Assert.Equal(40, (int)runData.Results[0].DurationInMs);
+            Assert.Equal(39, (int)runData.Results[0].DurationInMs);
             DateTime startDate, completeDate;
             DateTime.TryParse(runData.StartDate, DateTimeFormatInfo.InvariantInfo, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out startDate);
             Assert.Equal("2016-06-08T07:12:09.0000000Z", startDate.ToString("o"));
@@ -366,7 +366,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             TestRunData runData = reader.ReadResults(_ec.Object, _xUnitResultFile, new TestRunContext("Owner", "any cpu", "debug", 1, "", "releaseUri", "releaseEnvironmentUri"));
 
             DateTime startDate, completeDate;
-            Assert.Equal(40, (int)runData.Results[0].DurationInMs);
+            Assert.Equal(39, (int)runData.Results[0].DurationInMs);
             DateTime.TryParse(runData.StartDate, out startDate);
             Assert.NotEqual("2016-06-08T07:12:09.0000000", startDate.ToString("o"));
             DateTime.TryParse(runData.CompleteDate, out completeDate);
@@ -388,7 +388,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             File.WriteAllText(_xUnitResultFile, xunitResults);
             TestRunData runData = reader.ReadResults(_ec.Object, _xUnitResultFile, new TestRunContext("Owner", "any cpu", "debug", 1, "", "releaseUri", "releaseEnvironmentUri"));
             DateTime startDate, completeDate;
-            Assert.Equal(40, (int)runData.Results[0].DurationInMs);
+            Assert.Equal(39, (int)runData.Results[0].DurationInMs);
             DateTime.TryParse(runData.StartDate, out startDate);
             Assert.NotEqual("2016-06-08T07:12:09.0000000", startDate.ToString("o"));
             DateTime.TryParse(runData.CompleteDate, out completeDate);
@@ -409,11 +409,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             File.WriteAllText(_xUnitResultFile, xunitResults);
             TestRunData runData = reader.ReadResults(_ec.Object, _xUnitResultFile, new TestRunContext("Owner", "any cpu", "debug", 1, "", "releaseUri", "releaseEnvironmentUri"));
             DateTime startDate, completeDate;
-            Assert.Equal(40, (int)runData.Results[0].DurationInMs);
+            Assert.Equal(39, (int)runData.Results[0].DurationInMs);
             DateTime.TryParse(runData.StartDate, out startDate);
             Assert.NotEqual("2016-06-08T07:12:09.0000000", startDate.ToString("o"));
             DateTime.TryParse(runData.CompleteDate, out completeDate);
-            Assert.Equal((completeDate - startDate).TotalMilliseconds, 10135);
+            Assert.Equal((completeDate - startDate).TotalMilliseconds, 10135.2766);
         }
 
         [Fact]
@@ -574,15 +574,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
 
         public void Dispose()
         {
-            try
+            Dispose(true);
+        }
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
             {
-                File.Delete(_xUnitResultFile);
-            }
-            catch
-            {
+                try
+                {
+                    File.Delete(_xUnitResultFile);
+                }
+                catch
+                {
+                }
             }
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "TestHostContext")]
         private void SetupMocks([CallerMemberName] string name = "")
         {
             TestHostContext hc = new TestHostContext(this, name);
