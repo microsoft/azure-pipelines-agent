@@ -31,7 +31,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         private Mock<ICustomerIntelligenceServer> _mockCustomerIntelligenceServer;
         private Mock<IFeatureFlagService> _mockFeatureFlagService;
         private Variables _variables;
-        private IWorkerCommandRestrictionPolicy _policy = new UnrestricedWorkerCommandRestrictionPolicy();
 
         public ResultsCommandTests()
         {
@@ -62,7 +61,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
                 var command = new Command("results", "publish");
                 command.Properties.Add("resultFiles", "ResultFile.txt");
 
-                Assert.Throws<ArgumentException>(() => resultCommand.ProcessCommand(_ec.Object, command, _policy));
+                Assert.Throws<ArgumentException>(() => resultCommand.ProcessCommand(_ec.Object, command));
             }
         }
 
@@ -76,7 +75,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
                 var resultCommand = new ResultsCommandExtension();
                 resultCommand.Initialize(_hc);
                 var command = new Command("results", "publish");
-                Assert.Throws<ArgumentException>(() => resultCommand.ProcessCommand(_ec.Object, command, _policy));
+                Assert.Throws<ArgumentException>(() => resultCommand.ProcessCommand(_ec.Object, command));
             }
         }
 
@@ -92,7 +91,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
                 var command = new Command("results", "publish");
                 command.Properties.Add("type", "mockResults");
                 command.Data = "testfile1,testfile2";
-                resultCommand.ProcessCommand(_ec.Object, command, _policy);
+                resultCommand.ProcessCommand(_ec.Object, command);
 
                 Assert.Equal(0, _errors.Count());
             }
@@ -143,6 +142,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         private TestHostContext SetupMocks([CallerMemberName] string name = "", bool includePipelineVariables = false)
         {
             var _hc = new TestHostContext(this, name);
+            _hc.SetSingleton(new TaskRestrictionsChecker() as ITaskRestrictionsChecker);
 
             _hc.SetSingleton(_mockTestRunDataPublisher.Object);
             _hc.SetSingleton(_mockParser.Object);
@@ -176,6 +176,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             endpointAuthorization.Parameters[EndpointAuthorizationParameters.AccessToken] = "accesstoken";
 
             _ec = new Mock<IExecutionContext>();
+            _ec.Setup(x => x.Restrictions).Returns(new List<TaskRestrictions>());
             _ec.Setup(x => x.Endpoints).Returns(new List<ServiceEndpoint> { new ServiceEndpoint { Url = new Uri("http://dummyurl"), Name = WellKnownServiceEndpointNames.SystemVssConnection, Authorization = endpointAuthorization } });
             _ec.Setup(x => x.Variables).Returns(_variables);
             var asyncCommands = new List<IAsyncCommandContext>();

@@ -100,22 +100,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     return false;
                 }
 
-                IWorkerCommandRestrictionPolicy restrictionPolicy;
-                if (context.Restrictions.Any(restrictions => restrictions.Commands?.Mode == TaskCommandMode.Restricted))
-                {
-                    restrictionPolicy = new AttributeBasedWorkerCommandRestrictionPolicy();
-                }
-                else
-                {
-                    restrictionPolicy = new UnrestricedWorkerCommandRestrictionPolicy();
-                }
-
                 // process logging command in serialize oreder.
                 lock (_commandSerializeLock)
                 {
                     try
                     {
-                        extension.ProcessCommand(context, command, restrictionPolicy);
+                        extension.ProcessCommand(context, command);
                     }
                     catch (Exception ex)
                     {
@@ -155,7 +145,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         HostTypes SupportedHostTypes { get; }
 
-        void ProcessCommand(IExecutionContext context, Command command, IWorkerCommandRestrictionPolicy policy);
+        void ProcessCommand(IExecutionContext context, Command command);
     }
 
     public interface IWorkerCommand
@@ -165,42 +155,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         List<string> Aliases { get; }
 
         void Execute(IExecutionContext context, Command command);
-    }
-
-    public interface IWorkerCommandRestrictionPolicy
-    {
-        bool isCommandAllowed(IWorkerCommand command);
-    }
-
-    public class UnrestricedWorkerCommandRestrictionPolicy: IWorkerCommandRestrictionPolicy
-    {
-        public bool isCommandAllowed(IWorkerCommand command)
-        {
-            return true;
-        }
-    }
-
-    [ AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
-    public sealed class CommandRestrictionAttribute : Attribute
-    {
-        public bool AllowedInRestrictedMode { get; set; }
-    }
-
-    public class AttributeBasedWorkerCommandRestrictionPolicy: IWorkerCommandRestrictionPolicy
-    {
-        public bool isCommandAllowed(IWorkerCommand command)
-        {
-            ArgUtil.NotNull(command, nameof(command));
-            foreach (var attr in command.GetType().GetCustomAttributes(typeof(CommandRestrictionAttribute), false))
-            {
-                var cra = attr as CommandRestrictionAttribute;
-                if (cra.AllowedInRestrictedMode)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
     }
 
     public abstract class BaseWorkerCommandExtension: AgentService, IWorkerCommandExtension
@@ -242,24 +196,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return commandExecutor;
         }
 
-        public void ProcessCommand(IExecutionContext context, Command command, IWorkerCommandRestrictionPolicy restrictionPolicy)
+        public void ProcessCommand(IExecutionContext context, Command command)
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(command, nameof(command));
-            ArgUtil.NotNull(restrictionPolicy, nameof(restrictionPolicy));
 
             var commandExecutor = GetWorkerCommand(command.Event);
             if (commandExecutor == null)
             {
                 throw new Exception(StringUtil.Loc("CommandNotFound2", CommandArea.ToLowerInvariant(), command.Event, CommandArea));
             }
-            if (restrictionPolicy.isCommandAllowed(commandExecutor))
+
+            var checker = context.GetHostContext().GetService<ITaskRestrictionsChecker>();
+            if (checker.CheckCommand(context, commandExecutor, command))
             {
                 commandExecutor.Execute(context, command);
-            }
-            else
-            {
-                context.Warning(StringUtil.Loc("CommandNotAllowed", command.Area, command.Event));
             }
         }
     }

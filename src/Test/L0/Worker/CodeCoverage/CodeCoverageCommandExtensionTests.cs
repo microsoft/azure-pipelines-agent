@@ -26,7 +26,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
         private Mock<IAsyncCommandContext> _mockCommandContext;
         private List<CodeCoverageStatistics> _codeCoverageStatistics;
         private Variables _variables;
-        private IWorkerCommandRestrictionPolicy _policy = new UnrestricedWorkerCommandRestrictionPolicy();
 
         #region publish code coverage tests
         [Fact]
@@ -40,7 +39,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
                 publishCCCommand.Initialize(_hc);
                 var command = new Command("codecoverage", "publish");
                 command.Properties.Add("summaryfile", "a.xml");
-                Assert.Throws<ArgumentException>(() => publishCCCommand.ProcessCommand(_ec.Object, command, _policy));
+                Assert.Throws<ArgumentException>(() => publishCCCommand.ProcessCommand(_ec.Object, command));
             }
         }
 
@@ -55,7 +54,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
                 publishCCCommand.Initialize(_hc);
                 var command = new Command("codecoverage", "publish");
                 _variables.Set("system.hostType", "release");
-                publishCCCommand.ProcessCommand(_ec.Object, command, _policy);
+                publishCCCommand.ProcessCommand(_ec.Object, command);
                 Assert.Equal(1, _warnings.Count);
                 Assert.Equal(0, _errors.Count);
             }
@@ -71,7 +70,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
                 var publishCCCommand = new CodeCoverageCommandExtension();
                 publishCCCommand.Initialize(_hc);
                 var command = new Command("codecoverage", "publish");
-                Assert.Throws<ArgumentException>(() => publishCCCommand.ProcessCommand(_ec.Object, command, _policy));
+                Assert.Throws<ArgumentException>(() => publishCCCommand.ProcessCommand(_ec.Object, command));
             }
         }
 
@@ -87,7 +86,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
                 var command = new Command("codecoverage", "publish");
                 command.Properties.Add("codecoveragetool", "InvalidTool");
                 command.Properties.Add("summaryfile", "a.xml");
-                Assert.Throws<ArgumentException>(() => publishCCCommand.ProcessCommand(_ec.Object, command, _policy));
+                Assert.Throws<ArgumentException>(() => publishCCCommand.ProcessCommand(_ec.Object, command));
             }
         }
 
@@ -113,7 +112,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
                     command.Properties.Add("codecoveragetool", "cobertura");
                     command.Properties.Add("summaryfile", coberturaXml);
                     command.Properties.Add("reportdirectory", reportDirectory);
-                    publishCCCommand.ProcessCommand(_ec.Object, command, _policy);
+                    publishCCCommand.ProcessCommand(_ec.Object, command);
                     Assert.Equal(0, _warnings.Count);
                     Assert.Equal(0, _errors.Count);
                     _mockCodeCoveragePublisher.Verify(x => x.PublishCodeCoverageSummaryAsync(It.IsAny<IAsyncCommandContext>(), It.IsAny<IEnumerable<CodeCoverageStatistics>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()));
@@ -149,7 +148,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
                     command.Properties.Add("codecoveragetool", "mockCCTool");
                     command.Properties.Add("summaryfile", summaryFile);
                     command.Properties.Add("reportdirectory", reportDirectory);
-                    publishCCCommand.ProcessCommand(_ec.Object, command, _policy);
+                    publishCCCommand.ProcessCommand(_ec.Object, command);
                     Assert.Equal(0, _warnings.Count);
                     Assert.Equal(0, _errors.Count);
                     _mockCodeCoveragePublisher.Verify(x => x.PublishCodeCoverageSummaryAsync(It.IsAny<IAsyncCommandContext>(), It.IsAny<IEnumerable<CodeCoverageStatistics>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()));
@@ -185,7 +184,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
                     command.Properties.Add("codecoveragetool", "mockCCTool");
                     command.Properties.Add("summaryfile", summaryFile);
                     command.Properties.Add("reportdirectory", reportDirectory);
-                    publishCCCommand.ProcessCommand(_ec.Object, command, _policy);
+                    publishCCCommand.ProcessCommand(_ec.Object, command);
                     Assert.Equal(0, _warnings.Count);
                     Assert.Equal(0, _errors.Count);
                     _mockCodeCoveragePublisher.Verify(x => x.PublishCodeCoverageSummaryAsync(It.IsAny<IAsyncCommandContext>(), It.IsAny<IEnumerable<CodeCoverageStatistics>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()));
@@ -218,7 +217,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
                     command.Properties.Add("summaryfile", summaryFile);
                     _mocksummaryReader.Setup(x => x.GetCodeCoverageSummary(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
                     .Returns((List<CodeCoverageStatistics>)null);
-                    publishCCCommand.ProcessCommand(_ec.Object, command, _policy);
+                    publishCCCommand.ProcessCommand(_ec.Object, command);
                     Assert.Equal(1, _warnings.Count);
                     Assert.Equal(0, _errors.Count);
                     _mockCodeCoveragePublisher.Verify(x => x.PublishCodeCoverageFilesAsync(It.IsAny<IAsyncCommandContext>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<List<Tuple<string, string>>>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()));
@@ -249,7 +248,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
                     command.Properties.Add("codecoveragetool", "mockCCTool");
                     command.Properties.Add("summaryfile", summaryFile);
                     command.Properties.Add("reportdirectory", reportDirectory);
-                    publishCCCommand.ProcessCommand(_ec.Object, command, _policy);
+                    publishCCCommand.ProcessCommand(_ec.Object, command);
                     Assert.Equal(0, _warnings.Count);
                     Assert.Equal(0, _errors.Count);
                     _mockCodeCoveragePublisher.Verify(x => x.PublishCodeCoverageSummaryAsync(It.IsAny<IAsyncCommandContext>(), It.IsAny<IEnumerable<CodeCoverageStatistics>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()));
@@ -280,7 +279,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
                     command.Properties.Add("codecoveragetool", "mockCCTool");
                     command.Properties.Add("summaryfile", summaryFile);
                     command.Properties.Add("additionalcodecoveragefiles", summaryFile);
-                    publishCCCommand.ProcessCommand(_ec.Object, command, _policy);
+                    publishCCCommand.ProcessCommand(_ec.Object, command);
                     Assert.Equal(0, _warnings.Count);
                     Assert.Equal(0, _errors.Count);
                     _mockCodeCoveragePublisher.Verify(x => x.PublishCodeCoverageSummaryAsync(It.IsAny<IAsyncCommandContext>(), It.IsAny<IEnumerable<CodeCoverageStatistics>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()));
@@ -314,7 +313,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
                     command.Properties.Add("summaryfile", summaryFile);
                     command.Properties.Add("reportdirectory", reportDirectory);
                     command.Properties.Add("additionalcodecoveragefiles", summaryFile);
-                    publishCCCommand.ProcessCommand(_ec.Object, command, _policy);
+                    publishCCCommand.ProcessCommand(_ec.Object, command);
                     Assert.Equal(0, _warnings.Count);
                     Assert.Equal(0, _errors.Count);
                     _mockCodeCoveragePublisher.Verify(x => x.PublishCodeCoverageSummaryAsync(It.IsAny<IAsyncCommandContext>(), It.IsAny<IEnumerable<CodeCoverageStatistics>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()));
@@ -332,6 +331,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
         private TestHostContext SetupMocks([CallerMemberName] string name = "")
         {
             var _hc = new TestHostContext(this, name);
+            _hc.SetSingleton(new TaskRestrictionsChecker() as ITaskRestrictionsChecker);
             _codeCoverageStatistics = new List<CodeCoverageStatistics> { new CodeCoverageStatistics { Label = "label", Covered = 10, Total = 10, Position = 1 } };
             _mocksummaryReader = new Mock<ICodeCoverageSummaryReader>();
             if (String.Equals(name, "Publish_CoberturaNewIndexFile"))
@@ -366,6 +366,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
             endpointAuthorization.Parameters[EndpointAuthorizationParameters.AccessToken] = "accesstoken";
 
             _ec = new Mock<IExecutionContext>();
+            _ec.Setup(x => x.Restrictions).Returns(new List<TaskRestrictions>());
             _ec.Setup(x => x.Endpoints).Returns(new List<ServiceEndpoint> { new ServiceEndpoint { Url = new Uri("http://dummyurl"), Name = WellKnownServiceEndpointNames.SystemVssConnection, Authorization = endpointAuthorization } });
             _ec.Setup(x => x.Variables).Returns(_variables);
             _ec.Setup(x => x.TranslateToHostPath(It.IsAny<string>())).Returns( (string x) => x );
