@@ -30,6 +30,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 context,
                 (TaskRestrictions restrictions) => restrictions.IsCommandAllowed(workerCommand),
                 () => context.Warning(StringUtil.Loc("CommandNotAllowed", command.Area, command.Event)),
+                () => context.Warning(StringUtil.Loc("CommandNotAllowedWarnOnly", command.Area, command.Event)),
                 (TaskDefinitionRestrictions restrictions) => PublishCommandTelemetry(context, restrictions, command));
         }
 
@@ -42,18 +43,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 context,
                 (TaskRestrictions restrictions) => restrictions.IsSetVariableAllowed(variable),
                 () => context.Warning(StringUtil.Loc("SetVariableNotAllowed", variable)),
+                () => context.Warning(StringUtil.Loc("SetVariableNotAllowedWarnOnly", variable)),
                 (TaskDefinitionRestrictions restrictions) => PublishVariableTelemetry(context, restrictions, variable));
         }
 
         private bool Check(
             IExecutionContext context,
             Func<TaskRestrictions, bool> predicate,
-            Action warn,
+            Action enforcedWarn,
+            Action unenforcedWarn,
             Action<TaskDefinitionRestrictions> publishTelemetry)
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(predicate, nameof(predicate));
-            ArgUtil.NotNull(warn, nameof(warn));
+            ArgUtil.NotNull(enforcedWarn, nameof(enforcedWarn));
+            ArgUtil.NotNull(unenforcedWarn, nameof(unenforcedWarn));
             ArgUtil.NotNull(publishTelemetry, nameof(publishTelemetry));
 
             var failedMatches = context.Restrictions?.Where(restrictions => !predicate(restrictions));
@@ -79,14 +83,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 if (String.Equals(mode, "Enabled", StringComparison.OrdinalIgnoreCase) || taskMatches.Count() != failedMatches.Count())
                 {
                     // we are enforcing restrictions from tasks, or we matched restrictions from the pipeline, which we always enforce
-                    warn();
+                    enforcedWarn();
                     return false;
                 }
                 else
                 {
                     if (!String.Equals(mode, "Disabled", StringComparison.OrdinalIgnoreCase))
                     {
-                        warn();
+                        unenforcedWarn();
                     }
                     return true;
                 }

@@ -275,7 +275,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 if (warningExpected)
                 {
                     Assert.Equal(1, _warnings.Count);
-                    Assert.Contains("SetVariableNotAllowed", _warnings[0]);
+                    if (variableExpected)
+                    {
+                        Assert.EndsWith("SetVariableNotAllowedWarnOnly", _warnings[0]);
+                    }
+                    else
+                    {
+                        Assert.EndsWith("SetVariableNotAllowed", _warnings[0]);
+                    }
                 }
                 else
                 {
