@@ -40,9 +40,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             return Check(
                 context,
-                restrictions => restrictions.IsSetVariableAllowed(variable),
+                (TaskRestrictions restrictions) => restrictions.IsSetVariableAllowed(variable),
                 () => context.Warning(StringUtil.Loc("SetVariableNotAllowed", variable)),
-                restrictions => PublishVariableTelemetry(context, restrictions, variable));
+                (TaskDefinitionRestrictions restrictions) => PublishVariableTelemetry(context, restrictions, variable));
         }
 
         private bool Check(
