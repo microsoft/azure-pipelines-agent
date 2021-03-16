@@ -28,7 +28,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             return Check(
                 context,
-                (TaskRestrictions restrictions) => !restrictions.IsCommandAllowed(workerCommand),
+                (TaskRestrictions restrictions) => restrictions.IsCommandAllowed(workerCommand),
                 () => context.Warning(StringUtil.Loc("CommandNotAllowed", command.Area, command.Event)),
                 (TaskDefinitionRestrictions restrictions) => PublishCommandTelemetry(context, restrictions, command));
         }
@@ -40,7 +40,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             return Check(
                 context,
-                restrictions => !restrictions.IsSetVariableAllowed(variable),
+                restrictions => restrictions.IsSetVariableAllowed(variable),
                 () => context.Warning(StringUtil.Loc("SetVariableNotAllowed", variable)),
                 restrictions => PublishVariableTelemetry(context, restrictions, variable));
         }
@@ -56,7 +56,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(warn, nameof(warn));
             ArgUtil.NotNull(publishTelemetry, nameof(publishTelemetry));
 
-            var matches = context.Restrictions?.Where(predicate);
+            var matches = context.Restrictions?.Where(restrictions => !predicate(restrictions));
 
             if (matches.IsNullOrEmpty())
             {
