@@ -56,15 +56,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(warn, nameof(warn));
             ArgUtil.NotNull(publishTelemetry, nameof(publishTelemetry));
 
-            var matches = context.Restrictions?.Where(restrictions => !predicate(restrictions));
+            var failedMatches = context.Restrictions?.Where(restrictions => !predicate(restrictions));
 
-            if (matches.IsNullOrEmpty())
+            if (failedMatches.IsNullOrEmpty())
             {
                 return true;
             }
             else
             {
-                var taskMatches = matches.Where(restrictions => restrictions is TaskDefinitionRestrictions).Cast<TaskDefinitionRestrictions>();
+                var taskMatches = failedMatches.Where(restrictions => restrictions is TaskDefinitionRestrictions).Cast<TaskDefinitionRestrictions>();
 
                 if(AgentKnobs.EnableTaskRestrictionsTelemetry.GetValue(context).AsBoolean())
                 {
@@ -76,7 +76,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 string mode = AgentKnobs.TaskRestrictionsEnforcementMode.GetValue(context).AsString();
 
-                if (String.Equals(mode, "Enabled", StringComparison.OrdinalIgnoreCase) || taskMatches.Count() != matches.Count())
+                if (String.Equals(mode, "Enabled", StringComparison.OrdinalIgnoreCase) || taskMatches.Count() != failedMatches.Count())
                 {
                     // we are enforcing restrictions from tasks, or we matched restrictions from the pipeline, which we always enforce
                     warn();
