@@ -28,9 +28,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             return Check(
                 context,
-                restrictions => !restrictions.IsCommandAllowed(workerCommand),
+                (TaskRestrictions restrictions) => !restrictions.IsCommandAllowed(workerCommand),
                 () => context.Warning(StringUtil.Loc("CommandNotAllowed", command.Area, command.Event)),
-                restrictions => PublishCommandTelemetry(context, restrictions, command));
+                (TaskDefinitionRestrictions restrictions) => PublishCommandTelemetry(context, restrictions, command));
         }
 
         public bool CheckSettableVariable(IExecutionContext context, string variable)
