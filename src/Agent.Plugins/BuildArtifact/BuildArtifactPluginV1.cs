@@ -204,7 +204,11 @@ namespace Agent.Plugins.BuildArtifacts
                         {
                             triggeringPipeline = context.Variables.GetValueOrDefault("release.artifacts." + releaseAlias ?? string.Empty + ".buildId")?.Value;
                         }
-                        Guid.TryParse(context.Variables.GetValueOrDefault("release.artifacts." + releaseAlias + ".projectId")?.Value, out projectId);
+                        var triggeredProjectIdStr = context.Variables.GetValueOrDefault("release.artifacts." + releaseAlias + ".projectId")?.Value;
+                        if (!string.IsNullOrWhiteSpace(triggeredProjectIdStr) && Guid.TryParse(triggeredProjectIdStr, out var triggeredProjectId))
+                        {
+                            projectId = triggeredProjectId;
+                        }
                     }
                     else
                     {
@@ -212,6 +216,11 @@ namespace Agent.Plugins.BuildArtifacts
                         if (!string.IsNullOrWhiteSpace(definitionIdTriggered) && definitionIdTriggered.Equals(definition, StringComparison.OrdinalIgnoreCase))
                         {
                             triggeringPipeline = context.Variables.GetValueOrDefault("build.triggeredBy.buildId")?.Value;
+                        }
+                        var triggeredProjectIdStr = context.Variables.GetValueOrDefault("build.triggeredBy.projectId")?.Value;
+                        if (!string.IsNullOrWhiteSpace(triggeredProjectIdStr) && Guid.TryParse(triggeredProjectIdStr, out var triggeredProjectId))
+                        {
+                            projectId = triggeredProjectId;
                         }
                     }
 
