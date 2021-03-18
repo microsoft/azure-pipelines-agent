@@ -214,6 +214,7 @@
     ".{0}config.{1} remove --unattended --auth negotiate --username myDomain\\myUserName --password myPassword"
   ],
   "CommandNotAllowed": "##vso[{0}.{1}] is not allowed in this step due to policy restrictions. Please reference documentation (http://go.microsoft.com/fwlink/?LinkId=817296)",
+  "CommandNotAllowedWarnOnly": "##vso[{0}.{1}] has been declared as disallowed due to policy restrictions. This command will be suppressed at a future date. Please reference documentation (http://go.microsoft.com/fwlink/?LinkId=817296)",
   "CommandNotFound": "Cannot find command extension for ##vso[{0}.command]. Please reference documentation (http://go.microsoft.com/fwlink/?LinkId=817296)",
   "CommandNotFound2": "##vso[{0}.{1}] is not a recognized command for {2} command extension. Please reference documentation (http://go.microsoft.com/fwlink/?LinkId=817296).",
   "CommandNotSupported": "{0} commands are not supported for {1} flow. Please reference documentation (http://go.microsoft.com/fwlink/?LinkId=817296)",
@@ -560,6 +561,7 @@
   "SetBuildVars": "Set build variables.",
   "SetEnvVar": "Setting environment variable {0}",
   "SetVariableNotAllowed": "Setting variable '{0}' has been disabled by the task or build definition.",
+  "SetVariableNotAllowedWarnOnly": "Setting variable '{0}' has been declared as disallowed by the task or build definition. This command will be suppressed at a future date.",
   "ShallowCheckoutFail": "Git checkout failed on shallow repository, this might because of git fetch with depth '{0}' doesn't include the checkout commit '{1}'. Please reference documentation (http://go.microsoft.com/fwlink/?LinkId=829603)",
   "ShallowLfsFetchFail": "Git lfs fetch failed on shallow repository, this might because of git fetch with depth '{0}' doesn't include the lfs fetch commit '{1}'. Please reference documentation (http://go.microsoft.com/fwlink/?LinkId=829603)",
   "ShutdownMessage": "Restarting the machine in order to launch agent in interactive mode.",
