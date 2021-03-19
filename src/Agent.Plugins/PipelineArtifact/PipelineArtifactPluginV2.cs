@@ -91,6 +91,7 @@ namespace Agent.Plugins.PipelineArtifact
             string defaultWorkingDirectory = context.Variables.GetValueOrDefault("system.defaultworkingdirectory").Value;
 
             targetPath = Path.IsPathFullyQualified(targetPath) ? targetPath : Path.GetFullPath(Path.Combine(defaultWorkingDirectory, targetPath));
+            context.Debug($"TargetPath: {targetPath}");
 
             bool onPrem = !String.Equals(context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.ServerType)?.Value, "Hosted", StringComparison.OrdinalIgnoreCase);
             
@@ -103,6 +104,7 @@ namespace Agent.Plugins.PipelineArtifact
             {
                 throw new ArgumentException(StringUtil.Loc("ArtifactNameIsNotValid", artifactName));
             }
+            context.Debug($"ArtifactName: {artifactName}");
 
             string[] minimatchPatterns = itemPattern.Split(
                 new[] { "\n" },
@@ -127,12 +129,14 @@ namespace Agent.Plugins.PipelineArtifact
                 allowCanceledBuildsBool = false;
             }
             var resultFilter = GetResultFilter(allowPartiallySucceededBuildsBool, allowFailedBuildsBool, allowCanceledBuildsBool);
+            context.Debug($"BuildResult: {resultFilter.ToString()}");
 
             PipelineArtifactServer server = new PipelineArtifactServer(tracer);
             ArtifactDownloadParameters downloadParameters;
 
             if (sourceRun == sourceRunCurrent)
             {
+                context.Debug("Run: CurrentRun");
                 // TODO: use a constant for project id, which is currently defined in Microsoft.VisualStudio.Services.Agent.Constants.Variables.System.TeamProjectId (Ting)
                 string projectIdStr = context.Variables.GetValueOrDefault("system.teamProjectId")?.Value;
                 if (String.IsNullOrEmpty(projectIdStr))
@@ -142,6 +146,7 @@ namespace Agent.Plugins.PipelineArtifact
                 
                 Guid projectId = Guid.Parse(projectIdStr);
                 ArgUtil.NotEmpty(projectId, nameof(projectId));
+                context.Debug($"ProjectId: {projectId.ToString()}");
 
                 int pipelineId = 0;
                 if (int.TryParse(environmentBuildId, out pipelineId) && pipelineId != 0)
@@ -180,6 +185,7 @@ namespace Agent.Plugins.PipelineArtifact
             }
             else if (sourceRun == sourceRunSpecific)
             {
+                context.Debug("Run: Specific");
                 if (String.IsNullOrEmpty(projectName))
                 {
                     throw new ArgumentNullException(StringUtil.Loc("CannotBeNullOrEmpty"), "Project Name");
@@ -190,29 +196,35 @@ namespace Agent.Plugins.PipelineArtifact
                 {
                     projectId = await GetProjectIdAsync(context, projectName);
                 }
+                context.Debug($"ProjectId: {projectId.ToString()}");
                 // Set the default pipelineId to 0, which is an invalid build id and it has to be reassigned to a valid build id.
                 int pipelineId = 0;
 
                 bool pipelineTriggeringBool;
                 if (bool.TryParse(pipelineTriggering, out pipelineTriggeringBool) && pipelineTriggeringBool)
                 {
+                    context.Debug("TrigerringPipeline: true");
                     string hostType = context.Variables.GetValueOrDefault("system.hostType").Value;
                     string triggeringPipeline = null;
                     if (!string.IsNullOrWhiteSpace(hostType) && !hostType.Equals("build", StringComparison.OrdinalIgnoreCase)) // RM env.
                     {
+                        context.Debug("Environment: Release");
                         var releaseAlias = context.Variables.GetValueOrDefault("release.triggeringartifact.alias")?.Value;
                         var definitionIdTriggered = context.Variables.GetValueOrDefault("release.artifacts." + releaseAlias ?? string.Empty + ".definitionId")?.Value;
                         if (!string.IsNullOrWhiteSpace(definitionIdTriggered) && definitionIdTriggered.Equals(pipelineDefinition, StringComparison.OrdinalIgnoreCase))
                         {
                             triggeringPipeline = context.Variables.GetValueOrDefault("release.artifacts." + releaseAlias ?? string.Empty + ".buildId")?.Value;
+                            context.Debug($"TrigerringPipeline: {triggeringPipeline}");
                         }
                     }
                     else
                     {
+                        context.Debug("Environment: Build");
                         var definitionIdTriggered = context.Variables.GetValueOrDefault("build.triggeredBy.definitionId")?.Value;
                         if (!string.IsNullOrWhiteSpace(definitionIdTriggered) && definitionIdTriggered.Equals(pipelineDefinition, StringComparison.OrdinalIgnoreCase))
                         {
                             triggeringPipeline = context.Variables.GetValueOrDefault("build.triggeredBy.buildId")?.Value;
+                            context.Debug($"TrigerringPipeline: {triggeringPipeline}");
                         }
                     }
 
@@ -220,10 +232,12 @@ namespace Agent.Plugins.PipelineArtifact
                     {
                         pipelineId = int.Parse(triggeringPipeline);
                     }
+                    context.Debug($"PipelineId from trigerringBuild: {pipelineId}");
                 }
 
                 if (pipelineId == 0)
                 {
+                    context.Debug($"PipelineVersionToDownload: {pipelineVersionToDownload}");
                     if (pipelineVersionToDownload == pipelineVersionToDownloadLatest)
                     {
                         pipelineId = await this.GetPipelineIdAsync(context, pipelineDefinition, pipelineVersionToDownload, projectId.ToString(), tagsInput, resultFilter, null, cancellationToken: token);
@@ -244,6 +258,7 @@ namespace Agent.Plugins.PipelineArtifact
                     {
                         throw new InvalidOperationException("Unreachable code!");
                     }
+                    context.Debug($"PipelineId from non-trigerringBuild: {pipelineId}");
                 }
 
                 OutputBuildInfo(context, pipelineId);
