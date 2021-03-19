@@ -18,7 +18,7 @@ using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 
-namespace Agent.Plugins.PipelineArtifact
+namespace Agent.Plugins
 {
     // A wrapper of DedupManifestArtifactClient, providing basic functionalities such as uploading and downloading pipeline artifacts.
     public class PipelineArtifactServer
@@ -107,7 +107,7 @@ namespace Agent.Plugins.PipelineArtifact
             string targetDir,
             CancellationToken cancellationToken)
         {
-            var downloadParameters = new PipelineArtifactDownloadParameters
+            var downloadParameters = new ArtifactDownloadParameters
             {
                 ProjectRetrievalOptions = BuildArtifactRetrievalOptions.RetrieveByProjectId,
                 ProjectId = projectId,
@@ -122,7 +122,7 @@ namespace Agent.Plugins.PipelineArtifact
         // Download with minimatch patterns, V1.
         internal async Task DownloadAsync(
             AgentTaskPluginExecutionContext context,
-            PipelineArtifactDownloadParameters downloadParameters,
+            ArtifactDownloadParameters downloadParameters,
             DownloadOptions downloadOptions, 
             CancellationToken cancellationToken)
         {
@@ -263,7 +263,7 @@ namespace Agent.Plugins.PipelineArtifact
         // Download for version 2. This decision was made because version 1 is sealed and we didn't want to break any existing customers.
         internal async Task DownloadAsyncV2(
             AgentTaskPluginExecutionContext context,
-            PipelineArtifactDownloadParameters downloadParameters,
+            ArtifactDownloadParameters downloadParameters,
             DownloadOptions downloadOptions,
             CancellationToken cancellationToken)
         {
@@ -310,7 +310,7 @@ namespace Agent.Plugins.PipelineArtifact
                     await provider.DownloadMultipleArtifactsAsync(downloadParameters, pipelineArtifacts, cancellationToken, context);
                 }
 
-                if(fileShareArtifacts.Any()) 
+                if (fileShareArtifacts.Any()) 
                 {
                     FileShareProvider provider = new FileShareProvider(context, connection, this.tracer);
                     await provider.DownloadMultipleArtifactsAsync(downloadParameters, fileShareArtifacts, cancellationToken, context);
@@ -350,33 +350,6 @@ namespace Agent.Plugins.PipelineArtifact
                 throw new InvalidOperationException($"Invalid {nameof(downloadOptions)}!");
             }
         }
-    }
-
-    internal class PipelineArtifactDownloadParameters
-    {
-        /// <remarks>
-        /// Options on how to retrieve the build using the following parameters.
-        /// </remarks>
-        public BuildArtifactRetrievalOptions ProjectRetrievalOptions { get; set; }
-        /// <remarks>
-        /// Either project ID or project name need to be supplied.
-        /// </remarks>
-        public Guid ProjectId { get; set; }
-        /// <remarks>
-        /// Either project ID or project name need to be supplied.
-        /// </remarks>
-        public string ProjectName { get; set; }
-        public int PipelineId { get; set; }
-        public string ArtifactName { get; set; }
-        public string TargetDirectory { get; set; }
-        public string[] MinimatchFilters { get; set; }
-        public bool  MinimatchFilterWithArtifactName {get; set;}
-    }
-
-    internal enum BuildArtifactRetrievalOptions
-    {
-        RetrieveByProjectId,
-        RetrieveByProjectName
     }
 
     internal enum DownloadOptions

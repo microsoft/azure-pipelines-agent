@@ -15,7 +15,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
     {
         private Mock<IExecutionContext> _ec;
         private ServiceEndpoint _endpoint;
-        private IWorkerCommandRestrictionPolicy _policy = new UnrestricedWorkerCommandRestrictionPolicy();
 
         [Fact]
         [Trait("Level", "L0")]
@@ -32,7 +31,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 cmd.Properties.Add("id", Guid.Empty.ToString());
                 cmd.Properties.Add("key", "test");
 
-                commandExtension.ProcessCommand(_ec.Object, cmd, _policy);
+                commandExtension.ProcessCommand(_ec.Object, cmd);
 
                 Assert.Equal(_endpoint.Authorization.Parameters["test"], "blah");
             }
@@ -52,7 +51,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 cmd.Properties.Add("id", Guid.Empty.ToString());
                 cmd.Properties.Add("key", "test");
 
-                commandExtension.ProcessCommand(_ec.Object, cmd, _policy);
+                commandExtension.ProcessCommand(_ec.Object, cmd);
 
                 Assert.Equal(_endpoint.Data["test"], "blah");
             }
@@ -71,7 +70,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 cmd.Properties.Add("field", "url");
                 cmd.Properties.Add("id", Guid.Empty.ToString());
 
-                commandExtension.ProcessCommand(_ec.Object, cmd, _policy);
+                commandExtension.ProcessCommand(_ec.Object, cmd);
 
                 Assert.Equal(_endpoint.Url.ToString(), cmd.Data);
             }
@@ -86,7 +85,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             {
                 TaskCommandExtension commandExtension = new TaskCommandExtension();
                 var cmd = new Command("task", "setEndpoint");
-                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
+                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
             }
         }
 
@@ -100,7 +99,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 TaskCommandExtension commandExtension = new TaskCommandExtension();
                 var cmd = new Command("task", "setEndpoint");
 
-                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
+                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
             }
         }
 
@@ -115,7 +114,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var cmd = new Command("task", "setEndpoint");
                 cmd.Properties.Add("field", "blah");
 
-                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
+                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
             }
         }
 
@@ -130,7 +129,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var cmd = new Command("task", "setEndpoint");
                 cmd.Properties.Add("field", "url");
 
-                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
+                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
             }
         }
 
@@ -146,7 +145,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 cmd.Properties.Add("field", "url");
                 cmd.Properties.Add("id", "blah");
 
-                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
+                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
             }
         }
 
@@ -162,7 +161,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 cmd.Properties.Add("field", "authParameter");
                 cmd.Properties.Add("id", Guid.Empty.ToString());
 
-                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
+                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
             }
         }
 
@@ -179,13 +178,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 cmd.Properties.Add("field", "url");
                 cmd.Properties.Add("id", Guid.Empty.ToString());
 
-                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd, _policy));
+                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
             }
         }
 
         private TestHostContext SetupMocks([CallerMemberName] string name = "")
         {
             var _hc = new TestHostContext(this, name);
+            _hc.SetSingleton(new TaskRestrictionsChecker() as ITaskRestrictionsChecker);
             _ec = new Mock<IExecutionContext>();
 
             _endpoint = new ServiceEndpoint()

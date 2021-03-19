@@ -3,11 +3,12 @@
 
 using System;
 using Agent.Sdk;
+using Agent.Plugins.PipelineArtifact;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 
-namespace Agent.Plugins.PipelineArtifact
+namespace Agent.Plugins
 {
     internal class ArtifactProviderFactory
     {

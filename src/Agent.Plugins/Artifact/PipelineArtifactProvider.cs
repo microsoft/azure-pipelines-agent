@@ -16,7 +16,7 @@ using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common;
 
-namespace Agent.Plugins.PipelineArtifact
+namespace Agent.Plugins
 {
     internal class PipelineArtifactProvider : IArtifactProvider
     {
@@ -52,7 +52,7 @@ namespace Agent.Plugins.PipelineArtifact
             var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, parallelism);
         }
 
-        public async Task DownloadSingleArtifactAsync(PipelineArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
+        public async Task DownloadSingleArtifactAsync(ArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClientAsync(
                 this.context.IsSystemDebugTrue(), (str) => this.context.Output(str), this.connection, cancellationToken);
@@ -88,7 +88,7 @@ namespace Agent.Plugins.PipelineArtifact
             }
         }
 
-        public async Task DownloadMultipleArtifactsAsync(PipelineArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
+        public async Task DownloadMultipleArtifactsAsync(ArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClientAsync(
                 this.context.IsSystemDebugTrue(), (str) => this.context.Output(str), this.connection, cancellationToken);

@@ -326,6 +326,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
     public sealed class DefinitionData
     {
+        public DefinitionVersion Version { get; set; }
+        public string Name { get; set; }
         public string FriendlyName { get; set; }
         public string Description { get; set; }
         public string HelpMarkDown { get; set; }
@@ -337,6 +339,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public ExecutionData Execution { get; set; }
         public ExecutionData PostJobExecution { get; set; }
         public TaskRestrictions Restrictions { get; set; }
+    }
+
+    public sealed class DefinitionVersion
+    {
+        public int Major { get; set; }
+        public int Minor { get; set; }
+        public int Patch { get; set; }
     }
 
     public sealed class OutputVariable

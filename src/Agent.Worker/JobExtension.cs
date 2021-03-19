@@ -205,7 +205,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         var restrictions = new List<TaskRestrictions>();
                         if (taskDefinition.Data.Restrictions != null)
                         {
-                            restrictions.Add(taskDefinition.Data.Restrictions);
+                            restrictions.Add(new TaskDefinitionRestrictions(taskDefinition.Data));
                         }
                         if (string.Equals(WellKnownStepTargetStrings.Restricted, task.Target?.Commands, StringComparison.OrdinalIgnoreCase))
                         {

@@ -9,7 +9,7 @@ using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 
-namespace Agent.Plugins.PipelineArtifact
+namespace Agent.Plugins
 {
     // A client wrapper interacting with TFS/Build's Artifact API
     public class BuildServer
