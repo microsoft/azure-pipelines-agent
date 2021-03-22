@@ -6,6 +6,7 @@
 ## Bugs
  - Revert "Self-hosted agent cleaning source folder (#3237)" (#3297)
  - Fix the triggering build logic for Download Pipeline Artifact (#3313)
+ - Git version update to solved vulnulability #3325 (#3331)
 
 ## Misc
 
@@ -76,7 +77,7 @@ C:\myagent> Add-Type -AssemblyName System.IO.Compression.FileSystem ; [System.IO
 
 ## Alternate Agent Downloads
 
-This following alternate packages do not include Node 6 and are only suitable for users who do not use Node 6 dependent tasks. 
+This following alternate packages do not include Node 6 and are only suitable for users who do not use Node 6 dependent tasks.
 See [notes](docs/node6.md) on Node version support for more details.
 
 |             | Package |
