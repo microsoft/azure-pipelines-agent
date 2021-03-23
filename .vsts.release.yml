@@ -68,7 +68,7 @@ extends:
         ################################################################################
           displayName: Publish Agents (Windows/Linux/OSX)
           pool:
-            name: AzDevProdRMAgents
+            name: RMAgentsProdAME
           steps:
 
           # Clean
