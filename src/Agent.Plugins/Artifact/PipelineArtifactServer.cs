@@ -7,7 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
-using Agent.Sdk.Blob;
+using Microsoft.VisualStudio.Services.Agent.Blob;
 using Agent.Plugins.PipelineArtifact.Telemetry;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;

@@ -9,11 +9,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using BuildXL.Cache.ContentStore.Hashing;
 using Microsoft.VisualStudio.Services.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Blob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using BlobIdentifierWithBlocks = Microsoft.VisualStudio.Services.BlobStore.Common.BlobIdentifierWithBlocks;
+using VsoHash = Microsoft.VisualStudio.Services.BlobStore.Common.VsoHash;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
+using Microsoft.VisualStudio.Services.BlobStore.Common;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -26,6 +29,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         Task<TaskLog> AppendLogContentAsync(Guid scopeIdentifier, string hubName, Guid planId, int logId, Stream uploadStream, CancellationToken cancellationToken);
         Task AppendTimelineRecordFeedAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, Guid timelineRecordId, Guid stepId, IList<string> lines, long startLine, CancellationToken cancellationToken);
         Task<TaskAttachment> CreateAttachmentAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, Guid timelineRecordId, String type, String name, Stream uploadStream, CancellationToken cancellationToken);
+        Task<TaskAttachment> AssosciateAttachmentAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, Guid timelineRecordId, string type, string name, DedupIdentifier dedupId, long length, CancellationToken cancellationToken);
         Task<TaskLog> CreateLogAsync(Guid scopeIdentifier, string hubName, Guid planId, TaskLog log, CancellationToken cancellationToken);
         Task<Timeline> CreateTimelineAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, CancellationToken cancellationToken);
         Task<List<TimelineRecord>> UpdateTimelineRecordsAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, IEnumerable<TimelineRecord> records, CancellationToken cancellationToken);
@@ -33,6 +37,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         Task<Timeline> GetTimelineAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, CancellationToken cancellationToken);
         Task<TaskLog> AssociateLogAsync(Guid scopeIdentifier, string hubName, Guid planId, int logId, BlobIdentifierWithBlocks blobBlockId, int lineCount, CancellationToken cancellationToken);
         Task<BlobIdentifierWithBlocks> UploadLogToBlobstorageService(Stream blob, string hubName, Guid planId, int logId);
+        Task<(DedupIdentifier dedupId, ulong length)> UploadToBlobStore(bool verbose, string itemPath, CancellationToken cancellationToken);
     }
 
     public sealed class JobServer : AgentService, IJobServer
@@ -96,6 +101,12 @@ namespace Microsoft.VisualStudio.Services.Agent
             return _taskClient.CreateAttachmentAsync(scopeIdentifier, hubName, planId, timelineId, timelineRecordId, type, name, uploadStream, cancellationToken: cancellationToken);
         }
 
+        public Task<TaskAttachment> AssosciateAttachmentAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, Guid timelineRecordId, string type, string name, DedupIdentifier dedupId, long length, CancellationToken cancellationToken)
+        {
+            CheckConnection();
+            return _taskClient.CreateAttachmentFromArtifactAsync(scopeIdentifier, hubName, planId, timelineId, timelineRecordId, type, name, dedupId.ValueString, length, cancellationToken: cancellationToken);
+        }
+
         public Task<TaskLog> CreateLogAsync(Guid scopeIdentifier, string hubName, Guid planId, TaskLog log, CancellationToken cancellationToken)
         {
             CheckConnection();
@@ -142,10 +153,44 @@ namespace Microsoft.VisualStudio.Services.Agent
             // Since we read this while calculating the hash, the position needs to be reset before we send this 
             blob.Position = 0;
 
-            using(var blobClient = CreateArtifactsClient(_connection, default(CancellationToken)))
+            using (var blobClient = CreateArtifactsClient(_connection, default(CancellationToken)))
             {
                 return await blobClient.UploadBlocksForBlobAsync(blobId, blob, default(CancellationToken));
             }
+        }
+
+        public async Task<(DedupIdentifier dedupId, ulong length)> UploadToBlobStore(bool verbose, string itemPath, CancellationToken cancellationToken)
+        {
+            var (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
+                    .CreateDedupClientAsync(verbose, (str) => Trace.Info(str), this._connection, cancellationToken);
+
+            // Create chunks and identifier
+            var chunk = await ChunkerHelper.CreateFromFileAsync(FileSystem.Instance, itemPath, cancellationToken, false);
+            var rootNode = new DedupNode(new []{ chunk});
+            var dedupId = rootNode.GetDedupIdentifier(HashType.Dedup64K);
+
+            // Setup upload session to keep file for at mimimum one day
+            var tracer = DedupManifestArtifactClientFactory.CreateArtifactsTracer(verbose, (str) => Trace.Info(str));
+            var keepUntulRef = new KeepUntilBlobReference(DateTime.UtcNow.AddDays(1));
+            var uploadSession = dedupClient.CreateUploadSession(keepUntulRef, tracer, FileSystem.Instance);
+
+            // Upload the chunks
+            var uploadRecord = clientTelemetry.CreateRecord<TimelineRecordAttachmentTelemetryRecord>((level, uri, type) =>
+                new TimelineRecordAttachmentTelemetryRecord(level, uri, type, nameof(UploadToBlobStore)));
+            await clientTelemetry.MeasureActionAsync(
+                record: uploadRecord,
+                actionAsync: async () => await AsyncHttpRetryHelper.InvokeAsync(
+                        async () =>
+                        {
+                            return await uploadSession.UploadAsync(rootNode, new Dictionary<DedupIdentifier, string>(){ [dedupId] = itemPath }, cancellationToken);
+                        },
+                        maxRetries: 3,
+                        tracer: tracer,
+                        canRetryDelegate: e => true, // this isn't great, but failing on upload stinks, so just try a couple of times
+                        cancellationToken: cancellationToken,
+                        continueOnCapturedContext: false)
+            );
+            return (dedupId, rootNode.TransitiveContentBytes);
         }
 
         private IBlobStoreHttpClient CreateArtifactsClient(VssConnection connection, CancellationToken cancellationToken){

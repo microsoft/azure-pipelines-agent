@@ -10,7 +10,7 @@ using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
 
-namespace Agent.Sdk.Blob
+namespace Microsoft.VisualStudio.Services.Agent.Blob
 {
     public interface IDedupManifestArtifactClientFactory
     {
