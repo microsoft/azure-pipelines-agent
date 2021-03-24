@@ -12,6 +12,7 @@ using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
 
 namespace Microsoft.VisualStudio.Services.Agent.Blob
 {
+    [ServiceLocator(Default = typeof(DedupManifestArtifactClientFactory))]
     public interface IDedupManifestArtifactClientFactory
     {
         Task<(DedupManifestArtifactClient client, BlobStoreClientTelemetry telemetry)> CreateDedupManifestClientAsync(
