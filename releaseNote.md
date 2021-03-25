@@ -6,7 +6,7 @@
 ## Bugs
  - Revert "Self-hosted agent cleaning source folder (#3237)" (#3297)
  - Fix the triggering build logic for Download Pipeline Artifact (#3313)
- - Updated Git version to 2.30.2 to solve vulnerability #3325
+ - Updated Git version to 2.30.2 to solve vulnerability #3325 (we can't upgrade to 2.31.0 for now because of reasons explained in https://github.com/microsoft/azure-pipelines-agent/issues/3344; we'll do that as soon as our Windows VMs start using 2.31.0)
 
 ## Misc
 
