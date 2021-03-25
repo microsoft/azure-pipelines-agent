@@ -6,7 +6,7 @@
 ## Bugs
  - Revert "Self-hosted agent cleaning source folder (#3237)" (#3297)
  - Fix the triggering build logic for Download Pipeline Artifact (#3313)
- - Updated Git version to 2.30.2 to solvee vulnulability #3325
+ - Updated Git version to 2.30.2 to solve vulnerability #3325
 
 ## Misc
 
