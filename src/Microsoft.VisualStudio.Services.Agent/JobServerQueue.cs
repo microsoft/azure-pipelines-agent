@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using BuildXL.Cache.ContentStore.Hashing;
 using BlobIdentifierWithBlocks = Microsoft.VisualStudio.Services.BlobStore.Common.BlobIdentifierWithBlocks;
+using Microsoft.VisualStudio.Services.Agent.Blob;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -628,7 +629,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                         {
                             try
                             {
-                                var blobBlockId = await _jobServer.UploadLogToBlobstorageService(fs, _hubName, _planId, taskLog.Id);
+                                var blobBlockId = await _jobServer.UploadLogToBlobStore(fs, _hubName, _planId, taskLog.Id);
                                 int lineCount = File.ReadLines(file.Path).Count();
 
                                 // Notify TFS
@@ -655,10 +656,20 @@ namespace Microsoft.VisualStudio.Services.Agent
                 {
                     if (_writeToBlobStoreAttachments)
                     {
-                        var (dedupId, length) = await _jobServer.UploadToBlobStore(_debugMode, file.Path, default(CancellationToken));
-
-                        // Notify TFS
-                        await _jobServer.AssosciateAttachmentAsync(_scopeIdentifier, _hubName, _planId, file.TimelineId, file.TimelineRecordId, file.Type, file.Name, dedupId, (long) length, default(CancellationToken));
+                        try
+                        {
+                            var (dedupId, length) = await _jobServer.UploadAttachmentToBlobStore(_debugMode, file.Path, default(CancellationToken));
+                            // Notify TFS
+                            await _jobServer.AssosciateAttachmentAsync(_scopeIdentifier, _hubName, _planId, file.TimelineId, file.TimelineRecordId, file.Type, file.Name, dedupId, (long) length, default(CancellationToken));
+                        }
+                        catch
+                        {
+                            // Fall back to file-based FCS
+                            using (FileStream fs = File.Open(file.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                            {
+                                var result = await _jobServer.CreateAttachmentAsync(_scopeIdentifier, _hubName, _planId, file.TimelineId, file.TimelineRecordId, file.Type, file.Name, fs, default(CancellationToken));
+                            }
+                        }
                     }
                     else
                     {

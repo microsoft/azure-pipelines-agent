@@ -122,7 +122,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             return Task.FromResult(Timelines[timelineId]);
         }
 
-        public Task<BlobIdentifierWithBlocks> UploadLogToBlobstorageService(Stream blob, string hubName, Guid planId, int logId)
+        public Task<BlobIdentifierWithBlocks> UploadLogToBlobStore(Stream blob, string hubName, Guid planId, int logId)
         {
             var blockBlobId = VsoHash.CalculateBlobIdentifierWithBlocks(blob);
             blob.Position = 0;
@@ -136,7 +136,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             return Task.FromResult(blockBlobId);
         }
 
-        public async Task<(DedupIdentifier dedupId, ulong length)> UploadToBlobStore(bool verbose, string itemPath, CancellationToken cancellationToken)
+        public async Task<(DedupIdentifier dedupId, ulong length)> UploadAttachmentToBlobStore(bool verbose, string itemPath, CancellationToken cancellationToken)
         {
             UploadedAttachmentBlobFiles.Add(itemPath);
             var chunk = await ChunkerHelper.CreateFromFileAsync(FileSystem.Instance, itemPath, cancellationToken, false);
