@@ -11,9 +11,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
-using BuildXL.Cache.ContentStore.Hashing;
-using BlobIdentifierWithBlocks = Microsoft.VisualStudio.Services.BlobStore.Common.BlobIdentifierWithBlocks;
-using Microsoft.VisualStudio.Services.Agent.Blob;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {

@@ -16,9 +16,6 @@ using VsoHash = Microsoft.VisualStudio.Services.BlobStore.Common.VsoHash;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
-using Microsoft.VisualStudio.Services.BlobStore.Common;
-using Microsoft.VisualStudio.Services.Content.Common.Telemetry;
-using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
