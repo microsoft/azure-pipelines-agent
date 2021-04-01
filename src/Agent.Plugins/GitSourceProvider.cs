@@ -996,7 +996,7 @@ namespace Agent.Plugins.Repository
                     throw new InvalidOperationException($"Git submodule update failed with exit code: {exitCode_submoduleUpdate}");
                 }
             }
-
+     
             // handle expose creds, related to 'Allow Scripts to Access OAuth Token' option
             if (!selfManageGitCreds)
             {
@@ -1059,7 +1059,7 @@ namespace Agent.Plugins.Repository
                         string sslCaInfoConfigKey = "http.sslcainfo";
                         string sslCaInfoConfigValue = $"\"{agentCert.CACertificateFile}\"";
                         configModifications[sslCaInfoConfigKey] = sslCaInfoConfigValue.Trim('\"');
-
+                       
                         int exitCode_sslconfig = await gitCommandManager.GitConfig(executionContext, targetPath, sslCaInfoConfigKey, sslCaInfoConfigValue);
                         if (exitCode_sslconfig != 0)
                         {
@@ -1077,7 +1077,7 @@ namespace Agent.Plugins.Repository
                         string sslKeyConfigValue = $"\"{agentCert.CACertificateFile}\"";
                         configModifications[sslCertConfigKey] = sslCertConfigValue.Trim('\"');
                         configModifications[sslKeyConfigKey] = sslKeyConfigValue.Trim('\"');
-
+                        
                         int exitCode_sslconfig = await gitCommandManager.GitConfig(executionContext, targetPath, sslCertConfigKey, sslCertConfigValue);
                         if (exitCode_sslconfig != 0)
                         {
@@ -1277,7 +1277,7 @@ namespace Agent.Plugins.Repository
                 // if unable to use git.exe unset http.extraheader, http.proxy or core.askpass, modify git config file on disk. make sure we don't left credential.
                 if (!string.IsNullOrEmpty(configValue))
                 {
-                    executionContext.Warning(StringUtil.Loc("AttemptRemoveCredFromConfig"));
+                    executionContext.Warning(StringUtil.Loc("AttemptRemoveCredFromConfig", configKey));
                     string gitConfig = Path.Combine(targetPath, ".git/config");
                     if (File.Exists(gitConfig))
                     {
