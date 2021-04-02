@@ -34,7 +34,7 @@
     "AssociateArtifactWithBuild":  "Das Artefakt {0} wurde dem Build {1} zugeordnet.",
     "AttachFileNotExist":  "Die Datei (Typ: {0}, Name: {1}): {2} kann nicht angefügt werden. Die Datei ist nicht vorhanden.",
     "AttachmentExceededMaximum":  "Die Anlage wird übersprungen, weil sie die maximal zulässige Größe von 75 MB überschreitet: {0}",
-    "AttemptRemoveCredFromConfig":  "Es wurde erfolglos mithilfe der Git-Befehlszeile versucht, \"http.extraheader\" aus der Git-Konfiguration zu entfernen. Es wird versucht, die Git-Konfigurationsdatei direkt zu ändern, um die Anmeldeinformationen zu entfernen.",
+    "AttemptRemoveCredFromConfig":  "Es wurde erfolglos mithilfe der Git-Befehlszeile versucht, \"{0}\" aus der Git-Konfiguration zu entfernen. Es wird versucht, die Git-Konfigurationsdatei direkt zu ändern, um die Anmeldeinformationen zu entfernen.",
     "AuthenticationType":  "Authentifizierungstyp",
     "AutoLogonAccountNameDescription":  "Das für die automatische Anmeldung zu verwendende Benutzerkonto",
     "AutoLogonOverwriteDeniedError":  "Die automatische Anmeldung konnte nicht konfiguriert werden, da sie auf dem Computer bereits für einen anderen Benutzer ({0}) konfiguriert ist. Verwenden Sie zum Überschreiben \"--overwriteautologon\".",

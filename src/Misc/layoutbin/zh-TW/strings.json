@@ -34,7 +34,7 @@
     "AssociateArtifactWithBuild":  "已建立成品 {0} 與組建 {1} 的關聯",
     "AttachFileNotExist":  "檔案不存在，所以無法附加 (類型:{0} 名稱:{1}) 檔案: {2}。",
     "AttachmentExceededMaximum":  "因為附件的大小超過允許的大小上限 75 MB，所以將會跳過: {0}",
-    "AttemptRemoveCredFromConfig":  "嘗試從 GIT 組態使用 GIT 命令列移除 \"http.extraheader\" 失敗。正在嘗試直接修改 GIT 組態檔以移除認證。",
+    "AttemptRemoveCredFromConfig":  "嘗試從 GIT 組態使用 GIT 命令列移除 \"{0}\" 失敗。正在嘗試直接修改 GIT 組態檔以移除認證。",
     "AuthenticationType":  "驗證類型",
     "AutoLogonAccountNameDescription":  "要用於自動登入的使用者帳戶",
     "AutoLogonOverwriteDeniedError":  "因為已為電腦上的其他使用者 ({0}) 設定了自動登入，所以無法設定自動登入。若想要加以覆寫，請使用 \u0027--overwriteautologon\u0027。",

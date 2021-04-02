@@ -34,7 +34,7 @@
     "AssociateArtifactWithBuild":  "Artefacto asociado {0} con compilación {1}",
     "AttachFileNotExist":  "No se puede asociar (type:{0} name:{1}) el archivo: {2}. El archivo no existe.",
     "AttachmentExceededMaximum":  "Se omitirán los datos adjuntos porque superan el tamaño máximo permitido de 75 MB: {0}",
-    "AttemptRemoveCredFromConfig":  "Se hizo un intento sin éxito mediante la línea de comandos de Git para quitar \"http.extraheader\" de la configuración de Git. Se va a intentar modificar el archivo de configuración de Git directamente para quitar la credencial.",
+    "AttemptRemoveCredFromConfig":  "Se hizo un intento sin éxito mediante la línea de comandos de Git para quitar \"{0}\" de la configuración de Git. Se va a intentar modificar el archivo de configuración de Git directamente para quitar la credencial.",
     "AuthenticationType":  "tipo de autenticación",
     "AutoLogonAccountNameDescription":  "Cuenta de usuario que se usará para el inicio de sesión automático",
     "AutoLogonOverwriteDeniedError":  "No se puede configurar el inicio de sesión automático porque ya se ha configurado para otro usuario ({0}) de la máquina. Use \"--overwriteautologon\" si desea sobrescribirlo.",

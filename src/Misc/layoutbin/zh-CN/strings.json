@@ -34,7 +34,7 @@
     "AssociateArtifactWithBuild":  "已将项目 {0} 与生成 {1} 关联",
     "AttachFileNotExist":  "无法附加(类型:{0} 名称:{1})文件: {2}。文件不存在。",
     "AttachmentExceededMaximum":  "正在跳过附件，因为它超出了允许的最大大小 75MB: {0}",
-    "AttemptRemoveCredFromConfig":  "尝试使用 git 命令行从 git 配置中删除 \"http.extraheader\" 失败。试图直接修改 git 配置文件以删除凭据。",
+    "AttemptRemoveCredFromConfig":  "尝试使用 git 命令行从 git 配置中删除 \"{0}\" 失败。试图直接修改 git 配置文件以删除凭据。",
     "AuthenticationType":  "身份验证类型",
     "AutoLogonAccountNameDescription":  "要用于自动登录的用户帐户",
     "AutoLogonOverwriteDeniedError":  "无法配置自动登录，因为已为计算机上的其他用户({0})配置了自动登录。如果希望覆盖，请使用 \"--overwriteautologon\"。",
