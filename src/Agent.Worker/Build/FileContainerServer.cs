@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Microsoft.VisualStudio.Services.Agent.Blob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.FileContainer.Client;
 using System;
@@ -322,34 +323,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         private async Task<(DedupIdentifier dedupId, ulong length)> UploadToBlobStore(IAsyncCommandContext context, string itemPath, CancellationToken cancellationToken)
         {
-            // Create chunks and identifier
-            var chunk = await ChunkerHelper.CreateFromFileAsync(FileSystem.Instance, itemPath, cancellationToken, false);
-            var rootNode = new DedupNode(new []{ chunk});
-            var dedupId = rootNode.GetDedupIdentifier(HashType.Dedup64K);
-
-            // Setup upload session to keep file for at mimimum one day
             var verbose = String.Equals(context.GetVariableValueOrDefault("system.debug"), "true", StringComparison.InvariantCultureIgnoreCase);
-            var tracer = DedupManifestArtifactClientFactory.CreateArtifactsTracer(verbose, (str) => context.Output(str));
-            var keepUntulRef = new KeepUntilBlobReference(DateTime.UtcNow.AddDays(1));
-            var uploadSession = _dedupClient.CreateUploadSession(keepUntulRef, tracer, FileSystem.Instance);
 
-            // Upload the chunks
-            var uploadRecord = _blobTelemetry.CreateRecord<BuildArtifactActionRecord>((level, uri, type) =>
-                new BuildArtifactActionRecord(level, uri, type, nameof(UploadAsync), context));
-            await _blobTelemetry.MeasureActionAsync(
-                record: uploadRecord,
-                actionAsync: async () => await AsyncHttpRetryHelper.InvokeAsync(
-                        async () =>
-                        {
-                            return await uploadSession.UploadAsync(rootNode, new Dictionary<DedupIdentifier, string>(){ [dedupId] = itemPath }, cancellationToken);
-                        },
-                        maxRetries: 3,
-                        tracer: tracer,
-                        canRetryDelegate: e => true, // this isn't great, but failing on upload stinks, so just try a couple of times
-                        cancellationToken: cancellationToken,
-                        continueOnCapturedContext: false)
-            );
-            return (dedupId, rootNode.TransitiveContentBytes);
+            return await BlobStoreUtils.UploadToBlobStore<BuildArtifactActionRecord>(verbose, itemPath, (level, uri, type) =>
+                new BuildArtifactActionRecord(level, uri, type, nameof(UploadToBlobStore), context), (str) => context.Output(str), _dedupClient, _blobTelemetry, cancellationToken);
         }
 
         private async Task ReportingAsync(IAsyncCommandContext context, int totalFiles, CancellationToken token)

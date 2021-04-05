@@ -13,6 +13,7 @@ using Agent.Plugins.PipelineArtifact.Telemetry;
 using Agent.Sdk;
 using Agent.Sdk.Blob;
 using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Blob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
 using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
