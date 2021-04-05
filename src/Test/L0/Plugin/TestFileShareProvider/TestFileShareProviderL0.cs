@@ -14,6 +14,7 @@ using Agent.Plugins;
 using Agent.Plugins.PipelineArtifact;
 using Agent.Sdk;
 using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Blob;
 using Microsoft.VisualStudio.Services.Agent.Tests;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Xunit;

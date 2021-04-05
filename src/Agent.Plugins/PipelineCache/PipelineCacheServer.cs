@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using Agent.Plugins.PipelineArtifact;
 using Agent.Plugins.PipelineCache.Telemetry;
 using Agent.Sdk;
-using Agent.Sdk.Blob;
+using Microsoft.VisualStudio.Services.Agent.Blob;
 using BuildXL.Cache.ContentStore.Hashing;
 using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
