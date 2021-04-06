@@ -1277,7 +1277,7 @@ namespace Agent.Plugins.Repository
                 // if unable to use git.exe unset http.extraheader, http.proxy or core.askpass, modify git config file on disk. make sure we don't left credential.
                 if (!string.IsNullOrEmpty(configValue))
                 {
-                    executionContext.Warning(StringUtil.Loc("AttemptRemoveCredFromConfig"));
+                    executionContext.Warning(StringUtil.Loc("AttemptRemoveCredFromConfig", configKey));
                     string gitConfig = Path.Combine(targetPath, ".git/config");
                     if (File.Exists(gitConfig))
                     {

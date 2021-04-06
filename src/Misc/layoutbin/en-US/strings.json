@@ -37,7 +37,7 @@
   "AssociateArtifactWithBuild": "Associated artifact {0} with build {1}",
   "AttachFileNotExist": "Can't attach (type:{0} name:{1}) file: {2}. File does not exist.",
   "AttachmentExceededMaximum": "Skipping attachment as it exceeded the maximum allowed size 75MB: {0}",
-  "AttemptRemoveCredFromConfig": "An unsuccessful attempt was made using git command line to remove \"http.extraheader\" from the git config. Attempting to modify the git config file directly to remove the credential.",
+  "AttemptRemoveCredFromConfig": "An unsuccessful attempt was made using git command line to remove \"{0}\" from the git config. Attempting to modify the git config file directly to remove the credential.",
   "AuthenticationType": "authentication type",
   "AutoLogonAccountNameDescription": "User account to use for autologon",
   "AutoLogonOverwriteDeniedError": "Unable to configure autologon as it is already configured for a different user ({0}) on the machine. Use '--overwriteautologon' if you wish to overwrite.",

@@ -34,7 +34,7 @@
     "AssociateArtifactWithBuild":  "L\u0027artefatto {0} è stato associato alla compilazione {1}",
     "AttachFileNotExist":  "Non è possibile allegare il file {2} (tipo {0} nome {1}). Il file non esiste.",
     "AttachmentExceededMaximum":  "L\u0027allegato verrà ignorato perché supera la dimensione massima consentita di 75 MB: {0}",
-    "AttemptRemoveCredFromConfig":  "Il tentativo di usare la riga di comando GIT per rimuovere \"http.extraheader\" dal file di configurazione GIT non è riuscito. Verrà effettuato un tentativo di modificare direttamente il file di configurazione GIT per rimuovere la credenziale.",
+    "AttemptRemoveCredFromConfig":  "Il tentativo di usare la riga di comando GIT per rimuovere \"{0}\" dal file di configurazione GIT non è riuscito. Verrà effettuato un tentativo di modificare direttamente il file di configurazione GIT per rimuovere la credenziale.",
     "AuthenticationType":  "tipo di autenticazione",
     "AutoLogonAccountNameDescription":  "Account utente da usare per l\u0027accesso automatico",
     "AutoLogonOverwriteDeniedError":  "Non è possibile configurare l\u0027accesso automatico perché è già configurato per un altro utente ({0}) del computer. Se si vuole sovrascrivere l\u0027impostazione, usare \u0027--overwriteautologon\u0027.",
