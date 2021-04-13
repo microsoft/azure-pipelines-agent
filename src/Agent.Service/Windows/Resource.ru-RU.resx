@@ -118,30 +118,30 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="AgentExitWithoutError" xml:space="preserve">
-    <value>Agent listener exit with 0 return code, stop the service, no retry needed.</value>
+    <value>Прослушиватель агента завершил работу с кодом возврата 0. Остановите службу, повторный запуск не требуется.</value>
   </data>
   <data name="AgentExitWithTerminatedError" xml:space="preserve">
-    <value>Agent listener exit with terminated error, stop the service, no retry needed.</value>
+    <value>Прослушиватель агента завершил работу с ошибкой, свидетельствующей о прекращении работы. Остановите службу, повторный запуск не требуется.</value>
   </data>
   <data name="AgentExitWithError" xml:space="preserve">
-    <value>Agent listener exit with retryable error, re-launch agent in 5 seconds.</value>
+    <value>Прослушиватель агента завершил работу с ошибкой, допускающей повторный запуск. Запустите агент повторно через 5 секунд.</value>
   </data>
   <data name="AgentUpdateInProcess" xml:space="preserve">
-    <value>Agent listener exit because of updating, re-launch agent in 5 seconds.</value>
+    <value>Прослушиватель агента завершил работу из-за обновления. Запустите агент повторно через 5 секунд.</value>
   </data>
   <data name="AgentUpdateSucceed" xml:space="preserve">
-    <value>Agent listener has been updated to latest, re-launch agent in 5 seconds.</value>
+    <value>Прослушиватель агента обновлен до последней версии. Запустите агент повторно через 5 секунд.</value>
   </data>
   <data name="AgentUpdateFailed" xml:space="preserve">
-    <value>Agent listener update failed, stop the service.</value>
+    <value>Не удалось обновить прослушиватель агента. Остановите службу.</value>
   </data>
   <data name="AgentUpdateRestartNeeded" xml:space="preserve">
-    <value>Agent listener has been updated to latest, restart the service to update the servicehost itself.</value>
+    <value>Прослушиватель агента обновлен до последней версии. Перезапустите службу, чтобы обновить servicehost.</value>
   </data>
   <data name="CrashServiceHost" xml:space="preserve">
-    <value>Crash servicehost to trigger SCM restart the serivce.</value>
+    <value>Сбой serviceHost при запуске SCM. Перезапустите службу.</value>
   </data>
   <data name="AgentExitWithUndefinedReturnCode" xml:space="preserve">
-    <value>Agent listener exit with undefined return code, re-launch agent in 5 seconds.</value>
+    <value>Прослушиватель агента завершил работу с неопределенным кодом возврата. Запустите агент повторно через 5 секунд.</value>
   </data>
 </root>

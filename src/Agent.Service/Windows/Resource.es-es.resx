@@ -118,30 +118,30 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="AgentExitWithoutError" xml:space="preserve">
-    <value>Agent listener exit with 0 return code, stop the service, no retry needed.</value>
+    <value>Salida del agente de escucha con el código de retorno 0; detenga el servicio, no es necesario reintentar.</value>
   </data>
   <data name="AgentExitWithTerminatedError" xml:space="preserve">
-    <value>Agent listener exit with terminated error, stop the service, no retry needed.</value>
+    <value>Salida del agente de escucha con error de finalizado; detenga el servicio, no es necesario reintentar.</value>
   </data>
   <data name="AgentExitWithError" xml:space="preserve">
-    <value>Agent listener exit with retryable error, re-launch agent in 5 seconds.</value>
+    <value>Salida del agente de escucha con un error que permite reintentar; reinicie el agente en cinco segundos.</value>
   </data>
   <data name="AgentUpdateInProcess" xml:space="preserve">
-    <value>Agent listener exit because of updating, re-launch agent in 5 seconds.</value>
+    <value>Salida del agente de escucha debido a una actualización; reinicie el agente en cinco segundos.</value>
   </data>
   <data name="AgentUpdateSucceed" xml:space="preserve">
-    <value>Agent listener has been updated to latest, re-launch agent in 5 seconds.</value>
+    <value>El agente de escucha se ha actualizado al más reciente; reinicie el agente en cinco segundos.</value>
   </data>
   <data name="AgentUpdateFailed" xml:space="preserve">
-    <value>Agent listener update failed, stop the service.</value>
+    <value>Error al actualizar el agente de escucha, detenga el servicio.</value>
   </data>
   <data name="AgentUpdateRestartNeeded" xml:space="preserve">
-    <value>Agent listener has been updated to latest, restart the service to update the servicehost itself.</value>
+    <value>El agente de escucha se ha actualizado a la última versión; reinicie el servicio para actualizar servicehost.</value>
   </data>
   <data name="CrashServiceHost" xml:space="preserve">
-    <value>Crash servicehost to trigger SCM restart the serivce.</value>
+    <value>Bloquee ServiceHost para desencadenar el reinicio del servicio de SCM.</value>
   </data>
   <data name="AgentExitWithUndefinedReturnCode" xml:space="preserve">
-    <value>Agent listener exit with undefined return code, re-launch agent in 5 seconds.</value>
+    <value>Salida del agente de escucha con un código de retorno no definido; reinicie el agente en cinco segundos.</value>
   </data>
 </root>

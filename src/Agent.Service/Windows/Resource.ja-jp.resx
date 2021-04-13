@@ -118,30 +118,30 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="AgentExitWithoutError" xml:space="preserve">
-    <value>Agent listener exit with 0 return code, stop the service, no retry needed.</value>
+    <value>エージェント リスナーは、0 個のリターンコードで終了します。サービスを停止します。再試行は必要ありません。</value>
   </data>
   <data name="AgentExitWithTerminatedError" xml:space="preserve">
-    <value>Agent listener exit with terminated error, stop the service, no retry needed.</value>
+    <value>停止エラーでエージェント リスナーが終了しました。サービスを停止します。再試行は必要ありません。</value>
   </data>
   <data name="AgentExitWithError" xml:space="preserve">
-    <value>Agent listener exit with retryable error, re-launch agent in 5 seconds.</value>
+    <value>エージェント リスナーが再試行可能なエラーで終了しました。5 秒でエージェントを再起動します。</value>
   </data>
   <data name="AgentUpdateInProcess" xml:space="preserve">
-    <value>Agent listener exit because of updating, re-launch agent in 5 seconds.</value>
+    <value>更新のため、エージェント リスナーが終了しています。5 秒でエージェントを再起動します。</value>
   </data>
   <data name="AgentUpdateSucceed" xml:space="preserve">
-    <value>Agent listener has been updated to latest, re-launch agent in 5 seconds.</value>
+    <value>エージェント リスナーが最新版に更新されました。5 秒でエージェントを再起動します。</value>
   </data>
   <data name="AgentUpdateFailed" xml:space="preserve">
-    <value>Agent listener update failed, stop the service.</value>
+    <value>エージェント リスナーの更新に失敗しました。サービスを停止してください。</value>
   </data>
   <data name="AgentUpdateRestartNeeded" xml:space="preserve">
-    <value>Agent listener has been updated to latest, restart the service to update the servicehost itself.</value>
+    <value>エージェント リスナーが最新版に更新されました。サービスを再起動して servicehost 自体を更新してください。</value>
   </data>
   <data name="CrashServiceHost" xml:space="preserve">
-    <value>Crash servicehost to trigger SCM restart the serivce.</value>
+    <value>servicehost をクラッシュして、SCM でサービスの再起動をトリガーします。</value>
   </data>
   <data name="AgentExitWithUndefinedReturnCode" xml:space="preserve">
-    <value>Agent listener exit with undefined return code, re-launch agent in 5 seconds.</value>
+    <value>未定義のリターン コードでエージェント リスナーが終了しました、5 秒でエージェントを再起動します。</value>
   </data>
 </root>
