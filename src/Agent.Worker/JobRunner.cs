@@ -24,6 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     public interface IJobRunner : IAgentService
     {
         Task<TaskResult> RunAsync(Pipelines.AgentJobRequestMessage message, CancellationToken jobRequestCancellationToken);
+        void UpdateMetadata(JobMetadataMessage message);
     }
 
     public sealed class JobRunner : AgentService, IJobRunner
@@ -323,6 +324,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
 
                 await ShutdownQueue(throwOnFailure: false);
+            }
+        }
+
+        public void UpdateMetadata(JobMetadataMessage message)
+        {
+            if (message.PostLinesFrequencyMillis.HasValue)
+            {
+                _jobServerQueue.UpdateWebConsoleLineRate(message.PostLinesFrequencyMillis.Value);
             }
         }
 

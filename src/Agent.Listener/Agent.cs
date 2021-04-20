@@ -454,6 +454,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                     Trace.Info($"Skip message deletion for cancellation message '{message.MessageId}'.");
                                 }
                             }
+                            else if (string.Equals(message.MessageType, JobMetadataMessage.MessageType, StringComparison.OrdinalIgnoreCase))
+                            {
+                                var metadataMessage = JsonUtility.FromString<JobMetadataMessage>(message.Body);
+                                jobDispatcher.MetadataUpdate(metadataMessage);
+                            }
                             else
                             {
                                 Trace.Error($"Received message {message.MessageId} with unsupported message type {message.MessageType}.");

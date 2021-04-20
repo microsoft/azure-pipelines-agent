@@ -24,14 +24,15 @@ namespace Microsoft.VisualStudio.Services.Agent
         void QueueWebConsoleLine(Guid stepRecordId, string line, long lineNumber);
         void QueueFileUpload(Guid timelineId, Guid timelineRecordId, string type, string name, string path, bool deleteSource);
         void QueueTimelineRecordUpdate(Guid timelineId, TimelineRecord timelineRecord);
+        void UpdateWebConsoleLineRate(Int32 rateInMillis);
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1711: Identifiers should not have incorrect suffix")]
     public sealed class JobServerQueue : AgentService, IJobServerQueue
     {
         // Default delay for Dequeue process
-        private static readonly TimeSpan _aggressiveDelayForWebConsoleLineDequeue = TimeSpan.FromMilliseconds(250);
-        private static readonly TimeSpan _delayForWebConsoleLineDequeue = TimeSpan.FromMilliseconds(500);
+        private static readonly TimeSpan _aggressiveDelayForWebConsoleLineDequeue = TimeSpan.FromMilliseconds(500);
+        private static readonly TimeSpan _delayForWebConsoleLineDequeueDefault = TimeSpan.FromMilliseconds(1000);
         private static readonly TimeSpan _delayForTimelineUpdateDequeue = TimeSpan.FromMilliseconds(500);
         private static readonly TimeSpan _delayForFileUploadDequeue = TimeSpan.FromMilliseconds(1000);
 
@@ -70,13 +71,15 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public event EventHandler<ThrottlingEventArgs> JobServerQueueThrottling;
 
-        // Web console dequeue will start with process queue every 250ms for the first 60*4 times (~60 seconds).
-        // Then the dequeue will happen every 500ms.
+        // Web console dequeue will start with process queue every 500ms for the first 15*2 times (~15 seconds).
+        // Then the dequeue will happen every 1s or whatever the server tells us
         // In this way, customer still can get instance live console output on job start,
         // at the same time we can cut the load to server after the build run for more than 60s
         private int _webConsoleLineAggressiveDequeueCount = 0;
-        private const int _webConsoleLineAggressiveDequeueLimit = 4 * 60;
+        private int _webConsoleLineUpdateRate = _delayForWebConsoleLineDequeueDefault.Milliseconds;
+        private const int _webConsoleLineAggressiveDequeueLimit = 2 * 15;
         private bool _webConsoleLineAggressiveDequeue = true;
+        private TaskCompletionSource<object> _webConsoleLinesDequeueNow = new TaskCompletionSource<object>();
         private bool _firstConsoleOutputs = true;
         private bool _writeToBlobStoreLogs = false;
         private bool _writeToBlobStoreAttachments = false;
@@ -116,6 +119,11 @@ namespace Microsoft.VisualStudio.Services.Agent
             if (jobRequest.Variables.TryGetValue(WellKnownDistributedTaskVariables.UploadTimelineAttachmentsToBlob, out var attachToBlob))
             {
                 Boolean.TryParse(attachToBlob.Value, out _writeToBlobStoreAttachments);
+            }
+
+            if (jobRequest.Variables.TryGetValue(WellKnownDistributedTaskVariables.PostLinesSpeed, out var postLinesSpeed))
+            {
+                Int32.TryParse(postLinesSpeed.Value, out _webConsoleLineUpdateRate);
             }
 
             if (jobRequest.Variables.TryGetValue(Constants.Variables.System.Debug, out var debug))
@@ -334,9 +342,19 @@ namespace Microsoft.VisualStudio.Services.Agent
                 }
                 else
                 {
-                    await Task.Delay(_webConsoleLineAggressiveDequeue ? _aggressiveDelayForWebConsoleLineDequeue : _delayForWebConsoleLineDequeue);
+                    _webConsoleLinesDequeueNow = new TaskCompletionSource<object>();
+                    await Task.WhenAny(
+                        Task.Delay(_webConsoleLineAggressiveDequeue ? _aggressiveDelayForWebConsoleLineDequeue : TimeSpan.FromMilliseconds(_webConsoleLineUpdateRate)),
+                        _webConsoleLinesDequeueNow.Task);
                 }
             }
+        }
+
+        public void UpdateWebConsoleLineRate(Int32 rateInMillis)
+        {
+            _webConsoleLineUpdateRate = rateInMillis;
+            // Start running the dequeue task immediately
+            _webConsoleLinesDequeueNow?.SetResult(true);
         }
 
         private async Task ProcessFilesUploadQueueAsync(bool runOnce = false)
