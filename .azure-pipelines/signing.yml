@@ -145,6 +145,7 @@ steps:
       bin\RocksDbNative.dll
       bin\RocksDbSharp.dll
       bin\RuntimeContracts.dll
+      bin\Symstore.Interop.dll
       bin\System.Interactive.Async.dll
       bin\System.IO.Abstractions.dll
       bin\System.Linq.Async.dll
