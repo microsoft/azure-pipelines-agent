@@ -121,7 +121,6 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Boolean.TryParse(attachToBlob.Value, out _writeToBlobStoreAttachments);
             }
 
-            System.Diagnostics.Debugger.Launch();
             if (jobRequest.Variables.TryGetValue(WellKnownDistributedTaskVariables.PostLinesSpeed, out var postLinesSpeed))
             {
                 if (Int32.TryParse(postLinesSpeed.Value, out _webConsoleLineUpdateRate))
