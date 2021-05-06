@@ -123,7 +123,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             if (jobRequest.Variables.TryGetValue(WellKnownDistributedTaskVariables.PostLinesSpeed, out var postLinesSpeed))
             {
-                if (Int32.TryParse(postLinesSpeed.Value, out _webConsoleLineUpdateRate))
+                if (!Int32.TryParse(postLinesSpeed.Value, out _webConsoleLineUpdateRate))
                 {
                     _webConsoleLineUpdateRate = (int) _delayForWebConsoleLineDequeueDefault.TotalMilliseconds;
                 }
