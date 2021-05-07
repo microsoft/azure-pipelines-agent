@@ -76,7 +76,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         // In this way, customer still can get instance live console output on job start,
         // at the same time we can cut the load to server after the build run for more than 60s
         private int _webConsoleLineAggressiveDequeueCount = 0;
-        private int _webConsoleLineUpdateRate = _delayForWebConsoleLineDequeueDefault.Milliseconds;
+        private int _webConsoleLineUpdateRate = (int) _delayForWebConsoleLineDequeueDefault.TotalMilliseconds;
         private const int _webConsoleLineAggressiveDequeueLimit = 2 * 15;
         private bool _webConsoleLineAggressiveDequeue = true;
         private TaskCompletionSource<object> _webConsoleLinesDequeueNow = new TaskCompletionSource<object>();
@@ -123,7 +123,10 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             if (jobRequest.Variables.TryGetValue(WellKnownDistributedTaskVariables.PostLinesSpeed, out var postLinesSpeed))
             {
-                Int32.TryParse(postLinesSpeed.Value, out _webConsoleLineUpdateRate);
+                if (!Int32.TryParse(postLinesSpeed.Value, out _webConsoleLineUpdateRate))
+                {
+                    _webConsoleLineUpdateRate = (int) _delayForWebConsoleLineDequeueDefault.TotalMilliseconds;
+                }
             }
 
             if (jobRequest.Variables.TryGetValue(Constants.Variables.System.Debug, out var debug))
