@@ -25,23 +25,23 @@ namespace Agent.Plugins
 
         public IArtifactProvider GetProvider(BuildArtifact buildArtifact)
         {
-            IArtifactProvider provider;
             string artifactType = buildArtifact.Resource.Type;
-            switch (artifactType)
+            if (PipelineArtifactConstants.PipelineArtifact.Equals(artifactType, StringComparison.CurrentCultureIgnoreCase))
             {
-                case PipelineArtifactConstants.PipelineArtifact:
-                    provider = pipelineArtifactProvider;
-                    break;
-                case PipelineArtifactConstants.Container:
-                    provider = fileContainerProvider;
-                    break;
-                case PipelineArtifactConstants.FileShareArtifact:
-                    provider = fileShareProvider;
-                    break;
-                default:
-                    throw new InvalidOperationException($"{buildArtifact} is not of type PipelineArtifact, FileShare or BuildArtifact");
+                return pipelineArtifactProvider;
             }
-            return provider;
+            else if (PipelineArtifactConstants.Container.Equals(artifactType, StringComparison.CurrentCultureIgnoreCase))
+            {
+                return fileContainerProvider;
+            }
+            else if (PipelineArtifactConstants.FileShareArtifact.Equals(artifactType, StringComparison.CurrentCultureIgnoreCase))
+            {
+                return fileShareProvider;
+            }
+            else
+            {
+                throw new InvalidOperationException($"{buildArtifact} is not of type PipelineArtifact, FileShare or BuildArtifact");
+            }
         }
     }
 }
