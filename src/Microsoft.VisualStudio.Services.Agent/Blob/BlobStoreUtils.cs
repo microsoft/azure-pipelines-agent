@@ -129,7 +129,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                     } 
                     catch (Exception)
                     {
-                        // TODO: failed to hash
                         nodes.Add(new BlobFileInfo
                             {
                                 Path = itemPath,
@@ -207,7 +206,5 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             );
             return (dedupId, rootNode.TransitiveContentBytes);
         }
-
-
     }
 }
