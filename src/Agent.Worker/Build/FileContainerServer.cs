@@ -309,7 +309,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return new UploadResult(failedFiles, uploadedSize);
         }
 
-                private async Task<UploadResult> BlobUploadAsync(IAsyncCommandContext context, IReadOnlyList<string> files, int concurrentUploads, CancellationToken token)
+        private async Task<UploadResult> BlobUploadAsync(IAsyncCommandContext context, IReadOnlyList<string> files, int concurrentUploads, CancellationToken token)
         {
             // return files that fail to upload and total artifact size
             var uploadResult = new UploadResult();
