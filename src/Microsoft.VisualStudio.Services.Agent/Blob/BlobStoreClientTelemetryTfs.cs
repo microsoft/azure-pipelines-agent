@@ -26,8 +26,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
 
         public async Task CommitTelemetry(Guid planId, Guid jobId)
         {
-            var ciSender = this.senders.OfType<CustomerIntelligenceTelemetrySender>().First();
-            await ciSender.CommitTelemetry(planId, jobId);
+            var ciSender = this.senders.OfType<CustomerIntelligenceTelemetrySender>().FirstOrDefault();
+            await ciSender?.CommitTelemetry(planId, jobId);
         }
     }
 }
