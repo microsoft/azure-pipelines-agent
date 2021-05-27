@@ -230,7 +230,7 @@ namespace Agent.Plugins
                 record: downloadRecord,
                 actionAsync: async () =>
                 {
-                    await AsyncHttpRetryHelper.InvokeAsync(
+                    return await AsyncHttpRetryHelper.InvokeAsync(
                         async () =>
                         {
                             if (item.BlobMetadata.CompressionType == BlobCompressionType.GZip)

@@ -15,6 +15,14 @@ namespace Agent.Plugins.BuildArtifacts.Telemetry
     /// </summary>
     public class BuildArtifactDownloadRecord : PipelineTelemetryRecord
     {
+        // These properties exist so the telemetry reader can find and publish them
+        public long ChunksDownloaded { get { return _chunksDownloaded; } }
+        public long CompressionBytesSaved { get { return _compressionBytesSaved; } }
+        public long DedupDownloadBytesSaved { get { return _dedupDownloadBytesSaved; } }
+        public long NodesDownloaded { get { return _nodesDownloaded; } }
+        public long PhysicalContentBytesDownloaded { get { return _physicalContentBytesDownloaded; } }
+        public long TotalContentBytes { get { return _totalContentBytes; } }
+
         // Dedup download stats
         private long _chunksDownloaded = 0;
         private long _compressionBytesSaved = 0;
