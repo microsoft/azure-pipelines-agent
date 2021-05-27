@@ -88,15 +88,20 @@ namespace Agent.Plugins.Repository
                 string agentHomeDir = context.Variables.GetValueOrDefault("agent.homedirectory")?.Value;
                 ArgUtil.NotNullOrEmpty(agentHomeDir, nameof(agentHomeDir));
                 gitPath = Path.Combine(agentHomeDir, "externals", "git", "cmd", $"git.exe");
+                gitLfsPath = Path.Combine(agentHomeDir, "externals", "git", PlatformUtil.IsX86 ? "mingw32" : "mingw64", "bin", "git-lfs.exe");
 
                 // Prepend the PATH.
                 context.Output(StringUtil.Loc("Prepending0WithDirectoryContaining1", "Path", Path.GetFileName(gitPath)));
+                // We need to prepend git-lfs path first so that we call
+                // externals/git/cmd/git.exe instead of externals/git/mingw**/bin/git.exe
+                context.PrependPath(Path.GetDirectoryName(gitLfsPath));
                 context.PrependPath(Path.GetDirectoryName(gitPath));
                 context.Debug($"PATH: '{Environment.GetEnvironmentVariable("PATH")}'");
             }
             else
             {
                 gitPath = WhichUtil.Which("git", require: true, trace: context);
+                gitLfsPath = WhichUtil.Which("git-lfs", require: false, trace: context);
             }
 
             ArgUtil.File(gitPath, nameof(gitPath));
@@ -105,11 +110,6 @@ namespace Agent.Plugins.Repository
             gitVersion = await GitVersion(context);
             ArgUtil.NotNull(gitVersion, nameof(gitVersion));
             context.Debug($"Detect git version: {gitVersion.ToString()}.");
-
-            // Resolve the location of git-lfs.
-            // This should be best effort since checkout lfs objects is an option.
-            // We will check and ensure git-lfs version later
-            gitLfsPath = WhichUtil.Which("git-lfs", require: false, trace: context);
 
             // Get the Git-LFS version if git-lfs exist in %PATH%.
             if (!string.IsNullOrEmpty(gitLfsPath))

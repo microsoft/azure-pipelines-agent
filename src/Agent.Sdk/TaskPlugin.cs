@@ -325,6 +325,21 @@ namespace Agent.Sdk
                     WebProxy = new AgentWebProxy(proxyUrl, proxyUsername, proxyPassword, proxyBypassHosts)
                 };
             }
+            // back-compat of proxy configuration via environment variables
+            else if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("VSTS_HTTP_PROXY")))
+            {
+                var ProxyUrl = Environment.GetEnvironmentVariable("VSTS_HTTP_PROXY");
+                ProxyUrl = ProxyUrl.Trim();
+                var ProxyUsername = Environment.GetEnvironmentVariable("VSTS_HTTP_PROXY_USERNAME");
+                var ProxyPassword = Environment.GetEnvironmentVariable("VSTS_HTTP_PROXY_PASSWORD");
+                return new AgentWebProxySettings()
+                {
+                    ProxyAddress = ProxyUrl,
+                    ProxyUsername = ProxyUsername,
+                    ProxyPassword = ProxyPassword,
+                    WebProxy = new AgentWebProxy(proxyUrl, ProxyUsername, ProxyPassword, null)
+                };
+            }
             else
             {
                 return null;
