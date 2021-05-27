@@ -98,7 +98,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 {
                     var uploadToBlob = String.Equals(context.GetVariableValueOrDefault(WellKnownDistributedTaskVariables.UploadBuildArtifactsToBlob), "true", StringComparison.InvariantCultureIgnoreCase)
                          && !AgentKnobs.DisableBuildArtifactsToBlob.GetValue(context).AsBoolean();
-                    var uploadToBlob = String.Equals(context.GetVariableValueOrDefault("agent.UploadBuildArtifactsToBlob"), "true", StringComparison.InvariantCultureIgnoreCase);
 
                     // try upload all files for the first time.
                     UploadResult uploadResult;
