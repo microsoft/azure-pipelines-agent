@@ -99,7 +99,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                     while (!reportingCancel.IsCancellationRequested)
                     {
                         traceOutput($"Uploaded {uploadSession.UploadStatistics.TotalContentBytes:N0} out of {totalBytes:N0} bytes.");
-                        await Task.Delay(5000, reportingCancel.Token);
+                        await Task.Delay(10000, reportingCancel.Token);
                     }
                 }
                 catch (OperationCanceledException oce) when (oce.CancellationToken == reportingCancel.Token)

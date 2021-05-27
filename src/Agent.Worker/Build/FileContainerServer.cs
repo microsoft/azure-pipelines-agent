@@ -473,7 +473,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             while (!reportingCancelSrc.IsCancellationRequested)
             {
                 context.Output(StringUtil.Loc("FileAssociateProgress", totalFiles, _filesProcessed, (_filesProcessed * 100) / totalFiles));
-                await Task.Delay(500, reportingCancelSrc.Token);
+                await Task.Delay(10000, reportingCancelSrc.Token);
             }
         }
 
