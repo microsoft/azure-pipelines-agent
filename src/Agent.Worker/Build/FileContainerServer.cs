@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Blob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Content.Common;
@@ -95,6 +96,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
                 try
                 {
+                    var uploadToBlob = String.Equals(context.GetVariableValueOrDefault(WellKnownDistributedTaskVariables.UploadBuildArtifactsToBlob), "true", StringComparison.InvariantCultureIgnoreCase)
+                         && !AgentKnobs.DisableBuildArtifactsToBlob.GetValue(context).AsBoolean();
                     var uploadToBlob = String.Equals(context.GetVariableValueOrDefault("agent.UploadBuildArtifactsToBlob"), "true", StringComparison.InvariantCultureIgnoreCase);
 
                     // try upload all files for the first time.
