@@ -23,8 +23,6 @@ namespace Agent.Plugins.PipelineArtifact.Telemetry
 
         protected override void SetMeasuredActionResult<T>(T value)
         {
-            base.SetMeasuredActionResult(value);
-
             if (value is PublishResult)
             {
                 PublishResult result = value as PublishResult;
