@@ -230,6 +230,20 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("ALLOW_TFVC_UNSHELVE_ERRORS"),
             new EnvironmentKnobSource("ALLOW_TFVC_UNSHELVE_ERRORS"),
             new BuiltInDefaultKnobSource("false"));
-    }
 
+        // Set DISABLE_JAVA_CAPABILITY_HIGHER_THAN_9 variable with any value
+        // to disable recognition of Java higher than 9
+        public static readonly Knob DisableRecognitionOfJDKHigherThen9 = new Knob(
+            nameof(DisableRecognitionOfJDKHigherThen9),
+            "Recognize JDK and JRE >= 9 installed on the machine as agent capability. Setting any value to DISABLE_JAVA_CAPABILITY_HIGHER_THAN_9 is disabling this behavior",
+            new EnvironmentKnobSource("DISABLE_JAVA_CAPABILITY_HIGHER_THAN_9"),
+            new BuiltInDefaultKnobSource(string.Empty));
+
+        // TODO: Added 5/27/21. Please remove within a month or two
+        public static readonly Knob DisableBuildArtifactsToBlob = new Knob(
+            nameof(DisableBuildArtifactsToBlob),
+            "By default, the agent will upload build artifacts to Blobstore. Setting this to true will disable that integration. This variable is temporary and will be removed.",
+            new EnvironmentKnobSource("DISABLE_BUILD_ARTIFACTS_TO_BLOB"),
+            new BuiltInDefaultKnobSource("false"));
+    }
 }
