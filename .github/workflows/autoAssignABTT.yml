@@ -14,8 +14,9 @@ jobs:
     - name: "Add triage and area labels"
       uses: actions-ecosystem/action-add-labels@v1
       with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
         labels: |
-          "Area: Agent"
+          Area: Agent
           triage
     - name: "Assign issues with 'Area: ABTT' label to project board"
       uses: srggrs/assign-one-project-github-action@1.2.0
