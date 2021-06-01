@@ -84,10 +84,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
 
             ciData.Add("PlanId", planId);
             ciData.Add("JobId", jobId);
-            
+
             ciData.Add("ChunksUploaded", this._chunksUploaded);
             ciData.Add("CompressionBytesSaved", this._compressionBytesSaved);
-            ciData.Add("DedupDownloadBytesSaved", this._dedupUploadBytesSaved);
+            ciData.Add("DedupUploadBytesSaved", this._dedupUploadBytesSaved);
             ciData.Add("LogicalContentBytesUploaded", this._logicalContentBytesUploaded);
             ciData.Add("PhysicalContentBytesUploaded", this._physicalContentBytesUploaded);
             ciData.Add("TotalNumberOfChunks", this._totalNumberOfChunks);
