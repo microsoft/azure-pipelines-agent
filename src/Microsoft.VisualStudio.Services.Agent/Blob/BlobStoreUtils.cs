@@ -113,27 +113,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
 
         private static async Task<List<BlobFileInfo>> GenerateHashes(IReadOnlyList<string> filePaths, CancellationToken cancellationToken)
         {
-            var nodes = new List<BlobFileInfo>(filePaths.Count);
-            var queue = NonSwallowingActionBlock.Create<string>(
-                async itemPath =>
+            var nodes = new BlobFileInfo[filePaths.Count];
+            var queue = NonSwallowingActionBlock.Create<int>(
+                async i =>
                 {
+                    var itemPath = filePaths[i];
                     try
                     {
                         var dedupNode = await ChunkerHelper.CreateFromFileAsync(FileSystem.Instance, itemPath, cancellationToken, false);
-                        nodes.Add(new BlobFileInfo
-                            {
-                                Path = itemPath,
-                                Node = dedupNode,
-                                Success = dedupNode != null
-                            });
+                        nodes[i] = new BlobFileInfo
+                        {
+                            Path = itemPath,
+                            Node = dedupNode,
+                            Success = dedupNode != null
+                        };
                     } 
                     catch (Exception)
                     {
-                        nodes.Add(new BlobFileInfo
-                            {
-                                Path = itemPath,
-                                Success = false
-                            });
+                        nodes[i] = new BlobFileInfo
+                        {
+                            Path = itemPath,
+                            Success = false
+                        };
                     }
                 },
                 new ExecutionDataflowBlockOptions()
@@ -142,9 +143,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                     CancellationToken = cancellationToken,
                 });
 
-            await queue.SendAllAndCompleteSingleBlockNetworkAsync(filePaths, cancellationToken);
+            await queue.SendAllAndCompleteSingleBlockNetworkAsync(Enumerable.Range(0, filePaths.Count), cancellationToken);
 
-            return nodes;
+            return nodes.ToList();
         }
 
         private static DedupNode CreateNodeToUpload(IEnumerable<DedupNode> nodes)
