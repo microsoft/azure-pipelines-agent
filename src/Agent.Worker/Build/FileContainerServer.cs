@@ -19,9 +19,6 @@ using System.Net;
 using BuildXL.Cache.ContentStore.Hashing;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
-using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
-using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
-using Microsoft.VisualStudio.Services.WebPlatform;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -217,7 +214,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 {
                     jobId = Guid.Empty;
                 }
-                await _blobTelemetry.CommitTelemetry(planId, jobId);
+                await _blobTelemetry.CommitTelemetryUpload(planId, jobId);
             }
 
             return uploadResult;

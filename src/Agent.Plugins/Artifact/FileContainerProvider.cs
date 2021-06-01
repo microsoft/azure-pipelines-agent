@@ -2,9 +2,9 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
-using Agent.Plugins.BuildArtifacts.Telemetry;
 using BuildXL.Cache.ContentStore.Hashing;
 using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Blob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
@@ -115,15 +115,10 @@ namespace Agent.Plugins
             // If a client cannot connect to Blobstore, we shouldn't stop them from downloading from FCS
             DedupStoreClient dedupClient = null;
             BlobStoreClientTelemetryTfs clientTelemetry = null;
-            BuildArtifactDownloadRecord downloadRecord = null;
             if (fileItems.Any(x => x.BlobMetadata != null))
             {
                 (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupClientAsync(
                     false, (str) => this.tracer.Info(str), this.connection, cancellationToken);
-
-                // Share a single download record for all blob files. We concat download statistics together for each download
-                downloadRecord = clientTelemetry.CreateRecord<BuildArtifactDownloadRecord>((level, uri, type) =>
-                    new BuildArtifactDownloadRecord(level, uri, type, nameof(DownloadFileContainerAsync), context));
             }
 
             var downloadBlock = NonSwallowingActionBlock.Create<FileContainerItem>(
@@ -138,7 +133,7 @@ namespace Agent.Plugins
                             tracer.Info($"Downloading: {targetPath}");
                             if (item.BlobMetadata != null)
                             {
-                                await this.DownloadFileFromBlobAsync(context, containerIdAndRoot, targetPath, projectId, item, dedupClient, clientTelemetry, downloadRecord, cancellationToken);
+                                await this.DownloadFileFromBlobAsync(context, containerIdAndRoot, targetPath, projectId, item, dedupClient, clientTelemetry, cancellationToken);
                             }
                             else
                             {
@@ -167,9 +162,12 @@ namespace Agent.Plugins
             await downloadBlock.SendAllAndCompleteSingleBlockNetworkAsync(fileItems, cancellationToken);
 
             // Send results to CustomerIntelligence
-            if (downloadRecord != null)
+            if (clientTelemetry != null)
             {
-                context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.BuildArtifactDownload, record: downloadRecord);
+                var planId = new Guid(context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.PlanId)?.Value ?? Guid.Empty.ToString());
+                var jobId = new Guid(context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.JobId)?.Value ?? Guid.Empty.ToString());
+                context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.BuildArtifactDownload,
+                    properties: clientTelemetry.GetTelemetryDownload(planId, jobId));
             }
 
             // check files (will throw an exception if a file is corrupt)
@@ -233,10 +231,12 @@ namespace Agent.Plugins
             FileContainerItem item,
             DedupStoreClient dedupClient,
             BlobStoreClientTelemetryTfs clientTelemetry,
-            BuildArtifactDownloadRecord downloadRecord,
             CancellationToken cancellationToken)
         {
             var dedupIdentifier = DedupIdentifier.Deserialize(item.BlobMetadata.ArtifactHash);
+
+            var downloadRecord = clientTelemetry.CreateRecord<BuildArtifactActionRecord>((level, uri, type) =>
+                new BuildArtifactActionRecord(level, uri, type, nameof(DownloadFileContainerAsync), context));
             await clientTelemetry.MeasureActionAsync(
                 record: downloadRecord,
                 actionAsync: async () =>
