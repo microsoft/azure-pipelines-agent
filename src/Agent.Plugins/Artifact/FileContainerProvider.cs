@@ -2,26 +2,23 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
-using Agent.Plugins.PipelineArtifact.Telemetry;
+using Agent.Plugins.BuildArtifacts.Telemetry;
 using BuildXL.Cache.ContentStore.Hashing;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Blob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
+using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.FileContainer;
 using Microsoft.VisualStudio.Services.FileContainer.Client;
 using Microsoft.VisualStudio.Services.WebApi;
-using Minimatch;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Net.Http;
-using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
@@ -114,6 +111,13 @@ namespace Agent.Plugins
 
             var fileItems = items.Where(i => i.ItemType == ContainerItemType.File);
 
+            var (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupClientAsync(
+                false, (str) => this.tracer.Info(str), this.connection, cancellationToken);
+
+            // Share a single download record for all blob files. We concat download statistics together for each download
+            var downloadRecord = clientTelemetry.CreateRecord<BuildArtifactDownloadRecord>((level, uri, type) =>
+                new BuildArtifactDownloadRecord(level, uri, type, nameof(DownloadFileContainerAsync), context));
+
             var downloadBlock = NonSwallowingActionBlock.Create<FileContainerItem>(
                 async item =>
                 {
@@ -126,7 +130,7 @@ namespace Agent.Plugins
                             tracer.Info($"Downloading: {targetPath}");
                             if (item.BlobMetadata != null)
                             {
-                                await this.DownloadFileFromBlobAsync(context, containerIdAndRoot, targetPath, projectId, item, cancellationToken);
+                                await this.DownloadFileFromBlobAsync(context, containerIdAndRoot, targetPath, projectId, item, dedupClient, clientTelemetry, downloadRecord, cancellationToken);
                             }
                             else
                             {
@@ -153,6 +157,9 @@ namespace Agent.Plugins
                 });
 
             await downloadBlock.SendAllAndCompleteSingleBlockNetworkAsync(fileItems, cancellationToken);
+
+            // Send results to CustomerIntelligence
+            context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.BuildArtifactDownload, record: downloadRecord);
 
             // check files (will throw an exception if a file is corrupt)
             if (downloadParameters.CheckDownloadedFiles)
@@ -213,48 +220,40 @@ namespace Agent.Plugins
             string destinationPath,
             Guid scopeIdentifier,
             FileContainerItem item,
+            DedupStoreClient dedupClient,
+            BlobStoreClientTelemetryTfs clientTelemetry,
+            BuildArtifactDownloadRecord downloadRecord,
             CancellationToken cancellationToken)
         {
-            var (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupClientAsync(
-                false, (str) => this.tracer.Info(str), this.connection, cancellationToken);
-
-            using (clientTelemetry)
-            {
-                var dedupIdentifier = DedupIdentifier.Deserialize(item.BlobMetadata.ArtifactHash);
-                PipelineArtifactActionRecord downloadRecord = clientTelemetry.CreateRecord<PipelineArtifactActionRecord>((level, uri, type) =>
-                    new PipelineArtifactActionRecord(level, uri, type, nameof(DownloadMultipleArtifactsAsync), context));
-                await clientTelemetry.MeasureActionAsync(
-                    record: downloadRecord,
-                    actionAsync: async () =>
-                    {
-                        await AsyncHttpRetryHelper.InvokeVoidAsync(
-                            async () =>
+            var dedupIdentifier = DedupIdentifier.Deserialize(item.BlobMetadata.ArtifactHash);
+            await clientTelemetry.MeasureActionAsync(
+                record: downloadRecord,
+                actionAsync: async () =>
+                {
+                    return await AsyncHttpRetryHelper.InvokeAsync(
+                        async () =>
+                        {
+                            if (item.BlobMetadata.CompressionType == BlobCompressionType.GZip)
                             {
                                 using (var targetFileStream = new FileStream(destinationPath, FileMode.Create))
+                                using (var uncompressStream = new GZipStream(targetFileStream, CompressionMode.Decompress))
                                 {
-                                    if (item.BlobMetadata.CompressionType == BlobCompressionType.GZip)
-                                    {
-                                        using (GZipStream uncompressStream = new GZipStream(targetFileStream, CompressionMode.Decompress))
-                                        {
-                                            await dedupClient.DownloadToStreamAsync(dedupIdentifier, uncompressStream, null, EdgeCache.Allowed, (size) => {}, (size) => {}, cancellationToken);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        await dedupClient.DownloadToStreamAsync(dedupIdentifier, targetFileStream, null, EdgeCache.Allowed, (size) => {}, (size) => {}, cancellationToken);
-                                    }
+                                    await dedupClient.DownloadToStreamAsync(dedupIdentifier, uncompressStream, null, EdgeCache.Allowed, (size) => {}, (size) => {}, cancellationToken);
                                 }
-                            },
-                            maxRetries: 3,
-                            tracer: tracer,
-                            canRetryDelegate: e => true,
-                            context: nameof(DownloadSingleArtifactAsync),
-                            cancellationToken: cancellationToken,
-                            continueOnCapturedContext: false);
-                    });
-                // Send results to CustomerIntelligence
-                context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: downloadRecord);
-            }
+                            }
+                            else
+                            {
+                                await dedupClient.DownloadToFileAsync(dedupIdentifier, destinationPath, null, null, EdgeCache.Allowed, cancellationToken);
+                            }
+                            return dedupClient.DownloadStatistics;
+                        },
+                        maxRetries: 3,
+                        tracer: tracer,
+                        canRetryDelegate: e => true,
+                        context: nameof(DownloadFileFromBlobAsync),
+                        cancellationToken: cancellationToken,
+                        continueOnCapturedContext: false);
+                });
         }
 
         private string ResolveTargetPath(string rootPath, FileContainerItem item, string artifactName, bool includeArtifactName)
