@@ -110,7 +110,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
 
             ciData.Add("ChunksDownloaded", this._chunksDownloaded);
             ciData.Add("CompressionBytesSavedDownload", this._compressionBytesSavedDown);
-            ciData.Add("DedupDownloadBytesSaved", this._dedupUploadBytesSaved);
+            ciData.Add("DedupDownloadBytesSaved", this._dedupDownloadBytesSaved);
             ciData.Add("PhysicalContentBytesDownloaded", this._physicalContentBytesDownloaded);
             ciData.Add("TotalBytesDownloaded", this._totalBytesDown);
 
