@@ -111,12 +111,20 @@ namespace Agent.Plugins
 
             var fileItems = items.Where(i => i.ItemType == ContainerItemType.File);
 
-            var (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupClientAsync(
-                false, (str) => this.tracer.Info(str), this.connection, cancellationToken);
+            // Only initialize these clients if we know we need to download from Blobstore
+            // If a client cannot connect to Blobstore, we shouldn't stop them from downloading from FCS
+            DedupStoreClient dedupClient = null;
+            BlobStoreClientTelemetryTfs clientTelemetry = null;
+            BuildArtifactDownloadRecord downloadRecord = null;
+            if (fileItems.Any(x => x.BlobMetadata != null))
+            {
+                (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupClientAsync(
+                    false, (str) => this.tracer.Info(str), this.connection, cancellationToken);
 
-            // Share a single download record for all blob files. We concat download statistics together for each download
-            var downloadRecord = clientTelemetry.CreateRecord<BuildArtifactDownloadRecord>((level, uri, type) =>
-                new BuildArtifactDownloadRecord(level, uri, type, nameof(DownloadFileContainerAsync), context));
+                // Share a single download record for all blob files. We concat download statistics together for each download
+                downloadRecord = clientTelemetry.CreateRecord<BuildArtifactDownloadRecord>((level, uri, type) =>
+                    new BuildArtifactDownloadRecord(level, uri, type, nameof(DownloadFileContainerAsync), context));
+            }
 
             var downloadBlock = NonSwallowingActionBlock.Create<FileContainerItem>(
                 async item =>
@@ -159,7 +167,10 @@ namespace Agent.Plugins
             await downloadBlock.SendAllAndCompleteSingleBlockNetworkAsync(fileItems, cancellationToken);
 
             // Send results to CustomerIntelligence
-            context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.BuildArtifactDownload, record: downloadRecord);
+            if (downloadRecord != null)
+            {
+                context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.BuildArtifactDownload, record: downloadRecord);
+            }
 
             // check files (will throw an exception if a file is corrupt)
             if (downloadParameters.CheckDownloadedFiles)
