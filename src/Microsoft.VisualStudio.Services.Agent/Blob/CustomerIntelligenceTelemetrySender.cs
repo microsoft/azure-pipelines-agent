@@ -116,19 +116,5 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
 
             return ciData;
         }
-
-        private async Task CommitTelemetry(Guid planId, Guid jobId, Dictionary<string, object> ciData)
-        {
-            ciData.Add("PlanId", planId);
-            ciData.Add("JobId", jobId);
-
-            var ciEvent = new CustomerIntelligenceEvent
-            {
-                Area = "AzurePipelinesAgent",
-                Feature = "BuildArtifacts",
-                Properties = ciData
-            };
-            await _ciClient.PublishEventsAsync(new [] { ciEvent });
-        }
     }
 }
