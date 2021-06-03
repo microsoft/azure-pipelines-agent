@@ -131,11 +131,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     UploadResult retryUploadResult;
                     if (uploadToBlob)
                     {
-                        retryUploadResult = await BlobUploadAsync(context, files, maxConcurrentUploads, _uploadCancellationTokenSource.Token);
+                        retryUploadResult = await BlobUploadAsync(context, uploadResult.FailedFiles, maxConcurrentUploads, _uploadCancellationTokenSource.Token);
                     }
                     else
                     {
-                        retryUploadResult = await ParallelUploadAsync(context, files, maxConcurrentUploads, _uploadCancellationTokenSource.Token);
+                        retryUploadResult = await ParallelUploadAsync(context, uploadResult.FailedFiles, maxConcurrentUploads, _uploadCancellationTokenSource.Token);
                     }
 
                     if (retryUploadResult.FailedFiles.Count == 0)
@@ -336,26 +336,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 queue.Enqueue(file);
             }
 
-            using (var reportingCancelSrc = CancellationTokenSource.CreateLinkedTokenSource(token))
+            // Start associate monitor
+            var uploadFinished = new TaskCompletionSource<int>();
+            var associateMonitor = AssociateReportingAsync(context, files.Count(), uploadFinished, token);
+
+            // Start parallel associate tasks.
+            var parallelAssociateTasks = new List<Task<UploadResult>>();
+            for (int uploader = 0; uploader < concurrentUploads; uploader++)
             {
-                // Start associate monitor
-                var associateMonitor = AssociateReportingAsync(context, files.Count(), reportingCancelSrc);
-
-                // Start parallel associate tasks.
-                var parallelAssociateTasks = new List<Task<UploadResult>>();
-                for (int uploader = 0; uploader < concurrentUploads; uploader++)
-                {
-                    parallelAssociateTasks.Add(AssociateAsync(context, queue, token));
-                }
-
-                // Wait for parallel associate tasks to finish.
-                await Task.WhenAll(parallelAssociateTasks);
-                foreach (var associateTask in parallelAssociateTasks)
-                {
-                    // record all failed files.
-                    uploadResult.AddUploadResult(await associateTask);
-                }
+                parallelAssociateTasks.Add(AssociateAsync(context, queue, token));
             }
+
+            // Wait for parallel associate tasks to finish.
+            await Task.WhenAll(parallelAssociateTasks);
+            foreach (var associateTask in parallelAssociateTasks)
+            {
+                // record all failed files.
+                uploadResult.AddUploadResult(await associateTask);
+            }
+
+            // Stop monitor task
+            uploadFinished.SetResult(0);
+            await associateMonitor;
 
             // report telemetry
             if (!Guid.TryParse(context.GetVariableValueOrDefault(WellKnownDistributedTaskVariables.PlanId), out var planId))
@@ -466,12 +468,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
         }
 
-        private async Task AssociateReportingAsync(IAsyncCommandContext context, int totalFiles, CancellationTokenSource reportingCancelSrc)
+        private async Task AssociateReportingAsync(IAsyncCommandContext context, int totalFiles, TaskCompletionSource<int> uploadFinished, CancellationToken token)
         {
-            while (!reportingCancelSrc.IsCancellationRequested)
+            while (!uploadFinished.Task.IsCompleted && !token.IsCancellationRequested)
             {
                 context.Output(StringUtil.Loc("FileAssociateProgress", totalFiles, _filesProcessed, (_filesProcessed * 100) / totalFiles));
-                await Task.Delay(10000, reportingCancelSrc.Token);
+                await Task.WhenAny(uploadFinished.Task, Task.Delay(10000, token));
             }
         }
 
