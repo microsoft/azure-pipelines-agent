@@ -31,10 +31,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             await (ciSender?.CommitTelemetryUpload(planId, jobId) ?? Task.CompletedTask);
         }
 
-        public Dictionary<string, object> GetTelemetryDownload(Guid planId, Guid jobId)
+        public Dictionary<string, object> GetArtifactDownloadTelemetry(Guid planId, Guid jobId)
         {
             var ciSender = this.senders.OfType<CustomerIntelligenceTelemetrySender>().FirstOrDefault();
-            return ciSender?.GetTelemetryDownload(planId, jobId);
+            return ciSender?.GetArtifactDownloadTelemetry(planId, jobId);
         }
     }
 }

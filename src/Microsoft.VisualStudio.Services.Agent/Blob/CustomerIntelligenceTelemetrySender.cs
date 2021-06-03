@@ -32,6 +32,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
         private long _physicalContentBytesDownloaded = 0;
         private long _totalBytesDown = 0;
 
+        // Telemetry is recorded in parallel. This lock is used to synchronize adds
+        private readonly object _lock = new object();
+
         public CustomerIntelligenceTelemetrySender(VssConnection connection)
         {
             ArgUtil.NotNull(connection, nameof(connection));
@@ -56,24 +59,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
         {
             if (actionTelemetry is IDedupRecord dedupRecord)
             {
-                var uploadStats = dedupRecord.UploadStatistics;
-                if (uploadStats != null)
+                lock (_lock)
                 {
-                    Interlocked.Add(ref this._chunksUploaded, uploadStats.ChunksUploaded);
-                    Interlocked.Add(ref this._compressionBytesSaved, uploadStats.CompressionBytesSaved);
-                    Interlocked.Add(ref this._dedupUploadBytesSaved, uploadStats.DedupUploadBytesSaved);
-                    Interlocked.Add(ref this._logicalContentBytesUploaded, uploadStats.LogicalContentBytesUploaded);
-                    Interlocked.Add(ref this._physicalContentBytesUploaded, uploadStats.PhysicalContentBytesUploaded);
-                    Interlocked.Add(ref this._totalNumberOfChunks, uploadStats.TotalNumberOfChunks);
-                }
-                var downloadStats = dedupRecord.DownloadStatistics;
-                if (downloadStats != null)
-                {
-                    Interlocked.Add(ref this._chunksDownloaded, downloadStats.ChunksDownloaded);
-                    Interlocked.Add(ref this._compressionBytesSavedDown, downloadStats.CompressionBytesSaved);
-                    Interlocked.Add(ref this._dedupDownloadBytesSaved, downloadStats.DedupDownloadBytesSaved);
-                    Interlocked.Add(ref this._totalBytesDown, downloadStats.TotalContentBytes);
-                    Interlocked.Add(ref this._physicalContentBytesDownloaded, downloadStats.PhysicalContentBytesDownloaded);
+                    var uploadStats = dedupRecord.UploadStatistics;
+                    if (uploadStats != null)
+                    {
+                        this._chunksUploaded += uploadStats.ChunksUploaded;
+                        this._compressionBytesSaved += uploadStats.CompressionBytesSaved;
+                        this._dedupUploadBytesSaved += uploadStats.DedupUploadBytesSaved;
+                        this._logicalContentBytesUploaded += uploadStats.LogicalContentBytesUploaded;
+                        this._physicalContentBytesUploaded += uploadStats.PhysicalContentBytesUploaded;
+                        this._totalNumberOfChunks += uploadStats.TotalNumberOfChunks;
+                    }
+                    var downloadStats = dedupRecord.DownloadStatistics;
+                    if (downloadStats != null)
+                    {
+                        this._chunksDownloaded += downloadStats.ChunksDownloaded;
+                        this._compressionBytesSavedDown += downloadStats.CompressionBytesSaved;
+                        this._dedupDownloadBytesSaved += downloadStats.DedupDownloadBytesSaved;
+                        this._totalBytesDown += downloadStats.TotalContentBytes;
+                        this._physicalContentBytesDownloaded += downloadStats.PhysicalContentBytesDownloaded;
+                    }
                 }
             }
         }
@@ -101,7 +107,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             await _ciClient.PublishEventsAsync(new [] { ciEvent });
         }
 
-        public Dictionary<string, object> GetTelemetryDownload(Guid planId, Guid jobId)
+        public Dictionary<string, object> GetArtifactDownloadTelemetry(Guid planId, Guid jobId)
         {
             var ciData = new Dictionary<string, object>();
 

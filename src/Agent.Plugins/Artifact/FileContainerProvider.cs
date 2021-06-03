@@ -167,7 +167,7 @@ namespace Agent.Plugins
                 var planId = new Guid(context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.PlanId)?.Value ?? Guid.Empty.ToString());
                 var jobId = new Guid(context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.JobId)?.Value ?? Guid.Empty.ToString());
                 context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.BuildArtifactDownload,
-                    properties: clientTelemetry.GetTelemetryDownload(planId, jobId));
+                    properties: clientTelemetry.GetArtifactDownloadTelemetry(planId, jobId));
             }
 
             // check files (will throw an exception if a file is corrupt)
