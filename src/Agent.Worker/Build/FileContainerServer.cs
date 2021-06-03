@@ -4,7 +4,6 @@
 using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Blob;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.FileContainer.Client;
 using System;
 using System.Collections.Concurrent;
@@ -13,7 +12,6 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Threading.Tasks.Dataflow;
 using System.Diagnostics;
 using Microsoft.VisualStudio.Services.WebApi;
 using System.Net.Http;
@@ -368,7 +366,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             {
                 jobId = Guid.Empty;
             }
-            await clientTelemetry.CommitTelemetry(planId, jobId);
+            await clientTelemetry.CommitTelemetryUpload(planId, jobId);
 
             return uploadResult;
         }
