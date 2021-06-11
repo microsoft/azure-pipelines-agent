@@ -6,7 +6,10 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading.Tasks;
+using Microsoft.VisualStudio.Services.Agent;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.TeamFoundation.TestClient.PublishTestResults;
@@ -14,6 +17,7 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.VisualStudio.Services.WebPlatform;
 using Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults;
 using Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils;
+using Newtonsoft.Json;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
@@ -47,6 +51,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private bool _failTaskOnFailedTests;
 
         private string _testRunSystem;
+        private string errorMessage;
 
         //telemetry parameter
         private const string _telemetryFeature = "PublishTestResultsCommand";
@@ -289,7 +294,45 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
 
             await PublishEventsAsync(connection);
+            var endpoints = _executionContext.Endpoints;
+            foreach (ServiceEndpoint endpoint in endpoints)
+            { 
+                //string url = "https://app.vssps.visualstudio.com/_apis/resourceareas/c83eaf52-edf3-4034-ae11-17d38f25404c?accountName=clttestsu0";
+                string accessToken = endpoint.Authorization.Parameters.TryGetValue(EndpointAuthorizationParameters.AccessToken, out accessToken) ? accessToken : null;
+                //TODO: Currently we have hardcoded this location url. Need to get it through above commented url and then use properly.
+                string url = "https://clttestsu0.vstmr.visualstudio.com" + '/' + _executionContext.Variables.System_TeamProjectId + "/_apis/testresults/CodeCoverage/?buildId=" + _executionContext.Variables.Build_BuildId + "&api-version=5.0-preview.1";
+                errorMessage = "";
+                QueryItem(accessToken, url, out errorMessage);
+            }
         }
+        
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "invokeScript")]
+        private string QueryItem(string accessToken, string url, out string errorMessage)
+            {
+            using (var request = new HttpRequestMessage(HttpMethod.Patch, url))
+                {    
+                request.Headers.Add("ContentType", "application/json");
+                var HostContext = _executionContext.GetHostContext();
+                using (var httpClientHandler = HostContext.CreateHttpClientHandler())
+                using (var httpClient = new HttpClient(httpClientHandler))
+                {
+                    httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+                    errorMessage = string.Empty;
+                    Task<HttpResponseMessage> sendAsyncTask = httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+                    HttpResponseMessage response = sendAsyncTask.GetAwaiter().GetResult();
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        errorMessage = response.StatusCode.ToString();
+                        return errorMessage;
+                    }
+                    else
+                    {
+                        string result = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();       
+                        return result;
+                    }
+                }
+
+            }
 
         private async Task PublishEventsAsync(VssConnection connection)
         {
