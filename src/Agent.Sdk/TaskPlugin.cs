@@ -193,6 +193,15 @@ namespace Agent.Sdk
             Output($"##vso[telemetry.publish area={area};feature={feature}]{Escape(propertiesAsJson)}");
         }
 
+        public void PublishTelemetry(string area, string feature, Dictionary<string, object> properties)
+        {
+            ArgUtil.NotNull(area, nameof(area));
+            ArgUtil.NotNull(feature, nameof(feature));
+            ArgUtil.NotNull(properties, nameof(properties));
+            string propertiesAsJson = StringUtil.ConvertToJson(properties, Formatting.None);
+            Output($"##vso[telemetry.publish area={area};feature={feature}]{Escape(propertiesAsJson)}");
+        }
+
         public void PublishTelemetry(string area, string feature, TelemetryRecord record)
             => PublishTelemetry(area, feature, record?.GetAssignedProperties());
 
@@ -323,6 +332,21 @@ namespace Agent.Sdk
                     ProxyPassword = proxyPassword,
                     ProxyBypassList = proxyBypassHosts,
                     WebProxy = new AgentWebProxy(proxyUrl, proxyUsername, proxyPassword, proxyBypassHosts)
+                };
+            }
+            // back-compat of proxy configuration via environment variables
+            else if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("VSTS_HTTP_PROXY")))
+            {
+                var ProxyUrl = Environment.GetEnvironmentVariable("VSTS_HTTP_PROXY");
+                ProxyUrl = ProxyUrl.Trim();
+                var ProxyUsername = Environment.GetEnvironmentVariable("VSTS_HTTP_PROXY_USERNAME");
+                var ProxyPassword = Environment.GetEnvironmentVariable("VSTS_HTTP_PROXY_PASSWORD");
+                return new AgentWebProxySettings()
+                {
+                    ProxyAddress = ProxyUrl,
+                    ProxyUsername = ProxyUsername,
+                    ProxyPassword = ProxyPassword,
+                    WebProxy = new AgentWebProxy(proxyUrl, ProxyUsername, ProxyPassword, null)
                 };
             }
             else

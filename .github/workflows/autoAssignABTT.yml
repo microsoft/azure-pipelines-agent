@@ -1,0 +1,25 @@
+name: Auto Assign ABTT to Project Board
+
+on:
+  issues:
+    types: [opened]
+env:
+  MY_GITHUB_TOKEN: ${{ secrets.ABTT_TOKEN }}
+
+jobs:
+  assign_one_project:
+    runs-on: ubuntu-latest
+    name: Assign to ABTT Project
+    steps:
+    - name: "Add triage and area labels"
+      uses: actions-ecosystem/action-add-labels@v1
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        labels: |
+          Area: Agent
+          triage
+    - name: "Assign issues with 'Area: ABTT' label to project board"
+      uses: srggrs/assign-one-project-github-action@1.2.0
+      with:
+        project: 'https://github.com/orgs/microsoft/projects/48'
+        column_name: 'Backlog'
