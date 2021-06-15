@@ -309,7 +309,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         }
         
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "invokeScript")]
-        private string QueryItem(string accessToken, string url, out string errorMessage)
+        private string QueryItem(string accessToken, string url,System.Net.Http.HttpMethod method, out string errorMessage)
             {
             using (var request = new HttpRequestMessage(HttpMethod.Patch, url))
                 {    
@@ -333,7 +333,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                         return result;
                     }
                 }
-
             }
 
         private async Task PublishEventsAsync(VssConnection connection)
