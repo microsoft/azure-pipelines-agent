@@ -32,6 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         private PackageMetadata _targetPackage;
         private ITerminal _terminal;
         private IAgentServer _agentServer;
+        private IAgentCertificateManager _agentCertManager;
         private int _poolId;
         private int _agentId;
 
@@ -46,6 +47,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             var settings = configStore.GetSettings();
             _poolId = settings.PoolId;
             _agentId = settings.AgentId;
+            _agentCertManager = HostContext.GetService<IAgentCertificateManager>();
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "invokeScript")]
@@ -175,7 +177,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             int agentSuffix = 1;
             string archiveFile = null;
             bool downloadSucceeded = false;
-
             try
             {
                 // Download the agent, using multiple attempts in order to be resilient against any networking/CDN issues
@@ -226,13 +227,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
                             //open zip stream in async mode
                             using (var handler = HostContext.CreateHttpClientHandler())
-                            using (var httpClient = new HttpClient(handler))
-                            using (var fs = new FileStream(archiveFile, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true))
-                            using (var result = await httpClient.GetStreamAsync(_targetPackage.DownloadUrl))
                             {
-                                //81920 is the default used by System.IO.Stream.CopyTo and is under the large object heap threshold (85k).
-                                await result.CopyToAsync(fs, 81920, downloadCts.Token);
-                                await fs.FlushAsync(downloadCts.Token);
+                                if (_agentCertManager.SkipServerCertificateValidation)
+                                {
+                                    Trace.Info($"Certificate validation will be skipped, since --sslskipcertvalidation option was passed during configuration");
+                                    handler.CheckCertificateRevocationList = true;
+                                    handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+                                }
+                                using (var httpClient = new HttpClient(handler))
+                                using (var fs = new FileStream(archiveFile, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true))
+                                using (var result = await httpClient.GetStreamAsync(_targetPackage.DownloadUrl))
+                                {
+                                    //81920 is the default used by System.IO.Stream.CopyTo and is under the large object heap threshold (85k).
+                                    await result.CopyToAsync(fs, 81920, downloadCts.Token);
+                                    await fs.FlushAsync(downloadCts.Token);
+                                }
                             }
 
                             Trace.Info($"Download agent: finished download");
