@@ -78,7 +78,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
             commandContext.Task = PublishTestRunDataAsync(teamProject, runContext);
             _executionContext.AsyncCommands.Add(commandContext);
-
         }
 
         private void LoadPublishTestResultsInputs(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
@@ -297,12 +296,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             var endpoints = _executionContext.Endpoints;
             foreach (ServiceEndpoint endpoint in endpoints)
             { 
-                //string url = "https://app.vssps.visualstudio.com/_apis/resourceareas/c83eaf52-edf3-4034-ae11-17d38f25404c?accountName=clttestsu0";
-                string accessToken = endpoint.Authorization.Parameters.TryGetValue(EndpointAuthorizationParameters.AccessToken, out accessToken) ? accessToken : null;
-                //TODO: Currently we have hardcoded this location url. Need to get it through above commented url and then use properly.
-                string url = "https://clttestsu0.vstmr.visualstudio.com" + '/' + _executionContext.Variables.System_TeamProjectId + "/_apis/testresults/CodeCoverage/?buildId=" + _executionContext.Variables.Build_BuildId + "&api-version=5.0-preview.1";
+                string locationUrlApi = "https://app.vssps.visualstudio.com/_apis/resourceareas/c83eaf52-edf3-4034-ae11-17d38f25404c?hostId=" + _executionContext.Variables.System_CollectionId;
+                string accessToken = endpoint.Authorization.Parameters.TryGetValue(EndpointAuthorizationParameters.AccessToken, out accessToken) ? accessToken : null;    
                 errorMessage = "";
-                QueryItem(accessToken, url, out errorMessage);
+                var response = QueryItem(accessToken, locationUrlApi, HttpMethod.Get, out errorMessage);
+                var urlDetails = JsonConvert.DeserializeObject<Dictionary<string, string>>(response);
+                var locationUrl = "";
+                urlDetails.TryGetValue("locationUrl", out locationUrl);
+                string patchCoverageApi = locationUrl + '/' + _executionContext.Variables.System_TeamProjectId + "/_apis/testresults/CodeCoverage/?buildId=" + _executionContext.Variables.Build_BuildId + "&api-version=5.0-preview.1";
+                QueryItem(accessToken,patchCoverageApi,HttpMethod.Patch, out errorMessage);
             }
         }
         
