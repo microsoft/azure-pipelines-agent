@@ -231,6 +231,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                 if (_agentCertManager.SkipServerCertificateValidation)
                                 {
                                     Trace.Info($"Certificate validation will be skipped, since --sslskipcertvalidation option was passed during configuration");
+                                    // it is required to set this field to true otherwise we will receive error: CA5400: Ensure HttpClient certificate revocation list check is not disabled
                                     handler.CheckCertificateRevocationList = true;
                                     handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
                                 }
