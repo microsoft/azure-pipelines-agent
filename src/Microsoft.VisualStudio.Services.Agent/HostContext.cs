@@ -683,7 +683,6 @@ namespace Microsoft.VisualStudio.Services.Agent
     {
         public static HttpClientHandler CreateHttpClientHandler(this IHostContext context)
         {
-            System.Diagnostics.Debugger.Launch();
             ArgUtil.NotNull(context, nameof(context));
             HttpClientHandler clientHandler = new HttpClientHandler();
             var agentWebProxy = context.GetService<IVstsAgentWebProxy>();
