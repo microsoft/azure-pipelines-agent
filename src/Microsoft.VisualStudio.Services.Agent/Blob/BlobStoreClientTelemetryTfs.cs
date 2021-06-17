@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -24,10 +25,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
         {
         }
 
-        public async Task CommitTelemetry(Guid planId, Guid jobId)
+        public async Task CommitTelemetryUpload(Guid planId, Guid jobId)
         {
             var ciSender = this.senders.OfType<CustomerIntelligenceTelemetrySender>().FirstOrDefault();
-            await (ciSender?.CommitTelemetry(planId, jobId) ?? Task.CompletedTask);
+            await (ciSender?.CommitTelemetryUpload(planId, jobId) ?? Task.CompletedTask);
+        }
+
+        public Dictionary<string, object> GetArtifactDownloadTelemetry(Guid planId, Guid jobId)
+        {
+            var ciSender = this.senders.OfType<CustomerIntelligenceTelemetrySender>().FirstOrDefault();
+            return ciSender?.GetArtifactDownloadTelemetry(planId, jobId);
         }
     }
 }

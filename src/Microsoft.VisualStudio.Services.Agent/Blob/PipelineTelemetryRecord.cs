@@ -18,6 +18,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
         public Guid JobId { get; private set; }
         public Guid TaskInstanceId { get; private set; }
         public DedupUploadStatistics UploadStatistics { get; private set; }
+        public DedupDownloadStatistics DownloadStatistics { get; private set; }
 
         public PipelineTelemetryRecord(
             TelemetryInformationLevel level, 
@@ -54,6 +55,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             if (value is DedupUploadStatistics upStats)
             {
                 UploadStatistics = upStats;
+            }
+            if (value is DedupDownloadStatistics downStats)
+            {
+                DownloadStatistics = downStats;
             }
         }
     }
