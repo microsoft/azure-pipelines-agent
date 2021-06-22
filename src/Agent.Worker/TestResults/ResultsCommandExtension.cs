@@ -51,7 +51,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private bool _failTaskOnFailedTests;
 
         private string _testRunSystem;
-        private string errorMessage;
 
         //telemetry parameter
         private const string _telemetryFeature = "PublishTestResultsCommand";
@@ -293,48 +292,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
 
             await PublishEventsAsync(connection);
-            var endpoints = _executionContext.Endpoints;
-            foreach (ServiceEndpoint endpoint in endpoints)
-            { 
-                string locationUrlApi = "https://app.vssps.visualstudio.com/_apis/resourceareas/c83eaf52-edf3-4034-ae11-17d38f25404c?hostId=" + _executionContext.Variables.System_CollectionId;
-                string accessToken = endpoint.Authorization.Parameters.TryGetValue(EndpointAuthorizationParameters.AccessToken, out accessToken) ? accessToken : null;    
-                errorMessage = "";
-                var response = QueryItem(accessToken, locationUrlApi, HttpMethod.Get, out errorMessage);
-                var urlDetails = JsonConvert.DeserializeObject<Dictionary<string, string>>(response);
-                var locationUrl = "";
-                urlDetails.TryGetValue("locationUrl", out locationUrl);
-                string patchCoverageApi = locationUrl + '/' + _executionContext.Variables.System_TeamProjectId + "/_apis/testresults/CodeCoverage/?buildId=" + _executionContext.Variables.Build_BuildId + "&api-version=5.0-preview.1";
-                QueryItem(accessToken,patchCoverageApi,HttpMethod.Patch, out errorMessage);
-            }
+            TestResultsHttpClient tcmClient = connection.GetClient<TestResultsHttpClient>();
+            await tcmClient.UpdateCodeCoverageSummaryAsync(_executionContext.Variables.System_TeamProjectId.ToString(), _executionContext.Variables.Build_BuildId.GetValueOrDefault());
         }
-        
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "invokeScript")]
-        private string QueryItem(string accessToken, string url,System.Net.Http.HttpMethod method, out string errorMessage)
-            {
-            using (var request = new HttpRequestMessage(HttpMethod.Patch, url))
-                {    
-                request.Headers.Add("ContentType", "application/json");
-                var HostContext = _executionContext.GetHostContext();
-                using (var httpClientHandler = HostContext.CreateHttpClientHandler())
-                using (var httpClient = new HttpClient(httpClientHandler))
-                {
-                    httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-                    errorMessage = string.Empty;
-                    Task<HttpResponseMessage> sendAsyncTask = httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-                    HttpResponseMessage response = sendAsyncTask.GetAwaiter().GetResult();
-                    if (!response.IsSuccessStatusCode)
-                    {
-                        errorMessage = response.StatusCode.ToString();
-                        return errorMessage;
-                    }
-                    else
-                    {
-                        string result = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();       
-                        return result;
-                    }
-                }
-            }
-
+       
         private async Task PublishEventsAsync(VssConnection connection)
         {
             try
