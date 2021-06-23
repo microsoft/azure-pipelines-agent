@@ -687,6 +687,13 @@ namespace Microsoft.VisualStudio.Services.Agent
             HttpClientHandler clientHandler = new HttpClientHandler();
             var agentWebProxy = context.GetService<IVstsAgentWebProxy>();
             clientHandler.Proxy = agentWebProxy.WebProxy;
+
+            var agentCertManager = context.GetService<IAgentCertificateManager>();
+            if (agentCertManager.SkipServerCertificateValidation)
+            {
+                clientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+            }
+
             return clientHandler;
         }
     }

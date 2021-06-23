@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using BuildXL.Cache.ContentStore.Hashing;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
@@ -113,9 +114,10 @@ namespace Agent.Plugins
 
             // Only initialize these clients if we know we need to download from Blobstore
             // If a client cannot connect to Blobstore, we shouldn't stop them from downloading from FCS
+            var downloadFromBlob = !AgentKnobs.DisableBuildArtifactsToBlob.GetValue(context).AsBoolean();
             DedupStoreClient dedupClient = null;
             BlobStoreClientTelemetryTfs clientTelemetry = null;
-            if (fileItems.Any(x => x.BlobMetadata != null))
+            if (downloadFromBlob && fileItems.Any(x => x.BlobMetadata != null))
             {
                 (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupClientAsync(
                     false, (str) => this.tracer.Info(str), this.connection, cancellationToken);
@@ -131,7 +133,7 @@ namespace Agent.Plugins
                         async () =>
                         {
                             tracer.Info($"Downloading: {targetPath}");
-                            if (item.BlobMetadata != null)
+                            if (item.BlobMetadata != null && downloadFromBlob)
                             {
                                 await this.DownloadFileFromBlobAsync(context, containerIdAndRoot, targetPath, projectId, item, dedupClient, clientTelemetry, cancellationToken);
                             }
