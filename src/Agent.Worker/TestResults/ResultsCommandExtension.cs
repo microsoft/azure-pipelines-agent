@@ -49,7 +49,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private bool _failTaskOnFailedTests;
 
         private string _testRunSystem;
-        private const string TriggerCoverageMergeJobFF = "TestManagement.Server.TriggerCoverageMergeJob";
 
         //telemetry parameter
         private const string _telemetryFeature = "PublishTestResultsCommand";
@@ -291,10 +290,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
 
             await PublishEventsAsync(connection);
-            if (GetFeatureFlagState(executionContext, connection, TriggerCoverageMergeJobFF))
-            {
-                TriggerCoverageMergeJob(_testResultFiles, _executionContext);
-            }
+          
+            TriggerCoverageMergeJob(_testResultFiles, _executionContext);
+            
         }
         
         // Queue code coverage merge job if code coverage attachments are published to avoid BQC timeout.
