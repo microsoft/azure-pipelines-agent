@@ -5,8 +5,10 @@ using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Xml;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.TeamFoundation.TestClient.PublishTestResults;
@@ -47,6 +49,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private bool _failTaskOnFailedTests;
 
         private string _testRunSystem;
+        private const string TriggerCoverageMergeJobFF = "TestManagement.Server.TriggerCoverageMergeJob";
 
         //telemetry parameter
         private const string _telemetryFeature = "PublishTestResultsCommand";
