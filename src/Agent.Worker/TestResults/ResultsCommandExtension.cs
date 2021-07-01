@@ -326,7 +326,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                                 }
                                 catch (Exception e)
                                 {    
-                                _executionContext.Debug("Could not queue code coverage merge");                    
+                                _executionContext.Section($"Could not queue code coverage merge:{e}");                    
                                 }
                             }
                      }
