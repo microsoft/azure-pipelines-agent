@@ -317,19 +317,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                             Path.GetExtension(file).Equals(".covb", StringComparison.OrdinalIgnoreCase) ||
                             Path.GetExtension(file).Equals(".coverage", StringComparison.OrdinalIgnoreCase)
                             )
-                        {           
-                            _testResultsServer.InitializeServer(connection, _executionContext);
-                         
-                            try
-                            {
-                                var codeCoverageResults =  _testResultsServer.UpdateCodeCoverageSummaryAsync(connection,_executionContext, _executionContext.Variables.System_TeamProjectId.ToString(), _executionContext.Variables.Build_BuildId.GetValueOrDefault());
+                            {           
+                                 _testResultsServer.InitializeServer(connection, _executionContext);                     
+                                try
+                                {
+                                var codeCoverageResults =  _testResultsServer.UpdateCodeCoverageSummaryAsync(connection,_executionContext.Variables.System_TeamProjectId.ToString(), _executionContext.Variables.Build_BuildId.GetValueOrDefault());
+                                }
+                                catch (Exception e)
+                                {    
+                                _executionContext.Debug("Could not queue code coverage merge");                    
+                                }
                             }
-                            catch (Exception e)
-                            {    
-                              _executionContext.Debug("Could not queue code coverage merge");                    
-                            }
-                        }
-                    }
+                     }
                 }
             }
         }
