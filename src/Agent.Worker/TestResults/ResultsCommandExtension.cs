@@ -288,8 +288,50 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
 
             await PublishEventsAsync(connection);
-            TestResultsHttpClient tcmClient = connection.GetClient<TestResultsHttpClient>();
-            await tcmClient.UpdateCodeCoverageSummaryAsync(_executionContext.Variables.System_TeamProjectId.ToString(), _executionContext.Variables.Build_BuildId.GetValueOrDefault());
+            if (GetFeatureFlagState(executionContext, connection, TriggerCoverageMergeJobFF))
+            {
+                TriggerCoverageMergeJob(_testResultFiles, _executionContext);
+            }
+        }
+        
+        // Queue code coverage merge job if code coverage attachments are published to avoid BQC timeout.
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "connection")]
+        private void TriggerCoverageMergeJob(List<string> resultFilesInput , IExecutionContext context)
+        {
+            ITestResultsServer _testResultsServer = context.GetHostContext().GetService<ITestResultsServer>();
+            foreach (var resultFile in resultFilesInput)
+            {
+                string text = File.ReadAllText(resultFile);
+                XmlDocument xdoc = new XmlDocument();
+                xdoc.LoadXml(text);              
+                XmlNodeList nodes = xdoc.GetElementsByTagName("A");
+              
+                var connection = WorkerUtilities.GetVssConnection(_executionContext);
+                foreach (XmlNode attachmentNode in nodes)
+                {
+                    var file = attachmentNode.Attributes?["href"]?.Value;
+                    if (!string.IsNullOrEmpty(file))
+                    {
+                        if (
+                            Path.GetExtension(file).Equals(".covx", StringComparison.OrdinalIgnoreCase) ||
+                            Path.GetExtension(file).Equals(".covb", StringComparison.OrdinalIgnoreCase) ||
+                            Path.GetExtension(file).Equals(".coverage", StringComparison.OrdinalIgnoreCase)
+                            )
+                        {           
+                            _testResultsServer.InitializeServer(connection, _executionContext);
+                         
+                            try
+                            {
+                                var codeCoverageResults =  _testResultsServer.UpdateCodeCoverageSummaryAsync(connection,_executionContext, _executionContext.Variables.System_TeamProjectId.ToString(), _executionContext.Variables.Build_BuildId.GetValueOrDefault());
+                            }
+                            catch (Exception e)
+                            {    
+                              _executionContext.Debug("Could not queue code coverage merge");                    
+                            }
+                        }
+                    }
+                }
+            }
         }
        
         private async Task PublishEventsAsync(VssConnection connection)
