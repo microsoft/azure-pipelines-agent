@@ -289,10 +289,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 _executionContext.Error(StringUtil.Loc("FailedTestsInResults"));
             }
 
-            await PublishEventsAsync(connection);
-          
-            TriggerCoverageMergeJob(_testResultFiles, _executionContext);
-            
+            await PublishEventsAsync(connection); 
+            TriggerCoverageMergeJob(_testResultFiles, _executionContext);      
         }
         
         // Queue code coverage merge job if code coverage attachments are published to avoid BQC timeout.
