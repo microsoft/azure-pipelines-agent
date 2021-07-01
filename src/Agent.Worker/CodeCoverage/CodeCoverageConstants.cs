@@ -96,7 +96,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
 
         #region FeatureFlags
         public const string EnablePublishToTcmServiceDirectlyFromTaskFF = "TestManagement.Server.EnablePublishToTcmServiceDirectlyFromTask";
-        public const string TriggerCoverageMergeJobFF = "testManagement.Server.TriggerCoverageMergeJob";
+        public const string TriggerCoverageMergeJobFF = "TestManagement.Server.TriggerCoverageMergeJob";
         #endregion
     }
 }
