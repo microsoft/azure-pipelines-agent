@@ -166,7 +166,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             var results = await BlobStoreUtils.UploadToBlobStore(verbose, itemPath, (level, uri, type) =>
                 new TimelineRecordAttachmentTelemetryRecord(level, uri, type, nameof(UploadAttachmentToBlobStore), planId, jobId, Guid.Empty), (str) => Trace.Info(str), dedupClient, clientTelemetry, cancellationToken);
 
-            await clientTelemetry.CommitTelemetry(planId, jobId);
+            await clientTelemetry.CommitTelemetryUpload(planId, jobId);
 
             return results;
         }

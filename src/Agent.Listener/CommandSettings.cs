@@ -128,11 +128,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         public bool GetAlwaysExtractTask()
         {
-            return TestFlagOrPrompt(
-                value: Configure?.AlwaysExtractTask,
-                name: Constants.Agent.CommandLine.Flags.AlwaysExtractTask,
-                description: StringUtil.Loc("AlwaysExtractTask"),
-                defaultValue: false);
+            return TestFlag(Configure?.AlwaysExtractTask, Constants.Agent.CommandLine.Flags.AlwaysExtractTask);
         }
 
         public bool GetReplace()

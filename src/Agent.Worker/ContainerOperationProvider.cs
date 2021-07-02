@@ -599,6 +599,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             }
                         }
                     }
+
+                    if (!string.IsNullOrEmpty(containerUserName))
+                    {
+                        container.CurrentUserName = containerUserName;
+                    }
                 }
             }
         }

@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
+using Minimatch;
 
 namespace Agent.Plugins
 {
@@ -29,6 +30,7 @@ namespace Agent.Plugins
         public int ParallelizationLimit { get; set; } = 8;
         public int RetryDownloadCount { get; set; } = 4;
         public bool CheckDownloadedFiles { get; set; } = false;
+        public Options CustomMinimatchOptions { get; set; } = null;
     }
 
     internal enum BuildArtifactRetrievalOptions

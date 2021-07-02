@@ -2,26 +2,24 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
-using Agent.Plugins.PipelineArtifact.Telemetry;
+using Agent.Sdk.Knob;
 using BuildXL.Cache.ContentStore.Hashing;
 using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Blob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
+using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.FileContainer;
 using Microsoft.VisualStudio.Services.FileContainer.Client;
 using Microsoft.VisualStudio.Services.WebApi;
-using Minimatch;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Net.Http;
-using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
@@ -93,7 +91,7 @@ namespace Agent.Plugins
             var items = await containerClient.QueryContainerItemsAsync(containerIdAndRoot.Item1, projectId, isShallow: false, includeBlobMetadata: true, containerIdAndRoot.Item2);
 
             tracer.Info($"Start downloading FCS artifact- {artifact.Name}");
-            IEnumerable<Func<string, bool>> minimatcherFuncs = MinimatchHelper.GetMinimatchFuncs(minimatchPatterns, tracer);
+            IEnumerable<Func<string, bool>> minimatcherFuncs = MinimatchHelper.GetMinimatchFuncs(minimatchPatterns, tracer, downloadParameters.CustomMinimatchOptions);
 
             if (minimatcherFuncs != null && minimatcherFuncs.Count() != 0)
             {
@@ -114,6 +112,17 @@ namespace Agent.Plugins
 
             var fileItems = items.Where(i => i.ItemType == ContainerItemType.File);
 
+            // Only initialize these clients if we know we need to download from Blobstore
+            // If a client cannot connect to Blobstore, we shouldn't stop them from downloading from FCS
+            var downloadFromBlob = !AgentKnobs.DisableBuildArtifactsToBlob.GetValue(context).AsBoolean();
+            DedupStoreClient dedupClient = null;
+            BlobStoreClientTelemetryTfs clientTelemetry = null;
+            if (downloadFromBlob && fileItems.Any(x => x.BlobMetadata != null))
+            {
+                (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupClientAsync(
+                    false, (str) => this.tracer.Info(str), this.connection, cancellationToken);
+            }
+
             var downloadBlock = NonSwallowingActionBlock.Create<FileContainerItem>(
                 async item =>
                 {
@@ -124,9 +133,9 @@ namespace Agent.Plugins
                         async () =>
                         {
                             tracer.Info($"Downloading: {targetPath}");
-                            if (item.BlobMetadata != null)
+                            if (item.BlobMetadata != null && downloadFromBlob)
                             {
-                                await this.DownloadFileFromBlobAsync(context, containerIdAndRoot, targetPath, projectId, item, cancellationToken);
+                                await this.DownloadFileFromBlobAsync(context, containerIdAndRoot, targetPath, projectId, item, dedupClient, clientTelemetry, cancellationToken);
                             }
                             else
                             {
@@ -153,6 +162,15 @@ namespace Agent.Plugins
                 });
 
             await downloadBlock.SendAllAndCompleteSingleBlockNetworkAsync(fileItems, cancellationToken);
+
+            // Send results to CustomerIntelligence
+            if (clientTelemetry != null)
+            {
+                var planId = new Guid(context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.PlanId)?.Value ?? Guid.Empty.ToString());
+                var jobId = new Guid(context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.JobId)?.Value ?? Guid.Empty.ToString());
+                context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.BuildArtifactDownload,
+                    properties: clientTelemetry.GetArtifactDownloadTelemetry(planId, jobId));
+            }
 
             // check files (will throw an exception if a file is corrupt)
             if (downloadParameters.CheckDownloadedFiles)
@@ -213,48 +231,42 @@ namespace Agent.Plugins
             string destinationPath,
             Guid scopeIdentifier,
             FileContainerItem item,
+            DedupStoreClient dedupClient,
+            BlobStoreClientTelemetryTfs clientTelemetry,
             CancellationToken cancellationToken)
         {
-            var (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupClientAsync(
-                false, (str) => this.tracer.Info(str), this.connection, cancellationToken);
+            var dedupIdentifier = DedupIdentifier.Deserialize(item.BlobMetadata.ArtifactHash);
 
-            using (clientTelemetry)
-            {
-                var dedupIdentifier = DedupIdentifier.Deserialize(item.BlobMetadata.ArtifactHash);
-                PipelineArtifactActionRecord downloadRecord = clientTelemetry.CreateRecord<PipelineArtifactActionRecord>((level, uri, type) =>
-                    new PipelineArtifactActionRecord(level, uri, type, nameof(DownloadMultipleArtifactsAsync), context));
-                await clientTelemetry.MeasureActionAsync(
-                    record: downloadRecord,
-                    actionAsync: async () =>
-                    {
-                        await AsyncHttpRetryHelper.InvokeVoidAsync(
-                            async () =>
+            var downloadRecord = clientTelemetry.CreateRecord<BuildArtifactActionRecord>((level, uri, type) =>
+                new BuildArtifactActionRecord(level, uri, type, nameof(DownloadFileContainerAsync), context));
+            await clientTelemetry.MeasureActionAsync(
+                record: downloadRecord,
+                actionAsync: async () =>
+                {
+                    return await AsyncHttpRetryHelper.InvokeAsync(
+                        async () =>
+                        {
+                            if (item.BlobMetadata.CompressionType == BlobCompressionType.GZip)
                             {
                                 using (var targetFileStream = new FileStream(destinationPath, FileMode.Create))
+                                using (var uncompressStream = new GZipStream(targetFileStream, CompressionMode.Decompress))
                                 {
-                                    if (item.BlobMetadata.CompressionType == BlobCompressionType.GZip)
-                                    {
-                                        using (GZipStream uncompressStream = new GZipStream(targetFileStream, CompressionMode.Decompress))
-                                        {
-                                            await dedupClient.DownloadToStreamAsync(dedupIdentifier, uncompressStream, null, EdgeCache.Allowed, (size) => {}, (size) => {}, cancellationToken);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        await dedupClient.DownloadToStreamAsync(dedupIdentifier, targetFileStream, null, EdgeCache.Allowed, (size) => {}, (size) => {}, cancellationToken);
-                                    }
+                                    await dedupClient.DownloadToStreamAsync(dedupIdentifier, uncompressStream, null, EdgeCache.Allowed, (size) => {}, (size) => {}, cancellationToken);
                                 }
-                            },
-                            maxRetries: 3,
-                            tracer: tracer,
-                            canRetryDelegate: e => true,
-                            context: nameof(DownloadSingleArtifactAsync),
-                            cancellationToken: cancellationToken,
-                            continueOnCapturedContext: false);
-                    });
-                // Send results to CustomerIntelligence
-                context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: downloadRecord);
-            }
+                            }
+                            else
+                            {
+                                await dedupClient.DownloadToFileAsync(dedupIdentifier, destinationPath, null, null, EdgeCache.Allowed, cancellationToken);
+                            }
+                            return dedupClient.DownloadStatistics;
+                        },
+                        maxRetries: 3,
+                        tracer: tracer,
+                        canRetryDelegate: e => true,
+                        context: nameof(DownloadFileFromBlobAsync),
+                        cancellationToken: cancellationToken,
+                        continueOnCapturedContext: false);
+                });
         }
 
         private string ResolveTargetPath(string rootPath, FileContainerItem item, string artifactName, bool includeArtifactName)
