@@ -16,6 +16,7 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.VisualStudio.Services.WebPlatform;
 using Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults;
 using Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils;
+using Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
