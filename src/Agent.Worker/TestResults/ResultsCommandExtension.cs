@@ -289,13 +289,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 _executionContext.Error(StringUtil.Loc("FailedTestsInResults"));
             }
 
-            await PublishEventsAsync(connection); 
-            TriggerCoverageMergeJob(_testResultFiles, _executionContext);      
+            await PublishEventsAsync(connection);            
+            var triggerCoverageMergeJobFeatureState = featureFlagService.GetFeatureFlagState(CodeCoverageConstants.TriggerCoverageMergeJobFF, TestResultsConstants.TFSServiceInstanceGuid);
+            if (triggerCoverageMergeJobFeatureState)
+            {
+                TriggerCoverageMergeJob(_testResultFiles, _executionContext);
+            }
         }
         
         // Queue code coverage merge job if code coverage attachments are published to avoid BQC timeout.
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "connection")]
         private void TriggerCoverageMergeJob(List<string> resultFilesInput , IExecutionContext context)
+        {
+        try
         {
             ITestResultsServer _testResultsServer = context.GetHostContext().GetService<ITestResultsServer>();
             foreach (var resultFile in resultFilesInput)
@@ -329,6 +335,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                             }
                      }
                 }
+            }
+            }
+            catch (Exception e)
+            {
+                _executionContext.Debug($"Exception in Method:{e.Message}");
             }
         }
        
