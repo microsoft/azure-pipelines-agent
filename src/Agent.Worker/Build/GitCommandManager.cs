@@ -162,7 +162,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 if (PlatformUtil.RunningOnWindows)
                 {
                     _gitPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "git", "cmd", $"git{IOUtil.ExeExtension}");
-                    _gitLfsPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "git", PlatformUtil.IsX86 ? "mingw32" : "mingw64", "bin", "git-lfs.exe");
+                    _gitLfsPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "git", PlatformUtil.BuiltOnX86 ? "mingw32" : "mingw64", "bin", "git-lfs.exe");
 
                     // Prepend the PATH.
                     context.Output(StringUtil.Loc("Prepending0WithDirectoryContaining1", Constants.PathVariable, Path.GetFileName(_gitPath)));

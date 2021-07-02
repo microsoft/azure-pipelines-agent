@@ -175,7 +175,8 @@ namespace Agent.Plugins
                             downloadParameters.TargetDirectory,
                             proxyUri: null,
                             minimatchPatterns: downloadParameters.MinimatchFilters,
-                            minimatchFilterWithArtifactName: downloadParameters.MinimatchFilterWithArtifactName);
+                            minimatchFilterWithArtifactName: downloadParameters.MinimatchFilterWithArtifactName,
+                            customMinimatchOptions: downloadParameters.CustomMinimatchOptions);
 
                         PipelineArtifactActionRecord downloadRecord = clientTelemetry.CreateRecord<PipelineArtifactActionRecord>((level, uri, type) =>
                             new PipelineArtifactActionRecord(level, uri, type, nameof(DownloadAsync), context));
@@ -229,7 +230,8 @@ namespace Agent.Plugins
                         manifestId,
                         downloadParameters.TargetDirectory,
                         proxyUri: null,
-                        minimatchPatterns: downloadParameters.MinimatchFilters);
+                        minimatchPatterns: downloadParameters.MinimatchFilters,
+                        customMinimatchOptions: downloadParameters.CustomMinimatchOptions);
 
                     PipelineArtifactActionRecord downloadRecord = clientTelemetry.CreateRecord<PipelineArtifactActionRecord>((level, uri, type) =>
                             new PipelineArtifactActionRecord(level, uri, type, nameof(DownloadAsync), context));

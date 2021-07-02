@@ -851,7 +851,7 @@ namespace Agent.Plugins.Repository
             // i.e. "git fetch origin" versus "git fetch origin commit"
             if (fetchByCommit && !string.IsNullOrEmpty(sourceVersion))
             {
-                List<string> commitFetchSpecs = new List<string>() { $"+{sourceVersion}:{_remoteRefsPrefix}{sourceVersion}" };
+                List<string> commitFetchSpecs = new List<string>() { $"+{sourceVersion}" };
                 exitCode_fetch = await gitCommandManager.GitFetch(executionContext, targetPath, "origin", fetchDepth, commitFetchSpecs, string.Join(" ", additionalFetchArgs), cancellationToken);
                 if (exitCode_fetch != 0)
                 {

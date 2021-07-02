@@ -16,6 +16,7 @@ using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
+using Minimatch;
 
 namespace Agent.Plugins.BuildArtifacts
 {
@@ -70,6 +71,11 @@ namespace Agent.Plugins.BuildArtifacts
         static readonly string buildVersionToDownloadLatest = "latest";
         static readonly string buildVersionToDownloadSpecific = "specific";
         static readonly string buildVersionToDownloadLatestFromBranch = "latestFromBranch";
+        static readonly Options minimatchOptions = new Options() {
+           Dot = true,
+           NoBrace = true,
+           AllowWindowsPaths = PlatformUtil.RunningOnWindows
+        };
 
         protected override async Task ProcessCommandInternalAsync(
             AgentTaskPluginExecutionContext context,
@@ -174,7 +180,8 @@ namespace Agent.Plugins.BuildArtifacts
                     MinimatchFilterWithArtifactName = true,
                     ParallelizationLimit = int.TryParse(parallelizationLimit, out var parallelLimit) ? parallelLimit : 8,
                     RetryDownloadCount = int.TryParse(retryDownloadCount, out var retryCount) ? retryCount : 4,
-                    CheckDownloadedFiles = bool.TryParse(checkDownloadedFiles, out var checkDownloads) && checkDownloads
+                    CheckDownloadedFiles = bool.TryParse(checkDownloadedFiles, out var checkDownloads) && checkDownloads,
+                    CustomMinimatchOptions = minimatchOptions
                 };
             }
             else if (buildType == buildTypeSpecific)
@@ -268,7 +275,8 @@ namespace Agent.Plugins.BuildArtifacts
                     MinimatchFilterWithArtifactName = true,
                     ParallelizationLimit = int.TryParse(parallelizationLimit, out var parallelLimit) ? parallelLimit : 8,
                     RetryDownloadCount = int.TryParse(retryDownloadCount, out var retryCount) ? retryCount : 4,
-                    CheckDownloadedFiles = bool.TryParse(checkDownloadedFiles, out var checkDownloads) && checkDownloads
+                    CheckDownloadedFiles = bool.TryParse(checkDownloadedFiles, out var checkDownloads) && checkDownloads,
+                    CustomMinimatchOptions = minimatchOptions
                 };
             }
             else

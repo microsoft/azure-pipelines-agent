@@ -88,7 +88,7 @@ namespace Agent.Plugins.Repository
                 string agentHomeDir = context.Variables.GetValueOrDefault("agent.homedirectory")?.Value;
                 ArgUtil.NotNullOrEmpty(agentHomeDir, nameof(agentHomeDir));
                 gitPath = Path.Combine(agentHomeDir, "externals", "git", "cmd", $"git.exe");
-                gitLfsPath = Path.Combine(agentHomeDir, "externals", "git", PlatformUtil.IsX86 ? "mingw32" : "mingw64", "bin", "git-lfs.exe");
+                gitLfsPath = Path.Combine(agentHomeDir, "externals", "git", PlatformUtil.BuiltOnX86 ? "mingw32" : "mingw64", "bin", "git-lfs.exe");
 
                 // Prepend the PATH.
                 context.Output(StringUtil.Loc("Prepending0WithDirectoryContaining1", "Path", Path.GetFileName(gitPath)));

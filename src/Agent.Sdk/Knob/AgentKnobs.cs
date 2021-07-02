@@ -243,6 +243,7 @@ namespace Agent.Sdk.Knob
         public static readonly Knob DisableBuildArtifactsToBlob = new Knob(
             nameof(DisableBuildArtifactsToBlob),
             "By default, the agent will upload build artifacts to Blobstore. Setting this to true will disable that integration. This variable is temporary and will be removed.",
+            new RuntimeKnobSource("DISABLE_BUILD_ARTIFACTS_TO_BLOB"),
             new EnvironmentKnobSource("DISABLE_BUILD_ARTIFACTS_TO_BLOB"),
             new BuiltInDefaultKnobSource("false"));
     }
