@@ -357,14 +357,8 @@ namespace Agent.Sdk
 
         private string Escape(string input)
         {
-            if (AgentKnobs.DecodePercents.GetValue(this).AsBoolean())
-            {
-                input = input.Replace("%", "%AZP25");
-            }
-            foreach (var mapping in _commandEscapeMappings)
-            {
-                input = input.Replace(mapping.Key, mapping.Value);
-            }
+            var percent = AgentKnobs.DecodePercents.GetValue(this).AsBoolean();
+            input = CommandStringConvertor.Escape(input, percent);
 
             return input;
         }
@@ -378,21 +372,5 @@ namespace Agent.Sdk
         {
             return new SystemEnvironment();
         }
-
-        private Dictionary<string, string> _commandEscapeMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            {
-                ";", "%3B"
-            },
-            {
-                "\r", "%0D"
-            },
-            {
-                "\n", "%0A"
-            },
-            {
-                "]", "%5D"
-            },
-        };
     }
 }
