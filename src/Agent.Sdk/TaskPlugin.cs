@@ -60,7 +60,7 @@ namespace Agent.Sdk
         public Dictionary<string, VariableValue> Variables { get; set; }
         public Dictionary<string, VariableValue> TaskVariables { get; set; }
         public Dictionary<string, string> Inputs { get; set; }
-        public ContainerInfo Container {get; set; }
+        public ContainerInfo Container { get; set; }
         public Dictionary<string, string> JobSettings { get; set; }
 
         [JsonIgnore]
@@ -223,7 +223,7 @@ namespace Agent.Sdk
 
         public bool IsSystemDebugTrue()
         {
-             if (Variables.TryGetValue("system.debug", out VariableValue systemDebugVar))
+            if (Variables.TryGetValue("system.debug", out VariableValue systemDebugVar))
             {
                 return string.Equals(systemDebugVar?.Value, "true", StringComparison.OrdinalIgnoreCase);
             }
@@ -357,10 +357,10 @@ namespace Agent.Sdk
 
         private string Escape(string input)
         {
-            var percent = AgentKnobs.DecodePercents.GetValue(this).AsBoolean();
-            input = CommandStringConvertor.Escape(input, percent);
+            var unescapePercents = AgentKnobs.DecodePercents.GetValue(this).AsBoolean();
+            var escaped = CommandStringConvertor.Escape(input, unescapePercents);
 
-            return input;
+            return escaped;
         }
 
         string IKnobValueContext.GetVariableValueOrDefault(string variableName)
