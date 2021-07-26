@@ -123,7 +123,6 @@ namespace Agent.Plugins
                 {
                     (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupClientAsync(
                         false, (str) => this.tracer.Info(str), this.connection, cancellationToken);
-                    throw new Exception("test");
                 }
                 catch
                 {
