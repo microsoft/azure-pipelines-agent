@@ -119,8 +119,18 @@ namespace Agent.Plugins
             BlobStoreClientTelemetryTfs clientTelemetry = null;
             if (downloadFromBlob && fileItems.Any(x => x.BlobMetadata != null))
             {
-                (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupClientAsync(
-                    false, (str) => this.tracer.Info(str), this.connection, cancellationToken);
+                try
+                {
+                    (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupClientAsync(
+                        false, (str) => this.tracer.Info(str), this.connection, cancellationToken);
+                    throw new Exception("test");
+                }
+                catch
+                {
+                    // Fall back to streaming through TFS if we cannot reach blobstore
+                    downloadFromBlob = false;
+                    tracer.Warn(StringUtil.Loc("BlobStoreDownloadWarning"));
+                }
             }
 
             var downloadBlock = NonSwallowingActionBlock.Create<FileContainerItem>(
