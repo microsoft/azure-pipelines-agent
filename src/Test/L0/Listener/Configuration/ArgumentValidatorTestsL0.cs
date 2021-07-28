@@ -56,7 +56,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             using (TestHostContext hc = new TestHostContext(this))
             {
                 Assert.False(Validators.NTAccountValidator(string.Empty));
-                Assert.True(Validators.NTAccountValidator("NT AUTHORITY\\LOCAL SERVICE"));
+                Assert.True(Validators.NTAccountValidator("NT AUTHORITY\\LOCAL SERVICE"), "This test will fail on non-english systems, since this account is named differently in different languages, so please ignore failing of this test on non-english systems!");
             }
         }
     }

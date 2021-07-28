@@ -33,7 +33,7 @@ namespace Test.L0.Listener.Configuration
 
                 trace.Info("Trying to get the Default Service Account when a BuildRelease Agent is being configured");
                 var defaultServiceAccount = windowsServiceHelper.GetDefaultServiceAccount();
-                Assert.True(defaultServiceAccount.ToString().Equals(@"NT AUTHORITY\NETWORK SERVICE"), "If agent is getting configured as build-release agent, default service accout should be 'NT AUTHORITY\\NETWORK SERVICE'");
+                Assert.True(defaultServiceAccount.ToString().Equals(@"NT AUTHORITY\NETWORK SERVICE"), "If agent is getting configured as build-release agent, default service accout should be 'NT AUTHORITY\\NETWORK SERVICE'. This test will fail on non-english systems, since this account is named differently in different languages, so please ignore failing of this test on non-english systems!");
             }
         }
 
@@ -51,7 +51,7 @@ namespace Test.L0.Listener.Configuration
 
                 trace.Info("Trying to get the Default Service Account when a DeploymentAgent is being configured");
                 var defaultServiceAccount = windowsServiceHelper.GetDefaultAdminServiceAccount();
-                Assert.True(defaultServiceAccount.ToString().Equals(@"NT AUTHORITY\SYSTEM"), "If agent is getting configured as deployment agent, default service accout should be 'NT AUTHORITY\\SYSTEM'");
+                Assert.True(defaultServiceAccount.ToString().Equals(@"NT AUTHORITY\SYSTEM"), "If agent is getting configured as deployment agent, default service accout should be 'NT AUTHORITY\\SYSTEM'. This test will fail on non-english systems, since this account is named differently in different languages, so please ignore failing of this test on non-english systems!");
             }
         }
     }
