@@ -37,6 +37,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
             Add(capabilities, "Agent.Version", BuildConstants.AgentPackage.Version);
             Add(capabilities, "Agent.ComputerName", Environment.MachineName ?? string.Empty);
             Add(capabilities, "Agent.HomeDirectory", HostContext.GetDirectory(WellKnownDirectory.Root));
+            Add(capabilities, "AllowWorkDirectoryRepositories", settings.AllowWorkDirectoryRepositories.ToString());
             return Task.FromResult(capabilities);
         }
 

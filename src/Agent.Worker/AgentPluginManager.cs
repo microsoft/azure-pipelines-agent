@@ -121,6 +121,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Endpoints = context.Endpoints,
                 Container = containerInfo, //TODO: Figure out if this needs to have all the containers or just the one for the current step
                 JobSettings = context.JobSettings,
+                AgentSettings = context.AgentSettings,
             };
 
             // variables

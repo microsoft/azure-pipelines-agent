@@ -34,6 +34,11 @@ namespace Agent.Sdk
         public static readonly string WorkspaceIdentifier = "WorkspaceIdentifier";
     }
 
+    public class WellKnownAgentSettings
+    {
+        public static readonly string AllowWorkDirectoryRepositories = "AllowWorkDirectoryRepositories";
+    }
+
     public class AgentTaskPluginExecutionContext : ITraceWriter, IKnobValueContext
     {
         private VssConnection _connection;
@@ -62,6 +67,7 @@ namespace Agent.Sdk
         public Dictionary<string, string> Inputs { get; set; }
         public ContainerInfo Container { get; set; }
         public Dictionary<string, string> JobSettings { get; set; }
+        public Dictionary<string, string> AgentSettings { get; set; }
 
         [JsonIgnore]
         public VssConnection VssConnection
