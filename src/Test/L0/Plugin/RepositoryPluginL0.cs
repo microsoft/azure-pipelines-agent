@@ -296,6 +296,52 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
+        public async Task RepositoryPlugin_InvalidPathInputDirectlyToBuildDirectory_DontAllowWorkingDirectoryRepositorie()
+        {
+            using (TestHostContext tc = new TestHostContext(this))
+            {
+                var trace = tc.GetTrace();
+                Setup(tc);
+                var repository = _executionContext.Repositories.Single();
+                var currentPath = repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
+                Directory.CreateDirectory(currentPath);
+                _executionContext.Inputs["Path"] = $"..{Path.DirectorySeparatorChar}1";
+
+                var ex = await Assert.ThrowsAsync<ArgumentException>(async () => await _checkoutTask.RunAsync(_executionContext, CancellationToken.None));
+                Assert.True(ex.Message.Contains("should resolve to a directory under"));
+
+                var temp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+                File.Copy(tc.TraceFileName, temp);
+                Assert.False(File.ReadAllText(temp).Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]"));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public async Task RepositoryPlugin_InvalidPathInputDirectlyToWorkingDirectory_AllowWorkingDirectoryRepositorie()
+        {
+            using (TestHostContext tc = new TestHostContext(this))
+            {
+                var trace = tc.GetTrace();
+                Setup(tc, true);
+                var repository = _executionContext.Repositories.Single();
+                var currentPath = repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
+                Directory.CreateDirectory(currentPath);
+                _executionContext.Inputs["Path"] = $"..";
+
+                var ex = await Assert.ThrowsAsync<ArgumentException>(async () => await _checkoutTask.RunAsync(_executionContext, CancellationToken.None));
+                Assert.True(ex.Message.Contains("should resolve to a directory under"));
+
+                var temp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+                File.Copy(tc.TraceFileName, temp);
+                Assert.False(File.ReadAllText(temp).Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]"));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
         public async Task RepositoryPlugin_InvalidPathInput_DontAllowWorkingDirectoryRepositorie()
         {
             using (TestHostContext tc = new TestHostContext(this))
