@@ -164,7 +164,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
             Assert.Equal(2, coverageStats.Count);
             Assert.Equal(6, (int)coverageStats[1].Position);
             Assert.Equal("branches", coverageStats[1].Label.ToLower());
-            Assert.True(2 == (int)coverageStats[1].Covered, "This test might fail on non-english systems if the decimal separator of the system language isn't a point (but, for example, a comma).");
+            Assert.Equal(2, (int)coverageStats[1].Covered);
             Assert.Equal(8, (int)coverageStats[1].Total);
         }
 
