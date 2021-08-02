@@ -47,7 +47,7 @@
   "AutoLogonPoliciesWarningsHeader": "Following policies may affect the autologon:",
   "BeginArtifactItemsIntegrityCheck": "Starting artifact items integrity check",
   "BlobStoreDownloadWarning": "Artifact download from Blobstore failed, falling back to TFS. This will reduce download performance. Please ensure your agent firewall is configured properly: https://aka.ms/adoallowlist",
-  "BlobStoreUploadWarning": "Artifact upload to Blobstore failed, falling back to TFS. This will fail in the future. Please ensure your agent firewall is configured properly: https://aka.ms/adoallowlist",
+  "BlobStoreUploadWarning": "Artifact upload to Blobstore failed, falling back to TFS. This fallback will be removed in a future release. Please ensure your agent firewall is configured properly: https://aka.ms/adoallowlist",
   "BuildDirLastUseTIme": "The last time build directory '{0}' been used is: {1}",
   "BuildIdIsNotAvailable": "Trying to download pipeline artifact in '{0}' environment but build id is not present. Can only download a pipeline artifact in '{1}' environment if the artifact is a build.",
   "BuildIdIsNotValid": "Build Id is not valid: {0}",
