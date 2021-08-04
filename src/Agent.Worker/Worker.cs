@@ -67,38 +67,52 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Trace.Info($"Job message:{Environment.NewLine} {StringUtil.ConvertToJson(WorkerUtilities.ScrubPiiData(jobMessage))}");
                 Task<TaskResult> jobRunnerTask = jobRunner.RunAsync(jobMessage, jobRequestCancellationToken.Token);
 
-                // Start listening for a cancel message from the channel.
-                Trace.Info("Listening for cancel message from the channel.");
-                Task<WorkerMessage> channelTask = channel.ReceiveAsync(channelTokenSource.Token);
-
-                // Wait for one of the tasks to complete.
-                Trace.Info("Waiting for the job to complete or for a cancel message from the channel.");
-                Task.WaitAny(jobRunnerTask, channelTask);
-
-                // Handle if the job completed.
-                if (jobRunnerTask.IsCompleted)
+                bool cancel = false;
+                while (!cancel)
                 {
-                    Trace.Info("Job completed.");
-                    channelTokenSource.Cancel(); // Cancel waiting for a message from the channel.
-                    return TaskResultUtil.TranslateToReturnCode(await jobRunnerTask);
-                }
+                    // Start listening for a cancel message from the channel.
+                    Trace.Info("Listening for cancel message from the channel.");
+                    Task<WorkerMessage> channelTask = channel.ReceiveAsync(channelTokenSource.Token);
 
-                // Otherwise a cancel message was received from the channel.
-                Trace.Info("Cancellation/Shutdown message received.");
-                channelMessage = await channelTask;
-                switch (channelMessage.MessageType)
-                {
-                    case MessageType.CancelRequest:
-                        jobRequestCancellationToken.Cancel();   // Expire the host cancellation token.
-                        break;
-                    case MessageType.AgentShutdown:
-                        HostContext.ShutdownAgent(ShutdownReason.UserCancelled);
-                        break;
-                    case MessageType.OperatingSystemShutdown:
-                        HostContext.ShutdownAgent(ShutdownReason.OperatingSystemShutdown);
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException(nameof(channelMessage.MessageType), channelMessage.MessageType, nameof(channelMessage.MessageType));
+                    // Wait for one of the tasks to complete.
+                    Trace.Info("Waiting for the job to complete or for a cancel message from the channel.");
+                    await Task.WhenAny(jobRunnerTask, channelTask);
+
+                    // Handle if the job completed.
+                    if (jobRunnerTask.IsCompleted)
+                    {
+                        Trace.Info("Job completed.");
+                        channelTokenSource.Cancel(); // Cancel waiting for a message from the channel.
+                        return TaskResultUtil.TranslateToReturnCode(await jobRunnerTask);
+                    }
+
+                    // Otherwise a message was received from the channel.
+                    channelMessage = await channelTask;
+                    switch (channelMessage.MessageType)
+                    {
+                        case MessageType.CancelRequest:
+                            Trace.Info("Cancellation/Shutdown message received.");
+                            cancel = true;
+                            jobRequestCancellationToken.Cancel();   // Expire the host cancellation token.
+                            break;
+                        case MessageType.AgentShutdown:
+                            Trace.Info("Cancellation/Shutdown message received.");
+                            cancel = true;
+                            HostContext.ShutdownAgent(ShutdownReason.UserCancelled);
+                            break;
+                        case MessageType.OperatingSystemShutdown:
+                            Trace.Info("Cancellation/Shutdown message received.");
+                            cancel = true;
+                            HostContext.ShutdownAgent(ShutdownReason.OperatingSystemShutdown);
+                            break;
+                        case MessageType.JobMetadataUpdate:
+                            Trace.Info("Metadata update message received.");
+                            var metadataMessage = JsonUtility.FromString<JobMetadataMessage>(channelMessage.Body);
+                            jobRunner.UpdateMetadata(metadataMessage);
+                            break;
+                        default:
+                            throw new ArgumentOutOfRangeException(nameof(channelMessage.MessageType), channelMessage.MessageType, nameof(channelMessage.MessageType));
+                    }
                 }
 
                 // Await the job.
@@ -136,10 +150,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     AddUserSuppliedSecret(variable.Value.Value);
                     // also, we escape some characters for variables when we print them out in debug mode. We need to
                     // add the escaped version of these secrets as well
-                    var escapedSecret = variable.Value.Value.Replace("%", "%25")
+                    var escapedSecret = variable.Value.Value.Replace("%", "%AZP25")
                                                             .Replace("\r", "%0D")
                                                             .Replace("\n", "%0A");
                     AddUserSuppliedSecret(escapedSecret);
+
+                    // Since % escaping may be turned off, also mask a version escaped with just newlines
+                    var escapedSecret2 = variable.Value.Value.Replace("\r", "%0D")
+                                                             .Replace("\n", "%0A");
+                    AddUserSuppliedSecret(escapedSecret2);
                 }
             }
 

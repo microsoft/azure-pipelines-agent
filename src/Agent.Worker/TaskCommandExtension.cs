@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk;
 using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -606,9 +607,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     throw new InvalidOperationException(StringUtil.Loc("MultilineSecret"));
                 }
+
+                var unescapePercents = AgentKnobs.DecodePercents.GetValue(context).AsBoolean();
+                var commandEscapeData = CommandStringConvertor.Escape(command.Data, unescapePercents);
+                context.GetHostContext().SecretMasker.AddValue(commandEscapeData);
             }
 
-            context.SetVariable(name, data, isSecret: isSecret, isOutput: isOutput, isReadOnly: isReadOnly);
+            var checker = context.GetHostContext().GetService<ITaskRestrictionsChecker>();
+            if (checker.CheckSettableVariable(context, name))
+            {
+                context.SetVariable(name, data, isSecret: isSecret, isOutput: isOutput, isReadOnly: isReadOnly);
+            }
         }
     }
 
@@ -781,6 +790,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(command, nameof(command));
+
+            var checker = context.GetHostContext().GetService<ITaskRestrictionsChecker>();
+            if (!checker.CheckSettableVariable(context, Constants.PathVariable))
+            {
+                return;
+            }
 
             var data = command.Data;
 

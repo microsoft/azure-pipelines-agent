@@ -4,17 +4,20 @@
 using System;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
+using Agent.Sdk;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
     [ServiceLocator(Default = typeof(AsyncCommandContext))]
-    public interface IAsyncCommandContext : IAgentService
+    public interface IAsyncCommandContext : IAgentService, IKnobValueContext
     {
         string Name { get; }
         Task Task { get; set; }
         void InitializeCommandContext(IExecutionContext context, string name);
         void Output(string message);
         void Debug(string message);
+        void Warn(string message);
         Task WaitAsync();
         IHostContext GetHostContext();
     }
@@ -37,6 +40,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             Info,
             Debug,
+            Warning
         }
 
         private IExecutionContext _executionContext;
@@ -67,6 +71,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             _outputQueue.Enqueue(new OutputMessage(OutputType.Debug, message));
         }
 
+        public void Warn(string message)
+        {
+            _outputQueue.Enqueue(new OutputMessage(OutputType.Warning, message));
+        }
+
         public async Task WaitAsync()
         {
             Trace.Entering();
@@ -86,6 +95,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         case OutputType.Debug:
                             _executionContext.Debug(output.Message);
                             break;
+                        case OutputType.Warning:
+                            _executionContext.Warning(output.Message);
+                            break;
                     }
                 }
 
@@ -104,6 +116,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     case OutputType.Debug:
                         _executionContext.Debug(output.Message);
                         break;
+                    case OutputType.Warning:
+                        _executionContext.Warning(output.Message);
+                        break;
                 }
             }
 
@@ -113,6 +128,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // wait for the async command task
             Trace.Info("Wait till async command task to finish.");
             await Task;
+        }
+
+        string IKnobValueContext.GetVariableValueOrDefault(string variableName)
+        {
+            return _executionContext.Variables.Get(variableName);
+        }
+
+        IScopedEnvironment IKnobValueContext.GetScopedEnvironment()
+        {
+            return new SystemEnvironment();
         }
     }
 }

@@ -44,6 +44,11 @@ extends:
 
             steps:
             - checkout: self
+          
+            - task: NodeTool@0
+              displayName: Use node 14.15.1
+              inputs:
+                versionSpec: "14.15.1"
 
             - script: |
                 cd release
@@ -63,7 +68,7 @@ extends:
         ################################################################################
           displayName: Publish Agents (Windows/Linux/OSX)
           pool:
-            name: AzDevProdRMAgents
+            name: RMAgentsProdAME
           steps:
 
           # Clean
@@ -85,6 +90,11 @@ extends:
           - powershell: |
               Write-Host "Preloading Azure modules." # This is for better performance, to avoid module-autoloading.
               Import-Module AzureRM, AzureRM.profile, AzureRM.Storage, Azure.Storage, AzureRM.Cdn -ErrorAction Ignore -PassThru
+              if (!(Test-Path "$HOME\Documents\WindowsPowerShell\profile.ps1"))
+              {
+                Write-Host "Creating empty PowerShell profile for Enable-AzureRmAlias"
+                New-Item -Path "$HOME\Documents\WindowsPowerShell\profile.ps1" -ItemType File -Force | Out-Null
+              }
               Enable-AzureRmAlias -Scope CurrentUser
               $uploadFiles = New-Object System.Collections.ArrayList
               $certificateThumbprint = (Get-ItemProperty -Path "$(ServicePrincipalReg)").ServicePrincipalCertThumbprint

@@ -93,6 +93,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         // git prune
         Task<int> GitPrune(IExecutionContext context, string repositoryPath);
 
+        // git lfs prune
+        Task<int> GitLFSPrune(IExecutionContext context, string repositoryPath);
+
         // git count-objects -v -H
         Task<int> GitCountObjects(IExecutionContext context, string repositoryPath);
 
@@ -159,9 +162,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 if (PlatformUtil.RunningOnWindows)
                 {
                     _gitPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "git", "cmd", $"git{IOUtil.ExeExtension}");
+                    _gitLfsPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "git", PlatformUtil.BuiltOnX86 ? "mingw32" : "mingw64", "bin", "git-lfs.exe");
 
                     // Prepend the PATH.
                     context.Output(StringUtil.Loc("Prepending0WithDirectoryContaining1", Constants.PathVariable, Path.GetFileName(_gitPath)));
+                    // We need to prepend git-lfs path first so that we call
+                    // externals/git/cmd/git.exe instead of externals/git/mingw**/bin/git.exe
+                    PathUtil.PrependPath(Path.GetDirectoryName(_gitLfsPath));
                     PathUtil.PrependPath(Path.GetDirectoryName(_gitPath));
                     context.Debug($"{Constants.PathVariable}: '{Environment.GetEnvironmentVariable(Constants.PathVariable)}'");
                 }
@@ -169,6 +176,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             else
             {
                 _gitPath = WhichUtil.Which("git", require: true, trace: Trace);
+                _gitLfsPath = WhichUtil.Which("git-lfs", require: false, trace: Trace);
             }
 
             ArgUtil.File(_gitPath, nameof(_gitPath));
@@ -177,11 +185,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             _gitVersion = await GitVersion(context);
             ArgUtil.NotNull(_gitVersion, nameof(_gitVersion));
             context.Debug($"Detect git version: {_gitVersion.ToString()}.");
-
-            // Resolve the location of git-lfs.
-            // This should be best effort since checkout lfs objects is an option.
-            // We will check and ensure git-lfs version later
-            _gitLfsPath = WhichUtil.Which("git-lfs", require: false, trace: Trace);
 
             // Get the Git-LFS version if git-lfs exist in %PATH%.
             if (!string.IsNullOrEmpty(_gitLfsPath))
@@ -502,6 +505,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             context.Debug("Delete unreachable objects under .git directory.");
             return await ExecuteGitCommandAsync(context, repositoryPath, "prune", "-v");
+        }
+
+        // git lfs prune
+        public async Task<int> GitLFSPrune(IExecutionContext context, string repositoryPath)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+
+            context.Debug("Deletes local copies of LFS files which are old, thus freeing up disk space. Prune operates by enumerating all the locally stored objects, and then deleting any which are not referenced by at least ONE of the following:");
+            return await ExecuteGitCommandAsync(context, repositoryPath, "lfs", "prune");
         }
 
         // git count-objects -v -H

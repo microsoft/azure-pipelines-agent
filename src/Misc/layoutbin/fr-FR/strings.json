@@ -34,7 +34,7 @@
     "AssociateArtifactWithBuild":  "Association effectuée de l\u0027artefact {0} à la build {1}",
     "AttachFileNotExist":  "Impossible de joindre (type : {0}, nom : {1}) le fichier : {2}. Le fichier n\u0027existe pas.",
     "AttachmentExceededMaximum":  "La pièce jointe est ignorée, car elle dépasse la taille maximale autorisée fixée à 75 Mo : {0}",
-    "AttemptRemoveCredFromConfig":  "Échec de la tentative d\u0027utilisation de la ligne de commande git pour supprimer \"http.extraheader\" de la configuration de git. Tentative de modification directe du fichier config de git pour supprimer les informations d\u0027identification.",
+    "AttemptRemoveCredFromConfig":  "Échec de la tentative d\u0027utilisation de la ligne de commande git pour supprimer \"{0}\" de la configuration de git. Tentative de modification directe du fichier config de git pour supprimer les informations d\u0027identification.",
     "AuthenticationType":  "type d\u0027authentification",
     "AutoLogonAccountNameDescription":  "Compte d\u0027utilisateur à employer pour l\u0027ouverture de session automatique",
     "AutoLogonOverwriteDeniedError":  "Impossible de configurer l\u0027ouverture de session automatique, car elle est déjà configurée pour un autre utilisateur ({0}) sur la machine. Utilisez \u0027--overwriteautologon\u0027 si vous souhaitez la remplacer.",

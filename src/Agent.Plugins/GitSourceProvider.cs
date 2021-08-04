@@ -851,7 +851,7 @@ namespace Agent.Plugins.Repository
             // i.e. "git fetch origin" versus "git fetch origin commit"
             if (fetchByCommit && !string.IsNullOrEmpty(sourceVersion))
             {
-                List<string> commitFetchSpecs = new List<string>() { $"+{sourceVersion}:{_remoteRefsPrefix}{sourceVersion}" };
+                List<string> commitFetchSpecs = new List<string>() { $"+{sourceVersion}" };
                 exitCode_fetch = await gitCommandManager.GitFetch(executionContext, targetPath, "origin", fetchDepth, commitFetchSpecs, string.Join(" ", additionalFetchArgs), cancellationToken);
                 if (exitCode_fetch != 0)
                 {
@@ -1277,7 +1277,7 @@ namespace Agent.Plugins.Repository
                 // if unable to use git.exe unset http.extraheader, http.proxy or core.askpass, modify git config file on disk. make sure we don't left credential.
                 if (!string.IsNullOrEmpty(configValue))
                 {
-                    executionContext.Warning(StringUtil.Loc("AttemptRemoveCredFromConfig"));
+                    executionContext.Warning(StringUtil.Loc("AttemptRemoveCredFromConfig", configKey));
                     string gitConfig = Path.Combine(targetPath, ".git/config");
                     if (File.Exists(gitConfig))
                     {

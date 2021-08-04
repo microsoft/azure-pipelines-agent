@@ -27,6 +27,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTS_SETUP_ALLOW_MOUNT_TASKS_READONLY"),
             new BuiltInDefaultKnobSource("true"));
 
+        public static readonly Knob SkipPostExeceutionIfTargetContainerStopped = new Knob(
+            nameof(SkipPostExeceutionIfTargetContainerStopped),
+            "If true, skips post-execution step for tasks in case the target container has been stopped",
+            new RuntimeKnobSource("AGENT_SKIP_POST_EXECUTION_IF_CONTAINER_STOPPED"),
+            new EnvironmentKnobSource("AGENT_SKIP_POST_EXECUTION_IF_CONTAINER_STOPPED"),
+            new BuiltInDefaultKnobSource("false"));
+
         // Directory structure
         public static readonly Knob AgentToolsDirectory = new Knob(
             nameof(AgentToolsDirectory),
@@ -105,7 +112,7 @@ namespace Agent.Sdk.Knob
             nameof(AgentDownloadTimeout),
             "Amount of time in seconds to wait for the agent to download a new version when updating",
             new EnvironmentKnobSource("AZP_AGENT_DOWNLOAD_TIMEOUT"),
-            new BuiltInDefaultKnobSource("900")); // 15*60
+            new BuiltInDefaultKnobSource("1500")); // 25*60
 
         public static readonly Knob TaskDownloadTimeout = new Knob(
             nameof(TaskDownloadTimeout),
@@ -178,6 +185,19 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_USE_CREDSCAN_REGEXES"),
             new BuiltInDefaultKnobSource("false"));
 
+        // Task restrictions
+        public static readonly Knob TaskRestrictionsEnforcementMode = new Knob(
+            nameof(TaskRestrictionsEnforcementMode),
+            "The enforcement mode for command or variable restrictions defined in tasks. Values are Enabled, WarningOnly, Disabled.",
+            new RuntimeKnobSource("agent.taskRestrictionsEnforcementMode"),
+            new BuiltInDefaultKnobSource("WarningOnly"));
+
+        public static readonly Knob EnableTaskRestrictionsTelemetry = new Knob(
+            nameof(EnableTaskRestrictionsTelemetry),
+            "Enable capturing telemetry on the enforcement of command or variable restrictions defined in tasks.",
+            new RuntimeKnobSource("agent.enableTaskRestrictionsTelemetry"),
+            new BuiltInDefaultKnobSource("false"));
+
         // Misc
         public static readonly Knob DisableAgentDowngrade = new Knob(
             nameof(DisableAgentDowngrade),
@@ -199,9 +219,32 @@ namespace Agent.Sdk.Knob
 
         public static readonly Knob DecodePercents = new Knob(
             nameof(DecodePercents),
-            "By default, the agent does not decodes %25 as % which may be needed to allow users to work around reserved values. Setting this to true enables this behavior.",
+            "By default, the agent does not decodes %AZP25 as % which may be needed to allow users to work around reserved values. Setting this to true enables this behavior.",
+            new RuntimeKnobSource("DECODE_PERCENTS"),
             new EnvironmentKnobSource("DECODE_PERCENTS"),
-            new BuiltInDefaultKnobSource(""));
-    }
+            new BuiltInDefaultKnobSource("true"));
 
+        public static readonly Knob AllowTfvcUnshelveErrors = new Knob(
+            nameof(AllowTfvcUnshelveErrors),
+            "By default, the TFVC unshelve command does not throw errors e.g. when there's no mapping for one or more files shelved. Setting this to true enables this behavior.",
+            new RuntimeKnobSource("ALLOW_TFVC_UNSHELVE_ERRORS"),
+            new EnvironmentKnobSource("ALLOW_TFVC_UNSHELVE_ERRORS"),
+            new BuiltInDefaultKnobSource("false"));
+
+        // Set DISABLE_JAVA_CAPABILITY_HIGHER_THAN_9 variable with any value
+        // to disable recognition of Java higher than 9
+        public static readonly Knob DisableRecognitionOfJDKHigherThen9 = new Knob(
+            nameof(DisableRecognitionOfJDKHigherThen9),
+            "Recognize JDK and JRE >= 9 installed on the machine as agent capability. Setting any value to DISABLE_JAVA_CAPABILITY_HIGHER_THAN_9 is disabling this behavior",
+            new EnvironmentKnobSource("DISABLE_JAVA_CAPABILITY_HIGHER_THAN_9"),
+            new BuiltInDefaultKnobSource(string.Empty));
+
+        // TODO: Added 5/27/21. Please remove within a month or two
+        public static readonly Knob DisableBuildArtifactsToBlob = new Knob(
+            nameof(DisableBuildArtifactsToBlob),
+            "By default, the agent will upload build artifacts to Blobstore. Setting this to true will disable that integration. This variable is temporary and will be removed.",
+            new RuntimeKnobSource("DISABLE_BUILD_ARTIFACTS_TO_BLOB"),
+            new EnvironmentKnobSource("DISABLE_BUILD_ARTIFACTS_TO_BLOB"),
+            new BuiltInDefaultKnobSource("false"));
+    }
 }

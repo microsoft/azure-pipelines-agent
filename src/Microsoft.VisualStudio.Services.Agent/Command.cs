@@ -4,20 +4,13 @@
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
-using Agent.Sdk.Knob;
+using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
     public sealed class Command
     {
         private const string LoggingCommandPrefix = "##vso[";
-        private static readonly EscapeMapping[] s_escapeMappings = new[]
-        {
-            new EscapeMapping(token: ";", replacement: "%3B"),
-            new EscapeMapping(token: "\r", replacement: "%0D"),
-            new EscapeMapping(token: "\n", replacement: "%0A"),
-            new EscapeMapping(token: "]", replacement: "%5D")
-        };
         private readonly Dictionary<string, string> _properties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         public Command(string area, string eventName)
@@ -36,7 +29,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public string Data { get; set; }
 
-        public static bool TryParse(string message, out Command command)
+        public static bool TryParse(string message, bool unescapePercents, out Command command)
         {
             command = null;
             if (string.IsNullOrEmpty(message))
@@ -94,53 +87,18 @@ namespace Microsoft.VisualStudio.Services.Agent
                         string[] pair = propertyStr.Split(new[] { '=' }, count: 2, options: StringSplitOptions.RemoveEmptyEntries);
                         if (pair.Length == 2)
                         {
-                            command.Properties[pair[0]] = Unescape(pair[1]);
+                            command.Properties[pair[0]] = CommandStringConvertor.Unescape(pair[1], unescapePercents);
                         }
                     }
                 }
 
-                command.Data = Unescape(message.Substring(rbIndex + 1));
+                command.Data = CommandStringConvertor.Unescape(message.Substring(rbIndex + 1), unescapePercents);
                 return true;
             }
             catch
             {
                 command = null;
                 return false;
-            }
-        }
-
-        private static string Unescape(string escaped)
-        {
-            if (string.IsNullOrEmpty(escaped))
-            {
-                return string.Empty;
-            }
-
-            string unescaped = escaped;
-            foreach (EscapeMapping mapping in s_escapeMappings)
-            {
-                unescaped = unescaped.Replace(mapping.Replacement, mapping.Token);
-            }
-
-            if (AgentKnobs.DecodePercents.GetValue(UtilKnobValueContext.Instance()).AsBoolean())
-            {
-                unescaped = unescaped.Replace("%25", "%");
-            }
-
-            return unescaped;
-        }
-
-        private sealed class EscapeMapping
-        {
-            public string Replacement { get; }
-            public string Token { get; }
-
-            public EscapeMapping(string token, string replacement)
-            {
-                ArgUtil.NotNullOrEmpty(token, nameof(token));
-                ArgUtil.NotNullOrEmpty(replacement, nameof(replacement));
-                Token = token;
-                Replacement = replacement;
             }
         }
     }

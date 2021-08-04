@@ -34,7 +34,7 @@
     "AssociateArtifactWithBuild":  "ビルド {1} と関連付けられた成果物 {0}",
     "AttachFileNotExist":  "ファイル {2} (種類:{0} 名前:{1}) を添付できません。ファイルが存在しません。",
     "AttachmentExceededMaximum":  "添付ファイルが最大許容サイズ 75 MB を超えたため、添付をスキップしています: {0}",
-    "AttemptRemoveCredFromConfig":  "Git コマンド ラインを使用して git config から \"http.extraheader\" を削除しようとして成功しませんでした。資格情報を削除するために、git config ファイルを直接変更しようとしています。",
+    "AttemptRemoveCredFromConfig":  "Git コマンド ラインを使用して git config から \"{0}\" を削除しようとして成功しませんでした。資格情報を削除するために、git config ファイルを直接変更しようとしています。",
     "AuthenticationType":  "認証の種類",
     "AutoLogonAccountNameDescription":  "自動ログオンに使用するユーザー アカウント",
     "AutoLogonOverwriteDeniedError":  "マシン上の異なるユーザー ({0}) に対して既に構成されているため、自動ログオンを構成できません。上書きするには、\u0027--overwriteautologon\u0027 をお使いください。",

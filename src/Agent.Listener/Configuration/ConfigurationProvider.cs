@@ -441,6 +441,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             var environmentInstance = await GetEnvironmentAsync(_projectName, environmentName);
 
+            agentSettings.EnvironmentName = environmentName;
             agentSettings.EnvironmentId = environmentInstance.Id;
             agentSettings.ProjectName = environmentInstance.Project.Name;
             agentSettings.ProjectId = environmentInstance.Project.Id.ToString();

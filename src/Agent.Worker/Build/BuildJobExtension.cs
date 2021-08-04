@@ -166,6 +166,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string pipelineWorkspaceDirectory = Path.Combine(_workDirectory, trackingConfig.BuildDirectory);
 
             UpdateCheckoutTasksAndVariables(executionContext, steps, pipelineWorkspaceDirectory);
+            
+            // Get default value for RepoLocalPath variable
+            string selfRepoPath = GetDefaultRepoLocalPathValue(executionContext, steps, trackingConfig, repoInfo);
 
             // Set the directory variables.
             executionContext.Output(StringUtil.Loc("SetBuildVars"));
@@ -177,7 +180,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             executionContext.SetVariable(Constants.Variables.Build.SourcesDirectory, Path.Combine(_workDirectory, trackingConfig.SourcesDirectory), isFilePath: true);
             executionContext.SetVariable(Constants.Variables.Build.StagingDirectory, Path.Combine(_workDirectory, trackingConfig.ArtifactsDirectory), isFilePath: true);
             executionContext.SetVariable(Constants.Variables.Build.ArtifactStagingDirectory, Path.Combine(_workDirectory, trackingConfig.ArtifactsDirectory), isFilePath: true);
-            executionContext.SetVariable(Constants.Variables.Build.RepoLocalPath, Path.Combine(_workDirectory, trackingConfig.SourcesDirectory), isFilePath: true);
+            executionContext.SetVariable(Constants.Variables.Build.RepoLocalPath, Path.Combine(_workDirectory, selfRepoPath), isFilePath: true);
             executionContext.SetVariable(Constants.Variables.Pipeline.Workspace, pipelineWorkspaceDirectory, isFilePath: true);
         }
 
@@ -185,7 +188,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             bool? submoduleCheckout = null;
             // RepoClean may be set from the server, so start with the server value
-            bool? repoClean = executionContext.Variables.GetBoolean(Constants.Variables.Build.RepoClean);
+            bool? repoCleanFromServer = executionContext.Variables.GetBoolean(Constants.Variables.Build.RepoClean);
+            // The value for the global clean option will be set in this variable based on Self repository clean input if the global value weren't set by the server
+            bool? repoCleanFromSelf = null;
 
             var checkoutTasks = steps.Where(x => x.IsCheckoutTask()).Select(x => x as TaskStep).ToList();
             var hasOnlyOneCheckoutTask = checkoutTasks.Count == 1;
@@ -199,9 +204,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 }
 
                 // Update the checkout "Clean" property for all repos, if the variable was set by the server.
-                if (repoClean != null)
+                if (repoCleanFromServer.HasValue)
                 {
-                    checkoutTask.Inputs[PipelineConstants.CheckoutTaskInputs.Clean] = repoClean.Value.ToString();
+                    checkoutTask.Inputs[PipelineConstants.CheckoutTaskInputs.Clean] = repoCleanFromServer.Value.ToString();
                 }
 
                 Trace.Info($"Checking repository name {repositoryAlias}");
@@ -212,7 +217,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 if (hasOnlyOneCheckoutTask || RepositoryUtil.IsPrimaryRepositoryName(repositoryAlias))
                 {
                     submoduleCheckout = checkoutTask.Inputs.ContainsKey(PipelineConstants.CheckoutTaskInputs.Submodules);
-                    repoClean = repoClean ?? checkoutTask.Inputs.ContainsKey(PipelineConstants.CheckoutTaskInputs.Clean);
+                    if (!repoCleanFromServer.HasValue && checkoutTask.Inputs.TryGetValue(PipelineConstants.CheckoutTaskInputs.Clean, out string cleanInputValue))
+                    {
+                        repoCleanFromSelf = Boolean.TryParse(cleanInputValue, out bool cleanValue) ? cleanValue : true;
+                    }
                 }
 
                 // Update the checkout task display name if not already set
@@ -249,9 +257,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 executionContext.SetVariable(Constants.Variables.Build.RepoGitSubmoduleCheckout, submoduleCheckout.Value.ToString());
             }
 
-            if (repoClean.HasValue)
+            if (repoCleanFromSelf.HasValue)
             {
-                executionContext.SetVariable(Constants.Variables.Build.RepoClean, repoClean.Value.ToString());
+                executionContext.SetVariable(Constants.Variables.Build.RepoClean, repoCleanFromSelf.Value.ToString());
             }
         }
 
@@ -332,6 +340,58 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             {
                 throw new NotSupportedException(pipelineRepositoryType);
             }
+        }
+
+        private string GetDefaultRepoLocalPathValue(IExecutionContext executionContext, IList<Pipelines.JobStep> steps, TrackingConfig trackingConfig, RepositoryInfo repoInfo)
+        {
+            string selfRepoPath = null;
+            // For saving backward compatibility with the behavior of the Build.RepoLocalPath that was before this PR https://github.com/microsoft/azure-pipelines-agent/pull/3237
+            // We need to change how we set the default value of this variable
+            // We need to allow the setting of paths from RepositoryTrackingInfo for checkout tasks where path input was provided by the user
+            // and this input is not point to the default location for this repository
+            // This is the only case where the value of Build.RepoLocalPath variable is not pointing to the root of sources directory /s.
+            // The new logic is not affecting single checkout jobs and jobs with multiple checkouts and default paths for Self repository
+            if (RepositoryUtil.HasMultipleCheckouts(executionContext.JobSettings))
+            {
+                // get checkout task for self repo
+                var selfCheckoutTask = GetSelfCheckoutTask(steps);
+
+                // Check if the task has path input with custom path, if so we need to set as a value of selfRepoPath the value of SourcesDirectory from RepositoryTrackingInfo
+                if (IsCheckoutToCustomPath(trackingConfig, repoInfo, selfCheckoutTask))
+                {
+                    selfRepoPath = trackingConfig.RepositoryTrackingInfo
+                        .Where(repo => RepositoryUtil.IsPrimaryRepositoryName(repo.Identifier))
+                        .Select(props => props.SourcesDirectory).FirstOrDefault(); 
+                }
+            }
+            // For single checkout jobs and multicheckout jobs with default paths set selfRepoPath to the default sources directory
+            if (selfRepoPath == null)
+            {
+                selfRepoPath = trackingConfig.SourcesDirectory;
+            }
+
+            return selfRepoPath;
+        }
+
+        private bool IsCheckoutToCustomPath(TrackingConfig trackingConfig, RepositoryInfo repoInfo, TaskStep selfCheckoutTask)
+        {
+            string path;
+            string selfRepoName = RepositoryUtil.GetCloneDirectory(repoInfo.PrimaryRepository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Name));
+            string defaultRepoCheckoutPath = Path.GetFullPath(Path.Combine(trackingConfig.SourcesDirectory, selfRepoName));
+
+            return selfCheckoutTask != null
+                    && selfCheckoutTask.Inputs.TryGetValue(PipelineConstants.CheckoutTaskInputs.Path, out path)
+                    && !string.Equals(Path.GetFullPath(Path.Combine(trackingConfig.BuildDirectory, path)),
+                        defaultRepoCheckoutPath,
+                        IOUtil.FilePathStringComparison);
+        }
+
+        private TaskStep GetSelfCheckoutTask(IList<JobStep> steps)
+        {
+            return steps.Select(x => x as TaskStep)
+                    .Where(task => task.IsCheckoutTask()
+                        && task.Inputs.TryGetValue(PipelineConstants.CheckoutTaskInputs.Repository, out string repositoryAlias)
+                        && RepositoryUtil.IsPrimaryRepositoryName(repositoryAlias)).FirstOrDefault();
         }
 
         private class RepositoryInfo

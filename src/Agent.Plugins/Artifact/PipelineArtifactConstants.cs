@@ -1,12 +1,13 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Agent.Plugins.PipelineArtifact
+namespace Agent.Plugins
 {
     public class PipelineArtifactConstants
     {
         public const string AzurePipelinesAgent = "AzurePipelinesAgent";
         public const string ArtifactSize = "artifactsize";
+        public const string BuildArtifactDownload = "BuildArtifactDownload";
         public const string Container = "Container";
         public const string PipelineArtifact = "PipelineArtifact";
         public const string PipelineCache = "PipelineCache";

@@ -4,7 +4,7 @@ using System;
 using System.Diagnostics;
 using System.Globalization;
 
-namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
+namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
     /// <summary>
     /// This is a utitily class used for recording timing
@@ -23,7 +23,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
         /// Constructor that takes the name of the timer to be 
         /// printed in the trace.
         /// </summary>
-        public SimpleTimer(string timerName, IExecutionContext executionContext) : this(timerName, executionContext, 0)
+        public SimpleTimer(string timerName, Action<string> debug) : this(timerName, debug, 0)
         {
 
         }
@@ -32,10 +32,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
         /// Creates a timer with threshold. A perf message is logged only if
         /// the time elapsed is more than the threshold.
         /// </summary>
-        public SimpleTimer(string timerName, IExecutionContext executionContext, long thresholdInMilliseconds = Int32.MaxValue)
+        public SimpleTimer(string timerName, Action<string> debug, long thresholdInMilliseconds = Int32.MaxValue)
         {
             _name = timerName;
-            _executionContext = executionContext;
+            _debug = debug;
             _threshold = thresholdInMilliseconds;
             _timer = Stopwatch.StartNew();
         }
@@ -56,14 +56,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
         private void StopAndLog()
         {
             _timer.Stop();
-            _executionContext.Debug(string.Format(CultureInfo.InvariantCulture, "PERF: {0}: took {1} ms", _name, _timer.Elapsed.TotalMilliseconds));
+            _debug(string.Format(CultureInfo.InvariantCulture, "PERF: {0}: took {1} ms", _name, _timer.Elapsed.TotalMilliseconds));
 
             // TODO : Currently Telemetry is not support in PublishTestResults Library. Uncomment following line of code when we start supporting Telemetry.
             //TelemetryLogger.AddProperties(_name + ":PerfCounter", _timer.Elapsed.TotalMilliseconds);
 
             if (_timer.Elapsed.TotalMilliseconds >= _threshold)
             {
-                _executionContext.Debug(string.Format(CultureInfo.InvariantCulture, "PERF WARNING: {0}: took {1} ms", _name, _timer.Elapsed.TotalMilliseconds));
+                _debug(string.Format(CultureInfo.InvariantCulture, "PERF WARNING: {0}: took {1} ms", _name, _timer.Elapsed.TotalMilliseconds));
             }
         }
 
@@ -87,7 +87,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
         private readonly string _name;
         private readonly long _threshold;
         private bool _disposed;
-        private readonly IExecutionContext _executionContext;
+        private readonly Action<string> _debug;
         #endregion
     }
 }

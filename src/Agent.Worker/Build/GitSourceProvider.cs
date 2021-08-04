@@ -1114,6 +1114,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     throw new InvalidOperationException($"Git prune failed with exit code: {exitCode_prune}");
                 }
 
+                // git lfs prune
+                var lfsVersion = await _gitCommandManager.GitLfsVersion(executionContext);
+                if (lfsVersion is null)
+                {
+                    executionContext.Debug("Machine does not have git-lfs installed. Skipping git lfs prune");
+                } else
+                {
+                    int exitCode_lFSPrune = await _gitCommandManager.GitLFSPrune(executionContext, repositoryPath);
+                    if (exitCode_lFSPrune != 0)
+                    {
+                        throw new InvalidOperationException($"Git lfs prune failed with exit code: {exitCode_lFSPrune}");
+                    }
+                }
+
                 // git count-objects after git repack
                 executionContext.Output("Repository status after executing 'git repack'");
                 int exitCode_countobjectsafter = await _gitCommandManager.GitCountObjects(executionContext, repositoryPath);
@@ -1179,7 +1193,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 // if unable to use git.exe unset http.extraheader, http.proxy or core.askpass, modify git config file on disk. make sure we don't left credential.
                 if (!string.IsNullOrEmpty(configValue))
                 {
-                    executionContext.Warning(StringUtil.Loc("AttemptRemoveCredFromConfig"));
+                    executionContext.Warning(StringUtil.Loc("AttemptRemoveCredFromConfig", configKey));
                     string gitConfig = Path.Combine(targetPath, ".git/config");
                     if (File.Exists(gitConfig))
                     {

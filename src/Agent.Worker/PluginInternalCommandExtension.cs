@@ -60,19 +60,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 bool isSelfRepo = RepositoryUtil.IsPrimaryRepositoryName(repository.Alias);
                 bool hasMultipleCheckouts = RepositoryUtil.HasMultipleCheckouts(context.JobSettings);
 
+                var directoryManager = context.GetHostContext().GetService<IBuildDirectoryManager>();
+                string _workDirectory = context.GetHostContext().GetDirectory(WellKnownDirectory.Work);
+                var trackingConfig = directoryManager.UpdateDirectory(context, repository);
+
                 if (isSelfRepo || !hasMultipleCheckouts)
                 {
-                    var directoryManager = context.GetHostContext().GetService<IBuildDirectoryManager>();
-                    string _workDirectory = context.GetHostContext().GetDirectory(WellKnownDirectory.Work);
-
-                    var trackingConfig = directoryManager.UpdateDirectory(context, repository);
                     if (hasMultipleCheckouts)
                     {
                         // In Multi-checkout, we don't want to reset sources dir or default working dir.
                         // So, we will just reset the repo local path
                         string buildDirectory = context.Variables.Get(Constants.Variables.Pipeline.Workspace);
                         string repoRelativePath = directoryManager.GetRelativeRepositoryPath(buildDirectory, repositoryPath);
-                        context?.SetVariable(Constants.Variables.Build.RepoLocalPath, Path.Combine(_workDirectory, repoRelativePath), isFilePath: true);
+                        
+                        string sourcesDirectory = context.Variables.Get(Constants.Variables.Build.SourcesDirectory);
+                        string repoLocalPath = context.Variables.Get(Constants.Variables.Build.RepoLocalPath);
+                        string newRepoLocation = Path.Combine(_workDirectory, repoRelativePath);
+                        // For saving backward compatibility with the behavior of the Build.RepoLocalPath that was before this PR https://github.com/microsoft/azure-pipelines-agent/pull/3237
+                        // we need to deny updating of the variable in case the new path is the default location for the repository that is equal to sourcesDirectory/repository.Name
+                        // since the variable already has the right value in this case and pointing to the default sources location
+                        if (repoLocalPath == null
+                            || !string.Equals(newRepoLocation, Path.Combine(sourcesDirectory, repository.Name), IOUtil.FilePathStringComparison))
+                        {
+                            context?.SetVariable(Constants.Variables.Build.RepoLocalPath, newRepoLocation, isFilePath: true);
+                        }
                     }
                     else
                     {

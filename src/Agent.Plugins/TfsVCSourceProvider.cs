@@ -384,7 +384,8 @@ namespace Agent.Plugins.Repository
                 }
 
                 // Unshelve.
-                await tf.UnshelveAsync(shelveset: shelvesetName, false);
+                bool unshelveErrorsAllowed = AgentKnobs.AllowTfvcUnshelveErrors.GetValue(executionContext).AsBoolean();
+                await tf.UnshelveAsync(shelveset: shelvesetName, unshelveErrorsAllowed);
 
                 // Ensure we undo pending changes for shelveset build at the end.
                 executionContext.SetTaskVariable("UndoShelvesetPendingChanges", bool.TrueString);

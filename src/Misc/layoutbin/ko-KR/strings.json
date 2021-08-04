@@ -34,7 +34,7 @@
     "AssociateArtifactWithBuild":  "빌드 {1}과(와) 연결된 아티팩트 {0}",
     "AttachFileNotExist":  "{2} 파일을 첨부할 수 없습니다(형식:{0} 이름:{1}). 파일이 없습니다.",
     "AttachmentExceededMaximum":  "첨부 파일이 허용된 최대 크기 75MB를 초과하므로 첨부 파일을 건너뜁니다. {0}",
-    "AttemptRemoveCredFromConfig":  "git 명령줄을 사용하여 git 구성에서 \"http.extraheader\"를 제거하지 못했습니다. git 구성 파일을 직접 수정하여 자격 증명을 제거하려고 시도합니다.",
+    "AttemptRemoveCredFromConfig":  "git 명령줄을 사용하여 git 구성에서 \"{0}\"를 제거하지 못했습니다. git 구성 파일을 직접 수정하여 자격 증명을 제거하려고 시도합니다.",
     "AuthenticationType":  "인증 형식",
     "AutoLogonAccountNameDescription":  "자동 로그온에 사용할 사용자 계정",
     "AutoLogonOverwriteDeniedError":  "자동 로그온이 컴퓨터의 다른 사용자({0})에 대해 이미 구성되어 있으므로 자동 로그온을 구성할 수 없습니다. 덮어쓰려면 \u0027--overwriteautologon\u0027을 사용하세요.",
