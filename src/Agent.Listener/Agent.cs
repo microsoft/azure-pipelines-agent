@@ -222,7 +222,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         }
                         else
                         {
-                            Trace.Info($"Autologon is configured on the machine but current Agent.Listner.exe is launched from the windows service");
+                            Trace.Info($"Autologon is configured on the machine but current Agent.Listener.exe is launched from the windows service");
                         }
                     }
                 }
