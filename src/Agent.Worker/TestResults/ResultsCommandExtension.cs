@@ -5,8 +5,10 @@ using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Xml;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.TeamFoundation.TestClient.PublishTestResults;
@@ -14,6 +16,7 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.VisualStudio.Services.WebPlatform;
 using Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults;
 using Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils;
+using Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
@@ -73,7 +76,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
             commandContext.Task = PublishTestRunDataAsync(teamProject, runContext);
             _executionContext.AsyncCommands.Add(commandContext);
-
         }
 
         private void LoadPublishTestResultsInputs(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
@@ -288,9 +290,60 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 _executionContext.Error(StringUtil.Loc("FailedTestsInResults"));
             }
 
-            await PublishEventsAsync(connection);
+            await PublishEventsAsync(connection);            
+            var triggerCoverageMergeJobFeatureState = featureFlagService.GetFeatureFlagState(CodeCoverageConstants.TriggerCoverageMergeJobFF, TestResultsConstants.TFSServiceInstanceGuid);
+            if (triggerCoverageMergeJobFeatureState)
+            {
+                TriggerCoverageMergeJob(_testResultFiles, _executionContext);
+            }
         }
-
+        
+        // Queue code coverage merge job if code coverage attachments are published to avoid BQC timeout.
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "connection")]
+        private void TriggerCoverageMergeJob(List<string> resultFilesInput , IExecutionContext context)
+        {
+        try
+        {
+            ITestResultsServer _testResultsServer = context.GetHostContext().GetService<ITestResultsServer>();
+            foreach (var resultFile in resultFilesInput)
+            {
+                string text = File.ReadAllText(resultFile);
+                XmlDocument xdoc = new XmlDocument();
+                xdoc.LoadXml(text);              
+                XmlNodeList nodes = xdoc.GetElementsByTagName("A");
+              
+                var connection = WorkerUtilities.GetVssConnection(_executionContext);
+                foreach (XmlNode attachmentNode in nodes)
+                {
+                    var file = attachmentNode.Attributes?["href"]?.Value;
+                    if (!string.IsNullOrEmpty(file))
+                    {
+                        if (
+                            Path.GetExtension(file).Equals(".covx", StringComparison.OrdinalIgnoreCase) ||
+                            Path.GetExtension(file).Equals(".covb", StringComparison.OrdinalIgnoreCase) ||
+                            Path.GetExtension(file).Equals(".coverage", StringComparison.OrdinalIgnoreCase)
+                            )
+                            {           
+                                 _testResultsServer.InitializeServer(connection, _executionContext);                     
+                                try
+                                {
+                                var codeCoverageResults =  _testResultsServer.UpdateCodeCoverageSummaryAsync(connection,_executionContext.Variables.System_TeamProjectId.ToString(), _executionContext.Variables.Build_BuildId.GetValueOrDefault());
+                                }
+                                catch (Exception e)
+                                {    
+                                _executionContext.Section($"Could not queue code coverage merge:{e}");                    
+                                }
+                            }
+                     }
+                }
+            }
+            }
+            catch (Exception e)
+            {
+                _executionContext.Debug($"Exception in Method:{e.Message}");
+            }
+        }
+       
         private async Task PublishEventsAsync(VssConnection connection)
         {
             try

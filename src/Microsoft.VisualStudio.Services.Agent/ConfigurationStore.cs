@@ -120,6 +120,9 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         [DataMember(EmitDefaultValue = false)]
         public int EnvironmentVMResourceId { get; set; }
+
+        [DataMember(EmitDefaultValue = false)]
+        public string EnvironmentName { get; set; }
     }
 
     [DataContract]

@@ -246,5 +246,12 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("DISABLE_BUILD_ARTIFACTS_TO_BLOB"),
             new EnvironmentKnobSource("DISABLE_BUILD_ARTIFACTS_TO_BLOB"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob EnableIncompatibleBuildArtifactsPathResolution = new Knob(
+            nameof(EnableIncompatibleBuildArtifactsPathResolution),
+            "Return DownloadBuildArtifactsV1 target path resolution behavior back to how it was originally implemented. This breaks back compatibility with DownloadBuildArtifactsV0.",
+            new RuntimeKnobSource("EnableIncompatibleBuildArtifactsPathResolution"),
+            new EnvironmentKnobSource("EnableIncompatibleBuildArtifactsPathResolution"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }

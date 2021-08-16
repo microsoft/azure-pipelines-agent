@@ -98,12 +98,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                          && !AgentKnobs.DisableBuildArtifactsToBlob.GetValue(context).AsBoolean();
 
                     // try upload all files for the first time.
-                    UploadResult uploadResult;
+                    UploadResult uploadResult = null;
                     if (uploadToBlob)
                     {
-                        uploadResult = await BlobUploadAsync(context, files, maxConcurrentUploads, _uploadCancellationTokenSource.Token);
+                        try
+                        {
+                            uploadResult = await BlobUploadAsync(context, files, maxConcurrentUploads, _uploadCancellationTokenSource.Token);
+                        }
+                        catch
+                        {
+                            // Fall back to FCS upload if we cannot upload to blob
+                            context.Warn(StringUtil.Loc("BlobStoreUploadWarning"));
+                            uploadToBlob = false;
+                        }
                     }
-                    else
+                    if (!uploadToBlob)
                     {
                         uploadResult = await ParallelUploadAsync(context, files, maxConcurrentUploads, _uploadCancellationTokenSource.Token);
                     }

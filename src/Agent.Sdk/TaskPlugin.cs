@@ -60,7 +60,7 @@ namespace Agent.Sdk
         public Dictionary<string, VariableValue> Variables { get; set; }
         public Dictionary<string, VariableValue> TaskVariables { get; set; }
         public Dictionary<string, string> Inputs { get; set; }
-        public ContainerInfo Container {get; set; }
+        public ContainerInfo Container { get; set; }
         public Dictionary<string, string> JobSettings { get; set; }
 
         [JsonIgnore]
@@ -223,7 +223,7 @@ namespace Agent.Sdk
 
         public bool IsSystemDebugTrue()
         {
-             if (Variables.TryGetValue("system.debug", out VariableValue systemDebugVar))
+            if (Variables.TryGetValue("system.debug", out VariableValue systemDebugVar))
             {
                 return string.Equals(systemDebugVar?.Value, "true", StringComparison.OrdinalIgnoreCase);
             }
@@ -357,16 +357,10 @@ namespace Agent.Sdk
 
         private string Escape(string input)
         {
-            if (AgentKnobs.DecodePercents.GetValue(this).AsBoolean())
-            {
-                input = input.Replace("%", "%AZP25");
-            }
-            foreach (var mapping in _commandEscapeMappings)
-            {
-                input = input.Replace(mapping.Key, mapping.Value);
-            }
+            var unescapePercents = AgentKnobs.DecodePercents.GetValue(this).AsBoolean();
+            var escaped = CommandStringConvertor.Escape(input, unescapePercents);
 
-            return input;
+            return escaped;
         }
 
         string IKnobValueContext.GetVariableValueOrDefault(string variableName)
@@ -378,21 +372,5 @@ namespace Agent.Sdk
         {
             return new SystemEnvironment();
         }
-
-        private Dictionary<string, string> _commandEscapeMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            {
-                ";", "%3B"
-            },
-            {
-                "\r", "%0D"
-            },
-            {
-                "\n", "%0A"
-            },
-            {
-                "]", "%5D"
-            },
-        };
     }
 }

@@ -51,7 +51,9 @@ namespace Agent.Plugins
         {
             foreach (var buildArtifact in buildArtifacts)
             {
-                var dirPath = Path.Combine(downloadParameters.TargetDirectory, buildArtifact.Name);
+                var dirPath = downloadParameters.AppendArtifactNameToTargetPath
+                    ? Path.Combine(downloadParameters.TargetDirectory, buildArtifact.Name)
+                    : downloadParameters.TargetDirectory;
                 await DownloadFileContainerAsync(downloadParameters, buildArtifact, dirPath, context, cancellationToken, isSingleArtifactDownload: false);
             }
         }
@@ -119,8 +121,17 @@ namespace Agent.Plugins
             BlobStoreClientTelemetryTfs clientTelemetry = null;
             if (downloadFromBlob && fileItems.Any(x => x.BlobMetadata != null))
             {
-                (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupClientAsync(
-                    false, (str) => this.tracer.Info(str), this.connection, cancellationToken);
+                try
+                {
+                    (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupClientAsync(
+                        false, (str) => this.tracer.Info(str), this.connection, cancellationToken);
+                }
+                catch
+                {
+                    // Fall back to streaming through TFS if we cannot reach blobstore
+                    downloadFromBlob = false;
+                    tracer.Warn(StringUtil.Loc("BlobStoreDownloadWarning"));
+                }
             }
 
             var downloadBlock = NonSwallowingActionBlock.Create<FileContainerItem>(

@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk;
 using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -606,6 +607,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     throw new InvalidOperationException(StringUtil.Loc("MultilineSecret"));
                 }
+
+                var unescapePercents = AgentKnobs.DecodePercents.GetValue(context).AsBoolean();
+                var commandEscapeData = CommandStringConvertor.Escape(command.Data, unescapePercents);
+                context.GetHostContext().SecretMasker.AddValue(commandEscapeData);
             }
 
             var checker = context.GetHostContext().GetService<ITaskRestrictionsChecker>();
