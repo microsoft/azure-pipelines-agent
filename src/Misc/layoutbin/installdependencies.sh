@@ -213,6 +213,7 @@ then
         # we might on OpenSUSE
         OSTYPE=$(grep ID_LIKE /etc/os-release | cut -f2 -d=)
         if [ -z $OSTYPE ]
+        then
             OSTYPE=$(grep ID /etc/os-release | cut -f2 -d=)
         fi
         echo $OSTYPE
