@@ -191,19 +191,6 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_USE_CREDSCAN_REGEXES"),
             new BuiltInDefaultKnobSource("false"));
 
-        // Task restrictions
-        public static readonly Knob TaskRestrictionsEnforcementMode = new Knob(
-            nameof(TaskRestrictionsEnforcementMode),
-            "The enforcement mode for command or variable restrictions defined in tasks. Values are Enabled, WarningOnly, Disabled.",
-            new RuntimeKnobSource("agent.taskRestrictionsEnforcementMode"),
-            new BuiltInDefaultKnobSource("WarningOnly"));
-
-        public static readonly Knob EnableTaskRestrictionsTelemetry = new Knob(
-            nameof(EnableTaskRestrictionsTelemetry),
-            "Enable capturing telemetry on the enforcement of command or variable restrictions defined in tasks.",
-            new RuntimeKnobSource("agent.enableTaskRestrictionsTelemetry"),
-            new BuiltInDefaultKnobSource("false"));
-
         // Misc
         public static readonly Knob DisableAgentDowngrade = new Knob(
             nameof(DisableAgentDowngrade),
