@@ -86,6 +86,9 @@
 .PARAMETER JSonFile
     Determines the SDK version from a user specified global.json file
     Note: global.json must have a value for 'SDK:Version'
+.PARAMETER DownloadTimeout
+    Determines timeout duration in seconds for dowloading of the SDK file
+    Default: 1200 seconds (20 minutes)
 #>
 [cmdletbinding()]
 param(
@@ -94,7 +97,7 @@ param(
    [string]$Version="Latest",
    [switch]$Internal,
    [string]$JSonFile,
-   [string]$InstallDir="<auto>",
+   [Alias('i')][string]$InstallDir="<auto>",
    [string]$Architecture="<auto>",
    [string]$Runtime,
    [Obsolete("This parameter may be removed in a future version of this script. The recommended alternative is '-Runtime dotnet'.")]
@@ -108,7 +111,8 @@ param(
    [switch]$ProxyUseDefaultCredentials,
    [string[]]$ProxyBypassList=@(),
    [switch]$SkipNonVersionedFiles,
-   [switch]$NoCdn
+   [switch]$NoCdn,
+   [int]$DownloadTimeout=1200
 )
 
 Set-StrictMode -Version Latest
@@ -177,7 +181,7 @@ function Say-Invocation($Invocation) {
     Say-Verbose "$command $args"
 }
 
-function Invoke-With-Retry([ScriptBlock]$ScriptBlock, [int]$MaxAttempts = 3, [int]$SecondsBetweenAttempts = 1) {
+function Invoke-With-Retry([ScriptBlock]$ScriptBlock, [System.Threading.CancellationToken]$cancellationToken = [System.Threading.CancellationToken]::None, [int]$MaxAttempts = 3, [int]$SecondsBetweenAttempts = 1) {
     $Attempts = 0
 
     while ($true) {
@@ -186,7 +190,7 @@ function Invoke-With-Retry([ScriptBlock]$ScriptBlock, [int]$MaxAttempts = 3, [in
         }
         catch {
             $Attempts++
-            if ($Attempts -lt $MaxAttempts) {
+            if (($Attempts -lt $MaxAttempts) -and -not $cancellationToken.IsCancellationRequested) {
                 Start-Sleep $SecondsBetweenAttempts
             }
             else {
@@ -302,8 +306,9 @@ function Load-Assembly([string] $Assembly) {
 
 function GetHTTPResponse([Uri] $Uri, [bool]$HeaderOnly, [bool]$DisableRedirect, [bool]$DisableFeedCredential)
 {
-    Invoke-With-Retry(
-    {
+    $cts = New-Object System.Threading.CancellationTokenSource
+
+    $downloadScript = {
 
         $HttpClient = $null
 
@@ -342,8 +347,8 @@ function GetHTTPResponse([Uri] $Uri, [bool]$HeaderOnly, [bool]$DisableRedirect, 
             $HttpClient = New-Object System.Net.Http.HttpClient -ArgumentList $HttpClientHandler
 
             # Default timeout for HttpClient is 100s.  For a 50 MB download this assumes 500 KB/s average, any less will time out
-            # 20 minutes allows it to work over much slower connections.
-            $HttpClient.Timeout = New-TimeSpan -Minutes 20
+            # Defaulting to 20 minutes allows it to work over much slower connections.
+            $HttpClient.Timeout = New-TimeSpan -Seconds $DownloadTimeout
 
             if ($HeaderOnly){
                 $completionOption = [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead
@@ -369,6 +374,11 @@ function GetHTTPResponse([Uri] $Uri, [bool]$HeaderOnly, [bool]$DisableRedirect, 
                 if ($null -ne $Response) {
                     $DownloadException.Data["StatusCode"] = [int] $Response.StatusCode
                     $DownloadException.Data["ErrorMessage"] = "Unable to download $Uri. Returned HTTP status code: " + $DownloadException.Data["StatusCode"]
+
+                    if (404 -eq [int] $Response.StatusCode)
+                    {
+                        $cts.Cancel()
+                    }
                 }
 
                 throw $DownloadException
@@ -396,11 +406,22 @@ function GetHTTPResponse([Uri] $Uri, [bool]$HeaderOnly, [bool]$DisableRedirect, 
             throw $DownloadException
         }
         finally {
-             if ($HttpClient -ne $null) {
+             if ($null -ne $HttpClient) {
                 $HttpClient.Dispose()
             }
         }
-    })
+    }
+
+    try {
+        return Invoke-With-Retry $downloadScript $cts.Token
+    }
+    finally
+    {
+        if ($null -ne $cts)
+        {
+            $cts.Dispose()
+        }
+    }
 }
 
 function Get-Latest-Version-Info([string]$AzureFeed, [string]$Channel) {
@@ -1186,11 +1207,12 @@ Prepend-Sdk-InstallRoot-To-Path -InstallRoot $InstallRoot -BinFolderRelativePath
 Say "Note that the script does not resolve dependencies during installation."
 Say "To check the list of dependencies, go to https://docs.microsoft.com/dotnet/core/install/windows#dependencies"
 Say "Installation finished"
+
 # SIG # Begin signature block
-# MIIjkgYJKoZIhvcNAQcCoIIjgzCCI38CAQExDzANBglghkgBZQMEAgEFADB5Bgor
+# MIIjhgYJKoZIhvcNAQcCoIIjdzCCI3MCAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCAGF/0aIv/nK8pL
-# ube4cwR/nwps7FSM0D5vjXxuQe3LXaCCDYEwggX/MIID56ADAgECAhMzAAAB32vw
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCDO8obeUp97UA1H
+# qy3NSLDwxxLLlEbGxeCzMOcKVT/3eKCCDYEwggX/MIID56ADAgECAhMzAAAB32vw
 # LpKnSrTQAAAAAAHfMA0GCSqGSIb3DQEBCwUAMH4xCzAJBgNVBAYTAlVTMRMwEQYD
 # VQQIEwpXYXNoaW5ndG9uMRAwDgYDVQQHEwdSZWRtb25kMR4wHAYDVQQKExVNaWNy
 # b3NvZnQgQ29ycG9yYXRpb24xKDAmBgNVBAMTH01pY3Jvc29mdCBDb2RlIFNpZ25p
@@ -1262,119 +1284,119 @@ Say "Installation finished"
 # xw4o7t5lL+yX9qFcltgA1qFGvVnzl6UJS0gQmYAf0AApxbGbpT9Fdx41xtKiop96
 # eiL6SJUfq/tHI4D1nvi/a7dLl+LrdXga7Oo3mXkYS//WsyNodeav+vyL6wuA6mk7
 # r/ww7QRMjt/fdW1jkT3RnVZOT7+AVyKheBEyIXrvQQqxP/uozKRdwaGIm1dxVk5I
-# RcBCyZt2WwqASGv9eZ/BvW1taslScxMNelDNMYIVZzCCFWMCAQEwgZUwfjELMAkG
+# RcBCyZt2WwqASGv9eZ/BvW1taslScxMNelDNMYIVWzCCFVcCAQEwgZUwfjELMAkG
 # A1UEBhMCVVMxEzARBgNVBAgTCldhc2hpbmd0b24xEDAOBgNVBAcTB1JlZG1vbmQx
 # HjAcBgNVBAoTFU1pY3Jvc29mdCBDb3Jwb3JhdGlvbjEoMCYGA1UEAxMfTWljcm9z
 # b2Z0IENvZGUgU2lnbmluZyBQQ0EgMjAxMQITMwAAAd9r8C6Sp0q00AAAAAAB3zAN
 # BglghkgBZQMEAgEFAKCBrjAZBgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgor
-# BgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAvBgkqhkiG9w0BCQQxIgQgJROF4V78
-# d/qQulLV5Z+ncgFZgk9r0UoE37o5jTCDpSowQgYKKwYBBAGCNwIBDDE0MDKgFIAS
+# BgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAvBgkqhkiG9w0BCQQxIgQg7EExOCvj
+# ZDkub0Fc7HAVivJIlz+Omt11fROkTFKR+KQwQgYKKwYBBAGCNwIBDDE0MDKgFIAS
 # AE0AaQBjAHIAbwBzAG8AZgB0oRqAGGh0dHA6Ly93d3cubWljcm9zb2Z0LmNvbTAN
-# BgkqhkiG9w0BAQEFAASCAQB74lkh+M6W7qWNERtX5/xMFrSgaVCptxuBlBl93FN3
-# aQJiCaToMeDXG3Nsf/GhIFCBz4fReYrMmZg5pmjs+d8s1dgXz2oOWVwx6bhnzdXS
-# ce5dMqkUCzvN4QeJxTIhpeXsHwupWVbuqeTo5DdZHouTi4UFzgM0/K+sSbRI/FEe
-# rS/vxtMbrtMz57kKjB/Z86dKJeDxQydKSapL/YIamfmYx26rjpXJqEs7W+FVRJwK
-# nNNT0OGt7tdkL6k+7XQtK3f5yUqKMdTlmPyZ73z69tAtJclkIFC3liFVTMAf4MK+
-# nheQal7OPNth86h4Lek3E19n2hrABTUeW2cLZ2WWEspFoYIS8TCCEu0GCisGAQQB
-# gjcDAwExghLdMIIS2QYJKoZIhvcNAQcCoIISyjCCEsYCAQMxDzANBglghkgBZQME
-# AgEFADCCAVUGCyqGSIb3DQEJEAEEoIIBRASCAUAwggE8AgEBBgorBgEEAYRZCgMB
-# MDEwDQYJYIZIAWUDBAIBBQAEIEIDAx5adVXZRJeNOj9JW7M03Sl8XvjtY9M98TvW
-# cUwSAgZgieWmNfwYEzIwMjEwNTE5MTcwMDI4LjY0OVowBIACAfSggdSkgdEwgc4x
+# BgkqhkiG9w0BAQEFAASCAQBPvflyU+HQEIM4XvImAK2eQp74ABDaxeWVbl21ZF0L
+# cKf5GkIzdvlCoKxforXBkRIBtLxU9Sb4ff+AO3jiw2M36ZLwZQRYcn003FTR3BAY
+# 3XVGdxb64vCEMUb6Dzh9Hb1lmJjyn2NHsB514ZuUez4v/UIsV9e3TV731kY6gcQV
+# 3ridn3IKj3RMJGtPD5qxVMZohvVIy1Xiz4n/9BpBkk4HHsSuGPmBj08jWnIcI5TF
+# eXYC4LonTOFZLcsKiW4eMRaDt0fXxJjhQF8DSJX3PAxCC73YkPrJJyXAkGNHcXCg
+# 2Lyi9Yd6oV0nbJlCSLWK7jcn5lxUIgsrb+U6F8yXoNsXoYIS5TCCEuEGCisGAQQB
+# gjcDAwExghLRMIISzQYJKoZIhvcNAQcCoIISvjCCEroCAQMxDzANBglghkgBZQME
+# AgEFADCCAVEGCyqGSIb3DQEJEAEEoIIBQASCATwwggE4AgEBBgorBgEEAYRZCgMB
+# MDEwDQYJYIZIAWUDBAIBBQAEIEwFz8qgqbYKKOXyaZMOTE0/ve/rpdJjnq1eyDVG
+# mWB6AgZhHpsDT9wYEzIwMjEwODIzMTUxNzA2LjAyMVowBIACAfSggdCkgc0wgcox
 # CzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpXYXNoaW5ndG9uMRAwDgYDVQQHEwdSZWRt
-# b25kMR4wHAYDVQQKExVNaWNyb3NvZnQgQ29ycG9yYXRpb24xKTAnBgNVBAsTIE1p
-# Y3Jvc29mdCBPcGVyYXRpb25zIFB1ZXJ0byBSaWNvMSYwJAYDVQQLEx1UaGFsZXMg
-# VFNTIEVTTjpEOURFLUUzOUEtNDNGRTElMCMGA1UEAxMcTWljcm9zb2Z0IFRpbWUt
-# U3RhbXAgU2VydmljZaCCDkQwggT1MIID3aADAgECAhMzAAABYfWiM16gKiRpAAAA
-# AAFhMA0GCSqGSIb3DQEBCwUAMHwxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpXYXNo
-# aW5ndG9uMRAwDgYDVQQHEwdSZWRtb25kMR4wHAYDVQQKExVNaWNyb3NvZnQgQ29y
-# cG9yYXRpb24xJjAkBgNVBAMTHU1pY3Jvc29mdCBUaW1lLVN0YW1wIFBDQSAyMDEw
-# MB4XDTIxMDExNDE5MDIyMVoXDTIyMDQxMTE5MDIyMVowgc4xCzAJBgNVBAYTAlVT
-# MRMwEQYDVQQIEwpXYXNoaW5ndG9uMRAwDgYDVQQHEwdSZWRtb25kMR4wHAYDVQQK
-# ExVNaWNyb3NvZnQgQ29ycG9yYXRpb24xKTAnBgNVBAsTIE1pY3Jvc29mdCBPcGVy
-# YXRpb25zIFB1ZXJ0byBSaWNvMSYwJAYDVQQLEx1UaGFsZXMgVFNTIEVTTjpEOURF
-# LUUzOUEtNDNGRTElMCMGA1UEAxMcTWljcm9zb2Z0IFRpbWUtU3RhbXAgU2Vydmlj
-# ZTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAJeInahBrU//GzTqhxUy
-# AC8UXct6UJCkb2xEZKV3gjggmLAheBrxJk7tH+Pw2tTcyarLRfmV2xo5oBk5pW/O
-# cDc/n/TcTeQU6JIN5PlTcn0C9RlKQ6t9OuU/WAyAxGTjKE4ENnUjXtxiNlD/K2ZG
-# MLvjpROBKh7TtkUJK6ZGWw/uTRabNBxRg13TvjkGHXEUEDJ8imacw9BCeR9L6und
-# r32tj4duOFIHD8m1es3SNN98Zq4IDBP3Ccb+HQgxpbeHIUlK0y6zmzIkvfN73Zxw
-# fGvFv0/Max79WJY0cD8poCnZFijciWrf0eD1T2/+7HgewzrdxPdSFockUQ8QovID
-# IYkCAwEAAaOCARswggEXMB0GA1UdDgQWBBRWHpqd1hv71SVj5LAdPfNE7PhLLzAf
-# BgNVHSMEGDAWgBTVYzpcijGQ80N7fEYbxTNoWoVtVTBWBgNVHR8ETzBNMEugSaBH
-# hkVodHRwOi8vY3JsLm1pY3Jvc29mdC5jb20vcGtpL2NybC9wcm9kdWN0cy9NaWNU
-# aW1TdGFQQ0FfMjAxMC0wNy0wMS5jcmwwWgYIKwYBBQUHAQEETjBMMEoGCCsGAQUF
-# BzAChj5odHRwOi8vd3d3Lm1pY3Jvc29mdC5jb20vcGtpL2NlcnRzL01pY1RpbVN0
-# YVBDQV8yMDEwLTA3LTAxLmNydDAMBgNVHRMBAf8EAjAAMBMGA1UdJQQMMAoGCCsG
-# AQUFBwMIMA0GCSqGSIb3DQEBCwUAA4IBAQAQTA9bqVBmx5TTMhzj+Q8zWkPQXgCc
-# SQiqy2YYWF0hWr5GEiN2LtA+EWdu1y8oysZau4CP7SzM8VTSq31CLJiOy39Z4RvE
-# q2mr0EftFvmX2CxQ7ZyzrkhWMZaZQLkYbH5oabIFwndW34nh980BOY395tfnNS/Y
-# 6N0f+jXdoFn7fI2c43TFYsUqIPWjOHJloMektlD6/uS6Zn4xse/lItFm+fWOcB2A
-# xyXEB3ZREeSg9j7+GoEl1xT/iJuV/So7TlWdwyacQu4lv3MBsvxzRIbKhZwrDYog
-# moyJ+rwgQB8mKS4/M1SDRtIptamoTFJ56Tk6DuUXx1JudToelgjEZPa5MIIGcTCC
-# BFmgAwIBAgIKYQmBKgAAAAAAAjANBgkqhkiG9w0BAQsFADCBiDELMAkGA1UEBhMC
-# VVMxEzARBgNVBAgTCldhc2hpbmd0b24xEDAOBgNVBAcTB1JlZG1vbmQxHjAcBgNV
-# BAoTFU1pY3Jvc29mdCBDb3Jwb3JhdGlvbjEyMDAGA1UEAxMpTWljcm9zb2Z0IFJv
-# b3QgQ2VydGlmaWNhdGUgQXV0aG9yaXR5IDIwMTAwHhcNMTAwNzAxMjEzNjU1WhcN
-# MjUwNzAxMjE0NjU1WjB8MQswCQYDVQQGEwJVUzETMBEGA1UECBMKV2FzaGluZ3Rv
-# bjEQMA4GA1UEBxMHUmVkbW9uZDEeMBwGA1UEChMVTWljcm9zb2Z0IENvcnBvcmF0
-# aW9uMSYwJAYDVQQDEx1NaWNyb3NvZnQgVGltZS1TdGFtcCBQQ0EgMjAxMDCCASIw
-# DQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKkdDbx3EYo6IOz8E5f1+n9plGt0
-# VBDVpQoAgoX77XxoSyxfxcPlYcJ2tz5mK1vwFVMnBDEfQRsalR3OCROOfGEwWbEw
-# RA/xYIiEVEMM1024OAizQt2TrNZzMFcmgqNFDdDq9UeBzb8kYDJYYEbyWEeGMoQe
-# dGFnkV+BVLHPk0ySwcSmXdFhE24oxhr5hoC732H8RsEnHSRnEnIaIYqvS2SJUGKx
-# Xf13Hz3wV3WsvYpCTUBR0Q+cBj5nf/VmwAOWRH7v0Ev9buWayrGo8noqCjHw2k4G
-# kbaICDXoeByw6ZnNPOcvRLqn9NxkvaQBwSAJk3jN/LzAyURdXhacAQVPIk0CAwEA
-# AaOCAeYwggHiMBAGCSsGAQQBgjcVAQQDAgEAMB0GA1UdDgQWBBTVYzpcijGQ80N7
-# fEYbxTNoWoVtVTAZBgkrBgEEAYI3FAIEDB4KAFMAdQBiAEMAQTALBgNVHQ8EBAMC
-# AYYwDwYDVR0TAQH/BAUwAwEB/zAfBgNVHSMEGDAWgBTV9lbLj+iiXGJo0T2UkFvX
-# zpoYxDBWBgNVHR8ETzBNMEugSaBHhkVodHRwOi8vY3JsLm1pY3Jvc29mdC5jb20v
-# cGtpL2NybC9wcm9kdWN0cy9NaWNSb29DZXJBdXRfMjAxMC0wNi0yMy5jcmwwWgYI
-# KwYBBQUHAQEETjBMMEoGCCsGAQUFBzAChj5odHRwOi8vd3d3Lm1pY3Jvc29mdC5j
-# b20vcGtpL2NlcnRzL01pY1Jvb0NlckF1dF8yMDEwLTA2LTIzLmNydDCBoAYDVR0g
-# AQH/BIGVMIGSMIGPBgkrBgEEAYI3LgMwgYEwPQYIKwYBBQUHAgEWMWh0dHA6Ly93
-# d3cubWljcm9zb2Z0LmNvbS9QS0kvZG9jcy9DUFMvZGVmYXVsdC5odG0wQAYIKwYB
-# BQUHAgIwNB4yIB0ATABlAGcAYQBsAF8AUABvAGwAaQBjAHkAXwBTAHQAYQB0AGUA
-# bQBlAG4AdAAuIB0wDQYJKoZIhvcNAQELBQADggIBAAfmiFEN4sbgmD+BcQM9naOh
-# IW+z66bM9TG+zwXiqf76V20ZMLPCxWbJat/15/B4vceoniXj+bzta1RXCCtRgkQS
-# +7lTjMz0YBKKdsxAQEGb3FwX/1z5Xhc1mCRWS3TvQhDIr79/xn/yN31aPxzymXlK
-# kVIArzgPF/UveYFl2am1a+THzvbKegBvSzBEJCI8z+0DpZaPWSm8tv0E4XCfMkon
-# /VWvL/625Y4zu2JfmttXQOnxzplmkIz/amJ/3cVKC5Em4jnsGUpxY517IW3DnKOi
-# PPp/fZZqkHimbdLhnPkd/DjYlPTGpQqWhqS9nhquBEKDuLWAmyI4ILUl5WTs9/S/
-# fmNZJQ96LjlXdqJxqgaKD4kWumGnEcua2A5HmoDF0M2n0O99g/DhO3EJ3110mCII
-# YdqwUB5vvfHhAN/nMQekkzr3ZUd46PioSKv33nJ+YWtvd6mBy6cJrDm77MbL2IK0
-# cs0d9LiFAR6A+xuJKlQ5slvayA1VmXqHczsI5pgt6o3gMy4SKfXAL1QnIffIrE7a
-# KLixqduWsqdCosnPGUFN4Ib5KpqjEWYw07t0MkvfY3v1mYovG8chr1m1rtxEPJdQ
-# cdeh0sVV42neV8HR3jDA/czmTfsNv11P6Z0eGTgvvM9YBS7vDaBQNdrvCScc1bN+
-# NR4Iuto229Nfj950iEkSoYIC0jCCAjsCAQEwgfyhgdSkgdEwgc4xCzAJBgNVBAYT
-# AlVTMRMwEQYDVQQIEwpXYXNoaW5ndG9uMRAwDgYDVQQHEwdSZWRtb25kMR4wHAYD
-# VQQKExVNaWNyb3NvZnQgQ29ycG9yYXRpb24xKTAnBgNVBAsTIE1pY3Jvc29mdCBP
-# cGVyYXRpb25zIFB1ZXJ0byBSaWNvMSYwJAYDVQQLEx1UaGFsZXMgVFNTIEVTTjpE
-# OURFLUUzOUEtNDNGRTElMCMGA1UEAxMcTWljcm9zb2Z0IFRpbWUtU3RhbXAgU2Vy
-# dmljZaIjCgEBMAcGBSsOAwIaAxUAFW5ShAw5ekTEXvL/4V1s0rbDz3mggYMwgYCk
-# fjB8MQswCQYDVQQGEwJVUzETMBEGA1UECBMKV2FzaGluZ3RvbjEQMA4GA1UEBxMH
-# UmVkbW9uZDEeMBwGA1UEChMVTWljcm9zb2Z0IENvcnBvcmF0aW9uMSYwJAYDVQQD
-# Ex1NaWNyb3NvZnQgVGltZS1TdGFtcCBQQ0EgMjAxMDANBgkqhkiG9w0BAQUFAAIF
-# AORPamMwIhgPMjAyMTA1MTkxNDQzNDdaGA8yMDIxMDUyMDE0NDM0N1owdzA9Bgor
-# BgEEAYRZCgQBMS8wLTAKAgUA5E9qYwIBADAKAgEAAgIYCAIB/zAHAgEAAgIRJjAK
-# AgUA5FC74wIBADA2BgorBgEEAYRZCgQCMSgwJjAMBgorBgEEAYRZCgMCoAowCAIB
-# AAIDB6EgoQowCAIBAAIDAYagMA0GCSqGSIb3DQEBBQUAA4GBAEP3zVlXXAn4O1Ms
-# 68s11f0LWnsKutmWLnJls7YN9alFuA+jJcq/S8x2VoJAWAZTdWtdT5N7Gf/BeTAe
-# 8D0krUvAYkKN9sIFxBsV9Zum88+HNP6X3yn+CD+ZzOlhtqvgG+fuuRXPutLZfLc/
-# BMw0pVKop8ty4t9o1C5cghIH1n8uMYIDDTCCAwkCAQEwgZMwfDELMAkGA1UEBhMC
-# VVMxEzARBgNVBAgTCldhc2hpbmd0b24xEDAOBgNVBAcTB1JlZG1vbmQxHjAcBgNV
-# BAoTFU1pY3Jvc29mdCBDb3Jwb3JhdGlvbjEmMCQGA1UEAxMdTWljcm9zb2Z0IFRp
-# bWUtU3RhbXAgUENBIDIwMTACEzMAAAFh9aIzXqAqJGkAAAAAAWEwDQYJYIZIAWUD
-# BAIBBQCgggFKMBoGCSqGSIb3DQEJAzENBgsqhkiG9w0BCRABBDAvBgkqhkiG9w0B
-# CQQxIgQgYzAzV5OthXnPmIpD3kPIVmwz+sGvwSbjTEW5rOqHhyUwgfoGCyqGSIb3
-# DQEJEAIvMYHqMIHnMIHkMIG9BCBhz4un6mkSLd/zA+0N5YLDGp4vW/VBtNW/lpmh
-# tAk4bzCBmDCBgKR+MHwxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpXYXNoaW5ndG9u
-# MRAwDgYDVQQHEwdSZWRtb25kMR4wHAYDVQQKExVNaWNyb3NvZnQgQ29ycG9yYXRp
-# b24xJjAkBgNVBAMTHU1pY3Jvc29mdCBUaW1lLVN0YW1wIFBDQSAyMDEwAhMzAAAB
-# YfWiM16gKiRpAAAAAAFhMCIEIArbvJb5j55rDAQa7Rx5K7mjnxUY6RgiRY1AROOp
-# m2rLMA0GCSqGSIb3DQEBCwUABIIBAFS544uO7FOimzTwMDkFNhMT7GmZBc9L2wDF
-# EjcDlHvcdELdWpqa8Au6rCdhW6618btwdFqR7fkNMH7F0TrY1ktOae5fZUaybIRV
-# EMWAAqXLkVyePlssQamjt1+BYvxzYFh3T5JBr2R/rzaGJIck49r1cEsLBV0JaSQT
-# QKiOsR+QEbSCNWXQaq/koJrKR5Ugro0y4SmSejnOj5+1/4PlTolFoJAM4pIiT2A1
-# uMs5f219BvkwyRmF32z9EpYQvBdoGpT65DQDuZQ5F6wV1Ph4H7yOzarcdnwPohT+
-# BeH2jrcR3BMAxC3umgRUmTxnzPsoq9FJuRTyHCNygGn+VMImNfk=
+# b25kMR4wHAYDVQQKExVNaWNyb3NvZnQgQ29ycG9yYXRpb24xJTAjBgNVBAsTHE1p
+# Y3Jvc29mdCBBbWVyaWNhIE9wZXJhdGlvbnMxJjAkBgNVBAsTHVRoYWxlcyBUU1Mg
+# RVNOOjhBODItRTM0Ri05RERBMSUwIwYDVQQDExxNaWNyb3NvZnQgVGltZS1TdGFt
+# cCBTZXJ2aWNloIIOPDCCBPEwggPZoAMCAQICEzMAAAFLT7KmSNXkwlEAAAAAAUsw
+# DQYJKoZIhvcNAQELBQAwfDELMAkGA1UEBhMCVVMxEzARBgNVBAgTCldhc2hpbmd0
+# b24xEDAOBgNVBAcTB1JlZG1vbmQxHjAcBgNVBAoTFU1pY3Jvc29mdCBDb3Jwb3Jh
+# dGlvbjEmMCQGA1UEAxMdTWljcm9zb2Z0IFRpbWUtU3RhbXAgUENBIDIwMTAwHhcN
+# MjAxMTEyMTgyNTU5WhcNMjIwMjExMTgyNTU5WjCByjELMAkGA1UEBhMCVVMxEzAR
+# BgNVBAgTCldhc2hpbmd0b24xEDAOBgNVBAcTB1JlZG1vbmQxHjAcBgNVBAoTFU1p
+# Y3Jvc29mdCBDb3Jwb3JhdGlvbjElMCMGA1UECxMcTWljcm9zb2Z0IEFtZXJpY2Eg
+# T3BlcmF0aW9uczEmMCQGA1UECxMdVGhhbGVzIFRTUyBFU046OEE4Mi1FMzRGLTlE
+# REExJTAjBgNVBAMTHE1pY3Jvc29mdCBUaW1lLVN0YW1wIFNlcnZpY2UwggEiMA0G
+# CSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQChNnpQx3YuJr/ivobPoLtpQ9egUFl8
+# THdWZ6SAKIJdtP3L24D3/d63ommmjZjCyrQm+j/1tHDAwjQGuOwYvn79ecPCQfAB
+# 91JnEp/wP4BMF2SXyMf8k9R84RthIdfGHPXTWqzpCCfNWolVEcUVm8Ad/r1LrikR
+# O+4KKo6slDQJKsgKApfBU/9J7Rudvhw1rEQw0Nk1BRGWjrIp7/uWoUIfR4rcl6U1
+# utOiYIonC87PPpAJQXGRsDdKnVFF4NpWvMiyeuksn5t/Otwz82sGlne/HNQpmMzi
+# gR8cZ8eXEDJJNIZxov9WAHHj28gUE29D8ivAT706ihxvTv50ZY8W51uxAgMBAAGj
+# ggEbMIIBFzAdBgNVHQ4EFgQUUqpqftASlue6K3LePlTTn01K68YwHwYDVR0jBBgw
+# FoAU1WM6XIoxkPNDe3xGG8UzaFqFbVUwVgYDVR0fBE8wTTBLoEmgR4ZFaHR0cDov
+# L2NybC5taWNyb3NvZnQuY29tL3BraS9jcmwvcHJvZHVjdHMvTWljVGltU3RhUENB
+# XzIwMTAtMDctMDEuY3JsMFoGCCsGAQUFBwEBBE4wTDBKBggrBgEFBQcwAoY+aHR0
+# cDovL3d3dy5taWNyb3NvZnQuY29tL3BraS9jZXJ0cy9NaWNUaW1TdGFQQ0FfMjAx
+# MC0wNy0wMS5jcnQwDAYDVR0TAQH/BAIwADATBgNVHSUEDDAKBggrBgEFBQcDCDAN
+# BgkqhkiG9w0BAQsFAAOCAQEAFtq51Zc/O1AfJK4tEB2Nr8bGEVD5qQ8l8gXIQMrM
+# ZYtddHH+cGiqgF/4GmvmPfl5FAYh+gf/8Yd3q4/iD2+K4LtJbs/3v6mpyBl1mQ4v
+# usK65dAypWmiT1W3FiXjsmCIkjSDDsKLFBYH5yGFnNFOEMgL+O7u4osH42f80nc2
+# WdnZV6+OvW035XPV6ZttUBfFWHdIbUkdOG1O2n4yJm10OfacItZ08fzgMMqE+f/S
+# TgVWNCHbR2EYqTWayrGP69jMwtVD9BGGTWti1XjpvE6yKdO8H9nuRi3L+C6jYntf
+# aEmBTbnTFEV+kRx1CNcpSb9os86CAUehZU1aRzQ6CQ/pjzCCBnEwggRZoAMCAQIC
+# CmEJgSoAAAAAAAIwDQYJKoZIhvcNAQELBQAwgYgxCzAJBgNVBAYTAlVTMRMwEQYD
+# VQQIEwpXYXNoaW5ndG9uMRAwDgYDVQQHEwdSZWRtb25kMR4wHAYDVQQKExVNaWNy
+# b3NvZnQgQ29ycG9yYXRpb24xMjAwBgNVBAMTKU1pY3Jvc29mdCBSb290IENlcnRp
+# ZmljYXRlIEF1dGhvcml0eSAyMDEwMB4XDTEwMDcwMTIxMzY1NVoXDTI1MDcwMTIx
+# NDY1NVowfDELMAkGA1UEBhMCVVMxEzARBgNVBAgTCldhc2hpbmd0b24xEDAOBgNV
+# BAcTB1JlZG1vbmQxHjAcBgNVBAoTFU1pY3Jvc29mdCBDb3Jwb3JhdGlvbjEmMCQG
+# A1UEAxMdTWljcm9zb2Z0IFRpbWUtU3RhbXAgUENBIDIwMTAwggEiMA0GCSqGSIb3
+# DQEBAQUAA4IBDwAwggEKAoIBAQCpHQ28dxGKOiDs/BOX9fp/aZRrdFQQ1aUKAIKF
+# ++18aEssX8XD5WHCdrc+Zitb8BVTJwQxH0EbGpUdzgkTjnxhMFmxMEQP8WCIhFRD
+# DNdNuDgIs0Ldk6zWczBXJoKjRQ3Q6vVHgc2/JGAyWGBG8lhHhjKEHnRhZ5FfgVSx
+# z5NMksHEpl3RYRNuKMYa+YaAu99h/EbBJx0kZxJyGiGKr0tkiVBisV39dx898Fd1
+# rL2KQk1AUdEPnAY+Z3/1ZsADlkR+79BL/W7lmsqxqPJ6Kgox8NpOBpG2iAg16Hgc
+# sOmZzTznL0S6p/TcZL2kAcEgCZN4zfy8wMlEXV4WnAEFTyJNAgMBAAGjggHmMIIB
+# 4jAQBgkrBgEEAYI3FQEEAwIBADAdBgNVHQ4EFgQU1WM6XIoxkPNDe3xGG8UzaFqF
+# bVUwGQYJKwYBBAGCNxQCBAweCgBTAHUAYgBDAEEwCwYDVR0PBAQDAgGGMA8GA1Ud
+# EwEB/wQFMAMBAf8wHwYDVR0jBBgwFoAU1fZWy4/oolxiaNE9lJBb186aGMQwVgYD
+# VR0fBE8wTTBLoEmgR4ZFaHR0cDovL2NybC5taWNyb3NvZnQuY29tL3BraS9jcmwv
+# cHJvZHVjdHMvTWljUm9vQ2VyQXV0XzIwMTAtMDYtMjMuY3JsMFoGCCsGAQUFBwEB
+# BE4wTDBKBggrBgEFBQcwAoY+aHR0cDovL3d3dy5taWNyb3NvZnQuY29tL3BraS9j
+# ZXJ0cy9NaWNSb29DZXJBdXRfMjAxMC0wNi0yMy5jcnQwgaAGA1UdIAEB/wSBlTCB
+# kjCBjwYJKwYBBAGCNy4DMIGBMD0GCCsGAQUFBwIBFjFodHRwOi8vd3d3Lm1pY3Jv
+# c29mdC5jb20vUEtJL2RvY3MvQ1BTL2RlZmF1bHQuaHRtMEAGCCsGAQUFBwICMDQe
+# MiAdAEwAZQBnAGEAbABfAFAAbwBsAGkAYwB5AF8AUwB0AGEAdABlAG0AZQBuAHQA
+# LiAdMA0GCSqGSIb3DQEBCwUAA4ICAQAH5ohRDeLG4Jg/gXEDPZ2joSFvs+umzPUx
+# vs8F4qn++ldtGTCzwsVmyWrf9efweL3HqJ4l4/m87WtUVwgrUYJEEvu5U4zM9GAS
+# inbMQEBBm9xcF/9c+V4XNZgkVkt070IQyK+/f8Z/8jd9Wj8c8pl5SpFSAK84Dxf1
+# L3mBZdmptWvkx872ynoAb0swRCQiPM/tA6WWj1kpvLb9BOFwnzJKJ/1Vry/+tuWO
+# M7tiX5rbV0Dp8c6ZZpCM/2pif93FSguRJuI57BlKcWOdeyFtw5yjojz6f32WapB4
+# pm3S4Zz5Hfw42JT0xqUKloakvZ4argRCg7i1gJsiOCC1JeVk7Pf0v35jWSUPei45
+# V3aicaoGig+JFrphpxHLmtgOR5qAxdDNp9DvfYPw4TtxCd9ddJgiCGHasFAeb73x
+# 4QDf5zEHpJM692VHeOj4qEir995yfmFrb3epgcunCaw5u+zGy9iCtHLNHfS4hQEe
+# gPsbiSpUObJb2sgNVZl6h3M7COaYLeqN4DMuEin1wC9UJyH3yKxO2ii4sanblrKn
+# QqLJzxlBTeCG+SqaoxFmMNO7dDJL32N79ZmKLxvHIa9Zta7cRDyXUHHXodLFVeNp
+# 3lfB0d4wwP3M5k37Db9dT+mdHhk4L7zPWAUu7w2gUDXa7wknHNWzfjUeCLraNtvT
+# X4/edIhJEqGCAs4wggI3AgEBMIH4oYHQpIHNMIHKMQswCQYDVQQGEwJVUzETMBEG
+# A1UECBMKV2FzaGluZ3RvbjEQMA4GA1UEBxMHUmVkbW9uZDEeMBwGA1UEChMVTWlj
+# cm9zb2Z0IENvcnBvcmF0aW9uMSUwIwYDVQQLExxNaWNyb3NvZnQgQW1lcmljYSBP
+# cGVyYXRpb25zMSYwJAYDVQQLEx1UaGFsZXMgVFNTIEVTTjo4QTgyLUUzNEYtOURE
+# QTElMCMGA1UEAxMcTWljcm9zb2Z0IFRpbWUtU3RhbXAgU2VydmljZaIjCgEBMAcG
+# BSsOAwIaAxUAkToz97fseHxNOUSQ5O/bBVSF+e6ggYMwgYCkfjB8MQswCQYDVQQG
+# EwJVUzETMBEGA1UECBMKV2FzaGluZ3RvbjEQMA4GA1UEBxMHUmVkbW9uZDEeMBwG
+# A1UEChMVTWljcm9zb2Z0IENvcnBvcmF0aW9uMSYwJAYDVQQDEx1NaWNyb3NvZnQg
+# VGltZS1TdGFtcCBQQ0EgMjAxMDANBgkqhkiG9w0BAQUFAAIFAOTNtrcwIhgPMjAy
+# MTA4MjMxMzU1MDNaGA8yMDIxMDgyNDEzNTUwM1owdzA9BgorBgEEAYRZCgQBMS8w
+# LTAKAgUA5M22twIBADAKAgEAAgIcfAIB/zAHAgEAAgIQOTAKAgUA5M8INwIBADA2
+# BgorBgEEAYRZCgQCMSgwJjAMBgorBgEEAYRZCgMCoAowCAIBAAIDB6EgoQowCAIB
+# AAIDAYagMA0GCSqGSIb3DQEBBQUAA4GBADrUnASEIEovjIFdqxhyYsyiBSfNeD7e
+# W4qeRl1B4DTAY8Z/U1SpnK8yy7r6oZn0D8og+QJmnWEnCPqNXAreyg8tlFyTF1TV
+# K6uUlslIY4WCmrAECIFua/DuksTerny66SBw4aSEeQHtGiynnR87WcdqItBJxxRA
+# pElXzs8QzC0EMYIDDTCCAwkCAQEwgZMwfDELMAkGA1UEBhMCVVMxEzARBgNVBAgT
+# Cldhc2hpbmd0b24xEDAOBgNVBAcTB1JlZG1vbmQxHjAcBgNVBAoTFU1pY3Jvc29m
+# dCBDb3Jwb3JhdGlvbjEmMCQGA1UEAxMdTWljcm9zb2Z0IFRpbWUtU3RhbXAgUENB
+# IDIwMTACEzMAAAFLT7KmSNXkwlEAAAAAAUswDQYJYIZIAWUDBAIBBQCgggFKMBoG
+# CSqGSIb3DQEJAzENBgsqhkiG9w0BCRABBDAvBgkqhkiG9w0BCQQxIgQg87M/Jiqh
+# MlaXNWAIAn7CM9CZw6QCPgBx3voUSIH6+qUwgfoGCyqGSIb3DQEJEAIvMYHqMIHn
+# MIHkMIG9BCBr9u6EInnsZYEts/Fj/rIFv0YZW1ynhXKOP2hVPUU5IzCBmDCBgKR+
+# MHwxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpXYXNoaW5ndG9uMRAwDgYDVQQHEwdS
+# ZWRtb25kMR4wHAYDVQQKExVNaWNyb3NvZnQgQ29ycG9yYXRpb24xJjAkBgNVBAMT
+# HU1pY3Jvc29mdCBUaW1lLVN0YW1wIFBDQSAyMDEwAhMzAAABS0+ypkjV5MJRAAAA
+# AAFLMCIEIGs9Mn51TUGRleeUO5lQCRHZSu0G/8Ir92l3NgMGq1/GMA0GCSqGSIb3
+# DQEBCwUABIIBAA1oBIiM3guh89/Pvwwcn4hdZGGBsMk56MRMvOir8XQM0Je/rSwP
+# P11S2VwYUMmBjfFX1QK7r280k3k9xcDWW79ZC4Kn2UsV7jxuUwFHgdVlgDNjg6QL
+# unGuwFX5lStgNevwUH9DotoASXxgtwNNmtZNDB4NYVCxQLS7RtVSbxP+xFYXbokG
+# G4DFVHBr3CGPga3OduE/YUBpxIRxtiDF/9WHo0tJEdS95tfdnsyaGo8eHNzyfTdS
+# kjrNsAlqpJRT0Va/ooBXCV7Uny7PlCkRIQRTSJDy/kSXpsL22CTEHw6mU0jEU99k
+# OL4uwu+aVnolWFlpbiJjQxBqfT3plBLIg88=
 # SIG # End signature block

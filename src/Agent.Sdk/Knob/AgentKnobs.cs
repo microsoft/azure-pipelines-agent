@@ -34,6 +34,12 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_SKIP_POST_EXECUTION_IF_CONTAINER_STOPPED"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob MTUValueForContainerJobs = new Knob(
+            nameof(MTUValueForContainerJobs),
+            "Allow to specify MTU value for networks used by container jobs (useful for docker-in-docker scenarios in k8s cluster).",
+            new EnvironmentKnobSource("AGENT_DOCKER_MTU_VALUE"),
+            new BuiltInDefaultKnobSource(string.Empty));
+
         // Directory structure
         public static readonly Knob AgentToolsDirectory = new Knob(
             nameof(AgentToolsDirectory),
@@ -185,19 +191,6 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_USE_CREDSCAN_REGEXES"),
             new BuiltInDefaultKnobSource("false"));
 
-        // Task restrictions
-        public static readonly Knob TaskRestrictionsEnforcementMode = new Knob(
-            nameof(TaskRestrictionsEnforcementMode),
-            "The enforcement mode for command or variable restrictions defined in tasks. Values are Enabled, WarningOnly, Disabled.",
-            new RuntimeKnobSource("agent.taskRestrictionsEnforcementMode"),
-            new BuiltInDefaultKnobSource("WarningOnly"));
-
-        public static readonly Knob EnableTaskRestrictionsTelemetry = new Knob(
-            nameof(EnableTaskRestrictionsTelemetry),
-            "Enable capturing telemetry on the enforcement of command or variable restrictions defined in tasks.",
-            new RuntimeKnobSource("agent.enableTaskRestrictionsTelemetry"),
-            new BuiltInDefaultKnobSource("false"));
-
         // Misc
         public static readonly Knob DisableAgentDowngrade = new Knob(
             nameof(DisableAgentDowngrade),
@@ -245,6 +238,13 @@ namespace Agent.Sdk.Knob
             "By default, the agent will upload build artifacts to Blobstore. Setting this to true will disable that integration. This variable is temporary and will be removed.",
             new RuntimeKnobSource("DISABLE_BUILD_ARTIFACTS_TO_BLOB"),
             new EnvironmentKnobSource("DISABLE_BUILD_ARTIFACTS_TO_BLOB"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob EnableIncompatibleBuildArtifactsPathResolution = new Knob(
+            nameof(EnableIncompatibleBuildArtifactsPathResolution),
+            "Return DownloadBuildArtifactsV1 target path resolution behavior back to how it was originally implemented. This breaks back compatibility with DownloadBuildArtifactsV0.",
+            new RuntimeKnobSource("EnableIncompatibleBuildArtifactsPathResolution"),
+            new EnvironmentKnobSource("EnableIncompatibleBuildArtifactsPathResolution"),
             new BuiltInDefaultKnobSource("false"));
     }
 }
