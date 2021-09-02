@@ -182,12 +182,24 @@ jobs:
       workingDirectory: src
       displayName: Package Release
 
+    - script: "${{ variables.devCommand }} hash"
+      workingDirectory: src
+      displayName: Hash Package
+
     # Upload agent package zip as build artifact
     - task: PublishBuildArtifacts@1
       displayName: Publish Artifact
       inputs:
         pathToPublish: _package
         artifactName: agent
+        artifactType: container
+
+    # Publish agent package hash too
+    - task: PublishBuildArtifacts@1
+      displayName: Publish Artifact
+      inputs:
+        pathToPublish: _package_hash
+        artifactName: hash
         artifactType: container
 
   # Signing verification

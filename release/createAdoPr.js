@@ -26,7 +26,8 @@ const connection = new azdev.WebApi('https://dev.azure.com/mseng', authHandler);
 function createIntegrationFiles(newRelease, callback)
 {
     fs.mkdirSync(INTEGRATION_DIR, { recursive: true });
-    util.versionifySync(path.join(__dirname, '..', 'src', 'Misc', 'InstallAgentPackage.template.xml'),
+    util.fillInstallAgentPackageParameters(
+        path.join(__dirname, '..', 'src', 'Misc', 'InstallAgentPackage.template.xml'),
         path.join(INTEGRATION_DIR, 'InstallAgentPackage.xml'),
         newRelease
     );

@@ -218,6 +218,28 @@ function cmd_package ()
     popd > /dev/null
 }
 
+function cmd_hash ()
+{
+    pushd "$PACKAGE_DIR" > /dev/null
+
+    files=`ls -1`
+
+    number_of_files=`wc -l <<< "$files"`
+
+    if [[ number_of_files -ne 1 ]]; then
+        echo "Expecting to find exactly one file (agent package) in $PACKAGE_DIR"
+        exit 1
+    fi
+
+    agent_package_file=$files
+
+    rm -rf ../../_package_hash
+    mkdir ../../_package_hash
+    openssl dgst -sha256 $agent_package_file >> "../../_package_hash/$agent_package_file.sha256"
+
+    popd > /dev/null
+}
+
 function cmd_report ()
 {
     heading "Generating Reports"
@@ -350,6 +372,7 @@ case $DEV_CMD in
    "l") cmd_layout;;
    "package") cmd_package;;
    "p") cmd_package;;
+   "hash") cmd_hash;;
    "report") cmd_report;;
    *) echo "Invalid command. Use (l)ayout, (b)uild, (t)est, test(l0), test(l1), or (p)ackage.";;
 esac

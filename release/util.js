@@ -1,5 +1,6 @@
 const cp = require('child_process');
 const fs = require('fs');
+const path = require('path');
 
 const GIT = 'git';
 const GIT_RELEASE_RE = /([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/;
@@ -46,12 +47,36 @@ exports.execInForeground = function(command, directory, dryrun = false)
     }
 }
 
-exports.versionifySync = function(template, destination, version)
+/**
+ * Replaces `<AGENT_VERSION>` and `<HASH_VALUE>` with the right values
+ * 
+ * @param {*} template InstallAgentPackage.template.xml path
+ * @param {*} destination Path where the filled InstallAgentPackage.xml should be written
+ * @param {*} version Agent version, e.g. 2.193.0
+ */
+exports.fillInstallAgentPackageParameters = function(template, destination, version)
 {
     try
     {
         var data = fs.readFileSync(template, 'utf8');
         data = data.replace(/<AGENT_VERSION>/g, version);
+
+        const hashes = exports.getHashes();
+        const dataLines = data.split('\n');
+        const modifiedDataLines = dataLines.map((line) => {
+            if (!line.includes('AddTaskPackageData')) {
+                return line;
+            }
+
+            const packageNameStart = line.indexOf('filename="') + 'filename="'.length;
+            const packageNameEnd = packageNameStart + line.slice(packageNameStart).indexOf('"');
+            const packageName = line.substring(packageNameStart, packageNameEnd);
+
+            return line.replace('<HASH_VALUE>', hashes[packageName]);
+        });
+
+        data = modifiedDataLines.join('\n');
+
         console.log(`Generating ${destination}`);
         fs.writeFileSync(destination, data);
     }
@@ -59,4 +84,26 @@ exports.versionifySync = function(template, destination, version)
     {
         console.log('Error:', e.stack);
     }
+}
+
+/**
+ * @returns A map where the keys are the agent package file names and the values are corresponding packages hashes
+ */
+exports.getHashes = function() {
+    const hashesDirPath = path.join(__dirname, '..', '_hashes', 'hash');
+    const hashFiles = fs.readdirSync(hashesDirPath);
+
+    const hashes = {};
+    for (const hashFileName of hashFiles) {
+        const agentPackageFileName = hashFileName.replace('.sha256', '');
+
+        const hashFileContent = fs.readFileSync(path.join(hashesDirPath, hashFileName), 'utf-8').trim();
+        // Last 64 characters are the sha256 hash value
+        const hashStringLength = 64;
+        const hash = hashFileContent.slice(hashFileContent.length - hashStringLength);
+
+        hashes[agentPackageFileName] = hash;
+    }
+
+    return hashes;
 }
