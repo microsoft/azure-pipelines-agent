@@ -1,20 +1,27 @@
-﻿using System;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System;
 using System.IO;
 using System.IO.Pipes;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1711: Identifiers should not have incorrect suffix")]
     public delegate void StartProcessDelegate(string pipeHandleOut, string pipeHandleIn);
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1008: Enums should have zero value")]
     public enum MessageType
     {
         NotInitialized = -1,
         NewJobRequest = 1,
         CancelRequest = 2,
         AgentShutdown = 3,
-        OperatingSystemShutdown = 4
+        OperatingSystemShutdown = 4,
+        JobMetadataUpdate = 5,
     }
 
     public struct WorkerMessage
@@ -31,7 +38,7 @@ namespace Microsoft.VisualStudio.Services.Agent
     [ServiceLocator(Default = typeof(ProcessChannel))]
     public interface IProcessChannel : IDisposable, IAgentService
     {
-        void StartServer(StartProcessDelegate startProcess);
+        void StartServer(StartProcessDelegate startProcess, bool disposeClient = true);
         void StartClient(string pipeNameInput, string pipeNameOutput);
 
         Task SendAsync(MessageType messageType, string body, CancellationToken cancellationToken);
@@ -47,15 +54,19 @@ namespace Microsoft.VisualStudio.Services.Agent
         private StreamString _writeStream;
         private StreamString _readStream;
 
-        public void StartServer(StartProcessDelegate startProcess)
+        public void StartServer(StartProcessDelegate startProcess, bool disposeLocalClientHandle = true)
         {
+            ArgUtil.NotNull(startProcess, nameof(startProcess));
             _outServer = new AnonymousPipeServerStream(PipeDirection.Out, HandleInheritability.Inheritable);
             _inServer = new AnonymousPipeServerStream(PipeDirection.In, HandleInheritability.Inheritable);
             _readStream = new StreamString(_inServer);
             _writeStream = new StreamString(_outServer);
             startProcess(_outServer.GetClientHandleAsString(), _inServer.GetClientHandleAsString());
-            _outServer.DisposeLocalCopyOfClientHandle();
-            _inServer.DisposeLocalCopyOfClientHandle();
+            if (disposeLocalClientHandle)
+            {
+                _outServer.DisposeLocalCopyOfClientHandle();
+                _inServer.DisposeLocalCopyOfClientHandle();
+            }
         }
 
         public void StartClient(string pipeNameInput, string pipeNameOutput)

@@ -1,4 +1,7 @@
-﻿using Microsoft.VisualStudio.Services.Agent.Util;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.IO;
 using System.Text;
@@ -151,6 +154,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                                  requireExitCodeZero: false,
                                                                  outputEncoding: null,
                                                                  killProcessOnCancel: false,
+                                                                 redirectStandardIn: null,
+                                                                 inheritConsoleHandler: !ExecutionContext.Variables.Retain_Default_Encoding,
                                                                  cancellationToken: ExecutionContext.CancellationToken);
                 FlushErrorData();
 

@@ -1,3 +1,7 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
@@ -16,7 +20,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         protected override string Switch => "-";
 
-        public string FilePath => Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), Constants.Path.TeeDirectory, "tf");
+        public override string FilePath => Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), Constants.Path.TeeDirectory, "tf");
 
         // TODO: Remove AddAsync after last-saved-checkin-metadata problem is fixed properly.
         public async Task AddAsync(string localPath)
@@ -44,7 +48,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         public string ResolvePath(string serverPath)
         {
             ArgUtil.NotNullOrEmpty(serverPath, nameof(serverPath));
-            string localPath = RunPorcelainCommandAsync("resolvePath", $"-workspace:{WorkspaceName}", serverPath).GetAwaiter().GetResult();
+            string localPath = RunPorcelainCommandAsync(true, "resolvePath", $"-workspace:{WorkspaceName}", serverPath).GetAwaiter().GetResult();
             localPath = localPath?.Trim();
 
             // Paths outside of the root mapping return empty.
@@ -75,9 +79,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         public void SetupClientCertificate(string clientCert, string clientCertKey, string clientCertArchive, string clientCertPassword)
         {
             ExecutionContext.Debug("Convert client certificate from 'pkcs' format to 'jks' format.");
-            var whichUtil = HostContext.GetService<IWhichUtil>();
-            string toolPath = whichUtil.Which("keytool", true);
-            string jksFile = Path.Combine(ExecutionContext.Variables.Agent_TempDirectory, $"{Guid.NewGuid()}.jks");
+            string toolPath = WhichUtil.Which("keytool", true, Trace);
+            string jksFile = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Temp), $"{Guid.NewGuid()}.jks");
             string argLine;
             if (!string.IsNullOrEmpty(clientCertPassword))
             {
@@ -106,7 +109,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 }
             };
 
-            processInvoker.ExecuteAsync(ExecutionContext.Variables.System_DefaultWorkingDirectory, toolPath, argLine, null, true, CancellationToken.None).GetAwaiter().GetResult();
+            processInvoker.ExecuteAsync(ExecutionContext.Variables.Get(Constants.Variables.System.DefaultWorkingDirectory), toolPath, argLine, null, true, CancellationToken.None).GetAwaiter().GetResult();
 
             if (!string.IsNullOrEmpty(clientCertPassword))
             {
@@ -176,27 +179,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string homeDirectory = Environment.GetEnvironmentVariable("HOME");
             if (!string.IsNullOrEmpty(homeDirectory) && Directory.Exists(homeDirectory))
             {
-#if OS_OSX
+                string tfDataDirectory = (PlatformUtil.RunningOnMacOS)
+                    ? Path.Combine("Library", "Application Support", "Microsoft")
+                    : ".microsoft";
+
                 string xmlFile = Path.Combine(
                     homeDirectory,
-                    "Library",
-                    "Application Support",
-                    "Microsoft",
+                    tfDataDirectory,
                     "Team Foundation",
                     "4.0",
                     "Configuration",
                     "TEE-Mementos",
                     "com.microsoft.tfs.client.productid.xml");
-#else
-                string xmlFile = Path.Combine(
-                    homeDirectory,
-                    ".microsoft",
-                    "Team Foundation",
-                    "4.0",
-                    "Configuration",
-                    "TEE-Mementos",
-                    "com.microsoft.tfs.client.productid.xml");
-#endif
+
                 if (File.Exists(xmlFile))
                 {
                     // Load and deserialize the XML.
@@ -283,7 +278,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             args.Add("-format:xml");
 
             // Run the command.
-            TfsVCPorcelainCommandResult result = await TryRunPorcelainCommandAsync(FormatFlags.None, args.ToArray());
+            TfsVCPorcelainCommandResult result = await TryRunPorcelainCommandAsync(FormatFlags.None, false, args.ToArray());
             ArgUtil.NotNull(result, nameof(result));
             if (result.Exception != null)
             {

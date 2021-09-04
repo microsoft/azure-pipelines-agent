@@ -1,20 +1,18 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Text;
-using System.Runtime.InteropServices;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Microsoft.VisualStudio.Services.Agent.Worker;
-using Microsoft.VisualStudio.Services.Agent.Worker.Build;
 using Microsoft.VisualStudio.Services.Agent.Capabilities;
-using Microsoft.VisualStudio.Services.WebApi;
-using Build2 = Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.Win32;
 using System.Diagnostics;
 using System.Linq;
-using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -43,12 +41,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                          Pipelines.AgentJobRequestMessage message,
                                          DateTime jobStartTimeUtc)
         {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+            ArgUtil.NotNull(message, nameof(message));
+
             executionContext.Debug("Starting diagnostic file upload.");
 
             // Setup folders
             // \_layout\_work\_temp\[jobname-support]
             executionContext.Debug("Setting up diagnostic log folders.");
-            string tempDirectory = executionContext.Variables.Agent_TempDirectory;
+            string tempDirectory = HostContext.GetDirectory(WellKnownDirectory.Temp);
             ArgUtil.Directory(tempDirectory, nameof(tempDirectory));
 
             string supportRootFolder = Path.Combine(tempDirectory, message.JobName + "-support");
@@ -69,11 +70,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             executionContext.Debug("Creating diagnostic log environment file.");
             string environmentFile = Path.Combine(supportFilesFolder, "environment.txt");
-#if OS_WINDOWS            
             string content = await GetEnvironmentContent(agentId, agentName, message.Steps);
-#else            
-            string content = GetEnvironmentContent(agentId, agentName, message.Steps);
-#endif            
             File.WriteAllText(environmentFile, content);
 
             // Create the capabilities file
@@ -94,6 +91,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 string destination = Path.Combine(supportFilesFolder, Path.GetFileName(workerLogFile));
                 File.Copy(workerLogFile, destination);
+            }
+
+            // Copy agent diag log files
+            List<string> agentDiagLogFiles = GetAgentDiagLogFiles(HostContext.GetDirectory(WellKnownDirectory.Diag), jobStartTimeUtc);
+            executionContext.Debug($"Copying {agentDiagLogFiles.Count()} agent diag logs.");
+
+            foreach (string agentLogFile in agentDiagLogFiles)
+            {
+                ArgUtil.File(agentLogFile, nameof(agentLogFile));
+
+                string destination = Path.Combine(supportFilesFolder, Path.GetFileName(agentLogFile));
+                File.Copy(agentLogFile, destination);
             }
 
             executionContext.Debug("Zipping diagnostic files.");
@@ -152,7 +161,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
 
         // The current solution is a hack. We need to rethink this and find a better one.
-        // The list of worker log files isnt available from the logger. It's also nested several levels deep.
+        // The list of worker log files isn't available from the logger. It's also nested several levels deep.
         // For this solution we deduce the applicable worker log files by comparing their create time to the start time of the job.
         private List<string> GetWorkerDiagLogFiles(string diagFolder, DateTime jobStartTimeUtc)
         {
@@ -181,13 +190,61 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return workerLogFiles;
         }
 
-#if OS_WINDOWS
+        private List<string> GetAgentDiagLogFiles(string diagFolder, DateTime jobStartTimeUtc)
+        {
+            // Get the newest agent log file that created just before the start of the job
+            var agentLogFiles = new List<string>();
+            var directoryInfo = new DirectoryInfo(diagFolder);
+
+            // The agent log that record the start point of the job should created before the job start time.
+            // The agent log may get paged if it reach size limit.
+            // We will only need upload 1 agent log file in 99%.
+            // There might be 1% we need to upload 2 agent log files.
+            String recentLog = null;
+            DateTime recentTimeUtc = DateTime.MinValue;
+
+            foreach (FileInfo file in directoryInfo.GetFiles().Where(f => f.Name.StartsWith("Agent_")))
+            {
+                // The format of the logs is:
+                // Agent_20171003-143110-utc.log
+                if (DateTime.TryParseExact(s: file.Name.Substring(startIndex: 6, length: 15), format: "yyyyMMdd-HHmmss", provider: CultureInfo.InvariantCulture, style: DateTimeStyles.None, result: out DateTime fileCreateTime))
+                {
+                    // always add log file created after the job start.
+                    if (fileCreateTime >= jobStartTimeUtc)
+                    {
+                        agentLogFiles.Add(file.FullName);
+                    }
+                    else if (fileCreateTime > recentTimeUtc)
+                    {
+                        recentLog = file.FullName;
+                        recentTimeUtc = fileCreateTime;
+                    }
+                }
+            }
+
+            if (!String.IsNullOrEmpty(recentLog))
+            {
+                agentLogFiles.Add(recentLog);
+            }
+
+            return agentLogFiles;
+        }
+
         private async Task<string> GetEnvironmentContent(int agentId, string agentName, IList<Pipelines.JobStep> steps)
+        {
+            if (PlatformUtil.RunningOnWindows)
+            {
+                return await GetEnvironmentContentWindows(agentId, agentName, steps);
+            }
+            return GetEnvironmentContentNonWindows(agentId, agentName, steps);
+        }
+
+        private async Task<string> GetEnvironmentContentWindows(int agentId, string agentName, IList<Pipelines.JobStep> steps)
         {
             var builder = new StringBuilder();
 
             builder.AppendLine($"Environment file created at(UTC): {DateTime.UtcNow}"); // TODO: Format this like we do in other places.
-            builder.AppendLine($"Agent Version: {Constants.Agent.Version}");
+            builder.AppendLine($"Agent Version: {BuildConstants.AgentPackage.Version}");
             builder.AppendLine($"Agent Id: {agentId}");
             builder.AppendLine($"Agent Name: {agentName}");
             builder.AppendLine($"OS: {System.Runtime.InteropServices.RuntimeInformation.OSDescription}");
@@ -270,13 +327,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             return builder.ToString();
         }
-#else
-        private string GetEnvironmentContent(int agentId, string agentName, IList<Pipelines.JobStep> steps)
+
+        private string GetEnvironmentContentNonWindows(int agentId, string agentName, IList<Pipelines.JobStep> steps)
         {
             var builder = new StringBuilder();
 
             builder.AppendLine($"Environment file created at(UTC): {DateTime.UtcNow}"); // TODO: Format this like we do in other places.
-            builder.AppendLine($"Agent Version: {Constants.Agent.Version}");
+            builder.AppendLine($"Agent Version: {BuildConstants.AgentPackage.Version}");
             builder.AppendLine($"Agent Id: {agentId}");
             builder.AppendLine($"Agent Name: {agentName}");
             builder.AppendLine($"OS: {System.Runtime.InteropServices.RuntimeInformation.OSDescription}");
@@ -289,6 +346,5 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             return builder.ToString();
         }
-#endif
     }
 }

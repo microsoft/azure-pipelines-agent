@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -18,7 +21,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
         private string _sourcesDirectory;
         private Tracing _trace;
         private string _workspaceName;
-        private List<ITfsVCWorkspace> _workspaces = new List<ITfsVCWorkspace>();
 
         [Fact]
         [Trait("Level", "L0")]

@@ -3,19 +3,24 @@
 **/libs
 **/*.xproj
 **/*.xproj.user
-**/*.sln
 **/.vs
 **/.vscode
 **/*.error
 **/*.json.pretty
+**/.taskkey
 node_modules
+**/node_modules
 _downloads
 _layout
+_l1
 _package
+_package_hash
+_reports
 _dotnetsdk
 TestResults
 TestLogs
 .DS_Store
+**/*.DotSettings.user
 
 #generated
 src/Microsoft.VisualStudio.Services.Agent/BuildConstants.cs

@@ -7,12 +7,19 @@ $windowsSdks = @( )
 $windowsSdkKeyName = 'Software\Microsoft\Microsoft SDKs\Windows'
 $versionSubKeyNames =
     Get-RegistrySubKeyNames -Hive 'LocalMachine' -View 'Registry32' -KeyName $windowsSdkKeyName |
-    Where-Object { $_ -clike 'v*A' }
+    Where-Object { $_ -clike 'v*A' -or $_ -clike 'v10*' }
 foreach ($versionSubKeyName in $versionSubKeyNames) {
     # Parse the version.
     $version = $null
-    if (!([System.Version]::TryParse($versionSubKeyName.Substring(1, $versionSubKeyName.Length - 2), [ref]$version))) {
-        continue
+    if ($versionSubKeyName -clike '*A') {
+        if (!([System.Version]::TryParse($versionSubKeyName.Substring(1, $versionSubKeyName.Length - 2), [ref]$version))) {
+            continue
+        }
+    }
+    else {
+        if (!([System.Version]::TryParse($versionSubKeyName.Substring(1, $versionSubKeyName.Length - 1), [ref]$version))) {
+            continue
+        }
     }
 
     # Get the installation folder.

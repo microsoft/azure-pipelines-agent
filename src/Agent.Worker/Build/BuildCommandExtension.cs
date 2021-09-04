@@ -1,7 +1,11 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -10,46 +14,31 @@ using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
-    public sealed class BuildCommandExtension : AgentService, IWorkerCommandExtension
+    public sealed class BuildCommandExtension : BaseWorkerCommandExtension
     {
-        public Type ExtensionType => typeof(IWorkerCommandExtension);
-
-        public string CommandArea => "build";
-
-        public HostTypes SupportedHostTypes => HostTypes.All;
-
-        public void ProcessCommand(IExecutionContext context, Command command)
+        public BuildCommandExtension()
         {
-            if (string.Equals(command.Event, WellKnownBuildCommand.UploadLog, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessBuildUploadLogCommand(context, command.Data);
-            }
-            else if (string.Equals(command.Event, WellKnownBuildCommand.UploadSummary, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessBuildUploadSummaryCommand(context, command.Data);
-            }
-            else if (string.Equals(command.Event, WellKnownBuildCommand.UpdateBuildNumber, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessBuildUpdateBuildNumberCommand(context, command.Data);
-            }
-            else if (string.Equals(command.Event, WellKnownBuildCommand.AddBuildTag, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessBuildAddBuildTagCommand(context, command.Data);
-            }
-            else
-            {
-                throw new Exception(StringUtil.Loc("BuildCommandNotFound", command.Event));
-            }
+            CommandArea = "build";
+            SupportedHostTypes = HostTypes.All;
+            InstallWorkerCommand(new BuildUploadLogCommand());
+            InstallWorkerCommand(new BuildUploadSummaryCommand());
+            InstallWorkerCommand(new BuildUpdateBuildNumberCommand());
+            InstallWorkerCommand(new BuildAddBuildTagCommand());
         }
+    }
 
-        private void ProcessBuildUploadLogCommand(IExecutionContext context, string data)
+    public sealed class BuildUploadLogCommand : IWorkerCommand
+    {
+        public string Name => "uploadlog";
+        public List<string> Aliases => null;
+        public void Execute(IExecutionContext context, Command command)
         {
-            if (context.Container != null)
-            {
-                // Translate file path back from container path
-                data = context.Container.TranslateToHostPath(data);
-            }
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
 
+            var data = command.Data;
+            // Translate file path back from container path
+            data = context.TranslateToHostPath(data);
             if (!string.IsNullOrEmpty(data) && File.Exists(data))
             {
                 context.QueueAttachFile(CoreAttachmentType.Log, "CustomToolLog", data);
@@ -59,17 +48,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 throw new Exception(StringUtil.Loc("CustomLogDoesNotExist", data ?? string.Empty));
             }
         }
+    }
 
-        // ##VSO[build.uploadsummary] command has been deprecated
-        // Leave the implementation on agent for back compat
-        private void ProcessBuildUploadSummaryCommand(IExecutionContext context, string data)
+    // ##VSO[build.uploadsummary] command has been deprecated
+    // Leave the implementation on agent for back compat
+    public sealed class BuildUploadSummaryCommand : IWorkerCommand
+    {
+        public string Name => "uploadsummary";
+        public List<string> Aliases => null;
+        public void Execute(IExecutionContext context, Command command)
         {
-            if (context.Container != null)
-            {
-                // Translate file path back from container path
-                data = context.Container.TranslateToHostPath(data);
-            }
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
 
+            var data = command.Data;
+            // Translate file path back from container path
+            data = context.TranslateToHostPath(data);
             if (!string.IsNullOrEmpty(data) && File.Exists(data))
             {
                 var fileName = Path.GetFileName(data);
@@ -80,11 +74,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 throw new Exception(StringUtil.Loc("CustomMarkDownSummaryDoesNotExist", data ?? string.Empty));
             }
         }
+    }
 
-        private void ProcessBuildUpdateBuildNumberCommand(IExecutionContext context, string data)
+    public sealed class BuildUpdateBuildNumberCommand : IWorkerCommand
+    {
+        public string Name => "updatebuildnumber";
+        public List<string> Aliases => null;
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "GetVssConnection")]
+        public void Execute(IExecutionContext context, Command command)
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(context.Endpoints, nameof(context.Endpoints));
+            ArgUtil.NotNull(command, nameof(command));
+
+            string data = command.Data;
 
             Guid projectId = context.Variables.System_TeamProjectId ?? Guid.Empty;
             ArgUtil.NotEmpty(projectId, nameof(projectId));
@@ -99,7 +103,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
                 // queue async command task to update build number.
                 context.Debug($"Update build number for build: {buildId.Value} to: {data} at backend.");
-                var commandContext = HostContext.CreateService<IAsyncCommandContext>();
+                var commandContext = context.GetHostContext().CreateService<IAsyncCommandContext>();
                 commandContext.InitializeCommandContext(context, StringUtil.Loc("UpdateBuildNumber"));
                 commandContext.Task = UpdateBuildNumberAsync(commandContext,
                                                              WorkerUtilities.GetVssConnection(context),
@@ -124,15 +128,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string buildNumber,
             CancellationToken cancellationToken)
         {
-            BuildServer buildServer = new BuildServer(connection, projectId);
-            var build = await buildServer.UpdateBuildNumber(buildId, buildNumber, cancellationToken);
+            var buildServer = context.GetHostContext().GetService<IBuildServer>();
+            await buildServer.ConnectAsync(connection);
+            var build = await buildServer.UpdateBuildNumber(buildId, projectId, buildNumber, cancellationToken);
             context.Output(StringUtil.Loc("UpdateBuildNumberForBuild", build.BuildNumber, build.Id));
         }
+    }
 
-        private void ProcessBuildAddBuildTagCommand(IExecutionContext context, string data)
+    public sealed class BuildAddBuildTagCommand : IWorkerCommand
+    {
+        public string Name => "addbuildtag";
+        public List<string> Aliases => null;
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "GetVssConnection")]
+        public void Execute(IExecutionContext context, Command command)
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(context.Endpoints, nameof(context.Endpoints));
+            ArgUtil.NotNull(command, nameof(command));
+
+            string data = command.Data;
 
             Guid projectId = context.Variables.System_TeamProjectId ?? Guid.Empty;
             ArgUtil.NotEmpty(projectId, nameof(projectId));
@@ -144,7 +159,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             {
                 // queue async command task to associate artifact.
                 context.Debug($"Add build tag: {data} to build: {buildId.Value} at backend.");
-                var commandContext = HostContext.CreateService<IAsyncCommandContext>();
+                var commandContext = context.GetHostContext().CreateService<IAsyncCommandContext>();
                 commandContext.InitializeCommandContext(context, StringUtil.Loc("AddBuildTag"));
                 commandContext.Task = AddBuildTagAsync(commandContext,
                                                        WorkerUtilities.GetVssConnection(context),
@@ -168,8 +183,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string buildTag,
             CancellationToken cancellationToken)
         {
-            BuildServer buildServer = new BuildServer(connection, projectId);
-            var tags = await buildServer.AddBuildTag(buildId, buildTag, cancellationToken);
+            var buildServer = context.GetHostContext().GetService<IBuildServer>();
+            await buildServer.ConnectAsync(connection);
+            var tags = await buildServer.AddBuildTag(buildId, projectId, buildTag, cancellationToken);
 
             if (tags == null || !tags.Any(t => t.Equals(buildTag, StringComparison.OrdinalIgnoreCase)))
             {
@@ -180,13 +196,5 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 context.Output(StringUtil.Loc("BuildTagsForBuild", buildId, String.Join(", ", tags)));
             }
         }
-    }
-
-    internal static class WellKnownBuildCommand
-    {
-        public static readonly string UploadLog = "uploadlog";
-        public static readonly string UploadSummary = "uploadsummary";
-        public static readonly string UpdateBuildNumber = "updatebuildnumber";
-        public static readonly string AddBuildTag = "addbuildtag";
     }
 }

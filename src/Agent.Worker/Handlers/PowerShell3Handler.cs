@@ -1,4 +1,7 @@
-﻿using Microsoft.VisualStudio.Services.Agent.Util;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Microsoft.VisualStudio.Services.Agent.Util;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -43,13 +46,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             // Craft the args to pass to PowerShell.exe.
             string powerShellExeArgs = StringUtil.Format(
-                @"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "". ([scriptblock]::Create('if (!$PSHOME) {{ $null = Get-Item -LiteralPath ''variable:PSHOME'' }} else {{ Import-Module -Name ([System.IO.Path]::Combine($PSHOME, ''Modules\Microsoft.PowerShell.Management\Microsoft.PowerShell.Management.psd1'')) ; Import-Module -Name ([System.IO.Path]::Combine($PSHOME, ''Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1'')) }}')) 2>&1 | ForEach-Object {{ Write-Verbose $_.Exception.Message -Verbose }} ; Import-Module -Name '{0}' -ArgumentList @{{ NonInteractive = $true }} -ErrorAction Stop ; $VerbosePreference = '{1}' ; $DebugPreference = '{1}' ; Invoke-VstsTaskScript -ScriptBlock ([scriptblock]::Create('. ''{2}'''))""",
+                @"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "". ([scriptblock]::Create('if ([Console]::InputEncoding -is [Text.UTF8Encoding] -and [Console]::InputEncoding.GetPreamble().Length -ne 0) {{ [Console]::InputEncoding = New-Object Text.UTF8Encoding $false }} if (!$PSHOME) {{ $null = Get-Item -LiteralPath ''variable:PSHOME'' }} else {{ Import-Module -Name ([System.IO.Path]::Combine($PSHOME, ''Modules\Microsoft.PowerShell.Management\Microsoft.PowerShell.Management.psd1'')) ; Import-Module -Name ([System.IO.Path]::Combine($PSHOME, ''Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1'')) }}')) 2>&1 | ForEach-Object {{ Write-Verbose $_.Exception.Message -Verbose }} ; Import-Module -Name '{0}' -ArgumentList @{{ NonInteractive = $true }} -ErrorAction Stop ; $VerbosePreference = '{1}' ; $DebugPreference = '{1}' ; Invoke-VstsTaskScript -ScriptBlock ([scriptblock]::Create('. ''{2}'''))""",
                 StepHost.ResolvePathForStepHost(moduleFile).Replace("'", "''"), // nested within a single-quoted string
                 ExecutionContext.Variables.System_Debug == true ? "Continue" : "SilentlyContinue",
                 StepHost.ResolvePathForStepHost(scriptFile).Replace("'", "''''")); // nested within a single-quoted string within a single-quoted string
 
             // Resolve powershell.exe.
-            string powerShellExe = HostContext.GetService<IPowerShellExeUtil>().GetPath(); // The location of powershell.exe might be wrong when running inside container
+            string powerShellExe = "powershell.exe";
+            if (StepHost is DefaultStepHost)
+            {
+                powerShellExe = HostContext.GetService<IPowerShellExeUtil>().GetPath();
+            }
+
             ArgUtil.NotNullOrEmpty(powerShellExe, nameof(powerShellExe));
 
             // Invoke the process.
@@ -60,14 +68,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             // A non-zero exit code indicates infrastructural failure.
             // Task failure should be communicated over STDOUT using ## commands.
             await StepHost.ExecuteAsync(workingDirectory: StepHost.ResolvePathForStepHost(scriptDirectory),
-                                              fileName: powerShellExe,
-                                              arguments: powerShellExeArgs,
-                                              environment: Environment,
-                                              requireExitCodeZero: true,
-                                              outputEncoding: null,
-                                              killProcessOnCancel: false,
-                                              cancellationToken: ExecutionContext.CancellationToken);
-
+                                        fileName: powerShellExe,
+                                        arguments: powerShellExeArgs,
+                                        environment: Environment,
+                                        requireExitCodeZero: true,
+                                        outputEncoding: null,
+                                        killProcessOnCancel: false,
+                                        inheritConsoleHandler: !ExecutionContext.Variables.Retain_Default_Encoding,
+                                        cancellationToken: ExecutionContext.CancellationToken);
         }
 
         private void OnDataReceived(object sender, ProcessDataReceivedEventArgs e)

@@ -1,3 +1,7 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Build;
@@ -7,9 +11,36 @@ using System.Collections.Generic;
 using System.Linq;
 using BuildWebApi = Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.Logging;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
+    public sealed class VariableScope : IDisposable
+    {
+        private Variables Data;
+        private HashSet<string> Names;
+
+        public VariableScope(Variables data)
+        {
+            Data = data;
+            Names = new HashSet<string>();
+        }
+
+        public void Set(string name, string val, bool secret = false)
+        {
+            Names.Add(name);
+            Data.Set(name, val, secret);
+        }
+
+        public void Dispose()
+        {
+            foreach (string name in Names)
+            {
+                Data.Unset(name);
+            }
+        }
+    }
+
     public sealed class Variables
     {
         private readonly IHostContext _hostContext;
@@ -19,13 +50,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private readonly Tracing _trace;
         private ConcurrentDictionary<string, Variable> _expanded;
 
+        public delegate string TranslationMethod(string val);
+        public TranslationMethod StringTranslator = DefaultStringTranslator;
+
+        public static string DefaultStringTranslator(string val)
+        {
+            return val;
+        }
+
         public IEnumerable<KeyValuePair<string, string>> Public
         {
             get
             {
                 return _expanded.Values
                     .Where(x => !x.Secret)
-                    .Select(x => new KeyValuePair<string, string>(x.Name, x.Value));
+                    .Select(x => new KeyValuePair<string, string>(x.Name, StringTranslator(x.Value)));
             }
         }
 
@@ -35,17 +74,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 return _expanded.Values
                     .Where(x => x.Secret)
-                    .Select(x => new KeyValuePair<string, string>(x.Name, x.Value));
+                    .Select(x => new KeyValuePair<string, string>(x.Name, StringTranslator(x.Value)));
             }
         }
 
         public Variables(IHostContext hostContext, IDictionary<string, VariableValue> copy, out List<string> warnings)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
+
             // Store/Validate args.
             _hostContext = hostContext;
             _secretMasker = _hostContext.SecretMasker;
             _trace = _hostContext.GetTrace(nameof(Variables));
-            ArgUtil.NotNull(hostContext, nameof(hostContext));
 
             // Validate the dictionary, remove any variable with empty variable name.
             ArgUtil.NotNull(copy, nameof(copy));
@@ -60,7 +100,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 if (!string.IsNullOrWhiteSpace(variable.Key))
                 {
-                    variables.Add(new Variable(variable.Key, variable.Value.Value, variable.Value.IsSecret));
+                    variables.Add(new Variable(variable.Key, variable.Value.Value, variable.Value.IsSecret, variable.Value.IsReadOnly));
                 }
             }
 
@@ -75,7 +115,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             RecalculateExpanded(out warnings);
         }
 
-        public string Agent_BuildDirectory => Get(Constants.Variables.Agent.BuildDirectory);
+        // DO NOT add file path variable to here.
+        // All file path variables needs to be retrieved and set through ExecutionContext, so it can handle container file path translation.
 
         public TaskResult? Agent_JobStatus
         {
@@ -95,14 +136,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public string Agent_ProxyUsername => Get(Constants.Variables.Agent.ProxyUsername);
 
         public string Agent_ProxyPassword => Get(Constants.Variables.Agent.ProxyPassword);
-
-        public string Agent_ServerOMDirectory => Get(Constants.Variables.Agent.ServerOMDirectory);
-
-        public string Agent_TempDirectory => Get(Constants.Variables.Agent.TempDirectory);
-
-        public string Agent_ToolsDirectory => Get(Constants.Variables.Agent.ToolsDirectory);
-
-        public string Agent_WorkFolder => Get(Constants.Variables.Agent.WorkFolder);
 
         public int? Build_BuildId => GetInt(BuildWebApi.BuildVariables.BuildId);
 
@@ -126,13 +159,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public string Build_SourceBranch => Get(Constants.Variables.Build.SourceBranch);
 
-        public string Build_SourcesDirectory => Get(Constants.Variables.Build.SourcesDirectory);
-
         public string Build_SourceTfvcShelveset => Get(Constants.Variables.Build.SourceTfvcShelveset);
 
         public string Build_SourceVersion => Get(Constants.Variables.Build.SourceVersion);
 
         public bool? Build_SyncSources => GetBoolean(Constants.Variables.Build.SyncSources);
+
+        public bool? Build_UseServerWorkspaces => GetBoolean(Constants.Variables.Build.UseServerWorkspaces);
 
         public string Release_ArtifactsDirectory => Get(Constants.Variables.Release.ArtifactsDirectory);
 
@@ -148,19 +181,34 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public int? Release_Parallel_Download_Limit => GetInt(Constants.Variables.Release.ReleaseParallelDownloadLimit);
 
+        public bool Retain_Default_Encoding
+        {
+            get
+            {
+                if (!PlatformUtil.RunningOnWindows)
+                {
+                    return true;
+                }
+                return GetBoolean(Constants.Variables.Agent.RetainDefaultEncoding) ?? true;
+            }
+        }
+
+        public bool Read_Only_Variables => GetBoolean(Constants.Variables.Agent.ReadOnlyVariables) ?? false;
+
         public string System_CollectionId => Get(Constants.Variables.System.CollectionId);
 
         public bool? System_Debug => GetBoolean(Constants.Variables.System.Debug);
-
-        public string System_DefaultWorkingDirectory => Get(Constants.Variables.System.DefaultWorkingDirectory);
 
         public string System_DefinitionId => Get(Constants.Variables.System.DefinitionId);
 
         public bool? System_EnableAccessToken => GetBoolean(Constants.Variables.System.EnableAccessToken);
 
         public HostTypes System_HostType => GetEnum<HostTypes>(Constants.Variables.System.HostType) ?? HostTypes.None;
+        public string System_JobId => Get(Constants.Variables.System.JobId);
 
         public string System_PhaseDisplayName => Get(Constants.Variables.System.PhaseDisplayName);
+
+        public string System_PullRequest_TargetBranch => Get(Constants.Variables.System.PullRequestTargetBranchName);
 
         public string System_TaskDefinitionsUri => Get(WellKnownDistributedTaskVariables.TaskDefinitionsUrl);
 
@@ -170,16 +218,87 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public string System_TFCollectionUrl => Get(WellKnownDistributedTaskVariables.TFCollectionUrl);
 
+        public string System_StageName => Get(Constants.Variables.System.StageName);
+
+        public int? System_StageAttempt => GetInt(Constants.Variables.System.StageAttempt);
+
+        public string System_PhaseName => Get(Constants.Variables.System.PhaseName);
+
+        public int? System_PhaseAttempt => GetInt(Constants.Variables.System.PhaseAttempt);
+
+        public string System_JobName => Get(Constants.Variables.System.JobName);
+
+        public int? System_JobAttempt => GetInt(Constants.Variables.System.JobAttempt);
+
+
+        public static readonly HashSet<string> PiiVariables = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Build.AuthorizeAs",
+            "Build.QueuedBy",
+            "Build.RequestedFor",
+            "Build.RequestedForEmail",
+            "Build.SourceBranch",
+            "Build.SourceBranchName",
+            "Build.SourceTfvcShelveset",
+            "Build.SourceVersion",
+            "Build.SourceVersionAuthor",
+            "Job.AuthorizeAs",
+            "Release.Deployment.RequestedFor",
+            "Release.Deployment.RequestedForEmail",
+            "Release.RequestedFor",
+            "Release.RequestedForEmail",
+        };
+
+        public static readonly string PiiArtifactVariablePrefix = "Release.Artifacts";
+
+        public static readonly List<string> PiiArtifactVariableSuffixes = new List<string>()
+        {
+            "SourceBranch",
+            "SourceBranchName",
+            "SourceVersion",
+            "RequestedFor"
+        };
+
         public void ExpandValues(IDictionary<string, string> target)
+        {
+            ArgUtil.NotNull(target, nameof(target));
+            _trace.Entering();
+            var source = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (Variable variable in _expanded.Values)
+            {
+                var value = StringTranslator(variable.Value);
+                source[variable.Name] = value;
+            }
+
+            VarUtil.ExpandValues(_hostContext, source, target);
+        }
+
+        public string ExpandValue(string name, string value)
         {
             _trace.Entering();
             var source = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (Variable variable in _expanded.Values)
             {
-                source[variable.Name] = variable.Value;
+                source[variable.Name] = StringTranslator(variable.Value);
+            }
+            var target = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [name] = value
+            };
+            VarUtil.ExpandValues(_hostContext, source, target);
+            return target[name];
+        }
+
+        public JToken ExpandValues(JToken target)
+        {
+            _trace.Entering();
+            var source = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (Variable variable in _expanded.Values)
+            {
+                source[variable.Name] = StringTranslator(variable.Value);
             }
 
-            VarUtil.ExpandValues(_hostContext, source, target);
+            return VarUtil.ExpandValues(_hostContext, source, target);
         }
 
         public string Get(string name)
@@ -187,8 +306,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Variable variable;
             if (_expanded.TryGetValue(name, out variable))
             {
-                _trace.Verbose($"Get '{name}': '{variable.Value}'");
-                return variable.Value;
+                var value = StringTranslator(variable.Value);
+                _trace.Verbose($"Get '{name}': '{value}'");
+                return value;
             }
 
             _trace.Verbose($"Get '{name}' (not found)");
@@ -244,7 +364,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return null;
         }
 
-        public void Set(string name, string val, bool secret = false)
+        public VariableScope CreateScope()
+        {
+            return new VariableScope(this);
+        }
+
+        public void Unset(string name)
+        {
+            // Validate the args.
+            ArgUtil.NotNullOrEmpty(name, nameof(name));
+
+            // Remove the variable.
+            lock (_setLock)
+            {
+                Variable dummy;
+                 _expanded.Remove(name, out dummy);
+                _nonexpanded.Remove(name, out dummy);
+                _trace.Verbose($"Unset '{name}'");
+            }
+        }
+
+        public void Set(string name, string val, bool secret = false, bool readOnly = false)
         {
             // Validate the args.
             ArgUtil.NotNullOrEmpty(name, nameof(name));
@@ -270,14 +410,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     _secretMasker.AddValue(val);
                 }
 
+                // Also keep any variables that are already read only as read only.
+                // This only really matters for server side system variables that get updated by something other than setVariable (e.g. updateBuildNumber).
+                readOnly = readOnly || (_expanded.ContainsKey(name) && _expanded[name].ReadOnly);
+
                 // Store the value as-is to the expanded dictionary and the non-expanded dictionary.
                 // It is not expected that the caller needs to store an non-expanded value and then
                 // retrieve the expanded value in the same context.
-                var variable = new Variable(name, val, secret);
+                var variable = new Variable(name, val, secret, readOnly);
                 _expanded[name] = variable;
                 _nonexpanded[name] = variable;
                 _trace.Verbose($"Set '{name}' = '{val}'");
             }
+        }
+
+        public bool IsReadOnly(string name)
+        {
+            Variable existingVariable = null;
+            if (!_expanded.TryGetValue(name, out existingVariable)) {
+                _nonexpanded.TryGetValue(name, out existingVariable);
+            }
+
+            return (existingVariable != null && IsReadOnly(existingVariable));
         }
 
         public bool TryGetValue(string name, out string val)
@@ -285,7 +439,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Variable variable;
             if (_expanded.TryGetValue(name, out variable))
             {
-                val = variable.Value;
+                val = StringTranslator(variable.Value);
                 _trace.Verbose($"Get '{name}': '{val}'");
                 return true;
             }
@@ -314,6 +468,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 foreach (string name in _nonexpanded.Keys)
                 {
                     bool secret = _nonexpanded[name].Secret;
+                    bool readOnly = _nonexpanded[name].ReadOnly;
                     _trace.Verbose($"Processing expansion for variable: '{name}'");
 
                     // This algorithm handles recursive replacement using a stack.
@@ -381,7 +536,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                     }
 
                                     stack.Push(state);
-                                    state = new RecursionState(name: nestedName, value: nestedVariable.Value ?? string.Empty);
+                                    state = new RecursionState(name: nestedName, value: StringTranslator(nestedVariable.Value ?? string.Empty));
                                 }
                             }
                             else
@@ -415,7 +570,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 }
 
                                 // Set the expanded value.
-                                expanded[state.Name] = new Variable(state.Name, state.Value, secret);
+                                expanded[state.Name] = new Variable(state.Name, state.Value, secret, readOnly);
                                 _trace.Verbose($"Set '{state.Name}' = '{state.Value}'");
                             }
 
@@ -444,6 +599,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 _expanded = expanded;
             } // End of critical section.
+
+        }
+
+        public void CopyInto(Dictionary<string, VariableValue> target, TranslationMethod translation)
+        {
+            ArgUtil.NotNull(target, nameof(target));
+            ArgUtil.NotNull(translation, nameof(translation));
+
+            foreach (var var in this.Public)
+            {
+                target[var.Key] = translation(var.Value);
+            }
+            foreach (var var in this.Private)
+            {
+                target[var.Key] = new VariableValue(translation(var.Value), true);
+            }
+        }
+
+        private Boolean IsReadOnly(Variable variable)
+        {
+            if (variable.ReadOnly)
+            {
+                return true;
+            }
+
+            return Constants.Variables.ReadOnlyVariables.Contains(variable.Name, StringComparer.OrdinalIgnoreCase);
         }
 
         private sealed class RecursionState
@@ -467,13 +648,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public string Name { get; private set; }
         public bool Secret { get; private set; }
         public string Value { get; private set; }
+        public bool ReadOnly { get; private set; }
 
-        public Variable(string name, string value, bool secret)
+        public Variable(string name, string value, bool secret, bool readOnly)
         {
             ArgUtil.NotNullOrEmpty(name, nameof(name));
             Name = name;
             Value = value ?? string.Empty;
             Secret = secret;
+            ReadOnly = readOnly;
         }
     }
 }

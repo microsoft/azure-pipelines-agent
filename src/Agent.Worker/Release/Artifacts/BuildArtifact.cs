@@ -1,3 +1,7 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -50,50 +54,55 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                 throw new ArgumentException("artifactDefinition.Details");
             }
 
-            // Get the list of available artifacts from build. 
+            // Get the list of available artifacts from build.
             executionContext.Output(StringUtil.Loc("RMPreparingToGetBuildArtifactList"));
 
-            var vssConnection = ApiUtil.CreateConnection(buildArtifactDetails.TfsUrl, buildArtifactDetails.Credentials);
-            var buildClient = vssConnection.GetClient<BuildHttpClient>();
-            var xamlBuildClient = vssConnection.GetClient<XamlBuildHttpClient>();
-            List<ServerBuildArtifact> buildArtifacts = null;
-
-            EnsureVersionBelongsToLinkedDefinition(artifactDefinition, buildClient, xamlBuildClient);
-
-            try
+            using (var vssConnection = VssUtil.CreateConnection(buildArtifactDetails.TfsUrl, buildArtifactDetails.Credentials))
             {
-                buildArtifacts = await buildClient.GetArtifactsAsync(buildArtifactDetails.Project, buildId);
-            }
-            catch (BuildNotFoundException)
-            {
-                buildArtifacts = await xamlBuildClient.GetArtifactsAsync(buildArtifactDetails.Project, buildId);
-            }
+                var buildClient = vssConnection.GetClient<BuildHttpClient>();
+                var xamlBuildClient = vssConnection.GetClient<XamlBuildHttpClient>();
+                List<ServerBuildArtifact> buildArtifacts = null;
 
-            // No artifacts found in the build, add warning. 
-            if (buildArtifacts == null || !buildArtifacts.Any())
-            {
-                executionContext.Warning(StringUtil.Loc("RMNoBuildArtifactsFound", buildId));
-                return;
-            }
+                EnsureVersionBelongsToLinkedDefinition(artifactDefinition, buildClient, xamlBuildClient);
 
-            // DownloadFromStream each of the artifact sequentially. 
-            // TODO: Should we download them parallely?
-            foreach (ServerBuildArtifact buildArtifact in buildArtifacts)
-            {
-                if (Match(buildArtifact, artifactDefinition))
+                try
                 {
-                    executionContext.Output(StringUtil.Loc("RMPreparingToDownload", buildArtifact.Name));
-                    await this.DownloadArtifactAsync(executionContext, buildArtifact, artifactDefinition, localFolderPath);
+                    buildArtifacts = await buildClient.GetArtifactsAsync(buildArtifactDetails.Project, buildId);
                 }
-                else
+                catch (BuildNotFoundException)
                 {
-                    executionContext.Warning(StringUtil.Loc("RMArtifactMatchNotFound", buildArtifact.Name));
+                    buildArtifacts = await xamlBuildClient.GetArtifactsAsync(buildArtifactDetails.Project, buildId);
+                }
+
+                // No artifacts found in the build, add warning.
+                if (buildArtifacts == null || !buildArtifacts.Any())
+                {
+                    executionContext.Warning(StringUtil.Loc("RMNoBuildArtifactsFound", buildId));
+                    return;
+                }
+
+                // DownloadFromStream each of the artifact sequentially.
+                // TODO: Should we download them parallely?
+                foreach (ServerBuildArtifact buildArtifact in buildArtifacts)
+                {
+                    if (Match(buildArtifact, artifactDefinition))
+                    {
+                        executionContext.Output(StringUtil.Loc("RMPreparingToDownload", buildArtifact.Name));
+                        await this.DownloadArtifactAsync(executionContext, buildArtifact, artifactDefinition, localFolderPath);
+                    }
+                    else
+                    {
+                        executionContext.Warning(StringUtil.Loc("RMArtifactMatchNotFound", buildArtifact.Name));
+                    }
                 }
             }
         }
 
         public IArtifactDetails GetArtifactDetails(IExecutionContext context, AgentArtifactDefinition agentArtifactDefinition)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(agentArtifactDefinition, nameof(agentArtifactDefinition));
+
             Trace.Entering();
 
             ServiceEndpoint vssEndpoint = context.Endpoints.FirstOrDefault(e => string.Equals(e.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
@@ -101,10 +110,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             ArgUtil.NotNull(vssEndpoint.Url, nameof(vssEndpoint.Url));
 
             var artifactDetails = JsonConvert.DeserializeObject<Dictionary<string, string>>(agentArtifactDefinition.Details);
-            VssCredentials vssCredentials = ApiUtil.GetVssCredential(vssEndpoint);
+            VssCredentials vssCredentials = VssUtil.GetVssCredential(vssEndpoint);
             var tfsUrl = context.Variables.Get(WellKnownDistributedTaskVariables.TFCollectionUrl);
 
-            Guid projectId = context.Variables.System_TeamProjectId ?? Guid.Empty;
+            Guid projectId = context?.Variables.System_TeamProjectId ?? Guid.Empty;
             if (artifactDetails.ContainsKey("Project"))
             {
                 Guid.TryParse(artifactDetails["Project"], out projectId);
@@ -174,9 +183,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                 || string.Equals(buildArtifact.Resource.Type, ArtifactResourceTypes.FilePath, StringComparison.OrdinalIgnoreCase))
             {
                 executionContext.Output(StringUtil.Loc("RMArtifactTypeFileShare"));
-#if !OS_WINDOWS
-                throw new NotSupportedException(StringUtil.Loc("RMFileShareArtifactErrorOnNonWindowsAgent"));
-#else
+                if (!PlatformUtil.RunningOnWindows)
+                {
+                    throw new NotSupportedException(StringUtil.Loc("RMFileShareArtifactErrorOnNonWindowsAgent"));
+                }
                 string fileShare;
                 if (buildArtifact.Id == 0)
                 {
@@ -204,7 +214,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
 
                 var fileShareArtifact = new FileShareArtifact();
                 await fileShareArtifact.DownloadArtifactAsync(executionContext, HostContext, artifactDefinition, fileShare, downloadFolderPath);
-#endif
             }
             else if (buildArtifactDetails != null
                      && string.Equals(buildArtifact.Resource.Type, ArtifactResourceTypes.Container, StringComparison.OrdinalIgnoreCase))
@@ -241,7 +250,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
 
                 IContainerProvider containerProvider =
                     new ContainerProviderFactory(buildArtifactDetails, rootLocation, containerId, executionContext).GetContainerProvider(
-                        ArtifactResourceTypes.Container);
+                    ArtifactResourceTypes.Container);
 
                 using (var engine = new ContainerFetchEngine.ContainerFetchEngine(containerProvider, rootLocation, rootDestinationDir))
                 {

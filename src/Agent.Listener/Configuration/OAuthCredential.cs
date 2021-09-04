@@ -1,4 +1,7 @@
-﻿using System;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.OAuth;
@@ -21,8 +24,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             // Nothing to verify here
         }
 
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "VssOAuthJwtBearerClientCredential")]
         public override VssCredentials GetVssCredentials(IHostContext context)
         {
+            ArgUtil.NotNull(context, nameof(context));
+
             var clientId = this.CredentialData.Data.GetValueOrDefault("clientId", null);
             var authorizationUrl = this.CredentialData.Data.GetValueOrDefault("authorizationUrl", null);
 

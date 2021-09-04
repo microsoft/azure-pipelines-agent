@@ -1,18 +1,19 @@
-﻿using System;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System.IO;
 using System.Runtime.Serialization;
 using Microsoft.VisualStudio.Services.Common;
-using System.Security.Cryptography.X509Certificates;
-using System.Net;
-using System.Net.Security;
 using System.Net.Http;
 using Microsoft.VisualStudio.Services.WebApi;
+using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
     [ServiceLocator(Default = typeof(AgentCertificateManager))]
-    public interface IAgentCertificateManager : IAgentService, IVssClientCertificateManager
+    public interface IAgentCertificateManager : IAgentService
     {
         bool SkipServerCertificateValidation { get; }
         string CACertificateFile { get; }
@@ -20,11 +21,20 @@ namespace Microsoft.VisualStudio.Services.Agent
         string ClientCertificatePrivateKeyFile { get; }
         string ClientCertificateArchiveFile { get; }
         string ClientCertificatePassword { get; }
+        IVssClientCertificateManager VssClientCertificateManager { get; }
     }
 
     public class AgentCertificateManager : AgentService, IAgentCertificateManager
     {
-        private readonly X509Certificate2Collection _clientCertificates = new X509Certificate2Collection();
+        private AgentClientCertificateManager _agentClientCertificateManager = new AgentClientCertificateManager();
+
+        public bool SkipServerCertificateValidation { private set; get; }
+        public string CACertificateFile { private set; get; }
+        public string ClientCertificateFile { private set; get; }
+        public string ClientCertificatePrivateKeyFile { private set; get; }
+        public string ClientCertificateArchiveFile { private set; get; }
+        public string ClientCertificatePassword { private set; get; }
+        public IVssClientCertificateManager VssClientCertificateManager => _agentClientCertificateManager;
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -67,17 +77,13 @@ namespace Microsoft.VisualStudio.Services.Agent
             ClientCertificateArchiveFile = clientCertArchive;
             ClientCertificatePassword = clientCertPassword;
 
-            _clientCertificates.Clear();
-            if (!string.IsNullOrEmpty(ClientCertificateArchiveFile))
-            {
-                _clientCertificates.Add(new X509Certificate2(ClientCertificateArchiveFile, ClientCertificatePassword));
-            }
+            _agentClientCertificateManager.AddClientCertificate(ClientCertificateArchiveFile, ClientCertificatePassword);
         }
 
         // This should only be called from config
         public void SaveCertificateSetting()
         {
-            string certSettingFile = IOUtil.GetAgentCertificateSettingFilePath();
+            string certSettingFile = HostContext.GetConfigFile(WellKnownConfigFile.Certificates);
             IOUtil.DeleteFile(certSettingFile);
 
             var setting = new AgentCertificateSetting();
@@ -127,7 +133,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         // This should only be called from unconfig
         public void DeleteCertificateSetting()
         {
-            string certSettingFile = IOUtil.GetAgentCertificateSettingFilePath();
+            string certSettingFile = HostContext.GetConfigFile(WellKnownConfigFile.Certificates);
             if (File.Exists(certSettingFile))
             {
                 Trace.Info($"Load agent certificate setting from '{certSettingFile}'");
@@ -147,7 +153,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public void LoadCertificateSettings()
         {
-            string certSettingFile = IOUtil.GetAgentCertificateSettingFilePath();
+            string certSettingFile = HostContext.GetConfigFile(WellKnownConfigFile.Certificates);
             if (File.Exists(certSettingFile))
             {
                 Trace.Info($"Load agent certificate setting from '{certSettingFile}'");
@@ -191,8 +197,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                         HostContext.SecretMasker.AddValue(ClientCertificatePassword);
                     }
 
-                    _clientCertificates.Clear();
-                    _clientCertificates.Add(new X509Certificate2(ClientCertificateArchiveFile, ClientCertificatePassword));
+                    _agentClientCertificateManager.AddClientCertificate(ClientCertificateArchiveFile, ClientCertificatePassword);
                 }
             }
             else
@@ -200,15 +205,6 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Trace.Info("No certificate setting found.");
             }
         }
-
-        public bool SkipServerCertificateValidation { private set; get; }
-        public string CACertificateFile { private set; get; }
-        public string ClientCertificateFile { private set; get; }
-        public string ClientCertificatePrivateKeyFile { private set; get; }
-        public string ClientCertificateArchiveFile { private set; get; }
-        public string ClientCertificatePassword { private set; get; }
-
-        public X509Certificate2Collection ClientCertificates => _clientCertificates;
     }
 
     [DataContract]

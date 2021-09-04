@@ -1,36 +1,42 @@
-﻿using Microsoft.TeamFoundation.DistributedTask.WebApi;
-using Microsoft.VisualStudio.Services.Agent.Util;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk.Knob;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using System.Linq;
 using Microsoft.VisualStudio.Services.Common;
+using System.Diagnostics;
+
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
     [ServiceLocator(Default = typeof(JobDispatcher))]
     public interface IJobDispatcher : IAgentService
     {
-        void Run(Pipelines.AgentJobRequestMessage message);
+        TaskCompletionSource<bool> RunOnceJobCompleted { get; }
+        void Run(Pipelines.AgentJobRequestMessage message, bool runOnce = false);
         bool Cancel(JobCancelMessage message);
+        void MetadataUpdate(JobMetadataMessage message);
         Task WaitAsync(CancellationToken token);
-        TaskResult GetLocalRunJobResult(AgentJobRequestMessage message);
         Task ShutdownAsync();
     }
 
-    // This implementation of IDobDispatcher is not thread safe.
+    // This implementation of IJobDispatcher is not thread safe.
     // It is base on the fact that the current design of agent is dequeue
     // and process one message from message queue everytime.
-    // In addition, it only execute one job every time, 
+    // In addition, it only execute one job every time,
     // and server will not send another job while this one is still running.
     public sealed class JobDispatcher : AgentService, IJobDispatcher
     {
-        private readonly Lazy<Dictionary<long, TaskResult>> _localRunJobResult = new Lazy<Dictionary<long, TaskResult>>();
         private int _poolId;
         AgentSettings _agentSetting;
         private static readonly string _workerProcessName = $"Agent.Worker{IOUtil.ExeExtension}";
@@ -43,8 +49,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         //timeout limit can be overwrite by environment VSTS_AGENT_CHANNEL_TIMEOUT
         private TimeSpan _channelTimeout;
 
+        private TaskCompletionSource<bool> _runOnceJobCompleted = new TaskCompletionSource<bool>();
+
         public override void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
             base.Initialize(hostContext);
 
             // get pool id from config
@@ -52,20 +61,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             _agentSetting = configurationStore.GetSettings();
             _poolId = _agentSetting.PoolId;
 
-            int channelTimeoutSeconds;
-            if (!int.TryParse(Environment.GetEnvironmentVariable("VSTS_AGENT_CHANNEL_TIMEOUT") ?? string.Empty, out channelTimeoutSeconds))
-            {
-                channelTimeoutSeconds = 30;
-            }
+            int channelTimeoutSeconds = AgentKnobs.AgentChannelTimeout.GetValue(UtilKnobValueContext.Instance()).AsInt();
 
             // _channelTimeout should in range [30,  300] seconds
             _channelTimeout = TimeSpan.FromSeconds(Math.Min(Math.Max(channelTimeoutSeconds, 30), 300));
             Trace.Info($"Set agent/worker IPC timeout to {_channelTimeout.TotalSeconds} seconds.");
         }
 
-        public void Run(Pipelines.AgentJobRequestMessage jobRequestMessage)
+        public TaskCompletionSource<bool> RunOnceJobCompleted => _runOnceJobCompleted;
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "WorkerDispatcher")]
+        public void Run(Pipelines.AgentJobRequestMessage jobRequestMessage, bool runOnce = false)
         {
-            Trace.Info($"Job request {jobRequestMessage.JobId} received.");
+            ArgUtil.NotNull(jobRequestMessage, nameof(jobRequestMessage));
+            Trace.Info($"Job request {jobRequestMessage.RequestId} for plan {jobRequestMessage.Plan.PlanId} job {jobRequestMessage.JobId} received.");
 
             WorkerDispatcher currentDispatch = null;
             if (_jobDispatchedQueue.Count > 0)
@@ -73,19 +82,46 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 Guid dispatchedJobId = _jobDispatchedQueue.Dequeue();
                 if (_jobInfos.TryGetValue(dispatchedJobId, out currentDispatch))
                 {
-                    Trace.Verbose($"Retrive previous WorkerDispather for job {currentDispatch.JobId}.");
+                    Trace.Verbose($"Retrieve previous WorkerDispather for job {currentDispatch.JobId}.");
                 }
             }
 
             WorkerDispatcher newDispatch = new WorkerDispatcher(jobRequestMessage.JobId, jobRequestMessage.RequestId);
-            newDispatch.WorkerDispatch = RunAsync(jobRequestMessage, currentDispatch, newDispatch.WorkerCancellationTokenSource.Token, newDispatch.WorkerCancelTimeoutKillTokenSource.Token);
+            if (runOnce)
+            {
+                Trace.Info("Start dispatcher for one time used agent.");
+                jobRequestMessage.Variables[Constants.Variables.Agent.RunMode] = new VariableValue(Constants.Agent.CommandLine.Flags.Once);
+                newDispatch.WorkerDispatch = RunOnceAsync(jobRequestMessage, currentDispatch, newDispatch);
+            }
+            else
+            {
+                newDispatch.WorkerDispatch = RunAsync(jobRequestMessage, currentDispatch, newDispatch);
+            }
 
             _jobInfos.TryAdd(newDispatch.JobId, newDispatch);
             _jobDispatchedQueue.Enqueue(newDispatch.JobId);
         }
 
+        public void MetadataUpdate(JobMetadataMessage jobMetadataMessage)
+        {
+            ArgUtil.NotNull(jobMetadataMessage, nameof(jobMetadataMessage));
+            Trace.Info($"Job metadata update received");
+
+            WorkerDispatcher workerDispatcher;
+            if (!_jobInfos.TryGetValue(jobMetadataMessage.JobId, out workerDispatcher))
+            {
+                Trace.Verbose($"Job request {jobMetadataMessage.JobId} is not a current running job, ignore metadata update.");
+            }
+            else
+            {
+                workerDispatcher.UpdateMetadata(jobMetadataMessage);
+                Trace.Verbose($"Fired metadata update for job request {workerDispatcher.JobId}.");
+            }
+        }
+
         public bool Cancel(JobCancelMessage jobCancelMessage)
         {
+            ArgUtil.NotNull(jobCancelMessage, nameof(jobCancelMessage));
             Trace.Info($"Job cancellation request {jobCancelMessage.JobId} received, cancellation timeout {jobCancelMessage.Timeout.TotalMinutes} minutes.");
 
             WorkerDispatcher workerDispatcher;
@@ -130,11 +166,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     {
                         Trace.Info($"Waiting WorkerDispather for job {currentDispatch.JobId} run to finish.");
                         await currentDispatch.WorkerDispatch;
-                        Trace.Info($"Job request {currentDispatch.JobId} processed succeed.");
+                        Trace.Info($"Job request {currentDispatch.JobId} processed successfully.");
                     }
                     catch (Exception ex)
                     {
-                        Trace.Error($"Worker Dispatch failed witn an exception for job request {currentDispatch.JobId}.");
+                        Trace.Error($"Worker Dispatch failed with an exception for job request {currentDispatch.JobId}.");
                         Trace.Error(ex);
                     }
                     finally
@@ -148,11 +184,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     }
                 }
             }
-        }
-
-        public TaskResult GetLocalRunJobResult(AgentJobRequestMessage message)
-        {
-            return _localRunJobResult.Value[message.RequestId];
         }
 
         public async Task ShutdownAsync()
@@ -272,7 +303,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             }
         }
 
-        private async Task RunAsync(Pipelines.AgentJobRequestMessage message, WorkerDispatcher previousJobDispatch, CancellationToken jobRequestCancellationToken, CancellationToken workerCancelTimeoutKillToken)
+        private async Task RunOnceAsync(Pipelines.AgentJobRequestMessage message, WorkerDispatcher previousJobDispatch, WorkerDispatcher currentJobDispatch)
+        {
+            try
+            {
+                await RunAsync(message, previousJobDispatch, currentJobDispatch);
+            }
+            finally
+            {
+                Trace.Info("Fire signal for one time used agent.");
+                _runOnceJobCompleted.TrySetResult(true);
+            }
+        }
+
+        private async Task RunAsync(Pipelines.AgentJobRequestMessage message, WorkerDispatcher previousJobDispatch, WorkerDispatcher newJobDispatch)
         {
             if (previousJobDispatch != null)
             {
@@ -283,6 +327,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             {
                 Trace.Verbose($"This is the first job request.");
             }
+
+            var jobRequestCancellationToken = newJobDispatch.WorkerCancellationTokenSource.Token;
+            var workerCancelTimeoutKillToken = newJobDispatch.WorkerCancelTimeoutKillTokenSource.Token;
 
             var term = HostContext.GetService<ITerminal>();
             term.WriteLine(StringUtil.Loc("RunningJob", DateTime.UtcNow, message.JobDisplayName));
@@ -297,6 +344,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             {
                 long requestId = message.RequestId;
                 Guid lockToken = Guid.Empty; // lockToken has never been used, keep this here of compat
+                // Because an agent can be idle for a long time between jobs, it is possible that in that time
+                // a firewall has closed the connection. For that reason, forcibly reestablish this connection at the
+                // start of a new job
+                var agentServer = HostContext.GetService<IAgentServer>();
+                await agentServer.RefreshConnectionAsync(AgentConnectionType.JobRequest, TimeSpan.FromSeconds(30));
 
                 // start renew job request
                 Trace.Info($"Start renew job request {requestId} for job {message.JobId}.");
@@ -326,6 +378,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     return;
                 }
 
+                HostContext.WritePerfCounter($"JobRequestRenewed_{requestId.ToString()}");
+
                 Task<int> workerProcessTask = null;
                 object _outputLock = new object();
                 List<string> workerOutput = new List<string>();
@@ -343,39 +397,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             ArgUtil.NotNullOrEmpty(pipeHandleOut, nameof(pipeHandleOut));
                             ArgUtil.NotNullOrEmpty(pipeHandleIn, nameof(pipeHandleIn));
 
-                            if (HostContext.RunMode == RunMode.Normal)
+                            // Save STDOUT from worker, worker will use STDOUT report unhandle exception.
+                            processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stdout)
                             {
-                                // Save STDOUT from worker, worker will use STDOUT report unhandle exception.
-                                processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stdout)
+                                if (!string.IsNullOrEmpty(stdout.Data))
                                 {
-                                    if (!string.IsNullOrEmpty(stdout.Data))
+                                    lock (_outputLock)
                                     {
-                                        lock (_outputLock)
-                                        {
-                                            workerOutput.Add(stdout.Data);
-                                        }
+                                        workerOutput.Add(stdout.Data);
                                     }
-                                };
+                                }
+                            };
 
-                                // Save STDERR from worker, worker will use STDERR on crash.
-                                processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stderr)
-                                {
-                                    if (!string.IsNullOrEmpty(stderr.Data))
-                                    {
-                                        lock (_outputLock)
-                                        {
-                                            workerOutput.Add(stderr.Data);
-                                        }
-                                    }
-                                };
-                            }
-                            else if (HostContext.RunMode == RunMode.Local)
+                            // Save STDERR from worker, worker will use STDERR on crash.
+                            processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stderr)
                             {
-                                processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) => Console.WriteLine(e.Data);
-                                processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs e) => Console.WriteLine(e.Data);
-                            }
+                                if (!string.IsNullOrEmpty(stderr.Data))
+                                {
+                                    lock (_outputLock)
+                                    {
+                                        workerOutput.Add(stderr.Data);
+                                    }
+                                }
+                            };
+
 
                             // Start the child process.
+                            HostContext.WritePerfCounter("StartingWorkerProcess");
                             var assemblyDirectory = HostContext.GetDirectory(WellKnownDirectory.Bin);
                             string workerFileName = Path.Combine(assemblyDirectory, _workerProcessName);
                             workerProcessTask = processInvoker.ExecuteAsync(
@@ -386,28 +434,40 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                 requireExitCodeZero: false,
                                 outputEncoding: null,
                                 killProcessOnCancel: true,
+                                redirectStandardIn: null,
+                                inheritConsoleHandler: false,
+                                keepStandardInOpen: false,
+                                highPriorityProcess: true,
                                 cancellationToken: workerProcessCancelTokenSource.Token);
-                        });
+                        }
+                    );
 
                     // Send the job request message.
                     // Kill the worker process if sending the job message times out. The worker
                     // process may have successfully received the job message.
                     try
                     {
-                        Trace.Info($"Send job request message to worker for job {message.JobId}.");
+                        var body = JsonUtility.ToString(message);
+                        var numBytes = System.Text.ASCIIEncoding.Unicode.GetByteCount(body) / 1024;
+                        string numBytesString = numBytes > 0 ? $"{numBytes} KB" : " < 1 KB";
+                        Trace.Info($"Send job request message to worker for job {message.JobId} ({numBytesString}).");
+                        HostContext.WritePerfCounter($"AgentSendingJobToWorker_{message.JobId}");
+                        var stopWatch = Stopwatch.StartNew();
                         using (var csSendJobRequest = new CancellationTokenSource(_channelTimeout))
                         {
                             await processChannel.SendAsync(
                                 messageType: MessageType.NewJobRequest,
-                                body: JsonUtility.ToString(message),
+                                body: body,
                                 cancellationToken: csSendJobRequest.Token);
                         }
+                        stopWatch.Stop();
+                        Trace.Info($"Took {stopWatch.ElapsedMilliseconds} ms to send job message to worker");
                     }
                     catch (OperationCanceledException)
                     {
                         // message send been cancelled.
                         // timeout 30 sec. kill worker.
-                        Trace.Info($"Job request message sending for job {message.JobId} been cancelled, kill running worker.");
+                        Trace.Info($"Job request message sending for job {message.JobId} been cancelled after waiting for {_channelTimeout.TotalSeconds} seconds, kill running worker.");
                         workerProcessCancelTokenSource.Cancel();
                         try
                         {
@@ -430,57 +490,98 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
                     // we get first jobrequest renew succeed and start the worker process with the job message.
                     // send notification to machine provisioner.
-                    await notification.JobStarted(message.JobId);
+                    var systemConnection = message.Resources.Endpoints.SingleOrDefault(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
+                    var accessToken = systemConnection?.Authorization?.Parameters["AccessToken"];
+                    VariableValue identifier = null;
+                    VariableValue definitionId = null;
+
+                    if (message.Plan.PlanType == "Build")
+                    {
+                        message.Variables.TryGetValue("build.buildId", out identifier);
+                        message.Variables.TryGetValue("system.definitionId", out definitionId);
+                    }
+                    else if (message.Plan.PlanType == "Release")
+                    {
+                        message.Variables.TryGetValue("release.deploymentId", out identifier);
+                        message.Variables.TryGetValue("release.definitionId", out definitionId);
+                    }
+
+                    await notification.JobStarted(message.JobId, accessToken, systemConnection.Url, message.Plan.PlanId, (identifier?.Value ?? "0"), (definitionId?.Value ?? "0"), message.Plan.PlanType);
+
+                    HostContext.WritePerfCounter($"SentJobToWorker_{requestId.ToString()}");
 
                     try
                     {
                         TaskResult resultOnAbandonOrCancel = TaskResult.Succeeded;
                         // wait for renewlock, worker process or cancellation token been fired.
-                        var completedTask = await Task.WhenAny(renewJobRequest, workerProcessTask, Task.Delay(-1, jobRequestCancellationToken));
-                        if (completedTask == workerProcessTask)
+                        // keep listening iff we receive a metadata update
+                        bool keepListening = true;
+                        while (keepListening)
                         {
-                            // worker finished successfully, complete job request with result, attach unhandled exception reported by worker, stop renew lock, job has finished.
-                            int returnCode = await workerProcessTask;
-                            Trace.Info($"Worker finished for job {message.JobId}. Code: " + returnCode);
-
-                            string detailInfo = null;
-                            if (!TaskResultUtil.IsValidReturnCode(returnCode))
+                            var metadataUpdateTask = newJobDispatch.MetadataSource.Task;
+                            var completedTask = await Task.WhenAny(renewJobRequest, workerProcessTask, Task.Delay(-1, jobRequestCancellationToken), metadataUpdateTask);
+                            if (completedTask == workerProcessTask)
                             {
-                                detailInfo = string.Join(Environment.NewLine, workerOutput);
-                                Trace.Info($"Return code {returnCode} indicate worker encounter an unhandled exception or app crash, attach worker stdout/stderr to JobRequest result.");
-                                await LogWorkerProcessUnhandledException(message, detailInfo);
+                                keepListening = false;
+                                // worker finished successfully, complete job request with result, attach unhandled exception reported by worker, stop renew lock, job has finished.
+                                int returnCode = await workerProcessTask;
+                                Trace.Info($"Worker finished for job {message.JobId}. Code: " + returnCode);
+
+                                string detailInfo = null;
+                                if (!TaskResultUtil.IsValidReturnCode(returnCode))
+                                {
+                                    detailInfo = string.Join(Environment.NewLine, workerOutput);
+                                    Trace.Info($"Return code {returnCode} indicate worker encounter an unhandled exception or app crash, attach worker stdout/stderr to JobRequest result.");
+                                    await LogWorkerProcessUnhandledException(message, detailInfo);
+                                }
+
+                                TaskResult result = TaskResultUtil.TranslateFromReturnCode(returnCode);
+                                Trace.Info($"finish job request for job {message.JobId} with result: {result}");
+                                term.WriteLine(StringUtil.Loc("JobCompleted", DateTime.UtcNow, message.JobDisplayName, result));
+
+                                Trace.Info($"Stop renew job request for job {message.JobId}.");
+                                // stop renew lock
+                                lockRenewalTokenSource.Cancel();
+                                // renew job request should never blows up.
+                                await renewJobRequest;
+
+                                // complete job request
+                                await CompleteJobRequestAsync(_poolId, message, lockToken, result, detailInfo);
+
+                                // print out unhandled exception happened in worker after we complete job request.
+                                // when we run out of disk space, report back to server has higher priority.
+                                if (!string.IsNullOrEmpty(detailInfo))
+                                {
+                                    Trace.Error("Unhandled exception happened in worker:");
+                                    Trace.Error(detailInfo);
+                                }
+
+                                return;
                             }
-
-                            TaskResult result = TaskResultUtil.TranslateFromReturnCode(returnCode);
-                            Trace.Info($"finish job request for job {message.JobId} with result: {result}");
-                            term.WriteLine(StringUtil.Loc("JobCompleted", DateTime.UtcNow, message.JobDisplayName, result));
-
-                            Trace.Info($"Stop renew job request for job {message.JobId}.");
-                            // stop renew lock
-                            lockRenewalTokenSource.Cancel();
-                            // renew job request should never blows up.
-                            await renewJobRequest;
-
-                            // complete job request
-                            await CompleteJobRequestAsync(_poolId, message, lockToken, result, detailInfo);
-
-                            // print out unhandle exception happened in worker after we complete job request.
-                            // when we run out of disk space, report back to server has higher prority.
-                            if (!string.IsNullOrEmpty(detailInfo))
+                            else if (completedTask == renewJobRequest)
                             {
-                                Trace.Error("Unhandle exception happened in worker:");
-                                Trace.Error(detailInfo);
+                                keepListening = false;
+                                resultOnAbandonOrCancel = TaskResult.Abandoned;
                             }
+                            else if (completedTask == metadataUpdateTask)
+                            {
+                                Trace.Info($"Send job metadata update message to worker for job {message.JobId}.");
+                                using (var csSendCancel = new CancellationTokenSource(_channelTimeout))
+                                {
+                                    var body = JsonUtility.ToString(metadataUpdateTask.Result);
 
-                            return;
-                        }
-                        else if (completedTask == renewJobRequest)
-                        {
-                            resultOnAbandonOrCancel = TaskResult.Abandoned;
-                        }
-                        else
-                        {
-                            resultOnAbandonOrCancel = TaskResult.Canceled;
+                                    await processChannel.SendAsync(
+                                        messageType: MessageType.JobMetadataUpdate,
+                                        body: body,
+                                        cancellationToken: csSendCancel.Token);
+                                }
+                                newJobDispatch.ResetMetadataSource();
+                            }
+                            else
+                            {
+                                keepListening = false;
+                                resultOnAbandonOrCancel = TaskResult.Canceled;
+                            }
                         }
 
                         // renew job request completed or job request cancellation token been fired for RunAsync(jobrequestmessage)
@@ -525,12 +626,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             }
                         }
 
-                        // wait worker to exit 
+                        // wait worker to exit
                         // if worker doesn't exit within timeout, then kill worker.
-                        completedTask = await Task.WhenAny(workerProcessTask, Task.Delay(-1, workerCancelTimeoutKillToken));
+                        var exitTask = await Task.WhenAny(workerProcessTask, Task.Delay(-1, workerCancelTimeoutKillToken));
 
                         // worker haven't exit within cancellation timeout.
-                        if (completedTask != workerProcessTask)
+                        if (exitTask != workerProcessTask)
                         {
                             Trace.Info($"worker process for job {message.JobId} haven't exit within cancellation timout, kill running worker.");
                             workerProcessCancelTokenSource.Cancel();
@@ -566,11 +667,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             }
         }
 
-        private async Task RenewJobRequestAsync(int poolId, long requestId, Guid lockToken, TaskCompletionSource<int> firstJobRequestRenewed, CancellationToken token)
+        public async Task RenewJobRequestAsync(int poolId, long requestId, Guid lockToken, TaskCompletionSource<int> firstJobRequestRenewed, CancellationToken token)
         {
+            ArgUtil.NotNull(firstJobRequestRenewed, nameof(firstJobRequestRenewed));
             var agentServer = HostContext.GetService<IAgentServer>();
-            int firstRenewRetryLimit = 5;
             TaskAgentJobRequest request = null;
+            int firstRenewRetryLimit = 5;
+            int encounteringError = 0;
 
             // renew lock during job running.
             // stop renew only if cancellation token for lock renew task been signal or exception still happen after retry.
@@ -584,12 +687,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
                     if (!firstJobRequestRenewed.Task.IsCompleted)
                     {
-                        // fire first renew successed event.
+                        // fire first renew succeed event.
                         firstJobRequestRenewed.TrySetResult(0);
                     }
 
+                    if (encounteringError > 0)
+                    {
+                        encounteringError = 0;
+                        agentServer.SetConnectionTimeout(AgentConnectionType.JobRequest, TimeSpan.FromSeconds(60));
+                        HostContext.WritePerfCounter("JobRenewRecovered");
+                    }
+
                     // renew again after 60 sec delay
-                    await Task.Delay(TimeSpan.FromSeconds(60), token);
+                    await HostContext.Delay(TimeSpan.FromSeconds(60), token);
                 }
                 catch (TaskAgentJobNotFoundException)
                 {
@@ -614,6 +724,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 {
                     Trace.Error($"Catch exception during renew agent jobrequest {requestId}.");
                     Trace.Error(ex);
+                    encounteringError++;
 
                     // retry
                     TimeSpan remainingTime = TimeSpan.Zero;
@@ -627,17 +738,40 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     }
                     else
                     {
-                        // retry till reach lockeduntil
-                        remainingTime = request.LockedUntil.Value - DateTime.UtcNow;
+                        // retry till reach lockeduntil + 5 mins extra buffer.
+                        remainingTime = request.LockedUntil.Value + TimeSpan.FromMinutes(5) - DateTime.UtcNow;
                     }
 
                     if (remainingTime > TimeSpan.Zero)
                     {
-                        Trace.Info($"Retrying lock renewal for jobrequest {requestId}. Job is still locked for: {remainingTime.TotalSeconds} seconds.");
-                        TimeSpan delayTime = remainingTime.TotalSeconds > 60 ? TimeSpan.FromMinutes(1) : remainingTime;
+                        TimeSpan delayTime;
+                        if (!firstJobRequestRenewed.Task.IsCompleted)
+                        {
+                            Trace.Info($"Retrying lock renewal for jobrequest {requestId}. The first job renew request has failed.");
+                            delayTime = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+                        }
+                        else
+                        {
+                            Trace.Info($"Retrying lock renewal for jobrequest {requestId}. Job is valid until {request.LockedUntil.Value}.");
+                            if (encounteringError > 5)
+                            {
+                                delayTime = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(30));
+                            }
+                            else
+                            {
+                                delayTime = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(15));
+                            }
+                        }
+
+                        // Re-establish connection to server in order to avoid affinity with server.
+                        // Reduce connection timeout to 30 seconds (from 60s)
+                        HostContext.WritePerfCounter("ResetJobRenewConnection");
+                        await agentServer.RefreshConnectionAsync(AgentConnectionType.JobRequest, TimeSpan.FromSeconds(30));
+
                         try
                         {
-                            await Task.Delay(delayTime, token);
+                            // back-off before next retry.
+                            await HostContext.Delay(delayTime, token);
                         }
                         catch (OperationCanceledException) when (token.IsCancellationRequested)
                         {
@@ -647,6 +781,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     else
                     {
                         Trace.Info($"Lock renewal has run out of retry, stop renew lock for jobrequest {requestId}.");
+                        HostContext.WritePerfCounter("JobRenewReachLimit");
                         return;
                     }
                 }
@@ -657,13 +792,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         private async Task CompleteJobRequestAsync(int poolId, Pipelines.AgentJobRequestMessage message, Guid lockToken, TaskResult result, string detailInfo = null)
         {
             Trace.Entering();
-            if (HostContext.RunMode == RunMode.Local)
-            {
-                _localRunJobResult.Value[message.RequestId] = result;
-                return;
-            }
 
-            if (ApiUtil.GetFeatures(message.Plan).HasFlag(PlanFeatures.JobCompletedPlanEvent))
+            if (PlanUtil.GetFeatures(message.Plan).HasFlag(PlanFeatures.JobCompletedPlanEvent))
             {
                 Trace.Verbose($"Skip FinishAgentRequest call from Listener because Plan version is {message.Plan.Version}");
                 return;
@@ -691,7 +821,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 }
                 catch (Exception ex)
                 {
-                    Trace.Error($"Catch exception during complete agent jobrequest {message.RequestId}.");
+                    Trace.Error($"Caught exception during complete agent jobrequest {message.RequestId}.");
                     Trace.Error(ex);
                     exceptions.Add(ex);
                 }
@@ -705,6 +835,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         }
 
         // log an error issue to job level timeline record
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "jobServer")]
         private async Task LogWorkerProcessUnhandledException(Pipelines.AgentJobRequestMessage message, string errorMessage)
         {
             try
@@ -713,11 +844,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 ArgUtil.NotNull(systemConnection, nameof(systemConnection));
 
                 var jobServer = HostContext.GetService<IJobServer>();
-                VssCredentials jobServerCredential = ApiUtil.GetVssCredential(systemConnection);
+                VssCredentials jobServerCredential = VssUtil.GetVssCredential(systemConnection);
                 Uri jobServerUrl = systemConnection.Url;
 
                 // Make sure SystemConnection Url match Config Url base for OnPremises server
-                if ((!message.Variables.ContainsKey(Constants.Variables.System.ServerType) && !UrlUtil.IsHosted(systemConnection.Url.AbsoluteUri)) ||
+                if (!message.Variables.ContainsKey(Constants.Variables.System.ServerType) ||
                     string.Equals(message.Variables[Constants.Variables.System.ServerType]?.Value, "OnPremises", StringComparison.OrdinalIgnoreCase))
                 {
                     try
@@ -743,7 +874,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     }
                 }
 
-                VssConnection jobConnection = ApiUtil.CreateConnection(jobServerUrl, jobServerCredential);
+                var jobConnection = VssUtil.CreateConnection(jobServerUrl, jobServerCredential);
                 await jobServer.ConnectAsync(jobConnection);
                 var timeline = await jobServer.GetTimelineAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, CancellationToken.None);
                 ArgUtil.NotNull(timeline, nameof(timeline));
@@ -765,9 +896,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             public long RequestId { get; }
             public Guid JobId { get; }
             public Task WorkerDispatch { get; set; }
+            public TaskCompletionSource<JobMetadataMessage> MetadataSource { get; set; }
             public CancellationTokenSource WorkerCancellationTokenSource { get; private set; }
             public CancellationTokenSource WorkerCancelTimeoutKillTokenSource { get; private set; }
             private readonly object _lock = new object();
+
+            const int maxValueInMinutes = 35790; // 35790 * 60 * 1000 = 2147400000
+            // The "CancelAfter" method converts minutes to milliseconds
+            // It throws an exception if the value is greater than 2147483647 (Int32.MaxValue)
 
             public WorkerDispatcher(Guid jobId, long requestId)
             {
@@ -775,6 +911,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 RequestId = requestId;
                 WorkerCancelTimeoutKillTokenSource = new CancellationTokenSource();
                 WorkerCancellationTokenSource = new CancellationTokenSource();
+                MetadataSource = new TaskCompletionSource<JobMetadataMessage>();
             }
 
             public bool Cancel(TimeSpan timeout)
@@ -793,6 +930,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                 timeout = TimeSpan.FromSeconds(60);
                             }
 
+                            // make sure we have less than 2147400000 milliseconds
+                            if (timeout.TotalMinutes > maxValueInMinutes)
+                            {
+                                timeout = TimeSpan.FromMinutes(maxValueInMinutes);
+                            }
+
                             WorkerCancelTimeoutKillTokenSource.CancelAfter(timeout.Subtract(TimeSpan.FromSeconds(15)));
                             return true;
                         }
@@ -800,6 +943,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 }
 
                 return false;
+            }
+
+            public void UpdateMetadata(JobMetadataMessage message)
+            {
+                lock (_lock)
+                {
+                    MetadataSource.TrySetResult(message);
+                }
+            }
+
+            public void ResetMetadataSource()
+            {
+                MetadataSource = new TaskCompletionSource<JobMetadataMessage>();
             }
 
             public void Dispose()

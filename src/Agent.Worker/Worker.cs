@@ -1,7 +1,9 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -19,6 +21,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     public sealed class Worker : AgentService, IWorker
     {
         private readonly TimeSpan _workerStartTimeout = TimeSpan.FromSeconds(30);
+        private static readonly char[] _quoteLikeChars = new char[] {'\'', '"'};
+
 
         public async Task<int> RunAsync(string pipeIn, string pipeOut)
         {
@@ -27,7 +31,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNullOrEmpty(pipeOut, nameof(pipeOut));
             var agentWebProxy = HostContext.GetService<IVstsAgentWebProxy>();
             var agentCertManager = HostContext.GetService<IAgentCertificateManager>();
-            ApiUtil.InitializeVssClientSettings(agentWebProxy, agentCertManager);
+            VssUtil.InitializeVssClientSettings(HostContext.UserAgent, agentWebProxy.WebProxy, agentCertManager.VssClientCertificateManager);
 
             var jobRunner = HostContext.CreateService<IJobRunner>();
 
@@ -39,6 +43,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 channel.StartClient(pipeIn, pipeOut);
 
                 // Wait for up to 30 seconds for a message from the channel.
+                HostContext.WritePerfCounter("WorkerWaitingForJobMessage");
                 Trace.Info("Waiting to receive the job message from the channel.");
                 WorkerMessage channelMessage;
                 using (var csChannelMessage = new CancellationTokenSource(_workerStartTimeout))
@@ -52,51 +57,82 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 ArgUtil.NotNullOrEmpty(channelMessage.Body, nameof(channelMessage.Body));
                 var jobMessage = JsonUtility.FromString<Pipelines.AgentJobRequestMessage>(channelMessage.Body);
                 ArgUtil.NotNull(jobMessage, nameof(jobMessage));
+                HostContext.WritePerfCounter($"WorkerJobMessageReceived_{jobMessage.RequestId.ToString()}");
 
                 // Initialize the secret masker and set the thread culture.
                 InitializeSecretMasker(jobMessage);
                 SetCulture(jobMessage);
 
                 // Start the job.
-                Trace.Info($"Job message:{Environment.NewLine} {StringUtil.ConvertToJson(jobMessage)}");
+                Trace.Info($"Job message:{Environment.NewLine} {StringUtil.ConvertToJson(WorkerUtilities.ScrubPiiData(jobMessage))}");
                 Task<TaskResult> jobRunnerTask = jobRunner.RunAsync(jobMessage, jobRequestCancellationToken.Token);
 
-                // Start listening for a cancel message from the channel.
-                Trace.Info("Listening for cancel message from the channel.");
-                Task<WorkerMessage> channelTask = channel.ReceiveAsync(channelTokenSource.Token);
-
-                // Wait for one of the tasks to complete.
-                Trace.Info("Waiting for the job to complete or for a cancel message from the channel.");
-                Task.WaitAny(jobRunnerTask, channelTask);
-
-                // Handle if the job completed.
-                if (jobRunnerTask.IsCompleted)
+                bool cancel = false;
+                while (!cancel)
                 {
-                    Trace.Info("Job completed.");
-                    channelTokenSource.Cancel(); // Cancel waiting for a message from the channel.
-                    return TaskResultUtil.TranslateToReturnCode(await jobRunnerTask);
-                }
+                    // Start listening for a cancel message from the channel.
+                    Trace.Info("Listening for cancel message from the channel.");
+                    Task<WorkerMessage> channelTask = channel.ReceiveAsync(channelTokenSource.Token);
 
-                // Otherwise a cancel message was received from the channel.
-                Trace.Info("Cancellation/Shutdown message received.");
-                channelMessage = await channelTask;
-                switch (channelMessage.MessageType)
-                {
-                    case MessageType.CancelRequest:
-                        jobRequestCancellationToken.Cancel();   // Expire the host cancellation token.
-                        break;
-                    case MessageType.AgentShutdown:
-                        HostContext.ShutdownAgent(ShutdownReason.UserCancelled);
-                        break;
-                    case MessageType.OperatingSystemShutdown:
-                        HostContext.ShutdownAgent(ShutdownReason.OperatingSystemShutdown);
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException(nameof(channelMessage.MessageType), channelMessage.MessageType, nameof(channelMessage.MessageType));
+                    // Wait for one of the tasks to complete.
+                    Trace.Info("Waiting for the job to complete or for a cancel message from the channel.");
+                    await Task.WhenAny(jobRunnerTask, channelTask);
+
+                    // Handle if the job completed.
+                    if (jobRunnerTask.IsCompleted)
+                    {
+                        Trace.Info("Job completed.");
+                        channelTokenSource.Cancel(); // Cancel waiting for a message from the channel.
+                        return TaskResultUtil.TranslateToReturnCode(await jobRunnerTask);
+                    }
+
+                    // Otherwise a message was received from the channel.
+                    channelMessage = await channelTask;
+                    switch (channelMessage.MessageType)
+                    {
+                        case MessageType.CancelRequest:
+                            Trace.Info("Cancellation/Shutdown message received.");
+                            cancel = true;
+                            jobRequestCancellationToken.Cancel();   // Expire the host cancellation token.
+                            break;
+                        case MessageType.AgentShutdown:
+                            Trace.Info("Cancellation/Shutdown message received.");
+                            cancel = true;
+                            HostContext.ShutdownAgent(ShutdownReason.UserCancelled);
+                            break;
+                        case MessageType.OperatingSystemShutdown:
+                            Trace.Info("Cancellation/Shutdown message received.");
+                            cancel = true;
+                            HostContext.ShutdownAgent(ShutdownReason.OperatingSystemShutdown);
+                            break;
+                        case MessageType.JobMetadataUpdate:
+                            Trace.Info("Metadata update message received.");
+                            var metadataMessage = JsonUtility.FromString<JobMetadataMessage>(channelMessage.Body);
+                            jobRunner.UpdateMetadata(metadataMessage);
+                            break;
+                        default:
+                            throw new ArgumentOutOfRangeException(nameof(channelMessage.MessageType), channelMessage.MessageType, nameof(channelMessage.MessageType));
+                    }
                 }
 
                 // Await the job.
                 return TaskResultUtil.TranslateToReturnCode(await jobRunnerTask);
+            }
+        }
+
+        private void AddUserSuppliedSecret(String secret)
+        {
+            ArgUtil.NotNull(secret, nameof(secret));
+            HostContext.SecretMasker.AddValue(secret);
+            // for variables, it is possible that they are used inside a shell which would strip off surrounding quotes
+            // so, if the value is surrounded by quotes, add a quote-timmed version of the secret to our masker as well
+            // This addresses issue #2525
+            foreach (var quoteChar in _quoteLikeChars)
+            {
+                if (secret.StartsWith(quoteChar) && secret.EndsWith(quoteChar))
+                {
+                    HostContext.SecretMasker.AddValue(secret.Trim(quoteChar));
+                }
             }
         }
 
@@ -105,13 +141,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Trace.Entering();
             ArgUtil.NotNull(message, nameof(message));
             ArgUtil.NotNull(message.Resources, nameof(message.Resources));
-
             // Add mask hints for secret variables
             foreach (var variable in (message.Variables ?? new Dictionary<string, VariableValue>()))
             {
-                if (variable.Value.IsSecret)
+                // Skip secrets which are just white spaces.
+                if (variable.Value.IsSecret && !string.IsNullOrWhiteSpace(variable.Value.Value))
                 {
-                    HostContext.SecretMasker.AddValue(variable.Value.Value);
+                    AddUserSuppliedSecret(variable.Value.Value);
+                    // also, we escape some characters for variables when we print them out in debug mode. We need to
+                    // add the escaped version of these secrets as well
+                    var escapedSecret = variable.Value.Value.Replace("%", "%AZP25")
+                                                            .Replace("\r", "%0D")
+                                                            .Replace("\n", "%0A");
+                    AddUserSuppliedSecret(escapedSecret);
+
+                    // Since % escaping may be turned off, also mask a version escaped with just newlines
+                    var escapedSecret2 = variable.Value.Value.Replace("\r", "%0D")
+                                                             .Replace("\n", "%0A");
+                    AddUserSuppliedSecret(escapedSecret2);
                 }
             }
 

@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -32,6 +35,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
         {
             Trace.Entering();
 
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNullOrEmpty(localFolderPath, nameof(localFolderPath));
             ArgUtil.NotNull(folderWithinStream, nameof(folderWithinStream));
 
@@ -49,15 +53,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
             {
                 try
                 {
-                    // Remove leading '/'s if any 
+                    // Remove leading '/'s if any
                     var path = stream.FullName.TrimStart(ForwardSlash);
 
-                    Trace.Verbose($"Downloading {path}");
+                    Trace.Verbose($"Downloading {path}, localFolderPath {localFolderPath}, folderWithinStream {folderWithinStream}, relativePathWithinStream {relativePathWithinStream}");
+
                     if (!string.IsNullOrWhiteSpace(folderWithinStream))
                     {
                         var normalizedFolderWithInStream = folderWithinStream.TrimStart(ForwardSlash).TrimEnd(ForwardSlash) + ForwardSlash;
 
-                        // If this zip entry does not start with the expected folderName, skip it. 
+                        // If this zip entry does not start with the expected folderName, skip it.
                         if (!path.StartsWith(normalizedFolderWithInStream, StringComparison.OrdinalIgnoreCase))
                         {
                             continue;
@@ -84,7 +89,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                     }
 
                     int bufferSize = executionContext.Variables.Release_Download_BufferSize ?? DefaultBufferSize;
-                    await fileSystemManager.WriteStreamToFile(stream.ZipStream, Path.Combine(localFolderPath, path), bufferSize, executionContext.CancellationToken);
+
+                    string destFileName = Path.GetFullPath(Path.Combine(localFolderPath, path));
+                    string destDirPath = Path.GetFullPath(localFolderPath + Path.DirectorySeparatorChar);
+                    if (!destFileName.StartsWith(destDirPath)) {
+                        throw new InvalidOperationException(StringUtil.Loc("ZipSlipFailure", destFileName));
+                    }
+
+                    Trace.Info($"Writing file to {destFileName}");
+                    await fileSystemManager.WriteStreamToFile(stream.ZipStream, destFileName, bufferSize, executionContext.CancellationToken);
 
                     streamsDownloaded++;
                 }
@@ -102,6 +115,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
             return streamsDownloaded;
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "ZipStream")]
         private static IEnumerable<ZipEntryStream> GetZipEntryStreams(Stream zipStream)
         {
             return

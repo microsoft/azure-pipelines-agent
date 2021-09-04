@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -41,15 +44,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             var tfsVCEndpoint = endpoint.Clone();
             PrepareTfsVCEndpoint(tfsVCEndpoint, tfsVcArtifactDetails);
             var extensionManager = HostContext.GetService<IExtensionManager>();
-            ISourceProvider sourceProvider = (extensionManager.GetExtensions<ISourceProvider>()).FirstOrDefault(x => x.RepositoryType == RepositoryTypes.TfsVersionControl);
+            ISourceProvider sourceProvider = (extensionManager.GetExtensions<ISourceProvider>()).FirstOrDefault(x => x.RepositoryType == Microsoft.TeamFoundation.DistributedTask.Pipelines.RepositoryTypes.Tfvc);
 
             if (sourceProvider == null)
             {
-                throw new InvalidOperationException(StringUtil.Loc("SourceArtifactProviderNotFound", RepositoryTypes.TfsVersionControl));
+                throw new InvalidOperationException(StringUtil.Loc("SourceArtifactProviderNotFound", Microsoft.TeamFoundation.DistributedTask.Pipelines.RepositoryTypes.Tfvc));
             }
 
             var rootDirectory = Directory.GetParent(downloadFolderPath).Name;
-            executionContext.Variables.Set(Constants.Variables.Agent.BuildDirectory, rootDirectory);
+            executionContext.SetVariable(Constants.Variables.Agent.BuildDirectory, rootDirectory);
             tfsVCEndpoint.Data.Add(Constants.EndpointData.SourcesDirectory, downloadFolderPath);
             tfsVCEndpoint.Data.Add(Constants.EndpointData.SourceVersion, artifactDefinition.Version);
 
@@ -58,6 +61,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
 
         public IArtifactDetails GetArtifactDetails(IExecutionContext context, AgentArtifactDefinition agentArtifactDefinition)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(agentArtifactDefinition, nameof(agentArtifactDefinition));
+
             var artifactDetails = JsonConvert.DeserializeObject<Dictionary<string, string>>(agentArtifactDefinition.Details);
             var projectId = string.Empty;
             var repositoryId = string.Empty;

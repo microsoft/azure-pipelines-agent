@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Linq;
@@ -5,51 +8,36 @@ using System.Net;
 using System.IO;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using Agent.Sdk;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
     [ServiceLocator(Default = typeof(VstsAgentWebProxy))]
-    public interface IVstsAgentWebProxy : IAgentService, IWebProxy
+    public interface IVstsAgentWebProxy : IAgentService
     {
         string ProxyAddress { get; }
         string ProxyUsername { get; }
         string ProxyPassword { get; }
         List<string> ProxyBypassList { get; }
+        IWebProxy WebProxy { get; }
     }
 
-    public class VstsAgentWebProxy : AgentService, IVstsAgentWebProxy, IWebProxy
+    public class VstsAgentWebProxy : AgentService, IVstsAgentWebProxy
     {
-        private readonly List<Regex> _regExBypassList = new List<Regex>();
         private readonly List<string> _bypassList = new List<string>();
+        private AgentWebProxy _agentWebProxy = new AgentWebProxy();
 
         public string ProxyAddress { get; private set; }
         public string ProxyUsername { get; private set; }
         public string ProxyPassword { get; private set; }
         public List<string> ProxyBypassList => _bypassList;
-
-        public ICredentials Credentials { get; set; }
+        public IWebProxy WebProxy => _agentWebProxy;
 
         public override void Initialize(IHostContext context)
         {
             base.Initialize(context);
             LoadProxySetting();
-        }
-
-        public Uri GetProxy(Uri destination)
-        {
-            if (IsBypassed(destination))
-            {
-                return destination;
-            }
-            else
-            {
-                return new Uri(ProxyAddress);
-            }
-        }
-
-        public bool IsBypassed(Uri uri)
-        {
-            return string.IsNullOrEmpty(ProxyAddress) || uri.IsLoopback || IsMatchInBypassList(uri);
         }
 
         // This should only be called from config
@@ -63,12 +51,17 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             if (string.IsNullOrEmpty(ProxyUsername) || string.IsNullOrEmpty(ProxyPassword))
             {
-                Credentials = CredentialCache.DefaultNetworkCredentials;
+                Trace.Info($"Config proxy use DefaultNetworkCredentials.");
             }
             else
             {
-                Credentials = new NetworkCredential(ProxyUsername, ProxyPassword);
+                Trace.Info($"Config authentication proxy as: {ProxyUsername}.");
             }
+
+            // Ensure proxy bypass list is loaded during the agent config
+            LoadProxyBypassList();
+
+            _agentWebProxy.Update(ProxyAddress, ProxyUsername, ProxyPassword, ProxyBypassList);
         }
 
         // This should only be called from config
@@ -76,13 +69,13 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             if (!string.IsNullOrEmpty(ProxyAddress))
             {
-                string proxyConfigFile = IOUtil.GetProxyConfigFilePath();
+                string proxyConfigFile = HostContext.GetConfigFile(WellKnownConfigFile.Proxy);
                 IOUtil.DeleteFile(proxyConfigFile);
                 Trace.Info($"Store proxy configuration to '{proxyConfigFile}' for proxy '{ProxyAddress}'");
                 File.WriteAllText(proxyConfigFile, ProxyAddress);
                 File.SetAttributes(proxyConfigFile, File.GetAttributes(proxyConfigFile) | FileAttributes.Hidden);
 
-                string proxyCredFile = IOUtil.GetProxyCredentialsFilePath();
+                string proxyCredFile = HostContext.GetConfigFile(WellKnownConfigFile.ProxyCredentials);
                 IOUtil.DeleteFile(proxyCredFile);
                 if (!string.IsNullOrEmpty(ProxyUsername) && !string.IsNullOrEmpty(ProxyPassword))
                 {
@@ -104,7 +97,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         // This should only be called from unconfig
         public void DeleteProxySetting()
         {
-            string proxyCredFile = IOUtil.GetProxyCredentialsFilePath();
+            string proxyCredFile = HostContext.GetConfigFile(WellKnownConfigFile.ProxyCredentials);
             if (File.Exists(proxyCredFile))
             {
                 Trace.Info("Delete proxy credential from credential store.");
@@ -119,21 +112,45 @@ namespace Microsoft.VisualStudio.Services.Agent
                 IOUtil.DeleteFile(proxyCredFile);
             }
 
-            string proxyBypassFile = IOUtil.GetProxyBypassFilePath();
+            string proxyBypassFile = HostContext.GetConfigFile(WellKnownConfigFile.ProxyBypass);
             if (File.Exists(proxyBypassFile))
             {
                 Trace.Info($"Delete .proxybypass file: {proxyBypassFile}");
                 IOUtil.DeleteFile(proxyBypassFile);
             }
 
-            string proxyConfigFile = IOUtil.GetProxyConfigFilePath();
+            string proxyConfigFile = HostContext.GetConfigFile(WellKnownConfigFile.Proxy);
             Trace.Info($"Delete .proxy file: {proxyConfigFile}");
             IOUtil.DeleteFile(proxyConfigFile);
         }
 
+        public void LoadProxyBypassList()
+        {
+            string proxyBypassFile = HostContext.GetConfigFile(WellKnownConfigFile.ProxyBypass);
+            if (File.Exists(proxyBypassFile))
+            {
+                Trace.Verbose($"Try read proxy bypass list from file: {proxyBypassFile}.");
+                foreach (string bypass in File.ReadAllLines(proxyBypassFile).Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim()))
+                {
+                    Trace.Info($"Bypass proxy for: {bypass}.");
+                    ProxyBypassList.Add(bypass.Trim());
+                }
+            }
+
+            var proxyBypassEnv = AgentKnobs.NoProxy.GetValue(HostContext).AsString();
+
+            foreach (string bypass in proxyBypassEnv.Split(new [] {',', ';'}).Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim()))
+            {
+                var saveRegexString = ProcessProxyByPassFromEnv(bypass);
+
+                Trace.Info($"Bypass proxy for: {saveRegexString}.");
+                ProxyBypassList.Add(saveRegexString);
+            }
+        }
+
         private void LoadProxySetting()
         {
-            string proxyConfigFile = IOUtil.GetProxyConfigFilePath();
+            string proxyConfigFile = HostContext.GetConfigFile(WellKnownConfigFile.Proxy);
             if (File.Exists(proxyConfigFile))
             {
                 // we expect the first line of the file is the proxy url
@@ -145,15 +162,13 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             if (string.IsNullOrEmpty(ProxyAddress))
             {
-                Trace.Verbose("Try read proxy setting from environment variable: 'VSTS_HTTP_PROXY'.");
-                ProxyAddress = Environment.GetEnvironmentVariable("VSTS_HTTP_PROXY") ?? string.Empty;
-                ProxyAddress = ProxyAddress.Trim();
-                Trace.Verbose($"{ProxyAddress}");
+                ProxyAddress = AgentKnobs.ProxyAddress.GetValue(HostContext).AsString();
+                Trace.Verbose($"Proxy address: {ProxyAddress}");
             }
 
             if (!string.IsNullOrEmpty(ProxyAddress) && !Uri.IsWellFormedUriString(ProxyAddress, UriKind.Absolute))
             {
-                Trace.Info($"The proxy url is not a well formed absolute uri string: {ProxyAddress}.");
+                Trace.Error($"The proxy url is not a well formed absolute uri string: {ProxyAddress}.");
                 ProxyAddress = string.Empty;
             }
 
@@ -161,7 +176,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             {
                 Trace.Info($"Config proxy at: {ProxyAddress}.");
 
-                string proxyCredFile = IOUtil.GetProxyCredentialsFilePath();
+                string proxyCredFile = HostContext.GetConfigFile(WellKnownConfigFile.ProxyCredentials);
                 if (File.Exists(proxyCredFile))
                 {
                     string lookupKey = File.ReadAllLines(proxyCredFile).FirstOrDefault();
@@ -176,12 +191,12 @@ namespace Microsoft.VisualStudio.Services.Agent
 
                 if (string.IsNullOrEmpty(ProxyUsername))
                 {
-                    ProxyUsername = Environment.GetEnvironmentVariable("VSTS_HTTP_PROXY_USERNAME");
+                    ProxyUsername = AgentKnobs.ProxyUsername.GetValue(HostContext).AsString();
                 }
 
                 if (string.IsNullOrEmpty(ProxyPassword))
                 {
-                    ProxyPassword = Environment.GetEnvironmentVariable("VSTS_HTTP_PROXY_PASSWORD");
+                    ProxyPassword = AgentKnobs.ProxyPassword.GetValue(HostContext).AsString();
                 }
 
                 if (!string.IsNullOrEmpty(ProxyPassword))
@@ -192,41 +207,15 @@ namespace Microsoft.VisualStudio.Services.Agent
                 if (string.IsNullOrEmpty(ProxyUsername) || string.IsNullOrEmpty(ProxyPassword))
                 {
                     Trace.Info($"Config proxy use DefaultNetworkCredentials.");
-                    Credentials = CredentialCache.DefaultNetworkCredentials;
                 }
                 else
                 {
                     Trace.Info($"Config authentication proxy as: {ProxyUsername}.");
-                    Credentials = new NetworkCredential(ProxyUsername, ProxyPassword);
                 }
 
-                string proxyBypassFile = IOUtil.GetProxyBypassFilePath();
-                if (File.Exists(proxyBypassFile))
-                {
-                    Trace.Verbose($"Try read proxy bypass list from file: {proxyBypassFile}.");
-                    foreach (string bypass in File.ReadAllLines(proxyBypassFile))
-                    {
-                        if (string.IsNullOrWhiteSpace(bypass))
-                        {
-                            continue;
-                        }
-                        else
-                        {
-                            Trace.Info($"Bypass proxy for: {bypass}.");
-                            try
-                            {
-                                Regex bypassRegex = new Regex(bypass.Trim(), RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.ECMAScript);
-                                _regExBypassList.Add(bypassRegex);
-                                ProxyBypassList.Add(bypass.Trim());
-                            }
-                            catch (Exception ex)
-                            {
-                                Trace.Error($"{bypass} is not a valid Regex, won't bypass proxy for {bypass}.");
-                                Trace.Error(ex);
-                            }
-                        }
-                    }
-                }
+                LoadProxyBypassList();
+
+                _agentWebProxy.Update(ProxyAddress, ProxyUsername, ProxyPassword, ProxyBypassList);
             }
             else
             {
@@ -234,21 +223,20 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        private bool IsMatchInBypassList(Uri input)
+        /// <summary>
+        /// Used to escape dots in proxy bypass hosts that was recieved from no_proxy variable
+        /// It is requred since we convert host string to the regular expression pattern and
+        /// all the dots that are parts of domains will be interpreted as special symbol in regular expression while converting
+        /// this leads to false positive matches while check the patterns for bepassing.
+        /// We don't escape dots that are parts of .* wildcard.
+        /// Also, we don't escape dots that are already prepended by escaping symbols.
+        /// </summary>
+        private string ProcessProxyByPassFromEnv(string bypass)
         {
-            string matchUriString = input.IsDefaultPort ?
-                input.Scheme + "://" + input.Host :
-                input.Scheme + "://" + input.Host + ":" + input.Port.ToString();
+            var regExp = new Regex("(?<!\\\\)([.])(?!\\*)");
+            var replace = "\\$1";
 
-            foreach (Regex r in _regExBypassList)
-            {
-                if (r.IsMatch(matchUriString))
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return regExp.Replace(bypass, replace);
         }
     }
 }

@@ -1,18 +1,20 @@
-﻿using Microsoft.TeamFoundation.DistributedTask.WebApi;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.TeamFoundation.TestClient.PublishTestResults;
 using Microsoft.TeamFoundation.TestManagement.WebApi;
-using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
+using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.VisualStudio.Services.Agent.Worker.TestResults;
+using Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils;
+using Microsoft.VisualStudio.Services.WebPlatform;
 using Moq;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
@@ -22,24 +24,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         private Mock<IExecutionContext> _ec;
         private List<string> _warnings = new List<string>();
         private List<string> _errors = new List<string>();
-        private Mock<IResultReader> _mockResultReader;
-        private Mock<ITestRunPublisher> _mockTestRunPublisher;
-        private Mock<IExtensionManager> _mockExtensionManager;
         private Mock<IAsyncCommandContext> _mockCommandContext;
-        private TestHostContext _hc;
+        private Mock<ITestDataPublisher> _mockTestRunDataPublisher;
+        private Mock<IExtensionManager> _mockExtensionManager;
+        private Mock<IParser> _mockParser;
+        private Mock<ICustomerIntelligenceServer> _mockCustomerIntelligenceServer;
+        private Mock<IFeatureFlagService> _mockFeatureFlagService;
         private Variables _variables;
 
         public ResultsCommandTests()
         {
-            _mockTestRunPublisher = new Mock<ITestRunPublisher>();
+            _mockTestRunDataPublisher = new Mock<ITestDataPublisher>();
+            _mockTestRunDataPublisher.Setup(x => x.PublishAsync(It.IsAny<TestRunContext>(), It.IsAny<List<string>>(), It.IsAny<PublishOptions>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
 
-            var testRunData = new TestRunData { };
-            _mockResultReader = new Mock<IResultReader>();
-            _mockResultReader.Setup(x => x.Name).Returns("mockResults");
-            _mockResultReader.Setup(x => x.ReadResults(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<TestRunContext>()))
-                .Returns(testRunData);
+            _mockParser = new Mock<IParser>();
+            TestDataProvider mockTestRunData = MockParserData();
+            _mockParser.Setup(x => x.Name).Returns("mockResults");
+            _mockParser.Setup(x => x.ParseTestResultFiles(It.IsAny<IExecutionContext>(), It.IsAny<TestRunContext>(), It.IsAny<List<String>>())).Returns(mockTestRunData);
 
-            _mockTestRunPublisher = new Mock<ITestRunPublisher>();
+            _mockCustomerIntelligenceServer = new Mock<ICustomerIntelligenceServer>();
+            _mockCustomerIntelligenceServer.Setup(x => x.PublishEventsAsync(It.IsAny<CustomerIntelligenceEvent[]>()));
+
+            _mockFeatureFlagService = new Mock<IFeatureFlagService>();
+            _mockFeatureFlagService.Setup(x => x.GetFeatureFlagState(It.IsAny<string>(), It.IsAny<Guid>())).Returns(true);
         }
 
         [Fact]
@@ -47,26 +54,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         [Trait("Category", "PublishTestResults")]
         public void Publish_NullTestRunner()
         {
-            SetupMocks();
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", "ResultFile.txt");
-            Assert.Throws<ArgumentException>(() => resultCommand.ProcessCommand(_ec.Object, command));
-        }
+            using (var _hc = SetupMocks())
+            {
+                var resultCommand = new ResultsCommandExtension();
+                resultCommand.Initialize(_hc);
+                var command = new Command("results", "publish");
+                command.Properties.Add("resultFiles", "ResultFile.txt");
 
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "PublishTestResults")]
-        public void Publish_InvalidTestRunner()
-        {
-            SetupMocks();
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", "ResultFile.txt");
-            command.Properties.Add("type", "MyTestRunner");
-            Assert.Throws<ArgumentException>(() => resultCommand.ProcessCommand(_ec.Object, command));
+                Assert.Throws<ArgumentException>(() => resultCommand.ProcessCommand(_ec.Object, command));
+            }
         }
 
         [Fact]
@@ -74,89 +70,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         [Trait("Category", "PublishTestResults")]
         public void Publish_NullTestResultFiles()
         {
-            SetupMocks();
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            Assert.Throws<ArgumentException>(() => resultCommand.ProcessCommand(_ec.Object, command));
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "PublishTestResults")]
-        public void Publish_NonExistingTestResultFile()
-        {
-            _mockResultReader.Setup(x => x.ReadResults(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<TestRunContext>()))
-               .Throws(new IOException("Could not find file 'nonexisting.file'"));
-            SetupMocks();
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", "nonexisting.file");
-            command.Properties.Add("type", "mockResults");
-            resultCommand.ProcessCommand(_ec.Object, command);
-            Assert.Equal(0, _errors.Count());
-            Assert.Equal(1, _warnings.Count());
-            Assert.Equal(StringUtil.Loc("InvalidResultFiles", "Could not find file 'nonexisting.file'"), _warnings[0]);
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "PublishTestResults")]
-        public void Publish_InvalidJUnitResultFile()
-        {
-            SetupMocks();
-
-            string jUnitFilePath = "JUnitSampleResults.txt";
-            File.WriteAllText(jUnitFilePath, "badformat", Encoding.UTF8);
-
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", jUnitFilePath);
-            command.Properties.Add("type", "JUnit");
-
-            try
+            using (var _hc = SetupMocks())
             {
-                resultCommand.ProcessCommand(_ec.Object, command);
+                var resultCommand = new ResultsCommandExtension();
+                resultCommand.Initialize(_hc);
+                var command = new Command("results", "publish");
+                Assert.Throws<ArgumentException>(() => resultCommand.ProcessCommand(_ec.Object, command));
             }
-            finally
-            {
-                File.Delete(jUnitFilePath);
-            }
-
-            Assert.Equal(0, _errors.Count());
-            Assert.Equal(1, _warnings.Count());
-            Assert.Equal(StringUtil.Loc("InvalidResultFiles", jUnitFilePath, "JUnit"), _warnings[0]);
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "PublishTestResults")]
-        public void Publish_InvalidNUnitResultFile()
-        {
-            SetupMocks();
-
-            string jUnitFilePath = "NUnitSampleResults.txt";
-            File.WriteAllText(jUnitFilePath, "badformat", Encoding.UTF8);
-
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", jUnitFilePath);
-            command.Properties.Add("type", "NUnit");
-
-            try
-            {
-                resultCommand.ProcessCommand(_ec.Object, command);
-            }
-            finally
-            {
-                File.Delete(jUnitFilePath);
-            }
-
-            Assert.Equal(0, _errors.Count());
-            Assert.Equal(1, _warnings.Count());
         }
 
         [Fact]
@@ -164,104 +84,75 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         [Trait("Category", "PublishTestResults")]
         public void Publish_DataIsHonoredWhenTestResultsFieldIsNotSpecified()
         {
-            SetupMocks();
+            using (var _hc = SetupMocks())
+            {
+                var resultCommand = new ResultsCommandExtension();
+                resultCommand.Initialize(_hc);
+                var command = new Command("results", "publish");
+                command.Properties.Add("type", "mockResults");
+                command.Data = "testfile1,testfile2";
+                resultCommand.ProcessCommand(_ec.Object, command);
 
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("type", "NUnit");
-            command.Data = "testfile1,testfile2";
-            resultCommand.ProcessCommand(_ec.Object, command);
-
-            Assert.Equal(0, _errors.Count());
+                Assert.Equal(0, _errors.Count());
+            }
         }
 
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "PublishTestResults")]
-        public void VerifyResultsAreMergedWhenPublishingToSingleTestRun()
+        private List<TestRun> MockTestRun()
         {
-            SetupMocks();
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", "file1.trx,file2.trx");
-            command.Properties.Add("type", "NUnit");
-            command.Properties.Add("mergeResults", bool.TrueString);
-            var resultsFiles = new List<string> { "file1.trx", "file2.trx" };
+            List<TestRun> testRunList = new List<TestRun>();
+            TestRun testRun = new TestRun();
+            testRun.Name = "Mock test run";
+            testRunList.Add(testRun);
 
-            var testRunData = new TestRunData();
-            testRunData.Results = new TestCaseResultData[] { new TestCaseResultData(), new TestCaseResultData() };
-            testRunData.Attachments = new string[] { "attachment1", "attachment2" };
-
-            _mockTestRunPublisher.Setup(q => q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()))
-                .Callback((TestRunData trd, CancellationToken cancellationToken) =>
-                {
-                    Assert.Equal(resultsFiles.Count * testRunData.Attachments.Length, trd.Attachments.Length);
-                });
-            _mockTestRunPublisher.Setup(q => q.AddResultsAsync(It.IsAny<TestRun>(), It.IsAny<TestCaseResultData[]>(), It.IsAny<CancellationToken>()))
-                .Callback((TestRun testRun, TestCaseResultData[] tcrd, CancellationToken cancellationToken) =>
-                {
-                    Assert.Equal(resultsFiles.Count * testRunData.Results.Length, tcrd.Length);
-                });
-            _mockTestRunPublisher.Setup(q => q.ReadResultsFromFile(It.IsAny<TestRunContext>(), It.IsAny<string>()))
-                .Returns(testRunData);
-            _mockTestRunPublisher.Setup(q => q.EndTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
-
-            resultCommand.ProcessCommand(_ec.Object, command);
+            return testRunList;
         }
 
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "PublishTestResults")]
-        public void VerifyStartEndTestRunTimeWhenPublishingToSingleTestRun()
+        private TestDataProvider MockParserData()
         {
-            SetupMocks();
-            var resultCommand = new ResultsCommandExtension();
-            resultCommand.Initialize(_hc);
-            var command = new Command("results", "publish");
-            command.Properties.Add("resultFiles", "file1.trx,file2.trx");
-            command.Properties.Add("type", "NUnit");
-            command.Properties.Add("mergeResults", bool.TrueString);
-            var resultsFiles = new List<string> { "file1.trx", "file2.trx" };
-            var durationInMs = 10;
-            var testRunData = new TestRunData();
-            var testCaseResultData = new TestCaseResultData();
-            testCaseResultData.DurationInMs = durationInMs;
-
-            testRunData.Results = new TestCaseResultData[] { testCaseResultData, testCaseResultData };
-            testRunData.Attachments = new string[] { "attachment1", "attachment2" };
-
-            _mockTestRunPublisher.Setup(q => q.StartTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<CancellationToken>()))
-                .Callback((TestRunData trd, CancellationToken cancellationToken) =>
+            List<TestRunData> mockTestRunData = new List<TestRunData>();
+            TestRunData testRunData1 = new TestRunData(new RunCreateModel("First"));
+            TestRunData testRunData2 = new TestRunData(new RunCreateModel("Second"));
+            var buildData1 = new BuildData()
+            {
+                BuildAttachments = new List<BuildAttachment>()
                 {
-                    var startedDate = DateTime.Parse(trd.StartDate, null, DateTimeStyles.RoundtripKind);
-                    var endedDate = DateTime.Parse(trd.CompleteDate, null, DateTimeStyles.RoundtripKind);
-                    Assert.Equal(resultsFiles.Count * testRunData.Results.Length * durationInMs, (endedDate - startedDate).TotalMilliseconds);
-                });
-            _mockTestRunPublisher.Setup(q => q.AddResultsAsync(It.IsAny<TestRun>(), It.IsAny<TestCaseResultData[]>(), It.IsAny<CancellationToken>()))
-                .Callback((TestRun testRun, TestCaseResultData[] tcrd, CancellationToken cancellationToken) =>
-                {
-                });
-            _mockTestRunPublisher.Setup(q => q.ReadResultsFromFile(It.IsAny<TestRunContext>(), It.IsAny<string>()))
-                .Returns(testRunData);
-            _mockTestRunPublisher.Setup(q => q.EndTestRunAsync(It.IsAny<TestRunData>(), It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
+                    new BuildAttachment() { AllowDuplicateUploads= true, Filename="file", Metadata= null, TestLogType=TestLogType.Intermediate, TestLogCompressionType = TestLogCompressionType.None }
+                }
+            };
 
-            resultCommand.ProcessCommand(_ec.Object, command);
+            var buildData2 = new BuildData()
+            {
+                BuildAttachments = new List<BuildAttachment>()
+                {
+                    new BuildAttachment() { AllowDuplicateUploads= true, Filename="file", Metadata= null, TestLogType=TestLogType.Intermediate, TestLogCompressionType = TestLogCompressionType.None }
+                }
+            };
+
+            mockTestRunData.Add(testRunData1);
+            mockTestRunData.Add(testRunData2);
+
+            return new TestDataProvider(new List<TestData>()
+            {
+                new TestData() { TestRunData = testRunData1, BuildData = buildData1},
+                new TestData() { TestRunData = testRunData2, BuildData = buildData1}
+            });
         }
 
-        private void SetupMocks([CallerMemberName] string name = "")
+
+        private TestHostContext SetupMocks([CallerMemberName] string name = "", bool includePipelineVariables = false)
         {
-            _hc = new TestHostContext(this, name);
-            _hc.SetSingleton(_mockResultReader.Object);
+            var _hc = new TestHostContext(this, name);
+            _hc.SetSingleton(new TaskRestrictionsChecker() as ITaskRestrictionsChecker);
+
+            _hc.SetSingleton(_mockTestRunDataPublisher.Object);
+            _hc.SetSingleton(_mockParser.Object);
+
+            _hc.SetSingleton(_mockCustomerIntelligenceServer.Object);
+            _hc.SetSingleton(_mockFeatureFlagService.Object);
 
             _mockExtensionManager = new Mock<IExtensionManager>();
-            _mockExtensionManager.Setup(x => x.GetExtensions<IResultReader>()).Returns(new List<IResultReader> { _mockResultReader.Object, new JUnitResultReader(), new NUnitResultReader() });
+            _mockExtensionManager.Setup(x => x.GetExtensions<IParser>()).Returns(new List<IParser> { _mockParser.Object, new JUnitParser(), new NUnitParser() });
             _hc.SetSingleton(_mockExtensionManager.Object);
-
-            _hc.SetSingleton(_mockTestRunPublisher.Object);
 
             _mockCommandContext = new Mock<IAsyncCommandContext>();
             _hc.EnqueueInstance(_mockCommandContext.Object);
@@ -273,9 +164,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             List<string> warnings;
             _variables = new Variables(_hc, new Dictionary<string, VariableValue>(), out warnings);
             _variables.Set("build.buildId", "1");
+            if(includePipelineVariables)
+            {
+                _variables.Set("system.jobName", "job1");
+                _variables.Set("system.phaseName", "phase1");
+                _variables.Set("system.stageName", "stage1");
+                _variables.Set("system.jobAttempt", "1");
+                _variables.Set("system.phaseAttempt", "1");
+                _variables.Set("system.stageAttempt", "1");
+            }
             endpointAuthorization.Parameters[EndpointAuthorizationParameters.AccessToken] = "accesstoken";
 
             _ec = new Mock<IExecutionContext>();
+            _ec.Setup(x => x.Restrictions).Returns(new List<TaskRestrictions>());
             _ec.Setup(x => x.Endpoints).Returns(new List<ServiceEndpoint> { new ServiceEndpoint { Url = new Uri("http://dummyurl"), Name = WellKnownServiceEndpointNames.SystemVssConnection, Authorization = endpointAuthorization } });
             _ec.Setup(x => x.Variables).Returns(_variables);
             var asyncCommands = new List<IAsyncCommandContext>();
@@ -293,6 +194,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
                     _errors.Add(issue.Message);
                 }
             });
+            _ec.Setup(x => x.GetHostContext()).Returns(_hc);
+
+            return _hc;
         }
     }
 }

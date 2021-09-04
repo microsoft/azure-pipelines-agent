@@ -1,5 +1,8 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Microsoft.VisualStudio.Services.Client;
 using Microsoft.VisualStudio.Services.Common;
 using System;
 using System.Net;
@@ -50,13 +53,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             // Create the Negotiate and NTLM credential object.
             var credential = new NetworkCredential(userName, password);
             var credentialCache = new CredentialCache();
-            switch (Constants.Agent.Platform)
+            switch (PlatformUtil.HostOS)
             {
-                case Constants.OSPlatform.Linux:
-                case Constants.OSPlatform.OSX:
+                case PlatformUtil.OS.Linux:
+                case PlatformUtil.OS.OSX:
                     credentialCache.Add(new Uri(url), "NTLM", credential);
                     break;
-                case Constants.OSPlatform.Windows:
+                case PlatformUtil.OS.Windows:
                     credentialCache.Add(new Uri(url), "Negotiate", credential);
                     break;
             }

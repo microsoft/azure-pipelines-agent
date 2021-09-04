@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -10,7 +13,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 {
     public sealed class TaskCommandExtensionL0
     {
-        private TestHostContext _hc;
         private Mock<IExecutionContext> _ec;
         private ServiceEndpoint _endpoint;
 
@@ -19,36 +21,40 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public void SetEndpointAuthParameter()
         {
-            SetupMocks();
-            TaskCommandExtension commandExtension = new TaskCommandExtension();
-            commandExtension.Initialize(_hc);
-            var cmd = new Command("task", "setEndpoint");
-            cmd.Data = "blah";
-            cmd.Properties.Add("field", "authParameter");
-            cmd.Properties.Add("id", Guid.Empty.ToString());
-            cmd.Properties.Add("key", "test");
+            using (var _hc = SetupMocks())
+            {
+                TaskCommandExtension commandExtension = new TaskCommandExtension();
+                commandExtension.Initialize(_hc);
+                var cmd = new Command("task", "setEndpoint");
+                cmd.Data = "blah";
+                cmd.Properties.Add("field", "authParameter");
+                cmd.Properties.Add("id", Guid.Empty.ToString());
+                cmd.Properties.Add("key", "test");
 
-            commandExtension.ProcessCommand(_ec.Object, cmd);
+                commandExtension.ProcessCommand(_ec.Object, cmd);
 
-            Assert.Equal(_endpoint.Authorization.Parameters["test"], "blah");
+                Assert.Equal(_endpoint.Authorization.Parameters["test"], "blah");
+            }
         }
-        
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
         public void SetEndpointDataParameter()
         {
-            SetupMocks();
-            TaskCommandExtension commandExtension = new TaskCommandExtension();
-            var cmd = new Command("task", "setEndpoint");
-            cmd.Data = "blah";
-            cmd.Properties.Add("field", "dataParameter");
-            cmd.Properties.Add("id", Guid.Empty.ToString());
-            cmd.Properties.Add("key", "test");
+            using (var _hc = SetupMocks())
+            {
+                TaskCommandExtension commandExtension = new TaskCommandExtension();
+                var cmd = new Command("task", "setEndpoint");
+                cmd.Data = "blah";
+                cmd.Properties.Add("field", "dataParameter");
+                cmd.Properties.Add("id", Guid.Empty.ToString());
+                cmd.Properties.Add("key", "test");
 
-            commandExtension.ProcessCommand(_ec.Object, cmd);
+                commandExtension.ProcessCommand(_ec.Object, cmd);
 
-            Assert.Equal(_endpoint.Data["test"], "blah");
+                Assert.Equal(_endpoint.Data["test"], "blah");
+            }
         }
 
         [Fact]
@@ -56,16 +62,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public void SetEndpointUrlParameter()
         {
-            SetupMocks();
-            TaskCommandExtension commandExtension = new TaskCommandExtension();
-            var cmd = new Command("task", "setEndpoint");
-            cmd.Data = "http://blah/";
-            cmd.Properties.Add("field", "url");
-            cmd.Properties.Add("id", Guid.Empty.ToString());
+            using (var _hc = SetupMocks())
+            {
+                TaskCommandExtension commandExtension = new TaskCommandExtension();
+                var cmd = new Command("task", "setEndpoint");
+                cmd.Data = "http://blah/";
+                cmd.Properties.Add("field", "url");
+                cmd.Properties.Add("id", Guid.Empty.ToString());
 
-            commandExtension.ProcessCommand(_ec.Object, cmd);
+                commandExtension.ProcessCommand(_ec.Object, cmd);
 
-            Assert.Equal(_endpoint.Url.ToString(), cmd.Data);
+                Assert.Equal(_endpoint.Url.ToString(), cmd.Data);
+            }
         }
 
         [Fact]
@@ -73,10 +81,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public void SetEndpointWithoutValue()
         {
-            SetupMocks();
-            TaskCommandExtension commandExtension = new TaskCommandExtension();
-            var cmd = new Command("task", "setEndpoint");
-            Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+            using (var _hc = SetupMocks())
+            {
+                TaskCommandExtension commandExtension = new TaskCommandExtension();
+                var cmd = new Command("task", "setEndpoint");
+                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+            }
         }
 
         [Fact]
@@ -84,11 +94,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public void SetEndpointWithoutEndpointField()
         {
-            SetupMocks();
-            TaskCommandExtension commandExtension = new TaskCommandExtension();
-            var cmd = new Command("task", "setEndpoint");
+            using (var _hc = SetupMocks())
+            {
+                TaskCommandExtension commandExtension = new TaskCommandExtension();
+                var cmd = new Command("task", "setEndpoint");
 
-            Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+            }
         }
 
         [Fact]
@@ -96,12 +108,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public void SetEndpointInvalidEndpointField()
         {
-            SetupMocks();
-            TaskCommandExtension commandExtension = new TaskCommandExtension();
-            var cmd = new Command("task", "setEndpoint");
-            cmd.Properties.Add("field", "blah");
+            using (var _hc = SetupMocks())
+            {
+                TaskCommandExtension commandExtension = new TaskCommandExtension();
+                var cmd = new Command("task", "setEndpoint");
+                cmd.Properties.Add("field", "blah");
 
-            Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+            }
         }
 
         [Fact]
@@ -109,12 +123,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public void SetEndpointWithoutEndpointId()
         {
-            SetupMocks();
-            TaskCommandExtension commandExtension = new TaskCommandExtension();
-            var cmd = new Command("task", "setEndpoint");
-            cmd.Properties.Add("field", "url");
+            using (var _hc = SetupMocks())
+            {
+                TaskCommandExtension commandExtension = new TaskCommandExtension();
+                var cmd = new Command("task", "setEndpoint");
+                cmd.Properties.Add("field", "url");
 
-            Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+            }
         }
 
         [Fact]
@@ -122,13 +138,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public void SetEndpointInvalidEndpointId()
         {
-            SetupMocks();
-            TaskCommandExtension commandExtension = new TaskCommandExtension();
-            var cmd = new Command("task", "setEndpoint");
-            cmd.Properties.Add("field", "url");
-            cmd.Properties.Add("id", "blah");
+            using (var _hc = SetupMocks())
+            {
+                TaskCommandExtension commandExtension = new TaskCommandExtension();
+                var cmd = new Command("task", "setEndpoint");
+                cmd.Properties.Add("field", "url");
+                cmd.Properties.Add("id", "blah");
 
-            Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+            }
         }
 
         [Fact]
@@ -136,13 +154,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public void SetEndpointIdWithoutEndpointKey()
         {
-            SetupMocks();
-            TaskCommandExtension commandExtension = new TaskCommandExtension();
-            var cmd = new Command("task", "setEndpoint");
-            cmd.Properties.Add("field", "authParameter");
-            cmd.Properties.Add("id", Guid.Empty.ToString());
+            using (var _hc = SetupMocks())
+            {
+                TaskCommandExtension commandExtension = new TaskCommandExtension();
+                var cmd = new Command("task", "setEndpoint");
+                cmd.Properties.Add("field", "authParameter");
+                cmd.Properties.Add("id", Guid.Empty.ToString());
 
-            Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+            }
         }
 
         [Fact]
@@ -150,19 +170,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public void SetEndpointUrlWithInvalidValue()
         {
-            SetupMocks();
-            TaskCommandExtension commandExtension = new TaskCommandExtension();
-            var cmd = new Command("task", "setEndpoint");
-            cmd.Data = "blah";
-            cmd.Properties.Add("field", "url");
-            cmd.Properties.Add("id", Guid.Empty.ToString());
+            using (var _hc = SetupMocks())
+            {
+                TaskCommandExtension commandExtension = new TaskCommandExtension();
+                var cmd = new Command("task", "setEndpoint");
+                cmd.Data = "blah";
+                cmd.Properties.Add("field", "url");
+                cmd.Properties.Add("id", Guid.Empty.ToString());
 
-            Assert.Throws<Exception>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+            }
         }
 
-        private void SetupMocks([CallerMemberName] string name = "")
+        private TestHostContext SetupMocks([CallerMemberName] string name = "")
         {
-            _hc = new TestHostContext(this, name);
+            var _hc = new TestHostContext(this, name);
+            _hc.SetSingleton(new TaskRestrictionsChecker() as ITaskRestrictionsChecker);
             _ec = new Mock<IExecutionContext>();
 
             _endpoint = new ServiceEndpoint()
@@ -176,6 +199,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             };
 
             _ec.Setup(x => x.Endpoints).Returns(new List<ServiceEndpoint> { _endpoint });
+            _ec.Setup(x => x.GetHostContext()).Returns(_hc);
+
+            return _hc;
         }
     }
 }

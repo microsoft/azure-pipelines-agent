@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
@@ -5,18 +8,19 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text;
+using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
-#if OS_WINDOWS
-    [ServiceLocator(Default = typeof(TFCommandManager))]
-#else
-    [ServiceLocator(Default = typeof(TeeCommandManager))]
-#endif
+    [ServiceLocator(
+        PreferredOnWindows = typeof(TFCommandManager),
+        Default = typeof(TeeCommandManager)
+    )]
     public interface ITfsVCCommandManager : IAgentService
     {
         CancellationToken CancellationToken { set; }
         ServiceEndpoint Endpoint { set; }
+        RepositoryResource Repository { set; }
         IExecutionContext ExecutionContext { set; }
         TfsVCFeatures Features { get; }
         string FilePath { get; }
@@ -55,9 +59,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public ServiceEndpoint Endpoint { protected get; set; }
 
+        public RepositoryResource Repository { protected get; set; }
+
         public IExecutionContext ExecutionContext { protected get; set; }
 
         public abstract TfsVCFeatures Features { get; }
+        public abstract string FilePath { get; }
 
         protected virtual Encoding OutputEncoding => null;
 
@@ -65,7 +72,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             get
             {
-                string version = GetEndpointData(Endpoint, Constants.EndpointData.SourceVersion);
+                string version = Repository?.Version ?? GetEndpointData(Endpoint, Constants.EndpointData.SourceVersion);
                 ArgUtil.NotNullOrEmpty(version, nameof(version));
                 return version;
             }
@@ -75,7 +82,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             get
             {
-                string sourcesDirectory = GetEndpointData(Endpoint, Constants.EndpointData.SourcesDirectory);
+                string sourcesDirectory = Repository?.Properties?.Get<string>(RepositoryPropertyNames.Path) ?? GetEndpointData(Endpoint, Constants.EndpointData.SourcesDirectory);
                 ArgUtil.NotNullOrEmpty(sourcesDirectory, nameof(sourcesDirectory));
                 return sourcesDirectory;
             }
@@ -126,7 +133,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 ExecutionContext.Command($@"tf {arguments}");
                 await processInvoker.ExecuteAsync(
                     workingDirectory: SourcesDirectory,
-                    fileName: "tf",
+                    fileName: FilePath,
                     arguments: arguments,
                     environment: AdditionalEnvironmentVariables,
                     requireExitCodeZero: true,
@@ -140,10 +147,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return RunPorcelainCommandAsync(FormatFlags.None, args);
         }
 
-        protected async Task<string> RunPorcelainCommandAsync(FormatFlags formatFlags, params string[] args)
+        protected Task<string> RunPorcelainCommandAsync(bool ignoreStderr, params string[] args)
+        {
+            return RunPorcelainCommandAsync(FormatFlags.None, ignoreStderr, args);
+        }
+
+        protected Task<string> RunPorcelainCommandAsync(FormatFlags formatFlags, params string[] args)
+        {
+            return RunPorcelainCommandAsync(formatFlags, false, args);
+        }
+
+        protected async Task<string> RunPorcelainCommandAsync(FormatFlags formatFlags, bool ignoreStderr, params string[] args)
         {
             // Run the command.
-            TfsVCPorcelainCommandResult result = await TryRunPorcelainCommandAsync(formatFlags, args);
+            TfsVCPorcelainCommandResult result = await TryRunPorcelainCommandAsync(formatFlags, ignoreStderr, args);
             ArgUtil.NotNull(result, nameof(result));
             if (result.Exception != null)
             {
@@ -157,7 +174,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return string.Join(Environment.NewLine, result.Output ?? new List<string>());
         }
 
-        protected async Task<TfsVCPorcelainCommandResult> TryRunPorcelainCommandAsync(FormatFlags formatFlags, params string[] args)
+        protected async Task<TfsVCPorcelainCommandResult> TryRunPorcelainCommandAsync(FormatFlags formatFlags, bool ignoreStderr, params string[] args)
         {
             // Validation.
             ArgUtil.NotNull(args, nameof(args));
@@ -180,8 +197,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 {
                     lock (outputLock)
                     {
-                        ExecutionContext.Debug(e.Data);
-                        result.Output.Add(e.Data);
+                        if (ignoreStderr)
+                        {
+                            ExecutionContext.Output(e.Data);
+                        }
+                        else
+                        {
+                            ExecutionContext.Debug(e.Data);
+                            result.Output.Add(e.Data);
+                        }
                     }
                 };
                 string arguments = FormatArguments(formatFlags, args);
@@ -191,7 +215,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 {
                     await processInvoker.ExecuteAsync(
                         workingDirectory: SourcesDirectory,
-                        fileName: "tf",
+                        fileName: FilePath,
                         arguments: arguments,
                         environment: AdditionalEnvironmentVariables,
                         requireExitCodeZero: true,
@@ -217,7 +241,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             ArgUtil.Equal(EndpointAuthorizationSchemes.OAuth, Endpoint.Authorization.Scheme, nameof(Endpoint.Authorization.Scheme));
             string accessToken = Endpoint.Authorization.Parameters.TryGetValue(EndpointAuthorizationParameters.AccessToken, out accessToken) ? accessToken : null;
             ArgUtil.NotNullOrEmpty(accessToken, EndpointAuthorizationParameters.AccessToken);
-            ArgUtil.NotNull(Endpoint.Url, nameof(Endpoint.Url));
+            ArgUtil.NotNull(Repository?.Url ?? Endpoint.Url, nameof(Endpoint.Url));
 
             // Format each arg.
             var formattedArgs = new List<string>();
@@ -238,7 +262,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             {
                 if (Features.HasFlag(TfsVCFeatures.EscapedUrl))
                 {
-                    formattedArgs.Add($"{Switch}collection:{Endpoint.Url.AbsoluteUri}");
+                    formattedArgs.Add($"{Switch}collection:{Repository?.Url?.AbsoluteUri ?? Endpoint.Url.AbsoluteUri}");
                 }
                 else
                 {
@@ -246,14 +270,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     string url;
                     try
                     {
-                        url = Uri.UnescapeDataString(Endpoint.Url.AbsoluteUri);
+                        url = Uri.UnescapeDataString(Repository?.Url?.AbsoluteUri ?? Endpoint.Url.AbsoluteUri);
                     }
                     catch (Exception ex)
                     {
                         // Unlikely (impossible?), but don't fail if encountered. If we don't hear complaints
                         // about this warning then it is likely OK to remove the try/catch altogether and have
                         // faith that UnescapeDataString won't throw for this scenario.
-                        url = Endpoint.Url.AbsoluteUri;
+                        url = Repository?.Url?.AbsoluteUri ?? Endpoint.Url.AbsoluteUri;
                         ExecutionContext.Warning($"{ex.Message} ({url})");
                     }
 

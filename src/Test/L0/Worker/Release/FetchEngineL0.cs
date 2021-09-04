@@ -1,4 +1,7 @@
-﻿using System;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -51,13 +54,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
         public async void ShouldDownloadAllTheFiles()
         {
             var stubContainerProvider = new StubContainerProvider(mockContainerItems, (item1, c) => mockItemContent);
-            var fetchEngine = GetFetchEngine(stubContainerProvider, CancellationToken.None);
+            using (var fetchEngine = GetFetchEngine(stubContainerProvider, CancellationToken.None))
+            {
+                Task fetchAsync = fetchEngine.FetchAsync(CancellationToken.None);
+                await fetchAsync;
 
-            Task fetchAsync = fetchEngine.FetchAsync(CancellationToken.None);
-            await fetchAsync;
-
-            Assert.Equal(1, stubContainerProvider.GetItemsAsynCounter);
-            Assert.Equal(mockContainerItems, stubContainerProvider.GetFileTaskArguments);
+                Assert.Equal(1, stubContainerProvider.GetItemsAsynCounter);
+                Assert.Equal(mockContainerItems, stubContainerProvider.GetFileTaskArguments);
+            }
         }
 
         [Fact]
@@ -78,12 +82,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
                     return mockItemContent;
                 });
             containerFetchEngineTestOptions.ParallelDownloadLimit = 1;
-            ContainerFetchEngine fetchEngine = GetFetchEngine(stubContainerProvider, CancellationToken.None);
+            using (var fetchEngine = GetFetchEngine(stubContainerProvider, CancellationToken.None))
+            {
+                Task fetchAsync = fetchEngine.FetchAsync(CancellationToken.None);
+                await fetchAsync;
 
-            Task fetchAsync = fetchEngine.FetchAsync(CancellationToken.None);
-            await fetchAsync;
-
-            Assert.Equal(0, concurrentAccessCount);
+                Assert.Equal(0, concurrentAccessCount);
+            }
         }
 
 /*
@@ -172,13 +177,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
                     Thread.Sleep(30);
                     return mockItemContent;
                 });
-            var cancellationTokenSource = new CancellationTokenSource();
-            ContainerFetchEngine fetchEngine = GetFetchEngine(stubContainerProvider, CancellationToken.None);
-            cancellationTokenSource.Cancel();
-            Task fetchAsync = fetchEngine.FetchAsync(cancellationTokenSource.Token);
-            await fetchAsync;
+            using (var cancellationTokenSource = new CancellationTokenSource())
+            using (var fetchEngine = GetFetchEngine(stubContainerProvider, CancellationToken.None))
+            {
+                cancellationTokenSource.Cancel();
+                Task fetchAsync = fetchEngine.FetchAsync(cancellationTokenSource.Token);
+                await fetchAsync;
 
-            Assert.Equal(0, stubContainerProvider.GetFileTaskArguments.Count);
+                Assert.Equal(0, stubContainerProvider.GetFileTaskArguments.Count);
+            }
         }
 
         private ContainerFetchEngine GetFetchEngine(StubContainerProvider stubContainerProvider, CancellationToken token)

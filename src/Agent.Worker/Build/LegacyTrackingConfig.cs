@@ -1,5 +1,9 @@
-﻿using System;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System;
 using Newtonsoft.Json;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -12,13 +16,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public static LegacyTrackingConfig TryParse(string content)
         {
+            ArgUtil.NotNull(content, nameof(content));
             // Fix the content to be valid JSON syntax. The file version 1 files
             // were written as:
-            //     { 
-            //         "system"" : "[...]", 
-            //         "collectionId"" = "[...]", 
-            //         "definitionId"" = "[...]", 
-            //         "repositoryUrl"" = "[...]", 
+            //     {
+            //         "system"" : "[...]",
+            //         "collectionId"" = "[...]",
+            //         "definitionId"" = "[...]",
+            //         "repositoryUrl"" = "[...]",
             //         "sourceFolder" = "[...]",
             //         "hashKey" = "[...]"
             //     }

@@ -1,4 +1,6 @@
-#if OS_WINDOWS
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.Agent.Listener;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -13,6 +15,8 @@ using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
 {
+    [Trait("SkipOn", "darwin")]
+    [Trait("SkipOn", "linux")]
     public sealed class AgentAutoLogonTestL0
     {
         private Mock<INativeWindowsServiceHelper> _windowsServiceHelper;
@@ -27,7 +31,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         private string _sidForDifferentUser = "007";
         private string _userName = "ironMan";
         private string _domainName = "avengers";
-        
+        private string _runOnce = "";
+
         private bool _powerCfgCalledForACOption = false;
         private bool _powerCfgCalledForDCOption = false;
 
@@ -39,6 +44,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             using (var hc = new TestHostContext(this))
             {
                 _domainName = "avengers";
+                _runOnce = "";
                 SetupTestEnv(hc, _sid);
 
                 var iConfigManager = new AutoLogonManager();
@@ -54,18 +60,44 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
+        public async void TestAutoLogonRunOnce()
+        {
+            using (var hc = new TestHostContext(this))
+            {
+                _domainName = "avengers";
+                _runOnce = "--once";
+                SetupTestEnv(hc, _sid);
+                SetupRegistrySettings(_sid);
+
+                var iConfigManager = new AutoLogonManager();
+                iConfigManager.Initialize(hc);
+                await iConfigManager.ConfigureAsync(_command);
+
+                VerifyRegistryChanges(_sid);
+
+                iConfigManager.Unconfigure();
+
+                //original values were reverted
+                RegistryVerificationForUnConfigure(_sid);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Agent")]
         public async void TestAutoLogonConfigurationForDotAsDomainName()
         {
             using (var hc = new TestHostContext(this))
             {
                 // Set the domain name to '.'
                 _domainName = ".";
+                _runOnce = "";
                 SetupTestEnv(hc, _sid);
 
                 var iConfigManager = new AutoLogonManager();
                 iConfigManager.Initialize(hc);
                 await iConfigManager.ConfigureAsync(_command);
-                
+
                 // Domain should have been set to Environment.Machine name in case the value passsed was '.'
                 _domainName = Environment.MachineName;
 
@@ -88,7 +120,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 var iConfigManager = new AutoLogonManager();
                 iConfigManager.Initialize(hc);
                 await iConfigManager.ConfigureAsync(_command);
-                
+
                 VerifyRegistryChanges(_sidForDifferentUser);
                 Assert.True(_powerCfgCalledForACOption);
                 Assert.True(_powerCfgCalledForDCOption);
@@ -117,7 +149,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
 
                 // Debugger.Launch();
                 iConfigManager.Unconfigure();
-                
+
                 //original values were reverted
                 RegistryVerificationForUnConfigure(_sid);
             }
@@ -145,7 +177,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 var iConfigManager = new AutoLogonManager();
                 iConfigManager.Initialize(hc);
                 await iConfigManager.ConfigureAsync(_command);
-                
+
                 iConfigManager.Unconfigure();
 
                 //original values were reverted
@@ -167,7 +199,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         }
 
         private void SetupRegistrySettings(string securityId)
-        {   
+        {
             //screen saver (user specific)
             _mockRegManager.SetValue(RegistryHive.Users, $"{securityId}\\{RegistryConstants.UserSettings.SubKeys.ScreenSaver}", RegistryConstants.UserSettings.ValueNames.ScreenSaver, "1");
         }
@@ -182,8 +214,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
 
             _promptManager = new Mock<IPromptManager>();
             hc.SetSingleton<IPromptManager>(_promptManager.Object);
-
-            hc.SetSingleton<IWhichUtil>(new WhichUtil());
 
             _promptManager
                 .Setup(x => x.ReadValue(
@@ -205,16 +235,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             hc.EnqueueInstance<IProcessInvoker>(_processInvoker.Object);
 
             _processInvoker.Setup(x => x.ExecuteAsync(
-                                                It.IsAny<String>(), 
-                                                "powercfg.exe", 
+                                                It.IsAny<String>(),
+                                                "powercfg.exe",
                                                 "/Change monitor-timeout-ac 0",
                                                 null,
                                                 It.IsAny<CancellationToken>())).Returns(Task.FromResult<int>(SetPowerCfgFlags(true)));
 
             _processInvoker.Setup(x => x.ExecuteAsync(
-                                                It.IsAny<String>(), 
-                                                "powercfg.exe", 
-                                                "/Change monitor-timeout-dc 0", 
+                                                It.IsAny<String>(),
+                                                "powercfg.exe",
+                                                "/Change monitor-timeout-dc 0",
                                                 null,
                                                 It.IsAny<CancellationToken>())).Returns(Task.FromResult<int>(SetPowerCfgFlags(false)));
 
@@ -225,22 +255,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 hc,
                 new[]
                 {
+                    "configure",
                     "--windowslogonaccount", "wont be honored",
                     "--windowslogonpassword", "sssh",
-                    "--norestart"
+                    "--norestart",
+                    _runOnce
                 });
-            
+
             _store = new Mock<IConfigurationStore>();
             _store.Setup(x => x.SaveAutoLogonSettings(It.IsAny<AutoLogonSettings>()))
                 .Callback((AutoLogonSettings settings) =>
                 {
                     _autoLogonSettings = settings;
                 });
-            
+
             _store.Setup(x => x.IsAutoLogonConfigured()).Returns(() => _autoLogonSettings != null);
             _store.Setup(x => x.GetAutoLogonSettings()).Returns(() => _autoLogonSettings);
 
-            
+
 
             hc.SetSingleton<IConfigurationStore>(_store.Object);
 
@@ -275,17 +307,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             ValidateRegistryValue(RegistryHive.LocalMachine,
                                     RegistryConstants.MachineSettings.SubKeys.AutoLogon,
                                     RegistryConstants.MachineSettings.ValueNames.AutoLogonDomainName,
-                                    _domainName);   
+                                    _domainName);
 
             ValidateRegistryValue(RegistryHive.LocalMachine,
                                     RegistryConstants.MachineSettings.SubKeys.AutoLogon,
                                     RegistryConstants.MachineSettings.ValueNames.AutoLogonPassword,
                                     null);
-            
+
             ValidateRegistryValue(RegistryHive.Users,
                                     $"{securityId}\\{RegistryConstants.UserSettings.SubKeys.ScreenSaver}",
                                     RegistryConstants.UserSettings.ValueNames.ScreenSaver,
                                     "0");
+
+            // verify the startup process key is defined and contains --once if appropriate
+            var startup = _mockRegManager.GetValue(
+                RegistryHive.Users,
+                $"{securityId}\\{RegistryConstants.UserSettings.SubKeys.StartupProcess}",
+                RegistryConstants.UserSettings.ValueNames.StartupProcess);
+            Assert.False(String.IsNullOrEmpty(startup), "Startup key should not be empty");
+
+            Assert.True(startup.Contains(_runOnce), "Startup key should match the runOnce setting");
         }
 
         public void ValidateRegistryValue(RegistryHive hive, string subKeyName, string name, string expectedValue)
@@ -322,7 +363,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             else
             {
                 _regStore.Add(key, value);
-            }            
+            }
         }
 
         public void DeleteValue(RegistryHive hive, string subKeyName, string name)
@@ -337,4 +378,3 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         }
     }
 }
-#endif

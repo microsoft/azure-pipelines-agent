@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -6,6 +9,7 @@ using Microsoft.TeamFoundation.DistributedTask.Expressions;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
+using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -28,6 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public bool ContinueOnError => false;
         public bool Enabled => true;
         public TimeSpan? Timeout => null;
+        public Pipelines.StepTarget Target => null;
 
         public string AccessToken { get; set; }
         public IExecutionContext ExecutionContext { get; set; }
@@ -55,15 +60,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Create the handler.
             var handlerFactory = HostContext.GetService<IHandlerFactory>();
             var handler = (PowerShellExeHandler)handlerFactory.Create(
-                ExecutionContext,
-                stepHost,
-                ExecutionContext.Endpoints,
-                new List<SecureFile>(0),
-                handlerData,
+                executionContext: ExecutionContext,
+                task: null,
+                stepHost: stepHost,
+                endpoints: ExecutionContext.Endpoints,
+                secureFiles: new List<SecureFile>(0),
+                data: handlerData,
                 inputs: new Dictionary<string, string>(),
                 environment: new Dictionary<string, string>(VarUtil.EnvironmentVariableKeyComparer),
-                taskDirectory: scriptDirectory,
-                filePathInputRootDirectory: string.Empty);
+                runtimeVariables: ExecutionContext.Variables,
+                taskDirectory: scriptDirectory);
 
             // Add the access token to the handler.
             handler.AccessToken = AccessToken;

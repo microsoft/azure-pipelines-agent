@@ -1,4 +1,7 @@
-﻿using Microsoft.VisualStudio.Services.Agent.Util;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Security.Cryptography;
 using System.IO;
@@ -138,15 +141,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 {
                     processInvoker.OutputDataReceived += OnOutputDataReceived;
                     processInvoker.ErrorDataReceived += OnErrorDataReceived;
-                    int exitCode = await processInvoker.ExecuteAsync(
-                        workingDirectory: workingDirectory,
-                        fileName: powerShellExe,
-                        arguments: powerShellExeArgs,
-                        environment: Environment,
-                        requireExitCodeZero: false,
-                        outputEncoding: null,
-                        killProcessOnCancel: false,
-                        cancellationToken: ExecutionContext.CancellationToken);
+                    int exitCode = await processInvoker.ExecuteAsync(workingDirectory: workingDirectory,
+                                                                     fileName: powerShellExe,
+                                                                     arguments: powerShellExeArgs,
+                                                                     environment: Environment,
+                                                                     requireExitCodeZero: false,
+                                                                     outputEncoding: null,
+                                                                     killProcessOnCancel: false,
+                                                                     redirectStandardIn: null,
+                                                                     inheritConsoleHandler: !ExecutionContext.Variables.Retain_Default_Encoding,
+                                                                     cancellationToken: ExecutionContext.CancellationToken);
                     FlushErrorData();
 
                     // Fail on error count.
@@ -158,14 +162,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                         }
                         else
                         {
-                            throw new Exception(StringUtil.Loc("ProcessCompletedWithCode0Errors1", exitCode, _errorCount));
+                            throw new InvalidOperationException(StringUtil.Loc("ProcessCompletedWithCode0Errors1", exitCode, _errorCount));
                         }
                     }
 
                     // Fail on non-zero exit code.
                     if (exitCode != 0)
                     {
-                        throw new Exception(StringUtil.Loc("ProcessCompletedWithExitCode0", exitCode));
+                        throw new InvalidOperationException(StringUtil.Loc("ProcessCompletedWithExitCode0", exitCode));
                     }
                 }
             }

@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Xunit;
 
@@ -43,11 +46,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
         }
 
 
-#if OS_WINDOWS
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "ArgumentValidator")]
-#endif
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
         public void WindowsLogonAccountValidator()
         {
             using (TestHostContext hc = new TestHostContext(this))

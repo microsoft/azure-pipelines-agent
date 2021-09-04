@@ -8,6 +8,7 @@ $ErrorActionPreference = 'Stop'
 . $PSScriptRoot\PathFunctions
 . $PSScriptRoot\RegistryFunctions
 . $PSScriptRoot\VisualStudioFunctions
+. $PSScriptRoot\VersionFunctions
 
 # Export the public functions.
 Export-ModuleMember -Function @(
@@ -15,6 +16,7 @@ Export-ModuleMember -Function @(
     'Add-CapabilityFromApplication'
     'Add-CapabilityFromEnvironment'
     'Add-CapabilityFromRegistry'
+    'Add-CapabilityFromRegistryWithLastVersionAvailable'
     'Write-Capability'
     # File system functions with tracing built-in.
     'Test-Container'
@@ -24,5 +26,5 @@ Export-ModuleMember -Function @(
     'Get-RegistryValue'
     'Get-RegistryValueNames'
     # Visual Studio functions.
-    'Get-VisualStudio_15_0'
+    'Get-VisualStudio'
 )

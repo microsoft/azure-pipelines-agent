@@ -1,4 +1,7 @@
-﻿using Microsoft.TeamFoundation.DistributedTask.WebApi;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage;
@@ -20,7 +23,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
 
         [Fact]
         [Trait("Level", "L0")]
-        [Trait("Category", "PublishCodeCoverage")]        
+        [Trait("Category", "PublishCodeCoverage")]
         public void VerifyCoberturaCoverageStatisticsForValidSummaryFile()
         {
             string coberturaXml = GetPathToValidCoberturaFile();
@@ -165,6 +168,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
             Assert.Equal(8, (int)coverageStats[1].Total);
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "TestHostContext")]
         private void SetupMocks([CallerMemberName] string name = "")
         {
             TestHostContext hc = new TestHostContext(this, name);

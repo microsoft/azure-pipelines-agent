@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Threading.Tasks;
 
 using Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts.Definition;

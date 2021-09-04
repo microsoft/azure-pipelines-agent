@@ -1,4 +1,7 @@
-﻿using Microsoft.TeamFoundation.Build.WebApi;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Build;
@@ -19,12 +22,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
         /// <summary>
         /// publish codecoverage summary data to server
         /// </summary>
-        Task PublishCodeCoverageSummaryAsync(IEnumerable<CodeCoverageStatistics> coverageData, string project, CancellationToken cancellationToken);
+        Task PublishCodeCoverageSummaryAsync(IAsyncCommandContext context, IEnumerable<CodeCoverageStatistics> coverageData, string project, CancellationToken cancellationToken);
 
         /// <summary>
         /// publish codecoverage files to server
         /// </summary>
-        Task PublishCodeCoverageFilesAsync(IAsyncCommandContext context, Guid projectId, long containerId, List<Tuple<string, string>> files, bool browsable, CancellationToken cancellationToken);
+        Task PublishCodeCoverageFilesAsync(IAsyncCommandContext context, Guid projectId, string jobId, long containerId, List<Tuple<string, string>> files, bool browsable, CancellationToken cancellationToken);
     }
 
     public sealed class CodeCoveragePublisher : AgentService, ICodeCoveragePublisher
@@ -41,12 +44,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
             _codeCoverageServer = HostContext.GetService<ICodeCoverageServer>();
         }
 
-        public async Task PublishCodeCoverageSummaryAsync(IEnumerable<CodeCoverageStatistics> coverageData, string project, CancellationToken cancellationToken)
+        public async Task PublishCodeCoverageSummaryAsync(IAsyncCommandContext context, IEnumerable<CodeCoverageStatistics> coverageData, string project, CancellationToken cancellationToken)
         {
-            await _codeCoverageServer.PublishCoverageSummaryAsync(_connection, project, _buildId, coverageData, cancellationToken);
+            await _codeCoverageServer.PublishCoverageSummaryAsync(context, _connection, project, _buildId, coverageData, cancellationToken);
         }
 
-        public async Task PublishCodeCoverageFilesAsync(IAsyncCommandContext context, Guid projectId, long containerId, List<Tuple<string, string>> files, bool browsable, CancellationToken cancellationToken)
+        public async Task PublishCodeCoverageFilesAsync(IAsyncCommandContext context, Guid projectId, string jobId, long containerId, List<Tuple<string, string>> files, bool browsable, CancellationToken cancellationToken)
         {
             var publishCCTasks = files.Select(async file =>
             {
@@ -58,12 +61,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
                     { ArtifactAssociateEventProperties.Browsable, browsableProperty },
                 };
 
-                FileContainerServer fileContainerHelper = new FileContainerServer(_connection, projectId, containerId, file.Item2);
+                var fileContainerHelper = new FileContainerServer(_connection, projectId, containerId, file.Item2);
                 await fileContainerHelper.CopyToContainerAsync(context, file.Item1, cancellationToken);
-                string fileContainerFullPath = StringUtil.Format($"#/{containerId}/{file.Item2}");
+                var fileContainerFullPath = StringUtil.Format($"#/{containerId}/{file.Item2}");
 
-                Build.BuildServer buildHelper = new Build.BuildServer(_connection, projectId);
-                var artifact = await buildHelper.AssociateArtifact(_buildId, file.Item2, ArtifactResourceTypes.Container, fileContainerFullPath, artifactProperties, cancellationToken);
+                var buildHelper = context.GetHostContext().GetService<IBuildServer>();
+                await buildHelper.ConnectAsync(_connection);
+                var artifact = await buildHelper.AssociateArtifactAsync(_buildId, projectId, file.Item2, jobId, ArtifactResourceTypes.Container, fileContainerFullPath, artifactProperties, cancellationToken);
                 context.Output(StringUtil.Loc("PublishedCodeCoverageArtifact", file.Item1, file.Item2));
             });
 

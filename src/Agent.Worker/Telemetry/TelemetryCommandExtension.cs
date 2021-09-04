@@ -1,54 +1,38 @@
-using Microsoft.TeamFoundation.TestManagement.WebApi;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.WebPlatform;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net.Http;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
 {
-    public class TelemetryCommandExtension : AgentService, IWorkerCommandExtension
+    public class TelemetryCommandExtension: BaseWorkerCommandExtension
     {
-        public HostTypes SupportedHostTypes => HostTypes.All;
-
-        public void ProcessCommand(IExecutionContext context, Command command)
+        public TelemetryCommandExtension()
         {
-            if (string.Equals(command.Event, WellKnownEventTrackCommand.Publish, StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessPublishTelemetryCommand(context, command.Properties, command.Data);
-            }
-            else
-            {
-                throw new Exception(StringUtil.Loc("TelemetryCommandNotFound", command.Event));
-            }
+            CommandArea = "telemetry";
+            SupportedHostTypes = HostTypes.All;
+            InstallWorkerCommand(new PublishTelemetryCommand());
         }
+    }
 
-        public Type ExtensionType
-        {
-            get
-            {
-                return typeof(IWorkerCommandExtension);
-            }
-        }
+    [CommandRestriction(AllowedInRestrictedMode=true)]
+    public sealed class PublishTelemetryCommand: IWorkerCommand
+    {
+        public string Name => "publish";
+        public List<string> Aliases => null;
 
-        public string CommandArea
-        {
-            get
-            {
-                return "telemetry";
-            }
-        }
-
-        private void ProcessPublishTelemetryCommand(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
+        public void Execute(IExecutionContext context, Command command)
         {
             ArgUtil.NotNull(context, nameof(context));
-
+            ArgUtil.NotNull(command, nameof(command));
+            Dictionary<string, string> eventProperties = command.Properties;
+            string data = command.Data;
             string area;
             if (!eventProperties.TryGetValue(WellKnownEventTrackProperties.Area, out area) || string.IsNullOrEmpty(area))
             {
@@ -82,11 +66,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
                 throw new ArgumentException(StringUtil.Loc("TelemetryCommandDataError", data, ex.Message));
             }
 
+            PublishEvent(context, ciEvent);
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "GetVssConnection")]
+        public void PublishEvent(IExecutionContext context, CustomerIntelligenceEvent ciEvent)
+        {
             ICustomerIntelligenceServer ciService;
             VssConnection vssConnection;
             try
             {
-                ciService = HostContext.GetService<ICustomerIntelligenceServer>();
+                ciService = context.GetHostContext().GetService<ICustomerIntelligenceServer>();
                 vssConnection = WorkerUtilities.GetVssConnection(context);
                 ciService.Initialize(vssConnection);
             }
@@ -96,7 +86,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
                 return;
             }
 
-            var commandContext = HostContext.CreateService<IAsyncCommandContext>();
+            var commandContext = context.GetHostContext().CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("Telemetry"));
             commandContext.Task = PublishEventsAsync(context, ciService, ciEvent);
         }
@@ -113,10 +103,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
             }
         }
 
-        internal static class WellKnownEventTrackCommand
-        {
-            internal static readonly string Publish = "publish";
-        }
 
         internal static class WellKnownEventTrackProperties
         {

@@ -1,9 +1,17 @@
-﻿using Microsoft.VisualStudio.Services.Agent.Util;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
+using Agent.Sdk.Knob;
+using CommandLine;
+using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
@@ -12,6 +20,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
     {
         public static int Main(string[] args)
         {
+            if (PlatformUtil.UseLegacyHttpHandler)
+            {
+                AppContext.SetSwitch("System.Net.Http.UseSocketsHttpHandler", false);
+            }
+
             using (HostContext context = new HostContext("Agent"))
             {
                 return MainAsync(context, args).GetAwaiter().GetResult();
@@ -23,45 +36,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         // 1: Terminate failure
         // 2: Retriable failure
         // 3: Exit for self update
-        public async static Task<int> MainAsync(IHostContext context, string[] args)
+        private async static Task<int> MainAsync(IHostContext context, string[] args)
         {
             Tracing trace = context.GetTrace("AgentProcess");
-            trace.Info($"Agent is built for {Constants.Agent.Platform} - {BuildConstants.AgentPackage.PackageName}.");
+            trace.Info($"Agent package {BuildConstants.AgentPackage.PackageName}.");
+            trace.Info($"Running on {PlatformUtil.HostOS} ({PlatformUtil.HostArchitecture}).");
             trace.Info($"RuntimeInformation: {RuntimeInformation.OSDescription}.");
+            context.WritePerfCounter("AgentProcessStarted");
             var terminal = context.GetService<ITerminal>();
 
-            // Validate the binaries intended for one OS are not running on a different OS.
-            switch (Constants.Agent.Platform)
-            {
-                case Constants.OSPlatform.Linux:
-                    if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                    {
-                        terminal.WriteLine(StringUtil.Loc("NotLinux"));
-                        return Constants.Agent.ReturnCode.TerminatedError;
-                    }
-                    break;
-                case Constants.OSPlatform.OSX:
-                    if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                    {
-                        terminal.WriteLine(StringUtil.Loc("NotOSX"));
-                        return Constants.Agent.ReturnCode.TerminatedError;
-                    }
-                    break;
-                case Constants.OSPlatform.Windows:
-                    if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                    {
-                        terminal.WriteLine(StringUtil.Loc("NotWindows"));
-                        return Constants.Agent.ReturnCode.TerminatedError;
-                    }
-                    break;
-                default:
-                    terminal.WriteLine(StringUtil.Loc("PlatformNotSupport", RuntimeInformation.OSDescription, Constants.Agent.Platform.ToString()));
-                    return Constants.Agent.ReturnCode.TerminatedError;
-            }
+            // TODO: check that the right supporting tools are available for this platform
+            // (replaces the check for build platform vs runtime platform)
 
             try
             {
-                trace.Info($"Version: {Constants.Agent.Version}");
+                trace.Info($"Version: {BuildConstants.AgentPackage.Version}");
                 trace.Info($"Commit: {BuildConstants.Source.CommitHash}");
                 trace.Info($"Culture: {CultureInfo.CurrentCulture.Name}");
                 trace.Info($"UI Culture: {CultureInfo.CurrentUICulture.Name}");
@@ -80,28 +69,49 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     return Constants.Agent.ReturnCode.TerminatedError;
                 }
 
-#if OS_WINDOWS
-                // Validate PowerShell 3.0 or higher is installed.
-                var powerShellExeUtil = context.GetService<IPowerShellExeUtil>();
-                try
+                if (PlatformUtil.UseLegacyHttpHandler)
                 {
-                    powerShellExeUtil.GetPath();
-                }
-                catch (Exception e)
-                {
-                    terminal.WriteError(StringUtil.Loc("ErrorOccurred", e.Message));
-                    trace.Error(e);
-                    return Constants.Agent.ReturnCode.TerminatedError;
+                    trace.Warning($"You are using the legacy HTTP handler because you set ${AgentKnobs.LegacyHttpVariableName}.");
+                    trace.Warning($"This feature will go away with .NET 5.0, and we recommend you don't use it.");
+                    trace.Warning($"If you continue using it, you must ensure libcurl is installed on your system.");
                 }
 
-                // Validate .NET Framework 4.5 or higher is installed.
-                var netFrameworkUtil = context.GetService<INetFrameworkUtil>();
-                if (!netFrameworkUtil.Test(new Version(4, 5)))
+                if (PlatformUtil.RunningOnWindows)
                 {
-                    terminal.WriteError(StringUtil.Loc("MinimumNetFramework"));
-                    return Constants.Agent.ReturnCode.TerminatedError;
+                    // Validate PowerShell 3.0 or higher is installed.
+                    var powerShellExeUtil = context.GetService<IPowerShellExeUtil>();
+                    try
+                    {
+                        powerShellExeUtil.GetPath();
+                    }
+                    catch (Exception e)
+                    {
+                        terminal.WriteError(StringUtil.Loc("ErrorOccurred", e.Message));
+                        trace.Error(e);
+                        return Constants.Agent.ReturnCode.TerminatedError;
+                    }
+
+                    // Validate .NET Framework 4.5 or higher is installed.
+                    if (!NetFrameworkUtil.Test(new Version(4, 5), trace))
+                    {
+                        terminal.WriteError(StringUtil.Loc("MinimumNetFramework"));
+                        // warn only, like configurationmanager.cs does. this enables windows edition with just .netcore to work
+                    }
+
+                    // Upgrade process priority to avoid Listener starvation
+                    using (Process p = Process.GetCurrentProcess())
+                    {
+                        try
+                        {
+                            p.PriorityClass = ProcessPriorityClass.AboveNormal;
+                        }
+                        catch(Exception e)
+                        {
+                            trace.Warning("Unable to change Windows process priority");
+                            trace.Warning(e.Message);
+                        }
+                    }
                 }
-#endif
 
                 // Add environment variables from .env file
                 string envFile = Path.Combine(context.GetDirectory(WellKnownDirectory.Root), ".env");
@@ -120,14 +130,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 }
 
                 // Parse the command line args.
-                var command = new CommandSettings(context, args);
+                var command = new CommandSettings(context, args, new SystemEnvironment());
                 trace.Info("Arguments parsed");
 
-                // Up front validation, warn for unrecognized commandline args.
-                var unknownCommandlines = command.Validate();
-                if (unknownCommandlines.Count > 0)
+                // Print any Parse Errros
+                if (command.ParseErrors?.Any() == true)
                 {
-                    terminal.WriteError(StringUtil.Loc("UnrecognizedCmdArgs", string.Join(", ", unknownCommandlines)));
+                    List<string> errorStr = new List<string>();
+
+                    foreach (var error in command.ParseErrors)
+                    {
+                        if (error is TokenError tokenError)
+                        {
+                            errorStr.Add(tokenError.Token);
+                        }
+                        else
+                        {
+                            // Unknown type of error dump to log
+                            terminal.WriteError(StringUtil.Loc("ErrorOccurred", error.Tag));
+                        }
+                    }
+
+                    terminal.WriteError(
+                        StringUtil.Loc("UnrecognizedCmdArgs",
+                        string.Join(", ", errorStr)));
                 }
 
                 // Defer to the Agent class to execute the command.

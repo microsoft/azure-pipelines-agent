@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Globalization;
 using System.Threading;
@@ -47,7 +50,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             }
             else 
             {
-                throw new Exception(StringUtil.Loc("RMApiFailure", url, response.StatusCode));
+                throw new InvalidOperationException(StringUtil.Loc("RMApiFailure", url, response.StatusCode));
             }
         }
 

@@ -1,3 +1,7 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.Win32;
 using System;
@@ -19,12 +23,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
             var capabilities = new List<Capability>();
             Add(capabilities, "Agent.Name", settings.AgentName ?? string.Empty);
             Add(capabilities, "Agent.OS", VarUtil.OS);
-#if OS_WINDOWS
-            Add(capabilities, "Agent.OSVersion", GetOSVersionString());
-            Add(capabilities, "Cmd", Environment.GetEnvironmentVariable("comspec"));
-#endif
+            Add(capabilities, "Agent.OSArchitecture", VarUtil.OSArchitecture);
+            if (PlatformUtil.RunningOnWindows)
+            {
+                Add(capabilities, "Agent.OSVersion", GetOSVersionString());
+                Add(capabilities, "Cmd", Environment.GetEnvironmentVariable("comspec"));
+            } 
+            else if (PlatformUtil.RunningOnMacOS)
+            {
+                Add(capabilities, "Agent.OSVersion", GetDarwinVersionString());
+            }
             Add(capabilities, "InteractiveSession", (HostContext.StartupType != StartupType.Service).ToString());
-            Add(capabilities, "Agent.Version", Constants.Agent.Version);
+            Add(capabilities, "Agent.Version", BuildConstants.AgentPackage.Version);
             Add(capabilities, "Agent.ComputerName", Environment.MachineName ?? string.Empty);
             Add(capabilities, "Agent.HomeDirectory", HostContext.GetDirectory(WellKnownDirectory.Root));
             return Task.FromResult(capabilities);
@@ -80,6 +90,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
             // was unreliable and "CurrentBuildNumber" was the correct choice.
             string build = GetHklmValue(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion", "CurrentBuildNumber") as string;
             return StringUtil.Format("{0}.{1}", majorMinorString, build);
+        }
+        
+       // 10.0 covers all versions prior to Darwin 5
+       // Mac OS X 10.1 mapped to Darwin 5.x, and the mapping continues that way
+       // So just subtract 4 from the Darwin version.
+       // https://en.wikipedia.org/wiki/Darwin_%28operating_system%29
+       // with Big Sur Apple made the jump from 10.* to 11.* that means that
+       // the version reported from that point is 20.1.0.0 for 11.0.1
+        private static string GetDarwinVersionString()
+        {
+            // from .net 5 onwards the runtime returns the product version instead of the darwin kernel version
+            var version = Environment.OSVersion.Version;
+            if (Environment.Version.Major >= 5)
+            {
+                return $"{version.Major}.{version.Minor}";
+            }
+
+            if (version.Major < 5)
+            {
+                return "10.0";
+            }
+            if (version.Major - 4 <= 15)
+            {
+                return $"10.{version.Major - 4}";
+            }
+            else
+            {
+                return $"11.{version.Major - 20}";
+            }
         }
     }
 }

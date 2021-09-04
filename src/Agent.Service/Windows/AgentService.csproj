@@ -26,6 +26,8 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <UseVSHostingProcess>false</UseVSHostingProcess>
+    <SignAssembly>false</SignAssembly>
+    <DelaySign>false</DelaySign>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -67,9 +69,27 @@
     <None Include="FinalPublicKey.snk" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Resource.de-de.resx">
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resource.es-es.resx">
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resource.fr-fr.resx">
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resource.it-IT.resx">
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resource.ja-jp.resx">
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resource.ko-KR.resx">
+    </EmbeddedResource>
     <EmbeddedResource Include="Resource.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resource.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resource.ru-RU.resx">
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resource.zh-CN.resx">
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resource.zh-TW.resx">
     </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
@@ -80,4 +100,7 @@
   <Target Name="AfterBuild">
   </Target>
   -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.8" Condition="$(CodeAnalysis)=='true'" />
+  </ItemGroup>
 </Project>

@@ -1,0 +1,16 @@
+# This workflow ensures that all PRs are correctly labeled
+
+name: LabelChecker
+on: [pull_request]
+
+jobs:
+  label:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - run: |
+        cd .github/labelChecker
+        npm install
+        node index.js

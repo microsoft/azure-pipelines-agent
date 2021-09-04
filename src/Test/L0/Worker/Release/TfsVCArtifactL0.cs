@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -127,7 +130,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
             _ec.Setup(x => x.Variables).Returns(_variables);
             _extensionManager.Setup(x => x.GetExtensions<ISourceProvider>())
                 .Returns(new List<ISourceProvider> { _sourceProvider.Object });
-            _sourceProvider.Setup(x => x.RepositoryType).Returns(RepositoryTypes.TfsVersionControl);
+            _sourceProvider.Setup(x => x.RepositoryType).Returns(Microsoft.TeamFoundation.DistributedTask.Pipelines.RepositoryTypes.Tfvc);
 
             return hc;
         }

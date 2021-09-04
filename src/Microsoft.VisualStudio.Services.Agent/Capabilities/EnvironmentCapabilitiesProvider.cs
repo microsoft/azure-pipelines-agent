@@ -1,3 +1,7 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -22,6 +26,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
             "TERM_PROGRAM",
             "TERM_PROGRAM_VERSION",
             "SHLVL",
+            //This some be set by the standard powershell host initialisation. There are some  
+            //tools that set this resulting in the standard powershell initialisation failing
+            "PSMODULEPATH",
+            // the agent doesn't set this, but we have seen instances in the wild where
+            // a customer has pre-configured this somehow. it's almost certain to contain
+            // secrets that shouldn't be exposed as capabilities, so for defense in depth,
+            // add it to the exclude list.
+            "SYSTEM_ACCESSTOKEN",
         };
 
         public Type ExtensionType => typeof(ICapabilitiesProvider);
@@ -34,11 +46,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
             var capabilities = new List<Capability>();
 
             // Initialize the ignored hash set.
-#if OS_WINDOWS
-            var comparer = StringComparer.OrdinalIgnoreCase;
-#else
             var comparer = StringComparer.Ordinal;
-#endif
+            if (PlatformUtil.RunningOnWindows)
+            {
+                comparer = StringComparer.OrdinalIgnoreCase;
+            }
             var ignored = new HashSet<string>(s_wellKnownIgnored, comparer);
 
             // Also ignore env vars specified by the 'VSO_AGENT_IGNORE' env var.

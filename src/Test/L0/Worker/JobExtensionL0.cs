@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Moq;
@@ -41,17 +44,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 return path;
             }
 
-            public override void InitializeJobExtension(IExecutionContext context)
+            public override void InitializeJobExtension(IExecutionContext context, IList<Pipelines.JobStep> steps, Pipelines.WorkspaceOptions workspace)
             {
                 return;
             }
         }
 
         private IExecutionContext _jobEc;
-        private JobInitializeResult _initResult = new JobInitializeResult();
         private Pipelines.AgentJobRequestMessage _message;
         private Mock<ITaskManager> _taskManager;
-
+        private Mock<IAgentLogPlugin> _logPlugin;
         private Mock<IJobServerQueue> _jobServerQueue;
         private Mock<IVstsAgentWebProxy> _proxy;
         private Mock<IAgentCertificateManager> _cert;
@@ -59,8 +61,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         private Mock<IPagingLogger> _logger;
         private Mock<IExpressionManager> _express;
         private Mock<IContainerOperationProvider> _containerProvider;
-        private CancellationTokenSource _tokenSource;
-        private TestHostContext CreateTestContext([CallerMemberName] String testName = "")
+        private TestHostContext CreateTestContext(CancellationTokenSource _tokenSource, [CallerMemberName] String testName = "")
         {
             var hc = new TestHostContext(this, testName);
             _jobEc = new Agent.Worker.ExecutionContext();
@@ -72,6 +73,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             _cert = new Mock<IAgentCertificateManager>();
             _express = new Mock<IExpressionManager>();
             _containerProvider = new Mock<IContainerOperationProvider>();
+            _logPlugin = new Mock<IAgentLogPlugin>();
 
             TaskRunner step1 = new TaskRunner();
             TaskRunner step2 = new TaskRunner();
@@ -98,16 +100,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             _config.Setup(x => x.GetSettings())
                 .Returns(settings);
 
+            _config.Setup(x => x.GetSetupInfo())
+                .Returns(new List<SetupInfo>());
+
             _proxy.Setup(x => x.ProxyAddress)
                             .Returns(string.Empty);
 
-            if (_tokenSource != null)
-            {
-                _tokenSource.Dispose();
-                _tokenSource = null;
-            }
-
-            _tokenSource = new CancellationTokenSource();
             TaskOrchestrationPlanReference plan = new TaskOrchestrationPlanReference();
             TimelineReference timeline = new Timeline(Guid.NewGuid());
             JobEnvironment environment = new JobEnvironment();
@@ -164,10 +162,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
             Guid JobId = Guid.NewGuid();
             _message = Pipelines.AgentJobRequestMessageUtil.Convert(new AgentJobRequestMessage(plan, timeline, JobId, testName, testName, environment, tasks));
-
-            _initResult.PreJobSteps.Clear();
-            _initResult.JobSteps.Clear();
-            _initResult.PostJobStep.Clear();
 
             _taskManager.Setup(x => x.DownloadAsync(It.IsAny<IExecutionContext>(), It.IsAny<IEnumerable<Pipelines.TaskStep>>()))
                 .Returns(Task.CompletedTask);
@@ -250,6 +244,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             hc.SetSingleton(_cert.Object);
             hc.SetSingleton(_express.Object);
             hc.SetSingleton(_containerProvider.Object);
+            hc.SetSingleton(_logPlugin.Object);
             hc.EnqueueInstance<IPagingLogger>(_logger.Object); // jobcontext logger
             hc.EnqueueInstance<IPagingLogger>(_logger.Object); // init step logger
             hc.EnqueueInstance<IPagingLogger>(_logger.Object); // step 1
@@ -286,36 +281,67 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        public async Task JobExtensionSetupInfo()
+        {
+            using (var tokenSource = new CancellationTokenSource())
+            using (TestHostContext hc = CreateTestContext(tokenSource))
+            {
+                var config = hc.GetService<IConfigurationStore>();
+                var setupInfo = (List<SetupInfo>)config.GetSetupInfo();
+                setupInfo.Add(new SetupInfo()
+                {
+                    Group = "Test Group",
+                    Detail = "Test Detail"
+                });
+                setupInfo.Add(new SetupInfo()
+                {
+                    Detail = "Environment: test\nVersion: 123"
+                });
+
+
+                TestJobExtension testExtension = new TestJobExtension();
+                testExtension.Initialize(hc);
+                await testExtension.InitializeJob(_jobEc, _message);
+
+                _jobServerQueue.Verify(x => x.QueueWebConsoleLine(It.IsAny<Guid>(), "##[group]Test Group", It.IsAny<long>()), Times.Exactly(1));
+                _jobServerQueue.Verify(x => x.QueueWebConsoleLine(It.IsAny<Guid>(), "Test Detail", It.IsAny<long>()), Times.Exactly(1));
+
+                _jobServerQueue.Verify(x => x.QueueWebConsoleLine(It.IsAny<Guid>(), "##[group]Machine Setup Info", It.IsAny<long>()), Times.Exactly(1));
+                _jobServerQueue.Verify(x => x.QueueWebConsoleLine(It.IsAny<Guid>(), "Environment: test", It.IsAny<long>()), Times.Exactly(1));
+                _jobServerQueue.Verify(x => x.QueueWebConsoleLine(It.IsAny<Guid>(), "Version: 123", It.IsAny<long>()), Times.Exactly(1));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
         public async Task JobExtensioBuildStepsList()
         {
-            using (TestHostContext hc = CreateTestContext())
+            using (var tokenSource = new CancellationTokenSource())
+            using (TestHostContext hc = CreateTestContext(tokenSource))
             {
                 TestJobExtension testExtension = new TestJobExtension();
                 testExtension.Initialize(hc);
-                JobInitializeResult result = await testExtension.InitializeJob(_jobEc, _message);
+                List<IStep> result = await testExtension.InitializeJob(_jobEc, _message);
 
                 var trace = hc.GetTrace();
 
-                trace.Info(string.Join(", ", result.PreJobSteps.Select(x => x.DisplayName)));
-                trace.Info(string.Join(", ", result.JobSteps.Select(x => x.DisplayName)));
-                trace.Info(string.Join(", ", result.PostJobStep.Select(x => x.DisplayName)));
+                trace.Info(string.Join(", ", result.Select(x => x.DisplayName)));
 
-                Assert.Equal(4, result.PreJobSteps.Count);
-                Assert.Equal(4, result.JobSteps.Count);
-                Assert.Equal(4, result.PostJobStep.Count);
+                Assert.Equal(12, result.Count);
 
-                Assert.Equal("task2", result.PreJobSteps[0].DisplayName);
-                Assert.Equal("task3", result.PreJobSteps[1].DisplayName);
-                Assert.Equal("task4", result.PreJobSteps[2].DisplayName);
-                Assert.Equal("task6", result.PreJobSteps[3].DisplayName);
-                Assert.Equal("task1", result.JobSteps[0].DisplayName);
-                Assert.Equal("task2", result.JobSteps[1].DisplayName);
-                Assert.Equal("task6", result.JobSteps[2].DisplayName);
-                Assert.Equal("task7", result.JobSteps[3].DisplayName);
-                Assert.Equal("task7", result.PostJobStep[0].DisplayName);
-                Assert.Equal("task5", result.PostJobStep[1].DisplayName);
-                Assert.Equal("task3", result.PostJobStep[2].DisplayName);
-                Assert.Equal("task2", result.PostJobStep[3].DisplayName);
+                Assert.Equal("task2", result[0].DisplayName);
+                Assert.Equal("task3", result[1].DisplayName);
+                Assert.Equal("task4", result[2].DisplayName);
+                Assert.Equal("task6", result[3].DisplayName);
+                Assert.Equal("task1", result[4].DisplayName);
+                Assert.Equal("task2", result[5].DisplayName);
+                Assert.Equal("task6", result[6].DisplayName);
+                Assert.Equal("task7", result[7].DisplayName);
+                Assert.Equal("task7", result[8].DisplayName);
+                Assert.Equal("task5", result[9].DisplayName);
+                Assert.Equal("task3", result[10].DisplayName);
+                Assert.Equal("task2", result[11].DisplayName);
             }
         }
 
@@ -324,70 +350,65 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public async Task JobExtensionIntraTaskState()
         {
-            using (TestHostContext hc = CreateTestContext())
+            using (var tokenSource = new CancellationTokenSource())
+            using (TestHostContext hc = CreateTestContext(tokenSource))
             {
                 TestJobExtension testExtension = new TestJobExtension();
                 testExtension.Initialize(hc);
-                JobInitializeResult result = await testExtension.InitializeJob(_jobEc, _message);
+                List<IStep> result = await testExtension.InitializeJob(_jobEc, _message);
 
                 var trace = hc.GetTrace();
 
-                trace.Info(string.Join(", ", result.PreJobSteps.Select(x => x.DisplayName)));
-                trace.Info(string.Join(", ", result.JobSteps.Select(x => x.DisplayName)));
-                trace.Info(string.Join(", ", result.PostJobStep.Select(x => x.DisplayName)));
+                trace.Info(string.Join(", ", result.Select(x => x.DisplayName)));
 
-                Assert.Equal(4, result.PreJobSteps.Count);
-                Assert.Equal(4, result.JobSteps.Count);
-                Assert.Equal(4, result.PostJobStep.Count);
+                Assert.Equal(12, result.Count);
 
-                result.PreJobSteps[0].ExecutionContext.TaskVariables.Set("state1", "value1", false);
-                Assert.Equal("value1", result.JobSteps[1].ExecutionContext.TaskVariables.Get("state1"));
-                Assert.Equal("value1", result.PostJobStep[3].ExecutionContext.TaskVariables.Get("state1"));
+                result[0].ExecutionContext.TaskVariables.Set("state1", "value1", false);
+                Assert.Equal("value1", result[5].ExecutionContext.TaskVariables.Get("state1"));
+                Assert.Equal("value1", result[11].ExecutionContext.TaskVariables.Get("state1"));
 
-                Assert.Null(result.JobSteps[0].ExecutionContext.TaskVariables.Get("state1"));
-                Assert.Null(result.PreJobSteps[1].ExecutionContext.TaskVariables.Get("state1"));
-                Assert.Null(result.PreJobSteps[2].ExecutionContext.TaskVariables.Get("state1"));
-                Assert.Null(result.PostJobStep[2].ExecutionContext.TaskVariables.Get("state1"));
-                Assert.Null(result.JobSteps[2].ExecutionContext.TaskVariables.Get("state1"));
-                Assert.Null(result.JobSteps[3].ExecutionContext.TaskVariables.Get("state1"));
+                Assert.Null(result[4].ExecutionContext.TaskVariables.Get("state1"));
+                Assert.Null(result[1].ExecutionContext.TaskVariables.Get("state1"));
+                Assert.Null(result[2].ExecutionContext.TaskVariables.Get("state1"));
+                Assert.Null(result[10].ExecutionContext.TaskVariables.Get("state1"));
+                Assert.Null(result[6].ExecutionContext.TaskVariables.Get("state1"));
+                Assert.Null(result[7].ExecutionContext.TaskVariables.Get("state1"));
             }
         }
 
-#if OS_WINDOWS
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
         public async Task JobExtensionManagementScriptStep()
         {
-            using (TestHostContext hc = CreateTestContext())
+            using (var tokenSource = new CancellationTokenSource())
+            using (TestHostContext hc = CreateTestContext(tokenSource))
             {
                 hc.EnqueueInstance<IPagingLogger>(_logger.Object);
                 hc.EnqueueInstance<IPagingLogger>(_logger.Object);
 
                 Environment.SetEnvironmentVariable("VSTS_AGENT_INIT_INTERNAL_TEMP_HACK", "C:\\init.ps1");
-                Environment.SetEnvironmentVariable("VSTS_AGENT_CLEANUP_INTERNAL_TEMP_HACK", "C:\\clenup.ps1");
+                Environment.SetEnvironmentVariable("VSTS_AGENT_CLEANUP_INTERNAL_TEMP_HACK", "C:\\cleanup.ps1");
 
                 try
                 {
                     TestJobExtension testExtension = new TestJobExtension();
                     testExtension.Initialize(hc);
-                    JobInitializeResult result = await testExtension.InitializeJob(_jobEc, _message);
+                    List<IStep> result = await testExtension.InitializeJob(_jobEc, _message);
 
                     var trace = hc.GetTrace();
 
-                    trace.Info(string.Join(", ", result.PreJobSteps.Select(x => x.DisplayName)));
-                    trace.Info(string.Join(", ", result.JobSteps.Select(x => x.DisplayName)));
-                    trace.Info(string.Join(", ", result.PostJobStep.Select(x => x.DisplayName)));
+                    trace.Info(string.Join(", ", result.Select(x => x.DisplayName)));
 
-                    Assert.Equal(5, result.PreJobSteps.Count);
-                    Assert.Equal(4, result.JobSteps.Count);
-                    Assert.Equal(5, result.PostJobStep.Count);
+                    Assert.Equal(14, result.Count);
 
-                    Assert.True(result.PreJobSteps[0] is ManagementScriptStep);
-                    Assert.True(result.PostJobStep[4] is ManagementScriptStep);
+                    Assert.True(result[0] is ManagementScriptStep);
+                    Assert.True(result[13] is ManagementScriptStep);
 
-                    Assert.Equal(result.PreJobSteps[0].DisplayName, "Agent Initialization");
-                    Assert.Equal(result.PostJobStep[4].DisplayName, "Agent Cleanup");
+                    Assert.Equal(result[0].DisplayName, "Agent Initialization");
+                    Assert.Equal(result[13].DisplayName, "Agent Cleanup");
                 }
                 finally
                 {
@@ -396,6 +417,5 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 }
             }
         }
-#endif
     }
 }

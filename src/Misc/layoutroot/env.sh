@@ -12,6 +12,9 @@ varCheckList=(
     'VSTS_HTTP_PROXY'
     'VSTS_HTTP_PROXY_USERNAME'
     'VSTS_HTTP_PROXY_PASSWORD'
+    'LD_LIBRARY_PATH'
+    'PERL5LIB'
+    'AGENT_TOOLSDIRECTORY'
     )
 
 envContents=""

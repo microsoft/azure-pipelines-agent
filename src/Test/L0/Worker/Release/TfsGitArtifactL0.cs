@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -91,40 +94,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
             }
         }
 
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Worker")]
-        public void TfsGitArtifactShouldMapSourceProviderInvalidOperationExceptionToArtifactDownloadException()
-        {
-            using (TestHostContext tc = Setup())
-            {
-                var tfsGitArtifact = new TfsGitArtifact();
-                tfsGitArtifact.Initialize(tc);
-
-                _ec.Setup(x => x.Endpoints)
-                    .Returns(
-                        new List<ServiceEndpoint>
-                        {
-                            new ServiceEndpoint
-                            {
-                                Name = _expectedRepositoryId,
-                                Url = new Uri(_expectedUrl),
-                                Authorization = new EndpointAuthorization
-                                {
-                                    Scheme = EndpointAuthorizationSchemes.OAuth
-                                }
-                            }
-                        });
-
-                _sourceProvider.Setup(
-                    x => x.GetSourceAsync(It.IsAny<IExecutionContext>(), It.IsAny<ServiceEndpoint>(), It.IsAny<CancellationToken>()))
-                    .Returns(() => { throw new InvalidOperationException("InvalidOperationException"); });
-
-                Assert.Throws<ArtifactDownloadException>(
-                    () => tfsGitArtifact.DownloadAsync(_ec.Object, _artifactDefinition, "localFolderPath").SyncResult());
-            }
-        }
-
         private TestHostContext Setup([CallerMemberName] string name = "")
         {
             TestHostContext hc = new TestHostContext(this, name);
@@ -151,7 +120,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
             _ec.Setup(x => x.Variables).Returns(_variables);
             _extensionManager.Setup(x => x.GetExtensions<ISourceProvider>())
                 .Returns(new List<ISourceProvider> { _sourceProvider.Object });
-            _sourceProvider.Setup(x => x.RepositoryType).Returns(RepositoryTypes.TfsGit);
+            _sourceProvider.Setup(x => x.RepositoryType).Returns(Microsoft.TeamFoundation.DistributedTask.Pipelines.RepositoryTypes.Git);
 
             return hc;
         }

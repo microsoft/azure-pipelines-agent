@@ -1,9 +1,13 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
-using Microsoft.TeamFoundation.DistributedTask.Common.ServiceEndpoints;
+using Microsoft.VisualStudio.Services.ServiceEndpoints.Common;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts.Definition;
@@ -18,9 +22,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
     {
         public Type ExtensionType => typeof(IArtifactExtension);
         public AgentArtifactType ArtifactType => AgentArtifactType.Custom;
-        
+
         public async Task DownloadAsync(IExecutionContext executionContext, ArtifactDefinition artifactDefinition, string downloadFolderPath)
         {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+            ArgUtil.NotNull(artifactDefinition, nameof(artifactDefinition));
+
             EnsureVersionBelongsToLinkedDefinition(artifactDefinition);
 
             var customArtifactDetails = artifactDefinition.Details as CustomArtifactDetails;
@@ -53,6 +60,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
 
         public IArtifactDetails GetArtifactDetails(IExecutionContext context, AgentArtifactDefinition agentArtifactDefinition)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(agentArtifactDefinition, nameof(agentArtifactDefinition));
+
             var artifactDetails = JsonConvert.DeserializeObject<Dictionary<string, string>>(agentArtifactDefinition.Details);
 
             string connectionName;
@@ -97,14 +107,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
 
             if (string.Equals(streamType, WellKnownStreamTypes.FileShare, StringComparison.OrdinalIgnoreCase))
             {
-#if !OS_WINDOWS
-                throw new NotSupportedException(StringUtil.Loc("RMFileShareArtifactErrorOnNonWindowsAgent"));
-#else
+                if (!PlatformUtil.RunningOnWindows)
+                {
+                    throw new NotSupportedException(StringUtil.Loc("RMFileShareArtifactErrorOnNonWindowsAgent"));
+                }
+
                 var fileShareArtifact = new FileShareArtifact();
                 customArtifactDetails.RelativePath = artifact.RelativePath ?? string.Empty;
                 var location = artifact.FileShareLocation ?? artifact.DownloadUrl;
                 await fileShareArtifact.DownloadArtifactAsync(executionContext, hostContext, new ArtifactDefinition { Details = customArtifactDetails }, new Uri(location).LocalPath, localFolderPath);
-#endif
             }
             else if (string.Equals(streamType, WellKnownStreamTypes.Zip, StringComparison.OrdinalIgnoreCase))
             {

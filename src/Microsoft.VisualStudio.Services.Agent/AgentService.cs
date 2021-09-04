@@ -1,4 +1,8 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -6,9 +10,10 @@ namespace Microsoft.VisualStudio.Services.Agent
     [AttributeUsage(AttributeTargets.Interface, Inherited = false, AllowMultiple = false)]
     public sealed class ServiceLocatorAttribute : Attribute
     {
-        public static readonly string DefaultPropertyName = "Default";
-
         public Type Default { get; set; }
+        public Type PreferredOnWindows { get; set; }
+        public Type PreferredOnMacOS { get; set; }
+        public Type PreferredOnLinux { get; set; }
     }
 
     public interface IAgentService
@@ -21,9 +26,9 @@ namespace Microsoft.VisualStudio.Services.Agent
         protected IHostContext HostContext { get; private set; }
         protected Tracing Trace { get; private set; }
 
-        public string TraceName 
+        public string TraceName
         {
-            get 
+            get
             {
                 return GetType().Name;
             }
@@ -31,6 +36,8 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public virtual void Initialize(IHostContext hostContext)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
+
             HostContext = hostContext;
             Trace = HostContext.GetTrace(TraceName);
             Trace.Entering();

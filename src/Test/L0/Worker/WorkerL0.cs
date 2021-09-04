@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Moq;
@@ -50,7 +53,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 }
             });
             Guid JobId = Guid.NewGuid();
-            var jobRequest = new Pipelines.AgentJobRequestMessage(plan, timeline, JobId, jobName, jobName, "ubuntu", variables, new List<MaskHint>(), resources, tasks);
+            var sidecarContainers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["nginx"] =  "nginx"
+            };
+            var jobRequest = new Pipelines.AgentJobRequestMessage(plan, timeline, JobId, jobName, jobName, "ubuntu", sidecarContainers, variables, new List<MaskHint>(), resources, null, tasks);
             return jobRequest;
         }
 
@@ -164,6 +171,61 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 _jobRunner.Verify(x => x.RunAsync(
                     It.Is<Pipelines.AgentJobRequestMessage>(y => IsMessageIdentical(y, jobMessage)), It.IsAny<CancellationToken>()));
             }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void VerifyJobRequestMessagePiiDataIsScrubbed()
+        {
+            // Arrange
+            Pipelines.AgentJobRequestMessage message = CreateJobRequestMessage("jobwithpiidata");
+
+            // Populate PII variables
+            foreach (string piiVariable in Variables.PiiVariables)
+            {
+                message.Variables.Add(piiVariable, "MyPiiVariable");
+            }
+
+            foreach (string piiVariableSuffix in Variables.PiiArtifactVariableSuffixes)
+            {
+                message.Variables.Add($"{Variables.PiiArtifactVariablePrefix}.MyArtifact.{piiVariableSuffix}", "MyPiiVariable");
+            }
+
+            // Populate the repository PII data
+            Pipelines.RepositoryResource repository = new Pipelines.RepositoryResource();
+
+            repository.Properties.Set(
+                Pipelines.RepositoryPropertyNames.VersionInfo,
+                new Pipelines.VersionInfo()
+                {
+                    Author = "MyAuthor"
+                });
+
+            message.Resources.Repositories.Add(repository);
+
+            // Act
+            Pipelines.AgentJobRequestMessage scrubbedMessage = WorkerUtilities.ScrubPiiData(message);
+
+            // Assert
+            foreach (string piiVariable in Variables.PiiVariables)
+            {
+                scrubbedMessage.Variables.TryGetValue(piiVariable, out VariableValue value);
+
+                Assert.Equal("[PII]", value.Value);
+            }
+
+            foreach (string piiVariableSuffix in Variables.PiiArtifactVariableSuffixes)
+            {
+                scrubbedMessage.Variables.TryGetValue($"{Variables.PiiArtifactVariablePrefix}.MyArtifact.{piiVariableSuffix}", out VariableValue value);
+
+                Assert.Equal("[PII]", value.Value);
+            }
+
+            Pipelines.RepositoryResource scrubbedRepo = scrubbedMessage.Resources.Repositories[0];
+            Pipelines.VersionInfo scrubbedInfo = scrubbedRepo.Properties.Get<Pipelines.VersionInfo>(Pipelines.RepositoryPropertyNames.VersionInfo);
+
+            Assert.Equal("[PII]", scrubbedInfo.Author);
         }
 
         private bool IsMessageIdentical(Pipelines.AgentJobRequestMessage source, Pipelines.AgentJobRequestMessage target)

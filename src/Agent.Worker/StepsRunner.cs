@@ -1,11 +1,15 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
-using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.Expressions;
+using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -14,6 +18,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         IExpressionNode Condition { get; set; }
         bool ContinueOnError { get; }
         string DisplayName { get; }
+        Pipelines.StepTarget Target { get; }
         bool Enabled { get; }
         IExecutionContext ExecutionContext { get; set; }
         TimeSpan? Timeout { get; }
@@ -42,6 +47,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             //  Succeeded
             //  SucceededWithIssues
             CancellationTokenRegistration? jobCancelRegister = null;
+            int stepIndex = 0;
             jobContext.Variables.Agent_JobStatus = jobContext.Result ?? TaskResult.Succeeded;
             foreach (IStep step in steps)
             {
@@ -49,11 +55,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 ArgUtil.Equal(true, step.Enabled, nameof(step.Enabled));
                 ArgUtil.NotNull(step.ExecutionContext, nameof(step.ExecutionContext));
                 ArgUtil.NotNull(step.ExecutionContext.Variables, nameof(step.ExecutionContext.Variables));
+                stepIndex++;
 
                 // Start.
                 step.ExecutionContext.Start();
+                var taskStep = step as ITaskRunner;
+                if (taskStep != null)
+                {
+                    HostContext.WritePerfCounter($"TaskStart_{taskStep.Task.Reference.Name}_{stepIndex}");
+                }
 
                 // Variable expansion.
+                step.ExecutionContext.SetStepTarget(step.Target);
                 List<string> expansionWarnings;
                 step.ExecutionContext.Variables.RecalculateExpanded(out expansionWarnings);
                 expansionWarnings?.ForEach(x => step.ExecutionContext.Warning(x));
@@ -61,6 +74,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 var expressionManager = HostContext.GetService<IExpressionManager>();
                 try
                 {
+                    ArgUtil.NotNull(jobContext, nameof(jobContext)); // I am not sure why this is needed, but static analysis flagged all uses of jobContext below this point
                     // Register job cancellation call back only if job cancellation token not been fire before each step run
                     if (!jobContext.CancellationToken.IsCancellationRequested)
                     {
@@ -178,6 +192,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     Trace.Info($"No need for updating job result with current step result '{step.ExecutionContext.Result}'.");
                 }
 
+                if (taskStep != null)
+                {
+                    HostContext.WritePerfCounter($"TaskCompleted_{taskStep.Task.Reference.Name}_{stepIndex}");
+                }
+
                 Trace.Info($"Current state: job state = '{jobContext.Result}'");
             }
         }
@@ -188,6 +207,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Trace.Info("Starting the step.");
             step.ExecutionContext.Section(StringUtil.Loc("StepStarting", step.DisplayName));
             step.ExecutionContext.SetTimeout(timeout: step.Timeout);
+
+            // Windows may not be on the UTF8 codepage; try to fix that
+            await SwitchToUtf8Codepage(step);
+
             try
             {
                 await step.RunAsync();
@@ -278,6 +301,47 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Complete the step context.
             step.ExecutionContext.Section(StringUtil.Loc("StepFinishing", step.DisplayName));
             step.ExecutionContext.Complete();
+        }
+
+        private async Task SwitchToUtf8Codepage(IStep step)
+        {
+            if (!PlatformUtil.RunningOnWindows)
+            {
+                return;
+            }
+
+            try
+            {
+                if (step.ExecutionContext.Variables.Retain_Default_Encoding != true && Console.InputEncoding.CodePage != 65001)
+                {
+                    using (var p = HostContext.CreateService<IProcessInvoker>())
+                    {
+                        // Use UTF8 code page
+                        int exitCode = await p.ExecuteAsync(workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
+                                                fileName: WhichUtil.Which("chcp", true, Trace),
+                                                arguments: "65001",
+                                                environment: null,
+                                                requireExitCodeZero: false,
+                                                outputEncoding: null,
+                                                killProcessOnCancel: false,
+                                                redirectStandardIn: null,
+                                                inheritConsoleHandler: true,
+                                                cancellationToken: step.ExecutionContext.CancellationToken);
+                        if (exitCode == 0)
+                        {
+                            Trace.Info("Successfully returned to code page 65001 (UTF8)");
+                        }
+                        else
+                        {
+                            Trace.Warning($"'chcp 65001' failed with exit code {exitCode}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Trace.Warning($"'chcp 65001' failed with exception {ex.Message}");
+            }
         }
     }
 }

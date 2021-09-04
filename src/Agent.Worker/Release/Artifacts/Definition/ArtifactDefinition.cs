@@ -1,4 +1,7 @@
-﻿// --------------------------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+// --------------------------------------------------------------------------------------------------------------------
 // <copyright file="ArtifactDefinition.cs" company="Microsoft Corporation">
 //   2012-2023, All rights reserved.
 // </copyright>

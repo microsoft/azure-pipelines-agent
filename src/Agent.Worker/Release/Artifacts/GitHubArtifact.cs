@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -42,34 +45,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
 
             ServiceEndpoint gitHubEndpoint = PrepareGitHubTaskEndpoint(endpoint, gitHubDetails.CloneUrl);
             var extensionManager = HostContext.GetService<IExtensionManager>();
-            ISourceProvider sourceProvider = (extensionManager.GetExtensions<ISourceProvider>()).FirstOrDefault(x => x.RepositoryType == RepositoryTypes.GitHub);
+            ISourceProvider sourceProvider = (extensionManager.GetExtensions<ISourceProvider>()).FirstOrDefault(x => x.RepositoryType == Microsoft.TeamFoundation.DistributedTask.Pipelines.RepositoryTypes.GitHub);
 
             if (sourceProvider == null)
             {
-                throw new InvalidOperationException(StringUtil.Loc("SourceArtifactProviderNotFound", RepositoryTypes.GitHub));
+                throw new InvalidOperationException(StringUtil.Loc("SourceArtifactProviderNotFound", Microsoft.TeamFoundation.DistributedTask.Pipelines.RepositoryTypes.GitHub));
             }
 
             gitHubEndpoint.Data.Add(Constants.EndpointData.SourcesDirectory, localFolderPath);
             gitHubEndpoint.Data.Add(Constants.EndpointData.SourceBranch, gitHubDetails.Branch);
             gitHubEndpoint.Data.Add(Constants.EndpointData.SourceVersion, artifactDefinition.Version);
             gitHubEndpoint.Data.Add(EndpointData.CheckoutSubmodules, gitHubDetails.CheckoutSubmodules);
+            gitHubEndpoint.Data.Add(EndpointData.CheckoutNestedSubmodules, gitHubDetails.CheckoutNestedSubmodules);
             gitHubEndpoint.Data.Add("fetchDepth", gitHubDetails.FetchDepth);
             gitHubEndpoint.Data.Add("GitLfsSupport", gitHubDetails.GitLfsSupport);
 
-            try
-            {
-                await sourceProvider.GetSourceAsync(executionContext, gitHubEndpoint, executionContext.CancellationToken);
-            }
-            catch (InvalidOperationException ex)
-            {
-                throw new ArtifactDownloadException(StringUtil.Loc("RMDownloadArtifactUnexpectedError"), ex);
-            }
+            await sourceProvider.GetSourceAsync(executionContext, gitHubEndpoint, executionContext.CancellationToken);
         }
 
         public IArtifactDetails GetArtifactDetails(
             IExecutionContext context,
             AgentArtifactDefinition agentArtifactDefinition)
         {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(agentArtifactDefinition, nameof(agentArtifactDefinition));
+
             var artifactDetails =
                 JsonConvert.DeserializeObject<Dictionary<string, string>>(agentArtifactDefinition.Details);
 
@@ -81,10 +81,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                 && artifactDetails.TryGetValue(ArtifactDefinitionConstants.RepositoryId, out repositoryName)
                 && artifactDetails.TryGetValue(ArtifactDefinitionConstants.BranchId, out branch))
             {
+                string checkoutNestedSubmodules;
                 string checkoutSubmodules;
                 string gitLfsSupport;
                 string fetchDepth;
 
+                artifactDetails.TryGetValue("checkoutNestedSubmodules", out checkoutNestedSubmodules);
                 artifactDetails.TryGetValue("checkoutSubmodules", out checkoutSubmodules);
                 artifactDetails.TryGetValue("gitLfsSupport", out gitLfsSupport);
                 artifactDetails.TryGetValue("fetchDepth", out fetchDepth);
@@ -106,6 +108,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                     CloneUrl = new Uri(repository.Clone_url),
                     Branch = branch,
                     CheckoutSubmodules = checkoutSubmodules,
+                    CheckoutNestedSubmodules = checkoutNestedSubmodules,
                     GitLfsSupport = gitLfsSupport,
                     FetchDepth = fetchDepth
                 };

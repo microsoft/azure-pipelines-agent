@@ -1,4 +1,9 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Agent.Sdk;
 using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Newtonsoft.Json;
@@ -16,7 +21,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
     {
         private bool _undoShelvesetPendingChanges = false;
 
-        public override string RepositoryType => RepositoryTypes.TfsVersionControl;
+        public override string RepositoryType => TeamFoundation.DistributedTask.Pipelines.RepositoryTypes.Tfvc;
 
         public async Task GetSourceAsync(
             IExecutionContext executionContext,
@@ -27,15 +32,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // Validate args.
             ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNull(endpoint, nameof(endpoint));
-
-#if OS_WINDOWS
-            // Validate .NET Framework 4.6 or higher is installed.
-            var netFrameworkUtil = HostContext.GetService<INetFrameworkUtil>();
-            if (!netFrameworkUtil.Test(new Version(4, 6)))
+            if (executionContext == null || endpoint == null)
             {
-                throw new Exception(StringUtil.Loc("MinimumNetFramework46"));
+                return;
             }
-#endif
+
+            if (PlatformUtil.RunningOnWindows)
+            {
+                // Validate .NET Framework 4.6 or higher is installed.
+                if (!NetFrameworkUtil.Test(new Version(4, 6), Trace))
+                {
+                    throw new Exception(StringUtil.Loc("MinimumNetFramework46"));
+                }
+            }
 
             // Create the tf command manager.
             var tf = HostContext.CreateService<ITfsVCCommandManager>();
@@ -45,7 +54,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             // Setup proxy.
             var agentProxy = HostContext.GetService<IVstsAgentWebProxy>();
-            if (!string.IsNullOrEmpty(executionContext.Variables.Agent_ProxyUrl) && !agentProxy.IsBypassed(endpoint.Url))
+            if (!string.IsNullOrEmpty(executionContext.Variables.Agent_ProxyUrl) && !agentProxy.WebProxy.IsBypassed(endpoint.Url))
             {
                 executionContext.Debug($"Configure '{tf.FilePath}' to work through proxy server '{executionContext.Variables.Agent_ProxyUrl}'.");
                 tf.SetupProxy(executionContext.Variables.Agent_ProxyUrl, executionContext.Variables.Agent_ProxyUsername, executionContext.Variables.Agent_ProxyPassword);
@@ -55,11 +64,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             var agentCertManager = HostContext.GetService<IAgentCertificateManager>();
             if (agentCertManager.SkipServerCertificateValidation)
             {
-#if OS_WINDOWS
-                executionContext.Debug("TF.exe does not support ignore SSL certificate validation error.");
-#else
                 executionContext.Debug("TF does not support ignore SSL certificate validation error.");
-#endif
             }
 
             var configUrl = new Uri(HostContext.GetService<IConfigurationStore>().GetSettings().ServerUrl);
@@ -73,19 +78,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // Add TF to the PATH.
             string tfPath = tf.FilePath;
             ArgUtil.File(tfPath, nameof(tfPath));
-            var varUtil = HostContext.GetService<IVarUtil>();
             executionContext.Output(StringUtil.Loc("Prepending0WithDirectoryContaining1", Constants.PathVariable, Path.GetFileName(tfPath)));
-            varUtil.PrependPath(Path.GetDirectoryName(tfPath));
+            PathUtil.PrependPath(Path.GetDirectoryName(tfPath));
             executionContext.Debug($"{Constants.PathVariable}: '{Environment.GetEnvironmentVariable(Constants.PathVariable)}'");
 
-#if OS_WINDOWS
-            // Set TFVC_BUILDAGENT_POLICYPATH
-            string policyDllPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.ServerOM), "Microsoft.TeamFoundation.VersionControl.Controls.dll");
-            ArgUtil.File(policyDllPath, nameof(policyDllPath));
-            const string policyPathEnvKey = "TFVC_BUILDAGENT_POLICYPATH";
-            executionContext.Output(StringUtil.Loc("SetEnvVar", policyPathEnvKey));
-            Environment.SetEnvironmentVariable(policyPathEnvKey, policyDllPath);
-#endif
+            if (PlatformUtil.RunningOnWindows)
+            {
+                // Set TFVC_BUILDAGENT_POLICYPATH
+                string policyDllPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.ServerOM), "Microsoft.TeamFoundation.VersionControl.Controls.dll");
+                ArgUtil.File(policyDllPath, nameof(policyDllPath));
+                const string policyPathEnvKey = "TFVC_BUILDAGENT_POLICYPATH";
+                executionContext.Output(StringUtil.Loc("SetEnvVar", policyPathEnvKey));
+                Environment.SetEnvironmentVariable(policyPathEnvKey, policyDllPath);
+            }
 
             // Check if the administrator accepted the license terms of the TEE EULA when configuring the agent.
             AgentSettings settings = HostContext.GetService<IConfigurationStore>().GetSettings();
@@ -123,7 +128,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             ITfsVCWorkspace[] tfWorkspaces = await tf.WorkspacesAsync();
 
             // Determine the workspace name.
-            string buildDirectory = executionContext.Variables.Agent_BuildDirectory;
+            string buildDirectory = executionContext.Variables.Get(Constants.Variables.Agent.BuildDirectory);
             ArgUtil.NotNullOrEmpty(buildDirectory, nameof(buildDirectory));
             string workspaceName = $"ws_{Path.GetFileName(buildDirectory)}_{settings.AgentId}";
             executionContext.Variables.Set(Constants.Variables.Build.RepoTfvcWorkspace, workspaceName);
@@ -407,7 +412,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
 
             // Cleanup proxy settings.
-            if (!string.IsNullOrEmpty(executionContext.Variables.Agent_ProxyUrl) && !agentProxy.IsBypassed(endpoint.Url))
+            if (!string.IsNullOrEmpty(executionContext.Variables.Agent_ProxyUrl) && !agentProxy.WebProxy.IsBypassed(endpoint.Url))
             {
                 executionContext.Debug($"Remove proxy setting for '{tf.FilePath}' to work through proxy server '{executionContext.Variables.Agent_ProxyUrl}'.");
                 tf.CleanupProxySetting();
@@ -416,6 +421,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public async Task PostJobCleanupAsync(IExecutionContext executionContext, ServiceEndpoint endpoint)
         {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+            ArgUtil.NotNull(endpoint, nameof(endpoint));
+
             if (_undoShelvesetPendingChanges)
             {
                 string shelvesetName = GetEndpointData(endpoint, Constants.EndpointData.SourceTfvcShelveset);
@@ -494,18 +502,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
         }
 
-        public override string GetLocalPath(IExecutionContext executionContext, ServiceEndpoint endpoint, string path)
+        public override string GetLocalPath(IExecutionContext executionContext, RepositoryResource repository, string path)
         {
             ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNull(executionContext.Variables, nameof(executionContext.Variables));
-            ArgUtil.NotNull(endpoint, nameof(endpoint));
+            ArgUtil.NotNull(repository, nameof(repository));
+            ArgUtil.NotNull(repository.Endpoint, nameof(repository.Endpoint));
+
             path = path ?? string.Empty;
             if (path.StartsWith("$/") || path.StartsWith(@"$\"))
             {
                 // Create the tf command manager.
                 var tf = HostContext.CreateService<ITfsVCCommandManager>();
                 tf.CancellationToken = CancellationToken.None;
-                tf.Endpoint = endpoint;
+                tf.Repository = repository;
+                tf.Endpoint = executionContext.Endpoints.Single(
+                    x => (repository.Endpoint.Id != Guid.Empty && x.Id == repository.Endpoint.Id) ||
+                    (repository.Endpoint.Id == Guid.Empty && string.Equals(x.Name, repository.Endpoint.Name.ToString(), StringComparison.OrdinalIgnoreCase)));
                 tf.ExecutionContext = executionContext;
 
                 // Attempt to resolve the path.
@@ -526,13 +539,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             endpoint.Data.Add(Constants.EndpointData.SourceTfvcShelveset, executionContext.Variables.Get(Constants.Variables.Build.SourceTfvcShelveset));
             endpoint.Data.Add(Constants.EndpointData.GatedShelvesetName, executionContext.Variables.Get(Constants.Variables.Build.GatedShelvesetName));
             endpoint.Data.Add(Constants.EndpointData.GatedRunCI, executionContext.Variables.Get(Constants.Variables.Build.GatedRunCI));
-        }
-
-        public sealed override bool TestOverrideBuildDirectory()
-        {
-            var configurationStore = HostContext.GetService<IConfigurationStore>();
-            AgentSettings settings = configurationStore.GetSettings();
-            return settings.IsHosted;
         }
 
         private async Task RemoveConflictingWorkspacesAsync(ITfsVCCommandManager tf, ITfsVCWorkspace[] tfWorkspaces, string name, string directory)
@@ -670,6 +676,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
                     // Compare the mappings.
                     bool allMatch = true;
+                    List<string> matchTrace = new List<string>();
                     for (int i = 0; i < sortedTFMappings.Count; i++)
                     {
                         ITfsVCMapping tfMapping = sortedTFMappings[i];
@@ -679,7 +686,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         bool expectedCloak = definitionMapping.MappingType == DefinitionMappingType.Cloak;
                         if (tfMapping.Cloak != expectedCloak)
                         {
-                            executionContext.Debug($"Expected mapping[{i}] cloak: '{expectedCloak}'. Actual: '{tfMapping.Cloak}'");
+                            matchTrace.Add(StringUtil.Loc("ExpectedMappingCloak", i, expectedCloak, tfMapping.Cloak));
                             allMatch = false;
                             break;
                         }
@@ -687,7 +694,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         // Compare the recursive flag.
                         if (!expectedCloak && tfMapping.Recursive != definitionMapping.Recursive)
                         {
-                            executionContext.Debug($"Expected mapping[{i}] recursive: '{definitionMapping.Recursive}'. Actual: '{tfMapping.Recursive}'");
+                            matchTrace.Add(StringUtil.Loc("ExpectedMappingRecursive", i, definitionMapping.Recursive, tfMapping.Recursive));
                             allMatch = false;
                             break;
                         }
@@ -696,7 +703,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         string expectedServerPath = definitionMapping.NormalizedServerPath;
                         if (!string.Equals(tfMapping.ServerPath, expectedServerPath, StringComparison.Ordinal))
                         {
-                            executionContext.Debug($"Expected mapping[{i}] server path: '{expectedServerPath}'. Actual: '{tfMapping.ServerPath}'");
+                            matchTrace.Add(StringUtil.Loc("ExpectedMappingServerPath", i, expectedServerPath, tfMapping.ServerPath));
                             allMatch = false;
                             break;
                         }
@@ -707,7 +714,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                             string expectedLocalPath = definitionMapping.GetRootedLocalPath(sourcesDirectory);
                             if (!string.Equals(tfMapping.LocalPath, expectedLocalPath, StringComparison.Ordinal))
                             {
-                                executionContext.Debug($"Expected mapping[{i}] local path: '{expectedLocalPath}'. Actual: '{tfMapping.LocalPath}'");
+                                matchTrace.Add(StringUtil.Loc("ExpectedMappingLocalPath", i, expectedLocalPath, tfMapping.LocalPath));
                                 allMatch = false;
                                 break;
                             }
@@ -718,6 +725,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     {
                         executionContext.Debug("Matching workspace found.");
                         return tfWorkspace;
+                    }
+                    else
+                    {
+                        executionContext.Output(StringUtil.Loc("WorkspaceMappingNotMatched", tfWorkspace.Name));
+                        foreach (var trace in matchTrace)
+                        {
+                            executionContext.Output(trace);
+                        }
                     }
                 }
 

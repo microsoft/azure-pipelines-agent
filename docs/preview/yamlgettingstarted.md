@@ -1,45 +1,5 @@
-# YAML getting started
+# Moved!
 
-To create a YAML build definition, you must opt-in to the account-level preview feature: `Build YAML definitions`
+We've moved the YAML documentation out of preview and over to the official [docs site](https://docs.microsoft.com/azure/devops/pipelines/get-started-yaml).
 
-YAML builds require the latest agent. When a YAML build is queued, your agent will automatically update if it is not the latest version.
-
-## Hello world
-
-[Create a definition](yamlgettingstarted-definition.md)
-
-## Examples
-
-[Run scripts](yamlgettingstarted-scripts.md)
-
-[Run powershell scripts](yamlgettingstarted-powershell.md)
-
-[Run bash scripts](yamlgettingstarted-bash.md)
-
-[Run tasks](yamlgettingstarted-tasks.md)
-
-[Checkout options](yamlgettingstarted-checkout.md)
-
-[Queues](yamlgettingstarted-queues.md)
-
-[Endpoints](yamlgettingstarted-endpoints.md)
-
-[Phase options](yamlgettingstarted-phase.md)
-
-[Multiple phases](yamlgettingstarted-phases.md)
-
-[Triggers](yamlgettingstarted-triggers.md)
-
-[Templates](yamlgettingstarted-templates.md)
-
-## Misc
-
-[Resource authorization](yamlgettingstarted-authz.md)
-
-[Build number format](yamlgettingstarted-name.md)
-
-[Allow scripts to access OAuth token](yamlgettingstarted-token.md)
-
-[Schema reference](yamlgettingstarted-schema.md)
-
-[Feature gaps](yamlgettingstarted-features.md)
+<small>If you're really stuck and need to get the old preview docs, the last commit where they were updated is <code><a href="https://github.com/Microsoft/azure-pipelines-agent/blob/3d39fca3cac2bf54c16600e0a3b9e7972d4c5ef3/docs/preview/yamlgettingstarted.md">3d39fca</a></code>.</small>

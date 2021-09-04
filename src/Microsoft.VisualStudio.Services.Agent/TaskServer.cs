@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.IO;
 using System.Threading;
@@ -29,11 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public async Task ConnectAsync(VssConnection jobConnection)
         {
-            if (HostContext.RunMode == RunMode.Local)
-            {
-                return;
-            }
-
+            ArgUtil.NotNull(jobConnection, nameof(jobConnection));
             _connection = jobConnection;
             int attemptCount = 5;
             while (!_connection.HasAuthenticated && attemptCount-- > 0)
@@ -69,26 +68,26 @@ namespace Microsoft.VisualStudio.Services.Agent
         //-----------------------------------------------------------------
         public Task<Stream> GetTaskContentZipAsync(Guid taskId, TaskVersion taskVersion, CancellationToken token)
         {
-            ArgUtil.Equal(RunMode.Normal, HostContext.RunMode, nameof(HostContext.RunMode));
             CheckConnection();
             return _taskAgentClient.GetTaskContentZipAsync(taskId, taskVersion, cancellationToken: token);
         }
 
         public async Task<bool> TaskDefinitionEndpointExist()
         {
-            if (HostContext.RunMode == RunMode.Local)
-            {
-                return true;
-            }
-
             CheckConnection();
             try
             {
-                var definitions = await _taskAgentClient.GetTaskDefinitionsAsync();
+                // D9BAFED4-0B18-4F58-968D-86655B4D2CE9 ->  CommandLine task
+                var definitions = await _taskAgentClient.GetTaskDefinitionsAsync(new Guid("D9BAFED4-0B18-4F58-968D-86655B4D2CE9"));
             }
             catch (VssResourceNotFoundException)
             {
                 return false;
+            }
+            catch (TaskDefinitionNotFoundException)
+            {
+                // ignore task not found exception
+                // this exception means the task definition is not in the DB, but the rest endpoint exists.
             }
 
             return true;
