@@ -47,6 +47,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 var repoLocalPath = _ec.Object.Variables.Get(Constants.Variables.Build.RepoLocalPath);
                 Assert.NotNull(repoLocalPath);
                 Assert.Equal(Path.Combine(stubWorkFolder, $"1{directorySeparator}s"), repoLocalPath);
+
+                var sourcesDir = _ec.Object.Variables.Get(Constants.Variables.Build.SourcesDirectory);
+                Assert.NotNull(sourcesDir);
+                Assert.Equal(Path.Combine(stubWorkFolder, $"1{directorySeparator}s"), sourcesDir);
+
+                var defaultWorkingDir = _ec.Object.Variables.Get(Constants.Variables.System.DefaultWorkingDirectory);
+                Assert.NotNull(defaultWorkingDir);
+                Assert.Equal(Path.Combine(stubWorkFolder, $"1{directorySeparator}s"), defaultWorkingDir);
             }
         }
 
@@ -61,6 +69,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 var repoLocalPath = _ec.Object.Variables.Get(Constants.Variables.Build.RepoLocalPath);
                 Assert.NotNull(repoLocalPath);
                 Assert.Equal(Path.Combine(stubWorkFolder, $"1{directorySeparator}s"), repoLocalPath);
+
+                var sourcesDir = _ec.Object.Variables.Get(Constants.Variables.Build.SourcesDirectory);
+                Assert.NotNull(sourcesDir);
+                Assert.Equal(Path.Combine(stubWorkFolder, $"1{directorySeparator}s"), sourcesDir);
+
+                var defaultWorkingDir = _ec.Object.Variables.Get(Constants.Variables.System.DefaultWorkingDirectory);
+                Assert.NotNull(defaultWorkingDir);
+                Assert.Equal(Path.Combine(stubWorkFolder, $"1{directorySeparator}s"), defaultWorkingDir);
             }
         }
 
@@ -75,6 +91,36 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 var repoLocalPath = _ec.Object.Variables.Get(Constants.Variables.Build.RepoLocalPath);
                 Assert.NotNull(repoLocalPath);
                 Assert.Equal(Path.Combine(stubWorkFolder, $"1{directorySeparator}s"), repoLocalPath);
+
+                var sourcesDir = _ec.Object.Variables.Get(Constants.Variables.Build.SourcesDirectory);
+                Assert.NotNull(sourcesDir);
+                Assert.Equal(Path.Combine(stubWorkFolder, $"1{directorySeparator}s"), sourcesDir);
+
+                var defaultWorkingDir = _ec.Object.Variables.Get(Constants.Variables.System.DefaultWorkingDirectory);
+                Assert.NotNull(defaultWorkingDir);
+                Assert.Equal(Path.Combine(stubWorkFolder, $"1{directorySeparator}s"), defaultWorkingDir);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void CheckMultiRepoWithoutPathInputAndWithDefaultWorkingRepo()
+        {
+            using (TestHostContext tc = Setup(createWorkDirectory: false, checkOutConfig: CheckoutConfigType.MultiCheckoutDefaultPath, defaultWorkingDirRepo: true))
+            {
+                buildJobExtension.InitializeJobExtension(_ec.Object, steps, _workspaceOptions);
+                var repoLocalPath = _ec.Object.Variables.Get(Constants.Variables.Build.RepoLocalPath);
+                Assert.NotNull(repoLocalPath);
+                Assert.Equal(Path.Combine(stubWorkFolder, $"1{directorySeparator}s"), repoLocalPath);
+
+                var sourcesDir = _ec.Object.Variables.Get(Constants.Variables.Build.SourcesDirectory);
+                Assert.NotNull(sourcesDir);
+                Assert.Equal(Path.Combine(stubWorkFolder, $"1{directorySeparator}s"), sourcesDir);
+
+                var defaultWorkingDir = _ec.Object.Variables.Get(Constants.Variables.System.DefaultWorkingDirectory);
+                Assert.NotNull(defaultWorkingDir);
+                Assert.Equal(Path.Combine(stubWorkFolder, $"1{directorySeparator}s{directorySeparator}App"), defaultWorkingDir);
             }
         }
 
@@ -89,6 +135,36 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 var repoLocalPath = _ec.Object.Variables.Get(Constants.Variables.Build.RepoLocalPath);
                 Assert.NotNull(repoLocalPath);
                 Assert.Equal(Path.Combine(stubWorkFolder, $"1{directorySeparator}s{directorySeparator}App"), repoLocalPath);
+                
+                var sourcesDir = _ec.Object.Variables.Get(Constants.Variables.Build.SourcesDirectory);
+                Assert.NotNull(sourcesDir);
+                Assert.Equal(Path.Combine(stubWorkFolder, $"1{directorySeparator}s"), sourcesDir);
+
+                var defaultWorkingDir = _ec.Object.Variables.Get(Constants.Variables.System.DefaultWorkingDirectory);
+                Assert.NotNull(defaultWorkingDir);
+                Assert.Equal(Path.Combine(stubWorkFolder, $"1{directorySeparator}s"), defaultWorkingDir);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void CheckMultiRepoWithPathInputToCustomPathAndWithDefaultWorkingRepo()
+        {
+            using (TestHostContext tc = Setup(createWorkDirectory: false, checkOutConfig: CheckoutConfigType.MultiCheckoutCustomPath, pathToSelfRepo: "s/CustomApplicationFolder", defaultWorkingDirRepo: true))
+            {
+                buildJobExtension.InitializeJobExtension(_ec.Object, steps, _workspaceOptions);
+                var repoLocalPath = _ec.Object.Variables.Get(Constants.Variables.Build.RepoLocalPath);
+                Assert.NotNull(repoLocalPath);
+                Assert.Equal(Path.Combine(stubWorkFolder, $"1{directorySeparator}s{directorySeparator}App"), repoLocalPath);
+
+                var sourcesDir = _ec.Object.Variables.Get(Constants.Variables.Build.SourcesDirectory);
+                Assert.NotNull(sourcesDir);
+                Assert.Equal(Path.Combine(stubWorkFolder, $"1{directorySeparator}s"), sourcesDir);
+
+                var defaultWorkingDir = _ec.Object.Variables.Get(Constants.Variables.System.DefaultWorkingDirectory);
+                Assert.NotNull(defaultWorkingDir);
+                Assert.Equal(Path.Combine(stubWorkFolder, $"1{directorySeparator}s{directorySeparator}App"), defaultWorkingDir);
             }
         }
 
@@ -103,11 +179,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 var repoLocalPath = _ec.Object.Variables.Get(Constants.Variables.Build.RepoLocalPath);
                 Assert.NotNull(repoLocalPath);
                 Assert.Equal(Path.Combine(stubWorkFolder, $"1{directorySeparator}s"), repoLocalPath);
+
+                var sourcesDir = _ec.Object.Variables.Get(Constants.Variables.Build.SourcesDirectory);
+                Assert.NotNull(sourcesDir);
+                Assert.Equal(Path.Combine(stubWorkFolder, $"1{directorySeparator}s"), sourcesDir);
+
+                var defaultWorkingDir = _ec.Object.Variables.Get(Constants.Variables.System.DefaultWorkingDirectory);
+                Assert.NotNull(defaultWorkingDir);
+                Assert.Equal(Path.Combine(stubWorkFolder, $"1{directorySeparator}s"), defaultWorkingDir);
             }
         }
 
         private TestHostContext Setup([CallerMemberName] string name = "",
             bool createWorkDirectory = true,
+            bool defaultWorkingDirRepo = false,
             CheckoutConfigType checkOutConfig = CheckoutConfigType.SingleCheckoutDefaultPath,
             string pathToSelfRepo = "")
         {
@@ -141,6 +226,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 }
             };
             selfCheckoutTask.Inputs.Add("repository", "self");
+            if (defaultWorkingDirRepo)
+            {
+                selfCheckoutTask.Inputs.Add("workspaceRepo", "true");
+            }
             if (isCustomPathScenario)
             {
                 selfCheckoutTask.Inputs.Add("path", pathToSelfRepo);
