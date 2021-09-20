@@ -37,6 +37,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         List<SecureFile> SecureFiles { get; }
         List<Pipelines.RepositoryResource> Repositories { get; }
         Dictionary<string,string> JobSettings { get; }
+        Dictionary<string, string> AgentSettings { get; }
 
         PlanFeatures Features { get; }
         Variables Variables { get; }
@@ -116,6 +117,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public List<SecureFile> SecureFiles { get; private set; }
         public List<Pipelines.RepositoryResource> Repositories { get; private set; }
         public Dictionary<string, string> JobSettings { get; private set; }
+        public Dictionary<string, string> AgentSettings { get; private set; }
         public Variables Variables { get; private set; }
         public Variables TaskVariables { get; private set; }
         public HashSet<string> OutputVariables => _outputvariables;
@@ -169,6 +171,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             _jobServerQueue = HostContext.GetService<IJobServerQueue>();
+
+            // Agent Settings
+            AgentSettings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            AgentSettings[WellKnownAgentSettings.AllowWorkDirectoryRepositories] = HostContext.GetService<IConfigurationStore>().GetSettings().AllowWorkDirectoryRepositories ? Boolean.TrueString : Boolean.FalseString;
         }
 
         public void CancelToken()
@@ -203,6 +209,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             child.Endpoints = Endpoints;
             child.Repositories = Repositories;
             child.JobSettings = JobSettings;
+            child.AgentSettings = AgentSettings;
             child.SecureFiles = SecureFiles;
             child.TaskVariables = taskVariables;
             child._cancellationTokenSource = new CancellationTokenSource();

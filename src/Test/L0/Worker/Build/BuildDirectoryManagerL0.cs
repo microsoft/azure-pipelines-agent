@@ -219,7 +219,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void UpdateDirectory()
+        public void UpdateDirectory_DontAllowWorkingDirectoryRepositories()
         {
             // Arrange.
             using (TestHostContext hc = Setup(existingConfigKind: ExistingConfigKind.Matching))
@@ -239,7 +239,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void UpdateDirectoryFailOnInvalidPath()
+        public void UpdateDirectoryFailOnInvalidPath_DontAllowWorkingDirectoryRepositories()
         {
             // Arrange.
             using (TestHostContext hc = Setup(existingConfigKind: ExistingConfigKind.Matching))
@@ -247,7 +247,47 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 // Act.
                 var tracking = _buildDirectoryManager.PrepareDirectory(_ec.Object, _repositories, _workspaceOptions);
 
-                _repository.Properties.Set<string>(Pipelines.RepositoryPropertyNames.Path, Path.Combine(hc.GetDirectory(WellKnownDirectory.Work), "test\\foo"));
+                _repository.Properties.Set<string>(Pipelines.RepositoryPropertyNames.Path, Path.Combine(hc.GetDirectory(WellKnownDirectory.Work), $"test{Path.DirectorySeparatorChar}foo"));
+
+                var exception = Assert.Throws<ArgumentException>(() => _buildDirectoryManager.UpdateDirectory(_ec.Object, _repository));
+
+                // Assert.
+                Assert.True(exception.Message.Contains("should be located under agent's build directory"));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void UpdateDirectory_AllowWorkingDirectoryRepositories()
+        {
+            // Arrange.
+            using (TestHostContext hc = Setup(existingConfigKind: ExistingConfigKind.Matching, allowWorkingDirectoryRepositories: true))
+            {
+                // Act.
+                var tracking = _buildDirectoryManager.PrepareDirectory(_ec.Object, _repositories, _workspaceOptions);
+
+                _repository.Properties.Set<string>(Pipelines.RepositoryPropertyNames.Path, Path.Combine(hc.GetDirectory(WellKnownDirectory.Work), $"test{Path.DirectorySeparatorChar}foo"));
+
+                var newTracking = _buildDirectoryManager.UpdateDirectory(_ec.Object, _repository);
+
+                // Assert.
+                Assert.Equal(newTracking.SourcesDirectory, $"test{Path.DirectorySeparatorChar}foo");
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void UpdateDirectoryFailOnInvalidPath_AllowWorkingDirectoryRepositories()
+        {
+            // Arrange.
+            using (TestHostContext hc = Setup(existingConfigKind: ExistingConfigKind.Matching, allowWorkingDirectoryRepositories: true))
+            {
+                // Act.
+                var tracking = _buildDirectoryManager.PrepareDirectory(_ec.Object, _repositories, _workspaceOptions);
+
+                _repository.Properties.Set<string>(Pipelines.RepositoryPropertyNames.Path, Path.Combine(hc.GetDirectory(WellKnownDirectory.Work), $"..{Path.DirectorySeparatorChar}test{Path.DirectorySeparatorChar}foo"));
 
                 var exception = Assert.Throws<ArgumentException>(() => _buildDirectoryManager.UpdateDirectory(_ec.Object, _repository));
 
@@ -260,7 +300,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
         private TestHostContext Setup(
             [CallerMemberName] string name = "",
             BuildCleanOption? cleanOption = null,
-            ExistingConfigKind existingConfigKind = ExistingConfigKind.None)
+            ExistingConfigKind existingConfigKind = ExistingConfigKind.None,
+            bool allowWorkingDirectoryRepositories = false)
         {
             // Setup the host context.
             TestHostContext hc = new TestHostContext(this, name);
@@ -268,7 +309,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             // Create a random work path.
             var configStore = new Mock<IConfigurationStore>();
             _workFolder = hc.GetDirectory(WellKnownDirectory.Work);
-            var settings = new AgentSettings() { WorkFolder = _workFolder };
+            var settings = new AgentSettings() 
+            { 
+                WorkFolder = _workFolder,
+                AllowWorkDirectoryRepositories = allowWorkingDirectoryRepositories,
+            };
             configStore.Setup(x => x.GetSettings()).Returns(settings);
             hc.SetSingleton<IConfigurationStore>(configStore.Object);
 

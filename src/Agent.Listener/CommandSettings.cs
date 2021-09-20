@@ -519,6 +519,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             return TestFlag(Configure?.DisableLogUploads, Constants.Agent.CommandLine.Flags.DisableLogUploads);
         }
 
+        public bool GetAllowWorkDirectoryRepositories()
+        {
+            return TestFlag(Configure?.AllowWorkDirectoryRepositories, Constants.Agent.CommandLine.Flags.AllowWorkDirectoryRepositories);
+        }
+
         public bool Unattended()
         {
             if (TestFlag(GetConfigureOrRemoveBase()?.Unattended, Constants.Agent.CommandLine.Flags.Unattended))

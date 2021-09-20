@@ -18,6 +18,9 @@ namespace Agent.Listener.CommandLine
         [Option(Constants.Agent.CommandLine.Flags.AddMachineGroupTags)]
         public bool AddMachineGroupTags { get; set; }
 
+        [Option(Constants.Agent.CommandLine.Flags.AllowWorkDirectoryRepositories)]
+        public bool AllowWorkDirectoryRepositories { get; set; }
+
         [Option(Constants.Agent.CommandLine.Flags.AlwaysExtractTask)]
         public bool AlwaysExtractTask { get; set; }
 

@@ -41,6 +41,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         }
 
         /// <summary>
+        /// Returns true if the dictionary contains the 'AllowWorkDirectoryRepository' key and the value is set to 'true'.
+        /// </summary>
+        public static bool AllowWorkDirectoryRepositories(Dictionary<string, string> agentSettings)
+        {
+            if (agentSettings != null && agentSettings.TryGetValue(WellKnownAgentSettings.AllowWorkDirectoryRepositories, out string allowWorkDirectoryRepositoriesText))
+            {
+                return bool.TryParse(allowWorkDirectoryRepositoriesText, out bool allowWorkDirectoryRepositories) && allowWorkDirectoryRepositories;
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Returns true if the string matches the primary repository name (self)
         /// </summary>
         public static bool IsPrimaryRepositoryName(string repoAlias)
