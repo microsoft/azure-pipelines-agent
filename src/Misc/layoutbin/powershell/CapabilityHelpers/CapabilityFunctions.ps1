@@ -111,12 +111,19 @@ function Add-CapabilityFromRegistryWithLastVersionAvailableForSubkey {
 
         [Parameter(Mandatory = $true)]
         [string]$ValueName,
+        
         # Registry subkey
         [Parameter(Mandatory = $true)]
         [string]$Subkey,
+        
+        # Regkey subdirectory inside particular version
+        [Parameter(Mandatory = $false)]
+        [string]$VersionSubdirectory,
+
         # Major version of tool to be added as capability
         [Parameter(Mandatory = $true)]
         [int]$MajorVersion,
+        
         # Minimum major version of tool to be added as capability. All versions detected less than this version - will be ignored. 
         # This is helpful for backward compatibility with already existing logic for previous versions
         [Parameter(Mandatory = $false)]
@@ -129,8 +136,14 @@ function Add-CapabilityFromRegistryWithLastVersionAvailableForSubkey {
             return $false
         }
 
-        $wholeKey = Join-Path -Path $KeyName -ChildPath $Subkey
-
+        $wholeKey = ""
+        if ( -not [string]::IsNullOrEmpty($VersionSubdirectory)) {
+            $versionDir = Join-Path -Path $KeyName -ChildPath $Subkey
+            $wholeKey = Join-Path -Path $versionDir -ChildPath $VersionSubdirectory
+        } else {
+            $wholeKey = Join-Path -Path $KeyName -ChildPath $Subkey
+        }
+ 
         $capabilityValue = Get-RegistryValue -Hive $Hive -View $View -KeyName $wholeKey -ValueName $ValueName
 
         if ([string]::IsNullOrEmpty($capabilityValue)) {
@@ -179,6 +192,10 @@ function Add-CapabilityFromRegistryWithLastVersionAvailable {
         [Parameter(Mandatory = $true)]
         [string]$KeyName,
 
+        # Regkey subdirectory inside particular version
+        [Parameter(Mandatory = $false)]
+        [string]$VersionSubdirectory,
+
         [Parameter(Mandatory = $true)]
         [string]$ValueName,
         # Minimum major version of tool to be added as capability. All versions detected less than this version - will be ignored. 
@@ -195,7 +212,7 @@ function Add-CapabilityFromRegistryWithLastVersionAvailable {
 
         $sortedVersionSubkeys = $versionSubkeys | Sort-Object -Property @{Expression = {$_.Item1}; Descending = $False}
         Write-Host $sortedVersionSubkeys[-1].Item1.Major
-        $res = Add-CapabilityFromRegistryWithLastVersionAvailableForSubkey -PrefixName $PrefixName -PostfixName $PostfixName -Hive $Hive -View $View -KeyName $KeyName -ValueName $ValueName -Subkey $sortedVersionSubkeys[-1].Item2 -MajorVersion $sortedVersionSubkeys[-1].Item1.Major -Value $Value  -MinimumMajorVersion $MinimumMajorVersion
+        $res = Add-CapabilityFromRegistryWithLastVersionAvailableForSubkey -PrefixName $PrefixName -PostfixName $PostfixName -Hive $Hive -View $View -KeyName $KeyName -ValueName $ValueName -Subkey $sortedVersionSubkeys[-1].Item2 -VersionSubdirectory $VersionSubdirectory -MajorVersion $sortedVersionSubkeys[-1].Item1.Major -Value $Value  -MinimumMajorVersion $MinimumMajorVersion
 
         if (!$res) {
             Write-Host "An error occured while trying to get last available version for capability: " $PrefixName + "<version>" + $PostfixName
