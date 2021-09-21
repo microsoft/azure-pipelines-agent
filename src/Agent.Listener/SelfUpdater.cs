@@ -326,6 +326,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 }
             }
 
+            if (!String.IsNullOrEmpty(AgentKnobs.DisableAuthenticodeValidation.GetValue(HostContext).AsString()))
+            {
+                Trace.Warning("Authenticode validation skipped for downloaded agent package since it is disabled currently by agent settings.");
+            }
+
+            var isValid = this.VerifyAgentAuthenticode(latestAgentDirectory);
+            if (!isValid)
+            {
+                throw new Exception("Authenticode validation of agent assemblies failed.");
+            }
+            else
+            {
+                Trace.Info("Authenticode validation of agent assemblies passed successfully.");
+            }
+
             // copy latest agent into agent root folder
             // copy bin from _work/_update -> bin.version under root
             string binVersionDir = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), $"{Constants.Path.BinDirectory}.{_targetPackage.Version}");
@@ -510,6 +525,40 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 Trace.Error(ex);
                 Trace.Info($"Catch exception during report update state, ignore this error and continue auto-update.");
             }
+        }
+        /// <summary>
+        /// Verifies authenticode sign of agent assemblies
+        /// </summary>
+        /// <param name="agentFolderPath"></param>
+        /// <returns></returns>
+        private bool VerifyAgentAuthenticode(string agentFolderPath)
+        {
+            if (!Directory.Exists(agentFolderPath))
+            {
+                return false;
+            }
+
+            var agentDllFiles = Directory.GetFiles(agentFolderPath, "*.dll", SearchOption.AllDirectories);
+            var agentExeFiles = Directory.GetFiles(agentFolderPath, "*.exe", SearchOption.AllDirectories);
+
+            var agentAssemblies = agentDllFiles.Concat(agentExeFiles);
+            Trace.Verbose(String.Format("Found {0} agent assemblies. Performing authenticode validation...", agentAssemblies.Count()));
+
+            foreach (var assemblyFile in agentAssemblies)
+            {
+                FileInfo info = new FileInfo(assemblyFile);
+                try
+                {
+                    InstallerVerifier.VerifyFileSignedByMicrosoft(info.FullName, this.Trace);
+                }
+                catch (Exception e)
+                {
+                    Trace.Error(e);
+                    return false;
+                }
+            }
+
+            return true;
         }
     }
 
