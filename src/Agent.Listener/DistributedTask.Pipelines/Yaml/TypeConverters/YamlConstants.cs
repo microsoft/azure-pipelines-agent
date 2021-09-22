@@ -50,5 +50,6 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
         internal const String Value = "value";
         internal const String Variables = "variables";
         internal const String WorkingDirectory = "workingDirectory";
+        internal const String RetryCountOnTaskFailure = "retryCountOnTaskFailure";
     }
 }

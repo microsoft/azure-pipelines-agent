@@ -53,6 +53,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public Pipelines.StepTarget Target => Task?.Target;
 
+        const int RetryCountOnTaskFailureLimit = 10;
+
         public async Task RunAsync()
         {
             // Validate args.
@@ -362,7 +364,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     taskDirectory: definition.Directory);
 
                 // Run the task.
-                await handler.RunAsync();
+                int retryCount = this.Task.RetryCountOnTaskFailure;
+
+                if (retryCount > 0)
+                {
+                    if (retryCount > RetryCountOnTaskFailureLimit)
+                    {
+                        ExecutionContext.Warning(StringUtil.Loc("RetryCountLimitExceeded", RetryCountOnTaskFailureLimit, retryCount));
+                        retryCount = RetryCountOnTaskFailureLimit;
+                    }
+
+                    RetryHelper rh = new RetryHelper(ExecutionContext, retryCount);
+                    await rh.RetryStep(async () => await handler.RunAsync(), RetryHelper.ExponentialDelay);
+                }
+                else
+                {
+                    await handler.RunAsync();
+                }
             }
         }
 
