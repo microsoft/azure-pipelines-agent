@@ -1,0 +1,48 @@
+name: CodeQL Analysis
+
+on:
+  push:
+    # ignore dependabot branches on push -> https://github.com/microsoft/binskim/issues/425#issuecomment-893373709
+    branches-ignore:
+      - 'dependabot*'
+  pull_request:
+  schedule:
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v1
+        with:
+          queries: security-and-quality
+          languages: csharp
+
+      - name: Prepare solution
+        shell: pwsh
+        run: |
+          $pathToSolution = "azure-pipelines-agent.sln"
+          $testProjects = "src\Test\Test.csproj" # separate paths with comma as in: "test1", "test2"
+
+          dotnet nuget locals all --clear
+
+          # remove one or more test projects, 
+          # so that CodeQL only analyzes the source code
+          dotnet sln $pathToSolution remove $testProjects
+
+      - name: Build solution
+        run: |
+          src/dev.sh layout
+
+          src/dev.sh build
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v1
+
+# Built with ❤ by [Pipeline Foundation](https://pipeline.foundation)
