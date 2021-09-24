@@ -15,7 +15,7 @@ $vstsAuthHeader = @{"Authorization"="Basic $base64authinfo"}
 $allHeaders = $vstsAuthHeader + @{"Content-Type"="application/json"; "Accept"="application/json"}
 
 # List of deprecated images
-[string[]] $deprecatedImages = 'WINCON', 'win1803', 'macOS-10.13', 'macOS 10.13', 'MacOS 1013', 'MacOS-1013', 'DefaultHosted', 'vs2015 win2012r2', 'vs2015-win2012r2'
+[string[]] $deprecatedImages = 'macOS-10.14', 'macOS 10.14', 'MacOS 1014', 'MacOS-1014', 'Ubuntu16', 'ubuntu-16.04', 'DefaultHosted', 'VS2017', 'vs2017 win2016', 'vs2017-win2016', 'windows-2016-vs2017'
 
 try
 {
