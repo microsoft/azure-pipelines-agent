@@ -21,7 +21,7 @@ $allHeaders = $vstsAuthHeader + @{"Content-Type"="application/json"; "Accept"="a
 
 try
 {
-    $result = Invoke-WebRequest -Headers $allHeaders -Method GET "$accountUrl/_apis/DistributedTask/pools?api-version=5.0-preview"
+    $result = Invoke-WebRequest -Headers $allHeaders -Method GET "$accountUrl/_apis/DistributedTask/pools?api-version=6.1-preview"
     if ($result.StatusCode -ne 200)
     {
         Write-Output $result.Content
