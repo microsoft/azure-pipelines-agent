@@ -84,7 +84,7 @@ try
                 {
                     if ($job.agentSpecification -and
                         $job.agentSpecification.VMImage -and
-                        ($job.agentSpecification.VMImage -match ($deprecatedImages -join '|')))
+                        ($job.agentSpecification.VMImage -imatch ($deprecatedImages -join '|')))
                     {
                         $hashJobsToDef[$job.definition.name] = $job.definition._links.web.href
                     }
