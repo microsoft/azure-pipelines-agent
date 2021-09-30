@@ -48,13 +48,13 @@ exports.execInForeground = function(command, directory, dryrun = false)
 }
 
 /**
- * Replaces `<AGENT_VERSION>` and `<HASH_VALUE>` with the right values
+ * Replaces `<AGENT_VERSION>` and `<HASH_VALUE>` with the right values depending on agent package file name
  * 
- * @param {*} template InstallAgentPackage.template.xml path
- * @param {*} destination Path where the filled InstallAgentPackage.xml should be written
- * @param {*} version Agent version, e.g. 2.193.0
+ * @param {string} template Template path (e.g. InstallAgentPackage.template.xml or Publish.template.ps1 paths)
+ * @param {string} destination Path where the filled template should be written (e.g. InstallAgentPackage.xml path)
+ * @param {string} version Agent version, e.g. 2.193.0
  */
-exports.fillInstallAgentPackageParameters = function(template, destination, version)
+exports.fillAgentParameters = function(template, destination, version)
 {
     try
     {
@@ -64,15 +64,13 @@ exports.fillInstallAgentPackageParameters = function(template, destination, vers
         const hashes = exports.getHashes();
         const dataLines = data.split('\n');
         const modifiedDataLines = dataLines.map((line) => {
-            if (!line.includes('AddTaskPackageData')) {
-                return line;
+            for (const packageName of Object.keys(hashes)) {
+                if (line.includes(packageName)) {
+                    return line.replace('<HASH_VALUE>', hashes[packageName]);
+                }
             }
 
-            const packageNameStart = line.indexOf('filename="') + 'filename="'.length;
-            const packageNameEnd = packageNameStart + line.slice(packageNameStart).indexOf('"');
-            const packageName = line.substring(packageNameStart, packageNameEnd);
-
-            return line.replace('<HASH_VALUE>', hashes[packageName]);
+            return line;
         });
 
         data = modifiedDataLines.join('\n');

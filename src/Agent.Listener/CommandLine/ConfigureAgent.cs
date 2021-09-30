@@ -108,6 +108,9 @@ namespace Agent.Listener.CommandLine
         [Option(Constants.Agent.CommandLine.Flags.Once)]
         public bool RunOnce { get; set; }
 
+        [Option(Constants.Agent.CommandLine.Flags.PreventServiceStart)]
+        public bool PreventServiceStart { get; set; }
+
         [Option(Constants.Agent.CommandLine.Args.SslCACert)]
         public string SslCACert { get; set; }
 

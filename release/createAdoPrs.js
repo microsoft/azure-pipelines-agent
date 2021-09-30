@@ -1,9 +1,9 @@
 const azdev = require('azure-devops-node-api');
 const fs = require('fs');
-const naturalSort = require('natural-sort');
 const path = require('path');
 const tl = require('azure-pipelines-task-lib/task');
 const util = require('./util');
+const got = require('got');
 
 const INTEGRATION_DIR = path.join(__dirname, '..', '_layout', 'integrations');
 const GIT = 'git';
@@ -13,7 +13,7 @@ var opt = require('node-getopt').create([
     ['h', 'help',                 'Display this help'],
   ])
   .setHelp(
-    'Usage: node createAdoPr.js [OPTION] <version>\n' +
+    'Usage: node createAdoPrs.js [OPTION] <version>\n' +
     '\n' +
     '[[OPTIONS]]\n'
   )
@@ -23,17 +23,27 @@ var opt = require('node-getopt').create([
 const authHandler = azdev.getPersonalAccessTokenHandler(process.env.PAT);
 const connection = new azdev.WebApi('https://dev.azure.com/mseng', authHandler);
 
-function createIntegrationFiles(newRelease, callback)
+/**
+ * Fills InstallAgentPackage.xml and Publish.ps1 templates.
+ * Replaces <AGENT_VERSION> and <HASH_VALUE> with the right values in these files.
+ * @param {string} newRelease Agent version, e.g. 2.193.0
+ */
+function createIntegrationFiles(newRelease)
 {
     fs.mkdirSync(INTEGRATION_DIR, { recursive: true });
-    util.fillInstallAgentPackageParameters(
+    util.fillAgentParameters(
         path.join(__dirname, '..', 'src', 'Misc', 'InstallAgentPackage.template.xml'),
         path.join(INTEGRATION_DIR, 'InstallAgentPackage.xml'),
         newRelease
     );
+    util.fillAgentParameters(
+        path.join(__dirname, '..', 'src', 'Misc', 'Publish.template.ps1'),
+        path.join(INTEGRATION_DIR, 'Publish.ps1'),
+        newRelease
+    );
 }
 
-commitAndPush = function(directory, release, branch)
+function commitAndPush(directory, release, branch)
 {
     util.execInForeground(`${GIT} checkout -b ${branch}`, directory);
     util.execInForeground(`${GIT} commit -m "Agent Release ${release}" `, directory);
@@ -55,14 +65,14 @@ function sparseClone(directory, url)
     util.execInForeground(`${GIT} sparse-checkout init --cone`, directory, opt.dryrun);
 }
 
-async function commitADOL2Changes(directory, release)
+async function createAdoPR(directory, release)
 {
-    var gitUrl =  `https://${process.env.PAT}@dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps`
+    var gitUrl = `https://${process.env.PAT}@dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps`;
 
     var file = path.join(INTEGRATION_DIR, 'InstallAgentPackage.xml');
     var targetDirectory = path.join('DistributedTask', 'Service', 'Servicing', 'Host', 'Deployment', 'Groups');
     var target = path.join(directory, targetDirectory, 'InstallAgentPackage.xml');
-    
+
     if (!fs.existsSync(directory))
     {
         // sparseClone(directory, gitUrl);
@@ -93,6 +103,59 @@ async function commitADOL2Changes(directory, release)
     }, 'AzureDevOps', 'AzureDevOps');
 }
 
+async function createConfigChangePR(repoPath, agentVersion) {
+    const gitUrl = `https://${process.env.PAT}@dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps.ConfigChange`;
+
+    if (!agentVersion.match(/^\d\.\d\d\d.\d+$/)) {
+        throw new Error(`Agent version should fit the pattern: x.xxx.xxx; received: ${agentVersion}`);
+    }
+
+    if (!fs.existsSync(repoPath)) {
+        util.execInForeground(`${GIT} clone --depth 1 ${gitUrl} ${repoPath}`, null, opt.dryrun);
+    }
+
+    const sprint = await getCurrentSprint();
+    const publishScriptPathInRepo = path.join('tfs', `m${sprint}`, 'PipelinesAgentRelease', agentVersion, 'Publish.ps1');
+    const publishScriptPathInSystem = path.join(repoPath, publishScriptPathInRepo);
+    fs.mkdirSync(path.dirname(publishScriptPathInSystem), { recursive: true });
+
+    const file = path.join(INTEGRATION_DIR, 'Publish.ps1');
+
+    if (opt.options.dryrun) {
+        console.log(`Fake copy file from ${file} to ${publishScriptPathInSystem}`);
+    } else {
+        console.log(`Copy file from ${file} to ${publishScriptPathInSystem}`);
+        fs.copyFileSync(file, publishScriptPathInSystem);
+    }
+
+    const newBranch = `users/${process.env.USER}/agent-${agentVersion}`;
+    util.execInForeground(`${GIT} add ${publishScriptPathInRepo}`, repoPath, opt.dryrun);
+    commitAndPush(repoPath, agentVersion, newBranch);
+
+    console.log(`Creating pr from ${newBranch} into master in the AzureDevOps.ConfigChange repo`);
+
+    const gitApi = await connection.getGitApi();
+    const pullRequest = {
+        sourceRefName: `refs/heads/${newBranch}`,
+        targetRefName: 'refs/heads/master',
+        title: 'Update agent',
+        description: `Update agent publish script to version ${agentVersion}`
+    };
+    const repo = 'AzureDevOps.ConfigChange';
+    const project = 'AzureDevOps';
+    await gitApi.createPullRequest(pullRequest, repo, project);
+}
+
+/**
+ * Queries whatsprintis.it for current sprint version
+ * 
+ * @returns current sprint version
+ */
+async function getCurrentSprint() {
+    const response = await got.get('https://whatsprintis.it/?json', { responseType: 'json' });
+    return response.body.sprint;
+}
+
 async function main()
 {
     try {
@@ -102,13 +165,18 @@ async function main()
             console.log('Error: You must supply a version');
             process.exit(-1);
         }
-        var pathToAdo = path.join(INTEGRATION_DIR, 'AzureDevOps');
         util.verifyMinimumNodeVersion();
         util.verifyMinimumGitVersion();
         createIntegrationFiles(newRelease);
         util.execInForeground(`${GIT} config --global user.email "${process.env.USER}@microsoft.com"`, null, opt.dryrun);
         util.execInForeground(`${GIT} config --global user.name "${process.env.USER}"`, null, opt.dryrun);
-        await commitADOL2Changes(pathToAdo, newRelease);
+
+        var pathToAdo = path.join(INTEGRATION_DIR, 'AzureDevOps');
+        await createAdoPR(pathToAdo, newRelease);
+
+        const pathToAdoConfigChange = path.join(INTEGRATION_DIR, 'AzureDevOps.ConfigChange');
+        await createConfigChangePR(pathToAdoConfigChange, newRelease);
+
         console.log('done.');
     }
     catch (err) {
