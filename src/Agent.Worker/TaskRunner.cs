@@ -210,10 +210,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Trace.Verbose("Expanding inputs.");
                 runtimeVariables.ExpandValues(target: inputs);
                 foreach (var input in inputs)
-                {
-                    string maskedString = HostContext.SecretMasker.MaskSecrets(input.Value);
-                    // We need to check if there are secrets in inputs after runtime variables expanding. 
-                    if (input.Key.StartsWith("target_") && maskedString.Contains("***"))
+                { 
+                    if (input.Key.StartsWith("target_") && this.IsInputContainsSecret(input.Value))
                     {
                         ExecutionContext.Result = TaskResult.Skipped;
                         ExecutionContext.ResultCode = $"Decorator task shouldn't pickup inputs, that contains secrets";
@@ -535,6 +533,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ExecutionContext.Output($"Author       : {taskDefinition.Data.Author}");
             ExecutionContext.Output($"Help         : {taskDefinition.Data.HelpUrl ?? taskDefinition.Data.HelpMarkDown}");
             ExecutionContext.Output("==============================================================================");
+        }
+
+        private void IsInputContainsSecret(string inputValue)
+        {
+            string maskedString = HostContext.SecretMasker.MaskSecrets(inputValue);
+            return maskedString.Contains("***");
         }
     }
 }
