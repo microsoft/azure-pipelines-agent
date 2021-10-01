@@ -169,7 +169,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                 }
 
-                // System.Diagnostics.Debugger.Launch();
                 // Load the default input values from the definition.
                 Trace.Verbose("Loading default inputs.");
                 var inputs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -209,8 +208,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 // Expand the inputs.
                 Trace.Verbose("Expanding inputs.");
-                System.Diagnostics.Debugger.Launch();
-
                 runtimeVariables.ExpandValues(target: inputs);
                 foreach (var input in inputs)
                 {
@@ -256,7 +253,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Expand the handler inputs.
                 Trace.Verbose("Expanding handler inputs.");
                 VarUtil.ExpandValues(HostContext, source: inputs, target: handlerData.Inputs);
-                
                 runtimeVariables.ExpandValues(target: handlerData.Inputs);
 
                 // Get each endpoint ID referenced by the task.
