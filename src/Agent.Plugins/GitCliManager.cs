@@ -174,24 +174,16 @@ namespace Agent.Plugins.Repository
             bool reducedOutput = AgentKnobs.QuietCheckout.GetValue(context).AsBoolean();
             string progress = reducedOutput ? string.Empty : "--progress";
 
-            // default options for git fetch.
-            string options = StringUtil.Format($"{forceTag} --tags --prune {progress} --no-recurse-submodules {remoteName} {string.Join(" ", refSpec)}");
+            // insert prune-tags if knob is false to sync tags with the remote
+            string pruneTags = AgentKnobs.DisableFetchPruneTags.GetValue(context).AsBoolean() ? string.Empty : "--prune-tags";
 
             // If shallow fetch add --depth arg
             // If the local repository is shallowed but there is no fetch depth provide for this build,
             // add --unshallow to convert the shallow repository to a complete repository
-            if (fetchDepth > 0)
-            {
-                options = StringUtil.Format($"{forceTag} --tags --prune {progress} --no-recurse-submodules --depth={fetchDepth} {remoteName} {string.Join(" ", refSpec)}");
-            }
-            else
-            {
-                if (File.Exists(Path.Combine(repositoryPath, ".git", "shallow")))
-                {
-                    options = StringUtil.Format($"{forceTag} --tags --prune {progress} --no-recurse-submodules --unshallow {remoteName} {string.Join(" ", refSpec)}");
-                }
-            }
+            string depth = fetchDepth > 0 ? $"--depth={fetchDepth}" : (File.Exists(Path.Combine(repositoryPath, ".git", "shallow")) ? "--unshallow" : string.Empty );
 
+            //define options for fetch
+            string options = $"{forceTag} --tags --prune {pruneTags} {progress} --no-recurse-submodules {remoteName} {depth} {string.Join(" ", refSpec)}";
             int retryCount = 0;
             int fetchExitCode = 0;
             while (retryCount < 3)
