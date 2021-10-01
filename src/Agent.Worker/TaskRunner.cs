@@ -214,7 +214,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (input.Key.StartsWith("target_") && this.IsInputContainsSecret(input.Value))
                     {
                         ExecutionContext.Result = TaskResult.Skipped;
-                        ExecutionContext.ResultCode = $"Decorator task shouldn't pickup inputs, that contains secrets";
+                        ExecutionContext.ResultCode = $"It is not allowed to pass inputs that contain secrets to the tasks injected by decorators";
                         return;
                     }
                 }
@@ -535,7 +535,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ExecutionContext.Output("==============================================================================");
         }
 
-        private void IsInputContainsSecret(string inputValue)
+        private bool IsInputContainsSecret(string inputValue)
         {
             string maskedString = HostContext.SecretMasker.MaskSecrets(inputValue);
             return maskedString.Contains("***");
