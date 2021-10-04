@@ -209,15 +209,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Expand the inputs.
                 Trace.Verbose("Expanding inputs.");
                 runtimeVariables.ExpandValues(target: inputs);
-                foreach (var input in inputs)
-                { 
-                    if (input.Key.StartsWith("target_") && this.IsInputContainsSecret(input.Value))
+
+                if (Task.Name.StartsWith("__system_posttargettask_")
+                    || Task.Name.StartsWith("__system_pretargettask_"))
+                {
+                    bool isValid = this.ValidateInjectedTaskInputs(inputs);
+                    if (!isValid)
                     {
                         ExecutionContext.Result = TaskResult.Skipped;
                         ExecutionContext.ResultCode = $"It is not allowed to pass inputs that contain secrets to the tasks injected by decorators";
                         return;
                     }
                 }
+
                 VarUtil.ExpandEnvironmentVariables(HostContext, target: inputs);
 
                 // Translate the server file path inputs to local paths.
@@ -539,6 +543,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             string maskedString = HostContext.SecretMasker.MaskSecrets(inputValue);
             return maskedString.Contains("***");
+        }
+
+        private bool ValidateInjectedTaskInputs(Dictionary<string, string> inputs)
+        {
+            foreach (var input in inputs)
+            { 
+                if (input.Key.StartsWith("target_") && this.IsInputContainsSecret(input.Value))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
     }
 }
