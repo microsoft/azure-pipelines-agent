@@ -63,6 +63,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTS_DISABLEFETCHBYCOMMIT"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob DisableFetchPruneTags = new Knob(
+            nameof(DisableFetchPruneTags),
+            "If true, disable --prune-tags in the fetches.",
+            new RuntimeKnobSource("VSTS.DisableFetchPruneTags"),
+            new EnvironmentKnobSource("VSTS_DISABLEFETCHPRUNETAGS"),
+            new BuiltInDefaultKnobSource("false")); 
+
         public static readonly Knob PreferGitFromPath = new Knob(
             nameof(PreferGitFromPath),
             "Determines which Git we will use on Windows. By default, we prefer the built-in portable git in the agent's externals folder, setting this to true makes the agent find git.exe from %PATH% if possible.",
@@ -245,6 +252,12 @@ namespace Agent.Sdk.Knob
             "Return DownloadBuildArtifactsV1 target path resolution behavior back to how it was originally implemented. This breaks back compatibility with DownloadBuildArtifactsV0.",
             new RuntimeKnobSource("EnableIncompatibleBuildArtifactsPathResolution"),
             new EnvironmentKnobSource("EnableIncompatibleBuildArtifactsPathResolution"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob DisableHashValidation = new Knob(
+            nameof(DisableHashValidation),
+            "If true, the agent will skip package hash validation during self-updating.",
+            new EnvironmentKnobSource("DISABLE_HASH_VALIDATION"),
             new BuiltInDefaultKnobSource("false"));
     }
 }

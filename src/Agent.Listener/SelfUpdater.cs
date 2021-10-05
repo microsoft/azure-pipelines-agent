@@ -4,7 +4,10 @@
 using Agent.Sdk;
 using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Common;
+using Microsoft.VisualStudio.Services.WebApi;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -13,7 +16,6 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -34,6 +36,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         private IAgentServer _agentServer;
         private int _poolId;
         private int _agentId;
+        private string _serverUrl;
+        private VssCredentials _creds;
+        private ILocationServer _locationServer;
+        private bool _hashValidationDisabled;
+        private ServerUtil _serverUtil;
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -46,6 +53,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             var settings = configStore.GetSettings();
             _poolId = settings.PoolId;
             _agentId = settings.AgentId;
+            _serverUrl = settings.ServerUrl;
+            var credManager = HostContext.GetService<ICredentialManager>();
+            _creds = credManager.LoadCredentials();
+            _locationServer = HostContext.GetService<ILocationServer>();
+            _hashValidationDisabled = AgentKnobs.DisableHashValidation.GetValue(_knobContext).AsBoolean();
+            _serverUtil = new ServerUtil();
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "invokeScript")]
@@ -155,6 +168,46 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             return false;
         }
 
+        private async Task<bool> HashValidation(string archiveFile)
+        {
+            if (_hashValidationDisabled)
+            {
+                Trace.Info($"Agent package hash validation disabled, so skipping it");
+                return true;
+            }
+
+            bool isHostedServer = await _serverUtil.IsDeploymentTypeHosted(_serverUrl, _creds, _locationServer);
+
+            if (!isHostedServer)
+            {
+                Trace.Info($"Skipping checksum validation for On-Premises solution");
+                return true;
+            }
+
+            if (string.IsNullOrEmpty(_targetPackage.HashValue))
+            {
+                Trace.Warning($"Unable to perform the necessary checksum validation since the target package hash is missed");
+                return false;
+            }
+
+            string expectedHash = _targetPackage.HashValue;
+            string actualHash = IOUtil.GetFileHash(archiveFile);
+            bool hashesMatch = StringUtil.AreHashesEqual(actualHash, expectedHash);
+
+            if (hashesMatch)
+            {
+                Trace.Info($"Checksum validation succeeded");
+                return true;
+            }
+
+            // A hash mismatch can occur in two cases:
+            // 1) The archive is compromised
+            // 2) The archive was not fully downloaded or was damaged during downloading
+            // There is no way to determine the case so we just return false in both cases (without throwing an exception)
+            Trace.Warning($"Checksum validation failed\n  Expected hash: '{expectedHash}'\n  Actual hash: '{actualHash}'");
+            return false;
+        }
+
         /// <summary>
         /// _work
         ///     \_update
@@ -175,11 +228,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             int agentSuffix = 1;
             string archiveFile = null;
             bool downloadSucceeded = false;
+            bool validationSucceeded = false;
 
             try
             {
                 // Download the agent, using multiple attempts in order to be resilient against any networking/CDN issues
-                for (int attempt = 1; attempt <= Constants.AgentDownloadRetryMaxAttempts; attempt++)
+                for (int attempt = 1; attempt <= Constants.AgentDownloadRetryMaxAttempts && !validationSucceeded; attempt++)
                 {
                     // Generate an available package name, and do our best effort to clean up stale local zip files
                     while (true)
@@ -193,22 +247,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             archiveFile = Path.Combine(latestAgentDirectory, $"agent{agentSuffix}.tar.gz");
                         }
 
-                        try
+                        // The package name is generated, check if there is already a file with the same name and path
+                        if (!string.IsNullOrEmpty(archiveFile) && File.Exists(archiveFile))
                         {
-                            // delete .zip file
-                            if (!string.IsNullOrEmpty(archiveFile) && File.Exists(archiveFile))
+                            Trace.Verbose("Deleting latest agent package zip '{0}'", archiveFile);
+                            try
                             {
-                                Trace.Verbose("Deleting latest agent package zip '{0}'", archiveFile);
+                                // Such a file already exists, so try deleting it
                                 IOUtil.DeleteFile(archiveFile);
-                            }
 
-                            break;
+                                // The file was successfully deleted, so we can use the generated package name
+                                break;
+                            }
+                            catch (Exception ex)
+                            {
+                                // Couldn't delete the file for whatever reason, so generate another package name
+                                Trace.Warning("Failed to delete agent package zip '{0}'. Exception: {1}", archiveFile, ex);
+                                agentSuffix++;
+                            }
                         }
-                        catch (Exception ex)
+                        else
                         {
-                            // couldn't delete the file for whatever reason, so generate another name
-                            Trace.Warning("Failed to delete agent package zip '{0}'. Exception: {1}", archiveFile, ex);
-                            agentSuffix++;
+                            // There is no a file with the same name and path, so we can use the generated package name
+                            break;
                         }
                     }
 
@@ -236,8 +297,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             }
 
                             Trace.Info($"Download agent: finished download");
+
                             downloadSucceeded = true;
-                            break;
+                            validationSucceeded = await HashValidation(archiveFile);
                         }
                         catch (OperationCanceledException) when (token.IsCancellationRequested)
                         {
@@ -258,7 +320,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
                 if (!downloadSucceeded)
                 {
-                    throw new TaskCanceledException($"Agent package '{archiveFile}' failed after {Constants.AgentDownloadRetryMaxAttempts} download attempts");
+                    throw new TaskCanceledException($"Agent package '{archiveFile}' failed after {Constants.AgentDownloadRetryMaxAttempts} download attempts.");
+                }
+
+                if (!validationSucceeded)
+                {
+                    throw new TaskCanceledException(@"Agent package checksum validation failed.
+There are possible reasons why this happened:
+  1) The agent package was compromised.
+  2) The agent package was not fully downloaded or was corrupted during the download process.
+You can skip checksum validation for the agent package by setting the environment variable DISABLE_HASH_VALIDATION=true");
                 }
 
                 // If we got this far, we know that we've successfully downloadeded the agent package
