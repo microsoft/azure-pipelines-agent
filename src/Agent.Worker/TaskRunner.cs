@@ -213,11 +213,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 if (Task.Name.StartsWith("__system_posttargettask_")
                     || Task.Name.StartsWith("__system_pretargettask_"))
                 {
-                    bool isValid = this.ValidateInjectedTaskInputs(inputs);
-                    if (!isValid)
+                    var inputsWithSecrets = this.GetInputsWithSecrets(inputs);
+
+                    if (inputsWithSecrets.Count > 0)
                     {
+                         string inputsForReport = string.Join(Environment.NewLine,
+                             inputsWithSecrets.Select(array => string.Join("\n", array)));
+
                         ExecutionContext.Result = TaskResult.Skipped;
-                        ExecutionContext.ResultCode = $"It is not allowed to pass inputs that contain secrets to the tasks injected by decorators";
+                        ExecutionContext.ResultCode = $"Task is trying to access these inputs, that contains secrerts:\n{inputsForReport}\nIt is not allowed to pass inputs that contain secrets to the tasks injected by decorators.";
                         return;
                     }
                 }
@@ -539,23 +543,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ExecutionContext.Output("==============================================================================");
         }
 
-        private bool IsInputContainsSecret(string inputValue)
+        private bool ContainsSecret(string inputValue)
         {
             string maskedString = HostContext.SecretMasker.MaskSecrets(inputValue);
-            return maskedString.Contains("***");
+            return maskedString != inputValue;
         }
 
-        private bool ValidateInjectedTaskInputs(Dictionary<string, string> inputs)
+        private List<string> GetInputsWithSecrets(Dictionary<string, string> inputs)
         {
+            var inputsWithSecrets = new List<string>();
             foreach (var input in inputs)
             { 
-                if (input.Key.StartsWith("target_") && this.IsInputContainsSecret(input.Value))
+                if (input.Key.StartsWith("target_") && this.ContainsSecret(input.Value))
                 {
-                    return false;
+                    inputsWithSecrets.Add(input.Key);
                 }
             }
 
-            return true;
+            return inputsWithSecrets;
         }
     }
 }
