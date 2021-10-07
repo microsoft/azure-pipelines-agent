@@ -218,7 +218,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (inputsWithSecrets.Count > 0)
                     {
                          string inputsForReport = string.Join(Environment.NewLine,
-                             inputsWithSecrets.Select(array => string.Join("\n", array)));
+                             inputsWithSecrets.Select(input => string.Join("\n", input)));
 
                         ExecutionContext.Result = TaskResult.Skipped;
                         ExecutionContext.ResultCode = $"Task is trying to access these inputs, that contains secrerts:\n{inputsForReport}\nIt is not allowed to pass inputs that contain secrets to the tasks injected by decorators.";
