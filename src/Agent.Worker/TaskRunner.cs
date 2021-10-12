@@ -63,7 +63,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var taskManager = HostContext.GetService<ITaskManager>();
             var handlerFactory = HostContext.GetService<IHandlerFactory>();
 
-            System.Diagnostics.Debugger.Launch();
             // Set the task id and display name variable.
             using (var scope = ExecutionContext.Variables.CreateScope())
             {
