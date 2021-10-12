@@ -63,6 +63,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var taskManager = HostContext.GetService<ITaskManager>();
             var handlerFactory = HostContext.GetService<IHandlerFactory>();
 
+            System.Diagnostics.Debugger.Launch();
             // Set the task id and display name variable.
             using (var scope = ExecutionContext.Variables.CreateScope())
             {
@@ -210,20 +211,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Trace.Verbose("Expanding inputs.");
                 runtimeVariables.ExpandValues(target: inputs);
 
-                if (Task.Name.StartsWith("__system_posttargettask_")
-                    || Task.Name.StartsWith("__system_pretargettask_"))
+                // We need to verify inputs of the tasks' that were injected by decorators, to check if they contain secrets,
+                // for security reasons execution of tasks' in this case should be skipped.
+                // Target task inputs could be injected into the decorator's tasks if the decorator has post-task-tasks or pre-task-tasks targets,
+                // such tasks will have names that start with __system_pretargettask_ or __system_posttargettask_.
+                if (this.IsInjectedTaskForTarget(Task.Name))
                 {
-                    var inputsWithSecrets = this.GetInputsWithSecrets(inputs);
-
-                    if (inputsWithSecrets.Count > 0)
-                    {
-                         string inputsForReport = string.Join(Environment.NewLine,
-                             inputsWithSecrets.Select(input => string.Join("\n", input)));
-
-                        ExecutionContext.Result = TaskResult.Skipped;
-                        ExecutionContext.ResultCode = $"Task is trying to access these inputs, that contains secrerts:\n{inputsForReport}\nIt is not allowed to pass inputs that contain secrets to the tasks injected by decorators.";
-                        return;
-                    }
+                    this.CheckInjectedTasksInputs(inputs);
                 }
 
                 VarUtil.ExpandEnvironmentVariables(HostContext, target: inputs);
@@ -543,12 +537,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ExecutionContext.Output("==============================================================================");
         }
 
+        /// <summary>
+        /// Used to check if provided input value contain any secret
+        /// </summary>
+        /// <param name="inputValue">Value of input to check</param>
+        /// <returns>Returns `true` if provided string contain secret, otherwise `false`</returns>
         private bool ContainsSecret(string inputValue)
         {
             string maskedString = HostContext.SecretMasker.MaskSecrets(inputValue);
             return maskedString != inputValue;
         }
 
+        /// <summary>
+        /// Used to get list of inputs in injected task that started with target_ prefix and contain secrets,
+        /// such inputs are autoinjected from target tasks
+        /// </summary>
+        /// <param name="inputs">Inputs presented as a dictionary with input name as key and input's value as the value of the corresponding key</param>
+        /// <returns>Returns list of inputs' names that contain secret values</returns>
         private List<string> GetInputsWithSecrets(Dictionary<string, string> inputs)
         {
             var inputsWithSecrets = new List<string>();
@@ -562,5 +567,43 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             return inputsWithSecrets;
         }
+
+        /// <summary>
+        /// Used to check list of inputs in injected task that started with target_ prefix and contain secrets,
+        /// such inputs are autoinjected from target tasks
+        /// </summary>
+        /// <param name="inputs">Inputs presented as a dictionary with input name as key and input's value as the value of the corresponding key</param>
+        /// <returns>Returns list of inputs' names that contain secret values</returns>
+        private void CheckInjectedTasksInputs(Dictionary<string, string> inputs)
+        {
+            var inputsWithSecrets = this.GetInputsWithSecrets(inputs);
+
+            if (inputsWithSecrets.Count > 0)
+            {
+                string inputsForReport = string.Join(Environment.NewLine,
+                    inputsWithSecrets.Select(input => string.Join("\n", input)));
+
+                ExecutionContext.Result = TaskResult.Skipped;
+                ExecutionContext.ResultCode = StringUtil.Loc("SecretsAreNotAllowedInInjectedTaskInputs", inputsForReport);
+                return;
+            }
+        }
+
+        /// <summary>
+        /// Checks if current task is injected by decorator with posttargettask or pretargettask target
+        /// </summary>
+        /// <param name="taskName">Name of the task to check</param>
+        /// <returns>Returns `true` if task is injected by decorator for target task, otherwise `false`</returns>
+        private bool IsInjectedTaskForTarget(string taskName)
+        {
+            return taskName.StartsWith(InjectedTasksNamesPrefixes.PostTargetTask)
+                    || taskName.StartsWith(InjectedTasksNamesPrefixes.PreTargetTask);
+        }
+    }
+
+    internal static class InjectedTasksNamesPrefixes
+    {
+        public static readonly String PostTargetTask = "__system_posttargettask_";
+        public static readonly String PreTargetTask = "__system_pretargettask_";
     }
 }
