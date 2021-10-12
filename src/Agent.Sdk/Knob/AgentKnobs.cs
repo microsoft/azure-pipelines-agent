@@ -253,5 +253,11 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("EnableIncompatibleBuildArtifactsPathResolution"),
             new EnvironmentKnobSource("EnableIncompatibleBuildArtifactsPathResolution"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob DisableHashValidation = new Knob(
+            nameof(DisableHashValidation),
+            "If true, the agent will skip package hash validation during self-updating.",
+            new EnvironmentKnobSource("DISABLE_HASH_VALIDATION"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }
