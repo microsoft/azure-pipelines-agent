@@ -210,8 +210,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Trace.Verbose("Expanding inputs.");
                 runtimeVariables.ExpandValues(target: inputs);
 
-                // We need to verify inputs of the tasks' that were injected by decorators, to check if they contain secrets,
-                // for security reasons execution of tasks' in this case should be skipped.
+                // We need to verify inputs of the tasks that were injected by decorators, to check if they contain secrets,
+                // for security reasons execution of tasks in this case should be skipped.
                 // Target task inputs could be injected into the decorator's tasks if the decorator has post-task-tasks or pre-task-tasks targets,
                 // such tasks will have names that start with __system_pretargettask_ or __system_posttargettask_.
                 var taskDecoratorManager = HostContext.GetService<ITaskDecoratorManager>();
