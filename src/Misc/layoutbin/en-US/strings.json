@@ -560,7 +560,7 @@
   "ScanToolCapabilities": "Scanning for tool capabilities.",
   "ScreenSaverPoliciesInspection": "Checking for policies that may prevent screensaver from being disabled.",
   "ScreenSaverPolicyWarning": "Screensaver policy is defined on the machine. This may lead to screensaver being enabled again. Active screensaver may impact UI operations, for e.g., automated UI tests may fail.",
-  "SecretsAreNotAllowedInInjectedTaskInputs": "Task is trying to access these inputs, that contains secrerts:\n{0}\nIt is not allowed to pass inputs that contain secrets to the tasks injected by decorators.",
+  "SecretsAreNotAllowedInInjectedTaskInputs": "Task is trying to access the following inputs of a target task which contain secrets:\n{0}\nIt is not allowed to pass inputs that contain secrets to the tasks injected by decorators.",
   "SelfManageGitCreds": "You are in self manage git creds mode. Make sure your agent host machine can bypass any git authentication challenge.",
   "ServerTarpit": "The job is currently being throttled by the server. You may experience delays in console line output, job status reporting, and task log uploads.",
   "ServerTarpitUrl": "Link to resource utilization page (global 1-hour view): {0}.",
