@@ -194,6 +194,10 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
                         result.TimeoutInMinutes = ReadNonEmptyString(parser);
                         break;
 
+                    case YamlConstants.RetryCountOnTaskFailure:
+                        result.RetryCountOnTaskFailure = ReadNonEmptyString(parser);
+                        break;
+
                     default:
                         throw new SyntaxErrorException(scalar.Start, scalar.End, $"Unexpected property: '{scalar.Value}'");
                 }

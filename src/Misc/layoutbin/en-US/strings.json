@@ -474,6 +474,7 @@
   "RepositoryNotExist": "Can't update repository, the repository does not exist.",
   "RestartIn15SecMessage": "Restarting the machine in 15 seconds...",
   "RestartMessage": "Restart the machine to launch agent and for autologon settings to take effect.",
+  "RetryCountLimitExceeded": "The maximum allowed number of attempts is {0} but got {1}. Retry attempts count will be decreased to {0}.",
   "RMApiFailure": "Api {0} failed with an error code {1}",
   "RMArtifactContainerDetailsInvalidError": "The artifact does not have valid container details: {0}",
   "RMArtifactContainerDetailsNotFoundError": "The artifact does not contain container details: {0}",
