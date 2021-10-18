@@ -224,7 +224,7 @@ get_legacy_os_name() {
 machine_has() {
     eval $invocation
 
-    hash "$1" > /dev/null 2>&1
+    command -v "$1" > /dev/null 2>&1
     return $?
 }
 

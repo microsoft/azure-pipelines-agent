@@ -53,6 +53,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public Pipelines.StepTarget Target => Task?.Target;
 
+        const int RetryCountOnTaskFailureLimit = 10;
+
         public async Task RunAsync()
         {
             // Validate args.
@@ -209,6 +211,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Expand the inputs.
                 Trace.Verbose("Expanding inputs.");
                 runtimeVariables.ExpandValues(target: inputs);
+
+                // We need to verify inputs of the tasks that were injected by decorators, to check if they contain secrets,
+                // for security reasons execution of tasks in this case should be skipped.
+                // Target task inputs could be injected into the decorator's tasks if the decorator has post-task-tasks or pre-task-tasks targets,
+                // such tasks will have names that start with __system_pretargettask_ or __system_posttargettask_.
+                var taskDecoratorManager = HostContext.GetService<ITaskDecoratorManager>();
+                if (taskDecoratorManager.IsInjectedTaskForTarget(Task.Name) &&
+                    taskDecoratorManager.IsInjectedInputsContainsSecrets(inputs, out var inputsWithSecrets))
+                {
+                    var inputsForReport = taskDecoratorManager.GenerateTaskResultMessage(inputsWithSecrets);
+                    
+                    ExecutionContext.Result = TaskResult.Skipped;
+                    ExecutionContext.ResultCode = StringUtil.Loc("SecretsAreNotAllowedInInjectedTaskInputs", inputsForReport);
+                    return;
+                }
+
                 VarUtil.ExpandEnvironmentVariables(HostContext, target: inputs);
 
                 // Translate the server file path inputs to local paths.
@@ -362,7 +380,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     taskDirectory: definition.Directory);
 
                 // Run the task.
-                await handler.RunAsync();
+                int retryCount = this.Task.RetryCountOnTaskFailure;
+
+                if (retryCount > 0)
+                {
+                    if (retryCount > RetryCountOnTaskFailureLimit)
+                    {
+                        ExecutionContext.Warning(StringUtil.Loc("RetryCountLimitExceeded", RetryCountOnTaskFailureLimit, retryCount));
+                        retryCount = RetryCountOnTaskFailureLimit;
+                    }
+
+                    RetryHelper rh = new RetryHelper(ExecutionContext, retryCount);
+                    await rh.RetryStep(async () => await handler.RunAsync(), RetryHelper.ExponentialDelay);
+                }
+                else
+                {
+                    await handler.RunAsync();
+                }
             }
         }
 
