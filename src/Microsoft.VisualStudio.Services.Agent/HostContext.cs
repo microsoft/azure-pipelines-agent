@@ -635,7 +635,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     payload[0] = Enum.Parse(typeof(VisualStudio.Services.Common.VssCredentialsType), ((int)payload[0]).ToString());
                 }
 
-                if (payload.Length > 0)
+                if (payload.Length > 0 && !string.IsNullOrEmpty(eventData.Message))
                 {
                     message = String.Format(eventData.Message.Replace("%n", Environment.NewLine), payload);
                 }
