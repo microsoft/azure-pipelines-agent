@@ -612,7 +612,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         protected override void OnEventWritten(EventWrittenEventArgs eventData)
         {
-            if (eventData == null)
+            if (eventData == null && !string.IsNullOrEmpty(eventData.Message))
             {
                 return;
             }
@@ -635,7 +635,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     payload[0] = Enum.Parse(typeof(VisualStudio.Services.Common.VssCredentialsType), ((int)payload[0]).ToString());
                 }
 
-                if (payload.Length > 0 && !string.IsNullOrEmpty(eventData.Message))
+                if (payload.Length > 0)
                 {
                     message = String.Format(eventData.Message.Replace("%n", Environment.NewLine), payload);
                 }
