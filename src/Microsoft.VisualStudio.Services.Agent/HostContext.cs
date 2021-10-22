@@ -612,7 +612,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         protected override void OnEventWritten(EventWrittenEventArgs eventData)
         {
-            if (eventData == null && !string.IsNullOrEmpty(eventData.Message))
+            if (eventData == null || string.IsNullOrEmpty(eventData.Message))
             {
                 return;
             }
