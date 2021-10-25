@@ -86,7 +86,7 @@ namespace Agent.Plugins.Repository
 
         protected async Task RunCommandAsync(FormatFlags formatFlags, bool quiet, int retriesOnFailure, params string[] args)
         {
-            for (int attempt = 0; attempt < retriesOnFailure; attempt++)
+            for (int attempt = 0; attempt < retriesOnFailure - 1; attempt++)
             {
                 int exitCode = await RunCommandAsync(formatFlags, quiet, false, args);
 
