@@ -16,6 +16,7 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
+using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -64,6 +65,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(Task, nameof(Task));
             var taskManager = HostContext.GetService<ITaskManager>();
             var handlerFactory = HostContext.GetService<IHandlerFactory>();
+
+            // Enable skip for string translator in case of checkout task.
+            // It's required for support of multiply checkout tasks with repo alias "self" in container jobs. Reported in issue 3520.
+            this.ExecutionContext.Variables.Set(Constants.Variables.Task.SkipTranslatorForCheckout, this.Task.IsCheckoutTask().ToString());
 
             // Set the task id and display name variable.
             using (var scope = ExecutionContext.Variables.CreateScope())

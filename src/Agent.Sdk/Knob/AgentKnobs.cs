@@ -259,5 +259,11 @@ namespace Agent.Sdk.Knob
             "If true, the agent will skip package hash validation during self-updating.",
             new EnvironmentKnobSource("DISABLE_HASH_VALIDATION"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob EnableVSPreReleaseVersions = new Knob(
+            nameof(EnableVSPreReleaseVersions),
+            "If true, the agent will include to seach VisualStudio prerelease versions to capabilities.",
+            new EnvironmentKnobSource("ENABLE_VS_PRERELEASE_VERSIONS"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }

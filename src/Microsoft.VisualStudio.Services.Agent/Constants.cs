@@ -435,6 +435,13 @@ namespace Microsoft.VisualStudio.Services.Agent
                 // Keep alphabetical. If you add or remove a variable here, do the same in ReadOnlyVariables
                 //
                 public static readonly string DisplayName = "task.displayname";
+                /// <summary>
+                /// Declares requirement to skip translating of strings into checkout tasks.
+                /// It's required to prevent translating of agent system paths in container jobs.
+                /// This is for internal agent usage, set up during task execution and is not indented to be used in
+                /// cross-service communication/obtained by users.
+                /// </summary>
+                public static readonly string SkipTranslatorForCheckout = "task.skipTranslatorForCheckout";
             }
 
             public static List<string> ReadOnlyVariables = new List<string>(){
@@ -555,7 +562,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                 System.TeamProjectId,
                 System.WorkFolder,
                 // Task variables
-                Task.DisplayName
+                Task.DisplayName,
+                Task.SkipTranslatorForCheckout
             };
         }
     }

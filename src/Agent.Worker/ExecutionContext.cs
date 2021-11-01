@@ -810,11 +810,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public string TranslatePathForStepTarget(string val)
         {
             var stepTarget = StepTarget();
-            if (stepTarget != null)
+            var isCheckoutType = Convert.ToBoolean(this.Variables.Get(Constants.Variables.Task.SkipTranslatorForCheckout, true));
+            if (stepTarget == null || (isCheckoutType && (_currentStepTarget == null || stepTarget is HostInfo)))
             {
-                return stepTarget.TranslateContainerPathForImageOS(PlatformUtil.HostOS, stepTarget.TranslateToContainerPath(val));
+                return val;
             }
-            return val;
+            return stepTarget.TranslateContainerPathForImageOS(PlatformUtil.HostOS, stepTarget.TranslateToContainerPath(val));
         }
 
         public ExecutionTargetInfo StepTarget()
