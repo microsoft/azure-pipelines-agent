@@ -253,7 +253,6 @@ namespace Agent.Plugins.Repository
                 tfWorkspaces = await tf.WorkspacesAsync(matchWorkspaceNameOnAnyComputer: true);
                 foreach (ITfsVCWorkspace tfWorkspace in tfWorkspaces ?? new ITfsVCWorkspace[0])
                 {
-
                     await tf.TryWorkspaceDeleteAsync(tfWorkspace);
                 }
 
