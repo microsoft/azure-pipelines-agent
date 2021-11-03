@@ -122,8 +122,8 @@ namespace Agent.Plugins.Repository
             Version minRequiredGitVersion = new Version(2, 0);
             EnsureGitVersion(minRequiredGitVersion, throwOnNotMatch: true);
 
-            // suggest user upgrade to 2.9 for better git experience
-            Version recommendGitVersion = new Version(2, 9);
+            // suggest user upgrade to 2.17 for better git experience
+            Version recommendGitVersion = new Version(2, 17);
             if (!EnsureGitVersion(recommendGitVersion, throwOnNotMatch: false))
             {
                 context.Output(StringUtil.Loc("UpgradeToLatestGit", recommendGitVersion, gitVersion));
@@ -175,7 +175,11 @@ namespace Agent.Plugins.Repository
             string progress = reducedOutput ? string.Empty : "--progress";
 
             // insert prune-tags if knob is false to sync tags with the remote
-            string pruneTags = AgentKnobs.DisableFetchPruneTags.GetValue(context).AsBoolean() ? string.Empty : "--prune-tags";
+            string pruneTags = string.Empty;
+            if (EnsureGitVersion(new Version(2, 17), throwOnNotMatch: false) && !AgentKnobs.DisableFetchPruneTags.GetValue(context).AsBoolean())
+            {
+                pruneTags = "--prune-tags";
+            }
 
             // If shallow fetch add --depth arg
             // If the local repository is shallowed but there is no fetch depth provide for this build,

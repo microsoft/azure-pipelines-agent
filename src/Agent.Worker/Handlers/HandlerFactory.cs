@@ -55,6 +55,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             IHandler handler;
             if (data is BaseNodeHandlerData)
             {
+                // Node 6
+                if (data is NodeHandlerData) {       
+                    executionContext.Warning(StringUtil.Loc("DepricatedNode6"));
+                }
                 // Node 6 and 10.
                 handler = HostContext.CreateService<INodeHandler>();
                 (handler as INodeHandler).Data = data as BaseNodeHandlerData;

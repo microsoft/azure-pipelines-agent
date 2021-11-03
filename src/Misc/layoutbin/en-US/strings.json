@@ -254,6 +254,7 @@
   "DeploymentMachineWithSameNameAlreadyExistInDeploymentGroup": "DeploymentGroup {0} already contains a machine with name {1}.",
   "DeploymentPoolName": "Deployment Pool name",
   "DeploymentPoolNotFound": "Deployment pool not found: '{0}'",
+  "DepricatedNode6": "This task uses Node 6 execution handler, which will be deprecated soon. If you are the developer of the task - please consider the migration guideline to Node 10 handler - https://aka.ms/migrateTaskNode10. If you are the user - feel free to reach out to the owners of this task to proceed on migration.",
   "DirectoryHierarchyUnauthorized": "Permission to read the directory contents is required for '{0}' and each directory up the hierarchy. {1}",
   "DirectoryIsEmptyForArtifact": "Directory '{0}' is empty. Nothing will be added to build artifact '{1}'.",
   "DirectoryNotFound": "Directory not found: '{0}'",
