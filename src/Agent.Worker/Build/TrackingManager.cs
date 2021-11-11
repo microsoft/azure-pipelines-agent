@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Globalization;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -39,7 +40,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         TrackingConfig MergeTrackingConfigs(
             IExecutionContext executionContext,
             TrackingConfig newConfig,
-            TrackingConfig previousConfig);
+            TrackingConfig previousConfig,
+            bool overrideBuildDirectory);
 
         void UpdateTrackingConfig(
             IExecutionContext executionContext,
@@ -122,7 +124,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         public TrackingConfig MergeTrackingConfigs(
             IExecutionContext executionContext,
             TrackingConfig newConfig,
-            TrackingConfig previousConfig)
+            TrackingConfig previousConfig,
+            bool overrideBuildDirectory
+            )
         {
             ArgUtil.NotNull(newConfig, nameof(newConfig));
             ArgUtil.NotNull(previousConfig, nameof(previousConfig));
@@ -137,6 +141,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 mergedConfig.SourcesDirectory = newConfig.SourcesDirectory;
             }
 
+            if (overrideBuildDirectory && !AgentKnobs.DisableOverrideTfvcBuildDirectory.GetValue(executionContext).AsBoolean())
+            {
+                mergedConfig.BuildDirectory = newConfig.BuildDirectory;
+            }
+
             // Fill out repository type if it's not there.
             // repository type is a new property introduced for maintenance job
             if (string.IsNullOrEmpty(mergedConfig.RepositoryType))
@@ -149,7 +158,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 mergedConfig.CollectionUrl = newConfig.CollectionUrl;
             }
 
-            return previousConfig;
+            return mergedConfig;
         }
 
         public void UpdateTrackingConfig(

@@ -19,7 +19,7 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("VSTS_SETUP_DOCKERGROUP"),
             new EnvironmentKnobSource("VSTS_SETUP_DOCKERGROUP"),
             new BuiltInDefaultKnobSource("true"));
-        
+
         public static readonly Knob AllowMountTasksReadonlyOnWindows = new Knob(
             nameof(AllowMountTasksReadonlyOnWindows),
             "If true, allows the user to mount 'tasks' volume read-only on Windows OS",
@@ -68,7 +68,7 @@ namespace Agent.Sdk.Knob
             "If true, disable --prune-tags in the fetches.",
             new RuntimeKnobSource("VSTS.DisableFetchPruneTags"),
             new EnvironmentKnobSource("VSTS_DISABLEFETCHPRUNETAGS"),
-            new BuiltInDefaultKnobSource("false")); 
+            new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob PreferGitFromPath = new Knob(
             nameof(PreferGitFromPath),
@@ -264,6 +264,13 @@ namespace Agent.Sdk.Knob
             nameof(EnableVSPreReleaseVersions),
             "If true, the agent will include to seach VisualStudio prerelease versions to capabilities.",
             new EnvironmentKnobSource("ENABLE_VS_PRERELEASE_VERSIONS"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob DisableOverrideTfvcBuildDirectory = new Knob(
+            nameof(DisableOverrideTfvcBuildDirectory),
+            "Disables override of Tfvc build directory name by agentId on hosted agents (one tfvc repo used).",
+            new RuntimeKnobSource("DISABLE_OVERRIDE_TFVC_BUILD_DIRECTORY"),
+            new EnvironmentKnobSource("DISABLE_OVERRIDE_TFVC_BUILD_DIRECTORY"),
             new BuiltInDefaultKnobSource("false"));
     }
 }
