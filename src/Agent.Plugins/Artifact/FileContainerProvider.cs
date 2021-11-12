@@ -144,9 +144,13 @@ namespace Agent.Plugins
                 }
                 catch
                 {
+                    var blobStoreHost = dedupClient.Client.BaseAddress.Host;
+                    var allowListLink = BlobStoreWarningInfoProvider.GetAllowListLinkForCurrentPlatform();
+                    var warningMessage = StringUtil.Loc("BlobStoreDownloadWarning", blobStoreHost, allowListLink);
+
                     // Fall back to streaming through TFS if we cannot reach blobstore
                     downloadFromBlob = false;
-                    tracer.Warn(StringUtil.Loc("BlobStoreDownloadWarning"));
+                    tracer.Warn(warningMessage);
                 }
             }
 

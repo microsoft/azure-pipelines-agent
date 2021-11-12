@@ -57,7 +57,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             {
                 // Node 6
                 if (data is NodeHandlerData) {       
-                    executionContext.Warning(StringUtil.Loc("DepricatedNode6"));
+                    executionContext.Warning(StringUtil.Loc("DeprecatedNode6"));
                 }
                 // Node 6 and 10.
                 handler = HostContext.CreateService<INodeHandler>();
