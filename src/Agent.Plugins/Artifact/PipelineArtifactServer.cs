@@ -30,6 +30,14 @@ namespace Agent.Plugins
             this.tracer = tracer;
         }
 
+        internal Task UploadAsync(
+            AgentTaskPluginExecutionContext context,
+            Guid projectId,
+            int pipelineId,
+            string name,
+            string source,
+            CancellationToken cancellationToken) => UploadAsync(context, projectId, pipelineId, name, source, null, cancellationToken);
+
         // Upload from target path to Azure DevOps BlobStore service through DedupManifestArtifactClient, then associate it with the build
         internal async Task UploadAsync(
             AgentTaskPluginExecutionContext context,
@@ -37,6 +45,7 @@ namespace Agent.Plugins
             int pipelineId,
             string name,
             string source,
+            IDictionary<string, string> properties,
             CancellationToken cancellationToken)
         {
             VssConnection connection = context.VssConnection;
@@ -69,7 +78,16 @@ namespace Agent.Plugins
 
                 // 2) associate the pipeline artifact with an build artifact
                 BuildServer buildServer = new BuildServer(connection);
-                Dictionary<string, string> propertiesDictionary = new Dictionary<string, string>();
+
+                // Prevent custom properties from overwriting computed ones below
+                if (properties != null)
+                {
+                    properties.Remove(PipelineArtifactConstants.RootId);
+                    properties.Remove(PipelineArtifactConstants.ProofNodes);
+                    properties.Remove(PipelineArtifactConstants.ArtifactSize);
+                }
+
+                Dictionary<string, string> propertiesDictionary = new Dictionary<string, string>(properties);
                 propertiesDictionary.Add(PipelineArtifactConstants.RootId, result.RootId.ValueString);
                 propertiesDictionary.Add(PipelineArtifactConstants.ProofNodes, StringUtil.ConvertToJson(result.ProofNodes.ToArray()));
                 propertiesDictionary.Add(PipelineArtifactConstants.ArtifactSize, result.ContentSize.ToString());
