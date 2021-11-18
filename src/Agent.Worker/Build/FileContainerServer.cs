@@ -336,7 +336,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             {
                 var verbose = String.Equals(context.GetVariableValueOrDefault("system.debug"), "true", StringComparison.InvariantCultureIgnoreCase);
                 (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                    .CreateDedupClientAsync(verbose, (str) => context.Output(str), this._connection, token);
+                    .CreateDedupClientAsync(verbose, (str) => context.Output(str), this._connection, 0 /* use default */, token);
 
                 // Upload to blobstore
                 var results = await BlobStoreUtils.UploadBatchToBlobstore(verbose, files, (level, uri, type) =>

@@ -140,7 +140,7 @@ namespace Agent.Plugins
                 try
                 {
                     (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupClientAsync(
-                        false, (str) => this.tracer.Info(str), this.connection, cancellationToken);
+                        false, (str) => this.tracer.Info(str), this.connection, DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context), cancellationToken);
                 }
                 catch
                 {
