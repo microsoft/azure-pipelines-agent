@@ -25,11 +25,9 @@ namespace Agent.Plugins
 
         public PipelineArtifactProvider(AgentTaskPluginExecutionContext context, VssConnection connection, IAppTraceSource tracer)
         {
-            var dedupStoreHttpClient = connection.GetClient<DedupStoreHttpClient>();
             this.tracer = tracer;
             this.context = context;
             this.connection = connection;
-            dedupStoreHttpClient.SetTracer(tracer);
         }
 
         public async Task DownloadSingleArtifactAsync(ArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
