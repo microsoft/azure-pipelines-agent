@@ -17,6 +17,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
     [ServiceLocator(Default = typeof(DedupManifestArtifactClientFactory))]
     public interface IDedupManifestArtifactClientFactory
     {
+        /// <summary>
+        /// Creates a DedupManifestArtifactClient client.
+        /// </summary>
+        /// <param name="verbose">If true emit verbose telemetry.</param>
+        /// <param name="traceOutput">Action used for logging.</param>
+        /// <param name="connection">VssConnection</param>
+        /// <param name="maxParallelism">Maximum number of parallel threads that should be used for download. If 0 then 
+        /// use the system default. </param>
+        /// <param name="cancellationToken">Cancellation token used for both creating clients and verifying client conneciton.</param>
+        /// <returns>Tuple of the client and the telemtery client</returns>
         Task<(DedupManifestArtifactClient client, BlobStoreClientTelemetry telemetry)> CreateDedupManifestClientAsync(
             bool verbose,
             Action<string> traceOutput,
@@ -24,6 +34,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             int maxParallelism,
             CancellationToken cancellationToken);
 
+        /// <summary>
+        /// Creates a DedupStoreClient client.
+        /// </summary>
+        /// <param name="verbose">If true emit verbose telemetry.</param>
+        /// <param name="traceOutput">Action used for logging.</param>
+        /// <param name="connection">VssConnection</param>
+        /// <param name="maxParallelism">Maximum number of parallel threads that should be used for download. If 0 then 
+        /// use the system default. </param>
+        /// <param name="cancellationToken">Cancellation token used for both creating clients and verifying client conneciton.</param>
+        /// <returns>Tuple of the client and the telemtery client</returns>
         Task<(DedupStoreClient client, BlobStoreClientTelemetryTfs telemetry)> CreateDedupClientAsync(
             bool verbose,
             Action<string> traceOutput,
