@@ -874,7 +874,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     }
                 }
 
-                var jobConnection = VssUtil.CreateConnection(jobServerUrl, jobServerCredential);
+                var jobConnection = VssUtil.CreateConnection(jobServerUrl, jobServerCredential, trace: Trace);
                 await jobServer.ConnectAsync(jobConnection);
                 var timeline = await jobServer.GetTimelineAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, CancellationToken.None);
                 ArgUtil.NotNull(timeline, nameof(timeline));

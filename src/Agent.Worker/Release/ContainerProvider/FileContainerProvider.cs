@@ -42,7 +42,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider
                     var data = await VssConnectionFactory.GetVssConnectionAsync(
                         tfsUrl,
                         accessToken,
-                        httpRetryOnTimeoutMessageHandler)
+                        httpRetryOnTimeoutMessageHandler,
+                        this._executionContext.GetTraceWriter())
                         .ConfigureAwait(false);
                     return data;
                 });

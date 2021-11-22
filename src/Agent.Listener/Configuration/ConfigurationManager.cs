@@ -46,7 +46,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Trace.Verbose("store created");
             _term = hostContext.GetService<ITerminal>();
             _locationServer = hostContext.GetService<ILocationServer>();
-            _serverUtil = new ServerUtil();
+            _serverUtil = new ServerUtil(Trace);
         }
 
         public bool IsConfigured()

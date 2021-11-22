@@ -58,7 +58,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             _creds = credManager.LoadCredentials();
             _locationServer = HostContext.GetService<ILocationServer>();
             _hashValidationDisabled = AgentKnobs.DisableHashValidation.GetValue(_knobContext).AsBoolean();
-            _serverUtil = new ServerUtil();
+            _serverUtil = new ServerUtil(Trace);
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "invokeScript")]

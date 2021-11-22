@@ -5,19 +5,18 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
+using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Util
 {
     public class ServerUtil
     {
         private DeploymentFlags _deploymentType;
+        private ITraceWriter _trace;
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "locationServer")]
-        private async Task<Location.ConnectionData> GetConnectionData(string serverUrl, VssCredentials credentials, ILocationServer locationServer)
+        public ServerUtil(ITraceWriter trace = null)
         {
-            VssConnection connection = VssUtil.CreateConnection(new Uri(serverUrl), credentials);
-            await locationServer.ConnectAsync(connection);
-            return await locationServer.GetConnectionDataAsync();
+            _trace = trace;
         }
 
         /// <summary>
@@ -54,6 +53,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
 
             return IsDeploymentTypeHostedIfDetermined();
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "locationServer")]
+        private async Task<Location.ConnectionData> GetConnectionData(string serverUrl, VssCredentials credentials, ILocationServer locationServer)
+        {
+            VssConnection connection = VssUtil.CreateConnection(new Uri(serverUrl), credentials, trace: _trace);
+            await locationServer.ConnectAsync(connection);
+            return await locationServer.GetConnectionDataAsync();
         }
     }
 }

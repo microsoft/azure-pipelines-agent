@@ -57,6 +57,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         bool WriteDebug { get; }
         long Write(string tag, string message);
         void QueueAttachFile(string type, string name, string filePath);
+        ITraceWriter GetTraceWriter();
 
         // timeline record update methods
         void Start(string currentOperation = null);
@@ -727,6 +728,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             _jobServerQueue.QueueFileUpload(_mainTimelineId, _record.Id, type, name, filePath, deleteSource: false);
+        }
+
+        public ITraceWriter GetTraceWriter()
+        {
+            return Trace;
         }
 
         private void InitializeTimelineRecord(Guid timelineId, Guid timelineRecordId, Guid? parentTimelineRecordId, string recordType, string displayName, string refName, int? order)

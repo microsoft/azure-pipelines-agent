@@ -255,7 +255,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 Trace.Info("Tfs Collection level url to connect - {0}", uriBuilder.Uri.AbsoluteUri);
                 url = uriBuilder.Uri.AbsoluteUri;
             }
-            VssConnection deploymentGroupconnection = VssUtil.CreateConnection(new Uri(url), creds);
+            VssConnection deploymentGroupconnection = VssUtil.CreateConnection(new Uri(url), creds, trace: Trace);
 
             await _deploymentGroupServer.ConnectAsync(deploymentGroupconnection);
             Trace.Info("Connect complete for deployment group");
@@ -425,7 +425,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 Trace.Info("Tfs Collection level url to connect - {0}", uriBuilder.Uri.AbsoluteUri);
                 url = uriBuilder.Uri.AbsoluteUri;
             }
-            VssConnection environmentConnection = VssUtil.CreateConnection(new Uri(url), creds);
+            VssConnection environmentConnection = VssUtil.CreateConnection(new Uri(url), creds, trace: Trace);
 
             await _environmentsServer.ConnectAsync(environmentConnection);
             Trace.Info("Connection complete for environment");

@@ -191,7 +191,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             int attemptCount = 5;
             while (attemptCount-- > 0)
             {
-                var connection = VssUtil.CreateConnection(serverUrl, credentials, timeout: timeout);
+                var connection = VssUtil.CreateConnection(serverUrl, credentials, timeout: timeout, trace: Trace);
                 try
                 {
                     await connection.ConnectAsync();
