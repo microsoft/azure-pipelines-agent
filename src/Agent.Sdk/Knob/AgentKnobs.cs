@@ -272,9 +272,8 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("DISABLE_OVERRIDE_TFVC_BUILD_DIRECTORY"),
             new EnvironmentKnobSource("DISABLE_OVERRIDE_TFVC_BUILD_DIRECTORY"),
             new BuiltInDefaultKnobSource("false"));
-        /**
-         * We need to remove this knob - once Node 6 handler is dropped
-         */
+
+        /// <remarks>We need to remove this knob - once Node 6 handler is dropped</remarks>
         public static readonly Knob DisableNode6DeprecationWarning = new Knob(
             nameof(DisableNode6DeprecationWarning),
             "Disables Node 6 deprecation warnings.",
