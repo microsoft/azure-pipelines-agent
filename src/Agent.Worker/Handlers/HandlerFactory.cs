@@ -129,7 +129,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         }
 
         /// <summary> 
-        /// This method provides a list of pipeline tasks for which we don't want to display the warning about the Node6 execution handler. 
+        /// This method provides a list of in-the-box pipeline tasks for which we don't want to display the warning about the Node6 execution handler. 
         /// </summary>
         /// <remarks>We need to remove this method - once Node 6 handler is dropped</remarks>
         /// <returns> List of tasks ID </returns>
