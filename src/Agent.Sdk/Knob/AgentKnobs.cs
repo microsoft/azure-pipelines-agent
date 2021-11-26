@@ -265,10 +265,8 @@ namespace Agent.Sdk.Knob
             "If true, the agent will include to seach VisualStudio prerelease versions to capabilities.",
             new EnvironmentKnobSource("ENABLE_VS_PRERELEASE_VERSIONS"),
             new BuiltInDefaultKnobSource("false"));
-        
-        /**
-         * We need to remove this knob - once Node 6 handler is dropped
-         */
+
+        /// <remarks>We need to remove this knob - once Node 6 handler is dropped</remarks>
         public static readonly Knob DisableNode6DeprecationWarning = new Knob(
             nameof(DisableNode6DeprecationWarning),
             "Disables Node 6 deprecation warnings.",
