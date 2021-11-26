@@ -1,6 +1,7 @@
 ## Features
  - Bump recommended Git version, fix prune-tags for older versions (#3581)
  - Add warning message for Node 6 handler (#3592)
+ - Added knob to disable Node 6 deprecation warnings (#3623)
 
 ## Bugs
  - Add retries for http client calls in pipeline artifact plugin (#3492)
@@ -9,6 +10,7 @@
  - Fix for issue 3520 - disabling of inputs translating for checkout tasks (#3573)
  - Don't show $3/$4 in the number of retries error message (#3578)
  - Try to delete the workspace instead of fail (#3589)
+ - Turn off Node 6 execution handler deprecation warning for in-the-box tasks (#3633)
 
 ## Misc
  - installdependencies.sh - added message about repositories for package manager (#3582)
