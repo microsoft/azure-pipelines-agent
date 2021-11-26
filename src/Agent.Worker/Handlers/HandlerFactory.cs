@@ -140,7 +140,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             if (File.Exists(exceptionListFile))
             {
-                exceptionList = IOUtil.LoadObject<List<Guid>>(exceptionListFile);
+                try
+                {
+                    exceptionList = IOUtil.LoadObject<List<Guid>>(exceptionListFile);
+                }
+                catch (Exception ex)
+                {
+                    Trace.Info($"Unable to serialize exception list {ex}");
+                    exceptionList = new List<Guid>();
+                }
             }
 
             return exceptionList;
