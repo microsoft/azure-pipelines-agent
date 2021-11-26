@@ -146,7 +146,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 }
                 catch (Exception ex)
                 {
-                    Trace.Info($"Unable to serialize exception list {ex}");
+                    Trace.Info($"Unable to deserialize exception list {ex}");
                     exceptionList = new List<Guid>();
                 }
             }
