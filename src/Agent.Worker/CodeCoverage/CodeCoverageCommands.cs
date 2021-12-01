@@ -7,8 +7,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using Agent.Sdk.Util;
 using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
@@ -144,6 +146,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
                 ChangeHtmExtensionToHtmlIfRequired(newReportDirectory, executionContext);
 
                 await codeCoveragePublisher.PublishCodeCoverageFilesAsync(commandContext, projectId, executionContext.Variables.System_JobId, containerId, filesToPublish, File.Exists(Path.Combine(newReportDirectory, CodeCoverageConstants.DefaultIndexFile)), cancellationToken);
+            }
+            catch (SocketException ex)
+            {
+                #pragma warning disable CA2000 // Dispose objects before losing scope
+                ExceptionsUtil.HandleSocketException(ex, WorkerUtilities.GetVssConnection(executionContext).Uri.ToString(), executionContext.Warning);
+                #pragma warning restore CA2000 // Dispose objects before losing scope
             }
             catch (Exception ex)
             {

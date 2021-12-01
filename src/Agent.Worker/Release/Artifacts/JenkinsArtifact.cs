@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -155,6 +156,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
 
                             context.QueueAttachFile(CoreAttachmentType.FileAttachment, commitsFileName, commitsFilePath);
                         }
+                    }
+                    catch (SocketException ex)
+                    {
+                        context.AddIssue(new Issue { Type = IssueType.Error, Message = $"SocketException occurred. { ex.Message }." +
+                            $"Verify whether you have (network) access to { jenkinsDetails.Url }. URLs the agent need communicate with - { BlobStoreWarningInfoProvider.GetAllowListLinkForCurrentPlatform() }."});
+                        return;
                     }
                     catch (Exception ex)
                     {

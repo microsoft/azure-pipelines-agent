@@ -5,6 +5,7 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using BuildXL.Cache.ContentStore.Hashing;
@@ -16,6 +17,7 @@ using VsoHash = Microsoft.VisualStudio.Services.BlobStore.Common.VsoHash;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -66,7 +68,16 @@ namespace Microsoft.VisualStudio.Services.Agent
                 await Task.Delay(100);
             }
 
-            _taskClient = _connection.GetClient<TaskHttpClient>();
+            try
+            {
+                _taskClient = _connection.GetClient<TaskHttpClient>();
+            }
+            catch (SocketException e)
+            {
+                ExceptionsUtil.HandleSocketException(e, _connection.Uri.ToString(), Trace.Error);
+                throw;
+            }
+
             _hasConnection = true;
         }
 
