@@ -51,6 +51,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             int maxParallelism,
             CancellationToken cancellationToken);
 
+        /// <summary>
+        /// Gets the maximum parallelism to use for dedup related downloads and uploads.
+        /// </summary>
+        /// <param name="context">Context which may specify overrides for max parallelism</param>
+        /// <returns>max parallelism</returns>
         int GetDedupStoreClientMaxParallelism(AgentTaskPluginExecutionContext context);
     }
 
