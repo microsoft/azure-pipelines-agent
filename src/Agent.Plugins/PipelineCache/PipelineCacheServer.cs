@@ -128,17 +128,7 @@ namespace Agent.Plugins.PipelineCache
             {
                 PipelineCacheActionRecord cacheRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
                         new PipelineCacheActionRecord(level, uri, type, PipelineArtifactConstants.RestoreCache, context));
-
-                PipelineCacheArtifact result = await AsyncHttpRetryHelper.InvokeAsync(
-                    async () =>
-                    {
-                        return await pipelineCacheClient.GetPipelineCacheArtifactAsync(fingerprints, cancellationToken, cacheRecord);
-                    },
-                    maxRetries: 3,
-                    tracer: tracer,
-                    canRetryDelegate: e => true, // this isn't great, but failing on upload stinks, so just try a couple of times
-                    cancellationToken: cancellationToken,
-                    continueOnCapturedContext: false);
+                PipelineCacheArtifact result = await pipelineCacheClient.GetPipelineCacheArtifactAsync(fingerprints, cancellationToken, cacheRecord);
 
                 // Send results to CustomerIntelligence
                 context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineCache, record: cacheRecord);
