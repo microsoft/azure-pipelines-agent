@@ -48,7 +48,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "connection")]
-        public static VssConnection CreateConnection(Uri serverUri, VssCredentials credentials, IEnumerable<DelegatingHandler> additionalDelegatingHandler = null, TimeSpan? timeout = null)
+        public static VssConnection CreateConnection(
+            Uri serverUri, 
+            VssCredentials credentials,
+            ITraceWriter trace,
+            IEnumerable<DelegatingHandler> additionalDelegatingHandler = null,
+            TimeSpan? timeout = null)
         {
             VssClientHttpRequestSettings settings = VssClientHttpRequestSettings.Default.Clone();
 
@@ -68,6 +73,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             // languages, then "System.ArgumentException: The value cannot be null or empty." will be thrown when the
             // settings are applied to an HttpRequestMessage.
             settings.AcceptLanguages.Remove(CultureInfo.InvariantCulture);
+
+            // Setting `ServerCertificateCustomValidation` to able to capture SSL data for diagnostic
+            if (trace != null)
+            {
+                SslUtil sslUtil = new SslUtil(trace);
+                settings.ServerCertificateValidationCallback = sslUtil.RequestStatusCustomValidation;
+            }
 
             VssConnection connection = new VssConnection(serverUri, new VssHttpMessageHandler(credentials, settings), additionalDelegatingHandler);
             return connection;

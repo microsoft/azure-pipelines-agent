@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Sockets;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -15,6 +16,8 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts;
 using Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts.Definition;
 using Newtonsoft.Json;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
+
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 {
@@ -122,6 +125,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
             {
                 await DownloadArtifacts(executionContext, ReleaseArtifacts, ArtifactsWorkingFolder);
                 await DownloadCommits(executionContext, TeamProjectId, ReleaseArtifacts);
+            }
+            catch (SocketException ex)
+            {
+                LogDownloadFailureTelemetry(executionContext, ex);
+
+                ExceptionsUtil.HandleSocketException(ex, WorkerUtilities.GetVssConnection(executionContext).Uri.ToString(), Trace.Error);
+                throw;
             }
             catch (Exception ex)
             {

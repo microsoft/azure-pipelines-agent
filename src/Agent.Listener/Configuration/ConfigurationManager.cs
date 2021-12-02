@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Util;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Capabilities;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -12,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -46,7 +48,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Trace.Verbose("store created");
             _term = hostContext.GetService<ITerminal>();
             _locationServer = hostContext.GetService<ILocationServer>();
-            _serverUtil = new ServerUtil();
+            _serverUtil = new ServerUtil(Trace);
         }
 
         public bool IsConfigured()
@@ -227,7 +229,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 try
                 {
                     // Determine the service deployment type based on connection data. (Hosted/OnPremises)
-                    isHostedServer = await _serverUtil.IsDeploymentTypeHosted(agentSettings.ServerUrl, creds, _locationServer);
+                    await _serverUtil.DetermineDeploymentType(agentSettings.ServerUrl, creds, _locationServer);
+                    if (!_serverUtil.TryGetDeploymentType(out isHostedServer))
+                    {
+                        Trace.Warning(@"Deployment type determination has been failed;
+assume it is OnPremises and the deployment type determination was not implemented for this server version.");
+                    }
 
                     // Get the collection name for deployment group
                     agentProvider.GetCollectionName(agentSettings, command, isHostedServer);
@@ -236,6 +243,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     await agentProvider.TestConnectionAsync(agentSettings, creds, isHostedServer);
                     Trace.Info("Test Connection complete.");
                     break;
+                }
+                catch (SocketException e)
+                {
+                    ExceptionsUtil.HandleSocketException(e, agentSettings.ServerUrl, _term.WriteError);
                 }
                 catch (Exception e) when (!command.Unattended())
                 {
@@ -420,6 +431,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 Trace.Error(ex);
                 throw new InvalidOperationException(StringUtil.Loc("LocalClockSkewed"));
             }
+            catch (SocketException ex)
+            {
+                ExceptionsUtil.HandleSocketException(ex, agentSettings.ServerUrl, Trace.Error);
+                throw;
+            }
 
             // We will Combine() what's stored with root.  Defaults to string a relative path
             agentSettings.WorkFolder = command.GetWork();
@@ -581,7 +597,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     ArgUtil.NotNull(agentProvider, agentType);
 
                     // Determine the service deployment type based on connection data. (Hosted/OnPremises)
-                    bool isHostedServer = await _serverUtil.IsDeploymentTypeHosted(settings.ServerUrl, creds, _locationServer);
+                    bool isHostedServer;
+                    await _serverUtil.DetermineDeploymentType(settings.ServerUrl, creds, _locationServer);
+                    if (!_serverUtil.TryGetDeploymentType(out isHostedServer))
+                    {
+                        Trace.Warning(@"Deployment type determination has been failed;
+assume it is OnPremises and the deployment type determination was not implemented for this server version.");
+                    }
 
                     await agentProvider.TestConnectionAsync(settings, creds, isHostedServer);
 
@@ -637,6 +659,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 {
                     _term.WriteLine(StringUtil.Loc("Skipping") + currentAction);
                 }
+            }
+            catch (SocketException ex)
+            {
+                ExceptionsUtil.HandleSocketException(ex, _store.GetSettings().ServerUrl, _term.WriteLine);
+                throw;
             }
             catch (Exception)
             {
