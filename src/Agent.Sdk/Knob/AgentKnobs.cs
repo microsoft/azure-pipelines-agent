@@ -279,6 +279,6 @@ namespace Agent.Sdk.Knob
             "Disables Node 6 deprecation warnings.",
             new RuntimeKnobSource("DISABLE_NODE6_DEPRECATION_WARNING"),
             new EnvironmentKnobSource("DISABLE_NODE6_DEPRECATION_WARNING"),
-            new BuiltInDefaultKnobSource("false"));
+            new BuiltInDefaultKnobSource("true"));
     }
 }
