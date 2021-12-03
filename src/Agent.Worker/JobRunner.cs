@@ -3,6 +3,7 @@
 
 using Agent.Sdk;
 using Agent.Sdk.Knob;
+using Agent.Sdk.Util;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -320,6 +321,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Trace.Info("Completing the job execution context.");
                 return await CompleteJobAsync(jobServer, jobContext, message);
             }
+            catch (AggregateException e)
+            {
+                ExceptionsUtil.HandleAggregateException((AggregateException)e, Trace.Error);
+
+                return TaskResult.Failed;
+            }
             finally
             {
                 if (agentShutdownRegistration != null)
@@ -375,11 +382,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 await ShutdownQueue(throwOnFailure: true);
             }
+            catch (AggregateException ex)
+            {
+                ExceptionsUtil.HandleAggregateException((AggregateException)ex, Trace.Error);
+
+                result = TaskResultUtil.MergeTaskResults(result, TaskResult.Failed);
+            }
             catch (Exception ex)
             {
                 Trace.Error($"Caught exception from {nameof(JobServerQueue)}.{nameof(_jobServerQueue.ShutdownAsync)}");
                 Trace.Error("This indicate a failure during publish output variables. Fail the job to prevent unexpected job outputs.");
                 Trace.Error(ex);
+
                 result = TaskResultUtil.MergeTaskResults(result, TaskResult.Failed);
             }
 
@@ -440,6 +454,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     Trace.Info("Shutting down the job server queue.");
                     await _jobServerQueue.ShutdownAsync();
+                }
+                catch (AggregateException ex)
+                {
+                    ExceptionsUtil.HandleAggregateException((AggregateException)ex, Trace.Error);
                 }
                 catch (Exception ex) when (!throwOnFailure)
                 {

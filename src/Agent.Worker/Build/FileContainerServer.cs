@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk.Knob;
+using Agent.Sdk.Util;
 using Microsoft.VisualStudio.Services.Agent.Blob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.FileContainer.Client;
@@ -16,6 +17,7 @@ using System.Diagnostics;
 using Microsoft.VisualStudio.Services.WebApi;
 using System.Net.Http;
 using System.Net;
+using System.Net.Sockets;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 
@@ -335,8 +337,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             try
             {
                 var verbose = String.Equals(context.GetVariableValueOrDefault("system.debug"), "true", StringComparison.InvariantCultureIgnoreCase);
+                int maxParallelism = context.GetHostContext().GetService<IConfigurationStore>().GetSettings().MaxDedupParallelism;
                 (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                    .CreateDedupClientAsync(verbose, (str) => context.Output(str), this._connection, token);
+                    .CreateDedupClientAsync(verbose, (str) => context.Output(str), this._connection, maxParallelism, token);
 
                 // Upload to blobstore
                 var results = await BlobStoreUtils.UploadBatchToBlobstore(verbose, files, (level, uri, type) =>
@@ -383,6 +386,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     jobId = Guid.Empty;
                 }
                 await clientTelemetry.CommitTelemetryUpload(planId, jobId);
+            }
+            catch (SocketException e)
+            {
+                ExceptionsUtil.HandleSocketException(e, this._connection.Uri.ToString(), context.Warn);
+
+                throw;
             }
             catch
             {

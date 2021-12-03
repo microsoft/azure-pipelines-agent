@@ -3,6 +3,7 @@
 
 using Agent.Sdk;
 using Agent.Sdk.Knob;
+using Agent.Sdk.Util;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -14,6 +15,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -176,7 +178,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 return true;
             }
 
-            bool isHostedServer = await _serverUtil.IsDeploymentTypeHosted(_serverUrl, _creds, _locationServer);
+            bool isHostedServer;
+            await _serverUtil.DetermineDeploymentType(_serverUrl, _creds, _locationServer);
+            if (!_serverUtil.TryGetDeploymentType(out isHostedServer))
+            {
+                throw new DeploymentTypeNotDeterminedException(@"Deployment type determination has been failed.
+This exception was thrown during checksum validation when performing the agent self-update process.
+Most likely you are using On-Premises DevOps solution and the deployment type determination was not implemented for your server version.
+Checksum validation implemented for Cloud DevOps solutions only.
+You can skip checksum validation for the agent package by setting the environment variable DISABLE_HASH_VALIDATION=true");
+            }
 
             if (!isHostedServer)
             {
@@ -305,6 +316,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         {
                             Trace.Info($"Agent download has been canceled.");
                             throw;
+                        }
+                        catch (SocketException ex)
+                        {
+                            ExceptionsUtil.HandleSocketException(ex, _targetPackage.DownloadUrl, Trace.Warning);
                         }
                         catch (Exception ex)
                         {

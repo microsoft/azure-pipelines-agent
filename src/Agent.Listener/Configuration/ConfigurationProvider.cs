@@ -7,9 +7,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
@@ -359,6 +361,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     {
                         azureSubscriptionId = string.Empty;
                     }
+                }
+                catch (SocketException ex)
+                {
+                    azureSubscriptionId = string.Empty;
+                    ExceptionsUtil.HandleSocketException(ex, imdsUri, Trace.Info);
                 }
                 catch (Exception ex)
                 {

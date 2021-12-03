@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Util;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.Agent.Listener.Diagnostics;
@@ -463,6 +464,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             {
                                 Trace.Error($"Received message {message.MessageId} with unsupported message type {message.MessageType}.");
                             }
+                        }
+                        catch (AggregateException e)
+                        {
+                            ExceptionsUtil.HandleAggregateException((AggregateException)e, Trace.Error);
                         }
                         finally
                         {

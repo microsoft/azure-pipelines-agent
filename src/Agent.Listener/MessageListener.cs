@@ -8,6 +8,7 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Common;
 using System;
 using System.Collections.Generic;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
@@ -16,6 +17,7 @@ using System.Text;
 using Microsoft.VisualStudio.Services.OAuth;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -115,6 +117,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 catch (TaskAgentAccessTokenExpiredException)
                 {
                     Trace.Info("Agent OAuth token has been revoked. Session creation failed.");
+                    throw;
+                }
+                catch (SocketException ex)
+                {
+                    ExceptionsUtil.HandleSocketException(ex, serverUrl, Trace.Error);
                     throw;
                 }
                 catch (Exception ex)

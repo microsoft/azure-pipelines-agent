@@ -123,6 +123,9 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         [DataMember(EmitDefaultValue = false)]
         public string EnvironmentName { get; set; }
+
+        [DataMember(EmitDefaultValue = false)]
+        public int MaxDedupParallelism { get; set; }
     }
 
     [DataContract]
