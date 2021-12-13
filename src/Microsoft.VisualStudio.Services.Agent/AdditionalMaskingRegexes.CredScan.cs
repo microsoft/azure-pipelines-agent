@@ -12,7 +12,7 @@ using System.Collections.Generic;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
-    internal static partial class AdditionalMaskingRegexes
+    public static partial class AdditionalMaskingRegexes
     {
         public static IEnumerable<string> CredScanPatterns => credScanPatterns;
 
