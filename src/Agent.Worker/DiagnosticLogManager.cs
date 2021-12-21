@@ -44,7 +44,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNull(message, nameof(message));
-            System.Diagnostics.Debugger.Launch();
             executionContext.Debug("Starting diagnostic file upload.");
 
             // Setup folders
