@@ -17,6 +17,7 @@ using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using System.Security.Principal;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -43,7 +44,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNull(message, nameof(message));
-
+            System.Diagnostics.Debugger.Launch();
             executionContext.Debug("Starting diagnostic file upload.");
 
             // Setup folders
@@ -264,6 +265,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // $psversiontable
             builder.AppendLine("Powershell Version Info:");
             builder.AppendLine(await GetPsVersionInfo());
+
+            if(PlatformUtil.RunningOnWindows)
+            {
+                var userName = WindowsIdentity.GetCurrent().Name;
+                builder.AppendLine($"Local group membership for current user ({userName}):");
+                builder.AppendLine(await GetLocalGroupMembership(userName));
+            }
+
             return builder.ToString();
         }
 
@@ -302,6 +311,53 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             string powerShellExe = HostContext.GetService<IPowerShellExeUtil>().GetPath();
             string arguments = @"Write-Host ($PSVersionTable | Out-String)";
+            using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
+            {
+                processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+                {
+                    builder.AppendLine(args.Data);
+                };
+
+                processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+                {
+                    builder.AppendLine(args.Data);
+                };
+
+                await processInvoker.ExecuteAsync(
+                    workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Bin),
+                    fileName: powerShellExe,
+                    arguments: arguments,
+                    environment: null,
+                    requireExitCodeZero: false,
+                    outputEncoding: null,
+                    killProcessOnCancel: false,
+                    cancellationToken: default(CancellationToken));
+            }
+
+            return builder.ToString();
+        }
+
+        private async Task<string> GetLocalGroupMembership(string userName)
+        {
+            var builder = new StringBuilder();
+
+            string powerShellExe = HostContext.GetService<IPowerShellExeUtil>().GetPath();
+            string arguments = $@"
+foreach ($group in Get-LocalGroup ) {{
+    try {{ 
+        if (Get-LocalGroupMember -ErrorAction Stop  -Group $group | Where-Object name -like '{userName}') {{
+            Write-Host $group.name
+        }}
+    }} catch {{
+        Write-Host 'Unable to get local group memebers for group:' $group
+        if ($Error[0] -match 'Failed to compare two elements in the array.') {{
+            #Known issue: https://github.com/PowerShell/PowerShell/issues/2996
+            Write-Host ' Knowon issue. Most likely there are orphaned SIDs in the group. Please remove them'
+        }} else {{
+            Write-Host $Error[0].Exception
+        }}
+    }}
+}}";
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
             {
                 processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
