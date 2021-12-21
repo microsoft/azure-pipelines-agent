@@ -266,7 +266,7 @@ function cmd_report ()
 
         # for some reason CodeCoverage.exe will only write the output file in the current directory
         pushd $COVERAGE_REPORT_DIR > /dev/null
-        "${HOME}/.nuget/packages/microsoft.codecoverage/15.9.2/build/netstandard1.0/CodeCoverage/CodeCoverage.exe" analyze  "/output:coverage.xml" "$LATEST_COVERAGE_FILE"
+        "${HOME}/.nuget/packages/microsoft.codecoverage/16.4.0/build/netstandard1.0/CodeCoverage/CodeCoverage.exe" analyze  "/output:coverage.xml" "$LATEST_COVERAGE_FILE"
         popd > /dev/null
 
         if ! command -v reportgenerator.exe > /dev/null; then
@@ -323,7 +323,8 @@ if [[ (! -d "${DOTNETSDK_INSTALLDIR}") || (! -e "${DOTNETSDK_INSTALLDIR}/.${DOTN
         echo "Convert ${DOTNETSDK_INSTALLDIR} to Windows style path"
         sdkinstallwindow_path=${DOTNETSDK_INSTALLDIR:1}
         sdkinstallwindow_path=${sdkinstallwindow_path:0:1}:${sdkinstallwindow_path:1}
-        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"./Misc/dotnet-install.ps1\" -Version ${DOTNETSDK_VERSION} -InstallDir \"${sdkinstallwindow_path}\" -NoPath; exit \$LastExitCode;" || checkRC dotnet-install.ps1
+        architecture=$( echo $RUNTIME_ID | cut -d "-" -f2)
+        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"./Misc/dotnet-install.ps1\" -Version ${DOTNETSDK_VERSION} -InstallDir \"${sdkinstallwindow_path}\" -Architecture ${architecture}  -NoPath; exit \$LastExitCode;" || checkRC dotnet-install.ps1
     else
         bash ./Misc/dotnet-install.sh --version ${DOTNETSDK_VERSION} --install-dir "${DOTNETSDK_INSTALLDIR}" --no-path || checkRC dotnet-install.sh
     fi
