@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -34,6 +35,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
             // secrets that shouldn't be exposed as capabilities, so for defense in depth,
             // add it to the exclude list.
             "SYSTEM_ACCESSTOKEN",
+        };
+
+        private static readonly Knob[] secretKnobs = new Knob[]
+        {
+            AgentKnobs.ProxyPassword,
+            AgentKnobs.ProxyUsername
         };
 
         public Type ExtensionType => typeof(ICapabilitiesProvider);
@@ -84,11 +91,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
                     continue;
                 }
 
+                if (isKeySecretEnvironmentVariable(name))
+                {
+                    HostContext.SecretMasker.AddValue(value);
+                }
                 Trace.Info($"Adding '{name}': '{value}'");
                 capabilities.Add(new Capability(name, value));
             }
 
             return Task.FromResult(capabilities);
+        }
+
+        private bool isKeySecretEnvironmentVariable(string name)
+        {
+            foreach (var knob in secretKnobs)
+            {
+                if (knob.Source.hasEnvironmentSourceWithName(name))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

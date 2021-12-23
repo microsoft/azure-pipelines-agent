@@ -1,12 +1,13 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System;
 using System.Collections.Generic;
 
 namespace Agent.Sdk.Knob
 {
 
-    public class CompositeKnobSource : IKnobSource
+    public class CompositeKnobSource : ICompositeKnobSource
     {
         private IKnobSource[] _sources;
 
@@ -27,6 +28,7 @@ namespace Agent.Sdk.Knob
             }
             return null;
         }
+
         public string GetDisplayString()
         {
             var strings = new List<string>();
@@ -35,6 +37,24 @@ namespace Agent.Sdk.Knob
                 strings.Add(source.GetDisplayString());
             }
             return string.Join(", ", strings);
+        }
+
+        public bool hasEnvironmentSourceWithName(string name)
+        {
+            foreach (var source in _sources)
+            {
+                var isEnvironmentSource = source is EnvironmentKnobSource;
+                if (isEnvironmentSource)
+                {
+                    var envName = (source as IEnvironmentKnobSource).GetOriginalName();
+                    if (String.Equals(envName, name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
     }
 

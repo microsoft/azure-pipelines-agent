@@ -27,7 +27,7 @@ namespace Agent.Sdk.Knob
     public class Knob
     {
         public string Name { get; private set; }
-        public IKnobSource Source { get; private set;}
+        public ICompositeKnobSource Source { get; private set;}
         public string Description { get; private set; }
         public virtual bool IsDeprecated => false;  // is going away at a future date
         public virtual bool IsExperimental => false; // may go away at a future date
