@@ -31,7 +31,7 @@ namespace Agent.Sdk.Knob
             return $"${{{_envVar}}}";
         }
 
-        public string GetOriginalName()
+        public string GetEnvironmentVariableName()
         {
             return _envVar;
         }

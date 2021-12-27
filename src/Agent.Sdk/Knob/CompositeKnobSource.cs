@@ -39,14 +39,18 @@ namespace Agent.Sdk.Knob
             return string.Join(", ", strings);
         }
 
-        public bool hasEnvironmentSourceWithName(string name)
+        /// <summary>
+        /// Returns true if object has source with type EnvironmentKnobSource and provided name
+        /// </summary>
+        /// <param name="name">Name to check</param>
+        /// <returns>Returns true if source exists with this type and name</returns>
+        public bool hasSourceWithTypeEnvironmentByName(string name)
         {
             foreach (var source in _sources)
             {
-                var isEnvironmentSource = source is EnvironmentKnobSource;
-                if (isEnvironmentSource)
+                if (source is EnvironmentKnobSource)
                 {
-                    var envName = (source as IEnvironmentKnobSource).GetOriginalName();
+                    var envName = (source as IEnvironmentKnobSource).GetEnvironmentVariableName();
                     if (String.Equals(envName, name, StringComparison.OrdinalIgnoreCase))
                     {
                         return true;

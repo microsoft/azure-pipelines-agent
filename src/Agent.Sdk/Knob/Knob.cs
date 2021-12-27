@@ -26,9 +26,7 @@ namespace Agent.Sdk.Knob
 
     public class SecretKnob : Knob
     {
-        public override bool isSecret => true;
-
-         public SecretKnob(string name, string description, params IKnobSource[] sources) : base(name, description, sources)
+        public SecretKnob(string name, string description, params IKnobSource[] sources) : base(name, description, sources)
         {
         }
     }
@@ -40,8 +38,6 @@ namespace Agent.Sdk.Knob
         public string Description { get; private set; }
         public virtual bool IsDeprecated => false;  // is going away at a future date
         public virtual bool IsExperimental => false; // may go away at a future date
-
-        public virtual bool isSecret => false;
 
         public Knob(string name, string description, params IKnobSource[] sources)
         {

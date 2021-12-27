@@ -5,6 +5,6 @@ namespace Agent.Sdk.Knob
 {
     public interface IEnvironmentKnobSource : IKnobSource
     {
-        string GetOriginalName();
+        string GetEnvironmentVariableName();
     }
 }

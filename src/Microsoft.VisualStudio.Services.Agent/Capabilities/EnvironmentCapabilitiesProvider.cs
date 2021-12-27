@@ -70,7 +70,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
                 }
             }
 
-            var secretKnobs = Knob.GetAllKnobsFor<AgentKnobs>().Where(k => k.isSecret);
+            var secretKnobs = Knob.GetAllKnobsFor<AgentKnobs>().Where(k => k is SecretKnob);
 
             // Get filtered env vars.
             IEnumerable<string> names =
@@ -87,29 +87,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
                     continue;
                 }
 
-                if (isKeySecretEnvironmentVariable(name, secretKnobs))
+                if (secretKnobs.Any(k => k.Source.hasSourceWithTypeEnvironmentByName(name)))
                 {
                     HostContext.SecretMasker.AddValue(value);
-                    HostContext.SecretMasker.MaskSecrets(value);
                 }
                 Trace.Info($"Adding '{name}': '{value}'");
                 capabilities.Add(new Capability(name, value));
             }
 
             return Task.FromResult(capabilities);
-        }
-
-        private bool isKeySecretEnvironmentVariable(string name, IEnumerable<Knob> secretKnobs)
-        {
-            foreach (var knob in secretKnobs)
-            {
-                if (knob.Source.hasEnvironmentSourceWithName(name))
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
     }
 }

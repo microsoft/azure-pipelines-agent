@@ -142,10 +142,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 tag = "(EXPERIMENTAL)";
                             }
                             var stringValue = value.AsString();
-                            if (knob.isSecret)
+                            if (knob is SecretKnob)
                             {
                                 HostContext.SecretMasker.AddValue(stringValue);
-                                HostContext.SecretMasker.MaskSecrets(stringValue);
                             }
                             var outputLine = $"   Knob: {knob.Name} = {stringValue} Source: {value.Source.GetDisplayString()} {tag}";
                             if (knob.IsDeprecated)
