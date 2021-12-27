@@ -172,13 +172,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("http_proxy"),
             new BuiltInDefaultKnobSource(string.Empty));
 
-        public static readonly Knob ProxyPassword = new Knob(
+        public static readonly Knob ProxyPassword = new SecretKnob(
             nameof(ProxyPassword),
             "Proxy password if one exists",
             new EnvironmentKnobSource("VSTS_HTTP_PROXY_PASSWORD"),
             new BuiltInDefaultKnobSource(string.Empty));
 
-        public static readonly Knob ProxyUsername = new Knob(
+        public static readonly Knob ProxyUsername = new SecretKnob(
             nameof(ProxyUsername),
             "Proxy username if one exists",
             new EnvironmentKnobSource("VSTS_HTTP_PROXY_USERNAME"),

@@ -37,12 +37,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
             "SYSTEM_ACCESSTOKEN",
         };
 
-        private static readonly Knob[] secretKnobs = new Knob[]
-        {
-            AgentKnobs.ProxyPassword,
-            AgentKnobs.ProxyUsername
-        };
-
         public Type ExtensionType => typeof(ICapabilitiesProvider);
 
         public int Order => 1; // Process first so other providers can override.
@@ -76,6 +70,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
                 }
             }
 
+            var secretKnobs = Knob.GetAllKnobsFor<AgentKnobs>().Where(k => k.isSecret);
+
             // Get filtered env vars.
             IEnumerable<string> names =
                 variables.Keys
@@ -91,9 +87,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
                     continue;
                 }
 
-                if (isKeySecretEnvironmentVariable(name))
+                if (isKeySecretEnvironmentVariable(name, secretKnobs))
                 {
                     HostContext.SecretMasker.AddValue(value);
+                    HostContext.SecretMasker.MaskSecrets(value);
                 }
                 Trace.Info($"Adding '{name}': '{value}'");
                 capabilities.Add(new Capability(name, value));
@@ -102,7 +99,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
             return Task.FromResult(capabilities);
         }
 
-        private bool isKeySecretEnvironmentVariable(string name)
+        private bool isKeySecretEnvironmentVariable(string name, IEnumerable<Knob> secretKnobs)
         {
             foreach (var knob in secretKnobs)
             {
