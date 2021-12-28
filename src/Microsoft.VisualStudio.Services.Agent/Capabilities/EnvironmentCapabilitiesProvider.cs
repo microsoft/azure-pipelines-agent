@@ -87,7 +87,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
                     continue;
                 }
 
-                if (secretKnobs.Any(k => k.Source.hasSourceWithTypeEnvironmentByName(name)))
+                if (secretKnobs.Any(k => k.Source.HasSourceWithTypeEnvironmentByName(name)))
                 {
                     HostContext.SecretMasker.AddValue(value);
                 }

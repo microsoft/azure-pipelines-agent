@@ -5,6 +5,6 @@ namespace Agent.Sdk.Knob
 {
     public interface ICompositeKnobSource : IKnobSource
     {
-        bool hasSourceWithTypeEnvironmentByName(string name);
+        bool HasSourceWithTypeEnvironmentByName(string name);
     }
 }

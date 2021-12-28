@@ -44,7 +44,7 @@ namespace Agent.Sdk.Knob
         /// </summary>
         /// <param name="name">Name to check</param>
         /// <returns>Returns true if source exists with this type and name</returns>
-        public bool hasSourceWithTypeEnvironmentByName(string name)
+        public bool HasSourceWithTypeEnvironmentByName(string name)
         {
             foreach (var source in _sources)
             {
