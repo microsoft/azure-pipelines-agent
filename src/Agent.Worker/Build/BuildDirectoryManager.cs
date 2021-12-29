@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
 
@@ -64,7 +65,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // If there aren't any major changes, merge the configurations and use the same workspace
             if (trackingManager.AreTrackingConfigsCompatible(executionContext, newConfig, existingConfig))
             {
-                newConfig = trackingManager.MergeTrackingConfigs(executionContext, newConfig, existingConfig, shouldOverrideBuildDirectory);
+                bool disableOverrideTfvcBuildDirectoryKnob = AgentKnobs.DisableOverrideTfvcBuildDirectory.GetValue(executionContext).AsBoolean();
+                newConfig = trackingManager.MergeTrackingConfigs(executionContext, newConfig, existingConfig, shouldOverrideBuildDirectory && !disableOverrideTfvcBuildDirectoryKnob);
             }
             else if (existingConfig != null)
             {

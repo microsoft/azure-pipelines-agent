@@ -42,7 +42,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         private VssCredentials _creds;
         private ILocationServer _locationServer;
         private bool _hashValidationDisabled;
-        private ServerUtil _serverUtil;
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -60,7 +59,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             _creds = credManager.LoadCredentials();
             _locationServer = HostContext.GetService<ILocationServer>();
             _hashValidationDisabled = AgentKnobs.DisableHashValidation.GetValue(_knobContext).AsBoolean();
-            _serverUtil = new ServerUtil(Trace);
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "invokeScript")]
@@ -170,7 +168,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             return false;
         }
 
-        private async Task<bool> HashValidation(string archiveFile)
+        private bool HashValidation(string archiveFile)
         {
             if (_hashValidationDisabled)
             {
@@ -178,20 +176,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 return true;
             }
 
-            bool isHostedServer;
-            await _serverUtil.DetermineDeploymentType(_serverUrl, _creds, _locationServer);
-            if (!_serverUtil.TryGetDeploymentType(out isHostedServer))
+            // DownloadUrl for offline agent update is started from Url of ADO On-Premises
+            // DownloadUrl for online agent update is started from Url of feed with agent packages
+            bool isOfflineUpdate = _targetPackage.DownloadUrl.StartsWith(_serverUrl);
+            if (isOfflineUpdate)
             {
-                throw new DeploymentTypeNotDeterminedException(@"Deployment type determination has been failed.
-This exception was thrown during checksum validation when performing the agent self-update process.
-Most likely you are using On-Premises DevOps solution and the deployment type determination was not implemented for your server version.
-Checksum validation implemented for Cloud DevOps solutions only.
-You can skip checksum validation for the agent package by setting the environment variable DISABLE_HASH_VALIDATION=true");
-            }
-
-            if (!isHostedServer)
-            {
-                Trace.Info($"Skipping checksum validation for On-Premises solution");
+                Trace.Info($"Skipping checksum validation for offline agent update");
                 return true;
             }
 
@@ -310,7 +300,7 @@ You can skip checksum validation for the agent package by setting the environmen
                             Trace.Info($"Download agent: finished download");
 
                             downloadSucceeded = true;
-                            validationSucceeded = await HashValidation(archiveFile);
+                            validationSucceeded = HashValidation(archiveFile);
                         }
                         catch (OperationCanceledException) when (token.IsCancellationRequested)
                         {
@@ -409,6 +399,30 @@ You can skip checksum validation for the agent package by setting the environmen
                 {
                     //it is not critical if we fail to delete the .zip file
                     Trace.Warning("Failed to delete agent package zip '{0}'. Exception: {1}", archiveFile, ex);
+                }
+            }
+
+            if (!String.IsNullOrEmpty(AgentKnobs.DisableAuthenticodeValidation.GetValue(HostContext).AsString()))
+            {
+                Trace.Warning("Authenticode validation skipped for downloaded agent package since it is disabled currently by agent settings.");
+            }
+            else
+            {
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    var isValid = this.VerifyAgentAuthenticode(latestAgentDirectory);
+                    if (!isValid)
+                    {
+                        throw new Exception("Authenticode validation of agent assemblies failed.");
+                    }
+                    else
+                    {
+                        Trace.Info("Authenticode validation of agent assemblies passed successfully.");
+                    }
+                }
+                else
+                {
+                    Trace.Info("Authenticode validation skipped since it's not supported on non-Windows platforms at the moment.");
                 }
             }
 
@@ -596,6 +610,41 @@ You can skip checksum validation for the agent package by setting the environmen
                 Trace.Error(ex);
                 Trace.Info($"Catch exception during report update state, ignore this error and continue auto-update.");
             }
+        }
+        /// <summary>
+        /// Verifies authenticode sign of agent assemblies
+        /// </summary>
+        /// <param name="agentFolderPath"></param>
+        /// <returns></returns>
+        private bool VerifyAgentAuthenticode(string agentFolderPath)
+        {
+            if (!Directory.Exists(agentFolderPath))
+            {
+                Trace.Error($"Agent folder {agentFolderPath} not found.");
+                return false;
+            }
+
+            var agentDllFiles = Directory.GetFiles(agentFolderPath, "*.dll", SearchOption.AllDirectories);
+            var agentExeFiles = Directory.GetFiles(agentFolderPath, "*.exe", SearchOption.AllDirectories);
+
+            var agentAssemblies = agentDllFiles.Concat(agentExeFiles);
+            Trace.Verbose(String.Format("Found {0} agent assemblies. Performing authenticode validation...", agentAssemblies.Count()));
+
+            foreach (var assemblyFile in agentAssemblies)
+            {
+                FileInfo info = new FileInfo(assemblyFile);
+                try
+                {
+                    InstallerVerifier.VerifyFileSignedByMicrosoft(info.FullName, this.Trace);
+                }
+                catch (Exception e)
+                {
+                    Trace.Error(e);
+                    return false;
+                }
+            }
+
+            return true;
         }
     }
 

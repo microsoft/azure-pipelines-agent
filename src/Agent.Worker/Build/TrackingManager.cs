@@ -136,12 +136,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             TrackingConfig mergedConfig = previousConfig.Clone();
 
             // Update the sources directory if we don't have one
-            if (!string.IsNullOrEmpty(mergedConfig.SourcesDirectory))
+            if (string.IsNullOrEmpty(mergedConfig.SourcesDirectory))
             {
                 mergedConfig.SourcesDirectory = newConfig.SourcesDirectory;
             }
 
-            if (overrideBuildDirectory && !AgentKnobs.DisableOverrideTfvcBuildDirectory.GetValue(executionContext).AsBoolean())
+            if (overrideBuildDirectory)
             {
                 mergedConfig.BuildDirectory = newConfig.BuildDirectory;
             }

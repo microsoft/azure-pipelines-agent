@@ -118,6 +118,12 @@ namespace Agent.Plugins.Repository
             var repoAlias = executionContext.GetInput(Pipelines.PipelineConstants.CheckoutTaskInputs.Repository, true);
             var repo = executionContext.Repositories.Single(x => string.Equals(x.Alias, repoAlias, StringComparison.OrdinalIgnoreCase));
 
+            executionContext.PublishTelemetry(area: "AzurePipelinesAgent", feature: "Checkout", properties: new Dictionary<string, string>
+            {
+                { "RepoType", $"{repo.Type}" },
+                { "HostOS", $"{PlatformUtil.HostOS}" }
+            });
+
             MergeCheckoutOptions(executionContext, repo);
 
             var currentRepoPath = repo.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
