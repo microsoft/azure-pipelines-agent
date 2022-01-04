@@ -105,6 +105,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 File.Copy(agentLogFile, destination);
             }
 
+            // Copy cloud-init log files from linux machines
+            if (PlatformUtil.RunningOnLinux)
+            {
+                executionContext.Debug("Dumping cloud-init logs.");
+
+                string resultLogs = await DumpCloudInitLogs(jobStartTimeUtc, HostContext.GetDirectory(WellKnownDirectory.Diag));
+                executionContext.Debug(resultLogs);
+
+                executionContext.Debug("Dumping cloud-init logs is ended.");
+            }
+
             executionContext.Debug("Zipping diagnostic files.");
 
             string buildNumber = executionContext.Variables.Build_Number ?? "UnknownBuildNumber";
@@ -129,6 +140,56 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             executionContext.QueueAttachFile(type: CoreAttachmentType.DiagnosticLog, name: diagnosticsZipFileName, filePath: diagnosticsZipFilePath);
 
             executionContext.Debug("Diagnostic file upload complete.");
+        }
+
+        /// <summary>
+        /// Dumping cloud-init logs to diag folder of agent if cloud-init is installed on current machine.
+        /// </summary>
+        /// <param name="jobStartTimeUtc">Job start time</param>
+        /// <param name="diagFolder">Path to agent diag folder</param>
+        /// <returns>Returns the method execution logs</returns>
+        private async Task<string> DumpCloudInitLogs(DateTime jobStartTimeUtc, string diagFolder)
+        {
+            var builder = new StringBuilder();
+            string cloudInit = WhichUtil.Which("cloud-init", trace: Trace);
+            if (string.IsNullOrEmpty(cloudInit))
+            {
+                return "Cloud-init isn't found on current machine.";
+            }
+
+            string resultName = $"cloudinit-{jobStartTimeUtc.ToString("yyyyMMdd-HHmmss")}-logs.tar.gz";
+            string arguments = $"collect-logs -t \"{diagFolder}/{resultName}\"";
+
+            try 
+            {
+                using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
+                {
+                    processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+                    {
+                        builder.AppendLine(args.Data);
+                    };
+
+                    processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+                    {
+                        builder.AppendLine(args.Data);
+                    };
+
+                    await processInvoker.ExecuteAsync(
+                        workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Bin),
+                        fileName: cloudInit,
+                        arguments: arguments,
+                        environment: null,
+                        requireExitCodeZero: false,
+                        outputEncoding: null,
+                        killProcessOnCancel: false,
+                        cancellationToken: default(CancellationToken));
+                }
+            }
+            catch (Exception ex)
+            {
+                builder.AppendLine(ex.Message);
+            }
+            return builder.ToString();
         }
 
         private string GetCapabilitiesContent(Dictionary<string, string> capabilities)
