@@ -267,9 +267,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             if(PlatformUtil.RunningOnWindows)
             {
-                var userName = WindowsIdentity.GetCurrent().Name;
-                builder.AppendLine($"Local group membership for current user ({userName}):");
-                builder.AppendLine(await GetLocalGroupMembership(userName));
+                builder.AppendLine(await GetLocalGroupMembership());
             }
 
             return builder.ToString();
@@ -336,27 +334,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return builder.ToString();
         }
 
-        private async Task<string> GetLocalGroupMembership(string userName)
+        /// <summary>
+        /// Gathers a list of local group memberships for the current user.
+        /// </summary>
+        private async Task<string> GetLocalGroupMembership()
         {
             var builder = new StringBuilder();
 
             string powerShellExe = HostContext.GetService<IPowerShellExeUtil>().GetPath();
-            string arguments = $@"
-foreach ($group in Get-LocalGroup ) {{
-    try {{ 
-        if (Get-LocalGroupMember -ErrorAction Stop  -Group $group | Where-Object name -like '{userName}') {{
-            Write-Host $group.name
-        }}
-    }} catch {{
-        Write-Host 'Unable to get local group memebers for group:' $group
-        if ($Error[0] -match 'Failed to compare two elements in the array.') {{
-            #Known issue: https://github.com/PowerShell/PowerShell/issues/2996
-            Write-Host ' Knowon issue. Most likely there are orphaned SIDs in the group. Please remove them'
-        }} else {{
-            Write-Host $Error[0].Exception
-        }}
-    }}
-}}";
+
+            string scriptFile = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), "powershell", "Get-LocalGroupMembership.ps1").Replace("'", "''");
+            ArgUtil.File(scriptFile, nameof(scriptFile));
+            string arguments = $@"-NoLogo -Sta -NoProfile -ExecutionPolicy Unrestricted -Command "". '{scriptFile}'""";
+
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
             {
                 processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
