@@ -345,7 +345,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             string scriptFile = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), "powershell", "Get-LocalGroupMembership.ps1").Replace("'", "''");
             ArgUtil.File(scriptFile, nameof(scriptFile));
-            string arguments = $@"-NoLogo -Sta -NoProfile -ExecutionPolicy Unrestricted -Command "". '{scriptFile}'""";
+            string arguments = $@"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "". '{scriptFile}'""";
 
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
             {
