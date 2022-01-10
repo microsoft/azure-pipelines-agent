@@ -1,12 +1,13 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System;
 using System.Collections.Generic;
 
 namespace Agent.Sdk.Knob
 {
 
-    public class CompositeKnobSource : IKnobSource
+    public class CompositeKnobSource : ICompositeKnobSource
     {
         private IKnobSource[] _sources;
 
@@ -27,6 +28,7 @@ namespace Agent.Sdk.Knob
             }
             return null;
         }
+
         public string GetDisplayString()
         {
             var strings = new List<string>();
@@ -35,6 +37,28 @@ namespace Agent.Sdk.Knob
                 strings.Add(source.GetDisplayString());
             }
             return string.Join(", ", strings);
+        }
+
+        /// <summary>
+        /// Returns true if object has source with type EnvironmentKnobSource and provided name
+        /// </summary>
+        /// <param name="name">Name to check</param>
+        /// <returns>Returns true if source exists with this type and name</returns>
+        public bool HasSourceWithTypeEnvironmentByName(string name)
+        {
+            foreach (var source in _sources)
+            {
+                if (source is EnvironmentKnobSource)
+                {
+                    var envName = (source as IEnvironmentKnobSource).GetEnvironmentVariableName();
+                    if (String.Equals(envName, name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
     }
 

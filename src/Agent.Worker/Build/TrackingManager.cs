@@ -141,7 +141,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 mergedConfig.SourcesDirectory = newConfig.SourcesDirectory;
             }
 
-            if (overrideBuildDirectory && !AgentKnobs.DisableOverrideTfvcBuildDirectory.GetValue(executionContext).AsBoolean())
+            if (overrideBuildDirectory)
             {
                 mergedConfig.BuildDirectory = newConfig.BuildDirectory;
             }
