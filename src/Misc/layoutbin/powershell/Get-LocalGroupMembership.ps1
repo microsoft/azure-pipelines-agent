@@ -1,5 +1,7 @@
 [CmdletBinding()]
 param()
+
+# Checks if a user is a member of a group using ADSI
 function Test-LocalGroupMembershipADSI {
     [CmdletBinding()]
     param(
@@ -9,8 +11,8 @@ function Test-LocalGroupMembershipADSI {
         [string]$UserName
     )
     $g = [ADSI]"WinNT://$env:COMPUTERNAME/$Group"
-    $group_members = @($g.Invoke('Members') | ForEach-Object { ([adsi]$_).path }) 
-    $names = foreach ($member in $group_members) {
+    $groupMembers = @($g.Invoke('Members') | ForEach-Object { ([adsi]$_).path }) 
+    $names = foreach ($member in $groupMembers) {
         $x = [regex]::match($member, '^WinNT://(.*)').groups[1].value;
         $x.Replace("`/", "`\");
     }
@@ -28,12 +30,13 @@ $userGroups = @()
 foreach ($group in Get-LocalGroup) {
     # the usernames are returned in the string form "computername\username"
     try { 
-        if (Get-LocalGroupMember -ErrorAction Stop  -Group $group | Where-Object name -like $user.Name) {
+        if (Get-LocalGroupMember -ErrorAction Stop -Group $group | Where-Object name -like $user.Name) {
             $userGroups += $group.name
         }
     } catch {
         try {
-            #known issue: https://github.com/PowerShell/PowerShell/issues/2996
+            # there is a known issue with Get-LocalGroupMember cmdlet: https://github.com/PowerShell/PowerShell/issues/2996
+            # trying to overcome the issue using ADSI
             if (Test-LocalGroupMembershipADSI -Group $group -UserName $user.Name) {
                 $userGroups += $group.name
             }
