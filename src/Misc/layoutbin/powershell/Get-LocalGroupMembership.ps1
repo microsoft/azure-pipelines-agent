@@ -2,6 +2,7 @@
 param()
 
 # Checks if a user is a member of a group using ADSI
+# Returns $true if the user is a member of the group
 function Test-LocalGroupMembershipADSI {
     [CmdletBinding()]
     param(
@@ -16,11 +17,7 @@ function Test-LocalGroupMembershipADSI {
         $x = [regex]::match($member, '^WinNT://(.*)').groups[1].value;
         $x.Replace("`/", "`\");
     }
-    if ($names -contains $UserName) {
-        $true
-    } else {
-        $false
-    }
+    return ($names -contains $UserName)
 }
 
 $user = [Security.Principal.WindowsIdentity]::GetCurrent()

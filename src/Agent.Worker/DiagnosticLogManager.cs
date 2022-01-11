@@ -17,7 +17,6 @@ using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
-using System.Security.Principal;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -44,6 +43,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNull(message, nameof(message));
+
             executionContext.Debug("Starting diagnostic file upload.");
 
             // Setup folders
@@ -160,7 +160,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             string resultName = $"cloudinit-{jobStartTimeUtc.ToString("yyyyMMdd-HHmmss")}-logs.tar.gz";
             string arguments = $"collect-logs -t \"{diagFolder}/{resultName}\"";
 
-            try 
+            try
             {
                 using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
                 {
@@ -326,10 +326,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             builder.AppendLine("Powershell Version Info:");
             builder.AppendLine(await GetPsVersionInfo());
 
-            if(PlatformUtil.RunningOnWindows)
-            {
-                builder.AppendLine(await GetLocalGroupMembership());
-            }
+            builder.AppendLine(await GetLocalGroupMembership());
 
             return builder.ToString();
         }
@@ -408,27 +405,34 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.File(scriptFile, nameof(scriptFile));
             string arguments = $@"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "". '{scriptFile}'""";
 
-            using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
+            try
             {
-                processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+                using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
                 {
-                    builder.AppendLine(args.Data);
-                };
+                    processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+                    {
+                        builder.AppendLine(args.Data);
+                    };
 
-                processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
-                {
-                    builder.AppendLine(args.Data);
-                };
+                    processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+                    {
+                        builder.AppendLine(args.Data);
+                    };
 
-                await processInvoker.ExecuteAsync(
-                    workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Bin),
-                    fileName: powerShellExe,
-                    arguments: arguments,
-                    environment: null,
-                    requireExitCodeZero: false,
-                    outputEncoding: null,
-                    killProcessOnCancel: false,
-                    cancellationToken: default(CancellationToken));
+                    await processInvoker.ExecuteAsync(
+                        workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Bin),
+                        fileName: powerShellExe,
+                        arguments: arguments,
+                        environment: null,
+                        requireExitCodeZero: false,
+                        outputEncoding: null,
+                        killProcessOnCancel: false,
+                        cancellationToken: default(CancellationToken));
+                }
+            }
+            catch (Exception ex)
+            {
+                builder.AppendLine(ex.Message);
             }
 
             return builder.ToString();
