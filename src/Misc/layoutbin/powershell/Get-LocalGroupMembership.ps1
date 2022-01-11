@@ -15,7 +15,6 @@ function Test-LocalGroupMembershipADSI {
     # Get a group object using ADSI adpater
     $groupObject = [ADSI]"WinNT://./$Group"
     $groupMemberPaths = @($groupObject.Invoke('Members') | ForEach-Object { ([adsi]$_).path }) 
-    Write-Host $groupMemberPaths
     $groupMembers = $groupMemberPaths | ForEach-Object { [regex]::match($_, '^WinNT://(.*)').groups[1].value }
 
     # Format names as group members are returned with a forward slashes
