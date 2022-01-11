@@ -105,6 +105,38 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 File.Copy(agentLogFile, destination);
             }
 
+            // Read and add to logs waagent.conf settings on Linux
+            if (PlatformUtil.RunningOnLinux)
+            {
+                executionContext.Debug("Dumping of waagent.conf file");
+                string waagentDumpFile = Path.Combine(supportFilesFolder, "waagentConf.txt");
+
+                string configFileName = "waagent.conf";
+                try
+                {
+                    string filePath = Directory.GetFiles("/etc", configFileName).FirstOrDefault();
+                    if (!string.IsNullOrWhiteSpace(filePath))
+                    {
+                        string waagentContent = File.ReadAllText(filePath);
+
+                        File.AppendAllText(waagentDumpFile, "waagent.conf settings");
+                        File.AppendAllText(waagentDumpFile, Environment.NewLine);
+                        File.AppendAllText(waagentDumpFile, waagentContent);
+                        
+                        executionContext.Debug("Dumping waagent.conf file is completed.");
+                    }
+                    else
+                    {
+                        executionContext.Warning("waagent.conf file wasn't found. Dumping was not done.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    string warningMessage = $"Dumping of waagent.conf was not completed successfully. Error message: {ex.Message}";
+                    executionContext.Warning(warningMessage);
+                }
+            }
+            
             // Copy cloud-init log files from linux machines
             if (PlatformUtil.RunningOnLinux)
             {
