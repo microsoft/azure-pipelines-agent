@@ -11,12 +11,16 @@ function Test-LocalGroupMembershipADSI {
         [Parameter(Mandatory = $true)]
         [string]$UserName
     )
-    $g = [ADSI]"WinNT://$env:COMPUTERNAME/$Group"
-    $groupMembers = @($g.Invoke('Members') | ForEach-Object { ([adsi]$_).path }) 
-    $names = foreach ($member in $groupMembers) {
-        $x = [regex]::match($member, '^WinNT://(.*)').groups[1].value;
-        $x.Replace("`/", "`\");
-    }
+    
+    # Get a group object using ADSI adpater
+    $groupObject = [ADSI]"WinNT://./$Group"
+    $groupMemberPaths = @($groupObject.Invoke('Members') | ForEach-Object { ([adsi]$_).path }) 
+    Write-Host $groupMemberPaths
+    $groupMembers = $groupMemberPaths | ForEach-Object { [regex]::match($_, '^WinNT://(.*)').groups[1].value }
+
+    # Format names as group members are returned with a forward slashes
+    $names = $groupMembers.Replace("`/", "`\")
+
     return ($names -contains $UserName)
 }
 
@@ -25,15 +29,15 @@ Write-Host "Local group membership for current user: $($user.Name)"
 $userGroups = @()
 
 foreach ($group in Get-LocalGroup) {
-    # the usernames are returned in the string form "computername\username"
+    # The usernames are returned in the following string format "domain\username"
     try { 
         if (Get-LocalGroupMember -ErrorAction Stop -Group $group | Where-Object name -like $user.Name) {
             $userGroups += $group.name
         }
     } catch {
         try {
-            # there is a known issue with Get-LocalGroupMember cmdlet: https://github.com/PowerShell/PowerShell/issues/2996
-            # trying to overcome the issue using ADSI
+            # There is a known issue with Get-LocalGroupMember cmdlet: https://github.com/PowerShell/PowerShell/issues/2996
+            # Trying to overcome the issue using ADSI
             if (Test-LocalGroupMembershipADSI -Group $group -UserName $user.Name) {
                 $userGroups += $group.name
             }
