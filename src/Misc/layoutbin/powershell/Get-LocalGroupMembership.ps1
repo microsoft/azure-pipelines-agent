@@ -1,9 +1,24 @@
+<#
+.SYNOPSIS
+    Get a list of local groups the current Windows user belongs to.
+
+.DESCRIPTION
+    The Get-LocalGroupMembership.ps1 script gets the current Windows user and prints the local group memberships for that user.
+    If Get-LocalGroupMember cmdlet failed to list group members, it tries to check membership using ADSI adapter.
+#>
 [CmdletBinding()]
 param()
 
-# Checks if a user is a member of a group using ADSI
-# Returns $true if the user is a member of the group
 function Test-LocalGroupMembershipADSI {
+    <#
+    .SYNOPSIS
+        Checks if a user is a member of a local group using ADSI.
+        Returns $true if the user is a member of the group.
+
+    .EXAMPLE
+        Test-LocalGroupMembershipADSI -Group "Users" -UserName "Domain/UserName"
+        This returns $true if the user is a member of the group.
+    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -14,7 +29,7 @@ function Test-LocalGroupMembershipADSI {
     
     # Get a group object using ADSI adapter
     $groupObject = [ADSI]"WinNT://./$Group"
-    $groupMemberPaths = @($groupObject.Invoke('Members') | ForEach-Object { ([adsi]$_).path }) 
+    $groupMemberPaths = @($groupObject.Invoke('Members') | ForEach-Object { ([ADSI]$_).path }) 
     $groupMembers = $groupMemberPaths | ForEach-Object { [regex]::match($_, '^WinNT://(.*)').groups[1].value }
 
     # Format names as group members are returned with a forward slashes
@@ -41,7 +56,7 @@ foreach ($group in Get-LocalGroup) {
                 $userGroups += $group.name
             }
         } catch {
-            Write-Warning "Unable to get local group memebers for group $group"
+            Write-Warning "Unable to get local group members for group $group"
             Write-Host $_.Exception
         }
     }
