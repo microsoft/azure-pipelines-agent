@@ -17,7 +17,6 @@ function Test-LocalGroupMembershipADSI {
 
     .EXAMPLE
         Test-LocalGroupMembershipADSI -Group "Users" -UserName "Domain/UserName"
-        This returns $true if the user is a member of the group.
     #>
     [CmdletBinding()]
     param(
