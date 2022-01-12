@@ -12,7 +12,7 @@ function Test-LocalGroupMembershipADSI {
         [string]$UserName
     )
     
-    # Get a group object using ADSI adpater
+    # Get a group object using ADSI adapter
     $groupObject = [ADSI]"WinNT://./$Group"
     $groupMemberPaths = @($groupObject.Invoke('Members') | ForEach-Object { ([adsi]$_).path }) 
     $groupMembers = $groupMemberPaths | ForEach-Object { [regex]::match($_, '^WinNT://(.*)').groups[1].value }
