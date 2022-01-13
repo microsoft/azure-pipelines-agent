@@ -148,6 +148,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 executionContext.Debug("Dumping cloud-init logs is ended.");
             }
 
+            // Copy event logs for windows machines
+            if (PlatformUtil.RunningOnWindows)
+            {
+                executionContext.Debug("Dumping event viewer logs for current job.");
+
+                try
+                {
+                    string eventLogsFile = $"{HostContext.GetDirectory(WellKnownDirectory.Diag)}/EventViewer-{ jobStartTimeUtc.ToString("yyyyMMdd-HHmmss") }.log";
+                    await DumpCurrentJobEventLogs(executionContext, eventLogsFile, jobStartTimeUtc);
+
+                    string destination = Path.Combine(supportFilesFolder, Path.GetFileName(eventLogsFile));
+                    File.Copy(eventLogsFile, destination);
+                }
+                catch (Exception ex)
+                {
+                    executionContext.Debug("Failed to dump event viewer logs. Skipping.");
+                    executionContext.Debug($"Error message: {ex}");
+                }
+            }
+
             executionContext.Debug("Zipping diagnostic files.");
 
             string buildNumber = executionContext.Variables.Build_Number ?? "UnknownBuildNumber";
@@ -487,6 +507,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             return builder.ToString();
+        }
+
+        // Collects Windows event logs that appeared during the job execution.
+        // Dumps the gathered info into a separate file since the logs are long.
+        private async Task DumpCurrentJobEventLogs(IExecutionContext executionContext, string logFile, DateTime jobStartTimeUtc)
+        {
+            string powerShellExe = HostContext.GetService<IPowerShellExeUtil>().GetPath();
+            string arguments = $@"
+                Get-WinEvent -ListLog * `
+                | ForEach-Object {{ Get-WinEvent -ErrorAction SilentlyContinue -FilterHashtable @{{ LogName=$_.LogName; StartTime='{ jobStartTimeUtc.ToLocalTime() }'; EndTime='{ DateTime.Now }';}} }} `
+                | Format-List > { logFile }";
+            using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
+            {
+                await processInvoker.ExecuteAsync(
+                    workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Bin),
+                    fileName: powerShellExe,
+                    arguments: arguments,
+                    environment: null,
+                    requireExitCodeZero: false,
+                    outputEncoding: null,
+                    killProcessOnCancel: false,
+                    cancellationToken: default(CancellationToken));
+            }
         }
     }
 }
