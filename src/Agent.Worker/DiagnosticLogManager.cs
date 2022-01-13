@@ -148,6 +148,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 executionContext.Debug("Dumping cloud-init logs is ended.");
             }
 
+            // Copy event logs for windows machines
+            if (PlatformUtil.RunningOnWindows)
+            {
+                executionContext.Debug("Dumping event viewer logs for current job.");
+
+                try
+                {
+                    string eventLogsFile = $"{HostContext.GetDirectory(WellKnownDirectory.Diag)}/EventViewer-{ jobStartTimeUtc.ToString("yyyyMMdd-HHmmss") }.log";
+                    await DumpCurrentJobEventLogs(executionContext, eventLogsFile, jobStartTimeUtc);
+
+                    string destination = Path.Combine(supportFilesFolder, Path.GetFileName(eventLogsFile));
+                    File.Copy(eventLogsFile, destination);
+                }
+                catch (Exception ex)
+                {
+                    executionContext.Debug("Failed to dump event viewer logs. Skipping.");
+                    executionContext.Debug($"Error message: {ex}");
+                }
+            }
+
             executionContext.Debug("Zipping diagnostic files.");
 
             string buildNumber = executionContext.Variables.Build_Number ?? "UnknownBuildNumber";
@@ -192,7 +212,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             string resultName = $"cloudinit-{jobStartTimeUtc.ToString("yyyyMMdd-HHmmss")}-logs.tar.gz";
             string arguments = $"collect-logs -t \"{diagFolder}/{resultName}\"";
 
-            try 
+            try
             {
                 using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
                 {
@@ -329,7 +349,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 return await GetEnvironmentContentWindows(agentId, agentName, steps);
             }
-            return GetEnvironmentContentNonWindows(agentId, agentName, steps);
+            return await GetEnvironmentContentNonWindows(agentId, agentName, steps);
         }
 
         private async Task<string> GetEnvironmentContentWindows(int agentId, string agentName, IList<Pipelines.JobStep> steps)
@@ -357,6 +377,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // $psversiontable
             builder.AppendLine("Powershell Version Info:");
             builder.AppendLine(await GetPsVersionInfo());
+
+            builder.AppendLine(await GetLocalGroupMembership());
+
             return builder.ToString();
         }
 
@@ -421,7 +444,53 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return builder.ToString();
         }
 
-        private string GetEnvironmentContentNonWindows(int agentId, string agentName, IList<Pipelines.JobStep> steps)
+        /// <summary>
+        /// Gathers a list of local group memberships for the current user.
+        /// </summary>
+        private async Task<string> GetLocalGroupMembership()
+        {
+            var builder = new StringBuilder();
+
+            string powerShellExe = HostContext.GetService<IPowerShellExeUtil>().GetPath();
+
+            string scriptFile = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), "powershell", "Get-LocalGroupMembership.ps1").Replace("'", "''");
+            ArgUtil.File(scriptFile, nameof(scriptFile));
+            string arguments = $@"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "". '{scriptFile}'""";
+
+            try
+            {
+                using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
+                {
+                    processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+                    {
+                        builder.AppendLine(args.Data);
+                    };
+
+                    processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+                    {
+                        builder.AppendLine(args.Data);
+                    };
+
+                    await processInvoker.ExecuteAsync(
+                        workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Bin),
+                        fileName: powerShellExe,
+                        arguments: arguments,
+                        environment: null,
+                        requireExitCodeZero: false,
+                        outputEncoding: null,
+                        killProcessOnCancel: false,
+                        cancellationToken: default(CancellationToken));
+                }
+            }
+            catch (Exception ex)
+            {
+                builder.AppendLine(ex.Message);
+            }
+
+            return builder.ToString();
+        }
+
+        private async Task<string> GetEnvironmentContentNonWindows(int agentId, string agentName, IList<Pipelines.JobStep> steps)
         {
             var builder = new StringBuilder();
 
@@ -430,6 +499,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             builder.AppendLine($"Agent Id: {agentId}");
             builder.AppendLine($"Agent Name: {agentName}");
             builder.AppendLine($"OS: {System.Runtime.InteropServices.RuntimeInformation.OSDescription}");
+            builder.AppendLine($"User groups: {await GetUserGroupsOnNonWindows()}");
             builder.AppendLine("Steps:");
 
             foreach (Pipelines.TaskStep task in steps.OfType<Pipelines.TaskStep>())
@@ -438,6 +508,70 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             return builder.ToString();
+        }
+
+        /// <summary>
+        ///  Get user groups on a non-windows platform using core utility "id".
+        /// </summary>
+        /// <returns>Returns the string with user groups</returns>
+        private async Task<string> GetUserGroupsOnNonWindows()
+        {
+            var idUtil = WhichUtil.Which("id");
+            var stringBuilder = new StringBuilder();
+            try
+            {
+                using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
+                {
+                    processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs mes) =>
+                    {
+                        stringBuilder.AppendLine(mes.Data);
+                    };
+                    processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs mes) =>
+                    {
+                        stringBuilder.AppendLine(mes.Data);
+                    };
+
+                    await processInvoker.ExecuteAsync(
+                        workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Bin),
+                        fileName: idUtil,
+                        arguments: "-nG",
+                        environment: null,
+                        requireExitCodeZero: false,
+                        outputEncoding: null,
+                        killProcessOnCancel: false,
+                        cancellationToken: default(CancellationToken)
+                    );
+                }
+            }
+            catch(Exception ex)
+            {
+                stringBuilder.AppendLine(ex.Message);
+            }
+
+            return stringBuilder.ToString();
+        }
+
+        // Collects Windows event logs that appeared during the job execution.
+        // Dumps the gathered info into a separate file since the logs are long.
+        private async Task DumpCurrentJobEventLogs(IExecutionContext executionContext, string logFile, DateTime jobStartTimeUtc)
+        {
+            string powerShellExe = HostContext.GetService<IPowerShellExeUtil>().GetPath();
+            string arguments = $@"
+                Get-WinEvent -ListLog * `
+                | ForEach-Object {{ Get-WinEvent -ErrorAction SilentlyContinue -FilterHashtable @{{ LogName=$_.LogName; StartTime='{ jobStartTimeUtc.ToLocalTime() }'; EndTime='{ DateTime.Now }';}} }} `
+                | Format-List > { logFile }";
+            using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
+            {
+                await processInvoker.ExecuteAsync(
+                    workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Bin),
+                    fileName: powerShellExe,
+                    arguments: arguments,
+                    environment: null,
+                    requireExitCodeZero: false,
+                    outputEncoding: null,
+                    killProcessOnCancel: false,
+                    cancellationToken: default(CancellationToken));
+            }
         }
     }
 }

@@ -286,5 +286,19 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("DISABLE_NODE6_DEPRECATION_WARNING"),
             new EnvironmentKnobSource("DISABLE_NODE6_DEPRECATION_WARNING"),
             new BuiltInDefaultKnobSource("true"));
+
+        public static readonly Knob DisableTeePluginRemoval = new Knob(
+            nameof(DisableTeePluginRemoval),
+            "Disables removing TEE plugin after using it during checkout.",
+            new RuntimeKnobSource("DISABLE_TEE_PLUGIN_REMOVAL"),
+            new EnvironmentKnobSource("DISABLE_TEE_PLUGIN_REMOVAL"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob TeePluginDownloadRetryCount = new Knob(
+            nameof(TeePluginDownloadRetryCount),
+            "Number of times to retry downloading TEE plugin",
+            new RuntimeKnobSource("TEE_PLUGIN_DOWNLOAD_RETRY_COUNT"),
+            new EnvironmentKnobSource("TEE_PLUGIN_DOWNLOAD_RETRY_COUNT"),
+            new BuiltInDefaultKnobSource("3"));
     }
 }

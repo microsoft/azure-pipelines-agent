@@ -185,7 +185,7 @@ stages:
         jobName: build_osx
         displayName: macOS (x64)
         pool:
-          vmImage: macOS-10.14
+          vmImage: macOS-10.15
         os: osx
         arch: x64
         branch: ${{ parameters.branch }}
