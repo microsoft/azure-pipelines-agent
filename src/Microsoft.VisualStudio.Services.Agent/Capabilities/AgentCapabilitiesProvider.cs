@@ -117,7 +117,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
             }
             else
             {
-                return $"{version.Major - 9}.{version.Minor}";
+                return $"{version.Major - 9}.{version.Minor > 0 ? version.Minor - 1 : version.Minor}";
             }
         }
     }
