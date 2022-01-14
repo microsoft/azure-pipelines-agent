@@ -111,7 +111,7 @@ namespace Agent.Plugins.PipelineCache
 
                 try
                 {
-                    CreateStatus status = await pipelineCacheClient.CreatePipelineCacheArtifactAsync(
+                    _ = await pipelineCacheClient.CreatePipelineCacheArtifactAsync(
                         options,
                         cancellationToken,
                         cacheRecord);
