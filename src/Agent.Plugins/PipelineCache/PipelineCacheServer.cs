@@ -103,7 +103,16 @@ namespace Agent.Plugins.PipelineCache
                 // Cache the artifact
                 PipelineCacheActionRecord cacheRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
                     new PipelineCacheActionRecord(level, uri, type, PipelineArtifactConstants.SaveCache, context));
-                CreateStatus status = await pipelineCacheClient.CreatePipelineCacheArtifactAsync(options, cancellationToken, cacheRecord);
+                CreateStatus status = await AsyncHttpRetryHelper.InvokeAsync(
+                            async () =>
+                            {
+                                return await pipelineCacheClient.CreatePipelineCacheArtifactAsync(options, cancellationToken, cacheRecord);
+                            },
+                            maxRetries: 3,
+                            tracer: tracer,
+                            canRetryDelegate: e => true, // retry on everything.
+                            cancellationToken: cancellationToken,
+                            continueOnCapturedContext: false);
 
                 // Send results to CustomerIntelligence
                 context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineCache, record: uploadRecord);
