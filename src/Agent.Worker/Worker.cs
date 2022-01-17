@@ -185,11 +185,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Add masks for service endpoints
             foreach (ServiceEndpoint endpoint in message.Resources.Endpoints ?? new List<ServiceEndpoint>())
             {
-                foreach (string value in endpoint.Authorization?.Parameters?.Values ?? new string[0])
+                foreach (var keyValuePair in endpoint.Authorization?.Parameters ?? new Dictionary<string, string>())
                 {
-                    if (!string.IsNullOrEmpty(value))
+                    if (!string.IsNullOrEmpty(keyValuePair.Value) && MaskingUtil.IsEndpointAuthorizationParametersSecret(keyValuePair.Key))
                     {
-                        HostContext.SecretMasker.AddValue(value);
+                        HostContext.SecretMasker.AddValue(keyValuePair.Value);
                     }
                 }
             }

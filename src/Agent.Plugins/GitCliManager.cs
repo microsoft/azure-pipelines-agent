@@ -441,6 +441,22 @@ namespace Agent.Plugins.Repository
             return exitcode == 0;
         }
 
+        /// <summary>
+        /// Verify if git config contains config key with some regex pattern
+        /// git config --get-regexp <configKeyPattern>
+        /// </summary>
+        public async Task<bool> GitConfigRegexExist(AgentTaskPluginExecutionContext context, string repositoryPath, string configKeyPattern)
+        {
+            // git config --get-regexp {configKeyPattern} will return 0 and print the value if the config exist.
+            context.Debug($"Checking git config {configKeyPattern} exist or not");
+
+            // ignore any outputs by redirect them into a string list, since the output might contains secrets.
+            List<string> outputStrings = new List<string>();
+            int exitcode = await ExecuteGitCommandAsync(context, repositoryPath, "config", StringUtil.Format($"--get-regexp {configKeyPattern}"), outputStrings);
+
+            return exitcode == 0;
+        }
+
         // git config --unset-all <key>
         public async Task<int> GitConfigUnset(AgentTaskPluginExecutionContext context, string repositoryPath, string configKey)
         {
