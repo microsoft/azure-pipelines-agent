@@ -127,7 +127,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                     else
                     {
-                        executionContext.Warning("waagent.conf file wasn't found. Dumping was not done.");
+                        executionContext.Debug("waagent.conf file wasn't found. Dumping was not done.");
                     }
                 }
                 catch (Exception ex)
