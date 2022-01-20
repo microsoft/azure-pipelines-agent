@@ -30,14 +30,6 @@ namespace Agent.Plugins
             this.tracer = tracer;
         }
 
-        internal Task UploadAsync(
-            AgentTaskPluginExecutionContext context,
-            Guid projectId,
-            int pipelineId,
-            string name,
-            string source,
-            CancellationToken cancellationToken) => UploadAsync(context, projectId, pipelineId, name, source, null, cancellationToken);
-
         // Upload from target path to Azure DevOps BlobStore service through DedupManifestArtifactClient, then associate it with the build
         internal async Task UploadAsync(
             AgentTaskPluginExecutionContext context,

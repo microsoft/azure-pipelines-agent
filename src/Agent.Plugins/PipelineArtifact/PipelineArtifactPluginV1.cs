@@ -85,7 +85,7 @@ namespace Agent.Plugins.PipelineArtifact
 
             string defaultWorkingDirectory = context.Variables.GetValueOrDefault("system.defaultworkingdirectory").Value;
 
-            string propertiesStr = context.GetInput(customProperties);
+            string propertiesStr = context.GetInput(customProperties, required: false);
             IDictionary<string, string> properties = ParseCustomProperties(propertiesStr);
 
             bool onPrem = !String.Equals(context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.ServerType)?.Value, "Hosted", StringComparison.OrdinalIgnoreCase);
