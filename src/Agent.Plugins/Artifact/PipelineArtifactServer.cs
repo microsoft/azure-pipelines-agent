@@ -79,18 +79,12 @@ namespace Agent.Plugins
                 // 2) associate the pipeline artifact with an build artifact
                 BuildServer buildServer = new BuildServer(connection);
 
-                // Prevent custom properties from overwriting computed ones below
-                if (properties != null)
+                var propertiesDictionary = new Dictionary<string, string>(properties ?? new Dictionary<string, string>())
                 {
-                    properties.Remove(PipelineArtifactConstants.RootId);
-                    properties.Remove(PipelineArtifactConstants.ProofNodes);
-                    properties.Remove(PipelineArtifactConstants.ArtifactSize);
-                }
-
-                Dictionary<string, string> propertiesDictionary = new Dictionary<string, string>(properties);
-                propertiesDictionary.Add(PipelineArtifactConstants.RootId, result.RootId.ValueString);
-                propertiesDictionary.Add(PipelineArtifactConstants.ProofNodes, StringUtil.ConvertToJson(result.ProofNodes.ToArray()));
-                propertiesDictionary.Add(PipelineArtifactConstants.ArtifactSize, result.ContentSize.ToString());
+                    { PipelineArtifactConstants.RootId, result.RootId.ValueString },
+                    { PipelineArtifactConstants.ProofNodes, StringUtil.ConvertToJson(result.ProofNodes.ToArray()) },
+                    { PipelineArtifactConstants.ArtifactSize, result.ContentSize.ToString() }
+                };
 
                 BuildArtifact buildArtifact = await AsyncHttpRetryHelper.InvokeAsync(
                     async () => 

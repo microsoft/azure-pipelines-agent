@@ -175,11 +175,18 @@ namespace Agent.Plugins.PipelineArtifact
 
             try
             {
-                return StringUtil.ConvertFromJson<IDictionary<string, string>>(properties);
+                var propertyBag = StringUtil.ConvertFromJson<IDictionary<string, string>>(properties);
+                var prefixMissing = propertyBag.Keys.FirstOrDefault(k => !k.StartsWith(PipelineArtifactConstants.CustomPropertiesPrefix));
+                if (!string.IsNullOrWhiteSpace(prefixMissing))
+                {
+                    throw new InvalidOperationException(StringUtil.Loc("ArtifactCustomPropertyInvalid", prefixMissing));
+                }
+
+                return propertyBag;
             }
             catch (JsonException)
             {
-                throw new ArgumentException(StringUtil.Loc("ArtifactPropertiesNotJson", properties);
+                throw new ArgumentException(StringUtil.Loc("ArtifactCustomPropertiesNotJson", properties));
             }
         }
 
