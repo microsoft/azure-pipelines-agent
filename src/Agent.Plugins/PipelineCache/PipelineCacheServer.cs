@@ -65,9 +65,9 @@ namespace Agent.Plugins.PipelineCache
 
                 PublishResult result = await clientTelemetry.MeasureActionAsync(
                     record: uploadRecord,
-                    actionAsync: async () => 
+                    actionAsync: async () =>
                         await AsyncHttpRetryHelper.InvokeAsync(
-                            async () => 
+                            async () =>
                             {
                                 return await dedupManifestClient.PublishAsync(uploadPath, cancellationToken);
                             },
@@ -99,15 +99,39 @@ namespace Agent.Plugins.PipelineCache
                     }
                     catch { }
                 }
-                
-                // Cache the artifact
-                PipelineCacheActionRecord cacheRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
-                    new PipelineCacheActionRecord(level, uri, type, PipelineArtifactConstants.SaveCache, context));
-                CreateStatus status = await pipelineCacheClient.CreatePipelineCacheArtifactAsync(options, cancellationToken, cacheRecord);
+
+                // Try to cache the artifact
+                PipelineCacheActionRecord cacheRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>(
+                    (level, uri, type) => new PipelineCacheActionRecord(
+                        level,
+                        uri,
+                        type,
+                        PipelineArtifactConstants.SaveCache,
+                        context));
+
+                try
+                {
+                    _ = await pipelineCacheClient.CreatePipelineCacheArtifactAsync(
+                        options,
+                        cancellationToken,
+                        cacheRecord);
+                }
+                catch
+                {
+                    context.Output($"Failed to cache item.");
+                }
 
                 // Send results to CustomerIntelligence
-                context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineCache, record: uploadRecord);
-                context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineCache, record: cacheRecord);
+                context.PublishTelemetry(
+                    area: PipelineArtifactConstants.AzurePipelinesAgent,
+                    feature: PipelineArtifactConstants.PipelineCache,
+                    record: uploadRecord);
+
+                context.PublishTelemetry(
+                    area: PipelineArtifactConstants.AzurePipelinesAgent,
+                    feature: PipelineArtifactConstants.PipelineCache,
+                    record: cacheRecord);
+
                 context.Output("Saved item.");
             }
         }
@@ -128,10 +152,25 @@ namespace Agent.Plugins.PipelineCache
             {
                 PipelineCacheActionRecord cacheRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
                         new PipelineCacheActionRecord(level, uri, type, PipelineArtifactConstants.RestoreCache, context));
-                PipelineCacheArtifact result = await pipelineCacheClient.GetPipelineCacheArtifactAsync(fingerprints, cancellationToken, cacheRecord);
+
+                PipelineCacheArtifact result = null;
+                try
+                {
+                    result = await pipelineCacheClient.GetPipelineCacheArtifactAsync(
+                        fingerprints,
+                        cancellationToken,
+                        cacheRecord);
+                }
+                catch
+                {
+                    context.Output($"Failed to get cached item.");
+                }
 
                 // Send results to CustomerIntelligence
-                context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineCache, record: cacheRecord);
+                context.PublishTelemetry(
+                    area: PipelineArtifactConstants.AzurePipelinesAgent,
+                    feature: PipelineArtifactConstants.PipelineCache,
+                    record: cacheRecord);
 
                 if (result != null)
                 {
@@ -148,7 +187,7 @@ namespace Agent.Plugins.PipelineCache
 
                     // Send results to CustomerIntelligence
                     context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineCache, record: downloadRecord);
-                    
+
                     context.Output("Cache restored.");
                 }
 
@@ -167,7 +206,7 @@ namespace Agent.Plugins.PipelineCache
                         {
                             context.Verbose($"This fingerprint: `{fingerprint.ToString()}`");
 
-                            if (fingerprint == result.Fingerprint 
+                            if (fingerprint == result.Fingerprint
                                 || result.Fingerprint.Segments.Length == 1 && result.Fingerprint.Segments.Single() == fingerprint.SummarizeForV1())
                             {
                                 foundExact = true;
