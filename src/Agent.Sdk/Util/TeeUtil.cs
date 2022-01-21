@@ -61,7 +61,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 }
                 catch (Exception ex) when (downloadAttempt != downloadRetryCount)
                 {
-                    debug($"Failed to download TEE. Error: {ex.ToString()}");
+                    debug($"Failed to download and extract TEE. Error: {ex.ToString()}");
+                    DeleteTee(); // Clean up files before next attempt
                 }
             }
         }
@@ -117,7 +118,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         {
             var chmodProcessInfo = new ProcessStartInfo("chmod")
             {
-                Arguments = $"{permissions} {(recursive ? "-R" : "")} {path}",
+                Arguments = $"{(recursive ? "-R" : "")} {permissions} {path}",
                 UseShellExecute = false,
                 RedirectStandardError = true
             };

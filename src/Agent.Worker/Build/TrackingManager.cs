@@ -128,6 +128,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             bool overrideBuildDirectory
             )
         {
+            /*
+             * (Temporarily till we have automatic tests coverage for this case) for any changes in this method - please make sure to test following scenarios:
+             * - Self-hosted agent + several sequential pipeline runs for the same repos set - make sure that Build.SourcesDirectory is set properly after last checkout
+             */
             ArgUtil.NotNull(newConfig, nameof(newConfig));
             ArgUtil.NotNull(previousConfig, nameof(previousConfig));
 
