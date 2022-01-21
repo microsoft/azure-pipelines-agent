@@ -343,7 +343,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             if (message.PostLinesFrequencyMillis.HasValue)
             {
-                _jobServerQueue.UpdateWebConsoleLineRate(message.PostLinesFrequencyMillis.Value);
+                if (_jobServerQueue != null)
+                {
+                    _jobServerQueue.UpdateWebConsoleLineRate(message.PostLinesFrequencyMillis.Value);
+                }
             }
         }
 
