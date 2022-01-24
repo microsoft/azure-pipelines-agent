@@ -341,12 +341,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void UpdateMetadata(JobMetadataMessage message)
         {
-            if (message.PostLinesFrequencyMillis.HasValue)
+            if (message.PostLinesFrequencyMillis.HasValue && _jobServerQueue != null)
             {
-                if (_jobServerQueue != null)
-                {
-                    _jobServerQueue.UpdateWebConsoleLineRate(message.PostLinesFrequencyMillis.Value);
-                }
+                _jobServerQueue.UpdateWebConsoleLineRate(message.PostLinesFrequencyMillis.Value);
             }
         }
 
