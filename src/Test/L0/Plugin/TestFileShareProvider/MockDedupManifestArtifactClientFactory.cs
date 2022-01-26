@@ -18,7 +18,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
     {
         private TestTelemetrySender telemetrySender;
         private readonly Uri baseAddress = new Uri("http://testBaseAddress");
-        public Task<(DedupManifestArtifactClient client, BlobStoreClientTelemetry telemetry)> CreateDedupManifestClientAsync(bool verbose, Action<string> traceOutput, VssConnection connection, CancellationToken cancellationToken)
+        public Task<(DedupManifestArtifactClient client, BlobStoreClientTelemetry telemetry)> CreateDedupManifestClientAsync(bool verbose, Action<string> traceOutput, VssConnection connection, int maxParallelism, CancellationToken cancellationToken)
         {
             telemetrySender = new TestTelemetrySender();
             return Task.FromResult((client: (DedupManifestArtifactClient)null, telemetry: new BlobStoreClientTelemetry(
@@ -28,7 +28,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
         }
 
-        public Task<(DedupStoreClient client, BlobStoreClientTelemetryTfs telemetry)> CreateDedupClientAsync(bool verbose, Action<string> traceOutput, VssConnection connection, CancellationToken cancellationToken)
+        public Task<(DedupStoreClient client, BlobStoreClientTelemetryTfs telemetry)> CreateDedupClientAsync(bool verbose, Action<string> traceOutput, VssConnection connection, int maxParallelism, CancellationToken cancellationToken)
         {
             telemetrySender = new TestTelemetrySender();
             return Task.FromResult((client: (DedupStoreClient)null, telemetry: new BlobStoreClientTelemetryTfs(
@@ -37,6 +37,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 connection,
                 telemetrySender)));
 
+        }
+
+        public int GetDedupStoreClientMaxParallelism(AgentTaskPluginExecutionContext context)
+        {
+            return 4;
         }
     }
 }

@@ -218,6 +218,28 @@ function cmd_package ()
     popd > /dev/null
 }
 
+function cmd_hash ()
+{
+    pushd "$PACKAGE_DIR" > /dev/null
+
+    files=`ls -1`
+
+    number_of_files=`wc -l <<< "$files"`
+
+    if [[ number_of_files -ne 1 ]]; then
+        echo "Expecting to find exactly one file (agent package) in $PACKAGE_DIR"
+        exit 1
+    fi
+
+    agent_package_file=$files
+
+    rm -rf ../../_package_hash
+    mkdir ../../_package_hash
+    openssl dgst -sha256 $agent_package_file >> "../../_package_hash/$agent_package_file.sha256"
+
+    popd > /dev/null
+}
+
 function cmd_report ()
 {
     heading "Generating Reports"
@@ -244,7 +266,7 @@ function cmd_report ()
 
         # for some reason CodeCoverage.exe will only write the output file in the current directory
         pushd $COVERAGE_REPORT_DIR > /dev/null
-        "${HOME}/.nuget/packages/microsoft.codecoverage/15.9.2/build/netstandard1.0/CodeCoverage/CodeCoverage.exe" analyze  "/output:coverage.xml" "$LATEST_COVERAGE_FILE"
+        "${HOME}/.nuget/packages/microsoft.codecoverage/16.4.0/build/netstandard1.0/CodeCoverage/CodeCoverage.exe" analyze  "/output:coverage.xml" "$LATEST_COVERAGE_FILE"
         popd > /dev/null
 
         if ! command -v reportgenerator.exe > /dev/null; then
@@ -301,7 +323,8 @@ if [[ (! -d "${DOTNETSDK_INSTALLDIR}") || (! -e "${DOTNETSDK_INSTALLDIR}/.${DOTN
         echo "Convert ${DOTNETSDK_INSTALLDIR} to Windows style path"
         sdkinstallwindow_path=${DOTNETSDK_INSTALLDIR:1}
         sdkinstallwindow_path=${sdkinstallwindow_path:0:1}:${sdkinstallwindow_path:1}
-        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"./Misc/dotnet-install.ps1\" -Version ${DOTNETSDK_VERSION} -InstallDir \"${sdkinstallwindow_path}\" -NoPath; exit \$LastExitCode;" || checkRC dotnet-install.ps1
+        architecture=$( echo $RUNTIME_ID | cut -d "-" -f2)
+        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"./Misc/dotnet-install.ps1\" -Version ${DOTNETSDK_VERSION} -InstallDir \"${sdkinstallwindow_path}\" -Architecture ${architecture}  -NoPath; exit \$LastExitCode;" || checkRC dotnet-install.ps1
     else
         bash ./Misc/dotnet-install.sh --version ${DOTNETSDK_VERSION} --install-dir "${DOTNETSDK_INSTALLDIR}" --no-path || checkRC dotnet-install.sh
     fi
@@ -350,6 +373,7 @@ case $DEV_CMD in
    "l") cmd_layout;;
    "package") cmd_package;;
    "p") cmd_package;;
+   "hash") cmd_hash;;
    "report") cmd_report;;
    *) echo "Invalid command. Use (l)ayout, (b)uild, (t)est, test(l0), test(l1), or (p)ackage.";;
 esac

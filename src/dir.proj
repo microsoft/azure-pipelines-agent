@@ -78,7 +78,8 @@
 
   <Target Name="TestL0" DependsOnTargets="GenerateConstant">
     <Exec Command="dotnet build Test/Test.csproj -c $(BUILDCONFIG) /p:PackageRuntime=$(PackageRuntime)" ConsoleToMSBuild="true" />
-    <Exec Command="dotnet test Test/Test.csproj --settings $(MSBuildProjectDirectory)/Test/CodeCoverage.runsettings --no-build --logger:trx --collect:&quot;Code Coverage&quot;  --filter &quot;$(TestFilters)&quot; /p:PackageRuntime=$(PackageRuntime)" ConsoleToMSBuild="true" />
+    <Exec Command="dotnet build Test/Test.csproj /t:CopyFilesL0" Condition="'$(PackageRuntime)' == 'win-x86'"/>
+    <Exec Command="dotnet test Test/Test.csproj --settings $(MSBuildProjectDirectory)/Test/CodeCoverage.runsettings --no-build --logger:trx --collect:&quot;Code Coverage&quot; --filter &quot;$(TestFilters)&quot; /p:PackageRuntime=$(PackageRuntime)" ConsoleToMSBuild="true" />
   </Target>
 
   <Target Name="TestL1" DependsOnTargets="GenerateConstant">
@@ -99,7 +100,8 @@
              Properties="Configuration=$(BUILDCONFIG);PackageRuntime=$(PackageRuntime);Version=1.0.0.0;RuntimeIdentifier=$(PackageRuntime);PublishDir=$(L1Root)/bin" />
 
     <Exec Command="dotnet build Test/Test.csproj -c $(BUILDCONFIG) /p:PackageRuntime=$(PackageRuntime) -o $(L1Root)/bin" ConsoleToMSBuild="true" />
-    <Exec Command="dotnet test Test/Test.csproj -o $(L1Root)/bin --no-build --logger:trx --filter &quot;$(TestFilters)&quot;" ConsoleToMSBuild="true" />
+    <Exec Command="dotnet build Test/Test.csproj /t:CopyFilesL1" Condition="'$(PackageRuntime)' == 'win-x86'"/>
+    <Exec Command="dotnet test Test/Test.csproj -o $(L1Root)/bin --no-build --logger:trx --verbosity=detailed --filter &quot;$(TestFilters)&quot;" ConsoleToMSBuild="true" />
   </Target>
 
   <Target Name="Layout" DependsOnTargets="Clean;Build">
@@ -109,6 +111,7 @@
     <ItemGroup>
         <LayoutRootFilesToDelete Include="$(LayoutRoot)/*.cmd" Condition="'$(PackageRuntime)' != 'win-x64' And '$(PackageRuntime)' != 'win-x86'"/>
         <LayoutRootFilesToDelete Include="$(LayoutRoot)/*.sh" Condition="'$(PackageRuntime)' == 'win-x64' Or '$(PackageRuntime)' == 'win-x86'"/>
+        <LayoutRootFilesToDelete Include="$(LayoutRoot)/license.html" Condition="'$(PackageRuntime)' == 'win-x64' Or '$(PackageRuntime)' == 'win-x86'"/>
         <LayoutRootFilesToDelete Include="$(LayoutRoot)/bin/AgentService.js" Condition="'$(PackageRuntime)' == 'win-x64' Or '$(PackageRuntime)' == 'win-x86'"/>
     </ItemGroup>
 

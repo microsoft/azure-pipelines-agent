@@ -125,6 +125,9 @@ namespace Microsoft.VisualStudio.Services.Agent
         public string EnvironmentName { get; set; }
 
         [DataMember(EmitDefaultValue = false)]
+        public int MaxDedupParallelism { get; set; }
+
+        [DataMember(EmitDefaultValue = false)]
         public bool AllowWorkDirectoryRepositories { get; set; }
     }
 

@@ -149,6 +149,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 defaultValue: false);
         }
 
+        public bool GetPreventServiceStart()
+        {
+            return TestFlagOrPrompt(
+                value: Configure?.PreventServiceStart,
+                name: Constants.Agent.CommandLine.Flags.PreventServiceStart,
+                description: StringUtil.Loc("PreventServiceStartDescription"),
+                defaultValue: false
+            );
+        }
+
         public bool GetRunAsAutoLogon()
         {
             return TestFlagOrPrompt(

@@ -64,6 +64,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
+        public static string GetFileHash(string path)
+        {
+            using (SHA256 sha256hash = SHA256.Create())
+            {
+                FileInfo info = new FileInfo(path);
+                // Open the file.
+                FileStream stream = info.Open(FileMode.Open);
+                // Be sure the stream is positioned to the beginning of the file.
+                stream.Position = 0;
+                // Compute the hash of the file stream.
+                byte[] hashAsBytes = sha256hash.ComputeHash(stream);
+                // Close the file.
+                stream.Close();
+                // Convert the computed file hash from the byte array to a string.
+                string hash = BitConverter.ToString(hashAsBytes);
+                return hash;
+            }
+        }
+
         public static void Delete(string path, CancellationToken cancellationToken)
         {
             DeleteDirectory(path, cancellationToken);
@@ -453,12 +472,43 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
+        private static string GetAttributesAsBinary(FileAttributes attributes)
+        {
+            return Convert.ToString((int)attributes, 2).PadLeft(16, '0');
+        }
+
+        private static void SetAttributesWithDiagnostics(FileSystemInfo item, FileAttributes newAttributes)
+        {
+            try
+            {
+                item.Attributes = newAttributes;
+            }
+            catch (ArgumentException ex)
+            {
+                string exceptionMessage = $@"ArgumentException was thrown when trying to set file attributes.
+  File path: {item.FullName}
+  File exists: {item.Exists}
+  File attributes:
+    Current attributes:
+      Readable:         {item.Attributes.ToString()}
+      As int:           {(int)item.Attributes}
+      As binary string: {GetAttributesAsBinary(item.Attributes)}
+    New attributes:
+      Readable:         {newAttributes.ToString()}
+      As int:           {(int)newAttributes}
+      As binary string: {GetAttributesAsBinary(newAttributes)}
+  Exception message: {ex.Message}";
+                throw new ArgumentException(exceptionMessage);
+            }
+        }
+
         private static void RemoveReadOnly(FileSystemInfo item)
         {
             ArgUtil.NotNull(item, nameof(item));
             if (item.Attributes.HasFlag(FileAttributes.ReadOnly))
             {
-                item.Attributes = item.Attributes & ~FileAttributes.ReadOnly;
+                FileAttributes newAttributes = item.Attributes & ~FileAttributes.ReadOnly;
+                SetAttributesWithDiagnostics(item, newAttributes);
             }
         }
 

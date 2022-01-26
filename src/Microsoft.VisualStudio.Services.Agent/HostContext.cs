@@ -343,6 +343,13 @@ namespace Microsoft.VisualStudio.Services.Agent
                         ".setup_info");
                     break;
 
+                // We need to remove this config file - once Node 6 handler is dropped
+                case WellKnownConfigFile.TaskExceptionList:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Bin),
+                        "tasks-exception-list.json");
+                    break;
+
                 default:
                     throw new NotSupportedException($"Unexpected well known config file: '{configFile}'");
             }
@@ -612,7 +619,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         protected override void OnEventWritten(EventWrittenEventArgs eventData)
         {
-            if (eventData == null)
+            if (eventData == null || string.IsNullOrEmpty(eventData.Message))
             {
                 return;
             }

@@ -150,7 +150,7 @@ namespace Agent.Sdk
 
             VssCredentials credentials = VssUtil.GetVssCredential(systemConnection);
             ArgUtil.NotNull(credentials, nameof(credentials));
-            return VssUtil.CreateConnection(systemConnection.Url, credentials);
+            return VssUtil.CreateConnection(systemConnection.Url, credentials, trace: this);
         }
 
         private AgentCertificateSettings GetCertConfiguration()

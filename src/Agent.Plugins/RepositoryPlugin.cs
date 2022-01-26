@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Newtonsoft.Json.Linq;
@@ -90,9 +91,21 @@ namespace Agent.Plugins.Repository
         {
             return executionContext != null && RepositoryUtil.HasMultipleCheckouts(executionContext.JobSettings);
         }
+
         protected bool AllowWorkDirectoryRepositories(AgentTaskPluginExecutionContext executionContext)
         {
             return executionContext != null && RepositoryUtil.AllowWorkDirectoryRepositories(executionContext.AgentSettings);
+        }
+
+        protected TeeUtil teeUtil;
+        protected void initializeTeeUtil(AgentTaskPluginExecutionContext executionContext, CancellationToken cancellationToken) {
+            teeUtil = new TeeUtil(
+                executionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value,
+                executionContext.Variables.GetValueOrDefault("Agent.TempDirectory")?.Value,
+                AgentKnobs.TeePluginDownloadRetryCount.GetValue(executionContext).AsInt(),
+                executionContext.Debug,
+                cancellationToken
+            );
         }
     }
 
@@ -121,6 +134,12 @@ namespace Agent.Plugins.Repository
 
             var repoAlias = executionContext.GetInput(Pipelines.PipelineConstants.CheckoutTaskInputs.Repository, true);
             var repo = executionContext.Repositories.Single(x => string.Equals(x.Alias, repoAlias, StringComparison.OrdinalIgnoreCase));
+
+            executionContext.PublishTelemetry(area: "AzurePipelinesAgent", feature: "Checkout", properties: new Dictionary<string, string>
+            {
+                { "RepoType", $"{repo.Type}" },
+                { "HostOS", $"{PlatformUtil.HostOS}" }
+            });
 
             MergeCheckoutOptions(executionContext, repo);
 
@@ -198,6 +217,12 @@ namespace Agent.Plugins.Repository
                 repo.Properties.Set<string>(Pipelines.RepositoryPropertyNames.Path, expectRepoPath);
             }
 
+            if (!PlatformUtil.RunningOnWindows && string.Equals(repo.Type, Pipelines.RepositoryTypes.Tfvc, StringComparison.OrdinalIgnoreCase))
+            {
+                initializeTeeUtil(executionContext, token);
+                await teeUtil.DownloadTeeIfAbsent();
+            }
+
             ISourceProvider sourceProvider = SourceProviderFactory.GetSourceProvider(repo.Type);
             await sourceProvider.GetSourceAsync(executionContext, repo, token);
         }
@@ -219,6 +244,12 @@ namespace Agent.Plugins.Repository
 
                 ISourceProvider sourceProvider = SourceProviderFactory.GetSourceProvider(repo.Type);
                 await sourceProvider.PostJobCleanupAsync(executionContext, repo);
+            }
+
+            if (!PlatformUtil.RunningOnWindows && !AgentKnobs.DisableTeePluginRemoval.GetValue(executionContext).AsBoolean())
+            {
+                initializeTeeUtil(executionContext, token);
+                teeUtil.DeleteTee();
             }
         }
     }

@@ -19,7 +19,7 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("VSTS_SETUP_DOCKERGROUP"),
             new EnvironmentKnobSource("VSTS_SETUP_DOCKERGROUP"),
             new BuiltInDefaultKnobSource("true"));
-        
+
         public static readonly Knob AllowMountTasksReadonlyOnWindows = new Knob(
             nameof(AllowMountTasksReadonlyOnWindows),
             "If true, allows the user to mount 'tasks' volume read-only on Windows OS",
@@ -33,6 +33,12 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AGENT_SKIP_POST_EXECUTION_IF_CONTAINER_STOPPED"),
             new EnvironmentKnobSource("AGENT_SKIP_POST_EXECUTION_IF_CONTAINER_STOPPED"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob MTUValueForContainerJobs = new Knob(
+            nameof(MTUValueForContainerJobs),
+            "Allow to specify MTU value for networks used by container jobs (useful for docker-in-docker scenarios in k8s cluster).",
+            new EnvironmentKnobSource("AGENT_DOCKER_MTU_VALUE"),
+            new BuiltInDefaultKnobSource(string.Empty));
 
         // Directory structure
         public static readonly Knob AgentToolsDirectory = new Knob(
@@ -55,6 +61,13 @@ namespace Agent.Sdk.Knob
             "If true and server supports it, fetch the target branch by commit. Otherwise, fetch all branches and pull request ref to get the target branch.",
             new RuntimeKnobSource("VSTS.DisableFetchByCommit"),
             new EnvironmentKnobSource("VSTS_DISABLEFETCHBYCOMMIT"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob DisableFetchPruneTags = new Knob(
+            nameof(DisableFetchPruneTags),
+            "If true, disable --prune-tags in the fetches.",
+            new RuntimeKnobSource("VSTS.DisableFetchPruneTags"),
+            new EnvironmentKnobSource("VSTS_DISABLEFETCHPRUNETAGS"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob PreferGitFromPath = new Knob(
@@ -159,13 +172,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("http_proxy"),
             new BuiltInDefaultKnobSource(string.Empty));
 
-        public static readonly Knob ProxyPassword = new Knob(
+        public static readonly Knob ProxyPassword = new SecretKnob(
             nameof(ProxyPassword),
             "Proxy password if one exists",
             new EnvironmentKnobSource("VSTS_HTTP_PROXY_PASSWORD"),
             new BuiltInDefaultKnobSource(string.Empty));
 
-        public static readonly Knob ProxyUsername = new Knob(
+        public static readonly Knob ProxyUsername = new SecretKnob(
             nameof(ProxyUsername),
             "Proxy username if one exists",
             new EnvironmentKnobSource("VSTS_HTTP_PROXY_USERNAME"),
@@ -183,19 +196,6 @@ namespace Agent.Sdk.Knob
             nameof(MaskUsingCredScanRegexes),
             "Use the CredScan regexes for masking secrets. CredScan is an internal tool developed at Microsoft to keep passwords and authentication keys from being checked in. This defaults to disabled, as there are performance problems with some task outputs.",
             new EnvironmentKnobSource("AZP_USE_CREDSCAN_REGEXES"),
-            new BuiltInDefaultKnobSource("false"));
-
-        // Task restrictions
-        public static readonly Knob TaskRestrictionsEnforcementMode = new Knob(
-            nameof(TaskRestrictionsEnforcementMode),
-            "The enforcement mode for command or variable restrictions defined in tasks. Values are Enabled, WarningOnly, Disabled.",
-            new RuntimeKnobSource("agent.taskRestrictionsEnforcementMode"),
-            new BuiltInDefaultKnobSource("WarningOnly"));
-
-        public static readonly Knob EnableTaskRestrictionsTelemetry = new Knob(
-            nameof(EnableTaskRestrictionsTelemetry),
-            "Enable capturing telemetry on the enforcement of command or variable restrictions defined in tasks.",
-            new RuntimeKnobSource("agent.enableTaskRestrictionsTelemetry"),
             new BuiltInDefaultKnobSource("false"));
 
         // Misc
@@ -246,5 +246,59 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("DISABLE_BUILD_ARTIFACTS_TO_BLOB"),
             new EnvironmentKnobSource("DISABLE_BUILD_ARTIFACTS_TO_BLOB"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob EnableIncompatibleBuildArtifactsPathResolution = new Knob(
+            nameof(EnableIncompatibleBuildArtifactsPathResolution),
+            "Return DownloadBuildArtifactsV1 target path resolution behavior back to how it was originally implemented. This breaks back compatibility with DownloadBuildArtifactsV0.",
+            new RuntimeKnobSource("EnableIncompatibleBuildArtifactsPathResolution"),
+            new EnvironmentKnobSource("EnableIncompatibleBuildArtifactsPathResolution"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob DisableAuthenticodeValidation = new Knob(
+               nameof(DisableAuthenticodeValidation),
+               "Disables authenticode validation for agent package during self update. Set this to any non-empty value to disable.",
+               new EnvironmentKnobSource("DISABLE_AUTHENTICODE_VALIDATION"),
+               new BuiltInDefaultKnobSource(string.Empty));
+
+        public static readonly Knob DisableHashValidation = new Knob(
+            nameof(DisableHashValidation),
+            "If true, the agent will skip package hash validation during self-updating.",
+            new EnvironmentKnobSource("DISABLE_HASH_VALIDATION"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob EnableVSPreReleaseVersions = new Knob(
+            nameof(EnableVSPreReleaseVersions),
+            "If true, the agent will include to seach VisualStudio prerelease versions to capabilities.",
+            new EnvironmentKnobSource("ENABLE_VS_PRERELEASE_VERSIONS"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob DisableOverrideTfvcBuildDirectory = new Knob(
+            nameof(DisableOverrideTfvcBuildDirectory),
+            "Disables override of Tfvc build directory name by agentId on hosted agents (one tfvc repo used).",
+            new RuntimeKnobSource("DISABLE_OVERRIDE_TFVC_BUILD_DIRECTORY"),
+            new EnvironmentKnobSource("DISABLE_OVERRIDE_TFVC_BUILD_DIRECTORY"),
+            new BuiltInDefaultKnobSource("false"));
+
+        /// <remarks>We need to remove this knob - once Node 6 handler is dropped</remarks>
+        public static readonly Knob DisableNode6DeprecationWarning = new Knob(
+            nameof(DisableNode6DeprecationWarning),
+            "Disables Node 6 deprecation warnings.",
+            new RuntimeKnobSource("DISABLE_NODE6_DEPRECATION_WARNING"),
+            new EnvironmentKnobSource("DISABLE_NODE6_DEPRECATION_WARNING"),
+            new BuiltInDefaultKnobSource("true"));
+
+        public static readonly Knob DisableTeePluginRemoval = new Knob(
+            nameof(DisableTeePluginRemoval),
+            "Disables removing TEE plugin after using it during checkout.",
+            new RuntimeKnobSource("DISABLE_TEE_PLUGIN_REMOVAL"),
+            new EnvironmentKnobSource("DISABLE_TEE_PLUGIN_REMOVAL"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob TeePluginDownloadRetryCount = new Knob(
+            nameof(TeePluginDownloadRetryCount),
+            "Number of times to retry downloading TEE plugin",
+            new RuntimeKnobSource("TEE_PLUGIN_DOWNLOAD_RETRY_COUNT"),
+            new EnvironmentKnobSource("TEE_PLUGIN_DOWNLOAD_RETRY_COUNT"),
+            new BuiltInDefaultKnobSource("3"));
     }
 }
