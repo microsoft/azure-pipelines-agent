@@ -77,9 +77,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             if (!TestUtil.IsWindows())
             {
-                string eulaFile = Path.Combine(GetDirectory(WellKnownDirectory.Externals), Constants.Path.TeeDirectory, "license.html");
-                Directory.CreateDirectory(GetDirectory(WellKnownDirectory.Externals));
-                Directory.CreateDirectory(Path.Combine(GetDirectory(WellKnownDirectory.Externals), Constants.Path.TeeDirectory));
+                string eulaFile = Path.Combine(GetDirectory(WellKnownDirectory.Root), "license.html");
                 File.WriteAllText(eulaFile, "testeulafile");
             }
         }

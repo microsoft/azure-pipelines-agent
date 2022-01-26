@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -42,6 +43,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
         public string DockerPath { get; private set; }
 
         public string DockerInstanceLabel { get; private set; }
+        private static UtilKnobValueContext _knobContext = UtilKnobValueContext.Instance();
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -222,14 +224,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(network, nameof(network));
-
             var usingWindowsContainers = context.Containers.Where(x => x.ExecutionOS != PlatformUtil.OS.Windows).Count() == 0;
             var networkDrivers = await ExecuteDockerCommandAsync(context, "info", "-f \"{{range .Plugins.Network}}{{println .}}{{end}}\"");
+            var valueMTU = AgentKnobs.MTUValueForContainerJobs.GetValue(_knobContext).AsString();
+            string optionMTU = "";
+            
+            if (!String.IsNullOrEmpty(valueMTU)) {
+                optionMTU = $"-o \"com.docker.network.driver.mtu={valueMTU}\"";
+            }   
+
             if (usingWindowsContainers && networkDrivers.Contains("nat"))
             {
-                return await ExecuteDockerCommandAsync(context, "network", $"create --label {DockerInstanceLabel} {network} --driver nat", context.CancellationToken);
+                return await ExecuteDockerCommandAsync(context, "network", $"create --label {DockerInstanceLabel} {network} {optionMTU} --driver nat", context.CancellationToken);
             }
-            return await ExecuteDockerCommandAsync(context, "network", $"create --label {DockerInstanceLabel} {network}", context.CancellationToken);
+
+            return await ExecuteDockerCommandAsync(context, "network", $"create --label {DockerInstanceLabel} {network} {optionMTU}", context.CancellationToken);
         }
 
         public async Task<int> DockerNetworkRemove(IExecutionContext context, string network)

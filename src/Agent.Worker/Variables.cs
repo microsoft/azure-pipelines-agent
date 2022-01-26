@@ -301,12 +301,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return VarUtil.ExpandValues(_hostContext, source, target);
         }
 
-        public string Get(string name)
+        public string Get(string name, bool skipTranslationPathToStepTarget = false)
         {
             Variable variable;
             if (_expanded.TryGetValue(name, out variable))
             {
-                var value = StringTranslator(variable.Value);
+                var value = variable.Value;
+                if (!skipTranslationPathToStepTarget)
+                {
+                    value = StringTranslator(value);
+                }
                 _trace.Verbose($"Get '{name}': '{value}'");
                 return value;
             }

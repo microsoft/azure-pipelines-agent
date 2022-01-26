@@ -3,8 +3,25 @@
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
-    internal static partial class AdditionalMaskingRegexes
+    public static partial class AdditionalMaskingRegexes
     {
+        /// <summary>
+        /// Regexp for unreserved characters - for more details see https://datatracker.ietf.org/doc/html/rfc3986#section-2.3
+        /// </summary>
+        private const string unreservedCharacters = @"[\w\.~\-]";
+        /// <summary>
+        /// Regexp for percent encoded characters - for more details see https://datatracker.ietf.org/doc/html/rfc3986#section-2.1
+        /// </summary>
+        private const string percentEncoded = @"(%|%AZP25)[0-9a-fA-F]{2}";
+        /// <summary>
+        /// Regexp for delimeters - for more details see https://datatracker.ietf.org/doc/html/rfc3986#section-2.2
+        /// </summary>
+        private const string subDelims = @"[!\$&'\(\)\*\+,;=]";
+        /// <summary>
+        /// Match regexp for url
+        /// </summary>
+        private static string urlMatch = string.Format("({0}|{1}|{2}|:)+", unreservedCharacters, percentEncoded, subDelims);
+
         // URLs can contain secrets if they have a userinfo part
         // in the authority. example: https://user:pass@example.com
         // (see https://tools.ietf.org/html/rfc3986#section-3.2)
@@ -13,9 +30,9 @@ namespace Microsoft.VisualStudio.Services.Agent
         // the user, and the ":" and skip them. Similarly, it uses
         // a zero-width positive lookahead to find the "@".
         // It only matches on the password part.
-        private const string urlSecretPattern
+        private static string urlSecretPattern
             = "(?<=//[^:/?#\\n]+:)" // lookbehind
-            + "[^@\n]+"             // actual match
+            + urlMatch       // actual match
             + "(?=@)";              // lookahead
 
         public static string UrlSecretPattern => urlSecretPattern;

@@ -3,6 +3,7 @@
 
 using Agent.Sdk;
 using Agent.Sdk.Knob;
+using Agent.Sdk.Util;
 using BuildXL.Cache.ContentStore.Hashing;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
@@ -16,13 +17,17 @@ using Microsoft.VisualStudio.Services.FileContainer;
 using Microsoft.VisualStudio.Services.FileContainer.Client;
 using Microsoft.VisualStudio.Services.WebApi;
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
+using Minimatch;
 
 namespace Agent.Plugins
 {
@@ -35,24 +40,54 @@ namespace Agent.Plugins
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "connection2")]
         public FileContainerProvider(VssConnection connection, IAppTraceSource tracer)
         {
-            BuildHttpClient buildHttpClient = connection.GetClient<BuildHttpClient>();
-            var connection2 = new VssConnection(buildHttpClient.BaseAddress, connection.Credentials);
-            containerClient = connection2.GetClient<FileContainerHttpClient>();
+            if (connection != null)
+            {
+                BuildHttpClient buildHttpClient = connection.GetClient<BuildHttpClient>();
+                VssConnection connection2 = new VssConnection(buildHttpClient.BaseAddress, connection.Credentials);
+                containerClient = connection2.GetClient<FileContainerHttpClient>();
+            }
+
             this.tracer = tracer;
             this.connection = connection;
         }
 
         public async Task DownloadSingleArtifactAsync(ArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
-            await this.DownloadFileContainerAsync(downloadParameters, buildArtifact, downloadParameters.TargetDirectory, context, cancellationToken);
+            IEnumerable<FileContainerItem> items = await GetArtifactItems(downloadParameters, buildArtifact);
+            await this.DownloadFileContainerAsync(items, downloadParameters, buildArtifact, downloadParameters.TargetDirectory, context, cancellationToken);
+
+            IEnumerable<string> fileArtifactPaths = items
+                .Where((item) => item.ItemType == ContainerItemType.File)
+                .Select((fileItem) => Path.Combine(downloadParameters.TargetDirectory, fileItem.Path));
+
+            if (downloadParameters.ExtractTars)
+            {
+                ExtractTarsIfPresent(context, fileArtifactPaths, downloadParameters.TargetDirectory, downloadParameters.ExtractedTarsTempPath);
+            }
         }
 
         public async Task DownloadMultipleArtifactsAsync(ArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
+            var allFileArtifactPaths = new List<string>();
+
             foreach (var buildArtifact in buildArtifacts)
             {
-                var dirPath = Path.Combine(downloadParameters.TargetDirectory, buildArtifact.Name);
-                await DownloadFileContainerAsync(downloadParameters, buildArtifact, dirPath, context, cancellationToken, isSingleArtifactDownload: false);
+                var dirPath = downloadParameters.AppendArtifactNameToTargetPath
+                    ? Path.Combine(downloadParameters.TargetDirectory, buildArtifact.Name)
+                    : downloadParameters.TargetDirectory;
+
+                IEnumerable<FileContainerItem> items = await GetArtifactItems(downloadParameters, buildArtifact);
+                IEnumerable<string> fileArtifactPaths = items
+                    .Where((item) => item.ItemType == ContainerItemType.File)
+                    .Select((fileItem) => Path.Combine(dirPath, fileItem.Path));
+                allFileArtifactPaths.AddRange(fileArtifactPaths);
+
+                await DownloadFileContainerAsync(items, downloadParameters, buildArtifact, dirPath, context, cancellationToken, isSingleArtifactDownload: false);
+            }
+
+            if (downloadParameters.ExtractTars)
+            {
+                ExtractTarsIfPresent(context, allFileArtifactPaths, downloadParameters.TargetDirectory, downloadParameters.ExtractedTarsTempPath);
             }
         }
 
@@ -82,21 +117,12 @@ namespace Agent.Plugins
             }
         }
 
-        private async Task DownloadFileContainerAsync(ArtifactDownloadParameters downloadParameters, BuildArtifact artifact, string rootPath, AgentTaskPluginExecutionContext context, CancellationToken cancellationToken, bool isSingleArtifactDownload = true)
+        private async Task DownloadFileContainerAsync(IEnumerable<FileContainerItem> items, ArtifactDownloadParameters downloadParameters, BuildArtifact artifact, string rootPath, AgentTaskPluginExecutionContext context, CancellationToken cancellationToken, bool isSingleArtifactDownload = true)
         {
             var containerIdAndRoot = ParseContainerId(artifact.Resource.Data);
             var projectId = downloadParameters.ProjectId;
-            var minimatchPatterns = downloadParameters.MinimatchFilters;
-
-            var items = await containerClient.QueryContainerItemsAsync(containerIdAndRoot.Item1, projectId, isShallow: false, includeBlobMetadata: true, containerIdAndRoot.Item2);
 
             tracer.Info($"Start downloading FCS artifact- {artifact.Name}");
-            IEnumerable<Func<string, bool>> minimatcherFuncs = MinimatchHelper.GetMinimatchFuncs(minimatchPatterns, tracer, downloadParameters.CustomMinimatchOptions);
-
-            if (minimatcherFuncs != null && minimatcherFuncs.Count() != 0)
-            {
-                items = this.GetFilteredItems(items, minimatcherFuncs);
-            }
 
             if (!isSingleArtifactDownload && items.Any())
             {
@@ -122,13 +148,21 @@ namespace Agent.Plugins
                 try
                 {
                     (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupClientAsync(
-                        false, (str) => this.tracer.Info(str), this.connection, cancellationToken);
+                        false, (str) => this.tracer.Info(str), this.connection, DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context), cancellationToken);
+                }
+                catch (SocketException e)
+                {
+                    ExceptionsUtil.HandleSocketException(e, connection.Uri.ToString(), context.Warning);
                 }
                 catch
                 {
+                    var blobStoreHost = dedupClient.Client.BaseAddress.Host;
+                    var allowListLink = BlobStoreWarningInfoProvider.GetAllowListLinkForCurrentPlatform();
+                    var warningMessage = StringUtil.Loc("BlobStoreDownloadWarning", blobStoreHost, allowListLink);
+
                     // Fall back to streaming through TFS if we cannot reach blobstore
                     downloadFromBlob = false;
-                    tracer.Warn(StringUtil.Loc("BlobStoreDownloadWarning"));
+                    tracer.Warn(warningMessage);
                 }
             }
 
@@ -186,6 +220,61 @@ namespace Agent.Plugins
             {
                 CheckDownloads(items, rootPath, containerIdAndRoot.Item2, downloadParameters.IncludeArtifactNameInPath);
             }
+        }
+
+        // Returns list of filtered artifact items. Uses minimatch filters specified in downloadParameters.
+        private async Task<IEnumerable<FileContainerItem>> GetArtifactItems(ArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact)
+        {
+            (long, string) containerIdAndRoot = ParseContainerId(buildArtifact.Resource.Data);
+            Guid projectId = downloadParameters.ProjectId;
+            string[] minimatchPatterns = downloadParameters.MinimatchFilters;
+
+            List<FileContainerItem> items = await containerClient.QueryContainerItemsAsync(
+                containerIdAndRoot.Item1,
+                projectId,
+                isShallow: false,
+                includeBlobMetadata: true,
+                containerIdAndRoot.Item2
+            );
+
+            Options customMinimatchOptions;
+            if (downloadParameters.CustomMinimatchOptions != null)
+            {
+                customMinimatchOptions = downloadParameters.CustomMinimatchOptions;
+            }
+            else
+            {
+                customMinimatchOptions = new Options()
+                {
+                    Dot = true,
+                    NoBrace = true,
+                    AllowWindowsPaths = PlatformUtil.RunningOnWindows
+                };
+            }
+
+            // Getting list of item paths. It is useful to handle list of paths instead of items.
+            // Also it allows to use the same methods for FileContainerProvider and FileShareProvider.
+            List<string> paths = new List<string>();
+            foreach (FileContainerItem item in items)
+            {
+                paths.Add(item.Path);
+            }
+
+            ArtifactItemFilters filters = new ArtifactItemFilters(connection, tracer);
+            Hashtable map = filters.GetMapToFilterItems(paths, minimatchPatterns, customMinimatchOptions);
+
+            // Returns filtered list of artifact items. Uses minimatch filters specified in downloadParameters.
+            List<FileContainerItem> resultItems = filters.ApplyPatternsMapToContainerItems(items, map);
+
+            tracer.Info($"{resultItems.Count} final results");
+
+            IEnumerable<FileContainerItem> excludedItems = items.Except(resultItems);
+            foreach (FileContainerItem item in excludedItems)
+            {
+                tracer.Info($"Item excluded: {item.Path}");
+            }
+
+            return resultItems;
         }
 
         private void CheckDownloads(IEnumerable<FileContainerItem> items, string rootPath, string artifactName, bool includeArtifactName)
@@ -304,22 +393,90 @@ namespace Agent.Plugins
             return absolutePath;
         }
 
-        private List<FileContainerItem> GetFilteredItems(List<FileContainerItem> items, IEnumerable<Func<string, bool>> minimatchFuncs)
+        // Checks all specified artifact paths, searches for files ending with '.tar'.
+        // If any files were found, extracts them to extractedTarsTempPath and moves to rootPath/extracted_tars.
+        private void ExtractTarsIfPresent(AgentTaskPluginExecutionContext context, IEnumerable<string> fileArtifactPaths, string rootPath, string extractedTarsTempPath)
         {
-            List<FileContainerItem> filteredItems = new List<FileContainerItem>();
-            foreach (FileContainerItem item in items)
+            tracer.Info(StringUtil.Loc("TarSearchStart"));
+
+            int tarsFoundCount = 0;
+
+            foreach (var fileArtifactPath in fileArtifactPaths)
             {
-                if (minimatchFuncs.Any(match => match(item.Path)))
+                if (fileArtifactPath.EndsWith(".tar"))
                 {
-                    filteredItems.Add(item);
+                    tarsFoundCount += 1;
+
+                    // fileArtifactPath is a combination of rootPath and the relative artifact path
+                    string relativeFileArtifactPath = fileArtifactPath.Substring(rootPath.Length);
+                    string relativeFileArtifactDirPath = Path.GetDirectoryName(relativeFileArtifactPath).TrimStart('/');
+                    string extractedFilesDir = Path.Combine(extractedTarsTempPath, relativeFileArtifactDirPath);
+
+                    ExtractTar(fileArtifactPath, extractedFilesDir);
+
+                    File.Delete(fileArtifactPath);
                 }
             }
-            var excludedItems = items.Except(filteredItems);
-            foreach (FileContainerItem item in excludedItems)
-            {
-                tracer.Info($"Item excluded: {item.Path}");
+
+            if (tarsFoundCount == 0) {
+                context.Warning(StringUtil.Loc("TarsNotFound"));
+            } else {
+                tracer.Info(StringUtil.Loc("TarsFound", tarsFoundCount));
+
+                string targetDirectory = Path.Combine(rootPath, "extracted_tars");
+                Directory.CreateDirectory(targetDirectory);
+                MoveDirectory(extractedTarsTempPath, targetDirectory);
             }
-            return filteredItems;
+        }
+
+        // Extracts tar archive at tarArchivePath to extractedFilesDir.
+        // Uses 'tar' utility like this: tar xf `tarArchivePath` --directory `extractedFilesDir`.
+        // Throws if any errors are encountered.
+        private void ExtractTar(string tarArchivePath, string extractedFilesDir)
+        {
+            tracer.Info(StringUtil.Loc("TarExtraction", tarArchivePath));
+
+            Directory.CreateDirectory(extractedFilesDir);
+            var extractionProcessInfo = new ProcessStartInfo("tar")
+            {
+                Arguments = $"xf {tarArchivePath} --directory {extractedFilesDir}",
+                UseShellExecute = false,
+                RedirectStandardError = true
+            };
+            Process extractionProcess = Process.Start(extractionProcessInfo);
+            extractionProcess.WaitForExit();
+
+            var extractionStderr = extractionProcess.StandardError.ReadToEnd();
+            if (extractionStderr.Length != 0 || extractionProcess.ExitCode != 0)
+            {
+                throw new Exception(StringUtil.Loc("TarExtractionError", tarArchivePath, extractionStderr));
+            }
+        }
+
+        // Recursively moves sourcePath directory to targetPath
+        private void MoveDirectory(string sourcePath, string targetPath) {
+            var sourceDirectoryInfo = new DirectoryInfo(sourcePath);
+            foreach (FileInfo file in sourceDirectoryInfo.GetFiles("*", SearchOption.TopDirectoryOnly))
+            {
+                file.MoveTo(Path.Combine(targetPath, file.Name), true);
+            }
+            foreach (DirectoryInfo subdirectory in sourceDirectoryInfo.GetDirectories("*", SearchOption.TopDirectoryOnly))
+            {
+                string subdirectoryDestinationPath = Path.Combine(targetPath, subdirectory.Name);
+                var subdirectoryDestination = new DirectoryInfo(subdirectoryDestinationPath);
+
+                if (subdirectoryDestination.Exists)
+                {
+                    MoveDirectory(
+                        Path.Combine(sourcePath, subdirectory.Name),
+                        Path.Combine(targetPath, subdirectory.Name)
+                    );
+                }
+                else
+                {
+                    subdirectory.MoveTo(Path.Combine(targetPath, subdirectory.Name));
+                }
+            }
         }
     }
 }

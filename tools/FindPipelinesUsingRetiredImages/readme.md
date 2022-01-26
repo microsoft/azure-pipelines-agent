@@ -1,6 +1,6 @@
 # Finding Pipelines Targeting Retired Images
   
-On March 23, 2020, Azure Pipelines will remove Windows Server 2012 R2 with Visual Studio 2015(`vs2015-win2012r2`), macOS High Sierra 10.13 (`macOS-10.13`), and Windows Server Core 1803 (`win1803`) from our hosted pools.
+Azure Pipelines will remove Windows Server 2016 with Visual Studio 2017(`vs2017-win2016`), macOS Mojave 10.14 (`macOS-10.14`) from our hosted pools.
 
 The scripts in this directory are intended to help customers identify Pipelines that depend on these retired images. Customers can then navigate to and update those Pipelines.
 

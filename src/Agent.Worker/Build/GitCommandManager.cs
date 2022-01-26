@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
@@ -197,8 +198,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             Version minRequiredGitVersion = new Version(2, 0);
             EnsureGitVersion(minRequiredGitVersion, throwOnNotMatch: true);
 
-            // suggest user upgrade to 2.9 for better git experience
-            Version recommendGitVersion = new Version(2, 9);
+            // suggest user upgrade to 2.17 for better git experience
+            Version recommendGitVersion = new Version(2, 17);
             if (!EnsureGitVersion(recommendGitVersion, throwOnNotMatch: false))
             {
                 context.Output(StringUtil.Loc("UpgradeToLatestGit", recommendGitVersion, _gitVersion));
@@ -231,23 +232,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 refSpec = refSpec.Where(r => !string.IsNullOrEmpty(r)).ToList();
             }
 
-            // default options for git fetch.
-            string options = StringUtil.Format($"--tags --prune --progress --no-recurse-submodules {remoteName} {string.Join(" ", refSpec)}");
-
+            // insert prune-tags if DisableFetchPruneTags knob is false and Git version is above 2.17
+            string pruneTags = string.Empty;
+            if (EnsureGitVersion(new Version(2, 17), throwOnNotMatch: false) && !AgentKnobs.DisableFetchPruneTags.GetValue(context).AsBoolean())
+            {
+                pruneTags = "--prune-tags";
+            }
+            
             // If shallow fetch add --depth arg
             // If the local repository is shallowed but there is no fetch depth provide for this build,
             // add --unshallow to convert the shallow repository to a complete repository
-            if (fetchDepth > 0)
-            {
-                options = StringUtil.Format($"--tags --prune --progress --no-recurse-submodules --depth={fetchDepth} {remoteName} {string.Join(" ", refSpec)}");
-            }
-            else
-            {
-                if (File.Exists(Path.Combine(repositoryPath, ".git", "shallow")))
-                {
-                    options = StringUtil.Format($"--tags --prune --progress --no-recurse-submodules --unshallow {remoteName} {string.Join(" ", refSpec)}");
-                }
-            }
+            string depth = fetchDepth > 0 ? $"--depth={fetchDepth}" : (File.Exists(Path.Combine(repositoryPath, ".git", "shallow")) ? "--unshallow" : string.Empty );
+
+            //define options for fetch
+            string options = $"--tags --prune {pruneTags} --progress --no-recurse-submodules {remoteName} {depth} {string.Join(" ", refSpec)}";
+
 
             return await ExecuteGitCommandAsync(context, repositoryPath, "fetch", options, additionalCommandLine, cancellationToken);
         }

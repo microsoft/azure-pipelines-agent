@@ -7,9 +7,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
@@ -255,7 +257,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 Trace.Info("Tfs Collection level url to connect - {0}", uriBuilder.Uri.AbsoluteUri);
                 url = uriBuilder.Uri.AbsoluteUri;
             }
-            VssConnection deploymentGroupconnection = VssUtil.CreateConnection(new Uri(url), creds);
+            VssConnection deploymentGroupconnection = VssUtil.CreateConnection(new Uri(url), creds, trace: Trace);
 
             await _deploymentGroupServer.ConnectAsync(deploymentGroupconnection);
             Trace.Info("Connect complete for deployment group");
@@ -360,6 +362,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                         azureSubscriptionId = string.Empty;
                     }
                 }
+                catch (SocketException ex)
+                {
+                    azureSubscriptionId = string.Empty;
+                    ExceptionsUtil.HandleSocketException(ex, imdsUri, Trace.Info);
+                }
                 catch (Exception ex)
                 {
                     // An exception will be thrown if the Agent Machine is a non-Azure VM.
@@ -425,7 +432,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 Trace.Info("Tfs Collection level url to connect - {0}", uriBuilder.Uri.AbsoluteUri);
                 url = uriBuilder.Uri.AbsoluteUri;
             }
-            VssConnection environmentConnection = VssUtil.CreateConnection(new Uri(url), creds);
+            VssConnection environmentConnection = VssUtil.CreateConnection(new Uri(url), creds, trace: Trace);
 
             await _environmentsServer.ConnectAsync(environmentConnection);
             Trace.Info("Connection complete for environment");

@@ -132,7 +132,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _windowsServiceHelper.CreateVstsAgentRegistryKey();
 
             Trace.Info("Configuration was successful, trying to start the service");
-            _windowsServiceHelper.StartService(serviceName);
+            if(!command.GetPreventServiceStart())
+            {
+                _windowsServiceHelper.StartService(serviceName);
+            }
+            
         }
 
         public void UnconfigureService()

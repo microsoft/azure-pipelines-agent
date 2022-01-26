@@ -16,6 +16,22 @@ $jre9AndGreaterName = "Software\JavaSoft\Java Runtime Environment"
 $jdk9AndGreaterName = "Software\JavaSoft\Java Development Kit"
 $minimumMajorVersion9 = 9
 
+# JRE/JDK keys for AdoptOpenJDK
+$jdk9AndGreaterNameAdoptOpenJDK = "Software\AdoptOpenJDK\JDK"
+$jdk9AndGreaterNameAdoptOpenJRE = "Software\AdoptOpenJDK\JRE"
+
+# These keys required for latest versions of AdoptOpenJDK since they started to publish under Eclipse Foundation name from 24th July 2021 https://blog.adoptopenjdk.net/2021/03/transition-to-eclipse-an-update/ 
+$jdk9AndGreaterNameAdoptOpenJDKEclipse = "Software\Eclipse Foundation\JDK"
+$jdk9AndGreaterNameAdoptOpenJREEclipse = "Software\Eclipse Foundation\JRE"
+
+# JRE/JDK keys for AdoptOpenJDK with openj9 runtime
+$jdk9AndGreaterNameAdoptOpenJDKSemeru = "Software\Semeru\JDK"
+$jdk9AndGreaterNameAdoptOpenJRESemeru = "Software\Semeru\JRE"
+
+# JVM subdirectories for AdoptOpenJDK, since it could be ditributed with two different JVM versions, which are located in different subdirectories inside version directory
+$jvmHotSpot = "hotspot\MSI"
+$jvmOpenj9 = "openj9\MSI"
+
 # Check for JRE.
 $latestJre = $null
 $null = Add-CapabilityFromRegistry -Name 'java_6' -Hive 'LocalMachine' -View 'Registry32' -KeyName $jre6KeyName -ValueName 'JavaHome' -Value ([ref]$latestJre)
@@ -35,6 +51,15 @@ if  (-not (Test-Path env:DISABLE_JAVA_CAPABILITY_HIGHER_THAN_9)) {
         Write-Host "An error occured while trying to check if there are JRE >= 9"
         Write-Host $_
     }
+}
+
+# Check default reg keys for AdoptOpenJDK in case we didn't find JRE in JavaSoft
+if (-not $latestJre) {
+    # AdoptOpenJDK section
+    $null = Add-CapabilityFromRegistryWithLastVersionAvailable -PrefixName 'java_' -PostfixName '_x64' -Hive 'LocalMachine' -View 'Registry64' -KeyName $jdk9AndGreaterNameAdoptOpenJRE -ValueName 'Path' -Value ([ref]$latestJre) -VersionSubdirectory $jvmHotSpot -MinimumMajorVersion $minimumMajorVersion9
+    $null = Add-CapabilityFromRegistryWithLastVersionAvailable -PrefixName 'java_' -PostfixName '_x64' -Hive 'LocalMachine' -View 'Registry64' -KeyName $jdk9AndGreaterNameAdoptOpenJRE -ValueName 'Path' -Value ([ref]$latestJre) -VersionSubdirectory $jvmOpenj9 -MinimumMajorVersion $minimumMajorVersion9
+    $null = Add-CapabilityFromRegistryWithLastVersionAvailable -PrefixName 'java_' -PostfixName '_x64' -Hive 'LocalMachine' -View 'Registry64' -KeyName $jdk9AndGreaterNameAdoptOpenJREEclipse -ValueName 'Path' -Value ([ref]$latestJre) -VersionSubdirectory $jvmHotSpot -MinimumMajorVersion $minimumMajorVersion9
+    $null = Add-CapabilityFromRegistryWithLastVersionAvailable -PrefixName 'java_' -PostfixName '_x64' -Hive 'LocalMachine' -View 'Registry64' -KeyName $jdk9AndGreaterNameAdoptOpenJRESemeru -ValueName 'Path' -Value ([ref]$latestJre) -VersionSubdirectory $jvmOpenj9 -MinimumMajorVersion $minimumMajorVersion9
 }
 
 if ($latestJre) {
@@ -61,6 +86,15 @@ if  (-not (Test-Path env:DISABLE_JAVA_CAPABILITY_HIGHER_THAN_9)) {
         Write-Host "An error occured while trying to check if there are JDK >= 9"
         Write-Host $_
     }
+}
+
+# Check default reg keys for AdoptOpenJDK in case we didn't find JDK in JavaSoft
+if (-not $latestJdk) {
+    # AdoptOpenJDK section
+    $null = Add-CapabilityFromRegistryWithLastVersionAvailable -PrefixName 'jdk_' -PostfixName '_x64' -Hive 'LocalMachine' -View 'Registry64' -KeyName $jdk9AndGreaterNameAdoptOpenJDK -ValueName 'Path' -Value ([ref]$latestJdk) -VersionSubdirectory $jvmHotSpot -MinimumMajorVersion $minimumMajorVersion9
+    $null = Add-CapabilityFromRegistryWithLastVersionAvailable -PrefixName 'jdk_' -PostfixName '_x64' -Hive 'LocalMachine' -View 'Registry64' -KeyName $jdk9AndGreaterNameAdoptOpenJDK -ValueName 'Path' -Value ([ref]$latestJdk) -VersionSubdirectory $jvmOpenj9 -MinimumMajorVersion $minimumMajorVersion9
+    $null = Add-CapabilityFromRegistryWithLastVersionAvailable -PrefixName 'jdk_' -PostfixName '_x64' -Hive 'LocalMachine' -View 'Registry64' -KeyName $jdk9AndGreaterNameAdoptOpenJDKEclipse -ValueName 'Path' -Value ([ref]$latestJdk) -VersionSubdirectory $jvmHotSpot -MinimumMajorVersion $minimumMajorVersion9
+    $null = Add-CapabilityFromRegistryWithLastVersionAvailable -PrefixName 'jdk_' -PostfixName '_x64' -Hive 'LocalMachine' -View 'Registry64' -KeyName $jdk9AndGreaterNameAdoptOpenJDKSemeru -ValueName 'Path' -Value ([ref]$latestJdk) -VersionSubdirectory $jvmOpenj9 -MinimumMajorVersion $minimumMajorVersion9
 }
 
 if ($latestJdk) {
