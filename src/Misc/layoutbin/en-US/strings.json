@@ -26,6 +26,8 @@
   "AllowContainerUserRunDocker": "Allow user '{0}' run any docker command without SUDO.",
   "AlreadyConfiguredError": "Cannot configure the agent because it is already configured. To reconfigure the agent, run 'config.cmd remove' or './config.sh remove' first.",
   "ArgumentNeeded": "'{0}' has to be specified.",
+  "ArtifactCustomPropertiesNotJson": "Artifact custom properties is not valid JSON: '{0}'",
+  "ArtifactCustomPropertyInvalid": "Artifact custom properties must be prefixed with 'user-'. Invalid property: '{0}'",
   "ArtifactDownloadFailed": "Failed to download the artifact from {0}.",
   "ArtifactLocationRequired": "Artifact location is required.",
   "ArtifactNameIsNotValid": "Artifact name is not valid: {0}. It cannot contain '\\', /', \"', ':', '<', '>', '|', '*', and '?'",

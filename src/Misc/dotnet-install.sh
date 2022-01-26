@@ -1261,7 +1261,7 @@ generate_regular_links() {
     if [ "$valid_legacy_download_link" = true ]; then
         say_verbose "Constructed legacy named payload URL: $legacy_download_link"
     
-        download_links+=($download_link)
+        download_links+=($legacy_download_link)
         specific_versions+=($specific_version)
         effective_versions+=($effective_version)
         link_types+=("legacy")
