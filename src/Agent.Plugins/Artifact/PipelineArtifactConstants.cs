@@ -16,5 +16,6 @@ namespace Agent.Plugins
         public const string RootId = "RootId";
         public const string SaveCache = "SaveCache";
         public const string FileShareArtifact = "filepath";
+        public const string CustomPropertiesPrefix = "user-";
     }
 }

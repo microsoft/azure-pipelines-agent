@@ -12,6 +12,8 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using Agent.Sdk;
 using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
+using System.Linq;
+using System.Text.Json;
 
 namespace Agent.Plugins.PipelineArtifact
 {
@@ -64,6 +66,8 @@ namespace Agent.Plugins.PipelineArtifact
         // create a normalized identifier-compatible string (A-Z, a-z, 0-9, -, and .) and remove .default since it's redundant
         public static readonly Regex jobIdentifierRgx = new Regex("[^a-zA-Z0-9 - .]", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
+        private const string customProperties = "properties";
+
         protected override async Task ProcessCommandInternalAsync(
             AgentTaskPluginExecutionContext context,
             string targetPath,
@@ -105,11 +109,37 @@ namespace Agent.Plugins.PipelineArtifact
                 throw new FileNotFoundException(StringUtil.Loc("PathDoesNotExist", targetPath));
             }
 
+            string propertiesStr = context.GetInput(customProperties, required: false);
+            IDictionary<string, string> properties = ParseCustomProperties(propertiesStr);
+
             // Upload to VSTS BlobStore, and associate the artifact with the build.
             context.Output(StringUtil.Loc("UploadingPipelineArtifact", fullPath, buildId));
             PipelineArtifactServer server = new PipelineArtifactServer(tracer);
-            await server.UploadAsync(context, projectId, buildId, artifactName, fullPath, token);
+            await server.UploadAsync(context, projectId, buildId, artifactName, fullPath, properties, token);
             context.Output(StringUtil.Loc("UploadArtifactFinished"));
+        }
+        private IDictionary<string, string> ParseCustomProperties(string properties)
+        {
+            if (string.IsNullOrWhiteSpace(properties))
+            {
+                return null;
+            }
+
+            try
+            {
+                var propertyBag = StringUtil.ConvertFromJson<IDictionary<string, string>>(properties);
+                var prefixMissing = propertyBag.Keys.FirstOrDefault(k => !k.StartsWith(PipelineArtifactConstants.CustomPropertiesPrefix));
+                if (!string.IsNullOrWhiteSpace(prefixMissing))
+                {
+                    throw new InvalidOperationException(StringUtil.Loc("ArtifactCustomPropertyInvalid", prefixMissing));
+                }
+
+                return propertyBag;
+            }
+            catch (JsonException)
+            {
+                throw new ArgumentException(StringUtil.Loc("ArtifactCustomPropertiesNotJson", properties));
+            }
         }
 
         private string NormalizeJobIdentifier(string jobIdentifier)

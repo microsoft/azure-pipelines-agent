@@ -69,7 +69,7 @@ stages:
         jobName: build_windows_x64
         displayName: Windows (x64)
         pool:
-          vmImage: windows-latest
+          vmImage: windows-2019
         os: win
         arch: x64
         branch: ${{ parameters.branch }}
@@ -89,7 +89,7 @@ stages:
         jobName: build_windows_x86
         displayName: Windows (x86)
         pool:
-          vmImage: windows-latest
+          vmImage: windows-2019
         os: win
         arch: x86
         branch: ${{ parameters.branch }}
@@ -185,7 +185,7 @@ stages:
         jobName: build_osx
         displayName: macOS (x64)
         pool:
-          vmImage: macOS-10.14
+          vmImage: macOS-10.15
         os: osx
         arch: x64
         branch: ${{ parameters.branch }}

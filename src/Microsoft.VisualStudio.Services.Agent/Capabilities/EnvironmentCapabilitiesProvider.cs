@@ -89,7 +89,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
 
                 if (secretKnobs.Any(k => k.Source.HasSourceWithTypeEnvironmentByName(name)))
                 {
-                    HostContext.SecretMasker.AddValue(value);
+                    HostContext.SecretMasker.AddValue(value, $"EnvironmentCapabilitiesProvider_GetCapabilitiesAsync_{name}");
                 }
                 Trace.Info($"Adding '{name}': '{value}'");
                 capabilities.Add(new Capability(name, value));
