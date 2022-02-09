@@ -15,9 +15,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
     {
         void GetAutoLogonUserDetails(out string domainName, out string userName);
         void UpdateRegistrySettings(CommandSettings command, string domainName, string userName, string logonPassword);
-        void ResetRegistrySettings(string domainName, string userName);
+        void ResetRegistrySettings(string domainName, string userName, string agentName);
         //used to log all the autologon related registry settings when agent is running
-        void DumpAutoLogonRegistrySettings();
+        void DumpAutoLogonRegistrySettings(string agentName);
     }
 
     public class AutoLogonRegistryManager : AgentService, IAutoLogonRegistryManager
@@ -97,7 +97,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
-        public void ResetRegistrySettings(string domainName, string userName)
+        public void ResetRegistrySettings(string domainName, string userName, string agentName)
         {
             string securityId = _windowsServiceHelper.GetSecurityId(domainName, userName);
             if(string.IsNullOrEmpty(securityId))
@@ -110,10 +110,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             ResetAutoLogon(domainName, userName);
 
             //user specific
-            ResetUserSpecificSettings(securityId);
+            ResetUserSpecificSettings(securityId, agentName);
         }
 
-        public void DumpAutoLogonRegistrySettings()
+        public void DumpAutoLogonRegistrySettings(string agentName)
         {
             Trace.Info("Dump from the registry for autologon related settings");
             Trace.Info("****Machine specific policies/settings****");
@@ -182,9 +182,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Trace.Info($"Screensaver - SubKey - {screenSaverSettingSubKeyName}, ValueName - {screenSaverSettingValueName} : {screenSaverValue} (0-disabled, 1-enabled)");
 
             var startupSubKeyName = RegistryConstants.UserSettings.SubKeys.StartupProcess;
-            var startupValueName = RegistryConstants.UserSettings.ValueNames.StartupProcess;
-            var startupProcessPath = _registryManager.GetValue(RegistryHive.CurrentUser, startupSubKeyName, startupValueName);
-            Trace.Info($"Startup process SubKey - {startupSubKeyName} ValueName - {startupValueName} : {startupProcessPath}");
+            var startupProcessPath = _registryManager.GetValue(RegistryHive.CurrentUser, startupSubKeyName, agentName);
+            Trace.Info($"Startup process SubKey - {startupSubKeyName} ValueName - {agentName} : {startupProcessPath}");
 
             Trace.Info("");
         }
@@ -286,7 +285,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             //User specific
             string subKeyName = $"{securityId}\\{RegistryConstants.UserSettings.SubKeys.StartupProcess}";
-            _registryManager.SetValue(RegistryHive.Users, subKeyName, RegistryConstants.UserSettings.ValueNames.StartupProcess, GetStartupCommand(runOnce: command.GetRunOnce()));
+            _registryManager.SetValue(RegistryHive.Users, subKeyName, command.GetAgentName(), GetStartupCommand(runOnce: command.GetRunOnce()));
         }
 
         private void UpdateScreenSaverSettings(CommandSettings command, string securityId)
@@ -342,11 +341,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             return startupCommand;
         }
 
-        private void ResetUserSpecificSettings(string securityId)
+        private void ResetUserSpecificSettings(string securityId, string agentName)
         {
             var targetHive = RegistryHive.Users;
 
-            DeleteStartupCommand(targetHive, securityId);
+            DeleteStartupCommand(targetHive, securityId, agentName);
 
             var screenSaverSubKey = $"{securityId}\\{RegistryConstants.UserSettings.SubKeys.ScreenSaver}";
             var currentValue = _registryManager.GetValue(targetHive, screenSaverSubKey, RegistryConstants.UserSettings.ValueNames.ScreenSaver);
@@ -362,17 +361,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
-        private void DeleteStartupCommand(RegistryHive targetHive, string securityId)
+        private void DeleteStartupCommand(RegistryHive targetHive, string securityId, string agentName)
         {
             var startupProcessSubKeyName = $"{securityId}\\{RegistryConstants.UserSettings.SubKeys.StartupProcess}";
             var expectedStartupCmd = GetStartupCommand(runOnce: false);
-            var actualStartupCmd = _registryManager.GetValue(targetHive, startupProcessSubKeyName, RegistryConstants.UserSettings.ValueNames.StartupProcess);
+            var actualStartupCmd = _registryManager.GetValue(targetHive, startupProcessSubKeyName, agentName);
 
             // Use StartWith() instead of Equals() because we don't know if the startupCmd should include the runOnce parameter
             if(actualStartupCmd != null && 
                actualStartupCmd.StartsWith(expectedStartupCmd, StringComparison.CurrentCultureIgnoreCase))
             {
-                _registryManager.DeleteValue(RegistryHive.Users, startupProcessSubKeyName, RegistryConstants.UserSettings.ValueNames.StartupProcess);
+                _registryManager.DeleteValue(RegistryHive.Users, startupProcessSubKeyName, agentName);
             }
             else
             {
@@ -450,9 +449,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             public class ValueNames
             {
                 public const string ScreenSaver = "ScreenSaveActive";
-                //Value name in the startup tasks list. Every startup task has a name and the command to run.
-                //the command gets filled up during AutoLogon configuration
-                public const string StartupProcess = "VSTSAgent";
             }
         }
     }
