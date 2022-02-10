@@ -151,7 +151,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 + @"", // post-match
 
                 // HttpAuthorizationHeader
-                  @"(?<=authorization[,\[:= ""']+(basic|digest|hoba|mutual|negotiate|oauth( oauth_token=)?|bearer [^e""'&]|scram\-sha\-1|scram\-sha\-256|vapid|aws4\-hmac\-sha256)[\s\r\n]{0,10})" // pre-match
+                  @"(?<=authorization[,\[:= ""']+(?i:basic|digest|hoba|mutual|negotiate|oauth( oauth_token=)?|(?i:bearer) [^e""'&]|scram\-sha\-1|scram\-sha\-256|vapid|aws4\-hmac\-sha256)[\s\r\n]{0,10})" // pre-match
                 + @"(?<Token>[a-z0-9/+_.=]{10,})" // match
                 + @"", // post-match
 
