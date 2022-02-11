@@ -146,8 +146,7 @@ stages:
         jobName: build_linux_arm64
         displayName: Linux (ARM64)
         pool:
-          name: buildDevs
-          demands: 'Agent.OSArchitecture -equals ARM64'
+          vmImage: ubuntu-20.04
         timeoutInMinutes: 75
         os: linux
         arch: arm64
@@ -166,7 +165,7 @@ stages:
         jobName: build_rhel6_x64
         displayName: RHEL6 (x64)
         pool:
-          vmImage: ubuntu-18.04
+          vmImage: ubuntu-20.04
         container: dotnetcore_centos6
         os: rhel.6
         arch: x64

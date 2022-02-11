@@ -1,0 +1,11 @@
+FROM mcr.microsoft.com/dotnet/sdk:3.1.416-focal-arm64v8 AS test
+WORKDIR /app
+EXPOSE 80
+COPY /src /src
+COPY /_downloads /_downloads
+COPY /_layout /_layout
+
+WORKDIR /src
+RUN apt update
+RUN apt install unzip
+ENTRYPOINT ["./dev.sh"]
