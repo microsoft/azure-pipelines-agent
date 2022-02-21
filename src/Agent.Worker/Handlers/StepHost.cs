@@ -206,6 +206,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     outputEncoding = Encoding.UTF8;
                 }
 
+#pragma warning disable CA2000
                 var redirectStandardIn = new InputQueue<string>();
                 var payloadJson = JsonUtility.ToString(payload);
                 redirectStandardIn.Enqueue(payloadJson);
@@ -220,6 +221,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                          redirectStandardIn: redirectStandardIn,
                                                          inheritConsoleHandler: inheritConsoleHandler,
                                                          cancellationToken: cancellationToken);
+#pragma warning restore CA2000
             }
         }
 

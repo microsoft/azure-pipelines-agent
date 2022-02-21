@@ -66,25 +66,25 @@ namespace Agent.Plugins.Repository
 
         protected Task RunCommandAsync(params string[] args)
         {
-            return RunCommandAsync(FormatFlags.None, args);
+            return RunCommandAsync(FormatTags.None, args);
         }
 
         protected Task RunCommandAsync(int retriesOnFailure, params string[] args)
         {
-            return RunCommandAsync(FormatFlags.None, false, retriesOnFailure, args);
+            return RunCommandAsync(FormatTags.None, false, retriesOnFailure, args);
         }
 
-        protected Task RunCommandAsync(FormatFlags formatFlags, params string[] args)
+        protected Task RunCommandAsync(FormatTags formatFlags, params string[] args)
         {
             return RunCommandAsync(formatFlags, false, args);
         }
 
-        protected Task RunCommandAsync(FormatFlags formatFlags, bool quiet, params string[] args)
+        protected Task RunCommandAsync(FormatTags formatFlags, bool quiet, params string[] args)
         {
             return RunCommandAsync(formatFlags, quiet, 0, args);
         }
 
-        protected async Task RunCommandAsync(FormatFlags formatFlags, bool quiet, int retriesOnFailure, params string[] args)
+        protected async Task RunCommandAsync(FormatTags formatFlags, bool quiet, int retriesOnFailure, params string[] args)
         {
             for (int attempt = 0; attempt < retriesOnFailure - 1; attempt++)
             {
@@ -107,7 +107,7 @@ namespace Agent.Plugins.Repository
             await RunCommandAsync(formatFlags, quiet, true, args);
         }
 
-        protected async Task<int> RunCommandAsync(FormatFlags formatFlags, bool quiet, bool failOnNonZeroExitCode, params string[] args)
+        protected async Task<int> RunCommandAsync(FormatTags formatFlags, bool quiet, bool failOnNonZeroExitCode, params string[] args)
         {
             // Validation.
             ArgUtil.NotNull(args, nameof(args));
@@ -152,22 +152,22 @@ namespace Agent.Plugins.Repository
             }
         }
 
-        protected Task<string> RunPorcelainCommandAsync(FormatFlags formatFlags, params string[] args)
+        protected Task<string> RunPorcelainCommandAsync(FormatTags formatFlags, params string[] args)
         {
             return RunPorcelainCommandAsync(formatFlags, 0, args);
         }
 
         protected Task<string> RunPorcelainCommandAsync(params string[] args)
         {
-            return RunPorcelainCommandAsync(FormatFlags.None, 0, args);
+            return RunPorcelainCommandAsync(FormatTags.None, 0, args);
         }
 
         protected Task<string> RunPorcelainCommandAsync(int retriesOnFailure, params string[] args)
         {
-            return RunPorcelainCommandAsync(FormatFlags.None, retriesOnFailure, args);
+            return RunPorcelainCommandAsync(FormatTags.None, retriesOnFailure, args);
         }
 
-        protected async Task<string> RunPorcelainCommandAsync(FormatFlags formatFlags, int retriesOnFailure, params string[] args)
+        protected async Task<string> RunPorcelainCommandAsync(FormatTags formatFlags, int retriesOnFailure, params string[] args)
         {
             // Run the command.
             TfsVCPorcelainCommandResult result = await TryRunPorcelainCommandAsync(formatFlags, retriesOnFailure, args);
@@ -184,7 +184,7 @@ namespace Agent.Plugins.Repository
             return string.Join(Environment.NewLine, result.Output ?? new List<string>());
         }
 
-        protected async Task<TfsVCPorcelainCommandResult> TryRunPorcelainCommandAsync(FormatFlags formatFlags, int retriesOnFailure, params string[] args)
+        protected async Task<TfsVCPorcelainCommandResult> TryRunPorcelainCommandAsync(FormatTags formatFlags, int retriesOnFailure, params string[] args)
         {
             var result = await TryRunPorcelainCommandAsync(formatFlags, args);
             for (int attempt = 0; attempt < retriesOnFailure && result.Exception != null && result.Exception?.ExitCode != 1; attempt++)
@@ -198,7 +198,7 @@ namespace Agent.Plugins.Repository
             return result;
         }
 
-        protected async Task<TfsVCPorcelainCommandResult> TryRunPorcelainCommandAsync(FormatFlags formatFlags, params string[] args)
+        protected async Task<TfsVCPorcelainCommandResult> TryRunPorcelainCommandAsync(FormatTags formatFlags, params string[] args)
         {
             // Validation.
             ArgUtil.NotNull(args, nameof(args));
@@ -248,7 +248,7 @@ namespace Agent.Plugins.Repository
             }
         }
 
-        private string FormatArguments(FormatFlags formatFlags, params string[] args)
+        private string FormatArguments(FormatTags formatFlags, params string[] args)
         {
             // Validation.
             ArgUtil.NotNull(args, nameof(args));
@@ -275,7 +275,7 @@ namespace Agent.Plugins.Repository
             }
 
             // Add the common parameters.
-            if (!formatFlags.HasFlag(FormatFlags.OmitCollectionUrl))
+            if (!formatFlags.HasFlag(FormatTags.OmitCollectionUrl))
             {
                 if (Features.HasFlag(TfsVCFeatures.EscapedUrl))
                 {
@@ -302,7 +302,7 @@ namespace Agent.Plugins.Repository
                 }
             }
 
-            if (!formatFlags.HasFlag(FormatFlags.OmitLogin))
+            if (!formatFlags.HasFlag(FormatTags.OmitLogin))
             {
                 if (Features.HasFlag(TfsVCFeatures.LoginType))
                 {
@@ -315,7 +315,7 @@ namespace Agent.Plugins.Repository
                 }
             }
 
-            if (!formatFlags.HasFlag(FormatFlags.OmitNoPrompt))
+            if (!formatFlags.HasFlag(FormatTags.OmitNoPrompt))
             {
                 formattedArgs.Add($"{Switch}noprompt");
             }
@@ -324,7 +324,7 @@ namespace Agent.Plugins.Repository
         }
 
         [Flags]
-        protected enum FormatFlags
+        protected enum FormatTags
         {
             None = 0,
             OmitCollectionUrl = 1,

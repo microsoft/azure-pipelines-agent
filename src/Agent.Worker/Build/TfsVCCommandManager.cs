@@ -102,10 +102,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         protected Task RunCommandAsync(params string[] args)
         {
-            return RunCommandAsync(FormatFlags.None, args);
+            return RunCommandAsync(FormatTags.None, args);
         }
 
-        protected async Task RunCommandAsync(FormatFlags formatFlags, params string[] args)
+        protected async Task RunCommandAsync(FormatTags formatFlags, params string[] args)
         {
             // Validation.
             ArgUtil.NotNull(args, nameof(args));
@@ -144,20 +144,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         protected Task<string> RunPorcelainCommandAsync(params string[] args)
         {
-            return RunPorcelainCommandAsync(FormatFlags.None, args);
+            return RunPorcelainCommandAsync(FormatTags.None, args);
         }
 
         protected Task<string> RunPorcelainCommandAsync(bool ignoreStderr, params string[] args)
         {
-            return RunPorcelainCommandAsync(FormatFlags.None, ignoreStderr, args);
+            return RunPorcelainCommandAsync(FormatTags.None, ignoreStderr, args);
         }
 
-        protected Task<string> RunPorcelainCommandAsync(FormatFlags formatFlags, params string[] args)
+        protected Task<string> RunPorcelainCommandAsync(FormatTags formatFlags, params string[] args)
         {
             return RunPorcelainCommandAsync(formatFlags, false, args);
         }
 
-        protected async Task<string> RunPorcelainCommandAsync(FormatFlags formatFlags, bool ignoreStderr, params string[] args)
+        protected async Task<string> RunPorcelainCommandAsync(FormatTags formatFlags, bool ignoreStderr, params string[] args)
         {
             // Run the command.
             TfsVCPorcelainCommandResult result = await TryRunPorcelainCommandAsync(formatFlags, ignoreStderr, args);
@@ -174,7 +174,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return string.Join(Environment.NewLine, result.Output ?? new List<string>());
         }
 
-        protected async Task<TfsVCPorcelainCommandResult> TryRunPorcelainCommandAsync(FormatFlags formatFlags, bool ignoreStderr, params string[] args)
+        protected async Task<TfsVCPorcelainCommandResult> TryRunPorcelainCommandAsync(FormatTags formatFlags, bool ignoreStderr, params string[] args)
         {
             // Validation.
             ArgUtil.NotNull(args, nameof(args));
@@ -231,7 +231,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
         }
 
-        private string FormatArguments(FormatFlags formatFlags, params string[] args)
+        private string FormatArguments(FormatTags formatFlags, params string[] args)
         {
             // Validation.
             ArgUtil.NotNull(args, nameof(args));
@@ -258,7 +258,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
 
             // Add the common parameters.
-            if (!formatFlags.HasFlag(FormatFlags.OmitCollectionUrl))
+            if (!formatFlags.HasFlag(FormatTags.OmitCollectionUrl))
             {
                 if (Features.HasFlag(TfsVCFeatures.EscapedUrl))
                 {
@@ -285,7 +285,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 }
             }
 
-            if (!formatFlags.HasFlag(FormatFlags.OmitLogin))
+            if (!formatFlags.HasFlag(FormatTags.OmitLogin))
             {
                 if (Features.HasFlag(TfsVCFeatures.LoginType))
                 {
@@ -298,7 +298,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 }
             }
 
-            if (!formatFlags.HasFlag(FormatFlags.OmitNoPrompt))
+            if (!formatFlags.HasFlag(FormatTags.OmitNoPrompt))
             {
                 formattedArgs.Add($"{Switch}noprompt");
             }
@@ -320,7 +320,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         }
 
         [Flags]
-        protected enum FormatFlags
+        protected enum FormatTags
         {
             None = 0,
             OmitCollectionUrl = 1,
