@@ -137,9 +137,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                     {
                         client.GetAsync(_testUri).GetAwaiter().GetResult();
                     }
-                    catch (Exception)
+                    catch (Exception e)
                     {
-                        trace.Verbose("The current system doesn't support custom server certificate validation.");
+                        trace.Verbose($"SSL diagnostic data collection is disabled, due to issue:\n{e.Message}");
                         return false;
                     }
                     return true;
