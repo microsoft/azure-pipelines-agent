@@ -233,5 +233,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 s_locStrings = locStrings;
             }
         }
+
+        public static string HashNormalizer(string hash)
+        {
+            // Reducing the hash to the lower case without hyphens.
+            // For example: from "A1-B2-C3-D4-E5-F6", we get "a1b2c3d5f6".
+            return String.Join("", hash.Split("-")).ToLower();
+        }
+
+        public static bool AreHashesEqual(string leftValue, string rightValue)
+        {
+            // Compare hashes.
+            // For example: "A1-B2-C3-D4-E5-F6" and "a1b2c3d5f6" are the same hash.
+            return HashNormalizer(leftValue) == HashNormalizer(rightValue);
+        }
     }
 }

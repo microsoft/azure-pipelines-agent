@@ -57,6 +57,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         bool WriteDebug { get; }
         long Write(string tag, string message);
         void QueueAttachFile(string type, string name, string filePath);
+        ITraceWriter GetTraceWriter();
 
         // timeline record update methods
         void Start(string currentOperation = null);
@@ -74,6 +75,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         void SetStepTarget(Pipelines.StepTarget target);
         string TranslatePathForStepTarget(string val);
         IHostContext GetHostContext();
+        /// <summary>
+        /// Re-initializes force completed - between next retry attempt
+        /// </summary>
+        /// <returns></returns>
+        void ReInitializeForceCompleted();
+        /// <summary>
+        /// Cancel force task completion between retry attempts
+        /// </summary>
+        /// <returns></returns>
+        void CancelForceTaskCompletion();
     }
 
     public sealed class ExecutionContext : AgentService, IExecutionContext, IDisposable
@@ -96,6 +107,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private Guid _detailTimelineId;
         private int _childTimelineRecordOrder = 0;
         private CancellationTokenSource _cancellationTokenSource;
+        private CancellationTokenSource _forceCompleteCancellationTokenSource = new CancellationTokenSource();
         private TaskCompletionSource<int> _forceCompleted = new TaskCompletionSource<int>();
         private bool _throttlingReported = false;
         private ExecutionTargetInfo _defaultStepTarget;
@@ -112,6 +124,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public Guid Id => _record.Id;
         public Task ForceCompleted => _forceCompleted.Task;
         public CancellationToken CancellationToken => _cancellationTokenSource.Token;
+        public CancellationToken ForceCompleteCancellationToken => _forceCompleteCancellationTokenSource.Token;
         public List<ServiceEndpoint> Endpoints { get; private set; }
         public List<SecureFile> SecureFiles { get; private set; }
         public List<Pipelines.RepositoryResource> Repositories { get; private set; }
@@ -181,9 +194,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Trace.Info("Force finish current task in 5 sec.");
             Task.Run(async () =>
             {
-                await Task.Delay(TimeSpan.FromSeconds(5));
-                _forceCompleted?.TrySetResult(1);
+                await Task.Delay(TimeSpan.FromSeconds(5), ForceCompleteCancellationToken);
+                if (!ForceCompleteCancellationToken.IsCancellationRequested)
+                {
+                    _forceCompleted?.TrySetResult(1);
+                }
             });
+        }
+
+        public void CancelForceTaskCompletion()
+        {
+            Trace.Info($"Forced completion canceled");
+            this._forceCompleteCancellationTokenSource.Cancel();
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1721: Property names should not match get methods")]
@@ -708,6 +730,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             _jobServerQueue.QueueFileUpload(_mainTimelineId, _record.Id, type, name, filePath, deleteSource: false);
         }
 
+        public ITraceWriter GetTraceWriter()
+        {
+            return Trace;
+        }
+
         private void InitializeTimelineRecord(Guid timelineId, Guid timelineRecordId, Guid? parentTimelineRecordId, string recordType, string displayName, string refName, int? order)
         {
             _mainTimelineId = timelineId;
@@ -789,11 +816,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public string TranslatePathForStepTarget(string val)
         {
             var stepTarget = StepTarget();
-            if (stepTarget != null)
+            var isCheckoutType = Convert.ToBoolean(this.Variables.Get(Constants.Variables.Task.SkipTranslatorForCheckout, true));
+            if (stepTarget == null || (isCheckoutType && (_currentStepTarget == null || stepTarget is HostInfo)))
             {
-                return stepTarget.TranslateContainerPathForImageOS(PlatformUtil.HostOS, stepTarget.TranslateToContainerPath(val));
+                return val;
             }
-            return val;
+            return stepTarget.TranslateContainerPathForImageOS(PlatformUtil.HostOS, stepTarget.TranslateToContainerPath(val));
         }
 
         public ExecutionTargetInfo StepTarget()
@@ -834,9 +862,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return new SystemEnvironment();
         }
 
+        public void ReInitializeForceCompleted()
+        {
+            this._forceCompleted = new TaskCompletionSource<int>();
+            this._forceCompleteCancellationTokenSource = new CancellationTokenSource();
+        }
+
         public void Dispose()
         {
             _cancellationTokenSource?.Dispose();
+            _forceCompleteCancellationTokenSource?.Dispose();
 
             _buildLogsWriter?.Dispose();
             _buildLogsWriter = null;

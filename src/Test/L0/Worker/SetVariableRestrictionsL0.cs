@@ -248,69 +248,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             }
         }
 
-        [Theory]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Worker")]
-        [InlineData("Enabled", false, true)]
-        [InlineData("enabled", false, true)]
-        [InlineData("WarningOnly", true, true)]
-        [InlineData("Disabled", true, false)]
-        [InlineData("disAbled", true, false)]
-        [InlineData("Unexpected", true, true)]
-        public void TaskDefinitionRestrictionsEnforcementMode(string mode, bool variableExpected, bool warningExpected)
-        {
-            using (TestHostContext hc = CreateTestContext())
-            {
-                _ec.Setup(x => x.GetVariableValueOrDefault("agent.taskRestrictionsEnforcementMode")).Returns(mode);
-                var definition = new DefinitionData { Name = "TestTask", Version = new DefinitionVersion { Major = 2, Minor = 7, Patch = 1 } };
-                // allow no variables
-                var restrictions = new TaskDefinitionRestrictions(definition) { SettableVariables = new TaskVariableRestrictions() };
-                _ec.Object.Restrictions.Add(restrictions);
-                var variable = "myVar";
-                var value = "myValue";
-                Command command = SetVariableCommand(variable, value);
-                TaskSetVariableCommand setVariable = new TaskSetVariableCommand();
-                setVariable.Execute(_ec.Object, command);
-                Assert.Equal((variableExpected ? value : null), _variables.Get(variable));
-                if (warningExpected)
-                {
-                    Assert.Equal(1, _warnings.Count);
-                    if (variableExpected)
-                    {
-                        Assert.EndsWith("SetVariableNotAllowedWarnOnly", _warnings[0]);
-                    }
-                    else
-                    {
-                        Assert.EndsWith("SetVariableNotAllowed", _warnings[0]);
-                    }
-                }
-                else
-                {
-                    Assert.Equal(0, _warnings.Count);
-                }
-            }
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Worker")]
-        public void EnforcementModeDoesNotImpactPipelineRestrictions()
-        {
-            using (TestHostContext hc = CreateTestContext())
-            {
-                // This does nothing because this isn't using a TaskDefinitionRestrictions
-                _ec.Setup(x => x.GetVariableValueOrDefault("agent.taskRestrictionsEnforcementMode")).Returns("Disabled");
-                _ec.Object.Restrictions.Add(new TaskRestrictions() { SettableVariables = new TaskVariableRestrictions() });
-                var variable = "myVar";
-                var setVariable = new TaskSetVariableCommand();
-                var command = SetVariableCommand(variable, "myVal");
-                setVariable.Execute(_ec.Object, command);
-                Assert.Equal(null, _variables.Get(variable));
-                Assert.Equal(1, _warnings.Count);
-                Assert.Contains("SetVariableNotAllowed", _warnings[0]);
-            }
-        }
-
         private TestHostContext CreateTestContext([CallerMemberName] String testName = "")
         {
             var hc = new TestHostContext(this, testName);

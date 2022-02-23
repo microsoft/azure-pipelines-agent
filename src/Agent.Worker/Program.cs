@@ -6,6 +6,7 @@ using System;
 using System.Globalization;
 using System.Threading.Tasks;
 using Agent.Sdk;
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -51,6 +52,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 return await worker.RunAsync(
                     pipeIn: args[1],
                     pipeOut: args[2]);
+            }
+            catch (AggregateException ex)
+            {
+                ExceptionsUtil.HandleAggregateException((AggregateException)ex, trace.Error);
             }
             catch (Exception ex)
             {

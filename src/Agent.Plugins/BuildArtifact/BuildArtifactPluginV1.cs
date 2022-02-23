@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Agent.Plugins;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.Core.WebApi;
@@ -59,6 +60,7 @@ namespace Agent.Plugins.BuildArtifacts
             public static readonly string RetryDownloadCount = "retryDownloadCount";
             public static readonly string ParallelizationLimit = "parallelizationLimit";
             public static readonly string CheckDownloadedFiles = "checkDownloadedFiles";
+            public static readonly string ExtractTars = "extractTars";
         }
     }
 
@@ -72,6 +74,7 @@ namespace Agent.Plugins.BuildArtifacts
         static readonly string buildVersionToDownloadLatest = "latest";
         static readonly string buildVersionToDownloadSpecific = "specific";
         static readonly string buildVersionToDownloadLatestFromBranch = "latestFromBranch";
+        static readonly string extractedTarsTempDir = "extracted_tars";
         static readonly Options minimatchOptions = new Options() {
            Dot = true,
            NoBrace = true,
@@ -105,8 +108,14 @@ namespace Agent.Plugins.BuildArtifacts
             string retryDownloadCount = context.GetInput(TaskProperties.RetryDownloadCount, required: false);
             string parallelizationLimit = context.GetInput(TaskProperties.ParallelizationLimit, required: false);
             string checkDownloadedFiles = context.GetInput(TaskProperties.CheckDownloadedFiles, required: false);
+            string extractTars = context.GetInput(TaskProperties.ExtractTars, required: false);
+
+            string extractedTarsTempPath = Path.Combine(context.Variables.GetValueOrDefault("Agent.TempDirectory")?.Value, extractedTarsTempDir);
 
             targetPath = Path.IsPathFullyQualified(targetPath) ? targetPath : Path.GetFullPath(Path.Combine(defaultWorkingDirectory, targetPath));
+
+            // Empty input field "Matching pattern" must be recognised as default value '**'
+            itemPattern = string.IsNullOrEmpty(itemPattern) ? "**" : itemPattern;
 
             string[] minimatchPatterns = itemPattern.Split(
                 new[] { "\n" },
@@ -137,6 +146,16 @@ namespace Agent.Plugins.BuildArtifacts
             }
 
             var resultFilter = GetResultFilter(allowPartiallySucceededBuildsBool, allowFailedBuildsBool, allowCanceledBuildsBool);
+
+            if (!bool.TryParse(extractTars, out var extractTarsBool))
+            {
+                extractTarsBool = false;
+            }
+
+            if (extractTarsBool && PlatformUtil.RunningOnWindows)
+            {
+                throw new ArgumentException(StringUtil.Loc("TarExtractionNotSupportedInWindows"));
+            }
 
             PipelineArtifactServer server = new PipelineArtifactServer(tracer);
             ArtifactDownloadParameters downloadParameters;
@@ -189,7 +208,9 @@ namespace Agent.Plugins.BuildArtifacts
                     ParallelizationLimit = int.TryParse(parallelizationLimit, out var parallelLimit) ? parallelLimit : 8,
                     RetryDownloadCount = int.TryParse(retryDownloadCount, out var retryCount) ? retryCount : 4,
                     CheckDownloadedFiles = bool.TryParse(checkDownloadedFiles, out var checkDownloads) && checkDownloads,
-                    CustomMinimatchOptions = minimatchOptions
+                    CustomMinimatchOptions = minimatchOptions,
+                    ExtractTars = extractTarsBool,
+                    ExtractedTarsTempPath = extractedTarsTempPath
                 };
             }
             else if (buildType == buildTypeSpecific)
@@ -284,7 +305,9 @@ namespace Agent.Plugins.BuildArtifacts
                     ParallelizationLimit = int.TryParse(parallelizationLimit, out var parallelLimit) ? parallelLimit : 8,
                     RetryDownloadCount = int.TryParse(retryDownloadCount, out var retryCount) ? retryCount : 4,
                     CheckDownloadedFiles = bool.TryParse(checkDownloadedFiles, out var checkDownloads) && checkDownloads,
-                    CustomMinimatchOptions = minimatchOptions
+                    CustomMinimatchOptions = minimatchOptions,
+                    ExtractTars = extractTarsBool,
+                    ExtractedTarsTempPath = extractedTarsTempPath
                 };
             }
             else
@@ -301,6 +324,13 @@ namespace Agent.Plugins.BuildArtifacts
 
             // Build artifacts always includes the artifact in the path name
             downloadParameters.IncludeArtifactNameInPath = true;
+
+            // By default, file container provider appends artifact name to target path when downloading specific files.
+            // This is undesirable because DownloadBuildArtifactsV0 doesn't do that.
+            // We also have a blob to enable appending artifact name just in case we break someone.
+            // By default, its value is going to be false, so we're defaulting to V0-like target path resolution.
+            downloadParameters.AppendArtifactNameToTargetPath =
+                AgentKnobs.EnableIncompatibleBuildArtifactsPathResolution.GetValue(context).AsBoolean();
 
             context.Output(StringUtil.Loc("DownloadArtifactTo", targetPath));
             await server.DownloadAsyncV2(context, downloadParameters, downloadOption, token);

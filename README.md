@@ -43,6 +43,14 @@ It also replaces the Node-based agent for TFS 2015.
 | TFS2017 (onprem)   |  Yes  | Yes    |  |
 | TFS2018 (onprem)   |  Yes  | Yes    |  |
 
+## Latest and Pre-release labels for releases
+
+Releases have labels **Latest** and **Pre-release**. Please make a note that the labels mean:
+- **Latest** - release process of the agent version is fully completed and it's available for all users;
+- **Pre-release** - release process of the agent version was started and it's already available for using by part of users.
+
+Each new version of agent is released for users by groups during several days. And usually it becomes available for all users within 6-8 days after start of release. The release has label "Pre-release" during all these days. So it's expected behavior if specific release is used by builds in pipelines but it's marked as "Pre-release".
+
 ## Troubleshooting
 
 Troubleshooting tips are [located here](docs/troubleshooting.md)

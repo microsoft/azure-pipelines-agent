@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Globalization;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -39,7 +40,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         TrackingConfig MergeTrackingConfigs(
             IExecutionContext executionContext,
             TrackingConfig newConfig,
-            TrackingConfig previousConfig);
+            TrackingConfig previousConfig,
+            bool overrideBuildDirectory);
 
         void UpdateTrackingConfig(
             IExecutionContext executionContext,
@@ -122,8 +124,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         public TrackingConfig MergeTrackingConfigs(
             IExecutionContext executionContext,
             TrackingConfig newConfig,
-            TrackingConfig previousConfig)
+            TrackingConfig previousConfig,
+            bool overrideBuildDirectory
+            )
         {
+            /*
+             * (Temporarily till we have automatic tests coverage for this case) for any changes in this method - please make sure to test following scenarios:
+             * - Self-hosted agent + several sequential pipeline runs for the same repos set - make sure that Build.SourcesDirectory is set properly after last checkout
+             */
             ArgUtil.NotNull(newConfig, nameof(newConfig));
             ArgUtil.NotNull(previousConfig, nameof(previousConfig));
 
@@ -132,9 +140,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             TrackingConfig mergedConfig = previousConfig.Clone();
 
             // Update the sources directory if we don't have one
-            if (!string.IsNullOrEmpty(mergedConfig.SourcesDirectory))
+            if (string.IsNullOrEmpty(mergedConfig.SourcesDirectory))
             {
                 mergedConfig.SourcesDirectory = newConfig.SourcesDirectory;
+            }
+
+            if (overrideBuildDirectory)
+            {
+                mergedConfig.BuildDirectory = newConfig.BuildDirectory;
             }
 
             // Fill out repository type if it's not there.
@@ -149,7 +162,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 mergedConfig.CollectionUrl = newConfig.CollectionUrl;
             }
 
-            return previousConfig;
+            return mergedConfig;
         }
 
         public void UpdateTrackingConfig(
