@@ -137,8 +137,7 @@ jobs:
       - task: UseDotNet@2
         displayName: Install .NET Core 6 SDK
         inputs:
-          version: '6.0.x'
-          packageType: runtime
+          version: '6.0.2'
           performMultiLevelLookup: true
     - script: ${{ variables.devCommand }} testl1 Debug ${{ parameters.os }}-${{ parameters.arch }}
       workingDirectory: src
