@@ -40,6 +40,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_DOCKER_MTU_VALUE"),
             new BuiltInDefaultKnobSource(string.Empty));
 
+        public static readonly Knob DockerNetworkCreateDriver = new Knob(
+            nameof(DockerNetworkCreateDriver),
+            "Allow to specify which driver will be used when creating docker network",
+            new RuntimeKnobSource("agent.DockerNetworkCreateDriver"),
+            new EnvironmentKnobSource("AZP_AGENT_DOCKER_NETWORK_CREATE_DRIVER"),
+            new BuiltInDefaultKnobSource(string.Empty));
+
         // Directory structure
         public static readonly Knob AgentToolsDirectory = new Knob(
             nameof(AgentToolsDirectory),
