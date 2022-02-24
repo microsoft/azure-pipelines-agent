@@ -81,7 +81,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Trace.Info($"Creating job server with URL: {jobServerUrl}");
             // jobServerQueue is the throttling reporter.
             _jobServerQueue = HostContext.GetService<IJobServerQueue>();
-#pragma warning disable CA2000
             VssConnection jobConnection = VssUtil.CreateConnection(
                 jobServerUrl,
                 jobServerCredential,

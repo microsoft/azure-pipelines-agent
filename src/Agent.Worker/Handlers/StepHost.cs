@@ -126,6 +126,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope")]
         public async Task<int> ExecuteAsync(string workingDirectory,
                                             string fileName,
                                             string arguments,
