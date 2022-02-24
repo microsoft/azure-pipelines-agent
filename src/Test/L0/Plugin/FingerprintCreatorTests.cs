@@ -26,6 +26,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         private static readonly string path1;
         private static readonly string path2;
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA5394:Do not use insecure randomness")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1810:Initialize all static fields")]
         static FingerprintCreatorTests()
         {
             var r = new Random(0);

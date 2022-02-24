@@ -37,6 +37,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         //     }
         // }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA5394: Do not use insecure randomness")]
         private static void FillBufferWithTestContent(int seed, byte[] bytes)
         {
             var r = new Random(seed);
