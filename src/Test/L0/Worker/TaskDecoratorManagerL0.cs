@@ -3,6 +3,7 @@
 
 using System;
 using Microsoft.VisualStudio.Services.Agent.Worker;
+using Moq;
 using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
@@ -14,6 +15,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public void IsInjectedTaskForTarget_TaskWithTargetPrefix()
         {
+            var executionContext = new Mock<IExecutionContext>();
+
             const String PostTargetTask = "__system_posttargettask_";
             const String PreTargetTask = "__system_pretargettask_";
             var taskWithPreTarget = $"{PreTargetTask}TestTask";
@@ -21,8 +24,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             
             TaskDecoratorManager decoratorManager = new TaskDecoratorManager();
 
-            Assert.True(decoratorManager.IsInjectedTaskForTarget(taskWithPostTarget));
-            Assert.True(decoratorManager.IsInjectedTaskForTarget(taskWithPreTarget));
+            Assert.True(decoratorManager.IsInjectedTaskForTarget(taskWithPostTarget, executionContext.Object));
+            Assert.True(decoratorManager.IsInjectedTaskForTarget(taskWithPreTarget, executionContext.Object));
         }
 
         [Fact]
@@ -30,11 +33,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public void IsInjectedTaskForTarget_TaskWithoutTargetPrefix()
         {
+            var executionContext = new Mock<IExecutionContext>();
+
             var taskWithoutTarget = "TestTask";
 
             TaskDecoratorManager decoratorManager = new TaskDecoratorManager();
 
-            Assert.False(decoratorManager.IsInjectedTaskForTarget(taskWithoutTarget));
+            Assert.False(decoratorManager.IsInjectedTaskForTarget(taskWithoutTarget, executionContext.Object));
         }
 
         [Fact]
@@ -42,9 +47,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public void IsInjectedTaskForTarget_NullValueInTaskName()
         {
+            var executionContext = new Mock<IExecutionContext>();
+
             TaskDecoratorManager decoratorManager = new TaskDecoratorManager();
 
-            Assert.False(decoratorManager.IsInjectedTaskForTarget(null));
+            Assert.False(decoratorManager.IsInjectedTaskForTarget(null, executionContext.Object));
         }
     }
 }
