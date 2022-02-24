@@ -22,7 +22,7 @@ parameters:
 - name: rhel6_x64
   type: boolean
   displayName: RHEL 6 (x64)
-  default: true
+  default: false
 - name: macOS_x64
   type: boolean
   displayName: macOS (x64)
