@@ -65,6 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope")]
         public bool TryProcessCommand(IExecutionContext context, string input)
         {
             ArgUtil.NotNull(context, nameof(context));
@@ -111,9 +112,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                     catch (SocketException ex)
                     {
-                        #pragma warning disable CA2000 // Dispose objects before losing scope
                         ExceptionsUtil.HandleSocketException(ex, WorkerUtilities.GetVssConnection(context).Uri.ToString(), context.Error);
-                        #pragma warning restore CA2000 // Dispose objects before losing scope
                         context.CommandResult = TaskResult.Failed;
                     }
                     catch (Exception ex)

@@ -84,6 +84,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
             context.AsyncCommands.Add(commandContext);
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope")]
         private async Task PublishCodeCoverageAsync(
             IExecutionContext executionContext,
             IAsyncCommandContext commandContext,
@@ -149,9 +150,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
             }
             catch (SocketException ex)
             {
-                #pragma warning disable CA2000 // Dispose objects before losing scope
                 ExceptionsUtil.HandleSocketException(ex, WorkerUtilities.GetVssConnection(executionContext).Uri.ToString(), executionContext.Warning);
-                #pragma warning restore CA2000 // Dispose objects before losing scope
             }
             catch (Exception ex)
             {

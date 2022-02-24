@@ -40,6 +40,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             set => _jobServerQueue = value;
         }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope")]
         public async Task<TaskResult> RunAsync(Pipelines.AgentJobRequestMessage message, CancellationToken jobRequestCancellationToken)
         {
             // Validate parameters.
@@ -80,14 +82,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Trace.Info($"Creating job server with URL: {jobServerUrl}");
             // jobServerQueue is the throttling reporter.
             _jobServerQueue = HostContext.GetService<IJobServerQueue>();
-#pragma warning disable CA2000
             VssConnection jobConnection = VssUtil.CreateConnection(
                 jobServerUrl,
                 jobServerCredential,
                 Trace,
                 new DelegatingHandler[] { new ThrottlingReportHandler(_jobServerQueue) }
             );
-#pragma warning restore CA2000
             await jobServer.ConnectAsync(jobConnection);
 
             _jobServerQueue.Start(message);
@@ -189,9 +189,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 if (taskServerUri != null)
                 {
                     Trace.Info($"Creating task server with {taskServerUri}");
-#pragma warning disable CA2000
                     VssConnection connection = VssUtil.CreateConnection(taskServerUri, taskServerCredential, Trace);
-#pragma warning restore CA2000
                     await taskServer.ConnectAsync(connection);
                 }
 
@@ -204,9 +202,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         var configStore = HostContext.GetService<IConfigurationStore>();
                         taskServerUri = new Uri(configStore.GetSettings().ServerUrl);
                         Trace.Info($"Recreate task server with configuration server url: {taskServerUri}");
-#pragma warning disable CA2000
                         VssConnection connection = VssUtil.CreateConnection(taskServerUri, taskServerCredential, Trace);
-#pragma warning restore CA2000
                         await taskServer.ConnectAsync(connection);
                     }
                 }

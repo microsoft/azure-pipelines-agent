@@ -126,6 +126,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope")]
         public async Task<int> ExecuteAsync(string workingDirectory,
                                             string fileName,
                                             string arguments,
@@ -206,7 +207,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     outputEncoding = Encoding.UTF8;
                 }
 
-#pragma warning disable CA2000
                 var redirectStandardIn = new InputQueue<string>();
                 var payloadJson = JsonUtility.ToString(payload);
                 redirectStandardIn.Enqueue(payloadJson);
@@ -221,7 +221,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                          redirectStandardIn: redirectStandardIn,
                                                          inheritConsoleHandler: inheritConsoleHandler,
                                                          cancellationToken: cancellationToken);
-#pragma warning restore CA2000
             }
         }
 
