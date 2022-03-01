@@ -1,0 +1,16 @@
+parameters:
+- name: version
+  type: string
+  displayName: Version
+
+variables:
+  releaseBranch: releases/${{ parameters.version }}
+
+extends:
+  template: .azure-pipelines/pipeline.yml
+  parameters:
+    branch:  ${{ variables.releaseBranch }}
+    componentDetection: false
+    test: true
+    sign: false
+    publishArtifacts: true
