@@ -126,7 +126,6 @@ stages:
         displayName: Linux (ARM)
         pool:
           vmImage: "ubuntu-20.04"
-        # container: dotnetcore_arm
         timeoutInMinutes: 75
         os: linux
         arch: arm
