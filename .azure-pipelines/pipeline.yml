@@ -52,7 +52,7 @@ resources:
   - container: dotnetcore_arm
     image: azpagentinfra/arm:latest
   - container: centos7
-    image: centos7
+    image: azpagentinfra/centos7:latest
 
 stages:
 
