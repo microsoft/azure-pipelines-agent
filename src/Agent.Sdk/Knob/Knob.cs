@@ -11,8 +11,15 @@ namespace Agent.Sdk.Knob
     public class DeprecatedKnob : Knob
     {
         public override bool IsDeprecated => true;
+        public string DeprecationInfo;
         public DeprecatedKnob(string name, string description, params IKnobSource[] sources) : base(name, description, sources)
         {
+            DeprecationInfo = "";
+        }
+
+        public DeprecatedKnob(string name, string description, string deprecationInfo, params IKnobSource[] sources) : base(name, description, sources)
+        {
+            DeprecationInfo = deprecationInfo;
         }
     }
 

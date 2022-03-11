@@ -147,9 +147,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 HostContext.SecretMasker.AddValue(stringValue, $"JobExtension_InitializeJob_{knob.Name}");
                             }
                             var outputLine = $"   Knob: {knob.Name} = {stringValue} Source: {value.Source.GetDisplayString()} {tag}";
+
                             if (knob.IsDeprecated)
                             {
                                 context.Warning(outputLine);
+
+                                string deprecationInfo = (knob as DeprecatedKnob).DeprecationInfo;
+                                if (!string.IsNullOrEmpty(deprecationInfo))
+                                {
+                                    context.Warning(deprecationInfo);
+                                }
                             }
                             else
                             {
