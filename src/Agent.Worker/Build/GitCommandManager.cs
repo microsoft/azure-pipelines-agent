@@ -263,7 +263,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string options = StringUtil.Format($"{refSpec} -- {lfsconfig}");
             int exitCodeLfsConfigCheckout = await ExecuteGitCommandAsync(context, repositoryPath, "checkout", options, additionalCommandLine, cancellationToken);
             if (exitCodeLfsConfigCheckout != 0) {
-                context.Info("There were some issues while checkout of .lfsconfig - probably because this file does not exist (see message above for more details). Continue fetching.");
+                context.Debug("There were some issues while checkout of .lfsconfig - probably because this file does not exist (see message above for more details). Continue fetching.");
             }
 
             context.Debug($"Fetch LFS objects for git repository at: {repositoryPath} remote: {remoteName}.");
