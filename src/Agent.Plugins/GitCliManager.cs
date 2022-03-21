@@ -237,7 +237,10 @@ namespace Agent.Plugins.Repository
 
             // default options for git checkout .lfsconfig
             string options = StringUtil.Format($"{refSpec} -- {lfsconfig}");
-            await ExecuteGitCommandAsync(context, repositoryPath, "checkout", options, additionalCommandLine, cancellationToken);
+            int exitCodeLfsConfigCheckout = await ExecuteGitCommandAsync(context, repositoryPath, "checkout", options, additionalCommandLine, cancellationToken);
+            if (exitCodeLfsConfigCheckout != 0) {
+                context.Debug("There were some issues while checkout of .lfsconfig - probably because this file does not exist (see message above for more details). Continue fetching.");
+            }
 
             context.Debug($"Fetch LFS objects for git repository at: {repositoryPath} remote: {remoteName}.");
 
