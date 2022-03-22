@@ -37,8 +37,6 @@ namespace Agent.Plugins.Repository
         protected string gitLfsPath = null;
         protected Version gitLfsVersion = null;
 
-        public GitCliManager() { }
-
         public GitCliManager(Dictionary<string, string> envs = null)
         {
             if (envs != null)
@@ -593,7 +591,7 @@ namespace Agent.Plugins.Repository
             return version;
         }
 
-        public virtual async Task<int> ExecuteGitCommandAsync(AgentTaskPluginExecutionContext context, string repoRoot, string command, string options, CancellationToken cancellationToken = default(CancellationToken))
+        protected virtual async Task<int> ExecuteGitCommandAsync(AgentTaskPluginExecutionContext context, string repoRoot, string command, string options, CancellationToken cancellationToken = default(CancellationToken))
         {
             string arg = StringUtil.Format($"{command} {options}").Trim();
             context.Command($"git {arg}");

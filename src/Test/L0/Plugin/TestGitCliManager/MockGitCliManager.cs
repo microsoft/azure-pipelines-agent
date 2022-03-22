@@ -29,7 +29,7 @@ namespace Test.L0.Plugin.TestGitCliManager
             return Task.FromResult(0);
         }
 
-        public override Task<int> ExecuteGitCommandAsync(AgentTaskPluginExecutionContext context, string repoRoot, string command, string options, CancellationToken cancellationToken = default(CancellationToken))
+        protected override Task<int> ExecuteGitCommandAsync(AgentTaskPluginExecutionContext context, string repoRoot, string command, string options, CancellationToken cancellationToken = default(CancellationToken))
         {
             return Task.FromResult(0);
         }

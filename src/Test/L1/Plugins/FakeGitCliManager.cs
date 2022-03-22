@@ -46,7 +46,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             return new Version(2, 99999);
         }
 
-        public override async Task<int> ExecuteGitCommandAsync(AgentTaskPluginExecutionContext context, string repoRoot, string command, string options, CancellationToken cancellationToken = default(CancellationToken))
+        protected override async Task<int> ExecuteGitCommandAsync(AgentTaskPluginExecutionContext context, string repoRoot, string command, string options, CancellationToken cancellationToken = default(CancellationToken))
         {
             await Task.Delay(1);
             return 0;
