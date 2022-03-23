@@ -76,6 +76,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         void GrantDirectoryPermissionForAccount(string accountName, IList<string> folders);
 
         void RevokeDirectoryPermissionForAccount(IList<string> folders);
+
+        bool IsWellKnownIdentity(string accountName);
+
+        bool IsManagedServiceAccount(string accountName);
     }
 
     public class NativeWindowsServiceHelper : AgentService, INativeWindowsServiceHelper
@@ -370,10 +374,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
-        public static bool IsWellKnownIdentity(String accountName)
+        public bool IsWellKnownIdentity(String accountName)
         {
             NTAccount ntaccount = new NTAccount(accountName);
             SecurityIdentifier sid = (SecurityIdentifier)ntaccount.Translate(typeof(SecurityIdentifier));
+            // Debug only
+            Trace.Info(sid.Value);
 
             SecurityIdentifier networkServiceSid = new SecurityIdentifier(WellKnownSidType.NetworkServiceSid, null);
             SecurityIdentifier localServiceSid = new SecurityIdentifier(WellKnownSidType.LocalServiceSid, null);
@@ -452,6 +458,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public void InstallService(string serviceName, string serviceDisplayName, string logonAccount, string logonPassword)
         {
             Trace.Entering();
+
+            if (IsManagedServiceAccount(logonAccount))
+            {
+                logonAccount = SanitizeManagedServiceAccountName(logonAccount);
+                Trace.Info(logonAccount);
+            }
 
             string agentServiceExecutable = "\"" + Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), WindowsServiceControlManager.WindowsServiceControllerName) + "\"";
             IntPtr scmHndl = IntPtr.Zero;
@@ -923,6 +935,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Trace.Info(StringUtil.Format($"Delete the group {groupName}."));
             DeleteLocalGroup(groupName);
         }
+        /// <summary>
+        /// Checks if account is managed service
+        /// </summary>
+        /// <param name="accountName">account name</param>
+        /// <returns></returns>
+        public bool IsManagedServiceAccount(String accountName)
+        {
+            bool isServiceAccount = false;
+            accountName = SanitizeManagedServiceAccountName(accountName);
+            var result = NetIsServiceAccount(null, accountName, ref isServiceAccount);
+            if (result == 0)
+            {
+                Trace.Info($"Account '{accountName}' is managed service account: {isServiceAccount}.");
+                return isServiceAccount;
+            }
+            else
+            {
+                Trace.Info($"Fail to check account '{accountName}' is managed service account or not.");
+                int lastErrorCode = (int)GetLastError();
+                Exception win32exception = new Win32Exception(lastErrorCode);
+                Trace.Error(win32exception);
+                return false;
+            }
+        }
+
 
         private bool IsValidCredentialInternal(string domain, string userName, string logonPassword, UInt32 logonType)
         {
@@ -967,6 +1004,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 Trace.Error(exception);
                 return null;
+            }
+        }
+
+        /// <summary>
+        /// Removes '$' character from managed service account name
+        /// </summary>
+        /// <param name="accountName">account name</param>
+        /// <returns></returns>
+        private string SanitizeManagedServiceAccountName(string accountName)
+        {
+            // remove the last '$' for MSA
+            ArgUtil.NotNullOrEmpty(accountName, nameof(accountName));
+            if (accountName[accountName.Length - 1].Equals('$'))
+            {
+                return accountName.Remove(accountName.Length - 1);
+            }
+            else
+            {
+                return accountName;
             }
         }
 
@@ -1255,6 +1311,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Reboot = 2,
             RunCommand = 3
         }
+
+        [DllImport("Logoncli.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        public static extern uint NetIsServiceAccount(string ServerName, string AccountName, ref bool IsServiceAccount);
+
 
         [DllImport("Netapi32.dll")]
         private extern static int NetLocalGroupGetInfo(string servername,
