@@ -35,8 +35,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             base.Initialize(hostContext);
             _dockerManger = HostContext.GetService<IDockerCommandManager>();
-            var useHostNetwork = AgentKnobs.DockerNetworkCreateDriver.GetValue(hostContext).AsString() == "host";
-            _containerNetwork = useHostNetwork ? "host" : $"vsts_network_{Guid.NewGuid().ToString("N")}";
+            _containerNetwork = $"vsts_network_{Guid.NewGuid():N}";
+        }
+
+        private string GetContainerNetwork(IExecutionContext executionContext)
+        {
+            var useHostNetwork = AgentKnobs.DockerNetworkCreateDriver.GetValue(executionContext).AsString() == "host";
+            return useHostNetwork ? "host" : _containerNetwork;
         }
 
         public async Task StartContainersAsync(IExecutionContext executionContext, object data)
@@ -104,8 +109,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Create local docker network for this job to avoid port conflict when multiple agents run on same machine.
             // All containers within a job join the same network
-            await CreateContainerNetworkAsync(executionContext, _containerNetwork);
-            containers.ForEach(container => container.ContainerNetwork = _containerNetwork);
+            var containerNetwork = GetContainerNetwork(executionContext);
+            await CreateContainerNetworkAsync(executionContext, containerNetwork);
+            containers.ForEach(container => container.ContainerNetwork = containerNetwork);
 
             foreach (var container in containers)
             {
@@ -140,7 +146,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 await StopContainerAsync(executionContext, container);
             }
             // Remove the container network
-            await RemoveContainerNetworkAsync(executionContext, _containerNetwork);
+            var containerNetwork = GetContainerNetwork(executionContext);
+            await RemoveContainerNetworkAsync(executionContext, containerNetwork);
         }
 
         private async Task PullContainerAsync(IExecutionContext executionContext, ContainerInfo container)
