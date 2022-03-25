@@ -105,7 +105,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Create local docker network for this job to avoid port conflict when multiple agents run on same machine.
             // All containers within a job join the same network
             await CreateContainerNetworkAsync(executionContext, _containerNetwork);
-
             containers.ForEach(container => container.ContainerNetwork = _containerNetwork);
 
             foreach (var container in containers)
@@ -140,7 +139,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 await StopContainerAsync(executionContext, container);
             }
-
             // Remove the container network
             await RemoveContainerNetworkAsync(executionContext, _containerNetwork);
         }
