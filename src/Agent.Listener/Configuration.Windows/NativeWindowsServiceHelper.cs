@@ -378,8 +378,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         {
             NTAccount ntaccount = new NTAccount(accountName);
             SecurityIdentifier sid = (SecurityIdentifier)ntaccount.Translate(typeof(SecurityIdentifier));
-            // Debug only
-            Trace.Info(sid.Value);
 
             SecurityIdentifier networkServiceSid = new SecurityIdentifier(WellKnownSidType.NetworkServiceSid, null);
             SecurityIdentifier localServiceSid = new SecurityIdentifier(WellKnownSidType.LocalServiceSid, null);
@@ -461,7 +459,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             if (IsManagedServiceAccount(logonAccount))
             {
-                logonAccount = SanitizeManagedServiceAccountName(logonAccount);
                 Trace.Info(logonAccount);
             }
 
