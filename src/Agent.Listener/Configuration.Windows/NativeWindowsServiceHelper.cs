@@ -457,9 +457,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         {
             Trace.Entering();
 
-            if (IsManagedServiceAccount(logonAccount))
+            try
             {
-                Trace.Info(logonAccount);
+                var isManagedServiceAccount = IsManagedServiceAccount(logonAccount);
+                Trace.Info($"Account '{logonAccount}' is managed service account: {isManagedServiceAccount}.");
+            }
+            catch (Exception e)
+            {
+                Trace.Info($"Fail to check account '{logonAccount}' is managed service account or not due to error: {e.Message}");
             }
 
             string agentServiceExecutable = "\"" + Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), WindowsServiceControlManager.WindowsServiceControllerName) + "\"";
@@ -936,7 +941,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         /// Checks if account is managed service
         /// </summary>
         /// <param name="accountName">account name</param>
-        /// <returns></returns>
+        /// <returns>Returns true if account is managed service.</returns>
+        /// <exception cref="Win32Exception">Throws this exception if there is some error during check.</exception>
         public bool IsManagedServiceAccount(String accountName)
         {
             bool isServiceAccount = false;
@@ -944,16 +950,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             var result = NetIsServiceAccount(null, accountName, ref isServiceAccount);
             if (result == 0)
             {
-                Trace.Info($"Account '{accountName}' is managed service account: {isServiceAccount}.");
                 return isServiceAccount;
             }
             else
             {
-                Trace.Info($"Fail to check account '{accountName}' is managed service account or not.");
                 int lastErrorCode = (int)GetLastError();
                 Exception win32exception = new Win32Exception(lastErrorCode);
-                Trace.Error(win32exception);
-                return false;
+                throw win32exception;
             }
         }
 
