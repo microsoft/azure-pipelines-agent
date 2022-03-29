@@ -947,7 +947,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         {
             bool isServiceAccount = false;
             accountName = SanitizeManagedServiceAccountName(accountName);
-            var result = NetIsServiceAccount(null, accountName, ref isServiceAccount);
+            var result = this.CheckNetIsServiceAccount(null, accountName, ref isServiceAccount);
             if (result == 0)
             {
                 return isServiceAccount;
@@ -955,11 +955,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             else
             {
                 int lastErrorCode = (int)GetLastError();
-                Exception win32exception = new Win32Exception(lastErrorCode);
-                throw win32exception;
+                throw new Win32Exception(lastErrorCode);
             }
         }
 
+        /// <summary>
+        /// Checks if account is managed service
+        /// </summary>
+        /// <param name="ServerName"></param>
+        /// <param name="AccountName"></param>
+        /// <param name="isServiceAccount"></param>
+        /// <returns>Returns 0 if account is managed service, otherwise - returns non-zero code</returns>
+        /// <exception cref="Win32Exception">Throws exception if there's an error during check</exception>
+        public virtual uint CheckNetIsServiceAccount(string ServerName, string AccountName, ref bool isServiceAccount)
+        {
+            return NativeWindowsServiceHelper.NetIsServiceAccount(ServerName, AccountName, ref isServiceAccount);
+        }
 
         private bool IsValidCredentialInternal(string domain, string userName, string logonPassword, UInt32 logonType)
         {
@@ -1313,7 +1324,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         }
 
         [DllImport("Logoncli.dll", SetLastError = true, CharSet = CharSet.Auto)]
-        public static extern uint NetIsServiceAccount(string ServerName, string AccountName, ref bool IsServiceAccount);
+        private static extern uint NetIsServiceAccount(string ServerName, string AccountName, ref bool IsServiceAccount);
 
 
         [DllImport("Netapi32.dll")]
