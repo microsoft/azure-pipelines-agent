@@ -16,6 +16,7 @@ using System.Linq;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
+using Agent.Sdk.Knob;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
@@ -161,7 +162,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             // Copy event logs for windows machines
-            if (PlatformUtil.RunningOnWindows)
+            string DumpJobEventLogs = AgentKnobs.DumpJobEventLogs.GetValue(HostContext).AsString();
+            if (!string.IsNullOrEmpty(DumpJobEventLogs) && PlatformUtil.RunningOnWindows)
             {
                 executionContext.Debug("Dumping event viewer logs for current job.");
 
