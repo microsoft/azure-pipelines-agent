@@ -124,6 +124,7 @@ namespace Agent.Sdk.Knob
         public static readonly Knob DumpJobEventLogs = new Knob(
             nameof(DumpJobEventLogs),
             "If set to anything, dump event viewer logs",
+            new RuntimeKnobSource("VSTSAGENT_DUMP_JOB_EVENT_LOG"),
             new EnvironmentKnobSource("VSTSAGENT_DUMP_JOB_EVENT_LOGS"),
             new BuiltInDefaultKnobSource(string.Empty));
 
