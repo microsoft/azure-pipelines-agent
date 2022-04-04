@@ -162,8 +162,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             // Copy event logs for windows machines
-            string DumpJobEventLogs = AgentKnobs.DumpJobEventLogs.GetValue(HostContext).AsString();
-            if (!string.IsNullOrEmpty(DumpJobEventLogs) && PlatformUtil.RunningOnWindows)
+            bool dumpJobEventLogs = AgentKnobs.DumpJobEventLogs.GetValue(executionContext).AsBoolean();
+            if (dumpJobEventLogs && PlatformUtil.RunningOnWindows)
             {
                 executionContext.Debug("Dumping event viewer logs for current job.");
 
