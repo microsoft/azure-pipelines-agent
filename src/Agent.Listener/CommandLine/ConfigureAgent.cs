@@ -140,5 +140,8 @@ namespace Agent.Listener.CommandLine
 
         [Option(Constants.Agent.CommandLine.Args.Work)]
         public string Work { get; set; }
+
+        [Option(Constants.Agent.CommandLine.Args.Ena)]
+        public bool RunAsService { get; set; }
     }
 }
