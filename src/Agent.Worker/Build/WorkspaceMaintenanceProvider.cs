@@ -87,17 +87,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 // scan unused build directories
                 executionContext.Output(StringUtil.Loc("DiscoverBuildDir", staleBuildDirThreshold));
                 trackingManager.MarkExpiredForGarbageCollection(executionContext, TimeSpan.FromDays(staleBuildDirThreshold));
+
+                executionContext.Output(StringUtil.Loc("GCBuildDir"));
+
+                // delete unused build directories
+                trackingManager.DisposeCollectedGarbage(executionContext);
             }
             else
             {
                 executionContext.Output(StringUtil.Loc("GCBuildDirNotEnabled"));
-                return false;
             }
-
-            executionContext.Output(StringUtil.Loc("GCBuildDir"));
-
-            // delete unused build directories
-            trackingManager.DisposeCollectedGarbage(executionContext);
 
             // give source provider a chance to run maintenance operation
             Trace.Info("Scan all SourceFolder tracking files.");
