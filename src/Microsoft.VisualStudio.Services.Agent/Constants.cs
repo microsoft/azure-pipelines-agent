@@ -38,7 +38,8 @@ namespace Microsoft.VisualStudio.Services.Agent
         ProxyBypass,
         Autologon,
         Options,
-        SetupInfo
+        SetupInfo,
+        TaskExceptionList // We need to remove this config file - once Node 6 handler is dropped
     }
 
     public static class Constants
@@ -155,6 +156,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public const string Once = "once";
                     public const string RunAsAutoLogon = "runasautologon";
                     public const string RunAsService = "runasservice";
+                    public const string PreventServiceStart = "preventservicestart";
                     public const string SslSkipCertValidation = "sslskipcertvalidation";
                     public const string Unattended = "unattended";
                     public const string Version = "version";
@@ -434,6 +436,13 @@ namespace Microsoft.VisualStudio.Services.Agent
                 // Keep alphabetical. If you add or remove a variable here, do the same in ReadOnlyVariables
                 //
                 public static readonly string DisplayName = "task.displayname";
+                /// <summary>
+                /// Declares requirement to skip translating of strings into checkout tasks.
+                /// It's required to prevent translating of agent system paths in container jobs.
+                /// This is for internal agent usage, set up during task execution and is not indented to be used in
+                /// cross-service communication/obtained by users.
+                /// </summary>
+                public static readonly string SkipTranslatorForCheckout = "task.skipTranslatorForCheckout";
             }
 
             public static List<string> ReadOnlyVariables = new List<string>(){
@@ -554,7 +563,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                 System.TeamProjectId,
                 System.WorkFolder,
                 // Task variables
-                Task.DisplayName
+                Task.DisplayName,
+                Task.SkipTranslatorForCheckout
             };
         }
     }

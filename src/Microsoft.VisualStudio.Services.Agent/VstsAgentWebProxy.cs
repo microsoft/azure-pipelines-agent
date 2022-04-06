@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using Agent.Sdk;
 using Agent.Sdk.Knob;
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -201,7 +202,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
                 if (!string.IsNullOrEmpty(ProxyPassword))
                 {
-                    HostContext.SecretMasker.AddValue(ProxyPassword);
+                    HostContext.SecretMasker.AddValue(ProxyPassword, WellKnownSecretAliases.ProxyPassword);
                 }
 
                 if (string.IsNullOrEmpty(ProxyUsername) || string.IsNullOrEmpty(ProxyPassword))

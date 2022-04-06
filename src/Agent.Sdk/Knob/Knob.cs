@@ -11,8 +11,15 @@ namespace Agent.Sdk.Knob
     public class DeprecatedKnob : Knob
     {
         public override bool IsDeprecated => true;
+        public string DeprecationInfo;
         public DeprecatedKnob(string name, string description, params IKnobSource[] sources) : base(name, description, sources)
         {
+            DeprecationInfo = "";
+        }
+
+        public DeprecatedKnob(string name, string description, string deprecationInfo, params IKnobSource[] sources) : base(name, description, sources)
+        {
+            DeprecationInfo = deprecationInfo;
         }
     }
 
@@ -24,10 +31,17 @@ namespace Agent.Sdk.Knob
         }
     }
 
+    public class SecretKnob : Knob
+    {
+        public SecretKnob(string name, string description, params IKnobSource[] sources) : base(name, description, sources)
+        {
+        }
+    }
+
     public class Knob
     {
         public string Name { get; private set; }
-        public IKnobSource Source { get; private set;}
+        public ICompositeKnobSource Source { get; private set;}
         public string Description { get; private set; }
         public virtual bool IsDeprecated => false;  // is going away at a future date
         public virtual bool IsExperimental => false; // may go away at a future date

@@ -122,8 +122,8 @@ namespace Agent.Plugins.Repository
             Version minRequiredGitVersion = new Version(2, 0);
             EnsureGitVersion(minRequiredGitVersion, throwOnNotMatch: true);
 
-            // suggest user upgrade to 2.9 for better git experience
-            Version recommendGitVersion = new Version(2, 9);
+            // suggest user upgrade to 2.17 for better git experience
+            Version recommendGitVersion = new Version(2, 17);
             if (!EnsureGitVersion(recommendGitVersion, throwOnNotMatch: false))
             {
                 context.Output(StringUtil.Loc("UpgradeToLatestGit", recommendGitVersion, gitVersion));
@@ -174,24 +174,20 @@ namespace Agent.Plugins.Repository
             bool reducedOutput = AgentKnobs.QuietCheckout.GetValue(context).AsBoolean();
             string progress = reducedOutput ? string.Empty : "--progress";
 
-            // default options for git fetch.
-            string options = StringUtil.Format($"{forceTag} --tags --prune {progress} --no-recurse-submodules {remoteName} {string.Join(" ", refSpec)}");
+            // insert prune-tags if knob is false to sync tags with the remote
+            string pruneTags = string.Empty;
+            if (EnsureGitVersion(new Version(2, 17), throwOnNotMatch: false) && !AgentKnobs.DisableFetchPruneTags.GetValue(context).AsBoolean())
+            {
+                pruneTags = "--prune-tags";
+            }
 
             // If shallow fetch add --depth arg
             // If the local repository is shallowed but there is no fetch depth provide for this build,
             // add --unshallow to convert the shallow repository to a complete repository
-            if (fetchDepth > 0)
-            {
-                options = StringUtil.Format($"{forceTag} --tags --prune {progress} --no-recurse-submodules --depth={fetchDepth} {remoteName} {string.Join(" ", refSpec)}");
-            }
-            else
-            {
-                if (File.Exists(Path.Combine(repositoryPath, ".git", "shallow")))
-                {
-                    options = StringUtil.Format($"{forceTag} --tags --prune {progress} --no-recurse-submodules --unshallow {remoteName} {string.Join(" ", refSpec)}");
-                }
-            }
+            string depth = fetchDepth > 0 ? $"--depth={fetchDepth}" : (File.Exists(Path.Combine(repositoryPath, ".git", "shallow")) ? "--unshallow" : string.Empty );
 
+            //define options for fetch
+            string options = $"{forceTag} --tags --prune {pruneTags} {progress} --no-recurse-submodules {remoteName} {depth} {string.Join(" ", refSpec)}";
             int retryCount = 0;
             int fetchExitCode = 0;
             while (retryCount < 3)
@@ -441,6 +437,22 @@ namespace Agent.Plugins.Repository
             // ignore any outputs by redirect them into a string list, since the output might contains secrets.
             List<string> outputStrings = new List<string>();
             int exitcode = await ExecuteGitCommandAsync(context, repositoryPath, "config", StringUtil.Format($"--get-all {configKey}"), outputStrings);
+
+            return exitcode == 0;
+        }
+
+        /// <summary>
+        /// Verify if git config contains config key with some regex pattern
+        /// git config --get-regexp <configKeyPattern>
+        /// </summary>
+        public async Task<bool> GitConfigRegexExist(AgentTaskPluginExecutionContext context, string repositoryPath, string configKeyPattern)
+        {
+            // git config --get-regexp {configKeyPattern} will return 0 and print the value if the config exist.
+            context.Debug($"Checking git config {configKeyPattern} exist or not");
+
+            // ignore any outputs by redirect them into a string list, since the output might contains secrets.
+            List<string> outputStrings = new List<string>();
+            int exitcode = await ExecuteGitCommandAsync(context, repositoryPath, "config", StringUtil.Format($"--get-regexp {configKeyPattern}"), outputStrings);
 
             return exitcode == 0;
         }

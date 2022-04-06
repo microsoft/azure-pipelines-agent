@@ -16,6 +16,7 @@ using Agent.Sdk;
 using System.Text.RegularExpressions;
 using System.Runtime.InteropServices;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
+using Newtonsoft.Json;
 
 namespace Agent.Plugins.PipelineArtifact
 {
@@ -63,6 +64,7 @@ namespace Agent.Plugins.PipelineArtifact
         private static readonly Regex jobIdentifierRgx = new Regex("[^a-zA-Z0-9 - .]", RegexOptions.Compiled | RegexOptions.CultureInvariant);
         private const string pipelineType = "pipeline";
         private const string fileShareType = "filepath";
+        private const string customProperties = "properties";
 
         protected override async Task ProcessCommandInternalAsync(
             AgentTaskPluginExecutionContext context,
@@ -82,6 +84,9 @@ namespace Agent.Plugins.PipelineArtifact
             artifactType = string.IsNullOrEmpty(artifactType) ? pipelineType : artifactType.ToLower();
 
             string defaultWorkingDirectory = context.Variables.GetValueOrDefault("system.defaultworkingdirectory").Value;
+
+            string propertiesStr = context.GetInput(customProperties, required: false);
+            IDictionary<string, string> properties = ParseCustomProperties(propertiesStr);
 
             bool onPrem = !String.Equals(context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.ServerType)?.Value, "Hosted", StringComparison.OrdinalIgnoreCase);
             if (onPrem)
@@ -138,7 +143,7 @@ namespace Agent.Plugins.PipelineArtifact
                 // Upload to VSTS BlobStore, and associate the artifact with the build.
                 context.Output(StringUtil.Loc("UploadingPipelineArtifact", fullPath, buildId));
                 PipelineArtifactServer server = new PipelineArtifactServer(tracer);
-                await server.UploadAsync(context, projectId, buildId, artifactName, fullPath, token);
+                await server.UploadAsync(context, projectId, buildId, artifactName, fullPath, properties, token);
                 context.Output(StringUtil.Loc("UploadArtifactFinished"));
 
             }
@@ -158,6 +163,30 @@ namespace Agent.Plugins.PipelineArtifact
                     // file share artifacts are not currently supported on OSX/Linux.
                     throw new InvalidOperationException(StringUtil.Loc("FileShareOperatingSystemNotSupported"));
                 }
+            }
+        }
+
+        private IDictionary<string, string> ParseCustomProperties(string properties)
+        {
+            if (string.IsNullOrWhiteSpace(properties))
+            {
+                return null;
+            }
+
+            try
+            {
+                var propertyBag = StringUtil.ConvertFromJson<IDictionary<string, string>>(properties);
+                var prefixMissing = propertyBag.Keys.FirstOrDefault(k => !k.StartsWith(PipelineArtifactConstants.CustomPropertiesPrefix));
+                if (!string.IsNullOrWhiteSpace(prefixMissing))
+                {
+                    throw new InvalidOperationException(StringUtil.Loc("ArtifactCustomPropertyInvalid", prefixMissing));
+                }
+
+                return propertyBag;
+            }
+            catch (JsonException)
+            {
+                throw new ArgumentException(StringUtil.Loc("ArtifactCustomPropertiesNotJson", properties));
             }
         }
 
@@ -196,6 +225,9 @@ namespace Agent.Plugins.PipelineArtifact
             string projectName = context.GetInput(ArtifactEventProperties.Project, required: false);
             string tags = context.GetInput(ArtifactEventProperties.Tags, required: false);
             string userSpecifiedpipelineId = context.GetInput(PipelineId, required: false);
+
+            // Empty input field "Matching pattern" must be recognised as default value '**'
+            itemPattern = string.IsNullOrEmpty(itemPattern) ? "**" : itemPattern;
 
             string[] minimatchPatterns = itemPattern.Split(
                 new[] { "\n" },

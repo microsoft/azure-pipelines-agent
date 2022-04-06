@@ -5,6 +5,7 @@ using Microsoft.TeamFoundation.TestClient.PublishTestResults;
 using System;
 using System.Collections.Generic;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
@@ -96,7 +97,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         protected override ITestResultParser GetTestResultParser(IExecutionContext executionContext)
         {
             var traceListener = new CommandTraceListener(executionContext);
-            return new TrxResultParser(traceListener);
+            var featureFlagService = executionContext.GetHostContext().GetService<IFeatureFlagService>();
+            var enableXUnitHeirarchicalParsing = featureFlagService.GetFeatureFlagState(TestResultsConstants.EnableXUnitHeirarchicalParsing, TestResultsConstants.TFSServiceInstanceGuid);
+            return new TrxResultParser(traceListener, enableXUnitHeirarchicalParsing);
         }
 
     }

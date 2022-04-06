@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
@@ -25,6 +26,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
             string scriptFile = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), "powershell", "Add-Capabilities.ps1").Replace("'", "''");
             ArgUtil.File(scriptFile, nameof(scriptFile));
             string arguments = $@"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "". '{scriptFile}'""";
+
+            string enablePrereleaseVSVersions = AgentKnobs.EnableVSPreReleaseVersions.GetValue(UtilKnobValueContext.Instance()).AsString();
+            Environment.SetEnvironmentVariable("IncludePrereleaseVersions", enablePrereleaseVSVersions);
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
             {
                 processInvoker.OutputDataReceived +=

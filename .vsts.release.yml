@@ -44,7 +44,7 @@ extends:
 
             steps:
             - checkout: self
-          
+
             - task: NodeTool@0
               displayName: Use node 14.15.1
               inputs:
@@ -79,7 +79,7 @@ extends:
           - template: switch-branch.yml
             parameters:
               branch: ${{ variables.releaseBranch }}
-          
+
           # Download all agent packages from all previous phases
           - task: DownloadBuildArtifacts@0
             displayName: Download Agent Packages
@@ -120,10 +120,23 @@ extends:
               Publish-AzureRmCdnEndpointContent -EndpointName vstsagentpackage -ProfileName vstsagentpackage -ResourceGroupName vstsagentpackage -LoadContent $uploadFiles
             displayName: Upload to Azure Blob
 
+          # Download all agent hashes created in previous phases
+          - task: DownloadBuildArtifacts@0
+            displayName: Download Agent Hashes
+            inputs:
+              artifactName: hash
+              downloadPath: $(Build.SourcesDirectory)/_hashes
+
+          # Fill release notes with agent version and package hashes
+          - script: |
+              cd release
+              node fillReleaseNotesTemplate.js ${{ parameters.version }}
+            displayName: Fill release notes
+
           # Create agent release on Github
           - powershell: |
               Write-Host "Creating github release."
-              $releaseNotes = [System.IO.File]::ReadAllText("$(Build.SourcesDirectory)\releaseNote.md").Replace("<AGENT_VERSION>","${{ parameters.version }}")
+              $releaseNotes = [System.IO.File]::ReadAllText("$(Build.SourcesDirectory)\releaseNote.md")
               $releaseData = @{
                 tag_name = "v${{ parameters.version }}";
                 target_commitish = "$(Build.SourceVersion)";
@@ -158,12 +171,12 @@ extends:
               Invoke-RestMethod @assetsParams
             displayName: Create agent release on Github
 
-      - stage: CreatePR
+      - stage: CreatePRs
         jobs:
         ################################################################################
-        - job: create_ado_pr
+        - job: create_ado_prs
         ################################################################################
-          displayName: Create PR in AzureDevOps
+          displayName: Create PRs in AzureDevOps and ConfigChange
           pool:
             vmImage: ubuntu-18.04
 
@@ -174,13 +187,21 @@ extends:
             - script: git checkout ${{ variables.releaseBranch }}
               displayName: Checkout release branch
 
+          # Download all agent hashes created in previous phases
+          - task: DownloadBuildArtifacts@0
+            displayName: Download Agent Hashes
+            inputs:
+              artifactName: hash
+              downloadPath: $(Build.SourcesDirectory)/_hashes
+
           - bash: |
               set -x
               cd release
               npm install
               ls
-              node createAdoPr.js ${{ parameters.version }}
-            displayName: Create PR in AzureDevOps
+              node createAdoPrs.js ${{ parameters.version }}
+            displayName: Create PRs in AzureDevOps and ConfigChange
             env:
-              USER: $(User)
+              USERNAME: $(User)
               PAT: $(AdoPAT)
+              USEREMAIL: $(Email)

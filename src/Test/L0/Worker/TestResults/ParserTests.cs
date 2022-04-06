@@ -12,12 +12,14 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using Xunit;
+using Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
 {
     public class ParserTests
     {
         private Mock<IExecutionContext> _ec;
+        private Mock<IFeatureFlagService> _mockFeatureFlagService;
 
         [Fact]
         [Trait("Level", "L0")]
@@ -407,6 +409,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
                 {
                   Console.Error.WriteLine(tag + ": " + message);
                 });
+            _mockFeatureFlagService = new Mock<IFeatureFlagService>();
+            _mockFeatureFlagService.Setup(x => x.GetFeatureFlagState(It.IsAny<string>(), It.IsAny<Guid>())).Returns(true);
+            _ec.Setup(x => x.GetHostContext()).Returns(hc);
+            hc.SetSingleton(_mockFeatureFlagService.Object);
 
         }
     }

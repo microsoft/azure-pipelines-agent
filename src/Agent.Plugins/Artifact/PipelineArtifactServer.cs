@@ -37,12 +37,13 @@ namespace Agent.Plugins
             int pipelineId,
             string name,
             string source,
+            IDictionary<string, string> properties,
             CancellationToken cancellationToken)
         {
             VssConnection connection = context.VssConnection;
 
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                .CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, cancellationToken);
+                .CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context), cancellationToken);
 
             using (clientTelemetry)
             {
@@ -69,10 +70,13 @@ namespace Agent.Plugins
 
                 // 2) associate the pipeline artifact with an build artifact
                 BuildServer buildServer = new BuildServer(connection);
-                Dictionary<string, string> propertiesDictionary = new Dictionary<string, string>();
-                propertiesDictionary.Add(PipelineArtifactConstants.RootId, result.RootId.ValueString);
-                propertiesDictionary.Add(PipelineArtifactConstants.ProofNodes, StringUtil.ConvertToJson(result.ProofNodes.ToArray()));
-                propertiesDictionary.Add(PipelineArtifactConstants.ArtifactSize, result.ContentSize.ToString());
+
+                var propertiesDictionary = new Dictionary<string, string>(properties ?? new Dictionary<string, string>())
+                {
+                    { PipelineArtifactConstants.RootId, result.RootId.ValueString },
+                    { PipelineArtifactConstants.ProofNodes, StringUtil.ConvertToJson(result.ProofNodes.ToArray()) },
+                    { PipelineArtifactConstants.ArtifactSize, result.ContentSize.ToString() }
+                };
 
                 BuildArtifact buildArtifact = await AsyncHttpRetryHelper.InvokeAsync(
                     async () => 
@@ -128,7 +132,7 @@ namespace Agent.Plugins
         {
             VssConnection connection = context.VssConnection;
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                .CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, cancellationToken);
+                .CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context), cancellationToken);
             BuildServer buildServer = new BuildServer(connection);
 
             using (clientTelemetry)

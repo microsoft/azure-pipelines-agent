@@ -212,5 +212,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                                              Times.Never);
             }
         }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void DontUpdateWebConsoleLineRateIfJobServerQueueIsNull()
+        {
+            using (var _tokenSource = new CancellationTokenSource())
+            using (TestHostContext hc = CreateTestContext())
+            {
+                _jobRunner.JobServerQueue = null;
+                _jobRunner.UpdateMetadata(new JobMetadataMessage(It.IsAny<Guid>(), It.IsAny<Int32>()));
+                _jobServerQueue.Verify(x => x.UpdateWebConsoleLineRate(It.IsAny<Int32>()), Times.Never());
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void UpdateWebConsoleLineRateIfJobServerQueueIsNotNull()
+        {
+            using (var _tokenSource = new CancellationTokenSource())
+            using (TestHostContext hc = CreateTestContext())
+            {
+                _jobRunner.JobServerQueue = hc.GetService<IJobServerQueue>();
+                _jobRunner.UpdateMetadata(new JobMetadataMessage(It.IsAny<Guid>(), It.IsAny<Int32>()));
+                _jobServerQueue.Verify(x => x.UpdateWebConsoleLineRate(It.IsAny<Int32>()), Times.Once());
+            }
+        }
     }
 }

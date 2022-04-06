@@ -57,7 +57,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             // Get the list of available artifacts from build.
             executionContext.Output(StringUtil.Loc("RMPreparingToGetBuildArtifactList"));
 
-            using (var vssConnection = VssUtil.CreateConnection(buildArtifactDetails.TfsUrl, buildArtifactDetails.Credentials))
+            using (var vssConnection = VssUtil.CreateConnection(buildArtifactDetails.TfsUrl, buildArtifactDetails.Credentials, trace: Trace))
             {
                 var buildClient = vssConnection.GetClient<BuildHttpClient>();
                 var xamlBuildClient = vssConnection.GetClient<XamlBuildHttpClient>();

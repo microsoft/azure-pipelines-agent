@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Sockets;
 using System.Threading.Tasks;
 
 using Microsoft.TeamFoundation.Build.WebApi;
@@ -16,6 +17,8 @@ using Microsoft.VisualStudio.Services.ReleaseManagement.WebApi;
 using Microsoft.VisualStudio.Services.ReleaseManagement.WebApi.Contracts;
 
 using Newtonsoft.Json;
+
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
 {
@@ -98,7 +101,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                 }
 
                 string accessToken = gitHubEndpoint.Authorization.Parameters[EndpointAuthorizationParameters.AccessToken];
-                GitHubRepository repository = HostContext.GetService<IGitHubHttpClient>().GetUserRepo(accessToken, repositoryName);
+
+                GitHubRepository repository = null;
+                try
+                {
+                    repository = HostContext.GetService<IGitHubHttpClient>().GetUserRepo(accessToken, repositoryName);
+                }
+                catch (SocketException e)
+                {
+                    ExceptionsUtil.HandleSocketException(e, "https://api.github.com", Trace.Info);
+                    throw;
+                }
 
                 Trace.Info($"Found github repository url {repository.Clone_url}");
                 return new GitHubArtifactDetails
