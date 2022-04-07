@@ -47,7 +47,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         bool IsServiceExists(string serviceName);
 
-        void InstallService(string serviceName, string serviceDisplayName, string logonAccount, string logonPassword);
+        void InstallService(string serviceName, string serviceDisplayName, string logonAccount, string logonPassword, bool setServiceSidTypeAsUnrestricted);
 
         void UninstallService(string serviceName);
 
@@ -448,8 +448,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             ServiceController service = ServiceController.GetServices().FirstOrDefault(x => x.ServiceName.Equals(serviceName, StringComparison.OrdinalIgnoreCase));
             return service != null;
         }
-
-        public void InstallService(string serviceName, string serviceDisplayName, string logonAccount, string logonPassword)
+        
+        public void InstallService(string serviceName, string serviceDisplayName, string logonAccount, string logonPassword, bool setServiceSidTypeAsUnrestricted)
         {
             Trace.Entering();
 
@@ -594,7 +594,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     _term.WriteLine(StringUtil.Loc("ServiceDelayedStartOptionSet", serviceName));
                 }
 
-                this.setServiceSidTypeAsUnrestricted(svcHndl, serviceName);
+                if (setServiceSidTypeAsUnrestricted)
+                {
+                    this.setServiceSidTypeAsUnrestricted(svcHndl, serviceName);
+                }
 
                 _term.WriteLine(StringUtil.Loc("ServiceConfigured", serviceName));
             }
