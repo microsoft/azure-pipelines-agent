@@ -206,9 +206,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 defaultValue: true);
         }
         /// <summary>
-        /// 
+        /// Returns EnableServiceSidTypeUnrestricted flag or prompts user to set it up
         /// </summary>
-        /// <returns></returns>
+        /// <returns>Parameter value</returns>
         public bool GetEnableServiceSidTypeUnrestricted()
         {
             return TestFlagOrPrompt(
