@@ -376,8 +376,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public bool IsWellKnownIdentity(String accountName)
         {
-            NTAccount ntaccount = new NTAccount(accountName);
-            SecurityIdentifier sid = (SecurityIdentifier)ntaccount.Translate(typeof(SecurityIdentifier));
+            var ntaccount = new NTAccount(accountName);
+            var sid = (SecurityIdentifier)ntaccount.Translate(typeof(SecurityIdentifier));
 
             SecurityIdentifier networkServiceSid = new SecurityIdentifier(WellKnownSidType.NetworkServiceSid, null);
             SecurityIdentifier localServiceSid = new SecurityIdentifier(WellKnownSidType.LocalServiceSid, null);
@@ -462,7 +462,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 var isManagedServiceAccount = IsManagedServiceAccount(logonAccount);
                 Trace.Info($"Account '{logonAccount}' is managed service account: {isManagedServiceAccount}.");
             }
-            catch (Exception e)
+            catch (Win32Exception e)
             {
                 Trace.Info($"Fail to check account '{logonAccount}' is managed service account or not due to error: {e.Message}");
             }
@@ -945,16 +945,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         /// <exception cref="Win32Exception">Throws this exception if there is some error during check.</exception>
         public bool IsManagedServiceAccount(String accountName)
         {
-            bool isServiceAccount = false;
+            bool isServiceAccount;
             accountName = SanitizeManagedServiceAccountName(accountName);
-            var result = this.CheckNetIsServiceAccount(null, accountName, ref isServiceAccount);
+            var result = this.CheckNetIsServiceAccount(null, accountName, out isServiceAccount);
             if (result == 0)
             {
                 return isServiceAccount;
             }
             else
             {
-                int lastErrorCode = (int)GetLastError();
+                var lastErrorCode = (int)GetLastError();
                 throw new Win32Exception(lastErrorCode);
             }
         }
@@ -967,9 +967,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         /// <param name="isServiceAccount"></param>
         /// <returns>Returns 0 if account is managed service, otherwise - returns non-zero code</returns>
         /// <exception cref="Win32Exception">Throws exception if there's an error during check</exception>
-        public virtual uint CheckNetIsServiceAccount(string ServerName, string AccountName, ref bool isServiceAccount)
+        public virtual uint CheckNetIsServiceAccount(string ServerName, string AccountName, out bool isServiceAccount)
         {
-            return NativeWindowsServiceHelper.NetIsServiceAccount(ServerName, AccountName, ref isServiceAccount);
+            return NativeWindowsServiceHelper.NetIsServiceAccount(ServerName, AccountName, out isServiceAccount);
         }
 
         private bool IsValidCredentialInternal(string domain, string userName, string logonPassword, UInt32 logonType)
@@ -1324,8 +1324,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         }
 
         [DllImport("Logoncli.dll", SetLastError = true, CharSet = CharSet.Auto)]
-        private static extern uint NetIsServiceAccount(string ServerName, string AccountName, ref bool IsServiceAccount);
-
+        private static extern uint NetIsServiceAccount(string ServerName, string AccountName, [MarshalAs(UnmanagedType.Bool)] out bool IsServiceAccount);
 
         [DllImport("Netapi32.dll")]
         private extern static int NetLocalGroupGetInfo(string servername,

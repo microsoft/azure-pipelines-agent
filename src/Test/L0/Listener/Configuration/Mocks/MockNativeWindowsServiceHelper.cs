@@ -13,7 +13,7 @@ namespace Test.L0.Listener.Configuration.Mocks
     {
         public bool ShouldAccountBeManagedService { get; set; }
         public bool ShouldErrorHappenDuringManagedServiceAccoutCheck { get; set; }
-        public override uint CheckNetIsServiceAccount(string ServerName, string AccountName, ref bool isServiceAccount)
+        public override uint CheckNetIsServiceAccount(string ServerName, string AccountName, out bool isServiceAccount)
         {
             isServiceAccount = this.ShouldAccountBeManagedService;
             if (ShouldErrorHappenDuringManagedServiceAccoutCheck)
