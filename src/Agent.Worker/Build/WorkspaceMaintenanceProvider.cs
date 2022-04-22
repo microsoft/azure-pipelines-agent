@@ -49,7 +49,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // Sort the all tracking file ASC by last maintenance attempted time
             foreach (var trackingConfig in trackingConfigs.OrderBy(x => x.LastMaintenanceAttemptedOn))
             {
-                System.Diagnostics.Debugger.Launch();
                 // Check for cancellation.
                 executionContext.CancellationToken.ThrowIfCancellationRequested();
 
