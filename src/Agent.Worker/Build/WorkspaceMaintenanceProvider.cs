@@ -49,6 +49,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // Sort the all tracking file ASC by last maintenance attempted time
             foreach (var trackingConfig in trackingConfigs.OrderBy(x => x.LastMaintenanceAttemptedOn))
             {
+                System.Diagnostics.Debugger.Launch();
                 // Check for cancellation.
                 executionContext.CancellationToken.ThrowIfCancellationRequested();
 
@@ -167,8 +168,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 try
                 {
                     trackingManager.MaintenanceStarted(trackingConfig);
-                    string repositoryPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), trackingConfig.SourcesDirectory);
-                    await sourceProvider.RunMaintenanceOperations(executionContext, repositoryPath);
+                    foreach(var repository in trackingConfig.RepositoryTrackingInfo)
+                    {
+                        string repositoryPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), repository.SourcesDirectory);
+                        await sourceProvider.RunMaintenanceOperations(executionContext, repositoryPath);
+                    }
                     trackingManager.MaintenanceCompleted(trackingConfig);
                 }
                 catch (Exception ex)
