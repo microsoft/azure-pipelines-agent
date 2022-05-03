@@ -107,8 +107,8 @@ jobs:
       displayName: Install unzip
   
   # Nuget Authentication.
-  - task: NuGetAuthenticate@0
-  
+  #- task: NuGetAuthenticate@0
+
   # Build agent layout
   - script: ${{ variables.devCommand }} layout Release ${{ parameters.os }}-${{ parameters.arch }}
     workingDirectory: src
