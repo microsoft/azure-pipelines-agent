@@ -100,7 +100,7 @@ function cmd_layout ()
 {
     heading "Creating layout"
     TARGET="layout"
-    dotnet restore --runtime ${RUNTIME_ID} -v d
+    for x in */*.csproj; do dotnet --runtime ${RUNTIME_ID} restore $x; done;
     if  [[ "$ADO_ENABLE_LOGISSUE" == "true" ]]; then
         dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
          | sed -e "/\: warning /s/^/${DOTNET_WARNING_PREFIX} /;" \
