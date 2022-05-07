@@ -63,7 +63,7 @@ then
         command -v apt
         if [ $? -eq 0 ]
         then
-            apt update && apt install -y liblttng-ust0 libkrb5-3 zlib1g
+            apt update && apt install -y liblttng-ust0 libkrb5-3 zlib1g debsums
             if [ $? -ne 0 ]
             then
                 echo "'apt' failed with exit code '$?'"
@@ -90,19 +90,11 @@ then
                 print_errormessage
                 exit 1
             fi
-
-            # Try to install debsums package for logs gathering diagnostic info about broken packages
-            apt install debsums
-            if [ $? -ne 0 ]
-            then
-                # Since this is only for diagnostics, we don't have to fail the entire script if this installation fails
-                echo "Failed to install debsum package for diagnostics using 'apt'."
-            fi
         else
             command -v apt-get
             if [ $? -eq 0 ]
             then
-                apt-get update && apt-get install -y liblttng-ust0 libkrb5-3 zlib1g
+                apt-get update && apt-get install -y liblttng-ust0 libkrb5-3 zlib1g debsums
                 if [ $? -ne 0 ]
                 then
                     echo "'apt-get' failed with exit code '$?'"
@@ -128,14 +120,6 @@ then
                     echo "'apt-get' failed with exit code '$?'"
                     print_errormessage
                     exit 1
-                fi
-
-                # Try to install debsums package for logs gathering diagnostic info about broken packages
-                apt-get install debsums
-                if [ $? -ne 0 ]
-                then
-                    # Since this is only for diagnostics, we don't have to fail the entire script if this installation fails
-                    echo "Failed to install debsum package for diagnostics using 'apt-get'."
                 fi
             else
                 echo "Can not find 'apt' or 'apt-get'"

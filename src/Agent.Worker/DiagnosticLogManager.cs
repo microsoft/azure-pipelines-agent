@@ -16,6 +16,7 @@ using System.Linq;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
+using Agent.Sdk.Knob;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
@@ -161,7 +162,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             // Copy event logs for windows machines
-            if (PlatformUtil.RunningOnWindows)
+            bool dumpJobEventLogs = AgentKnobs.DumpJobEventLogs.GetValue(executionContext).AsBoolean();
+            if (dumpJobEventLogs && PlatformUtil.RunningOnWindows)
             {
                 executionContext.Debug("Dumping event viewer logs for current job.");
 
@@ -180,7 +182,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
             }
 
-            if (PlatformUtil.RunningOnLinux && !PlatformUtil.RunningOnRHEL6) {
+            bool dumpPackagesVerificationResult = AgentKnobs.DumpPackagesVerificationResult.GetValue(executionContext).AsBoolean();
+            if (dumpPackagesVerificationResult && PlatformUtil.RunningOnLinux && !PlatformUtil.RunningOnRHEL6) {
                 executionContext.Debug("Dumping info about invalid MD5 sums of installed packages.");
 
                 var debsums = WhichUtil.Which("debsums");

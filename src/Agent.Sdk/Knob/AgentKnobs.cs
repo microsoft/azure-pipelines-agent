@@ -121,6 +121,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTSAGENT_TRACE"),
             new BuiltInDefaultKnobSource(string.Empty));
 
+        public static readonly Knob DumpJobEventLogs = new Knob(
+            nameof(DumpJobEventLogs),
+            "If true, dump event viewer logs",
+            new RuntimeKnobSource("VSTSAGENT_DUMP_JOB_EVENT_LOGS"),
+            new EnvironmentKnobSource("VSTSAGENT_DUMP_JOB_EVENT_LOGS"),
+            new BuiltInDefaultKnobSource("false"));
+
         // Timeouts
         public static readonly Knob AgentChannelTimeout = new Knob(
             nameof(AgentChannelTimeout),
@@ -308,5 +315,12 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("TEE_PLUGIN_DOWNLOAD_RETRY_COUNT"),
             new EnvironmentKnobSource("TEE_PLUGIN_DOWNLOAD_RETRY_COUNT"),
             new BuiltInDefaultKnobSource("3"));
+
+        public static readonly Knob DumpPackagesVerificationResult = new Knob(
+            nameof(DumpPackagesVerificationResult),
+            "If true, dumps info about invalid MD5 sums of installed packages",
+            new RuntimeKnobSource("VSTSAGENT_DUMP_PACKAGES_VERIFICATION_RESULTS"),
+            new EnvironmentKnobSource("VSTSAGENT_DUMP_PACKAGES_VERIFICATION_RESULTS"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }
