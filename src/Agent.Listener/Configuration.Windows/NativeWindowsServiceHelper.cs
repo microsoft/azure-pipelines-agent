@@ -76,6 +76,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         void GrantDirectoryPermissionForAccount(string accountName, IList<string> folders);
 
         void RevokeDirectoryPermissionForAccount(IList<string> folders);
+
+        bool IsWellKnownIdentity(string accountName);
+
+        bool IsManagedServiceAccount(string accountName);
     }
 
     public class NativeWindowsServiceHelper : AgentService, INativeWindowsServiceHelper
@@ -370,10 +374,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
-        public static bool IsWellKnownIdentity(String accountName)
+        public bool IsWellKnownIdentity(String accountName)
         {
-            NTAccount ntaccount = new NTAccount(accountName);
-            SecurityIdentifier sid = (SecurityIdentifier)ntaccount.Translate(typeof(SecurityIdentifier));
+            var ntaccount = new NTAccount(accountName);
+            var sid = (SecurityIdentifier)ntaccount.Translate(typeof(SecurityIdentifier));
 
             SecurityIdentifier networkServiceSid = new SecurityIdentifier(WellKnownSidType.NetworkServiceSid, null);
             SecurityIdentifier localServiceSid = new SecurityIdentifier(WellKnownSidType.LocalServiceSid, null);
@@ -452,6 +456,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public void InstallService(string serviceName, string serviceDisplayName, string logonAccount, string logonPassword)
         {
             Trace.Entering();
+
+            try
+            {
+                var isManagedServiceAccount = IsManagedServiceAccount(logonAccount);
+                Trace.Info($"Account '{logonAccount}' is managed service account: {isManagedServiceAccount}.");
+            }
+            catch (Win32Exception e)
+            {
+                Trace.Info($"Fail to check account '{logonAccount}' is managed service account or not due to error: {e.Message}");
+            }
 
             string agentServiceExecutable = "\"" + Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), WindowsServiceControlManager.WindowsServiceControllerName) + "\"";
             IntPtr scmHndl = IntPtr.Zero;
@@ -923,6 +937,40 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Trace.Info(StringUtil.Format($"Delete the group {groupName}."));
             DeleteLocalGroup(groupName);
         }
+        /// <summary>
+        /// Checks if account is managed service
+        /// </summary>
+        /// <param name="accountName">account name</param>
+        /// <returns>Returns true if account is managed service.</returns>
+        /// <exception cref="Win32Exception">Throws this exception if there is some error during check.</exception>
+        public bool IsManagedServiceAccount(String accountName)
+        {
+            bool isServiceAccount;
+            accountName = SanitizeManagedServiceAccountName(accountName);
+            var result = this.CheckNetIsServiceAccount(null, accountName, out isServiceAccount);
+            if (result == 0)
+            {
+                return isServiceAccount;
+            }
+            else
+            {
+                var lastErrorCode = (int)GetLastError();
+                throw new Win32Exception(lastErrorCode);
+            }
+        }
+
+        /// <summary>
+        /// Checks if account is managed service
+        /// </summary>
+        /// <param name="ServerName"></param>
+        /// <param name="AccountName"></param>
+        /// <param name="isServiceAccount"></param>
+        /// <returns>Returns 0 if account is managed service, otherwise - returns non-zero code</returns>
+        /// <exception cref="Win32Exception">Throws exception if there's an error during check</exception>
+        public virtual uint CheckNetIsServiceAccount(string ServerName, string AccountName, out bool isServiceAccount)
+        {
+            return NativeWindowsServiceHelper.NetIsServiceAccount(ServerName, AccountName, out isServiceAccount);
+        }
 
         private bool IsValidCredentialInternal(string domain, string userName, string logonPassword, UInt32 logonType)
         {
@@ -967,6 +1015,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 Trace.Error(exception);
                 return null;
+            }
+        }
+
+        /// <summary>
+        /// Removes '$' character from managed service account name
+        /// </summary>
+        /// <param name="accountName">account name</param>
+        /// <returns></returns>
+        private string SanitizeManagedServiceAccountName(string accountName)
+        {
+            // remove the last '$' for MSA
+            ArgUtil.NotNullOrEmpty(accountName, nameof(accountName));
+            if (accountName[accountName.Length - 1].Equals('$'))
+            {
+                return accountName.Remove(accountName.Length - 1);
+            }
+            else
+            {
+                return accountName;
             }
         }
 
@@ -1255,6 +1322,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Reboot = 2,
             RunCommand = 3
         }
+
+        [DllImport("Logoncli.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern uint NetIsServiceAccount(string ServerName, string AccountName, [MarshalAs(UnmanagedType.Bool)] out bool IsServiceAccount);
 
         [DllImport("Netapi32.dll")]
         private extern static int NetLocalGroupGetInfo(string servername,
