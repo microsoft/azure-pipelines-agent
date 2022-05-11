@@ -211,7 +211,7 @@ if [[ "$PACKAGERUNTIME" == "linux-arm64" ]]; then
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-linux-arm64.tar.gz" node10 fix_nested_dir
 fi
 
-if [[ "$PACKAGERUNTIME" != "win-x64" || "$PACKAGERUNTIME" != "win-x86" ]]; then
+if [[ "$PACKAGERUNTIME" != "win-x64" && "$PACKAGERUNTIME" != "win-x86" ]]; then
     rm -rf "$LAYOUT_DIR/externals/node/lib/node_modules/npm"
     rm "$LAYOUT_DIR/externals/node/bin/npm"
     rm -rf "$LAYOUT_DIR/externals/node10/lib/node_modules/npm"
