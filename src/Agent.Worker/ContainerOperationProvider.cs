@@ -494,10 +494,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     executionContext.Output(StringUtil.Loc("GrantContainerUserSUDOPrivilege", containerUserName));
 
                     // Create a new group for giving sudo permission
-                    int execGroupaddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"groupadd azure_pipelines_sudo");
-                    if (execGroupaddExitCode != 0)
+                    int execGroupadddWithGuidExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"groupadd -g {container.CurrentUserId} groupadd azure_pipelines_sudo");
+                    if (execGroupadddWithGuidExitCode != 0)
                     {
-                        throw new InvalidOperationException($"Docker exec fail with exit code {execGroupaddExitCode}");
+                        int execGroupaddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"groupadd azure_pipelines_sudo");
+                        if (execGroupaddExitCode != 0)
+                        {
+                            throw new InvalidOperationException($"Docker exec fail with exit code {execGroupaddExitCode}");
+                        }
                     }
 
                     // Add the new created user to the new created sudo group.
