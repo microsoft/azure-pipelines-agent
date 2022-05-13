@@ -63,7 +63,7 @@ then
         command -v apt
         if [ $? -eq 0 ]
         then
-            apt update && apt install -y liblttng-ust0 libkrb5-3 zlib1g debsums
+            apt update && apt install -y liblttng-ust0 libkrb5-3 zlib1g debsums unzip
             if [ $? -ne 0 ]
             then
                 echo "'apt' failed with exit code '$?'"
@@ -94,7 +94,7 @@ then
             command -v apt-get
             if [ $? -eq 0 ]
             then
-                apt-get update && apt-get install -y liblttng-ust0 libkrb5-3 zlib1g debsums
+                apt-get update && apt-get install -y liblttng-ust0 libkrb5-3 zlib1g debsums unzip
                 if [ $? -ne 0 ]
                 then
                     echo "'apt-get' failed with exit code '$?'"
@@ -180,7 +180,7 @@ then
                     fi
                 fi       
 
-                dnf install -y lttng-ust krb5-libs zlib libicu
+                dnf install -y lttng-ust krb5-libs zlib libicu unzip
                 if [ $? -ne 0 ]
                 then
                     echo "'dnf' failed with exit code '$?'"
@@ -196,7 +196,7 @@ then
             command -v yum
             if [ $? -eq 0 ]
             then
-                yum install -y openssl-libs krb5-libs zlib libicu
+                yum install -y openssl-libs krb5-libs zlib libicu unzip
                 if [ $? -ne 0 ]
                 then                    
                     echo "'yum' failed with exit code '$?'"
@@ -267,7 +267,7 @@ then
             command -v yum
             if [ $? -eq 0 ]
                 then
-                yum install -y icu
+                yum install -y icu unzip
                 if [ $? -ne 0 ]
                 then                    
                     echo "'yum' failed with exit code '$?'"
@@ -298,7 +298,7 @@ then
         command -v yum
         if [ $? -eq 0 ]
         then
-            yum install -y openssl krb5-libs zlib
+            yum install -y openssl krb5-libs zlib unzip
             if [ $? -ne 0 ]
             then                    
                 echo "'yum' failed with exit code '$?'"
