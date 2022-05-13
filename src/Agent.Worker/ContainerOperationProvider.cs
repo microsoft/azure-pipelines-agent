@@ -489,6 +489,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         {
                             throw new InvalidOperationException($"Docker exec fail with exit code {execUseraddExitCode}");
                         }
+
+                        int groupModExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"usermod -g {containerUserName} {containerUserName}");
+                        if (execUseraddExitCode != 0)
+                        {
+                            throw new InvalidOperationException($"Docker exec fail with exit code {execUseraddExitCode}");
+                        }
                     }
 
                     executionContext.Output(StringUtil.Loc("GrantContainerUserSUDOPrivilege", containerUserName));
