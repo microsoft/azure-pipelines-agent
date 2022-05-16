@@ -11,7 +11,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     [ServiceLocator(Default = typeof(TaskDecoratorManager))]
     public interface ITaskDecoratorManager : IAgentService
     {
-        bool IsInjectedTaskForTarget(string taskName);
+        bool IsInjectedTaskForTarget(string taskName, IExecutionContext executionContext);
         bool IsInjectedInputsContainsSecrets(Dictionary<string, string> inputs, out List<string> inputsWithSecrets);
         string GenerateTaskResultMessage(List<string> inputsWithSecrets);
     }
@@ -19,12 +19,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     public sealed class TaskDecoratorManager : AgentService, ITaskDecoratorManager
     {
         /// <summary>
-        /// Checks if current task is injected by decorator with posttargettask or pretargettask target
+        /// Checks if current task is injected by decorator with posttargettask or pretargettask target.
+        /// TaskName will be null on old versions of TFS 2017, 2015, this version of TFS doesn't support injection of post-target and pre-target decorators,
+        /// so we could just return false value in case of null taskName
         /// </summary>
         /// <param name="taskName">Name of the task to check</param>
         /// <returns>Returns `true` if task is injected by decorator for target task, otherwise `false`</returns>
-        public bool IsInjectedTaskForTarget(string taskName)
+        public bool IsInjectedTaskForTarget(string taskName, IExecutionContext executionContext)
         {
+            if (taskName == null)
+            {
+                executionContext.Debug("The task name is null, check for the target of injected tasks skipped.");
+                return false;
+            }
+
             return taskName.StartsWith(InjectedTasksNamesPrefixes.PostTargetTask)
                     || taskName.StartsWith(InjectedTasksNamesPrefixes.PreTargetTask);
         }

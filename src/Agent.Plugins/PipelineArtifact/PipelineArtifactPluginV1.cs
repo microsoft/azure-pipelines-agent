@@ -226,6 +226,9 @@ namespace Agent.Plugins.PipelineArtifact
             string tags = context.GetInput(ArtifactEventProperties.Tags, required: false);
             string userSpecifiedpipelineId = context.GetInput(PipelineId, required: false);
 
+            // Empty input field "Matching pattern" must be recognised as default value '**'
+            itemPattern = string.IsNullOrEmpty(itemPattern) ? "**" : itemPattern;
+
             string[] minimatchPatterns = itemPattern.Split(
                 new[] { "\n" },
                 StringSplitOptions.RemoveEmptyEntries

@@ -32,7 +32,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         private IJobServerQueue _jobServerQueue;
         private ITempDirectoryManager _tempDirectoryManager;
-
+        /// <summary>
+        /// Add public accessor for _jobServerQueue to make JobRunner more testable
+        /// See /Test/L0/Worker/JobRunnerL0.cs
+        /// </summary>
+        public IJobServerQueue JobServerQueue
+        {
+            set => _jobServerQueue = value;
+        }
         public async Task<TaskResult> RunAsync(Pipelines.AgentJobRequestMessage message, CancellationToken jobRequestCancellationToken)
         {
             // Validate parameters.
@@ -341,7 +348,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void UpdateMetadata(JobMetadataMessage message)
         {
-            if (message.PostLinesFrequencyMillis.HasValue)
+            if (message.PostLinesFrequencyMillis.HasValue && _jobServerQueue != null)
             {
                 _jobServerQueue.UpdateWebConsoleLineRate(message.PostLinesFrequencyMillis.Value);
             }

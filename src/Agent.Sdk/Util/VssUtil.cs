@@ -21,6 +21,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
     {
         private static UtilKnobValueContext _knobContext = UtilKnobValueContext.Instance();
 
+        private const string _testUri = "https://microsoft.com/";
+        private static bool? _isCustomServerCertificateValidationSupported;
+
+        
+
         public static void InitializeVssClientSettings(ProductInfoHeaderValue additionalUserAgent, IWebProxy proxy, IVssClientCertificateManager clientCert)
         {
             var headerValues = new List<ProductInfoHeaderValue>();
@@ -75,7 +80,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             settings.AcceptLanguages.Remove(CultureInfo.InvariantCulture);
 
             // Setting `ServerCertificateCustomValidation` to able to capture SSL data for diagnostic
-            if (trace != null)
+            if (trace != null && IsCustomServerCertificateValidationSupported(trace))
             {
                 SslUtil sslUtil = new SslUtil(trace);
                 settings.ServerCertificateValidationCallback = sslUtil.RequestStatusCustomValidation;
@@ -105,6 +110,41 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
 
             return credentials;
+        }
+
+        public static bool IsCustomServerCertificateValidationSupported(ITraceWriter trace)
+        {
+            if (!PlatformUtil.RunningOnWindows && PlatformUtil.UseLegacyHttpHandler)
+            {
+                if (_isCustomServerCertificateValidationSupported == null)
+                {
+                    _isCustomServerCertificateValidationSupported = CheckSupportOfCustomServerCertificateValidation(trace);
+                }
+                return (bool)_isCustomServerCertificateValidationSupported;
+            }
+            return true;
+        }
+
+        private static bool CheckSupportOfCustomServerCertificateValidation(ITraceWriter trace)
+        {
+            using (var handler = new HttpClientHandler())
+            {
+                handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => { return true; };
+
+                using (var client = new HttpClient(handler))
+                {
+                    try
+                    {
+                        client.GetAsync(_testUri).GetAwaiter().GetResult();
+                    }
+                    catch (Exception e)
+                    {
+                        trace.Verbose($"SSL diagnostic data collection is disabled, due to issue:\n{e.Message}");
+                        return false;
+                    }
+                    return true;
+                }
+            }
         }
     }
 }

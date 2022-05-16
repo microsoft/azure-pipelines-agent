@@ -202,5 +202,6 @@ extends:
               node createAdoPrs.js ${{ parameters.version }}
             displayName: Create PRs in AzureDevOps and ConfigChange
             env:
-              USER: $(User)
+              USERNAME: $(User)
               PAT: $(AdoPAT)
+              USEREMAIL: $(Email)
