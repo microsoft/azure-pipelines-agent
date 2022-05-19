@@ -47,7 +47,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         bool IsServiceExists(string serviceName);
 
-        void InstallService(string serviceName, string serviceDisplayName, string logonAccount, string logonPassword);
+        void InstallService(string serviceName, string serviceDisplayName, string logonAccount, string logonPassword, bool setServiceSidTypeAsUnrestricted);
 
         void UninstallService(string serviceName);
 
@@ -452,8 +452,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             ServiceController service = ServiceController.GetServices().FirstOrDefault(x => x.ServiceName.Equals(serviceName, StringComparison.OrdinalIgnoreCase));
             return service != null;
         }
-
-        public void InstallService(string serviceName, string serviceDisplayName, string logonAccount, string logonPassword)
+        
+        public void InstallService(string serviceName, string serviceDisplayName, string logonAccount, string logonPassword, bool setServiceSidTypeAsUnrestricted)
         {
             Trace.Entering();
 
@@ -606,6 +606,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 else
                 {
                     _term.WriteLine(StringUtil.Loc("ServiceDelayedStartOptionSet", serviceName));
+                }
+
+                if (setServiceSidTypeAsUnrestricted)
+                {
+                    this.setServiceSidTypeAsUnrestricted(svcHndl, serviceName);
                 }
 
                 _term.WriteLine(StringUtil.Loc("ServiceConfigured", serviceName));
@@ -1152,10 +1157,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         private const UInt32 LOGON32_PROVIDER_DEFAULT = 0;
 
+        private const int SERVICE_SID_TYPE_UNRESTRICTED = 0x00000001;
         private const int SERVICE_WIN32_OWN_PROCESS = 0x00000010;
         private const int SERVICE_NO_CHANGE = -1;
         private const int SERVICE_CONFIG_FAILURE_ACTIONS = 0x2;
         private const int SERVICE_CONFIG_DELAYED_AUTO_START_INFO = 0x3;
+        private const int SERVICE_CONFIG_SERVICE_SID_INFO = 0x5;
 
         // TODO Fix this. This is not yet available in coreclr (newer version?)
         private const int UnicodeCharSize = 2;
@@ -1244,6 +1251,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public struct SERVICE_DELAYED_AUTO_START_INFO
         {
             public bool fDelayedAutostart;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct SERVICE_SID_INFO
+        {
+            public int dwServiceSidType;
         }
 
         // Class to represent a failure action which consists of a recovery
@@ -1429,10 +1442,45 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public static extern bool ChangeServiceFailureActions(IntPtr hService, int dwInfoLevel, ref SERVICE_FAILURE_ACTIONS lpInfo);
 
         [DllImport("advapi32.dll", EntryPoint = "ChangeServiceConfig2")]
+        public static extern bool ChangeServiceSidType(IntPtr hService, int dwInfoLevel, ref SERVICE_SID_INFO lpInfo);
+
+        [DllImport("advapi32.dll", EntryPoint = "ChangeServiceConfig2")]
         public static extern bool ChangeServiceDelayedAutoStart(IntPtr hService, int dwInfoLevel, ref SERVICE_DELAYED_AUTO_START_INFO lpInfo);
 
         [DllImport("kernel32.dll")]
         static extern uint GetLastError();
+        /// <summary>
+        /// Sets service sid type as SERVICE_SID_TYPE_UNRESTRICTED - to make service more configurable for admins from the point of permissions 
+        /// </summary>
+        /// <param name="svcHndl">Service handler</param>
+        /// <param name="serviceName">Service name</param>
+        private void setServiceSidTypeAsUnrestricted(IntPtr svcHndl, string serviceName)
+        {
+            // Change service SID type to unrestricted
+            SERVICE_SID_INFO ssi = new SERVICE_SID_INFO();
+            ssi.dwServiceSidType = SERVICE_SID_TYPE_UNRESTRICTED;
+
+            // Call the ChangeServiceDelayedAutoStart() abstraction of ChangeServiceConfig2()
+            bool serviceSidTypeResult = ChangeServiceSidType(svcHndl, SERVICE_CONFIG_SERVICE_SID_INFO, ref ssi);
+            //Check the return
+            if (!serviceSidTypeResult)
+            {
+                int lastErrorCode = (int)GetLastError();
+                Exception win32exception = new Win32Exception(lastErrorCode);
+                if (lastErrorCode == ReturnCode.ERROR_ACCESS_DENIED)
+                {
+                    throw new SecurityException(StringUtil.Loc("AccessDeniedSettingSidType"), win32exception);
+                }
+                else
+                {
+                    throw win32exception;
+                }
+            }
+            else
+            {
+                _term.WriteLine(StringUtil.Loc("ServiceSidTypeSet", serviceName));
+            }
+        }
     }
 
     [StructLayout(LayoutKind.Sequential)]
