@@ -237,6 +237,13 @@ if [[ "$PACKAGERUNTIME" != "win-x64" && "$PACKAGERUNTIME" != "win-x86" ]]; then
     rm "$LAYOUT_DIR/externals/node16/bin/corepack"
 fi
 
+if [[ "$PACKAGERUNTIME" != "win-x64" && "$PACKAGERUNTIME" != "win-x86" ]]; then
+    rm -rf "$LAYOUT_DIR/externals/node/lib/node_modules/npm"
+    rm "$LAYOUT_DIR/externals/node/bin/npm"
+    rm -rf "$LAYOUT_DIR/externals/node10/lib/node_modules/npm"
+    rm "$LAYOUT_DIR/externals/node10/bin/npm"
+fi
+
 if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
     # cmdline task
     acquireExternalTool "$CONTAINER_URL/l1Tasks/d9bafed4-0b18-4f58-968d-86655b4d2ce9.zip" "Tasks" false dont_uncompress
