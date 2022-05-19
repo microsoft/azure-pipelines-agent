@@ -230,7 +230,7 @@ namespace Agent.Sdk
             return false;
         }
 
-        public void PrependPath(string directory)
+        public virtual void PrependPath(string directory)
         {
             ArgUtil.NotNull(directory, nameof(directory));
             PathUtil.PrependPath(directory);

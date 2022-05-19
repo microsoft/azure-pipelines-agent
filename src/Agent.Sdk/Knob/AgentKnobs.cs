@@ -47,6 +47,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_AGENT_DOCKER_NETWORK_CREATE_DRIVER"),
             new BuiltInDefaultKnobSource(string.Empty));
 
+        public static readonly Knob DockerAdditionalNetworkOptions = new Knob(
+            nameof(DockerNetworkCreateDriver),
+            "Allow to specify additional command line options to 'docker network' command when creating network for new containers",
+            new RuntimeKnobSource("agent.DockerAdditionalNetworkOptions"),
+            new EnvironmentKnobSource("AZP_AGENT_DOCKER_ADDITIONAL_NETWORK_OPTIONS"),
+            new BuiltInDefaultKnobSource(string.Empty));
+
         // Directory structure
         public static readonly Knob AgentToolsDirectory = new Knob(
             nameof(AgentToolsDirectory),

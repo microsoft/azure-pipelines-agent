@@ -125,7 +125,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _term.WriteLine(StringUtil.Loc("GrantingFilePermissions", logonAccount));
 
             // install service.
-            _windowsServiceHelper.InstallService(serviceName, serviceDisplayName, logonAccount, logonPassword);
+            _windowsServiceHelper.InstallService(serviceName, serviceDisplayName, logonAccount, logonPassword, settings.EnableServiceSidTypeUnrestricted);
 
             // create .service file with service name.
             SaveServiceSettings(serviceName);
