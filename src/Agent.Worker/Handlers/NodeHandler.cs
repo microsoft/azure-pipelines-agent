@@ -134,6 +134,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 outputEncoding = Encoding.UTF8;
             }
 
+            Environment["debugNode"] = AgentKnobs.DebugNode.GetValue(ExecutionContext).AsString();
+
             try
             {
                 // Execute the process. Exit code 0 should always be returned.

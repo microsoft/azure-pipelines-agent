@@ -47,6 +47,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_AGENT_DOCKER_NETWORK_CREATE_DRIVER"),
             new BuiltInDefaultKnobSource(string.Empty));
 
+        public static readonly Knob DebugNode = new Knob(
+            nameof(DebugNode),
+            "If true, node running process will be debugged in the 'containerHandlerInvoker.js' script",
+            new RuntimeKnobSource("agent.debugNode"),
+            new EnvironmentKnobSource("AZP_AGENT_DEBUG_NODE"),
+            new BuiltInDefaultKnobSource("false"));
+
         // Directory structure
         public static readonly Knob AgentToolsDirectory = new Knob(
             nameof(AgentToolsDirectory),

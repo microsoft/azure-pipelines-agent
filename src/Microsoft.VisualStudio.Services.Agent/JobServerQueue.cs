@@ -351,6 +351,11 @@ namespace Microsoft.VisualStudio.Services.Agent
                         _webConsoleLinesDequeueNow.Task);
                 }
             }
+
+            if (!runOnce)
+            {
+                Trace.Info("Process web console line queue finished.");
+            }
         }
 
         public void UpdateWebConsoleLineRate(Int32 rateInMillis)
@@ -417,6 +422,11 @@ namespace Microsoft.VisualStudio.Services.Agent
                 {
                     await Task.Delay(_delayForFileUploadDequeue);
                 }
+            }
+
+            if (!runOnce)
+            {
+                Trace.Info("Process file upload queue finished.");
             }
         }
 
@@ -537,6 +547,11 @@ namespace Microsoft.VisualStudio.Services.Agent
                 {
                     await Task.Delay(_delayForTimelineUpdateDequeue);
                 }
+            }
+
+            if (!runOnce)
+            {
+                Trace.Info("Process timeline update queue finished.");
             }
         }
 

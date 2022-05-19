@@ -161,9 +161,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             //    We use this intermediate script to read everything from STDIN, then launch the task execution engine (node/powershell) and redirect STDOUT/STDERR
 
             string tempDir = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), Constants.Path.TempDirectory);
-            string targetEntryScript = Path.Combine(tempDir, "containerHandlerInvoker.js");
-            HostContext.GetTrace(nameof(ContainerStepHost)).Info($"Copying containerHandlerInvoker.js to {tempDir}");
-            File.Copy(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), "containerHandlerInvoker.js.template"), targetEntryScript, true);
+            string dotTemplate = ".template";
+            string debugNode = "debug-node";
+
+            string whyIsNodeRunninng = "why-is-node-running.js";
+            string whyIsNodeRunninngSource = Path.Combine(debugNode, whyIsNodeRunninng) + dotTemplate;
+            string whyIsNodeRunninngTarget = Path.Combine(tempDir, whyIsNodeRunninng);
+
+            string containerHandlerInvoker = "containerHandlerInvoker.js";
+            string containerHandlerInvokerSource = containerHandlerInvoker + dotTemplate;
+            string containerHandlerInvokerTarget = Path.Combine(tempDir, containerHandlerInvoker);
+
+            if (environment["debugNode"] == "true")
+            {
+                containerHandlerInvokerSource = Path.Combine(debugNode, containerHandlerInvokerSource);
+                HostContext.GetTrace(nameof(ContainerStepHost)).Info($"Copying {whyIsNodeRunninng} to {tempDir}");
+                File.Copy(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), whyIsNodeRunninngSource), whyIsNodeRunninngTarget, true);
+            }
+            HostContext.GetTrace(nameof(ContainerStepHost)).Info($"Copying {containerHandlerInvoker} to {tempDir}");
+            File.Copy(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), containerHandlerInvokerSource), containerHandlerInvokerTarget, true);
 
             string node;
             if (!string.IsNullOrEmpty(Container.CustomNodePath))
@@ -175,7 +191,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 node = Container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "node", "bin", $"node{IOUtil.ExeExtension}"));
             }
 
-            string entryScript = Container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, Container.TranslateToContainerPath(targetEntryScript));
+            string entryScript = Container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, Container.TranslateToContainerPath(containerHandlerInvokerTarget));
 
             string userArgs = "";
             string workingDirectoryParam = "";
