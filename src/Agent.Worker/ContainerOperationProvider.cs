@@ -193,10 +193,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
 
                 // login with retry up to 3 times
+                int maxRetries = 3;
                 int retryCount = 0;
                 int loginExitCode = 0;
 
-                while (retryCount < 3)
+                while (retryCount < maxRetries)
                 {
                     loginExitCode = await _dockerManger.DockerLogin(executionContext, registryServer, username, password);
                     if (loginExitCode == 0)
@@ -206,7 +207,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     else
                     {
                         retryCount++;
-                        if (retryCount < 3)
+                        if (retryCount < maxRetries)
                         {
                             var backOff = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
                             executionContext.Warning($"Docker login failed with exit code {pullExitCode}, back off {backOff.TotalSeconds} seconds before retry.");
