@@ -192,7 +192,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 ArgUtil.NotNullOrEmpty(password, nameof(password));
 
 
-                // Pull down docker image with retry up to 3 times
+                // login with retry up to 3 times
                 int retryCount = 0;
                 int loginExitCode = 0;
 
