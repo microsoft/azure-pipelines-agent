@@ -191,8 +191,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 ArgUtil.NotNullOrEmpty(username, nameof(username));
                 ArgUtil.NotNullOrEmpty(password, nameof(password));
 
-                int loginExitCode = await _dockerManger.DockerLogin(executionContext, registryServer, username, password);
-                if (loginExitCode != 0)
+
+                // Pull down docker image with retry up to 3 times
+                int retryCount = 0;
+                int loginExitCode = 0;
+
+                while (retryCount < 3)
+                {
+                    loginExitCode = await _dockerManger.DockerLogin(executionContext, registryServer, username, password);
+                    if (loginExitCode == 0)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        retryCount++;
+                        if (retryCount < 3)
+                        {
+                            var backOff = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+                            executionContext.Warning($"Docker login failed with exit code {pullExitCode}, back off {backOff.TotalSeconds} seconds before retry.");
+                            await Task.Delay(backOff);
+                        }
+                    }
+                }
+
+                if (retryCount == 3 && pullExitCode != 0)
                 {
                     throw new InvalidOperationException($"Docker login fail with exit code {loginExitCode}");
                 }
