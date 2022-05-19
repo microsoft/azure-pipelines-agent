@@ -216,7 +216,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                 }
 
-                if (retryCount == 3 && pullExitCode != 0)
+                if (retryCount == maxRetries && pullExitCode != 0)
                 {
                     throw new InvalidOperationException($"Docker login fail with exit code {loginExitCode}");
                 }
