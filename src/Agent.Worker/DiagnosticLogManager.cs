@@ -169,7 +169,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 try
                 {
-                    string eventLogsFile = $"{HostContext.GetDirectory(WellKnownDirectory.Diag)}/EventViewer-{ jobStartTimeUtc.ToString("yyyyMMdd-HHmmss") }.log";
+                    string eventLogsFile = $"{HostContext.GetDirectory(WellKnownDirectory.Diag)}/EventViewer-{ jobStartTimeUtc.ToString("yyyyMMdd-HHmmss") }.csv";
                     await DumpCurrentJobEventLogs(executionContext, eventLogsFile, jobStartTimeUtc);
 
                     string destination = Path.Combine(supportFilesFolder, Path.GetFileName(eventLogsFile));
@@ -683,11 +683,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // Dumps the gathered info into a separate file since the logs are long.
         private async Task DumpCurrentJobEventLogs(IExecutionContext executionContext, string logFile, DateTime jobStartTimeUtc)
         {
+            string startDate = jobStartTimeUtc.ToString("u");
+            string endDate = DateTime.UtcNow.ToString("u");
+
             string powerShellExe = HostContext.GetService<IPowerShellExeUtil>().GetPath();
             string arguments = $@"
-                Get-WinEvent -ListLog * `
-                | ForEach-Object {{ Get-WinEvent -ErrorAction SilentlyContinue -FilterHashtable @{{ LogName=$_.LogName; StartTime='{ jobStartTimeUtc.ToLocalTime() }'; EndTime='{ DateTime.Now }';}} }} `
-                | Format-List > { logFile }";
+                Get-WinEvent -ListLog * | where {{ $_.RecordCount -gt 0 }} `
+                | ForEach-Object {{ Get-WinEvent -ErrorAction SilentlyContinue -FilterHashtable @{{ LogName=$_.LogName; StartTime='{startDate}'; EndTime='{endDate}'; }} }} `
+                | Export-CSV {logFile}";
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
             {
                 await processInvoker.ExecuteAsync(
