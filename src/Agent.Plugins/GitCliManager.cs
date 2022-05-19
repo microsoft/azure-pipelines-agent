@@ -442,6 +442,29 @@ namespace Agent.Plugins.Repository
         }
 
         /// <summary>
+        /// Get the value of a git config key. Values of the key can be get from latest function parameter.
+        /// git config --get-all <key>
+        /// <param name="context">Execution context of the agent tasks</param>
+        /// <param name="repositoryPath">Local repository path on agent</param>
+        /// <param name="configKey">Git config key name</param>
+        /// <param name="values">Output array of values of the key</param>
+        /// </summary>
+        public async Task<bool> GitConfigExist(AgentTaskPluginExecutionContext context, string repositoryPath, string configKey, IList<string> existingConfigValues)
+        {
+            // git config --get-all {configKey} will return 0 and print the value if the config exist.
+            context.Debug($"Checking git config {configKey} exist or not");
+
+            // ignore any outputs by redirect them into a string list, since the output might contains secrets.
+            if (existingConfigValues == null)
+            {
+                existingConfigValues = new List<string>();
+            }
+
+            int exitcode = await ExecuteGitCommandAsync(context, repositoryPath, "config", StringUtil.Format($"--get-all {configKey}"), existingConfigValues);
+            return exitcode == 0;
+        }
+
+        /// <summary>
         /// Verify if git config contains config key with some regex pattern
         /// git config --get-regexp <configKeyPattern>
         /// </summary>
