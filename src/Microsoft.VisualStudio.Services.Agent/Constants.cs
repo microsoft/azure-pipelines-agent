@@ -160,6 +160,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public const string SslSkipCertValidation = "sslskipcertvalidation";
                     public const string Unattended = "unattended";
                     public const string Version = "version";
+                    public const string EnableServiceSidTypeUnrestricted = "enableservicesidtypeunrestricted";
                 }
             }
 
