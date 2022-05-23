@@ -31,7 +31,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             ArgUtil.NotNull(executionContext, nameof(executionContext));
 
             // this might be not accurate when the agent is configured for old TFS server
-            int totalAvailableTimeInMinutes = executionContext.Variables.GetInt("maintenance.jobtimeoutinminutes") ?? 60;
+            int totalAvailableTimeInMinutes = executionContext.Variables.GetInt(Constants.Variables.Maintenance.JobTimeout) ?? 60;
 
             // start a timer to track how much time we used
             Stopwatch totalTimeSpent = Stopwatch.StartNew();
@@ -81,7 +81,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         private bool TryHandleGarbageCollection(IExecutionContext executionContext, ITrackingManager trackingManager)
         {
-            int staleBuildDirThreshold = executionContext.Variables.GetInt("maintenance.deleteworkingdirectory.daysthreshold") ?? 0;
+            int staleBuildDirThreshold = executionContext.Variables.GetInt(Constants.Variables.Maintenance.DeleteWorkingDirectoryDaysThreshold) ?? 0;
             if (staleBuildDirThreshold > 0)
             {
                 // scan unused build directories
