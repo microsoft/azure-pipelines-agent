@@ -69,26 +69,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             string logonPassword = string.Empty;
             if (!defaultServiceAccount.Equals(new NTAccount(logonAccount)) && !NativeWindowsServiceHelper.IsWellKnownIdentity(logonAccount))
             {
-                while (true)
+               if (!_windowsServiceHelper.IsManagedServiceAccount(logonAccount))
                 {
-                    logonPassword = command.GetWindowsLogonPassword(logonAccount);
-                    if (_windowsServiceHelper.IsValidCredential(domainName, userName, logonPassword))
+                    while (true)
                     {
-                        Trace.Info("Credential validation succeed");
-                        break;
-                    }
-                    else
-                    {
-                        if (!command.Unattended())
+                        logonPassword = command.GetWindowsLogonPassword(logonAccount);
+                        if (_windowsServiceHelper.IsValidCredential(domainName, userName, logonPassword))
                         {
-                            Trace.Info("Invalid credential entered");
-                            _term.WriteLine(StringUtil.Loc("InvalidWindowsCredential"));
+                            Trace.Info("Credential validation succeed");
+                            break;
                         }
                         else
                         {
-                            throw new SecurityException(StringUtil.Loc("InvalidWindowsCredential"));
+                            if (!command.Unattended())
+                            {
+                                Trace.Info("Invalid credential entered");
+                                _term.WriteLine(StringUtil.Loc("InvalidWindowsCredential"));
+                            }
+                            else
+                            {
+                                throw new SecurityException(StringUtil.Loc("InvalidWindowsCredential"));
+                            }
                         }
                     }
+                } else
+                {
+                    Trace.Info("LogonAccount {0} is not managed service account, although you did not specify WindowsLogonPassword - maybe you wanted to use managed service account? Please see https://aka.ms/gmsa for guidelines to set up sMSA/gMSA account.", logonAccount, userName, domainName);
                 }
             }
 
