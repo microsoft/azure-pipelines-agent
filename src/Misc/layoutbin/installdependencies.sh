@@ -212,7 +212,7 @@ then
             command -v yum
             if [ $? -eq 0 ]
             then
-                yum install -y openssl-libs krb5-libs zlib libicu unzip
+                yum install -y openssl-libs krb5-libs zlib libicu
                 if [ $? -ne 0 ]
                 then                    
                     echo "'yum' failed with exit code '$?'"
