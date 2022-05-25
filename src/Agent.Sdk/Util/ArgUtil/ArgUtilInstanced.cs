@@ -1,16 +1,16 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace Microsoft.VisualStudio.Services.Agent.Util
 {
-    public static class ArgUtil
+    public class ArgUtilInstanced : IArgUtilInstanced
     {
-        public static void Directory([ValidatedNotNull] string directory, string name)
+        public ArgUtilInstanced() { }
+
+        public virtual void Directory([ValidatedNotNull] string directory, string name)
         {
             ArgUtil.NotNullOrEmpty(directory, name);
             if (!System.IO.Directory.Exists(directory))
@@ -20,7 +20,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
-        public static void Equal<T>(T expected, T actual, string name)
+        public void Equal<T>(T expected, T actual, string name)
         {
             if (object.ReferenceEquals(expected, actual))
             {
@@ -37,7 +37,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
-        public static void File(string fileName, string name)
+        public virtual void File(string fileName, string name)
         {
             ArgUtil.NotNullOrEmpty(fileName, name);
             if (!System.IO.File.Exists(fileName))
@@ -48,7 +48,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
-        public static void NotNull([ValidatedNotNull] object value, string name)
+        public void NotNull([ValidatedNotNull] object value, string name)
         {
             if (object.ReferenceEquals(value, null))
             {
@@ -56,7 +56,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
-        public static void NotNullOrEmpty([ValidatedNotNull] string value, string name)
+        public void NotNullOrEmpty([ValidatedNotNull] string value, string name)
         {
             if (string.IsNullOrEmpty(value))
             {
@@ -64,7 +64,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
-        public static void ListNotNullOrEmpty<T>([ValidatedNotNull] IEnumerable<T> value, string name)
+        public void ListNotNullOrEmpty<T>([ValidatedNotNull] IEnumerable<T> value, string name)
         {
             if (object.ReferenceEquals(value, null))
             {
@@ -76,7 +76,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
-        public static void NotEmpty(Guid value, string name)
+        public void NotEmpty(Guid value, string name)
         {
             if (value == Guid.Empty)
             {
@@ -84,17 +84,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
-        public static void Null(object value, string name)
+        public void Null(object value, string name)
         {
             if (!object.ReferenceEquals(value, null))
             {
                 throw new ArgumentException(message: $"{name} should be null.", paramName: name);
             }
         }
-    }
-
-    [AttributeUsage(AttributeTargets.Parameter)]
-    sealed class ValidatedNotNullAttribute : Attribute
-    {
     }
 }

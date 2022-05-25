@@ -10,7 +10,7 @@ CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
 NODE_URL=https://nodejs.org/dist
 NODE_VERSION="6.17.1"
 NODE10_VERSION="10.24.1"
-MINGIT_VERSION="2.30.2"
+MINGIT_VERSION="2.36.1"
 LFS_VERSION="2.13.3"
 
 get_abs_path() {
@@ -209,6 +209,13 @@ if [[ "$PACKAGERUNTIME" == "linux-arm64" ]]; then
         acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-arm64.tar.gz" node fix_nested_dir
     fi
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-linux-arm64.tar.gz" node10 fix_nested_dir
+fi
+
+if [[ "$PACKAGERUNTIME" != "win-x64" && "$PACKAGERUNTIME" != "win-x86" ]]; then
+    rm -rf "$LAYOUT_DIR/externals/node/lib/node_modules/npm"
+    rm "$LAYOUT_DIR/externals/node/bin/npm"
+    rm -rf "$LAYOUT_DIR/externals/node10/lib/node_modules/npm"
+    rm "$LAYOUT_DIR/externals/node10/bin/npm"
 fi
 
 if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
