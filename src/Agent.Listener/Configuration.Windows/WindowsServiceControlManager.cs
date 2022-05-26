@@ -71,36 +71,36 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 !_windowsServiceHelper.IsWellKnownIdentity(logonAccount) &&
                 !_windowsServiceHelper.IsManagedServiceAccount(logonAccount))
             {
-                    while (true)
+                while (true)
+                {
+                    try
                     {
-                        try
-                        {
-                            logonPassword = command.GetWindowsLogonPassword(logonAccount);
-                        }
-                        catch (ArgumentException e)
-                        {
-                            Trace.Warning("LogonAccount {0} is not managed service account, although you did not specify WindowsLogonPassword - maybe you wanted to use managed service account? Please see https://aka.ms/gmsa for guidelines to set up sMSA/gMSA account.", logonAccount, userName, domainName);
-                            throw;
-                        }
+                        logonPassword = command.GetWindowsLogonPassword(logonAccount);
+                    }
+                    catch (ArgumentException e)
+                    {
+                        Trace.Warning("LogonAccount {0} is not managed service account, although you did not specify WindowsLogonPassword - maybe you wanted to use managed service account? Please see https://aka.ms/gmsa for guidelines to set up sMSA/gMSA account.", logonAccount, userName, domainName);
+                        throw;
+                    }
 
-                        if (_windowsServiceHelper.IsValidCredential(domainName, userName, logonPassword))
+                    if (_windowsServiceHelper.IsValidCredential(domainName, userName, logonPassword))
+                    {
+                        Trace.Info("Credential validation succeed");
+                        break;
+                    }
+                    else
+                    {
+                        if (!command.Unattended())
                         {
-                            Trace.Info("Credential validation succeed");
-                            break;
+                            Trace.Info("Invalid credential entered");
+                            _term.WriteLine(StringUtil.Loc("InvalidWindowsCredential"));
                         }
                         else
                         {
-                            if (!command.Unattended())
-                            {
-                                Trace.Info("Invalid credential entered");
-                                _term.WriteLine(StringUtil.Loc("InvalidWindowsCredential"));
-                            }
-                            else
-                            {
-                                throw new SecurityException(StringUtil.Loc("InvalidWindowsCredential"));
-                            }
+                            throw new SecurityException(StringUtil.Loc("InvalidWindowsCredential"));
                         }
                     }
+                }
             }
 
             string serviceName;
