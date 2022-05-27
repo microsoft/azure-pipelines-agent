@@ -10,7 +10,6 @@ namespace Microsoft.VisualStudio.Services.Agent
     public enum WellKnownDirectory
     {
         Bin,
-        Diag,
         Externals,
         LegacyPSHost,
         Root,
