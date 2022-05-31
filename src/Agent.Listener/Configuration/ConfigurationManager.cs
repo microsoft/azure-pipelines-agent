@@ -490,6 +490,8 @@ assume it is OnPremises and the deployment type determination was not implemente
                 {
                     Trace.Info("Configuring to run the agent as service");
                     var serviceControlManager = HostContext.GetService<IWindowsServiceControlManager>();
+                    agentSettings.EnableServiceSidTypeUnrestricted = command.GetEnableServiceSidTypeUnrestricted();
+
                     serviceControlManager.ConfigureService(agentSettings, command);
                 }
                 // config auto logon

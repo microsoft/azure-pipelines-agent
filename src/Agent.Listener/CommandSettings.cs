@@ -205,6 +205,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 description: StringUtil.Loc("LaunchBrowser"),
                 defaultValue: true);
         }
+        /// <summary>
+        /// Returns EnableServiceSidTypeUnrestricted flag or prompts user to set it up
+        /// </summary>
+        /// <returns>Parameter value</returns>
+        public bool GetEnableServiceSidTypeUnrestricted()
+        {
+            return TestFlagOrPrompt(
+                value: Configure?.EnableServiceSidTypeUnrestricted,
+                name: Constants.Agent.CommandLine.Flags.EnableServiceSidTypeUnrestricted,
+                description: StringUtil.Loc("EnableServiceSidTypeUnrestricted"),
+                defaultValue: false);
+        }
         //
         // Args.
         //

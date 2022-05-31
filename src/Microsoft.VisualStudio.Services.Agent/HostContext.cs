@@ -32,6 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         ILoggedSecretMasker SecretMasker { get; }
         ProductInfoHeaderValue UserAgent { get; }
         string GetDirectory(WellKnownDirectory directory);
+        string GetDiagDirectory(HostType hostType = HostType.Undefined);
         string GetConfigFile(WellKnownConfigFile configFile);
         Tracing GetTrace(string name);
         Task Delay(TimeSpan delay, CancellationToken cancellationToken);
@@ -49,6 +50,13 @@ namespace Microsoft.VisualStudio.Services.Agent
         Manual,
         Service,
         AutoStartup
+    }
+
+    public enum HostType
+    {
+        Undefined, // Default value, used when getting the current hostContext type
+        Worker,
+        Agent
     }
 
     public class HostContext : EventListener, IObserver<DiagnosticListener>, IObserver<KeyValuePair<string, object>>, IHostContext
@@ -73,15 +81,20 @@ namespace Microsoft.VisualStudio.Services.Agent
         private IDisposable _diagListenerSubscription;
         private StartupType _startupType;
         private string _perfFile;
+        private HostType _hostType;
         public event EventHandler Unloading;
         public CancellationToken AgentShutdownToken => _agentShutdownTokenSource.Token;
         public ShutdownReason AgentShutdownReason { get; private set; }
         public ILoggedSecretMasker SecretMasker => _secretMasker;
         public ProductInfoHeaderValue UserAgent => _userAgent;
-        public HostContext(string hostType, string logFile = null)
+        public HostContext(HostType hostType, string logFile = null)
         {
+
             // Validate args.
-            ArgUtil.NotNullOrEmpty(hostType, nameof(hostType));
+            if (hostType == HostType.Undefined) {
+                throw new ArgumentException(message: $"HostType cannot be {HostType.Undefined}");
+            }
+            _hostType = hostType;
 
             _loadContext = AssemblyLoadContext.GetLoadContext(typeof(HostContext).GetTypeInfo().Assembly);
             _loadContext.Unloading += LoadContext_Unloading;
@@ -102,22 +115,23 @@ namespace Microsoft.VisualStudio.Services.Agent
             if (string.IsNullOrEmpty(logFile))
             {
                 int logPageSize;
-                string logSizeEnv = Environment.GetEnvironmentVariable($"{hostType.ToUpperInvariant()}_LOGSIZE");
+                string logSizeEnv = Environment.GetEnvironmentVariable($"{_hostType.ToString().ToUpperInvariant()}_LOGSIZE");
                 if (!string.IsNullOrEmpty(logSizeEnv) || !int.TryParse(logSizeEnv, out logPageSize))
                 {
                     logPageSize = _defaultLogPageSize;
                 }
 
                 int logRetentionDays;
-                string logRetentionDaysEnv = Environment.GetEnvironmentVariable($"{hostType.ToUpperInvariant()}_LOGRETENTION");
+                string logRetentionDaysEnv = Environment.GetEnvironmentVariable($"{_hostType.ToString().ToUpperInvariant()}_LOGRETENTION");
                 if (!string.IsNullOrEmpty(logRetentionDaysEnv) || !int.TryParse(logRetentionDaysEnv, out logRetentionDays))
                 {
                     logRetentionDays = _defaultLogRetentionDays;
                 }
 
-                // this should give us _diag folder under agent root directory
-                string diagLogDirectory = Path.Combine(new DirectoryInfo(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location)).Parent.FullName, Constants.Path.DiagDirectory);
-                _traceManager = new TraceManager(new HostTraceListener(diagLogDirectory, hostType, logPageSize, logRetentionDays), this.SecretMasker);
+                // this should give us _diag folder under agent root directory as default value for diagLogDirctory
+                string diagLogPath = GetDiagDirectory(_hostType);
+                _traceManager = new TraceManager(new HostTraceListener(diagLogPath, hostType.ToString(), logPageSize, logRetentionDays), this.SecretMasker);
+
             }
             else
             {
@@ -166,12 +180,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             {
                 case WellKnownDirectory.Bin:
                     path = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
-                    break;
-
-                case WellKnownDirectory.Diag:
-                    path = Path.Combine(
-                        GetDirectory(WellKnownDirectory.Root),
-                        Constants.Path.DiagDirectory);
                     break;
 
                 case WellKnownDirectory.Externals:
@@ -258,6 +266,29 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             _trace.Info($"Well known directory '{directory}': '{path}'");
             return path;
+        }
+
+        public string GetDiagDirectory(HostType hostType = HostType.Undefined)
+        {
+            return hostType switch
+            {
+                HostType.Undefined => GetDiagDirectory(_hostType),
+                HostType.Agent => GetDiagOrDefault(AgentKnobs.AgentDiagLogPath.GetValue(this).AsString()),
+                HostType.Worker => GetDiagOrDefault(AgentKnobs.WorkerDiagLogPath.GetValue(this).AsString()),
+                _ => throw new NotSupportedException($"Unexpected host type: '{hostType}'"),
+            };
+        }
+
+        private string GetDiagOrDefault(string diagFolder)
+        {
+            if (!string.IsNullOrEmpty(diagFolder))
+            {
+                return diagFolder;
+            }
+           
+            return Path.Combine(
+                new DirectoryInfo(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location)).Parent.FullName,
+                Constants.Path.DiagDirectory);          
         }
 
         public string GetConfigFile(WellKnownConfigFile configFile)

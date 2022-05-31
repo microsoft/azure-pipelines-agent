@@ -25,7 +25,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             using (TestHostContext hc = new TestHostContext(this))
             {
                 //clean test data if any old test forgot
-                string pagesFolder = Path.Combine(hc.GetDirectory(WellKnownDirectory.Diag), PagingLogger.PagingFolder);
+                string pagesFolder = Path.Combine(hc.GetDiagDirectory(), PagingLogger.PagingFolder);
                 if (Directory.Exists(pagesFolder))
                 {
                     Directory.Delete(pagesFolder, true);

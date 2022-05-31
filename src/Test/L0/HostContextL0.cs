@@ -118,10 +118,34 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
+        [Fact]
+        public void LogFileChangedAccordingToEnvVariable()
+        {
+            try
+            {
+                var newPath = Path.Combine(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "logs");
+                Environment.SetEnvironmentVariable("AGENT_DIAGLOGPATH", newPath);
+
+                using (var _hc = new HostContext(HostType.Agent))
+                {
+                    // Act.
+                    var diagFolder = _hc.GetDiagDirectory();
+
+                    // Assert
+                    Assert.Equal(Path.Combine(newPath, Constants.Path.DiagDirectory), diagFolder);
+                    Directory.Exists(diagFolder);
+                }
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("AGENT_DIAGLOGPATH", null);
+            }
+        }
+
         public HostContext Setup([CallerMemberName] string testName = "")
         {
             return new HostContext(
-                hostType: "L0Test",
+                hostType: HostType.Agent,
                 logFile: Path.Combine(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), $"trace_{nameof(HostContextL0)}_{testName}.log"));
         }
     }

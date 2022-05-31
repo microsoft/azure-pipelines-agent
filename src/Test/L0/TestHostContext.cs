@@ -179,12 +179,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     path = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
                     break;
 
-                case WellKnownDirectory.Diag:
-                    path = Path.Combine(
-                        GetDirectory(WellKnownDirectory.Root),
-                        Constants.Path.DiagDirectory);
-                    break;
-
                 case WellKnownDirectory.Externals:
                     path = Path.Combine(
                         GetDirectory(WellKnownDirectory.Root),
@@ -265,6 +259,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             _trace.Info($"Well known directory '{directory}': '{path}'");
             return path;
+        }
+
+        public string GetDiagDirectory(HostType hostType = HostType.Undefined)
+        {
+            return Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        Constants.Path.DiagDirectory);
         }
 
         public string GetConfigFile(WellKnownConfigFile configFile)

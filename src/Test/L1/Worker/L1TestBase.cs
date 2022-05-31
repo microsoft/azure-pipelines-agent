@@ -194,7 +194,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             var stringFile = Path.Combine(assemblyLocation, "en-US", "strings.json");
             StringUtil.LoadExternalLocalization(stringFile);
 
-            _l1HostContext = new L1HostContext("Agent", GetLogFile(this, testName));
+            _l1HostContext = new L1HostContext(HostType.Agent, GetLogFile(this, testName));
             SetupMocks(_l1HostContext);
 
             // Use different working directories for each test
