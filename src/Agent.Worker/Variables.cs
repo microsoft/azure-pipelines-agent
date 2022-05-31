@@ -12,6 +12,7 @@ using System.Linq;
 using BuildWebApi = Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.Logging;
 using Newtonsoft.Json.Linq;
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -45,7 +46,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         private readonly IHostContext _hostContext;
         private readonly ConcurrentDictionary<string, Variable> _nonexpanded = new ConcurrentDictionary<string, Variable>(StringComparer.OrdinalIgnoreCase);
-        private readonly ISecretMasker _secretMasker;
+        private readonly ILoggedSecretMasker _secretMasker;
         private readonly object _setLock = new object();
         private readonly Tracing _trace;
         private ConcurrentDictionary<string, Variable> _expanded;
@@ -411,7 +412,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Register the secret. Secret masker handles duplicates gracefully.
                 if (secret && !string.IsNullOrEmpty(val))
                 {
-                    _secretMasker.AddValue(val);
+                    _secretMasker.AddValue(val, $"Variables_Set_{name}");
                 }
 
                 // Also keep any variables that are already read only as read only.
@@ -570,7 +571,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 // Register the secret.
                                 if (secret && !string.IsNullOrEmpty(state.Value))
                                 {
-                                    _secretMasker.AddValue(state.Value);
+                                    _secretMasker.AddValue(state.Value, $"Variables_RecalculateExpanded_{state.Name}");
                                 }
 
                                 // Set the expanded value.

@@ -556,7 +556,7 @@ You can skip checksum validation for the agent package by setting the environmen
         private string GenerateUpdateScript(bool restartInteractiveAgent)
         {
             int processId = Process.GetCurrentProcess().Id;
-            string updateLog = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Diag), $"SelfUpdate-{DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")}.log");
+            string updateLog = Path.Combine(HostContext.GetDiagDirectory(), $"SelfUpdate-{DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")}.log");
             string agentRoot = HostContext.GetDirectory(WellKnownDirectory.Root);
 
             string templateName = "update.sh.template";

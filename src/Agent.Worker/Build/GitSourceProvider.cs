@@ -14,6 +14,7 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Text;
 using System.Diagnostics;
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -87,7 +88,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string base64encodedAuthHeader = Convert.ToBase64String(Encoding.UTF8.GetBytes(authHeader));
 
             // add base64 encoding auth header into secretMasker.
-            HostContext.SecretMasker.AddValue(base64encodedAuthHeader);
+            HostContext.SecretMasker.AddValue(base64encodedAuthHeader, WellKnownSecretAliases.GitSourceProviderAuthHeader);
             return $"basic {base64encodedAuthHeader}";
         }
     }

@@ -222,7 +222,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Target task inputs could be injected into the decorator's tasks if the decorator has post-task-tasks or pre-task-tasks targets,
                 // such tasks will have names that start with __system_pretargettask_ or __system_posttargettask_.
                 var taskDecoratorManager = HostContext.GetService<ITaskDecoratorManager>();
-                if (taskDecoratorManager.IsInjectedTaskForTarget(Task.Name) &&
+                if (taskDecoratorManager.IsInjectedTaskForTarget(Task.Name, ExecutionContext) &&
                     taskDecoratorManager.IsInjectedInputsContainsSecrets(inputs, out var inputsWithSecrets))
                 {
                     var inputsForReport = taskDecoratorManager.GenerateTaskResultMessage(inputsWithSecrets);

@@ -67,7 +67,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Trace.Info("LogonAccount after transforming: {0}, user: {1}, domain: {2}", logonAccount, userName, domainName);
 
             string logonPassword = string.Empty;
-            if (!defaultServiceAccount.Equals(new NTAccount(logonAccount)) && !NativeWindowsServiceHelper.IsWellKnownIdentity(logonAccount))
+            if (!defaultServiceAccount.Equals(new NTAccount(logonAccount)) &&
+                !_windowsServiceHelper.IsWellKnownIdentity(logonAccount) &&
+                !_windowsServiceHelper.IsManagedServiceAccount(logonAccount))
             {
                 while (true)
                 {
@@ -123,7 +125,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _term.WriteLine(StringUtil.Loc("GrantingFilePermissions", logonAccount));
 
             // install service.
-            _windowsServiceHelper.InstallService(serviceName, serviceDisplayName, logonAccount, logonPassword);
+            _windowsServiceHelper.InstallService(serviceName, serviceDisplayName, logonAccount, logonPassword, settings.EnableServiceSidTypeUnrestricted);
 
             // create .service file with service name.
             SaveServiceSettings(serviceName);

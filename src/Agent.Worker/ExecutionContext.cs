@@ -177,7 +177,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             if (_disableLogUploads)
             {
-                _buildLogsFolderPath = Path.Combine(hostContext.GetDirectory(WellKnownDirectory.Diag), _buildLogsFolderName);
+                _buildLogsFolderPath = Path.Combine(hostContext.GetDiagDirectory(), _buildLogsFolderName);
                 Directory.CreateDirectory(_buildLogsFolderPath);
             }
 

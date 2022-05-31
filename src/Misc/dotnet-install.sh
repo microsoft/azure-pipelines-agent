@@ -637,11 +637,13 @@ get_specific_product_version() {
 
         if machine_has "curl"
         then
-            specific_product_version=$(curl -s --fail "${download_link}${feed_credential}" 2>&1)
-            if [ $? = 0 ]; then
+            if ! specific_product_version=$(curl -s --fail "${download_link}${feed_credential}" 2>&1); then
+                continue
+            else
                 echo "${specific_product_version//[$'\t\r\n']}"
                 return 0
             fi
+
         elif machine_has "wget"
         then
             specific_product_version=$(wget -qO- "${download_link}${feed_credential}" 2>&1)
@@ -921,9 +923,15 @@ get_http_header_wget() {
     local remote_path="$1"
     local disable_feed_credential="$2"
     local wget_options="-q -S --spider --tries 5 "
-    # Store options that aren't supported on all wget implementations separately.
-    local wget_options_extra="--waitretry 2 --connect-timeout 15 "
-    local wget_result=''
+
+    local wget_options_extra=''
+
+    # Test for options that aren't supported on all wget implementations.
+    if [[ $(wget -h 2>&1 | grep -E 'waitretry|connect-timeout') ]]; then
+        wget_options_extra="--waitretry 2 --connect-timeout 15 "
+    else
+        say "wget extra options are unavailable for this environment"
+    fi
 
     remote_path_with_credential="$remote_path"
     if [ "$disable_feed_credential" = false ]; then
@@ -931,15 +939,8 @@ get_http_header_wget() {
     fi
 
     wget $wget_options $wget_options_extra "$remote_path_with_credential" 2>&1
-    wget_result=$?
 
-    if [[ $wget_result == 2 ]]; then
-        # Parsing of the command has failed. Exclude potentially unrecognized options and retry.
-        wget $wget_options "$remote_path_with_credential" 2>&1
-        return $?
-    fi
-
-    return $wget_result
+    return $?
 }
 
 # args:
@@ -1030,9 +1031,16 @@ downloadwget() {
     # Append feed_credential as late as possible before calling wget to avoid logging feed_credential
     local remote_path_with_credential="${remote_path}${feed_credential}"
     local wget_options="--tries 20 "
-    # Store options that aren't supported on all wget implementations separately.
-    local wget_options_extra="--waitretry 2 --connect-timeout 15 "
+
+    local wget_options_extra=''
     local wget_result=''
+
+    # Test for options that aren't supported on all wget implementations.
+    if [[ $(wget -h 2>&1 | grep -E 'waitretry|connect-timeout') ]]; then
+        wget_options_extra="--waitretry 2 --connect-timeout 15 "
+    else
+        say "wget extra options are unavailable for this environment"
+    fi
 
     if [ -z "$out_path" ]; then
         wget -q $wget_options $wget_options_extra -O - "$remote_path_with_credential" 2>&1
@@ -1040,17 +1048,6 @@ downloadwget() {
     else
         wget $wget_options $wget_options_extra -O "$out_path" "$remote_path_with_credential" 2>&1
         wget_result=$?
-    fi
-
-    if [[ $wget_result == 2 ]]; then
-        # Parsing of the command has failed. Exclude potentially unrecognized options and retry.
-        if [ -z "$out_path" ]; then
-            wget -q $wget_options -O - "$remote_path_with_credential" 2>&1
-            wget_result=$?
-        else
-            wget $wget_options -O "$out_path" "$remote_path_with_credential" 2>&1
-            wget_result=$?
-        fi
     fi
 
     if [[ $wget_result != 0 ]]; then

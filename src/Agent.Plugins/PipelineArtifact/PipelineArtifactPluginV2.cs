@@ -108,6 +108,9 @@ namespace Agent.Plugins.PipelineArtifact
             }
             context.Debug($"ArtifactName: {artifactName}");
 
+            // Empty input field "Matching pattern" must be recognised as default value '**'
+            itemPattern = string.IsNullOrEmpty(itemPattern) ? "**" : itemPattern;
+
             string[] minimatchPatterns = itemPattern.Split(
                 new[] { "\n" },
                 StringSplitOptions.RemoveEmptyEntries

@@ -101,6 +101,11 @@ jobs:
       parameters:
         branch: ${{ parameters.branch }}
 
+  # 1ES images used on the ARM pool doesn't contain unzip tool, so we need to install it before starting the build
+  - ${{ if eq(parameters.arch, 'arm64') }}:
+    - script: sudo apt-get update && sudo apt-get -y install unzip
+      displayName: Install unzip
+
   # Build agent layout
   - script: ${{ variables.devCommand }} layout Release ${{ parameters.os }}-${{ parameters.arch }}
     workingDirectory: src
@@ -166,6 +171,12 @@ jobs:
         codeCoverageTool: 'cobertura'
         summaryFileLocation: _reports/**/Cobertura.xml
         pathToSources: src
+
+  - ${{ if eq(parameters.os, 'osx') }}:
+    - task: UseDotNet@2
+      inputs:
+        packageType: 'sdk'
+        version: '2.1.x'
 
   - ${{ if parameters.sign }}:
     # Signing steps

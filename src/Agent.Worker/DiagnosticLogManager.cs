@@ -16,6 +16,7 @@ using System.Linq;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
+using Agent.Sdk.Knob;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
@@ -82,8 +83,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             File.WriteAllText(capabilitiesFile, capabilitiesContent);
 
             // Copy worker diag log files
-            List<string> workerDiagLogFiles = GetWorkerDiagLogFiles(HostContext.GetDirectory(WellKnownDirectory.Diag), jobStartTimeUtc);
-            executionContext.Debug($"Copying {workerDiagLogFiles.Count()} worker diag logs.");
+            List<string> workerDiagLogFiles = GetWorkerDiagLogFiles(HostContext.GetDiagDirectory(), jobStartTimeUtc);
+            executionContext.Debug($"Copying {workerDiagLogFiles.Count()} worker diag logs from {HostContext.GetDiagDirectory()}.");
 
             foreach (string workerLogFile in workerDiagLogFiles)
             {
@@ -93,9 +94,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 File.Copy(workerLogFile, destination);
             }
 
-            // Copy agent diag log files
-            List<string> agentDiagLogFiles = GetAgentDiagLogFiles(HostContext.GetDirectory(WellKnownDirectory.Diag), jobStartTimeUtc);
-            executionContext.Debug($"Copying {agentDiagLogFiles.Count()} agent diag logs.");
+            // Copy agent diag log files - we are using the worker Host Context and we need the diag folder form the Agent.
+            List<string> agentDiagLogFiles = GetAgentDiagLogFiles(HostContext.GetDiagDirectory(HostType.Agent), jobStartTimeUtc);
+            executionContext.Debug($"Copying {agentDiagLogFiles.Count()} agent diag logs from {HostContext.GetDiagDirectory(HostType.Agent)}.");
 
             foreach (string agentLogFile in agentDiagLogFiles)
             {
@@ -142,7 +143,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 executionContext.Debug("Dumping cloud-init logs.");
 
-                string logsFilePath = $"{HostContext.GetDirectory(WellKnownDirectory.Diag)}/cloudinit-{jobStartTimeUtc.ToString("yyyyMMdd-HHmmss")}-logs.tar.gz";
+                string logsFilePath = $"{HostContext.GetDiagDirectory()}/cloudinit-{jobStartTimeUtc.ToString("yyyyMMdd-HHmmss")}-logs.tar.gz";
                 string resultLogs = await DumpCloudInitLogs(logsFilePath);
                 executionContext.Debug(resultLogs);
 
@@ -161,13 +162,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             // Copy event logs for windows machines
-            if (PlatformUtil.RunningOnWindows)
+            bool dumpJobEventLogs = AgentKnobs.DumpJobEventLogs.GetValue(executionContext).AsBoolean();
+            if (dumpJobEventLogs && PlatformUtil.RunningOnWindows)
             {
                 executionContext.Debug("Dumping event viewer logs for current job.");
 
                 try
                 {
-                    string eventLogsFile = $"{HostContext.GetDirectory(WellKnownDirectory.Diag)}/EventViewer-{ jobStartTimeUtc.ToString("yyyyMMdd-HHmmss") }.log";
+                    string eventLogsFile = $"{HostContext.GetDiagDirectory()}/EventViewer-{ jobStartTimeUtc.ToString("yyyyMMdd-HHmmss") }.csv";
                     await DumpCurrentJobEventLogs(executionContext, eventLogsFile, jobStartTimeUtc);
 
                     string destination = Path.Combine(supportFilesFolder, Path.GetFileName(eventLogsFile));
@@ -178,6 +180,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     executionContext.Debug("Failed to dump event viewer logs. Skipping.");
                     executionContext.Debug($"Error message: {ex}");
                 }
+            }
+
+            bool dumpPackagesVerificationResult = AgentKnobs.DumpPackagesVerificationResult.GetValue(executionContext).AsBoolean();
+            if (dumpPackagesVerificationResult && PlatformUtil.RunningOnLinux && !PlatformUtil.RunningOnRHEL6) {
+                executionContext.Debug("Dumping info about invalid MD5 sums of installed packages.");
+
+                var debsums = WhichUtil.Which("debsums");
+                if (debsums == null) {
+                    executionContext.Debug("Debsums is not installed on the system. Skipping broken packages check.");
+                } else {
+                    try
+                    {
+                        string packageVerificationResults = await GetPackageVerificationResult(debsums);
+                        IEnumerable<string> brokenPackagesInfo = packageVerificationResults
+                            .Split("\n")
+                            .Where((line) => !String.IsNullOrEmpty(line) && !line.EndsWith("OK"));
+
+                        string brokenPackagesLogsPath = $"{HostContext.GetDiagDirectory()}/BrokenPackages-{ jobStartTimeUtc.ToString("yyyyMMdd-HHmmss") }.log";
+                        File.AppendAllLines(brokenPackagesLogsPath, brokenPackagesInfo);
+
+                        string destination = Path.Combine(supportFilesFolder, Path.GetFileName(brokenPackagesLogsPath));
+                        File.Copy(brokenPackagesLogsPath, destination);
+                    }
+                    catch (Exception ex)
+                    {
+                        executionContext.Debug("Failed to dump broken packages logs. Skipping.");
+                        executionContext.Debug($"Error message: {ex}");
+                    }
+                }
+            } else {
+                executionContext.Debug("The platform is not based on Debian - skipping debsums check.");
             }
 
             try
@@ -280,7 +313,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             executionContext.Debug($"Path to agent extension logs: {pathToLogs}");
 
-            string archivePath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Diag), archiveName);
+            string archivePath = Path.Combine(HostContext.GetDiagDirectory(), archiveName);
             executionContext.Debug($"Archiving agent extension logs to: {archivePath}");
             ZipFile.CreateFromDirectory(pathToLogs, archivePath);
 
@@ -383,7 +416,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             int bufferInSeconds = -30;
             DateTime searchTimeUtc = jobStartTimeUtc.AddSeconds(bufferInSeconds);
 
-            foreach (FileInfo file in directoryInfo.GetFiles().Where(f => f.Name.StartsWith("Worker_")))
+            foreach (FileInfo file in directoryInfo.GetFiles().Where(f => f.Name.StartsWith($"{HostType.Worker}_")))
             {
                 // The format of the logs is:
                 // Worker_20171003-143110-utc.log
@@ -411,7 +444,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             String recentLog = null;
             DateTime recentTimeUtc = DateTime.MinValue;
 
-            foreach (FileInfo file in directoryInfo.GetFiles().Where(f => f.Name.StartsWith("Agent_")))
+            foreach (FileInfo file in directoryInfo.GetFiles().Where(f => f.Name.StartsWith($"{HostType.Agent}_")))
             {
                 // The format of the logs is:
                 // Agent_20171003-143110-utc.log
@@ -650,11 +683,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // Dumps the gathered info into a separate file since the logs are long.
         private async Task DumpCurrentJobEventLogs(IExecutionContext executionContext, string logFile, DateTime jobStartTimeUtc)
         {
+            string startDate = jobStartTimeUtc.ToString("u");
+            string endDate = DateTime.UtcNow.ToString("u");
+
             string powerShellExe = HostContext.GetService<IPowerShellExeUtil>().GetPath();
             string arguments = $@"
-                Get-WinEvent -ListLog * `
-                | ForEach-Object {{ Get-WinEvent -ErrorAction SilentlyContinue -FilterHashtable @{{ LogName=$_.LogName; StartTime='{ jobStartTimeUtc.ToLocalTime() }'; EndTime='{ DateTime.Now }';}} }} `
-                | Format-List > { logFile }";
+                Get-WinEvent -ListLog * | where {{ $_.RecordCount -gt 0 }} `
+                | ForEach-Object {{ Get-WinEvent -ErrorAction SilentlyContinue -FilterHashtable @{{ LogName=$_.LogName; StartTime='{startDate}'; EndTime='{endDate}'; }} }} `
+                | Export-CSV {logFile}";
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
             {
                 await processInvoker.ExecuteAsync(
@@ -667,6 +703,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     killProcessOnCancel: false,
                     cancellationToken: default(CancellationToken));
             }
+        }
+
+        /// <summary>
+        ///  Git package verification result using the "debsums" utility.
+        /// </summary>
+        /// <returns>String with the "debsums" output</returns>
+        private async Task<string> GetPackageVerificationResult(string debsumsPath)
+        {
+            var stringBuilder = new StringBuilder();
+            using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
+            {
+                processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs mes) =>
+                {
+                    stringBuilder.AppendLine(mes.Data);
+                };
+                processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs mes) =>
+                {
+                    stringBuilder.AppendLine(mes.Data);
+                };
+
+                await processInvoker.ExecuteAsync(
+                    workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Bin),
+                    fileName: debsumsPath,
+                    arguments: string.Empty,
+                    environment: null,
+                    requireExitCodeZero: false,
+                    outputEncoding: null,
+                    killProcessOnCancel: false,
+                    cancellationToken: default(CancellationToken)
+                );
+            }
+
+            return stringBuilder.ToString();
         }
     }
 

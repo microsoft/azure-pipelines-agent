@@ -42,6 +42,9 @@ namespace Agent.Listener.CommandLine
         [Option(Constants.Agent.CommandLine.Args.DeploymentPoolName)]
         public string DeploymentPoolName { get; set; }
 
+        [Option(Constants.Agent.CommandLine.Flags.EnableServiceSidTypeUnrestricted)]
+        public bool EnableServiceSidTypeUnrestricted { get; set; }
+
         [Option(Constants.Agent.CommandLine.Flags.Environment)]
         public bool EnvironmentVMResource { get; set; }
 
