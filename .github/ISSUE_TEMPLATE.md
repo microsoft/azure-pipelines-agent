@@ -5,7 +5,7 @@ Please log an issue at [Azure-Pipelines-YAML](https://github.com/Microsoft/azure
 Log an issue at [Azure-Pipelines-Tasks](https://github.com/Microsoft/azure-pipelines-tasks). It contains all of the in-box tasks we ship with Azure-Pipelines/VSTS/TFS. If you're having issues with tasks in Build/Release jobs (e.g. unreasonable task failure) please log an issue there.
 
 ## Having issue with software on Hosted Agent?
-Log an issue at [Hosted Agent Image Repository](https://github.com/Microsoft/vsts-image-generation). It contains the VM image used in the Azure Pipelines Hosted Agent Pool. If you're having Build/Release failures that seems like they are related to software installed on the Hosted Agent (e.g. the `dotnet` SDK is missing or the Azure SDK is not on the latest version) please log an issue there.
+Log an issue at [Hosted Agent Image Repository](https://github.com/actions/virtual-environments). It contains the VM image used in the Azure Pipelines Hosted Agent Pool. If you're having Build/Release failures that seems like they are related to software installed on the Hosted Agent (e.g. the `dotnet` SDK is missing or the Azure SDK is not on the latest version) please log an issue there.
 
 ## Having generic issue with Azure-Pipelines/VSTS/TFS?
 Please report it on [Developer Community](https://developercommunity.visualstudio.com/spaces/21/index.html)
