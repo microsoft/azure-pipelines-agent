@@ -446,6 +446,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     // Get current userId
                     container.CurrentUserId = (await ExecuteCommandAsync(executionContext, "id", $"-u {container.CurrentUserName}")).FirstOrDefault();
                     ArgUtil.NotNullOrEmpty(container.CurrentUserId, nameof(container.CurrentUserId));
+                    // Get current groupId
+                    container.CurrentGroupId = (await ExecuteCommandAsync(executionContext, "id", $"-g -u {container.CurrentUserName}")).FirstOrDefault();
+                    ArgUtil.NotNullOrEmpty(container.CurrentGroupId, nameof(container.CurrentGroupId));
 
                     executionContext.Output(StringUtil.Loc("CreateUserWithSameUIDInsideContainer", container.CurrentUserId));
 
@@ -476,28 +479,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             }
                         }
                     }
-
-                    // Retrive primary group of the user
-                    List<string> hostGroupIdOutput = new List<string>();
-                    int? hostGroupId = null;
-                    int execIdGroupCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"id -g {containerUserName}", hostGroupIdOutput);
-                    if(execIdGroupCode == 0 && hostGroupIdOutput.Count > 0)
-                    {
-                        int groupId;
-                        hostGroupId = int.TryParse(hostGroupIdOutput.First(), out groupId) ? (int?) groupId : null;
-                    } else
-                    {
-                        throw new InvalidOperationException($"Docker exec faul with exit code ${execIdGroupCode}");
-                    }
-
+                 
                     // Determinate if we need to use another primary group for container user
                     bool useOtherGroupId = false;
-                    int containerUserId;
-                    if (int.TryParse(container.CurrentUserId, out containerUserId))
+                    int containerGroupId;
+                    int userId;
+                    if (int.TryParse(container.CurrentGroupId, out containerGroupId) && int.TryParse(container.CurrentUserId, out userId))
                     {
-                        if (hostGroupId != null && hostGroupId != containerUserId)
+                        if (containerGroupId != userId)
                         {
-                            Trace.Info($"Host group id is not matching user id, using {hostGroupId} as a primary GID inside container");
+                            Trace.Info($"Host group id is not matching user id, using {containerGroupId} as a primary GID inside container");
                             useOtherGroupId = true;
                         }
                     }
@@ -510,9 +501,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         // Linux allows for a 32-character username
                         int keepLength = Math.Min(32 - userNameSuffix.Length, container.CurrentUserName.Length);
                         containerUserName = $"{container.CurrentUserName.Substring(0, keepLength)}{userNameSuffix}";
-                        if(useOtherGroupId && hostGroupId != null) // Create user with the same GID as UID
+                        if(useOtherGroupId) // Create user with the same GID as UID
                         {
-                            int groupAddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"groupadd -g {(int) hostGroupId} {containerUserName}");
+                            int groupAddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"groupadd -g {groupId} {containerUserName}");
                             if (groupAddExitCode != 0)
                             {
                                 throw new InvalidOperationException($"Docker exec fail with exit code {groupAddExitCode}");
