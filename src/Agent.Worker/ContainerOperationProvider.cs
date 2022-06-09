@@ -447,10 +447,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     container.CurrentUserId = (await ExecuteCommandAsync(executionContext, "id", $"-u {container.CurrentUserName}")).FirstOrDefault();
                     ArgUtil.NotNullOrEmpty(container.CurrentUserId, nameof(container.CurrentUserId));
                     // Get current groupId
-                    container.CurrentGroupId = (await ExecuteCommandAsync(executionContext, "id", $"-g -u {container.CurrentUserName}")).FirstOrDefault();
+                    container.CurrentGroupId = (await ExecuteCommandAsync(executionContext, "id", $"-g {container.CurrentUserName}")).FirstOrDefault();
                     ArgUtil.NotNullOrEmpty(container.CurrentGroupId, nameof(container.CurrentGroupId));
                     // Get current group name
-                    container.CurrentGroupName = (await ExecuteCommandAsync(executionContext, "id", $"-gn -u {container.CurrentUserName}")).FirstOrDefault();
+                    container.CurrentGroupName = (await ExecuteCommandAsync(executionContext, "id", $"-gn {container.CurrentUserName}")).FirstOrDefault();
                     ArgUtil.NotNullOrEmpty(container.CurrentGroupName, nameof(container.CurrentGroupName));
 
                     executionContext.Output(StringUtil.Loc("CreateUserWithSameUIDInsideContainer", container.CurrentUserId));
@@ -505,8 +505,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         containerUserName = $"{container.CurrentUserName.Substring(0, keepLength)}{userNameSuffix}";
                         if(useOtherGroupId) // Create user with the same GID as UID
                         {
-                            string containerGroupName = $"{container.CurrentGroupName.Substring(0, keepLength)}{userNameSuffix}";
+                            int keepGroupLength = Math.Min(32 - userNameSuffix.Length, container.CurrentGroupName.Length);
+                            string containerGroupName = $"{container.CurrentGroupName.Substring(0, keepGroupLength)}{userNameSuffix}";
                             int groupAddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"groupadd -g {container.CurrentGroupId} {containerGroupName}");
+
                             if (groupAddExitCode != 0)
                             {
                                 throw new InvalidOperationException($"Docker exec fail with exit code {groupAddExitCode}");
