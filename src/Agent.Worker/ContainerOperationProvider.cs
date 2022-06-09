@@ -497,7 +497,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     {
                         if (hostGroupId != null && hostGroupId != containerUserId)
                         {
-                            Trace.Info("Host group id is not matching user id, using host Group ID inside container");
+                            Trace.Info($"Host group id is not matching user id, using {hostGroupId} as a primary GID inside container");
                             useOtherGroupId = true;
                         }
                     }
@@ -512,7 +512,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         containerUserName = $"{container.CurrentUserName.Substring(0, keepLength)}{userNameSuffix}";
                         if(useOtherGroupId && hostGroupId != null) // Create user with the same GID as UID
                         {
-                            int groupAddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"groupadd -g ${(int) hostGroupId} ${containerUserName}");
+                            int groupAddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"groupadd -g {(int) hostGroupId} {containerUserName}");
                             if (groupAddExitCode != 0)
                             {
                                 throw new InvalidOperationException($"Docker exec fail with exit code {groupAddExitCode}");
