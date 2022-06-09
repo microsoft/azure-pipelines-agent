@@ -449,6 +449,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     // Get current groupId
                     container.CurrentGroupId = (await ExecuteCommandAsync(executionContext, "id", $"-g -u {container.CurrentUserName}")).FirstOrDefault();
                     ArgUtil.NotNullOrEmpty(container.CurrentGroupId, nameof(container.CurrentGroupId));
+                    // Get current group name
+                    container.CurrentGroupName = (await ExecuteCommandAsync(executionContext, "id", $"-gn -u {container.CurrentUserName}")).FirstOrDefault();
+                    ArgUtil.NotNullOrEmpty(container.CurrentGroupName, nameof(container.CurrentGroupName));
 
                     executionContext.Output(StringUtil.Loc("CreateUserWithSameUIDInsideContainer", container.CurrentUserId));
 
@@ -493,7 +496,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
 
-
                     // Create a new user with same UID
                     if (string.IsNullOrEmpty(containerUserName))
                     {
@@ -503,12 +505,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         containerUserName = $"{container.CurrentUserName.Substring(0, keepLength)}{userNameSuffix}";
                         if(useOtherGroupId) // Create user with the same GID as UID
                         {
-                            int groupAddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"groupadd -g {groupId} {containerUserName}");
+                            string containerGroupName = $"{container.CurrentGroupName.Substring(0, keepLength)}{userNameSuffix}";
+                            int groupAddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"groupadd -g {container.CurrentGroupId} {containerGroupName}");
                             if (groupAddExitCode != 0)
                             {
                                 throw new InvalidOperationException($"Docker exec fail with exit code {groupAddExitCode}");
                             }
-                            int execUseraddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"useradd -m -u {container.CurrentUserId} {containerUserName}"); // user: 1000, group 1000
+                            int execUseraddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"useradd -m -g {container.CurrentGroupId} -u {container.CurrentUserId} {containerUserName}"); 
                             if (execUseraddExitCode != 0)
                             {
                                 throw new InvalidOperationException($"Docker exec fail with exit code {execUseraddExitCode}");
@@ -516,7 +519,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                         else
                         {
-                            int execUseraddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"useradd -m -u {container.CurrentUserId} {containerUserName}"); // user: 1000, group 1000
+                            int execUseraddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"useradd -m -u {container.CurrentUserId} {containerUserName}"); 
                             if (execUseraddExitCode != 0)
                             {
                                 throw new InvalidOperationException($"Docker exec fail with exit code {execUseraddExitCode}");
