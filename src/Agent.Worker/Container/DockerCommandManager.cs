@@ -228,6 +228,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             var networkDrivers = await ExecuteDockerCommandAsync(context, "info", "-f \"{{range .Plugins.Network}}{{println .}}{{end}}\"");
             var valueMTU = AgentKnobs.MTUValueForContainerJobs.GetValue(_knobContext).AsString();
             var driver = AgentKnobs.DockerNetworkCreateDriver.GetValue(context).AsString();
+            var additionalNetworCreateOptions = AgentKnobs.DockerAdditionalNetworkOptions.GetValue(context).AsString();
             string optionMTU = "";
 
             if (!String.IsNullOrEmpty(valueMTU))
@@ -253,6 +254,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             else if (usingWindowsContainers && networkDrivers.Contains("nat"))
             {
                 options += $" --driver nat";
+            }
+
+            if (!String.IsNullOrEmpty(additionalNetworCreateOptions))
+            {
+                options += $" {additionalNetworCreateOptions}";
             }
 
             return await ExecuteDockerCommandAsync(context, "network", options, context.CancellationToken);
