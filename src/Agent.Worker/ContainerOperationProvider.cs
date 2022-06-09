@@ -477,6 +477,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
 
+                    // Retrive primary group of the user
+                    List<string> hostGroupIdOutput = new List<string>();
+                    int? hostGroupId = null;
+                    int execIdGroupCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"id -g {containerUserName}", hostGroupIdOutput);
+                    if(execIdGroupCode == 0 && hostGroupIdOutput.Count > 0)
+                    {
+                        int groupId;
+                        hostGroupId = int.TryParse(hostGroupIdOutput.First(), out groupId) ? (int?) groupId : null;
+                    } else
+                    {
+                        throw new InvalidOperationException($"Docker exec faul with exit code ${execIdGroupCode}");
+                    }
+
+                    // Determinate if we need to use another primary group for container user
+                    bool useOtherGroupId = false;
+                    int containerUserId;
+                    if (int.TryParse(container.CurrentUserId, out containerUserId))
+                    {
+                        if (hostGroupId != null && hostGroupId != containerUserId)
+                        {
+                            Trace.Info("Host group id is not matching user id, using host Group ID inside container");
+                            useOtherGroupId = true;
+                        }
+                    }
+
+
                     // Create a new user with same UID
                     if (string.IsNullOrEmpty(containerUserName))
                     {
@@ -484,11 +510,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         // Linux allows for a 32-character username
                         int keepLength = Math.Min(32 - userNameSuffix.Length, container.CurrentUserName.Length);
                         containerUserName = $"{container.CurrentUserName.Substring(0, keepLength)}{userNameSuffix}";
-                        int execUseraddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"useradd -m -u {container.CurrentUserId} {containerUserName}");
-                        if (execUseraddExitCode != 0)
+                        if(useOtherGroupId && hostGroupId != null) // Create user with the same GID as UID
                         {
-                            throw new InvalidOperationException($"Docker exec fail with exit code {execUseraddExitCode}");
+                            int groupAddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"groupadd -g ${(int) hostGroupId} ${containerUserName}");
+                            if (groupAddExitCode != 0)
+                            {
+                                throw new InvalidOperationException($"Docker exec fail with exit code {groupAddExitCode}");
+                            }
+                            int execUseraddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"useradd -m -u {container.CurrentUserId} {containerUserName}"); // user: 1000, group 1000
+                            if (execUseraddExitCode != 0)
+                            {
+                                throw new InvalidOperationException($"Docker exec fail with exit code {execUseraddExitCode}");
+                            }
                         }
+                        else
+                        {
+                            int execUseraddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"useradd -m -u {container.CurrentUserId} {containerUserName}"); // user: 1000, group 1000
+                            if (execUseraddExitCode != 0)
+                            {
+                                throw new InvalidOperationException($"Docker exec fail with exit code {execUseraddExitCode}");
+                            }
+                            
+                        }
+
                     }
 
                     executionContext.Output(StringUtil.Loc("GrantContainerUserSUDOPrivilege", containerUserName));
