@@ -149,6 +149,8 @@ steps:
         bin\**\*.exe
         externals\**\*.exe
         externals\**\*.dll
+        externals\**\*.py
+        externals\**\*.pyd
       UseMinimatch: true
       signConfigType: inlineSignParams
       inlineOperation: |
