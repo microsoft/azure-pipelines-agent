@@ -47,6 +47,9 @@ namespace Microsoft.VisualStudio.Services.Agent
         [DataMember(EmitDefaultValue = false)]
         public bool AlwaysExtractTask { get; set; }
 
+        [DataMember(EmitDefaultValue = false)]
+        public bool EnableServiceSidTypeUnrestricted { get; set; }
+
         [IgnoreDataMember]
         public bool IsHosted => AgentCloudId != null;
 

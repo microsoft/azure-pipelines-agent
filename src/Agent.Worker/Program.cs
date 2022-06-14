@@ -19,7 +19,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 AppContext.SetSwitch("System.Net.Http.UseSocketsHttpHandler", false);
             }
 
-            using (HostContext context = new HostContext("Worker"))
+            using (HostContext context = new HostContext(HostType.Worker))
             {
                 return MainAsync(context, args).GetAwaiter().GetResult();
             }
