@@ -15,7 +15,7 @@ parameters:
 
 - name: timeoutInMinutes
   type: number
-  default: 60
+  default: 120
 
 - name: branch
   type: string

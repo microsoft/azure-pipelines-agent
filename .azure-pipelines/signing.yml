@@ -199,3 +199,4 @@ steps:
       SourceFolder: '${{ parameters.layoutRoot }}'
       Contents: '**\CodeSignSummary-*.md'
     displayName: Delete CodeSignSummary.md
+    retryCountOnTaskFailure: 4
