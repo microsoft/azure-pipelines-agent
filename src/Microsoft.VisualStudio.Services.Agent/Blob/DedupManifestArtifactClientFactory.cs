@@ -11,6 +11,7 @@ using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
 using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.VisualStudio.Services.BlobStore.Common;
 
 namespace Microsoft.VisualStudio.Services.Agent.Blob
 {
@@ -32,6 +33,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             Action<string> traceOutput,
             VssConnection connection,
             int maxParallelism,
+            IDomainId domainId,
             CancellationToken cancellationToken);
 
         /// <summary>
@@ -78,6 +80,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             Action<string> traceOutput,
             VssConnection connection,
             int maxParallelism,
+            IDomainId domainId,
             CancellationToken cancellationToken)
         {
             const int maxRetries = 5;
@@ -88,7 +91,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             }
             traceOutput($"Max dedup parallelism: {maxParallelism}");
 
-            var dedupStoreHttpClient = await AsyncHttpRetryHelper.InvokeAsync(
+            IDedupStoreHttpClient dedupStoreHttpClient = await AsyncHttpRetryHelper.InvokeAsync(
                 () =>
                 {
                     ArtifactHttpClientFactory factory = new ArtifactHttpClientFactory(
@@ -97,9 +100,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                         tracer,
                         cancellationToken);
 
+                    IDedupStoreHttpClient client;
                     // this is actually a hidden network call to the location service:
-                     return Task.FromResult(factory.CreateVssHttpClient<IDedupStoreHttpClient, DedupStoreHttpClient>(connection.GetClient<DedupStoreHttpClient>().BaseAddress));
+                    if (domainId == WellKnownDomainIds.DefaultDomainId)
+                    {
+                        client = factory.CreateVssHttpClient<IDedupStoreHttpClient, DedupStoreHttpClient>(connection.GetClient<DedupStoreHttpClient>().BaseAddress);
+                    }
+                    else
+                    {
+                        IDomainDedupStoreHttpClient domainClient = factory.CreateVssHttpClient<IDomainDedupStoreHttpClient, DomainDedupStoreHttpClient>(connection.GetClient<DomainDedupStoreHttpClient>().BaseAddress);
+                        client = new DomainHttpClientWrapper(domainId, domainClient);
+                    }
 
+                    return Task.FromResult(client);
                 },
                 maxRetries: maxRetries,
                 tracer: tracer,
