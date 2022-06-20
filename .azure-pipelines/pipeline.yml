@@ -125,15 +125,13 @@ stages:
         jobName: build_linux_arm
         displayName: Linux (ARM)
         pool:
-          name: buildDevs
-          demands: 'Agent.OSArchitecture -equals ARM'
-        container: dotnetcore_arm
+          vmImage: "ubuntu-20.04"
         timeoutInMinutes: 75
         os: linux
         arch: arm
         branch: ${{ parameters.branch }}
         componentDetection: false
-        unitTests: ${{ parameters.test }}
+        unitTests: false
         functionalTests: false
         sign: false
         publishArtifacts: ${{ parameters.publishArtifacts }}

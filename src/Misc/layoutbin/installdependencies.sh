@@ -24,7 +24,7 @@ function print_errormessage()
     echo "Can't install dotnet core dependencies."
     print_repositories_and_deps_warning
     echo "You can manually install all required dependencies based on following documentation"
-    echo "https://docs.microsoft.com/en-us/dotnet/core/dependencies?pivots=os-linux&tabs=netcore31"
+    echo "https://docs.microsoft.com/dotnet/core/install/linux"
 }
 
 function print_rhel6message() 
@@ -33,7 +33,7 @@ function print_rhel6message()
     echo "However, there are some dependencies which require manual installation"
     print_repositories_and_deps_warning
     echo "You can install all remaining required dependencies based on the following documentation"
-    echo "https://github.com/dotnet/core/blob/master/Documentation/build-and-install-rhel6-prerequisites.md"
+    echo "https://github.com/dotnet/core/blob/main/Documentation/build-and-install-rhel6-prerequisites.md"
 }
 
 function print_rhel6errormessage() 
@@ -41,9 +41,9 @@ function print_rhel6errormessage()
     echo "We couldn't install dotnet core dependencies"
     print_repositories_and_deps_warning
     echo "You can manually install all required dependencies based on following documentation"
-    echo "https://docs.microsoft.com/en-us/dotnet/core/dependencies?pivots=os-linux&tabs=netcore31"
+    echo "https://docs.microsoft.com/dotnet/core/install/linux"
     echo "In addition, there are some dependencies which require manual installation. Please follow this documentation" 
-    echo "https://github.com/dotnet/core/blob/master/Documentation/build-and-install-rhel6-prerequisites.md"
+    echo "https://github.com/dotnet/core/blob/main/Documentation/build-and-install-rhel6-prerequisites.md"
 }
 
 if [ -e /etc/os-release ]
@@ -63,7 +63,7 @@ then
         command -v apt
         if [ $? -eq 0 ]
         then
-            apt update && apt install -y liblttng-ust0 libkrb5-3 zlib1g
+            apt update && apt install -y liblttng-ust0 libkrb5-3 zlib1g debsums
             if [ $? -ne 0 ]
             then
                 echo "'apt' failed with exit code '$?'"
@@ -90,19 +90,11 @@ then
                 print_errormessage
                 exit 1
             fi
-
-            # Try to install debsums package for logs gathering diagnostic info about broken packages
-            apt install debsums
-            if [ $? -ne 0 ]
-            then
-                # Since this is only for diagnostics, we don't have to fail the entire script if this installation fails
-                echo "Failed to install debsum package for diagnostics using 'apt'."
-            fi
         else
             command -v apt-get
             if [ $? -eq 0 ]
             then
-                apt-get update && apt-get install -y liblttng-ust0 libkrb5-3 zlib1g
+                apt-get update && apt-get install -y liblttng-ust0 libkrb5-3 zlib1g debsums
                 if [ $? -ne 0 ]
                 then
                     echo "'apt-get' failed with exit code '$?'"
@@ -128,14 +120,6 @@ then
                     echo "'apt-get' failed with exit code '$?'"
                     print_errormessage
                     exit 1
-                fi
-
-                # Try to install debsums package for logs gathering diagnostic info about broken packages
-                apt-get install debsums
-                if [ $? -ne 0 ]
-                then
-                    # Since this is only for diagnostics, we don't have to fail the entire script if this installation fails
-                    echo "Failed to install debsum package for diagnostics using 'apt-get'."
                 fi
             else
                 echo "Can not find 'apt' or 'apt-get'"

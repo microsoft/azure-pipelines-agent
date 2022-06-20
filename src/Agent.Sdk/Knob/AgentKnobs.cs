@@ -47,6 +47,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_AGENT_DOCKER_NETWORK_CREATE_DRIVER"),
             new BuiltInDefaultKnobSource(string.Empty));
 
+        public static readonly Knob DockerAdditionalNetworkOptions = new Knob(
+            nameof(DockerNetworkCreateDriver),
+            "Allow to specify additional command line options to 'docker network' command when creating network for new containers",
+            new RuntimeKnobSource("agent.DockerAdditionalNetworkOptions"),
+            new EnvironmentKnobSource("AZP_AGENT_DOCKER_ADDITIONAL_NETWORK_OPTIONS"),
+            new BuiltInDefaultKnobSource(string.Empty));
+
         // Directory structure
         public static readonly Knob AgentToolsDirectory = new Knob(
             nameof(AgentToolsDirectory),
@@ -121,6 +128,26 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTSAGENT_TRACE"),
             new BuiltInDefaultKnobSource(string.Empty));
 
+        public static readonly Knob DumpJobEventLogs = new Knob(
+            nameof(DumpJobEventLogs),
+            "If true, dump event viewer logs",
+            new RuntimeKnobSource("VSTSAGENT_DUMP_JOB_EVENT_LOGS"),
+            new EnvironmentKnobSource("VSTSAGENT_DUMP_JOB_EVENT_LOGS"),
+            new BuiltInDefaultKnobSource("false"));
+
+        // Diag logging
+        public static readonly Knob AgentDiagLogPath = new Knob(
+            nameof(AgentDiagLogPath),
+            "If set to anything, the folder containing the agent diag log will be created here.",
+            new EnvironmentKnobSource("AGENT_DIAGLOGPATH"),
+            new BuiltInDefaultKnobSource(string.Empty));
+
+        public static readonly Knob WorkerDiagLogPath = new Knob(
+            nameof(WorkerDiagLogPath),
+            "If set to anything, the folder containing the agent worker diag log will be created here.",
+            new EnvironmentKnobSource("WORKER_DIAGLOGPATH"),
+            new BuiltInDefaultKnobSource(string.Empty));
+
         // Timeouts
         public static readonly Knob AgentChannelTimeout = new Knob(
             nameof(AgentChannelTimeout),
@@ -140,11 +167,18 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTS_TASK_DOWNLOAD_TIMEOUT"),
             new BuiltInDefaultKnobSource("1200")); // 20*60
 
+        public static readonly Knob TaskDownloadRetryLimit = new Knob(
+            nameof(TaskDownloadRetryLimit),
+            "Attempts to download a task when starting a job",
+            new EnvironmentKnobSource("VSTS_TASK_DOWNLOAD_RETRY_LIMIT"),
+            new BuiltInDefaultKnobSource("3"));
+
         // HTTP
         public const string LegacyHttpVariableName = "AZP_AGENT_USE_LEGACY_HTTP";
         public static readonly Knob UseLegacyHttpHandler = new DeprecatedKnob(
             nameof(UseLegacyHttpHandler),
             "Use the libcurl-based HTTP handler rather than .NET's native HTTP handler, as we did on .NET Core 2.1",
+            "Legacy http handler will be removed in one of the next agent releases with migration to .Net Core 6. We are highly recommend to not use it.",
             new EnvironmentKnobSource(LegacyHttpVariableName),
             new BuiltInDefaultKnobSource("false"));
 
@@ -307,5 +341,12 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("TEE_PLUGIN_DOWNLOAD_RETRY_COUNT"),
             new EnvironmentKnobSource("TEE_PLUGIN_DOWNLOAD_RETRY_COUNT"),
             new BuiltInDefaultKnobSource("3"));
+
+        public static readonly Knob DumpPackagesVerificationResult = new Knob(
+            nameof(DumpPackagesVerificationResult),
+            "If true, dumps info about invalid MD5 sums of installed packages",
+            new RuntimeKnobSource("VSTSAGENT_DUMP_PACKAGES_VERIFICATION_RESULTS"),
+            new EnvironmentKnobSource("VSTSAGENT_DUMP_PACKAGES_VERIFICATION_RESULTS"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }

@@ -232,10 +232,20 @@ namespace Agent.Plugins.Repository
         // git lfs fetch origin [ref]
         public async Task<int> GitLFSFetch(AgentTaskPluginExecutionContext context, string repositoryPath, string remoteName, string refSpec, string additionalCommandLine, CancellationToken cancellationToken)
         {
+            string lfsconfig = ".lfsconfig";
+            context.Debug($"Checkout {lfsconfig} for git repository at: {repositoryPath} remote: {remoteName}.");
+
+            // default options for git checkout .lfsconfig
+            string options = StringUtil.Format($"{refSpec} -- {lfsconfig}");
+            int exitCodeLfsConfigCheckout = await ExecuteGitCommandAsync(context, repositoryPath, "checkout", options, additionalCommandLine, cancellationToken);
+            if (exitCodeLfsConfigCheckout != 0) {
+                context.Debug("There were some issues while checkout of .lfsconfig - probably because this file does not exist (see message above for more details). Continue fetching.");
+            }
+
             context.Debug($"Fetch LFS objects for git repository at: {repositoryPath} remote: {remoteName}.");
 
             // default options for git lfs fetch.
-            string options = StringUtil.Format($"fetch origin {refSpec}");
+            options = StringUtil.Format($"fetch origin {refSpec}");
 
             int retryCount = 0;
             int fetchExitCode = 0;
@@ -438,6 +448,29 @@ namespace Agent.Plugins.Repository
             List<string> outputStrings = new List<string>();
             int exitcode = await ExecuteGitCommandAsync(context, repositoryPath, "config", StringUtil.Format($"--get-all {configKey}"), outputStrings);
 
+            return exitcode == 0;
+        }
+
+        /// <summary>
+        /// Get the value of a git config key. Values of the key can be get from latest function parameter.
+        /// git config --get-all <key>
+        /// <param name="context">Execution context of the agent tasks</param>
+        /// <param name="repositoryPath">Local repository path on agent</param>
+        /// <param name="configKey">Git config key name</param>
+        /// <param name="values">Output array of values of the key</param>
+        /// </summary>
+        public async Task<bool> GitConfigExist(AgentTaskPluginExecutionContext context, string repositoryPath, string configKey, IList<string> existingConfigValues)
+        {
+            // git config --get-all {configKey} will return 0 and print the value if the config exist.
+            context.Debug($"Checking git config {configKey} exist or not");
+
+            // ignore any outputs by redirect them into a string list, since the output might contains secrets.
+            if (existingConfigValues == null)
+            {
+                existingConfigValues = new List<string>();
+            }
+
+            int exitcode = await ExecuteGitCommandAsync(context, repositoryPath, "config", StringUtil.Format($"--get-all {configKey}"), existingConfigValues);
             return exitcode == 0;
         }
 
