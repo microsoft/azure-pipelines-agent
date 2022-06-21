@@ -72,6 +72,12 @@ function detect_platform_and_runtime_id ()
 
     elif [[ "$CURRENT_PLATFORM" == 'darwin' ]]; then
         DETECTED_RUNTIME_ID='osx-x64'
+         if command -v uname > /dev/null; then
+            local CPU_NAME=$(uname -m)
+            case $CPU_NAME in
+                arm64) DETECTED_RUNTIME_ID="osx-arm64";;
+            esac
+        fi
     fi
 }
 
@@ -291,7 +297,7 @@ else
     RUNTIME_ID=$DETECTED_RUNTIME_ID
 fi
 
-_VALID_RIDS='linux-x64:linux-arm:linux-arm64:rhel.6-x64:osx-x64:win-x64:win-x86'
+_VALID_RIDS='linux-x64:linux-arm:linux-arm64:rhel.6-x64:osx-x64:win-x64:win-x86:osx-arm64'
 if [[ ":$_VALID_RIDS:" != *:$RUNTIME_ID:* ]]; then
     failed "must specify a valid target runtime ID (one of: $_VALID_RIDS)"
 fi
