@@ -65,7 +65,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope")]
         public bool TryProcessCommand(IExecutionContext context, string input)
         {
             ArgUtil.NotNull(context, nameof(context));
