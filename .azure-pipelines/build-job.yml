@@ -24,7 +24,7 @@ parameters:
   - win
   - linux
   - osx
-  - rhel.6
+  - rhel.7
 
 - name: arch
   type: string
@@ -128,8 +128,7 @@ jobs:
   # Run l1 tests
   - ${{ if parameters.functionalTests }}:
     - ${{ if and(eq(parameters.os, 'win'), eq(parameters.arch, 'x86')) }}:
-      - powershell: |
-        .\Misc\dotnet-install.ps1 -Architecture x86 -Version 6.0.200
+      - powershell: .\Misc\dotnet-install.ps1 -Architecture x86 -Version 6.0.200
     - script: ${{ variables.devCommand }} testl1 Debug ${{ parameters.os }}-${{ parameters.arch }}
       workingDirectory: src
       displayName: Functional tests

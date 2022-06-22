@@ -207,7 +207,7 @@ then
                 # install lttng-ust separately since it's not part of offical package repository, try installing from local package first, then add repo if it's missing
                 if ! yum install -y lttng-ust
                 then
-                    yum install -y wget ca-certificates && wget -P /etc/yum.repos.d/ https://packages.efficios.com/repo.files/EfficiOS-RHEL7-x86-64.repo && rpmkeys --import https://packages.efficios.com/rhel/repo.key && yum updateinfo -y && yum install -y lttng-ust
+                    yum install -y wget && wget -P /etc/yum.repos.d/ https://packages.efficios.com/repo.files/EfficiOS-RHEL7-x86-64.repo && rpmkeys --import https://packages.efficios.com/rhel/repo.key && yum updateinfo -y && yum install -y lttng-ust
                 fi
                 if [ $? -ne 0 ]
                 then                    
