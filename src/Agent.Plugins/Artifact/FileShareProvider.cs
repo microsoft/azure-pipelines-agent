@@ -56,7 +56,14 @@ namespace Agent.Plugins
         public async Task DownloadMultipleArtifactsAsync(ArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context) 
         {
             context.Warning(StringUtil.Loc("DownloadArtifactWarning", "UNC"));
-            var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, this.factory.GetDedupStoreClientMaxParallelism(context), cancellationToken);
+            var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(
+                context.IsSystemDebugTrue(),
+                (str) => context.Output(str),
+                connection,
+                this.factory.GetDedupStoreClientMaxParallelism(context),
+                WellKnownDomainIds.DefaultDomainId,
+                cancellationToken);
+
             using (clientTelemetry)
             {
                 FileShareActionRecord downloadRecord = clientTelemetry.CreateRecord<FileShareActionRecord>((level, uri, type) =>
@@ -100,7 +107,14 @@ namespace Agent.Plugins
             int parallelCount,
             CancellationToken cancellationToken) 
         {
-            var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, this.factory.GetDedupStoreClientMaxParallelism(context), cancellationToken);
+            var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(
+                context.IsSystemDebugTrue(),
+                (str) => context.Output(str),
+                connection,
+                this.factory.GetDedupStoreClientMaxParallelism(context),
+                WellKnownDomainIds.DefaultDomainId,
+                cancellationToken);
+
             using (clientTelemetry)
             {
                 FileShareActionRecord publishRecord = clientTelemetry.CreateRecord<FileShareActionRecord>((level, uri, type) =>

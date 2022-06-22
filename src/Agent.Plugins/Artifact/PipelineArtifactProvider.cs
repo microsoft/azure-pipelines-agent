@@ -14,6 +14,7 @@ using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common;
+using Microsoft.VisualStudio.Services.BlobStore.Common;
 
 namespace Agent.Plugins
 {
@@ -33,7 +34,12 @@ namespace Agent.Plugins
         public async Task DownloadSingleArtifactAsync(ArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClientAsync(
-                this.context.IsSystemDebugTrue(), (str) => this.context.Output(str), this.connection, DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context), cancellationToken);
+                this.context.IsSystemDebugTrue(),
+                (str) => this.context.Output(str),
+                this.connection,
+                DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
+                WellKnownDomainIds.DefaultDomainId,
+                cancellationToken);
 
             using(clientTelemetry) {
                 var manifestId = DedupIdentifier.Create(buildArtifact.Resource.Data);
@@ -69,7 +75,12 @@ namespace Agent.Plugins
         public async Task DownloadMultipleArtifactsAsync(ArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClientAsync(
-                this.context.IsSystemDebugTrue(), (str) => this.context.Output(str), this.connection, DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context), cancellationToken);
+                this.context.IsSystemDebugTrue(),
+                (str) => this.context.Output(str),
+                this.connection,
+                DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
+                WellKnownDomainIds.DefaultDomainId,
+                cancellationToken);
 
             using(clientTelemetry) {
                 var artifactNameAndManifestIds = buildArtifacts.ToDictionary(
