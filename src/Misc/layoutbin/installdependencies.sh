@@ -46,6 +46,12 @@ function print_rhel6errormessage()
     echo "https://github.com/dotnet/core/blob/main/Documentation/build-and-install-rhel6-prerequisites.md"
 }
 
+function print_rhel6depricationmessage()
+{
+    echo "Detected Operation System is not supported by .NET 6 which is required to run this software"
+    echo "You can check supported OS on the following documentation: https://github.com/dotnet/core/blob/main/release-notes/6.0/supported-os.md"
+}
+
 if [ -e /etc/os-release ]
 then
     echo "--------OS Information--------"
