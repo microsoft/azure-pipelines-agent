@@ -71,16 +71,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 while (true)
                 {
-                    try
-                    {
-                        logonPassword = command.GetWindowsLogonPassword(logonAccount);
-                    }
-                    catch (ArgumentException e)
-                    {
-                        Trace.Warning("LogonAccount {0} is not managed service account, although you did not specify WindowsLogonPassword - maybe you wanted to use managed service account? Please see https://aka.ms/gmsa for guidelines to set up sMSA/gMSA account.", logonAccount, userName, domainName);
-                        throw;
-                    }
-
+                    logonPassword = command.GetWindowsLogonPassword(logonAccount);
                     if (_windowsServiceHelper.IsValidCredential(domainName, userName, logonPassword))
                     {
                         Trace.Info("Credential validation succeed");
