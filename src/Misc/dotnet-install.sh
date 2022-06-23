@@ -1000,19 +1000,27 @@ downloadcurl() {
     # Avoid passing URI with credentials to functions: note, most of them echoing parameters of invocation in verbose output.
     local remote_path_with_credential="${remote_path}${feed_credential}"
     local curl_options="--retry 20 --retry-delay 2 --connect-timeout 15 -sSL -f --create-dirs "
-    local failed=false
+    local curl_exit_code=0;
     if [ -z "$out_path" ]; then
-        curl $curl_options "$remote_path_with_credential" 2>&1 || failed=true
+        curl $curl_options "$remote_path_with_credential" 2>&1
+        curl_exit_code=$?
     else
-        curl $curl_options -o "$out_path" "$remote_path_with_credential" 2>&1 || failed=true
+        curl $curl_options -o "$out_path" "$remote_path_with_credential" 2>&1
+        curl_exit_code=$?
     fi
-    if [ "$failed" = true ]; then
-        local disable_feed_credential=false
-        local response=$(get_http_header_curl $remote_path $disable_feed_credential)
-        http_code=$( echo "$response" | awk '/^HTTP/{print $2}' | tail -1 )
+    
+    if [ $curl_exit_code -gt 0 ]; then
         download_error_msg="Unable to download $remote_path."
-        if  [[ $http_code != 2* ]]; then
-            download_error_msg+=" Returned HTTP status code: $http_code."
+        # Check for curl timeout codes
+        if [[ $curl_exit_code == 7 || $curl_exit_code == 28 ]]; then
+            download_error_msg+=" Failed to reach the server: connection timeout."
+        else
+            local disable_feed_credential=false
+            local response=$(get_http_header_curl $remote_path $disable_feed_credential)
+            http_code=$( echo "$response" | awk '/^HTTP/{print $2}' | tail -1 )
+            if  [[ ! -z $http_code && $http_code != 2* ]]; then
+                download_error_msg+=" Returned HTTP status code: $http_code."
+            fi
         fi
         say_verbose "$download_error_msg"
         return 1
@@ -1055,8 +1063,11 @@ downloadwget() {
         local response=$(get_http_header_wget $remote_path $disable_feed_credential)
         http_code=$( echo "$response" | awk '/^  HTTP/{print $2}' | tail -1 )
         download_error_msg="Unable to download $remote_path."
-        if  [[ $http_code != 2* ]]; then
+        if  [[ ! -z $http_code && $http_code != 2* ]]; then
             download_error_msg+=" Returned HTTP status code: $http_code."
+        # wget exit code 4 stands for network-issue
+        elif [[ $wget_result == 4 ]]; then
+            download_error_msg+=" Failed to reach the server: connection timeout."
         fi
         say_verbose "$download_error_msg"
         return 1
@@ -1179,6 +1190,11 @@ generate_akams_links() {
     local valid_aka_ms_link=true;
 
     normalized_version="$(to_lowercase "$version")"
+    if [[ "$normalized_version" != "latest" ]] && [ -n "$normalized_quality" ]; then
+        say_err "Either Quality or Version option has to be specified. See https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet-install-script#options for details."
+        return 1
+    fi
+
     if [[ -n "$json_file" || "$normalized_version" != "latest" ]]; then
         # aka.ms links are not needed when exact version is specified via command or json file
         return
@@ -1392,6 +1408,7 @@ install_dotnet() {
         unset IFS;
         say_verbose "Checking installation: version = $release_version"
         if is_dotnet_package_installed "$install_root" "$asset_relative_path" "$release_version"; then
+            say "Installed version is $effective_version"
             return 0
         fi
     fi
@@ -1399,6 +1416,7 @@ install_dotnet() {
     #  Check if the standard SDK version is installed.
     say_verbose "Checking installation: version = $effective_version"
     if is_dotnet_package_installed "$install_root" "$asset_relative_path" "$effective_version"; then
+        say "Installed version is $effective_version"
         return 0
     fi
 
@@ -1552,7 +1570,7 @@ do
             echo "  -v,--version <VERSION>         Use specific VERSION, Defaults to \`$version\`."
             echo "      -Version"
             echo "          Possible values:"
-            echo "          - latest - most latest build on specific channel"
+            echo "          - latest - the latest build on specific channel"
             echo "          - 3-part version in a format A.B.C - represents specific version of build"
             echo "              examples: 2.0.0-preview2-006120; 1.1.0"
             echo "  -q,--quality <quality>         Download the latest build of specified quality in the channel."
