@@ -48,7 +48,7 @@ namespace Agent.Sdk.Knob
             new BuiltInDefaultKnobSource(string.Empty));
 
         public static readonly Knob DockerAdditionalNetworkOptions = new Knob(
-            nameof(DockerNetworkCreateDriver),
+            nameof(DockerAdditionalNetworkOptions),
             "Allow to specify additional command line options to 'docker network' command when creating network for new containers",
             new RuntimeKnobSource("agent.DockerAdditionalNetworkOptions"),
             new EnvironmentKnobSource("AZP_AGENT_DOCKER_ADDITIONAL_NETWORK_OPTIONS"),
