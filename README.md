@@ -1,5 +1,12 @@
 # Azure Pipelines Agent
 
+## Announcement
+
+Legacy HTTP handler is deprecated and won't be supported in .NET 6.
+We recommend you stop using AZP_AGENT_USE_LEGACY_HTTP variable (knob). It won't be available soon.
+
+Also some Operation Systems will stop working with .NET 6 update. Please [read here](https://github.com/dotnet/core/blob/main/release-notes/6.0/supported-os.md).
+
 ## Overview
 
 The cross-platform build and release agent for Azure Pipelines and Team Foundation Server 2015 and beyond.
