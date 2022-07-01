@@ -113,6 +113,7 @@ jobs:
   - script: ${{ variables.devCommand }} layout Release ${{ parameters.os }}-${{ parameters.arch }}
     workingDirectory: src
     displayName: Build & Layout Release
+    retryCountOnTaskFailure: 5
     ${{ if parameters.enableADOLogIssue }}:
       env:
         ADO_ENABLE_LOGISSUE: true
