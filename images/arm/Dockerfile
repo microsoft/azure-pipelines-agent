@@ -1,4 +1,3 @@
-# DisableDockerDetector "Legacy container"
 FROM mcr.microsoft.com/dotnet/core/runtime-deps:2.1
 
 RUN apt-get update \

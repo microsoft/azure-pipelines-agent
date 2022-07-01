@@ -1,4 +1,3 @@
-# DisableDockerDetector "Legacy container"
 FROM centos:6
 
 # Install dependencies
