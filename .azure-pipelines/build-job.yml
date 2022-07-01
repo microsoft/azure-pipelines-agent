@@ -66,10 +66,6 @@ parameters:
   - agent
   - pipelines-agent
 
-variables:
-  DisableCFSDetector: true
-  DisableDockerDetector: true
-
 jobs:
 
 - job: ${{ parameters.jobName }}
@@ -87,6 +83,8 @@ jobs:
     ${{ if ne(parameters.os, 'win') }}:
       devCommand: ./dev.sh
     layoutRoot: '_layout/${{ parameters.os }}-${{ parameters.arch }}'
+    DisableCFSDetector: true
+    DisableDockerDetector: true
 
   steps:
 
