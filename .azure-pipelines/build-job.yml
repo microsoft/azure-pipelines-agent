@@ -66,6 +66,10 @@ parameters:
   - agent
   - pipelines-agent
 
+variables:
+  DisableCFSDetector: true
+  DisableDockerDetector: true
+
 jobs:
 
 - job: ${{ parameters.jobName }}
