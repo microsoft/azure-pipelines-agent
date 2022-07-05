@@ -503,7 +503,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         // Linux allows for a 32-character username
                         int keepLength = Math.Min(32 - userNameSuffix.Length, container.CurrentUserName.Length);
                         containerUserName = $"{container.CurrentUserName.Substring(0, keepLength)}{userNameSuffix}";
-                        if(useOtherGroupId) // Create user with the same GID as UID
+                        if (useOtherGroupId) // Create user with the same GID as UID
                         {
                             int keepGroupLength = Math.Min(32 - userNameSuffix.Length, container.CurrentGroupName.Length);
                             string containerGroupName = $"{container.CurrentGroupName.Substring(0, keepGroupLength)}{userNameSuffix}";
