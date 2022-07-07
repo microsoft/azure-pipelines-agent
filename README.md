@@ -1,11 +1,10 @@
 # Azure Pipelines Agent
 
-## Announcement
+## Announcement -  `AZP_AGENT_USE_LEGACY_HTTP` agent knob future deprecation
 
-Legacy HTTP handler is deprecated and won't be supported in .NET 6.
-We recommend you stop using AZP_AGENT_USE_LEGACY_HTTP variable (knob). It won't be available soon.
+We are working on pipeline agent migration to .NET 6. One of the side effect of this migration is that the legacy HTTP handler will be no longer available for use due to changes in the .NET framework itself.
 
-Also some Operation Systems will stop working with .NET 6 update. Please [read here](https://github.com/dotnet/core/blob/main/release-notes/6.0/supported-os.md).
+Thus the related agent knob will not work once the migration will be completed. We recommend stopping using the `AZP_AGENT_USE_LEGACY_HTTP` knob.
 
 ## Overview
 
