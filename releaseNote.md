@@ -9,6 +9,7 @@
  - Added message - in case when account is not managed, but WindowsLogon… (#3845)
  - Improve retry logic for downloading tasks (#3857)
  - Add ability to specify domainId for creating dedupmanifestartifactclient (#3871)
+ - Added node16 execution handler (#3861)
 
 ## Bugs
  - Custom LFS server fix - reworked changes from PR#2706  (#3785)
@@ -22,6 +23,7 @@
  - Updated the link to the hosted images repositiry in issue template (#3856)
  - [Agent CI] Update signing pipeline to respect the new MinGit layout (#3867)
  - [Agent CI] Improve release pipeline stability (#3868)
+ - remove npx in the node 10 directory; remove npm, npx, corepack, and related node modules in the node 16 directory (#3897)
 
 
 ## Agent Downloads
