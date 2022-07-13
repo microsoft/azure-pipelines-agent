@@ -46,6 +46,9 @@ parameters:
 - name: macOS_x64
   type: boolean
   default: true
+- name: macOS_arm64
+  type: boolean
+  default: true
 
 resources:
   containers:
@@ -186,6 +189,24 @@ stages:
           vmImage: macOS-11
         os: osx
         arch: x64
+        branch: ${{ parameters.branch }}
+        componentDetection: ${{ parameters.componentDetection }}
+        unitTests: ${{ parameters.test }}
+        functionalTests: ${{ parameters.test }}
+        sign: ${{ parameters.sign }}
+        publishArtifacts: ${{ parameters.publishArtifacts }}
+        buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
+
+  # macOS x64
+  - ${{ if parameters.macOS_arm64 }}:
+    - template: build-jobs.yml
+      parameters:
+        jobName: build_osx
+        displayName: macOS (arm64)
+        pool:
+          vmImage: macOS-10.15
+        os: osx
+        arch: arm64
         branch: ${{ parameters.branch }}
         componentDetection: ${{ parameters.componentDetection }}
         unitTests: ${{ parameters.test }}
