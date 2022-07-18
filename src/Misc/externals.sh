@@ -221,10 +221,20 @@ if [[ "$PACKAGERUNTIME" == "linux-arm64" ]]; then
 fi
 
 if [[ "$PACKAGERUNTIME" != "win-x64" && "$PACKAGERUNTIME" != "win-x86" ]]; then
-    rm -rf "$LAYOUT_DIR/externals/node/lib/node_modules/npm"
+    # remove `npm`, `npx`, `corepack`, and related `node_modules` from the `externals/node*` agent directory
+    # they are installed along with node, but agent does not use them
+
+    rm -rf "$LAYOUT_DIR/externals/node/lib"
     rm "$LAYOUT_DIR/externals/node/bin/npm"
-    rm -rf "$LAYOUT_DIR/externals/node10/lib/node_modules/npm"
+
+    rm -rf "$LAYOUT_DIR/externals/node10/lib"
     rm "$LAYOUT_DIR/externals/node10/bin/npm"
+    rm "$LAYOUT_DIR/externals/node10/bin/npx"
+
+    rm -rf "$LAYOUT_DIR/externals/node16/lib"
+    rm "$LAYOUT_DIR/externals/node16/bin/npm"
+    rm "$LAYOUT_DIR/externals/node16/bin/npx"
+    rm "$LAYOUT_DIR/externals/node16/bin/corepack"
 fi
 
 if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
