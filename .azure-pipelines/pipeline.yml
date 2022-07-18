@@ -204,12 +204,12 @@ stages:
         jobName: build_osx_arm64
         displayName: macOS (arm64)
         pool:
-          vmImage: macOS-10.15
+          vmImage: macOS-11
         os: osx
         arch: arm64
         branch: ${{ parameters.branch }}
         componentDetection: ${{ parameters.componentDetection }}
-        unitTests: ${{ parameters.test }}
+        unitTests: false
         functionalTests: ${{ parameters.test }}
         sign: ${{ parameters.sign }}
         publishArtifacts: ${{ parameters.publishArtifacts }}
