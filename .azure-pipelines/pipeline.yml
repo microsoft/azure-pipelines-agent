@@ -210,7 +210,7 @@ stages:
         branch: ${{ parameters.branch }}
         componentDetection: ${{ parameters.componentDetection }}
         unitTests: false
-        functionalTests: ${{ parameters.test }}
+        functionalTests: false
         sign: ${{ parameters.sign }}
         publishArtifacts: ${{ parameters.publishArtifacts }}
         buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
