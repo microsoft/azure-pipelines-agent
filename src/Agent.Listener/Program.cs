@@ -72,8 +72,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 if (PlatformUtil.UseLegacyHttpHandler)
                 {
                     trace.Warning($"You are using the legacy HTTP handler because you set ${AgentKnobs.LegacyHttpVariableName}.");
-                    trace.Warning($"This feature will go away with .NET 5.0, and we recommend you don't use it.");
-                    trace.Warning($"If you continue using it, you must ensure libcurl is installed on your system.");
+                    trace.Warning($"This feature will go away with .NET 6.0, and we recommend you stop using it.");
+                    trace.Warning($"It won't be available soon.");
                 }
 
                 if (PlatformUtil.RunningOnWindows)
