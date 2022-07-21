@@ -525,16 +525,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     // Create a new group for giving sudo permission
                     string sudoGroupName = "azure_pipelines_sudo";
-                    try
-                    {
-                        await DockerExec(executionContext, container.ContainerId, $"groupadd -g {container.CurrentUserId} {sudoGroupName}");
-                    }
-                    catch (Exception ex) when (ex is InvalidOperationException)
-                    {
-                        string fallback = $"groupadd {sudoGroupName}";
-                        Trace.Info($"Falling back to the '{fallback}' command.");
-                        await DockerExec(executionContext, container.ContainerId, fallback);
-                    }
+                    await DockerExec(executionContext, container.ContainerId, $"groupadd {sudoGroupName}");
 
                     // Add the new created user to the new created sudo group.
                     await DockerExec(executionContext, container.ContainerId, $"usermod -a -G {sudoGroupName} {containerUserName}");
