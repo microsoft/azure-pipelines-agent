@@ -493,14 +493,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         useHostGroupId = true;
                     }
 
-                    // Create a new user with same UID
-                    if (string.IsNullOrEmpty(containerUserName))
+                    if (string.IsNullOrEmpty(containerUserName)) // Create a new user with same UID as on the host
                     {
                         string userNameSuffix = "_azpcontainer";
                         // Linux allows for a 32-character username
                         containerUserName = KeepAllowedLength(container.CurrentUserName, 32, userNameSuffix);
                         string fallback = $"useradd -m -u {container.CurrentUserId} {containerUserName}";
-                        if (useHostGroupId) // Create user with the same GID as UID
+                        if (useHostGroupId) // Create a new user with the same UID and the same GID as on the host
                         {
                             try
                             {
