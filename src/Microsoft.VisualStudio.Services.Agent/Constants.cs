@@ -364,6 +364,15 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string SkipSyncSource = "agent.source.skip";
             }
 
+            public static class Maintenance
+            {
+                //
+                // Keep alphabetical. If you add or remove a variable here, do the same in ReadOnlyVariables
+                //
+                public static readonly string DeleteWorkingDirectoryDaysThreshold = "maintenance.deleteworkingdirectory.daysthreshold";
+                public static readonly string JobTimeout = "maintenance.jobtimeoutinminutes";
+            }
+
             public static class Pipeline
             {
                 //

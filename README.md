@@ -1,5 +1,11 @@
 # Azure Pipelines Agent
 
+## Announcement -  `AZP_AGENT_USE_LEGACY_HTTP` agent knob future deprecation
+
+We are working on pipeline agent migration to .NET 6. One of the side effect of this migration is that the legacy HTTP handler will be no longer available for use due to changes in the .NET runtime itself.
+
+Thus the related agent knob will not work once the migration will be completed. We recommend stopping using the `AZP_AGENT_USE_LEGACY_HTTP` knob.
+
 ## Overview
 
 The cross-platform build and release agent for Azure Pipelines and Team Foundation Server 2015 and beyond.
