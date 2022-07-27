@@ -170,7 +170,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         public string GetNodeLocation()
         {
-            bool useNode10 = AgentKnobs.UseNode10.GetValue(ExecutionContext).AsBoolean();
+            bool useNode16 = AgentKnobs.UseNode16.GetValue(ExecutionContext).AsBoolean();
             bool taskHasNode10Data = Data is Node10HandlerData;
             bool taskHasNode16Data = Data is Node16HandlerData;
 
@@ -185,10 +185,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 Trace.Info($"Task.json has node10 handler data: {taskHasNode10Data}");
                 nodeFolder = "node10";
             }
-            else if (useNode10)
+            if(useNode16)
             {
-                Trace.Info($"Found UseNode10 knob, use node10 for node tasks: {useNode10}");
-                nodeFolder = "node10";
+                Trace.Info($"Found UseNode16 knob, using node16 for node tasks {useNode16}");
+                nodeFolder = "node16";
             }
 
             return Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals),
