@@ -69,7 +69,7 @@ function detect_platform_and_runtime_id ()
                 DETECTED_RUNTIME_ID='rhel.6-x64'
             fi
             if [[ $redhatRelease == "CentOS release 7."* || $redhatRelease == "Red Hat Enterprise Linux Server release 7."* ]]; then
-                DETECTED_RUNTIME_ID='rhel.7-x64'
+                DETECTED_RUNTIME_ID='rhel.7.2-x64'
             fi
         fi
 
@@ -300,7 +300,7 @@ else
     RUNTIME_ID=$DETECTED_RUNTIME_ID
 fi
 
-_VALID_RIDS='linux-x64:linux-arm:linux-arm64:rhel.7-x64:osx-x64:win-x64:win-x86:osx-arm64'
+_VALID_RIDS='linux-x64:linux-arm:linux-arm64:rhel.6-x64:rhel.7.2-x64:osx-x64:win-x64:win-x86:osx-arm64'
 if [[ ":$_VALID_RIDS:" != *:$RUNTIME_ID:* ]]; then
     failed "must specify a valid target runtime ID (one of: $_VALID_RIDS)"
 fi
