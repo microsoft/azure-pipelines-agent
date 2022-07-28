@@ -40,7 +40,7 @@ parameters:
 - name: linux_arm64
   type: boolean
   default: true
-- name: rhel6_x64
+- name: rhel7_x64
   type: boolean
   default: true
 - name: macOS_x64
@@ -163,7 +163,7 @@ stages:
         buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
 
   # RHEL6 (x64)
-  - ${{ if parameters.rhel6_x64 }}:
+  - ${{ if parameters.rhel7_x64 }}:
     - template: build-jobs.yml
       parameters:
         jobName: build_rhel6_x64
@@ -171,7 +171,7 @@ stages:
         pool:
           vmImage: ubuntu-18.04
         container: dotnetcore_centos79
-        os: rhel.7.2
+        os: linux
         arch: x64
         branch: ${{ parameters.branch }}
         componentDetection: false
