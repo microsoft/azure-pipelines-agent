@@ -25,6 +25,7 @@ parameters:
   - linux
   - osx
   - rhel.6
+  - rhel.7
 
 - name: arch
   type: string
