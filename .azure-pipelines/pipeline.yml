@@ -167,7 +167,7 @@ stages:
     - template: build-jobs.yml
       parameters:
         jobName: build_rhel6_x64
-        displayName: RHEL6 (x64)
+        displayName: RHEL7 (x64)
         pool:
           vmImage: ubuntu-18.04
         container: dotnetcore_centos79
