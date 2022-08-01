@@ -57,7 +57,7 @@ resources:
   - container: dotnetcore_centos6
     image: azpagentinfra/centos6:latest
   - container: dotnetcore_centos79
-    image: ivlevkirill/centos79:latest
+    image: azpagentinfra/centos79:latest
 
 stages:
 
