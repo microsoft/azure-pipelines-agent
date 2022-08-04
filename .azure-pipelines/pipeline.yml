@@ -56,8 +56,8 @@ resources:
     image: azpagentinfra/arm:latest
   - container: dotnetcore_centos6
     image: azpagentinfra/centos6:latest
-  - container: dotnetcore_centos79
-    image: azpagentinfra/centos79:latest
+  - container: dotnetcore_centos7
+    image: azpagentinfra/centos7:latest
 
 stages:
 
@@ -170,7 +170,7 @@ stages:
         displayName: RHEL7 (x64)
         pool:
           vmImage: ubuntu-18.04
-        container: dotnetcore_centos79
+        container: dotnetcore_centos7
         os: linux
         arch: x64
         branch: ${{ parameters.branch }}
