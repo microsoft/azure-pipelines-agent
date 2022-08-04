@@ -295,6 +295,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             bool exposeCred = executionContext.Variables.GetBoolean(Constants.Variables.System.EnableAccessToken) ?? false;
 
+            // fetch tags unless the endpoint data explicitly says otherwise
+            bool fetchTags = true;
+            if (endpoint.Data.ContainsKey(EndpointData.FetchTags))
+            {
+                fetchTags = StringUtil.ConvertToBoolean(endpoint.Data[EndpointData.FetchTags]);
+            }
+
             Trace.Info($"Repository url={repositoryUrl}");
             Trace.Info($"targetPath={targetPath}");
             Trace.Info($"sourceBranch={sourceBranch}");
@@ -306,6 +313,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             Trace.Info($"fetchDepth={fetchDepth}");
             Trace.Info($"gitLfsSupport={gitLfsSupport}");
             Trace.Info($"acceptUntrustedCerts={acceptUntrustedCerts}");
+            Trace.Info($"fetchTags={fetchTags}");
 
             bool preferGitFromPath = true;
             bool schannelSslBackend = false;
@@ -758,7 +766,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 additionalFetchSpecs.Add(StringUtil.Format("+{0}:{1}", sourceBranch, GetRemoteRefName(sourceBranch)));
             }
 
-            int exitCode_fetch = await _gitCommandManager.GitFetch(executionContext, targetPath, "origin", fetchDepth, additionalFetchSpecs, string.Join(" ", additionalFetchArgs), cancellationToken);
+            int exitCode_fetch = await _gitCommandManager.GitFetch(executionContext, targetPath, "origin", fetchDepth, fetchTags, additionalFetchSpecs, string.Join(" ", additionalFetchArgs), cancellationToken);
             if (exitCode_fetch != 0)
             {
                 throw new InvalidOperationException($"Git fetch failed with exit code: {exitCode_fetch}");
