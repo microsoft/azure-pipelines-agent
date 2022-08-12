@@ -18,6 +18,7 @@ using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.PipelineCache.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using JsonSerializer = Microsoft.VisualStudio.Services.Content.Common.JsonSerializer;
+using Microsoft.VisualStudio.Services.BlobStore.Common;
 
 namespace Agent.Plugins.PipelineCache
 {
@@ -40,7 +41,14 @@ namespace Agent.Plugins.PipelineCache
         {
             VssConnection connection = context.VssConnection;
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                .CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context), cancellationToken);
+                .CreateDedupManifestClientAsync(
+                    context.IsSystemDebugTrue(),
+                    (str) => context.Output(str),
+                    connection,
+                    DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
+                    WellKnownDomainIds.DefaultDomainId,
+                    cancellationToken);
+
             PipelineCacheClient pipelineCacheClient = await this.CreateClientWithRetryAsync(clientTelemetry, context, connection, cancellationToken);
 
             using (clientTelemetry)
@@ -145,7 +153,14 @@ namespace Agent.Plugins.PipelineCache
         {
             VssConnection connection = context.VssConnection;
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                .CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context), cancellationToken);
+                .CreateDedupManifestClientAsync(
+                    context.IsSystemDebugTrue(),
+                    (str) => context.Output(str),
+                    connection,
+                    DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
+                    WellKnownDomainIds.DefaultDomainId,
+                    cancellationToken);
+
             PipelineCacheClient pipelineCacheClient = await this.CreateClientWithRetryAsync(clientTelemetry, context, connection, cancellationToken);
 
             using (clientTelemetry)
