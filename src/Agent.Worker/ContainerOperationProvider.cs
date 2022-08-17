@@ -8,6 +8,7 @@ using System.ServiceProcess;
 using System.Threading.Tasks;
 using System.Linq;
 using System.Threading;
+using System.Net.Http;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.Common;
@@ -15,6 +16,10 @@ using Microsoft.Win32;
 using Agent.Sdk;
 using Agent.Sdk.Knob;
 using Newtonsoft.Json.Linq;
+using System.Net;
+using Azure.Identity;
+using Azure.Core;
+using Newtonsoft.Json;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -142,6 +147,67 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             await RemoveContainerNetworkAsync(executionContext, _containerNetwork);
         }
 
+        private async Task<string> GetMSILoginInfo()
+        {
+            var credential = new ManagedIdentityCredential(null);
+            var accessToken = credential.GetToken(new TokenRequestContext(new[] { "https://management.core.windows.net/" }));
+            // To print the token, you can convert it to string 
+            string accessTokenString = accessToken.Token.ToString();
+            return await Task.FromResult(accessTokenString);
+        }
+
+        private async Task<string> GetACRPasswordFromAADToken(string AADToken, string tenantId, string registryServer, int retryCount, int timeToWait)
+        {
+            Uri url = new Uri(registryServer + "/oauth2/exchange");
+            const int retryLimit = 5;
+            using var httpClientHandler = HostContext.CreateHttpClientHandler();
+            using HttpClient httpClient = new HttpClient(httpClientHandler);
+            httpClient.DefaultRequestHeaders.Add("Content-Type", "application/x-www-form-urlencoded");
+            using StringContent stringContent = new StringContent("grant_type=access_token&service=" + registryServer[8..] + "&tenant=" + tenantId + "&access_token=" + AADToken);
+            string ACRpassword = string.Empty;
+            int waitedTime = 0;
+            do
+            {
+                try
+                {
+                    var response = await httpClient.PostAsync(url, stringContent).ConfigureAwait(false);
+                    if (response.StatusCode == HttpStatusCode.OK)
+                    {
+                        Dictionary<string, string> list = (Dictionary<string, string>)JsonConvert.DeserializeObject(await response.Content.ReadAsStringAsync(), typeof(Dictionary<string, string>));
+                        ACRpassword = list["refresh_token"];
+                    }
+                    else if (response.StatusCode == HttpStatusCode.TooManyRequests || response.StatusCode == HttpStatusCode.InternalServerError)
+                    {
+                        if (retryCount < retryLimit)
+                        {
+                            waitedTime = 2000 + timeToWait * 2;
+                            retryCount++;
+                            await Task.Delay(timeToWait);
+                        }
+                        else
+                        {
+                            throw new NotSupportedException("Could not fetch access token for ACR at the moment. Please try again in a few minutes.");
+                        }
+                    }
+                    else
+                    {
+                        throw new NotSupportedException("Could not fetch access token for ACR. Please configure Managed Service Identity (MSI) for Azure Container Registry with the appropriate permissions - https://stackoverflow.com/questions/71711086/pull-azure-container-registry-image-from-app-service-using-managed-identity.");
+                    }
+                }
+                catch
+                {
+                    waitedTime = 2000 + timeToWait * 2;
+                    retryCount++;
+                    await Task.Delay(timeToWait);
+                    // Socket/network error handled here
+                }
+            } while (retryCount < retryLimit && string.IsNullOrEmpty(ACRpassword));
+            if (string.IsNullOrEmpty(ACRpassword))
+            {
+                throw new NotSupportedException("Could not acquire ACR token from given AAD token. Please check that the necessary access is provided and try again.");
+            }
+            return await Task.FromResult(ACRpassword);
+        }
         private async Task PullContainerAsync(IExecutionContext executionContext, ContainerInfo container)
         {
             Trace.Entering();
@@ -165,20 +231,48 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 string username = string.Empty;
                 string password = string.Empty;
                 string registryType = string.Empty;
+                string authType = string.Empty;
 
                 registryEndpoint.Data?.TryGetValue("registrytype", out registryType);
                 if (string.Equals(registryType, "ACR", StringComparison.OrdinalIgnoreCase))
                 {
+                    try
+                    {
+                        authType = registryEndpoint.Authorization?.Scheme;
+                        Console.WriteLine("Endpoint Authorization Scheme: " + authType);
+                    }
+                    catch { }
+                    try
+                    {
+                        registryEndpoint.Authorization?.Parameters?.TryGetValue("scheme", out authType);
+                        Console.WriteLine("Endpoint Authorization Parameter Scheme: " + authType);
+                    }
+                    catch { }
+                    if (string.IsNullOrEmpty(authType))
+                    {
+                        authType = "ServicePrincipal";
+                    }
                     string loginServer = string.Empty;
                     registryEndpoint.Authorization?.Parameters?.TryGetValue("loginServer", out loginServer);
-                    if (loginServer != null) {
+                    if (loginServer != null)
+                    {
                         loginServer = loginServer.ToLower();
                     }
-
-                    registryEndpoint.Authorization?.Parameters?.TryGetValue("serviceprincipalid", out username);
-                    registryEndpoint.Authorization?.Parameters?.TryGetValue("serviceprincipalkey", out password);
-
                     registryServer = $"https://{loginServer}";
+                    if (string.Equals(authType, "ManagedServiceIdentity", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string tenantId = string.Empty;
+                        username = "00000000-0000-0000-0000-000000000000";
+                        string AADToken = await GetMSILoginInfo();
+                        // change to getting password from string
+                        password = await GetACRPasswordFromAADToken(AADToken, tenantId, registryServer, 0, 0);
+
+                    }
+                    else
+                    {
+                        registryEndpoint.Authorization?.Parameters?.TryGetValue("serviceprincipalid", out username);
+                        registryEndpoint.Authorization?.Parameters?.TryGetValue("serviceprincipalkey", out password);
+                    }
                 }
                 else
                 {
@@ -325,12 +419,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Tasks)));
                 }
             }
-            
+
             container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tools), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tools)),
                 readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Tools)));
 
             bool externalReadOnly = container.ImageOS != PlatformUtil.OS.Windows || container.isReadOnlyVolume(Constants.DefaultContainerMounts.Externals); // This code was refactored to use PlatformUtils. The previous implementation did not have the externals directory mounted read-only for Windows.
-                                                                    // That seems wrong, but to prevent any potential backwards compatibility issues, we are keeping the same logic
+                                                                                                                                                            // That seems wrong, but to prevent any potential backwards compatibility issues, we are keeping the same logic
             container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Externals), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Externals)), externalReadOnly));
 
             if (container.ImageOS != PlatformUtil.OS.Windows)
