@@ -149,8 +149,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private async Task<string> GetMSILoginInfo()
         {
-            var credential = new ManagedIdentityCredential(null);
-            var accessToken = credential.GetToken(new TokenRequestContext(new[] { "https://management.core.windows.net/" }));
+            var credential = new ChainedTokenCredential(new ManagedIdentityCredential(null), new VisualStudioCredential());
+            var accessToken = await credential.GetTokenAsync(new TokenRequestContext(new[] { "https://management.core.windows.net/" }));
             // To print the token, you can convert it to string 
             string accessTokenString = accessToken.Token.ToString();
             return await Task.FromResult(accessTokenString);
@@ -250,7 +250,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     catch { }
                     if (string.IsNullOrEmpty(authType))
                     {
-                        authType = "ServicePrincipal";
+                       authType = "ServicePrincipal";
                     }
                     string loginServer = string.Empty;
                     registryEndpoint.Authorization?.Parameters?.TryGetValue("loginServer", out loginServer);
@@ -272,7 +272,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     {
                         registryEndpoint.Authorization?.Parameters?.TryGetValue("serviceprincipalid", out username);
                         registryEndpoint.Authorization?.Parameters?.TryGetValue("serviceprincipalkey", out password);
-                    }
+                }
                 }
                 else
                 {
