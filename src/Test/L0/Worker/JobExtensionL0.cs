@@ -391,6 +391,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
                 Environment.SetEnvironmentVariable("VSTS_AGENT_INIT_INTERNAL_TEMP_HACK", "C:\\init.ps1");
                 Environment.SetEnvironmentVariable("VSTS_AGENT_CLEANUP_INTERNAL_TEMP_HACK", "C:\\cleanup.ps1");
+                Environment.SetEnvironmentVariable("DEBUG_MSI_LOGIN_INFO", "1");
 
                 try
                 {

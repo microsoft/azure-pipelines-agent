@@ -147,16 +147,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             await RemoveContainerNetworkAsync(executionContext, _containerNetwork);
         }
 
-        private async Task<string> GetMSILoginInfo()
+        private async Task<string> GetMSILoginToken(CancellationToken cancellationToken)
         {
-            var credential = new ChainedTokenCredential(new ManagedIdentityCredential(null), new VisualStudioCredential());
-            var accessToken = await credential.GetTokenAsync(new TokenRequestContext(new[] { "https://management.core.windows.net/" }));
+            // Check environment variable for debugging
+            var envVar = System.Environment.GetEnvironmentVariable("DEBUG_MSI_LOGIN_INFO");
+            // Future: Set this client id. This is the MSI client ID.
+            TokenCredential credential = new ManagedIdentityCredential(clientId: null);
+            if (envVar == "1")
+            {
+                // Future: Set this client id. This is the MSI client ID.
+                credential = new ChainedTokenCredential(new ManagedIdentityCredential(clientId: null), new VisualStudioCredential(), new AzureCliCredential());
+            }
+            var accessToken = await credential.GetTokenAsync(new TokenRequestContext(new[] { "https://management.core.windows.net/" }), cancellationToken);
             // To print the token, you can convert it to string 
-            string accessTokenString = accessToken.Token.ToString();
-            return await Task.FromResult(accessTokenString);
+            return accessToken.Token.ToString();
         }
 
-        private async Task<string> GetACRPasswordFromAADToken(string AADToken, string tenantId, string registryServer, int retryCount, int timeToWait)
+        private async Task<string> GetACRPasswordFromAADToken(string AADToken, string tenantId, string registryServer, int retryCount, int timeToWait, CancellationToken cancellationToken)
         {
             Uri url = new Uri(registryServer + "/oauth2/exchange");
             const int retryLimit = 5;
@@ -170,7 +177,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 try
                 {
-                    var response = await httpClient.PostAsync(url, stringContent).ConfigureAwait(false);
+                    var response = await httpClient.PostAsync(url, stringContent, cancellationToken).ConfigureAwait(false);
                     if (response.StatusCode == HttpStatusCode.OK)
                     {
                         Dictionary<string, string> list = (Dictionary<string, string>)JsonConvert.DeserializeObject(await response.Content.ReadAsStringAsync(), typeof(Dictionary<string, string>));
@@ -206,7 +213,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 throw new NotSupportedException("Could not acquire ACR token from given AAD token. Please check that the necessary access is provided and try again.");
             }
-            return await Task.FromResult(ACRpassword);
+            return ACRpassword;
         }
         private async Task PullContainerAsync(IExecutionContext executionContext, ContainerInfo container)
         {
@@ -252,6 +259,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     {
                        authType = "ServicePrincipal";
                     }
+                    authType = "ManagedServiceIdentity";
                     string loginServer = string.Empty;
                     registryEndpoint.Authorization?.Parameters?.TryGetValue("loginServer", out loginServer);
                     if (loginServer != null)
@@ -262,10 +270,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (string.Equals(authType, "ManagedServiceIdentity", StringComparison.OrdinalIgnoreCase))
                     {
                         string tenantId = string.Empty;
+                        // Documentation says to pass username through this way
                         username = "00000000-0000-0000-0000-000000000000";
-                        string AADToken = await GetMSILoginInfo();
+                        string AADToken = await GetMSILoginToken(executionContext.CancellationToken);
                         // change to getting password from string
-                        password = await GetACRPasswordFromAADToken(AADToken, tenantId, registryServer, 0, 0);
+                        password = await GetACRPasswordFromAADToken(
+                            AADToken: AADToken, tenantId: tenantId, registryServer: registryServer,
+                            retryCount: 0, timeToWait: 0, cancellationToken: executionContext.CancellationToken);
 
                     }
                     else
