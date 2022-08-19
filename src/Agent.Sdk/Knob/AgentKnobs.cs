@@ -54,6 +54,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_AGENT_DOCKER_ADDITIONAL_NETWORK_OPTIONS"),
             new BuiltInDefaultKnobSource(string.Empty));
 
+        public static readonly Knob UseHostGroupId = new Knob(
+            nameof(UseHostGroupId),
+            "If true, use the same group ID (GID) as the user on the host on which the agent is running",
+            new RuntimeKnobSource("agent.UseHostGroupId"),
+            new EnvironmentKnobSource("AZP_AGENT_USE_HOST_GROUP_ID"),
+            new BuiltInDefaultKnobSource("true"));
+
         // Directory structure
         public static readonly Knob AgentToolsDirectory = new Knob(
             nameof(AgentToolsDirectory),

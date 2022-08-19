@@ -114,6 +114,12 @@ jobs:
       env:
         ADO_ENABLE_LOGISSUE: true
 
+  # Check if broken symlinks exist in the agent build
+  - task: Bash@3
+    inputs:
+      filePath: src/Misc/check-symlinks.sh
+    displayName: Check symlinks
+
   # Run l0 tests
   - ${{ if parameters.unitTests }}:
     - script: ${{ variables.devCommand }} testl0 Debug ${{ parameters.os }}-${{ parameters.arch }}
