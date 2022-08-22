@@ -22,7 +22,7 @@ source "$SCRIPT_DIR/.helpers.sh"
 DOTNETSDK_ROOT="$SCRIPT_DIR/../_dotnetsdk"
 DOTNETSDK_VERSION="3.1.100"
 DOTNETSDK_INSTALLDIR="$DOTNETSDK_ROOT/$DOTNETSDK_VERSION"
-AGENT_VERSION=$(cat "$SCRIPT_DIR/agentversion")
+AGENT_VERSION=$(cat "$SCRIPT_DIR/agentversion" | head -n 1 | tr -d "\n\r")
 
 DOTNET_ERROR_PREFIX="##vso[task.logissue type=error]"
 DOTNET_WARNING_PREFIX="##vso[task.logissue type=warning]"
@@ -176,7 +176,7 @@ function cmd_package ()
         echo "You must build first.  Expecting to find ${LAYOUT_DIR}/bin"
     fi
 
-    agent_ver=$(cat "${SCRIPT_DIR}/agentversion" | tail -n 1) || failed "version"
+    agent_ver="$AGENT_VERSION" || failed "version"
 
     if [[ ("$PACKAGE_TYPE" == "pipelines-agent") ]]; then
         agent_pkg_name="pipelines-agent-${RUNTIME_ID}-${agent_ver}"

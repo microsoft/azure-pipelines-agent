@@ -294,6 +294,8 @@ assume it is OnPremises and the deployment type determination was not implemente
                 agent = await agentProvider.GetAgentAsync(agentSettings);
                 if (agent != null)
                 {
+                    _term.WriteLine(StringUtil.Loc("AgentWithSameNameAlreadyExistInPool", agentSettings.PoolName, agentSettings.AgentName));
+
                     if (command.GetReplace())
                     {
                         // Update existing agent with new PublicKey, agent version and SystemCapabilities.
