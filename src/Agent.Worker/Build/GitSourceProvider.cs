@@ -555,6 +555,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 // If any git commands exit with non-zero return code or any exception happened during git.exe invoke, fall back to delete the repo folder.
                 if (clean)
                 {
+                    await RunGitStatusIfSystemDebug(executionContext, targetPath);
+
                     Boolean softCleanSucceed = true;
 
                     // git clean -ffdx
@@ -632,6 +634,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     throw new InvalidOperationException($"Unable to use git.exe add remote 'origin', 'git remote add' failed with exit code: {exitCode_addremote}");
                 }
             }
+
+            await RunGitStatusIfSystemDebug(executionContext, targetPath);
 
             cancellationToken.ThrowIfCancellationRequested();
             executionContext.Progress(0, "Starting fetch...");
@@ -1083,6 +1087,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 {
                     executionContext.Debug("Remove git.sslkey askpass file.");
                     IOUtil.DeleteFile(_clientCertPrivateKeyAskPassFile);
+                }
+            }
+
+            await RunGitStatusIfSystemDebug(executionContext, targetPath);
+        }
+
+        private async Task RunGitStatusIfSystemDebug(IExecutionContext executionContext, string targetPath)
+        {
+            if (executionContext.WriteDebug)
+            {
+                var exitCode_gitStatus = await _gitCommandManager.GitStatus(executionContext, targetPath);
+
+                if (exitCode_gitStatus != 0)
+                {
+                    executionContext.Warning($"git status failed with exit code: {exitCode_gitStatus}");
                 }
             }
         }
