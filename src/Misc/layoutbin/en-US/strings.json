@@ -313,6 +313,7 @@
   "FailedToReadFile": "Failed to read {0}. Error : {1}.",
   "FailedToReplaceAgent": "Failed to replace the agent.  Try again or ctrl-c to quit",
   "FailToRemoveGitConfig": "Unable to remove \"{0}\" from the git config. To remove the credential, execute \"git config --unset-all {0}\" from the repository root \"{1}\".",
+  "FailToReplaceTokenPlaceholderInGitConfig": "Unable to replace placeholder for \"{0}\" in the git config file.",
   "FileAssociateProgress": "Total files: {0} ---- Associated files: {1} ({2}%)",
   "FileContainerUploadFailed": "Unable to copy file to server StatusCode={0}: {1}. Source file path: {2}. Target server path: {3}",
   "FileContainerUploadFailedBlob": "Unable to upload file to blob. Source file path: {0}. Target server path: {1}",
