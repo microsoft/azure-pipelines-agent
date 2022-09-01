@@ -94,6 +94,67 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
             }
         }
 
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [InlineData( @"C:\agent\w", PlatformUtil.OS.Windows, @"C:\w", @"C:\w\test", @"C:\agent\w\test")]
+        [InlineData(@"C:\agent\w", PlatformUtil.OS.Windows, @"C:\w", @"C:/w/test", @"C:\agent\w\test")]
+        [InlineData(@"C:\agent\w", PlatformUtil.OS.Windows, @"C:\w", @"C:\w/test", @"C:\agent\w\test")]
+        [InlineData(@"C:\agent\w", PlatformUtil.OS.Linux, @"/w", @"/w/test", @"C:\agent\w\test")]
+        [InlineData(@"C:\agent\w\01", PlatformUtil.OS.Linux, @"/w/01", @"/w\01/02", @"/w\01/02")]
+        public void TranslateToHostPathTests(string mappingHost, PlatformUtil.OS imageOS, string mappingContainer, string containerPath, string expected)
+        {
+            var dockerContainer = new Pipelines.ContainerResource()
+                {
+                    Alias = "vsts_container_preview",
+                    Image = "foo",
+                };
+            using (TestHostContext hc = CreateTestContext())
+            {
+                ContainerInfo info = hc.CreateContainerInfo(dockerContainer);
+                info.ImageOS = imageOS;
+                var mappings = new Dictionary<string, string>
+                {
+                    { mappingHost, mappingContainer }
+                };
+                info.AddPathMappings(mappings);
+
+                var got = info.TranslateToHostPath(containerPath);
+
+                Assert.Equal(expected, got);
+            }
+        }
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [InlineData( @"C:\agent\w", PlatformUtil.OS.Windows, @"C:\w", @"C:\agent\w\test", @"C:\w\test")]
+        [InlineData(@"C:\agent\w", PlatformUtil.OS.Windows, @"C:\w", @"C:/agent/w/test", @"C:\w\test")]
+        [InlineData(@"C:\agent\w", PlatformUtil.OS.Windows, @"C:\w", @"C:\agent\w/test", @"C:\w\test")]
+        [InlineData(@"C:\agent\w", PlatformUtil.OS.Linux, @"/w", @"C:\agent\w\test", @"/w/test")]
+        public void TranslateToContainerPathTests(string mappingHost, PlatformUtil.OS imageOS, string mappingContainer, string hostPath, string expected)
+        {
+            var dockerContainer = new Pipelines.ContainerResource()
+                {
+                    Alias = "vsts_container_preview",
+                    Image = "foo"
+                };
+            using (TestHostContext hc = CreateTestContext())
+            {
+                ContainerInfo info = hc.CreateContainerInfo(dockerContainer);
+                info.ImageOS = imageOS;
+                var mappings = new Dictionary<string, string>
+                {
+                    { mappingHost, mappingContainer }
+                };
+                info.AddPathMappings(mappings);
+
+                var got = info.TranslateToContainerPath(hostPath);
+
+                Assert.Equal(expected, got);
+            }
+        }
+
 
         [Fact]
         [Trait("Level", "L0")]
