@@ -5,7 +5,7 @@ function delay {
     if [ -x "$(command -v sleep)" ]; then
         sleep $time >/dev/null
     elif [ -x "$(command -v ping)" ]; then
-        ping -n $time 127.0.0.1 >nul
+        ping -c $((time+1)) 127.0.0.1 > /dev/null
     else
         count=0
 
