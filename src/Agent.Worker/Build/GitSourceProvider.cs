@@ -1281,10 +1281,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             //modify git config file on disk.
             if (!string.IsNullOrEmpty(configValue))
             {
-                string gitConfig = Path.Combine(targetPath, ".git/config");
+                string gitConfig = Path.Combine(targetPath, ".git", "config");
                 if (File.Exists(gitConfig))
                 {
-                    string gitConfigContent = File.ReadAllText(Path.Combine(targetPath, ".git", "config"));
+                    string gitConfigContent = File.ReadAllText(gitConfig);
                     using (StreamWriter config = new StreamWriter(gitConfig))
                     {
                         if (gitConfigContent.Contains(tokenPlaceholderConfigValue))
