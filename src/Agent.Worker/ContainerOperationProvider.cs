@@ -169,7 +169,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Trace.Entering();
             Uri url = new Uri(registryServer + "/oauth2/exchange");
             const int retryLimit = 5;
-            using HttpClient httpClient = new HttpClient();
+            using HttpClientHandler httpClientHandler = HostContext.CreateHttpClientHandler();
+            using HttpClient httpClient = new HttpClient(httpClientHandler);
             httpClient.DefaultRequestHeaders.Add("Content-Type", "application/x-www-form-urlencoded");
             List<KeyValuePair<string, string>> keyValuePairs = new List<KeyValuePair<string, string>>
             {
