@@ -1,493 +1,305 @@
-#!/usr/bin/env bash
+#
 # Copyright (c) .NET Foundation and contributors. All rights reserved.
 # Licensed under the MIT license. See LICENSE file in the project root for full license information.
 #
 
-# Stop script on NZEC
-set -e
-# Stop script if unbound variable found (use ${var:-} if intentional)
-set -u
-# By default cmd1 | cmd2 returns exit code of cmd2 regardless of cmd1 success
-# This is causing it to fail
-set -o pipefail
+<#
+.SYNOPSIS
+    Installs dotnet cli
+.DESCRIPTION
+    Installs dotnet cli. If dotnet installation already exists in the given directory
+    it will update it only if the requested version differs from the one already installed.
+.PARAMETER Channel
+    Default: LTS
+    Download from the Channel specified. Possible values:
+    - Current - most current release
+    - LTS - most current supported release
+    - 2-part version in a format A.B - represents a specific release
+          examples: 2.0, 1.0
+    - 3-part version in a format A.B.Cxx - represents a specific SDK release
+          examples: 5.0.1xx, 5.0.2xx
+          Supported since 5.0 release
+    Note: The version parameter overrides the channel parameter when any version other than 'latest' is used.
+.PARAMETER Quality
+    Download the latest build of specified quality in the channel. The possible values are: daily, signed, validated, preview, GA.
+    Works only in combination with channel. Not applicable for current and LTS channels and will be ignored if those channels are used. 
+    For SDK use channel in A.B.Cxx format: using quality together with channel in A.B format is not supported.
+    Supported since 5.0 release.
+    Note: The version parameter overrides the channel parameter when any version other than 'latest' is used, and therefore overrides the quality.     
+.PARAMETER Version
+    Default: latest
+    Represents a build version on specific channel. Possible values:
+    - latest - the latest build on specific channel
+    - 3-part version in a format A.B.C - represents specific version of build
+          examples: 2.0.0-preview2-006120, 1.1.0
+.PARAMETER Internal
+    Download internal builds. Requires providing credentials via -FeedCredential parameter.
+.PARAMETER FeedCredential
+    Token to access Azure feed. Used as a query string to append to the Azure feed.
+    This parameter typically is not specified.
+.PARAMETER InstallDir
+    Default: %LocalAppData%\Microsoft\dotnet
+    Path to where to install dotnet. Note that binaries will be placed directly in a given directory.
+.PARAMETER Architecture
+    Default: <auto> - this value represents currently running OS architecture
+    Architecture of dotnet binaries to be installed.
+    Possible values are: <auto>, amd64, x64, x86, arm64, arm
+.PARAMETER SharedRuntime
+    This parameter is obsolete and may be removed in a future version of this script.
+    The recommended alternative is '-Runtime dotnet'.
+    Installs just the shared runtime bits, not the entire SDK.
+.PARAMETER Runtime
+    Installs just a shared runtime, not the entire SDK.
+    Possible values:
+        - dotnet     - the Microsoft.NETCore.App shared runtime
+        - aspnetcore - the Microsoft.AspNetCore.App shared runtime
+        - windowsdesktop - the Microsoft.WindowsDesktop.App shared runtime
+.PARAMETER DryRun
+    If set it will not perform installation but instead display what command line to use to consistently install
+    currently requested version of dotnet cli. In example if you specify version 'latest' it will display a link
+    with specific version so that this command can be used deterministicly in a build script.
+    It also displays binaries location if you prefer to install or download it yourself.
+.PARAMETER NoPath
+    By default this script will set environment variable PATH for the current process to the binaries folder inside installation folder.
+    If set it will display binaries location but not set any environment variable.
+.PARAMETER Verbose
+    Displays diagnostics information.
+.PARAMETER AzureFeed
+    Default: https://dotnetcli.azureedge.net/dotnet
+    For internal use only.
+    Allows using a different storage to download SDK archives from.
+    This parameter is only used if $NoCdn is false.
+.PARAMETER UncachedFeed
+    For internal use only.
+    Allows using a different storage to download SDK archives from.
+    This parameter is only used if $NoCdn is true.
+.PARAMETER ProxyAddress
+    If set, the installer will use the proxy when making web requests
+.PARAMETER ProxyUseDefaultCredentials
+    Default: false
+    Use default credentials, when using proxy address.
+.PARAMETER ProxyBypassList
+    If set with ProxyAddress, will provide the list of comma separated urls that will bypass the proxy
+.PARAMETER SkipNonVersionedFiles
+    Default: false
+    Skips installing non-versioned files if they already exist, such as dotnet.exe.
+.PARAMETER NoCdn
+    Disable downloading from the Azure CDN, and use the uncached feed directly.
+.PARAMETER JSonFile
+    Determines the SDK version from a user specified global.json file
+    Note: global.json must have a value for 'SDK:Version'
+.PARAMETER DownloadTimeout
+    Determines timeout duration in seconds for dowloading of the SDK file
+    Default: 1200 seconds (20 minutes)
+#>
+[cmdletbinding()]
+param(
+   [string]$Channel="LTS",
+   [string]$Quality,
+   [string]$Version="Latest",
+   [switch]$Internal,
+   [string]$JSonFile,
+   [Alias('i')][string]$InstallDir="<auto>",
+   [string]$Architecture="<auto>",
+   [string]$Runtime,
+   [Obsolete("This parameter may be removed in a future version of this script. The recommended alternative is '-Runtime dotnet'.")]
+   [switch]$SharedRuntime,
+   [switch]$DryRun,
+   [switch]$NoPath,
+   [string]$AzureFeed,
+   [string]$UncachedFeed,
+   [string]$FeedCredential,
+   [string]$ProxyAddress,
+   [switch]$ProxyUseDefaultCredentials,
+   [string[]]$ProxyBypassList=@(),
+   [switch]$SkipNonVersionedFiles,
+   [switch]$NoCdn,
+   [int]$DownloadTimeout=1200
+)
 
-# Use in the the functions: eval $invocation
-invocation='say_verbose "Calling: ${yellow:-}${FUNCNAME[0]} ${green:-}$*${normal:-}"'
+Set-StrictMode -Version Latest
+$ErrorActionPreference="Stop"
+$ProgressPreference="SilentlyContinue"
 
-# standard output may be used as a return value in the functions
-# we need a way to write text on the screen in the functions so that
-# it won't interfere with the return value.
-# Exposing stream 3 as a pipe to standard output of the script itself
-exec 3>&1
-
-# Setup some colors to use. These need to work in fairly limited shells, like the Ubuntu Docker container where there are only 8 colors.
-# See if stdout is a terminal
-if [ -t 1 ] && command -v tput > /dev/null; then
-    # see if it supports colors
-    ncolors=$(tput colors || echo 0)
-    if [ -n "$ncolors" ] && [ $ncolors -ge 8 ]; then
-        bold="$(tput bold       || echo)"
-        normal="$(tput sgr0     || echo)"
-        black="$(tput setaf 0   || echo)"
-        red="$(tput setaf 1     || echo)"
-        green="$(tput setaf 2   || echo)"
-        yellow="$(tput setaf 3  || echo)"
-        blue="$(tput setaf 4    || echo)"
-        magenta="$(tput setaf 5 || echo)"
-        cyan="$(tput setaf 6    || echo)"
-        white="$(tput setaf 7   || echo)"
-    fi
-fi
-
-say_warning() {
-    printf "%b\n" "${yellow:-}dotnet_install: Warning: $1${normal:-}" >&3
+function Say($str) {
+    try {
+        Write-Host "dotnet-install: $str"
+    }
+    catch {
+        # Some platforms cannot utilize Write-Host (Azure Functions, for instance). Fall back to Write-Output
+        Write-Output "dotnet-install: $str"
+    }
 }
 
-say_err() {
-    printf "%b\n" "${red:-}dotnet_install: Error: $1${normal:-}" >&2
+function Say-Warning($str) {
+    try {
+        Write-Warning "dotnet-install: $str"
+    }
+    catch {
+        # Some platforms cannot utilize Write-Warning (Azure Functions, for instance). Fall back to Write-Output
+        Write-Output "dotnet-install: Warning: $str"
+    }
 }
 
-say() {
-    # using stream 3 (defined in the beginning) to not interfere with stdout of functions
-    # which may be used as return value
-    printf "%b\n" "${cyan:-}dotnet-install:${normal:-} $1" >&3
+# Writes a line with error style settings.
+# Use this function to show a human-readable comment along with an exception.
+function Say-Error($str) {
+    try {
+        # Write-Error is quite oververbose for the purpose of the function, let's write one line with error style settings.
+        $Host.UI.WriteErrorLine("dotnet-install: $str")
+    }
+    catch {
+        Write-Output "dotnet-install: Error: $str"
+    }
 }
 
-say_verbose() {
-    if [ "$verbose" = true ]; then
-        say "$1"
-    fi
+function Say-Verbose($str) {
+    try {
+        Write-Verbose "dotnet-install: $str"
+    }
+    catch {
+        # Some platforms cannot utilize Write-Verbose (Azure Functions, for instance). Fall back to Write-Output
+        Write-Output "dotnet-install: $str"
+    }
 }
 
-# This platform list is finite - if the SDK/Runtime has supported Linux distribution-specific assets,
-#   then and only then should the Linux distribution appear in this list.
-# Adding a Linux distribution to this list does not imply distribution-specific support.
-get_legacy_os_name_from_platform() {
-    eval $invocation
-
-    platform="$1"
-    case "$platform" in
-        "centos.7")
-            echo "centos"
-            return 0
-            ;;
-        "debian.8")
-            echo "debian"
-            return 0
-            ;;
-        "debian.9")
-            echo "debian.9"
-            return 0
-            ;;
-        "fedora.23")
-            echo "fedora.23"
-            return 0
-            ;;
-        "fedora.24")
-            echo "fedora.24"
-            return 0
-            ;;
-        "fedora.27")
-            echo "fedora.27"
-            return 0
-            ;;
-        "fedora.28")
-            echo "fedora.28"
-            return 0
-            ;;
-        "opensuse.13.2")
-            echo "opensuse.13.2"
-            return 0
-            ;;
-        "opensuse.42.1")
-            echo "opensuse.42.1"
-            return 0
-            ;;
-        "opensuse.42.3")
-            echo "opensuse.42.3"
-            return 0
-            ;;
-        "rhel.7"*)
-            echo "rhel"
-            return 0
-            ;;
-        "ubuntu.14.04")
-            echo "ubuntu"
-            return 0
-            ;;
-        "ubuntu.16.04")
-            echo "ubuntu.16.04"
-            return 0
-            ;;
-        "ubuntu.16.10")
-            echo "ubuntu.16.10"
-            return 0
-            ;;
-        "ubuntu.18.04")
-            echo "ubuntu.18.04"
-            return 0
-            ;;
-        "alpine.3.4.3")
-            echo "alpine"
-            return 0
-            ;;
-    esac
-    return 1
+function Say-Invocation($Invocation) {
+    $command = $Invocation.MyCommand;
+    $args = (($Invocation.BoundParameters.Keys | foreach { "-$_ `"$($Invocation.BoundParameters[$_])`"" }) -join " ")
+    Say-Verbose "$command $args"
 }
 
-get_legacy_os_name() {
-    eval $invocation
+function Invoke-With-Retry([ScriptBlock]$ScriptBlock, [System.Threading.CancellationToken]$cancellationToken = [System.Threading.CancellationToken]::None, [int]$MaxAttempts = 3, [int]$SecondsBetweenAttempts = 1) {
+    $Attempts = 0
+    $local:startTime = $(get-date)
 
-    local uname=$(uname)
-    if [ "$uname" = "Darwin" ]; then
-        echo "osx"
-        return 0
-    elif [ -n "$runtime_id" ]; then
-        echo $(get_legacy_os_name_from_platform "${runtime_id%-*}" || echo "${runtime_id%-*}")
-        return 0
-    else
-        if [ -e /etc/os-release ]; then
-            . /etc/os-release
-            os=$(get_legacy_os_name_from_platform "$ID${VERSION_ID:+.${VERSION_ID}}" || echo "")
-            if [ -n "$os" ]; then
-                echo "$os"
-                return 0
-            fi
-        fi
-    fi
-
-    say_verbose "Distribution specific OS name and version could not be detected: UName = $uname"
-    return 1
+    while ($true) {
+        try {
+            return & $ScriptBlock
+        }
+        catch {
+            $Attempts++
+            if (($Attempts -lt $MaxAttempts) -and -not $cancellationToken.IsCancellationRequested) {
+                Start-Sleep $SecondsBetweenAttempts
+            }
+            else {
+                $local:elapsedTime = $(get-date) - $local:startTime
+                if (($local:elapsedTime.TotalSeconds - $DownloadTimeout) -gt 0 -and -not $cancellationToken.IsCancellationRequested) {
+                    throw New-Object System.TimeoutException("Failed to reach the server: connection timeout: default timeout is $DownloadTimeout second(s)");
+                }
+                throw;
+            }
+        }
+    }
 }
 
-get_linux_platform_name() {
-    eval $invocation
+function Get-Machine-Architecture() {
+    Say-Invocation $MyInvocation
 
-    if [ -n "$runtime_id" ]; then
-        echo "${runtime_id%-*}"
-        return 0
-    else
-        if [ -e /etc/os-release ]; then
-            . /etc/os-release
-            echo "$ID${VERSION_ID:+.${VERSION_ID}}"
-            return 0
-        elif [ -e /etc/redhat-release ]; then
-            local redhatRelease=$(</etc/redhat-release)
-            if [[ $redhatRelease == "CentOS release 6."* || $redhatRelease == "Red Hat Enterprise Linux "*" release 6."* ]]; then
-                echo "rhel.6"
-                return 0
-            fi
-        fi
-    fi
+    # On PS x86, PROCESSOR_ARCHITECTURE reports x86 even on x64 systems.
+    # To get the correct architecture, we need to use PROCESSOR_ARCHITEW6432.
+    # PS x64 doesn't define this, so we fall back to PROCESSOR_ARCHITECTURE.
+    # Possible values: amd64, x64, x86, arm64, arm
+    if( $ENV:PROCESSOR_ARCHITEW6432 -ne $null ) {
+        return $ENV:PROCESSOR_ARCHITEW6432
+    }
 
-    say_verbose "Linux specific platform name and version could not be detected: UName = $uname"
-    return 1
+    try {        
+        if( ((Get-CimInstance -ClassName CIM_OperatingSystem).OSArchitecture) -like "ARM*") {
+            if( [Environment]::Is64BitOperatingSystem )
+            {
+                return "arm64"
+            }  
+            return "arm"
+        }
+    }
+    catch {
+        # Machine doesn't support Get-CimInstance
+    }
+
+    return $ENV:PROCESSOR_ARCHITECTURE
 }
 
-is_musl_based_distro() {
-    (ldd --version 2>&1 || true) | grep -q musl
+function Get-CLIArchitecture-From-Architecture([string]$Architecture) {
+    Say-Invocation $MyInvocation
+
+    if ($Architecture -eq "<auto>") {
+        $Architecture = Get-Machine-Architecture
+    }
+
+    switch ($Architecture.ToLowerInvariant()) {
+        { ($_ -eq "amd64") -or ($_ -eq "x64") } { return "x64" }
+        { $_ -eq "x86" } { return "x86" }
+        { $_ -eq "arm" } { return "arm" }
+        { $_ -eq "arm64" } { return "arm64" }
+        default { throw "Architecture '$Architecture' not supported. If you think this is a bug, report it at https://github.com/dotnet/install-scripts/issues" }
+    }
 }
 
-get_current_os_name() {
-    eval $invocation
+function ValidateFeedCredential([string] $FeedCredential)
+{
+    if ($Internal -and [string]::IsNullOrWhitespace($FeedCredential)) {
+        $message = "Provide credentials via -FeedCredential parameter."
+        if ($DryRun) {
+            Say-Warning "$message"
+        } else {
+            throw "$message"
+        }
+    }
+    
+    #FeedCredential should start with "?", for it to be added to the end of the link.
+    #adding "?" at the beginning of the FeedCredential if needed.
+    if ((![string]::IsNullOrWhitespace($FeedCredential)) -and ($FeedCredential[0] -ne '?')) {
+        $FeedCredential = "?" + $FeedCredential
+    }
 
-    local uname=$(uname)
-    if [ "$uname" = "Darwin" ]; then
-        echo "osx"
-        return 0
-    elif [ "$uname" = "FreeBSD" ]; then
-        echo "freebsd"
-        return 0
-    elif [ "$uname" = "Linux" ]; then
-        local linux_platform_name=""
-        linux_platform_name="$(get_linux_platform_name)" || true
+    return $FeedCredential
+}
+function Get-NormalizedQuality([string]$Quality) {
+    Say-Invocation $MyInvocation
 
-        if [ "$linux_platform_name" = "rhel.6" ]; then
-            echo $linux_platform_name
-            return 0
-        elif is_musl_based_distro; then
-            echo "linux-musl"
-            return 0
-        elif [ "$linux_platform_name" = "linux-musl" ]; then
-            echo "linux-musl"
-            return 0
-        else
-            echo "linux"
-            return 0
-        fi
-    fi
+    if ([string]::IsNullOrEmpty($Quality)) {
+        return ""
+    }
 
-    say_err "OS name could not be detected: UName = $uname"
-    return 1
+    switch ($Quality) {
+        { @("daily", "signed", "validated", "preview") -contains $_ } { return $Quality.ToLowerInvariant() }
+        #ga quality is available without specifying quality, so normalizing it to empty
+        { $_ -eq "ga" } { return "" }
+        default { throw "'$Quality' is not a supported value for -Quality option. Supported values are: daily, signed, validated, preview, ga. If you think this is a bug, report it at https://github.com/dotnet/install-scripts/issues." }
+    }
 }
 
-machine_has() {
-    eval $invocation
+function Get-NormalizedChannel([string]$Channel) {
+    Say-Invocation $MyInvocation
 
-    command -v "$1" > /dev/null 2>&1
-    return $?
+    if ([string]::IsNullOrEmpty($Channel)) {
+        return ""
+    }
+
+    if ($Channel.StartsWith('release/')) {
+        Say-Warning 'Using branch name with -Channel option is no longer supported with newer releases. Use -Quality option with a channel in X.Y format instead, such as "-Channel 5.0 -Quality Daily."'
+    }
+
+    switch ($Channel) {
+        { $_ -eq "lts" } { return "LTS" }
+        { $_ -eq "current" } { return "current" }
+        default { return $Channel.ToLowerInvariant() }
+    }
 }
 
-check_min_reqs() {
-    local hasMinimum=false
-    if machine_has "curl"; then
-        hasMinimum=true
-    elif machine_has "wget"; then
-        hasMinimum=true
-    fi
+function Get-NormalizedProduct([string]$Runtime) {
+    Say-Invocation $MyInvocation
 
-    if [ "$hasMinimum" = "false" ]; then
-        say_err "curl (recommended) or wget are required to download dotnet. Install missing prerequisite to proceed."
-        return 1
-    fi
-    return 0
+    switch ($Runtime) {
+        { $_ -eq "dotnet" } { return "dotnet-runtime" }
+        { $_ -eq "aspnetcore" } { return "aspnetcore-runtime" }
+        { $_ -eq "windowsdesktop" } { return "windowsdesktop-runtime" }
+        { [string]::IsNullOrEmpty($_) } { return "dotnet-sdk" }
+        default { throw "'$Runtime' is not a supported value for -Runtime option, supported values are: dotnet, aspnetcore, windowsdesktop. If you think this is a bug, report it at https://github.com/dotnet/install-scripts/issues." }
+    }
 }
 
-# args:
-# input - $1
-to_lowercase() {
-    #eval $invocation
-
-    echo "$1" | tr '[:upper:]' '[:lower:]'
-    return 0
-}
-
-# args:
-# input - $1
-remove_trailing_slash() {
-    #eval $invocation
-
-    local input="${1:-}"
-    echo "${input%/}"
-    return 0
-}
-
-# args:
-# input - $1
-remove_beginning_slash() {
-    #eval $invocation
-
-    local input="${1:-}"
-    echo "${input#/}"
-    return 0
-}
-
-# args:
-# root_path - $1
-# child_path - $2 - this parameter can be empty
-combine_paths() {
-    eval $invocation
-
-    # TODO: Consider making it work with any number of paths. For now:
-    if [ ! -z "${3:-}" ]; then
-        say_err "combine_paths: Function takes two parameters."
-        return 1
-    fi
-
-    local root_path="$(remove_trailing_slash "$1")"
-    local child_path="$(remove_beginning_slash "${2:-}")"
-    say_verbose "combine_paths: root_path=$root_path"
-    say_verbose "combine_paths: child_path=$child_path"
-    echo "$root_path/$child_path"
-    return 0
-}
-
-get_machine_architecture() {
-    eval $invocation
-
-    if command -v uname > /dev/null; then
-        CPUName=$(uname -m)
-        case $CPUName in
-        armv*l)
-            echo "arm"
-            return 0
-            ;;
-        aarch64|arm64)
-            echo "arm64"
-            return 0
-            ;;
-        s390x)
-            echo "s390x"
-            return 0
-            ;;
-        esac
-    fi
-
-    # Always default to 'x64'
-    echo "x64"
-    return 0
-}
-
-# args:
-# architecture - $1
-get_normalized_architecture_from_architecture() {
-    eval $invocation
-
-    local architecture="$(to_lowercase "$1")"
-
-    if [[ $architecture == \<auto\> ]]; then
-        echo "$(get_machine_architecture)"
-        return 0
-    fi
-
-    case "$architecture" in
-        amd64|x64)
-            echo "x64"
-            return 0
-            ;;
-        arm)
-            echo "arm"
-            return 0
-            ;;
-        arm64)
-            echo "arm64"
-            return 0
-            ;;
-        s390x)
-            echo "s390x"
-            return 0
-            ;;
-    esac
-
-    say_err "Architecture \`$architecture\` not supported. If you think this is a bug, report it at https://github.com/dotnet/install-scripts/issues"
-    return 1
-}
-
-# args:
-# version - $1
-# channel - $2
-# architecture - $3
-get_normalized_architecture_for_specific_sdk_version() {
-    eval $invocation
-
-    local is_version_support_arm64="$(is_arm64_supported "$1")"
-    local is_channel_support_arm64="$(is_arm64_supported "$2")"
-    local architecture="$3";
-    local osname="$(get_current_os_name)"
-
-    if [ "$osname" == "osx" ] && [ "$architecture" == "arm64" ] && { [ "$is_version_support_arm64" = false ] || [ "$is_channel_support_arm64" = false ]; }; then
-        #check if rosetta is installed
-        if [ "$(/usr/bin/pgrep oahd >/dev/null 2>&1;echo $?)" -eq 0 ]; then 
-            say_verbose "Changing user architecture from '$architecture' to 'x64' because .NET SDKs prior to version 6.0 do not support arm64." 
-            echo "x64"
-            return 0;
-        else
-            say_err "Architecture \`$architecture\` is not supported for .NET SDK version \`$version\`. Please install Rosetta to allow emulation of the \`$architecture\` .NET SDK on this platform"
-            return 1
-        fi
-    fi
-
-    echo "$architecture"
-    return 0
-}
-
-# args:
-# version or channel - $1
-is_arm64_supported() {
-    #any channel or version that starts with the specified versions
-    case "$1" in
-        ( "1"* | "2"* | "3"*  | "4"* | "5"*) 
-            echo false
-            return 0
-    esac
-
-    echo true
-    return 0
-}
-
-# args:
-# user_defined_os - $1
-get_normalized_os() {
-    eval $invocation
-
-    local osname="$(to_lowercase "$1")"
-    if [ ! -z "$osname" ]; then
-        case "$osname" in
-            osx | freebsd | rhel.6 | linux-musl | linux)
-                echo "$osname"
-                return 0
-                ;;
-            *)
-                say_err "'$user_defined_os' is not a supported value for --os option, supported values are: osx, linux, linux-musl, freebsd, rhel.6. If you think this is a bug, report it at https://github.com/dotnet/install-scripts/issues."
-                return 1
-                ;;
-        esac
-    else
-        osname="$(get_current_os_name)" || return 1
-    fi
-    echo "$osname"
-    return 0
-}
-
-# args:
-# quality - $1
-get_normalized_quality() {
-    eval $invocation
-
-    local quality="$(to_lowercase "$1")"
-    if [ ! -z "$quality" ]; then
-        case "$quality" in
-            daily | signed | validated | preview)
-                echo "$quality"
-                return 0
-                ;;
-            ga)
-                #ga quality is available without specifying quality, so normalizing it to empty
-                return 0
-                ;;
-            *)
-                say_err "'$quality' is not a supported value for --quality option. Supported values are: daily, signed, validated, preview, ga. If you think this is a bug, report it at https://github.com/dotnet/install-scripts/issues."
-                return 1
-                ;;
-        esac
-    fi
-    return 0
-}
-
-# args:
-# channel - $1
-get_normalized_channel() {
-    eval $invocation
-
-    local channel="$(to_lowercase "$1")"
-
-    if [[ $channel == release/* ]]; then
-        say_warning 'Using branch name with -Channel option is no longer supported with newer releases. Use -Quality option with a channel in X.Y format instead.';
-    fi
-
-    if [ ! -z "$channel" ]; then
-        case "$channel" in
-            lts)
-                echo "LTS"
-                return 0
-                ;;
-            *)
-                echo "$channel"
-                return 0
-                ;;
-        esac
-    fi
-
-    return 0
-}
-
-# args:
-# runtime - $1
-get_normalized_product() {
-    eval $invocation
-
-    local product=""
-    local runtime="$(to_lowercase "$1")"
-    if [[ "$runtime" == "dotnet" ]]; then
-        product="dotnet-runtime"
-    elif [[ "$runtime" == "aspnetcore" ]]; then
-        product="aspnetcore-runtime"
-    elif [ -z "$runtime" ]; then
-        product="dotnet-sdk"
-    fi
-    echo "$product"
-    return 0
-}
 
 # The version text returned from the feeds is a 1-line or 2-line string:
 # For the SDK and the dotnet runtime (2 lines):
@@ -495,1226 +307,1188 @@ get_normalized_product() {
 # Line 2: # 4-part version
 # For the aspnetcore runtime (1 line):
 # Line 1: # 4-part version
+function Get-Version-From-LatestVersion-File-Content([string]$VersionText) {
+    Say-Invocation $MyInvocation
 
-# args:
-# version_text - stdin
-get_version_from_latestversion_file_content() {
-    eval $invocation
+    $Data = -split $VersionText
 
-    cat | tail -n 1 | sed 's/\r$//'
-    return 0
+    $VersionInfo = @{
+        CommitHash = $(if ($Data.Count -gt 1) { $Data[0] })
+        Version = $Data[-1] # last line is always the version number.
+    }
+    return $VersionInfo
 }
 
-# args:
-# install_root - $1
-# relative_path_to_package - $2
-# specific_version - $3
-is_dotnet_package_installed() {
-    eval $invocation
-
-    local install_root="$1"
-    local relative_path_to_package="$2"
-    local specific_version="${3//[$'\t\r\n']}"
-
-    local dotnet_package_path="$(combine_paths "$(combine_paths "$install_root" "$relative_path_to_package")" "$specific_version")"
-    say_verbose "is_dotnet_package_installed: dotnet_package_path=$dotnet_package_path"
-
-    if [ -d "$dotnet_package_path" ]; then
-        return 0
-    else
-        return 1
-    fi
+function Load-Assembly([string] $Assembly) {
+    try {
+        Add-Type -Assembly $Assembly | Out-Null
+    }
+    catch {
+        # On Nano Server, Powershell Core Edition is used.  Add-Type is unable to resolve base class assemblies because they are not GAC'd.
+        # Loading the base class assemblies is not unnecessary as the types will automatically get resolved.
+    }
 }
 
-# args:
-# azure_feed - $1
-# channel - $2
-# normalized_architecture - $3
-get_version_from_latestversion_file() {
-    eval $invocation
+function GetHTTPResponse([Uri] $Uri, [bool]$HeaderOnly, [bool]$DisableRedirect, [bool]$DisableFeedCredential)
+{
+    $cts = New-Object System.Threading.CancellationTokenSource
 
-    local azure_feed="$1"
-    local channel="$2"
-    local normalized_architecture="$3"
+    $downloadScript = {
 
-    local version_file_url=null
-    if [[ "$runtime" == "dotnet" ]]; then
-        version_file_url="$azure_feed/Runtime/$channel/latest.version"
-    elif [[ "$runtime" == "aspnetcore" ]]; then
-        version_file_url="$azure_feed/aspnetcore/Runtime/$channel/latest.version"
-    elif [ -z "$runtime" ]; then
-         version_file_url="$azure_feed/Sdk/$channel/latest.version"
-    else
-        say_err "Invalid value for \$runtime"
-        return 1
-    fi
-    say_verbose "get_version_from_latestversion_file: latest url: $version_file_url"
+        $HttpClient = $null
 
-    download "$version_file_url" || return $?
-    return 0
+        try {
+            # HttpClient is used vs Invoke-WebRequest in order to support Nano Server which doesn't support the Invoke-WebRequest cmdlet.
+            Load-Assembly -Assembly System.Net.Http
+
+            if(-not $ProxyAddress) {
+                try {
+                    # Despite no proxy being explicitly specified, we may still be behind a default proxy
+                    $DefaultProxy = [System.Net.WebRequest]::DefaultWebProxy;
+                    if($DefaultProxy -and (-not $DefaultProxy.IsBypassed($Uri))) {
+                        if ($null -ne $DefaultProxy.GetProxy($Uri)) {
+                            $ProxyAddress = $DefaultProxy.GetProxy($Uri).OriginalString
+                        } else {
+                            $ProxyAddress = $null
+                        }
+                        $ProxyUseDefaultCredentials = $true
+                    }
+                } catch {
+                    # Eat the exception and move forward as the above code is an attempt
+                    #    at resolving the DefaultProxy that may not have been a problem.
+                    $ProxyAddress = $null
+                    Say-Verbose("Exception ignored: $_.Exception.Message - moving forward...")
+                }
+            }
+
+            $HttpClientHandler = New-Object System.Net.Http.HttpClientHandler
+            if($ProxyAddress) {
+                $HttpClientHandler.Proxy =  New-Object System.Net.WebProxy -Property @{
+                    Address=$ProxyAddress;
+                    UseDefaultCredentials=$ProxyUseDefaultCredentials;
+                    BypassList = $ProxyBypassList;
+                }
+            }       
+            if ($DisableRedirect)
+            {
+                $HttpClientHandler.AllowAutoRedirect = $false
+            }
+            $HttpClient = New-Object System.Net.Http.HttpClient -ArgumentList $HttpClientHandler
+
+            # Default timeout for HttpClient is 100s.  For a 50 MB download this assumes 500 KB/s average, any less will time out
+            # Defaulting to 20 minutes allows it to work over much slower connections.
+            $HttpClient.Timeout = New-TimeSpan -Seconds $DownloadTimeout
+
+            if ($HeaderOnly){
+                $completionOption = [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead
+            }
+            else {
+                $completionOption = [System.Net.Http.HttpCompletionOption]::ResponseContentRead
+            }
+
+            if ($DisableFeedCredential) {
+                $UriWithCredential = $Uri
+            }
+            else {
+                $UriWithCredential = "${Uri}${FeedCredential}"
+            }
+
+            $Task = $HttpClient.GetAsync("$UriWithCredential", $completionOption).ConfigureAwait("false");
+            $Response = $Task.GetAwaiter().GetResult();
+
+            if (($null -eq $Response) -or ((-not $HeaderOnly) -and (-not ($Response.IsSuccessStatusCode)))) {
+                # The feed credential is potentially sensitive info. Do not log FeedCredential to console output.
+                $DownloadException = [System.Exception] "Unable to download $Uri."
+
+                if ($null -ne $Response) {
+                    $DownloadException.Data["StatusCode"] = [int] $Response.StatusCode
+                    $DownloadException.Data["ErrorMessage"] = "Unable to download $Uri. Returned HTTP status code: " + $DownloadException.Data["StatusCode"]
+
+                    if (404 -eq [int] $Response.StatusCode)
+                    {
+                        $cts.Cancel()
+                    }
+                }
+
+                throw $DownloadException
+            }
+
+            return $Response
+        }
+        catch [System.Net.Http.HttpRequestException] {
+            $DownloadException = [System.Exception] "Unable to download $Uri."
+
+            # Pick up the exception message and inner exceptions' messages if they exist
+            $CurrentException = $PSItem.Exception
+            $ErrorMsg = $CurrentException.Message + "`r`n"
+            while ($CurrentException.InnerException) {
+              $CurrentException = $CurrentException.InnerException
+              $ErrorMsg += $CurrentException.Message + "`r`n"
+            }
+
+            # Check if there is an issue concerning TLS.
+            if ($ErrorMsg -like "*SSL/TLS*") {
+                $ErrorMsg += "Ensure that TLS 1.2 or higher is enabled to use this script.`r`n"
+            }
+
+            $DownloadException.Data["ErrorMessage"] = $ErrorMsg
+            throw $DownloadException
+        }
+        finally {
+             if ($null -ne $HttpClient) {
+                $HttpClient.Dispose()
+            }
+        }
+    }
+
+    try {
+        return Invoke-With-Retry $downloadScript $cts.Token
+    }
+    finally
+    {
+        if ($null -ne $cts)
+        {
+            $cts.Dispose()
+        }
+    }
 }
 
-# args:
-# json_file - $1
-parse_globaljson_file_for_version() {
-    eval $invocation
+function Get-Version-From-LatestVersion-File([string]$AzureFeed, [string]$Channel) {
+    Say-Invocation $MyInvocation
 
-    local json_file="$1"
-    if [ ! -f "$json_file" ]; then
-        say_err "Unable to find \`$json_file\`"
-        return 1
-    fi
+    $VersionFileUrl = $null
+    if ($Runtime -eq "dotnet") {
+        $VersionFileUrl = "$AzureFeed/Runtime/$Channel/latest.version"
+    }
+    elseif ($Runtime -eq "aspnetcore") {
+        $VersionFileUrl = "$AzureFeed/aspnetcore/Runtime/$Channel/latest.version"
+    }
+    elseif ($Runtime -eq "windowsdesktop") {
+        $VersionFileUrl = "$AzureFeed/WindowsDesktop/$Channel/latest.version"
+    }
+    elseif (-not $Runtime) {
+        $VersionFileUrl = "$AzureFeed/Sdk/$Channel/latest.version"
+    }
+    else {
+        throw "Invalid value for `$Runtime"
+    }
 
-    sdk_section=$(cat $json_file | tr -d "\r" | awk '/"sdk"/,/}/')
-    if [ -z "$sdk_section" ]; then
-        say_err "Unable to parse the SDK node in \`$json_file\`"
-        return 1
-    fi
+    Say-Verbose "Constructed latest.version URL: $VersionFileUrl"
 
-    sdk_list=$(echo $sdk_section | awk -F"[{}]" '{print $2}')
-    sdk_list=${sdk_list//[\" ]/}
-    sdk_list=${sdk_list//,/$'\n'}
+    try {
+        $Response = GetHTTPResponse -Uri $VersionFileUrl
+    }
+    catch {
+        Say-Verbose "Failed to download latest.version file."
+        throw
+    }
+    $StringContent = $Response.Content.ReadAsStringAsync().Result
 
-    local version_info=""
-    while read -r line; do
-      IFS=:
-      while read -r key value; do
-        if [[ "$key" == "version" ]]; then
-          version_info=$value
-        fi
-      done <<< "$line"
-    done <<< "$sdk_list"
-    if [ -z "$version_info" ]; then
-        say_err "Unable to find the SDK:version node in \`$json_file\`"
-        return 1
-    fi
+    switch ($Response.Content.Headers.ContentType) {
+        { ($_ -eq "application/octet-stream") } { $VersionText = $StringContent }
+        { ($_ -eq "text/plain") } { $VersionText = $StringContent }
+        { ($_ -eq "text/plain; charset=UTF-8") } { $VersionText = $StringContent }
+        default { throw "``$Response.Content.Headers.ContentType`` is an unknown .version file content type." }
+    }
 
-    unset IFS;
-    echo "$version_info"
-    return 0
+    $VersionInfo = Get-Version-From-LatestVersion-File-Content $VersionText
+
+    return $VersionInfo
 }
 
-# args:
-# azure_feed - $1
-# channel - $2
-# normalized_architecture - $3
-# version - $4
-# json_file - $5
-get_specific_version_from_version() {
-    eval $invocation
+function Parse-Jsonfile-For-Version([string]$JSonFile) {
+    Say-Invocation $MyInvocation
 
-    local azure_feed="$1"
-    local channel="$2"
-    local normalized_architecture="$3"
-    local version="$(to_lowercase "$4")"
-    local json_file="$5"
-
-    if [ -z "$json_file" ]; then
-        if [[ "$version" == "latest" ]]; then
-            local version_info
-            version_info="$(get_version_from_latestversion_file "$azure_feed" "$channel" "$normalized_architecture" false)" || return 1
-            say_verbose "get_specific_version_from_version: version_info=$version_info"
-            echo "$version_info" | get_version_from_latestversion_file_content
-            return 0
-        else
-            echo "$version"
-            return 0
-        fi
-    else
-        local version_info
-        version_info="$(parse_globaljson_file_for_version "$json_file")" || return 1
-        echo "$version_info"
-        return 0
-    fi
+    If (-Not (Test-Path $JSonFile)) {
+        throw "Unable to find '$JSonFile'"
+    }
+    try {
+        $JSonContent = Get-Content($JSonFile) -Raw | ConvertFrom-Json | Select-Object -expand "sdk" -ErrorAction SilentlyContinue
+    }
+    catch {
+        Say-Error "Json file unreadable: '$JSonFile'"
+        throw
+    }
+    if ($JSonContent) {
+        try {
+            $JSonContent.PSObject.Properties | ForEach-Object {
+                $PropertyName = $_.Name
+                if ($PropertyName -eq "version") {
+                    $Version = $_.Value
+                    Say-Verbose "Version = $Version"
+                }
+            }
+        }
+        catch {
+            Say-Error "Unable to parse the SDK node in '$JSonFile'"
+            throw
+        }
+    }
+    else {
+        throw "Unable to find the SDK node in '$JSonFile'"
+    }
+    If ($Version -eq $null) {
+        throw "Unable to find the SDK:version node in '$JSonFile'"
+    }
+    return $Version
 }
 
-# args:
-# azure_feed - $1
-# channel - $2
-# normalized_architecture - $3
-# specific_version - $4
-# normalized_os - $5
-construct_download_link() {
-    eval $invocation
+function Get-Specific-Version-From-Version([string]$AzureFeed, [string]$Channel, [string]$Version, [string]$JSonFile) {
+    Say-Invocation $MyInvocation
 
-    local azure_feed="$1"
-    local channel="$2"
-    local normalized_architecture="$3"
-    local specific_version="${4//[$'\t\r\n']}"
-    local specific_product_version="$(get_specific_product_version "$1" "$4")"
-    local osname="$5"
-
-    local download_link=null
-    if [[ "$runtime" == "dotnet" ]]; then
-        download_link="$azure_feed/Runtime/$specific_version/dotnet-runtime-$specific_product_version-$osname-$normalized_architecture.tar.gz"
-    elif [[ "$runtime" == "aspnetcore" ]]; then
-        download_link="$azure_feed/aspnetcore/Runtime/$specific_version/aspnetcore-runtime-$specific_product_version-$osname-$normalized_architecture.tar.gz"
-    elif [ -z "$runtime" ]; then
-        download_link="$azure_feed/Sdk/$specific_version/dotnet-sdk-$specific_product_version-$osname-$normalized_architecture.tar.gz"
-    else
-        return 1
-    fi
-
-    echo "$download_link"
-    return 0
+    if (-not $JSonFile) {
+        if ($Version.ToLowerInvariant() -eq "latest") {
+            $LatestVersionInfo = Get-Version-From-LatestVersion-File -AzureFeed $AzureFeed -Channel $Channel
+            return $LatestVersionInfo.Version
+        }
+        else {
+            return $Version 
+        }
+    }
+    else {
+        return Parse-Jsonfile-For-Version $JSonFile
+    }
 }
 
-# args:
-# azure_feed - $1
-# specific_version - $2
-# download link - $3 (optional)
-get_specific_product_version() {
-    # If we find a 'productVersion.txt' at the root of any folder, we'll use its contents
-    # to resolve the version of what's in the folder, superseding the specified version.
-    # if 'productVersion.txt' is missing but download link is already available, product version will be taken from download link
-    eval $invocation
+function Get-Download-Link([string]$AzureFeed, [string]$SpecificVersion, [string]$CLIArchitecture) {
+    Say-Invocation $MyInvocation
 
-    local azure_feed="$1"
-    local specific_version="${2//[$'\t\r\n']}"
-    local package_download_link=""
-    if [ $# -gt 2  ]; then
-        local package_download_link="$3"
-    fi
-    local specific_product_version=null
+    # If anything fails in this lookup it will default to $SpecificVersion
+    $SpecificProductVersion = Get-Product-Version -AzureFeed $AzureFeed -SpecificVersion $SpecificVersion
+
+    if ($Runtime -eq "dotnet") {
+        $PayloadURL = "$AzureFeed/Runtime/$SpecificVersion/dotnet-runtime-$SpecificProductVersion-win-$CLIArchitecture.zip"
+    }
+    elseif ($Runtime -eq "aspnetcore") {
+        $PayloadURL = "$AzureFeed/aspnetcore/Runtime/$SpecificVersion/aspnetcore-runtime-$SpecificProductVersion-win-$CLIArchitecture.zip"
+    }
+    elseif ($Runtime -eq "windowsdesktop") {
+        # The windows desktop runtime is part of the core runtime layout prior to 5.0
+        $PayloadURL = "$AzureFeed/Runtime/$SpecificVersion/windowsdesktop-runtime-$SpecificProductVersion-win-$CLIArchitecture.zip"
+        if ($SpecificVersion -match '^(\d+)\.(.*)$')
+        {
+            $majorVersion = [int]$Matches[1]
+            if ($majorVersion -ge 5)
+            {
+                $PayloadURL = "$AzureFeed/WindowsDesktop/$SpecificVersion/windowsdesktop-runtime-$SpecificProductVersion-win-$CLIArchitecture.zip"
+            }
+        }
+    }
+    elseif (-not $Runtime) {
+        $PayloadURL = "$AzureFeed/Sdk/$SpecificVersion/dotnet-sdk-$SpecificProductVersion-win-$CLIArchitecture.zip"
+    }
+    else {
+        throw "Invalid value for `$Runtime"
+    }
+
+    Say-Verbose "Constructed primary named payload URL: $PayloadURL"
+
+    return $PayloadURL, $SpecificProductVersion
+}
+
+function Get-LegacyDownload-Link([string]$AzureFeed, [string]$SpecificVersion, [string]$CLIArchitecture) {
+    Say-Invocation $MyInvocation
+
+    if (-not $Runtime) {
+        $PayloadURL = "$AzureFeed/Sdk/$SpecificVersion/dotnet-dev-win-$CLIArchitecture.$SpecificVersion.zip"
+    }
+    elseif ($Runtime -eq "dotnet") {
+        $PayloadURL = "$AzureFeed/Runtime/$SpecificVersion/dotnet-win-$CLIArchitecture.$SpecificVersion.zip"
+    }
+    else {
+        return $null
+    }
+
+    Say-Verbose "Constructed legacy named payload URL: $PayloadURL"
+
+    return $PayloadURL
+}
+
+function Get-Product-Version([string]$AzureFeed, [string]$SpecificVersion, [string]$PackageDownloadLink) {
+    Say-Invocation $MyInvocation
 
     # Try to get the version number, using the productVersion.txt file located next to the installer file.
-    local download_links=($(get_specific_product_version_url "$azure_feed" "$specific_version" true "$package_download_link")
-        $(get_specific_product_version_url "$azure_feed" "$specific_version" false "$package_download_link"))
-
-    for download_link in "${download_links[@]}"
-    do
-        say_verbose "Checking for the existence of $download_link"
-
-        if machine_has "curl"
-        then
-            if ! specific_product_version=$(curl -s --fail "${download_link}${feed_credential}" 2>&1); then
-                continue
-            else
-                echo "${specific_product_version//[$'\t\r\n']}"
-                return 0
-            fi
-
-        elif machine_has "wget"
-        then
-            specific_product_version=$(wget -qO- "${download_link}${feed_credential}" 2>&1)
-            if [ $? = 0 ]; then
-                echo "${specific_product_version//[$'\t\r\n']}"
-                return 0
-            fi
-        fi
-    done
+    $ProductVersionTxtURLs = (Get-Product-Version-Url $AzureFeed $SpecificVersion $PackageDownloadLink -Flattened $true),
+                             (Get-Product-Version-Url $AzureFeed $SpecificVersion $PackageDownloadLink -Flattened $false)
     
+    Foreach ($ProductVersionTxtURL in $ProductVersionTxtURLs) {
+        Say-Verbose "Checking for the existence of $ProductVersionTxtURL"
+
+        try {
+            $productVersionResponse = GetHTTPResponse($productVersionTxtUrl)
+
+            if ($productVersionResponse.StatusCode -eq 200) {
+                $productVersion = $productVersionResponse.Content.ReadAsStringAsync().Result.Trim()
+                if ($productVersion -ne $SpecificVersion)
+                {
+                    Say "Using alternate version $productVersion found in $ProductVersionTxtURL"
+                }
+                return $productVersion
+            }
+            else {
+                Say-Verbose "Got StatusCode $($productVersionResponse.StatusCode) when trying to get productVersion.txt at $productVersionTxtUrl."
+            }
+        } 
+        catch {
+            Say-Verbose "Could not read productVersion.txt at $productVersionTxtUrl (Exception: '$($_.Exception.Message)'. )"
+        }
+    }
+
     # Getting the version number with productVersion.txt has failed. Try parsing the download link for a version number.
-    say_verbose "Failed to get the version using productVersion.txt file. Download link will be parsed instead."
-    specific_product_version="$(get_product_specific_version_from_download_link "$package_download_link" "$specific_version")"
-    echo "${specific_product_version//[$'\t\r\n']}"
-    return 0
+    if ([string]::IsNullOrEmpty($PackageDownloadLink))
+    {
+        Say-Verbose "Using the default value '$SpecificVersion' as the product version."
+        return $SpecificVersion
+    }
+
+    $productVersion = Get-ProductVersionFromDownloadLink $PackageDownloadLink $SpecificVersion
+    return $productVersion
 }
 
-# args:
-# azure_feed - $1
-# specific_version - $2
-# is_flattened - $3
-# download link - $4 (optional)
-get_specific_product_version_url() {
-    eval $invocation
+function Get-Product-Version-Url([string]$AzureFeed, [string]$SpecificVersion, [string]$PackageDownloadLink, [bool]$Flattened) {
+    Say-Invocation $MyInvocation
 
-    local azure_feed="$1"
-    local specific_version="$2"
-    local is_flattened="$3"
-    local package_download_link=""
-    if [ $# -gt 3  ]; then
-        local package_download_link="$4"
-    fi
+    $majorVersion=$null
+    if ($SpecificVersion -match '^(\d+)\.(.*)') {
+        $majorVersion = $Matches[1] -as[int]
+    }
 
-    local pvFileName="productVersion.txt"
-    if [ "$is_flattened" = true ]; then
-        if [ -z "$runtime" ]; then
-            pvFileName="sdk-productVersion.txt"
-        elif [[ "$runtime" == "dotnet" ]]; then
-            pvFileName="runtime-productVersion.txt"
-        else
-            pvFileName="$runtime-productVersion.txt"
-        fi
-    fi
+    $pvFileName='productVersion.txt'
+    if($Flattened) {
+        if(-not $Runtime) {
+            $pvFileName='sdk-productVersion.txt'
+        }
+        elseif($Runtime -eq "dotnet") {
+            $pvFileName='runtime-productVersion.txt'
+        }
+        else {
+            $pvFileName="$Runtime-productVersion.txt"
+        }
+    }
 
-    local download_link=null
+    if ([string]::IsNullOrEmpty($PackageDownloadLink)) {
+        if ($Runtime -eq "dotnet") {
+            $ProductVersionTxtURL = "$AzureFeed/Runtime/$SpecificVersion/$pvFileName"
+        }
+        elseif ($Runtime -eq "aspnetcore") {
+            $ProductVersionTxtURL = "$AzureFeed/aspnetcore/Runtime/$SpecificVersion/$pvFileName"
+        }
+        elseif ($Runtime -eq "windowsdesktop") {
+            # The windows desktop runtime is part of the core runtime layout prior to 5.0
+            $ProductVersionTxtURL = "$AzureFeed/Runtime/$SpecificVersion/$pvFileName"
+            if ($majorVersion -ne $null -and $majorVersion -ge 5) {
+                $ProductVersionTxtURL = "$AzureFeed/WindowsDesktop/$SpecificVersion/$pvFileName"
+            }
+        }
+        elseif (-not $Runtime) {
+            $ProductVersionTxtURL = "$AzureFeed/Sdk/$SpecificVersion/$pvFileName"
+        }
+        else {
+            throw "Invalid value '$Runtime' specified for `$Runtime"
+        }
+    }
+    else {
+        $ProductVersionTxtURL = $PackageDownloadLink.Substring(0, $PackageDownloadLink.LastIndexOf("/"))  + "/$pvFileName"
+    }
 
-    if [ -z "$package_download_link" ]; then
-        if [[ "$runtime" == "dotnet" ]]; then
-            download_link="$azure_feed/Runtime/$specific_version/${pvFileName}"
-        elif [[ "$runtime" == "aspnetcore" ]]; then
-            download_link="$azure_feed/aspnetcore/Runtime/$specific_version/${pvFileName}"
-        elif [ -z "$runtime" ]; then
-            download_link="$azure_feed/Sdk/$specific_version/${pvFileName}"
-        else
-            return 1
-        fi
-    else
-        download_link="${package_download_link%/*}/${pvFileName}"
-    fi
+    Say-Verbose "Constructed productVersion link: $ProductVersionTxtURL"
 
-    say_verbose "Constructed productVersion link: $download_link"
-    echo "$download_link"
-    return 0
+    return $ProductVersionTxtURL
 }
 
-# args:
-# download link - $1
-# specific version - $2
-get_product_specific_version_from_download_link()
+function Get-ProductVersionFromDownloadLink([string]$PackageDownloadLink, [string]$SpecificVersion)
 {
-    eval $invocation
-
-    local download_link="$1"
-    local specific_version="$2"
-    local specific_product_version="" 
-
-    if [ -z "$download_link" ]; then
-        echo "$specific_version"
-        return 0
-    fi
-
-    #get filename
-    filename="${download_link##*/}"
+    Say-Invocation $MyInvocation
 
     #product specific version follows the product name
-    #for filename 'dotnet-sdk-3.1.404-linux-x64.tar.gz': the product version is 3.1.404
-    IFS='-'
-    read -ra filename_elems <<< "$filename"
-    count=${#filename_elems[@]}
-    if [[ "$count" -gt 2 ]]; then
-        specific_product_version="${filename_elems[2]}"
-    else
-        specific_product_version=$specific_version
-    fi
-    unset IFS;
-    echo "$specific_product_version"
-    return 0
+    #for filename 'dotnet-sdk-3.1.404-win-x64.zip': the product version is 3.1.400
+    $filename = $PackageDownloadLink.Substring($PackageDownloadLink.LastIndexOf("/") + 1)
+    $filenameParts = $filename.Split('-')
+    if ($filenameParts.Length -gt 2)
+    {
+        $productVersion = $filenameParts[2]
+        Say-Verbose "Extracted product version '$productVersion' from download link '$PackageDownloadLink'."
+    }
+    else {
+        Say-Verbose "Using the default value '$SpecificVersion' as the product version."
+        $productVersion = $SpecificVersion
+    }
+    return $productVersion 
 }
 
-# args:
-# azure_feed - $1
-# channel - $2
-# normalized_architecture - $3
-# specific_version - $4
-construct_legacy_download_link() {
-    eval $invocation
+function Get-User-Share-Path() {
+    Say-Invocation $MyInvocation
 
-    local azure_feed="$1"
-    local channel="$2"
-    local normalized_architecture="$3"
-    local specific_version="${4//[$'\t\r\n']}"
-
-    local distro_specific_osname
-    distro_specific_osname="$(get_legacy_os_name)" || return 1
-
-    local legacy_download_link=null
-    if [[ "$runtime" == "dotnet" ]]; then
-        legacy_download_link="$azure_feed/Runtime/$specific_version/dotnet-$distro_specific_osname-$normalized_architecture.$specific_version.tar.gz"
-    elif [ -z "$runtime" ]; then
-        legacy_download_link="$azure_feed/Sdk/$specific_version/dotnet-dev-$distro_specific_osname-$normalized_architecture.$specific_version.tar.gz"
-    else
-        return 1
-    fi
-
-    echo "$legacy_download_link"
-    return 0
+    $InstallRoot = $env:DOTNET_INSTALL_DIR
+    if (!$InstallRoot) {
+        $InstallRoot = "$env:LocalAppData\Microsoft\dotnet"
+    }
+    return $InstallRoot
 }
 
-get_user_install_path() {
-    eval $invocation
+function Resolve-Installation-Path([string]$InstallDir) {
+    Say-Invocation $MyInvocation
 
-    if [ ! -z "${DOTNET_INSTALL_DIR:-}" ]; then
-        echo "$DOTNET_INSTALL_DIR"
-    else
-        echo "$HOME/.dotnet"
-    fi
-    return 0
+    if ($InstallDir -eq "<auto>") {
+        return Get-User-Share-Path
+    }
+    return $InstallDir
 }
 
-# args:
-# install_dir - $1
-resolve_installation_path() {
-    eval $invocation
+function Is-Dotnet-Package-Installed([string]$InstallRoot, [string]$RelativePathToPackage, [string]$SpecificVersion) {
+    Say-Invocation $MyInvocation
 
-    local install_dir=$1
-    if [ "$install_dir" = "<auto>" ]; then
-        local user_install_path="$(get_user_install_path)"
-        say_verbose "resolve_installation_path: user_install_path=$user_install_path"
-        echo "$user_install_path"
-        return 0
-    fi
-
-    echo "$install_dir"
-    return 0
+    $DotnetPackagePath = Join-Path -Path $InstallRoot -ChildPath $RelativePathToPackage | Join-Path -ChildPath $SpecificVersion
+    Say-Verbose "Is-Dotnet-Package-Installed: DotnetPackagePath=$DotnetPackagePath"
+    return Test-Path $DotnetPackagePath -PathType Container
 }
 
-# args:
-# relative_or_absolute_path - $1
-get_absolute_path() {
-    eval $invocation
+function Get-Absolute-Path([string]$RelativeOrAbsolutePath) {
+    # Too much spam
+    # Say-Invocation $MyInvocation
 
-    local relative_or_absolute_path=$1
-    echo "$(cd "$(dirname "$1")" && pwd -P)/$(basename "$1")"
-    return 0
+    return $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($RelativeOrAbsolutePath)
 }
 
-# args:
-# input_files - stdin
-# root_path - $1
-# out_path - $2
-# override - $3
-copy_files_or_dirs_from_list() {
-    eval $invocation
+function Get-Path-Prefix-With-Version($path) {
+    # example path with regex: shared/1.0.0-beta-12345/somepath
+    $match = [regex]::match($path, "/\d+\.\d+[^/]+/")
+    if ($match.Success) {
+        return $entry.FullName.Substring(0, $match.Index + $match.Length)
+    }
 
-    local root_path="$(remove_trailing_slash "$1")"
-    local out_path="$(remove_trailing_slash "$2")"
-    local override="$3"
-    local osname="$(get_current_os_name)"
-    local override_switch=$(
-        if [ "$override" = false ]; then
-            if [ "$osname" = "linux-musl" ]; then
-                printf -- "-u";
-            else
-                printf -- "-n";
-            fi
-        fi)
-
-    cat | uniq | while read -r file_path; do
-        local path="$(remove_beginning_slash "${file_path#$root_path}")"
-        local target="$out_path/$path"
-        if [ "$override" = true ] || (! ([ -d "$target" ] || [ -e "$target" ])); then
-            mkdir -p "$out_path/$(dirname "$path")"
-            if [ -d "$target" ]; then
-                rm -rf "$target"
-            fi
-            cp -R $override_switch "$root_path/$path" "$target"
-        fi
-    done
+    return $null
 }
 
-# args:
-# zip_path - $1
-# out_path - $2
-extract_dotnet_package() {
-    eval $invocation
+function Get-List-Of-Directories-And-Versions-To-Unpack-From-Dotnet-Package([System.IO.Compression.ZipArchive]$Zip, [string]$OutPath) {
+    Say-Invocation $MyInvocation
 
-    local zip_path="$1"
-    local out_path="$2"
+    $ret = @()
+    foreach ($entry in $Zip.Entries) {
+        $dir = Get-Path-Prefix-With-Version $entry.FullName
+        if ($null -ne $dir) {
+            $path = Get-Absolute-Path $(Join-Path -Path $OutPath -ChildPath $dir)
+            if (-Not (Test-Path $path -PathType Container)) {
+                $ret += $dir
+            }
+        }
+    }
 
-    local temp_out_path="$(mktemp -d "$temporary_file_template")"
+    $ret = $ret | Sort-Object | Get-Unique
 
-    local failed=false
-    tar -xzf "$zip_path" -C "$temp_out_path" > /dev/null || failed=true
+    $values = ($ret | foreach { "$_" }) -join ";"
+    Say-Verbose "Directories to unpack: $values"
 
-    local folders_with_version_regex='^.*/[0-9]+\.[0-9]+[^/]+/'
-    find "$temp_out_path" -type f | grep -Eo "$folders_with_version_regex" | sort | copy_files_or_dirs_from_list "$temp_out_path" "$out_path" false
-    find "$temp_out_path" -type f | grep -Ev "$folders_with_version_regex" | copy_files_or_dirs_from_list "$temp_out_path" "$out_path" "$override_non_versioned_files"
-
-    rm -rf "$temp_out_path"
-    rm -f "$zip_path" && say_verbose "Temporary zip file $zip_path was removed"
-
-    if [ "$failed" = true ]; then
-        say_err "Extraction failed"
-        return 1
-    fi
-    return 0
+    return $ret
 }
 
-# args:
-# remote_path - $1
-# disable_feed_credential - $2
-get_http_header()
+# Example zip content and extraction algorithm:
+# Rule: files if extracted are always being extracted to the same relative path locally
+# .\
+#       a.exe   # file does not exist locally, extract
+#       b.dll   # file exists locally, override only if $OverrideFiles set
+#       aaa\    # same rules as for files
+#           ...
+#       abc\1.0.0\  # directory contains version and exists locally
+#           ...     # do not extract content under versioned part
+#       abc\asd\    # same rules as for files
+#            ...
+#       def\ghi\1.0.1\  # directory contains version and does not exist locally
+#           ...         # extract content
+function Extract-Dotnet-Package([string]$ZipPath, [string]$OutPath) {
+    Say-Invocation $MyInvocation
+
+    Load-Assembly -Assembly System.IO.Compression.FileSystem
+    Set-Variable -Name Zip
+    try {
+        $Zip = [System.IO.Compression.ZipFile]::OpenRead($ZipPath)
+
+        $DirectoriesToUnpack = Get-List-Of-Directories-And-Versions-To-Unpack-From-Dotnet-Package -Zip $Zip -OutPath $OutPath
+
+        foreach ($entry in $Zip.Entries) {
+            $PathWithVersion = Get-Path-Prefix-With-Version $entry.FullName
+            if (($null -eq $PathWithVersion) -Or ($DirectoriesToUnpack -contains $PathWithVersion)) {
+                $DestinationPath = Get-Absolute-Path $(Join-Path -Path $OutPath -ChildPath $entry.FullName)
+                $DestinationDir = Split-Path -Parent $DestinationPath
+                $OverrideFiles=$OverrideNonVersionedFiles -Or (-Not (Test-Path $DestinationPath))
+                if ((-Not $DestinationPath.EndsWith("\")) -And $OverrideFiles) {
+                    New-Item -ItemType Directory -Force -Path $DestinationDir | Out-Null
+                    [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $DestinationPath, $OverrideNonVersionedFiles)
+                }
+            }
+        }
+    }
+    catch
+    {
+        Say-Error "Failed to extract package. Exception: $_"
+        throw;
+    }
+    finally {
+        if ($null -ne $Zip) {
+            $Zip.Dispose()
+        }
+    }
+}
+
+function DownloadFile($Source, [string]$OutPath) {
+    if ($Source -notlike "http*") {
+        #  Using System.IO.Path.GetFullPath to get the current directory
+        #    does not work in this context - $pwd gives the current directory
+        if (![System.IO.Path]::IsPathRooted($Source)) {
+            $Source = $(Join-Path -Path $pwd -ChildPath $Source)
+        }
+        $Source = Get-Absolute-Path $Source
+        Say "Copying file from $Source to $OutPath"
+        Copy-Item $Source $OutPath
+        return
+    }
+
+    $Stream = $null
+
+    try {
+        $Response = GetHTTPResponse -Uri $Source
+        $Stream = $Response.Content.ReadAsStreamAsync().Result
+        $File = [System.IO.File]::Create($OutPath)
+        $Stream.CopyTo($File)
+        $File.Close()
+    }
+    finally {
+        if ($null -ne $Stream) {
+            $Stream.Dispose()
+        }
+    }
+}
+
+function SafeRemoveFile($Path) {
+    try {
+        if (Test-Path $Path) {
+            Remove-Item $Path
+            Say-Verbose "The temporary file `"$Path`" was removed."
+        }
+        else
+        {
+            Say-Verbose "The temporary file `"$Path`" does not exist, therefore is not removed."
+        }
+    }
+    catch
+    {
+        Say-Warning "Failed to remove the temporary file: `"$Path`", remove it manually."
+    }
+}
+
+function Prepend-Sdk-InstallRoot-To-Path([string]$InstallRoot) {
+    $BinPath = Get-Absolute-Path $(Join-Path -Path $InstallRoot -ChildPath "")
+    if (-Not $NoPath) {
+        $SuffixedBinPath = "$BinPath;"
+        if (-Not $env:path.Contains($SuffixedBinPath)) {
+            Say "Adding to current process PATH: `"$BinPath`". Note: This change will not be visible if PowerShell was run as a child process."
+            $env:path = $SuffixedBinPath + $env:path
+        } else {
+            Say-Verbose "Current process PATH already contains `"$BinPath`""
+        }
+    }
+    else {
+        Say "Binaries of dotnet can be found in $BinPath"
+    }
+}
+
+function PrintDryRunOutput($Invocation, $DownloadLinks)
 {
-    eval $invocation
-    local remote_path="$1"
-    local disable_feed_credential="$2"
-
-    local failed=false
-    local response
-    if machine_has "curl"; then
-        get_http_header_curl $remote_path $disable_feed_credential || failed=true
-    elif machine_has "wget"; then
-        get_http_header_wget $remote_path $disable_feed_credential || failed=true
-    else
-        failed=true
-    fi
-    if [ "$failed" = true ]; then
-        say_verbose "Failed to get HTTP header: '$remote_path'."
-        return 1
-    fi
-    return 0
-}
-
-# args:
-# remote_path - $1
-# disable_feed_credential - $2
-get_http_header_curl() {
-    eval $invocation
-    local remote_path="$1"
-    local disable_feed_credential="$2"
-
-    remote_path_with_credential="$remote_path"
-    if [ "$disable_feed_credential" = false ]; then
-        remote_path_with_credential+="$feed_credential"
-    fi
-
-    curl_options="-I -sSL --retry 5 --retry-delay 2 --connect-timeout 15 "
-    curl $curl_options "$remote_path_with_credential" 2>&1 || return 1
-    return 0
-}
-
-# args:
-# remote_path - $1
-# disable_feed_credential - $2
-get_http_header_wget() {
-    eval $invocation
-    local remote_path="$1"
-    local disable_feed_credential="$2"
-    local wget_options="-q -S --spider --tries 5 "
-
-    local wget_options_extra=''
-
-    # Test for options that aren't supported on all wget implementations.
-    if [[ $(wget -h 2>&1 | grep -E 'waitretry|connect-timeout') ]]; then
-        wget_options_extra="--waitretry 2 --connect-timeout 15 "
-    else
-        say "wget extra options are unavailable for this environment"
-    fi
-
-    remote_path_with_credential="$remote_path"
-    if [ "$disable_feed_credential" = false ]; then
-        remote_path_with_credential+="$feed_credential"
-    fi
-
-    wget $wget_options $wget_options_extra "$remote_path_with_credential" 2>&1
-
-    return $?
-}
-
-# args:
-# remote_path - $1
-# [out_path] - $2 - stdout if not provided
-download() {
-    eval $invocation
-
-    local remote_path="$1"
-    local out_path="${2:-}"
-
-    if [[ "$remote_path" != "http"* ]]; then
-        cp "$remote_path" "$out_path"
-        return $?
-    fi
-
-    local failed=false
-    local attempts=0
-    while [ $attempts -lt 3 ]; do
-        attempts=$((attempts+1))
-        failed=false
-        if machine_has "curl"; then
-            downloadcurl "$remote_path" "$out_path" || failed=true
-        elif machine_has "wget"; then
-            downloadwget "$remote_path" "$out_path" || failed=true
-        else
-            say_err "Missing dependency: neither curl nor wget was found."
-            exit 1
-        fi
-
-        if [ "$failed" = false ] || [ $attempts -ge 3 ] || { [ ! -z $http_code ] && [ $http_code = "404" ]; }; then
-            break
-        fi
-
-        say "Download attempt #$attempts has failed: $http_code $download_error_msg"
-        say "Attempt #$((attempts+1)) will start in $((attempts*10)) seconds."
-        sleep $((attempts*10))
-    done
-
-    if [ "$failed" = true ]; then
-        say_verbose "Download failed: $remote_path"
-        return 1
-    fi
-    return 0
-}
-
-# Updates global variables $http_code and $download_error_msg
-downloadcurl() {
-    eval $invocation
-    unset http_code
-    unset download_error_msg
-    local remote_path="$1"
-    local out_path="${2:-}"
-    # Append feed_credential as late as possible before calling curl to avoid logging feed_credential
-    # Avoid passing URI with credentials to functions: note, most of them echoing parameters of invocation in verbose output.
-    local remote_path_with_credential="${remote_path}${feed_credential}"
-    local curl_options="--retry 20 --retry-delay 2 --connect-timeout 15 -sSL -f --create-dirs "
-    local curl_exit_code=0;
-    if [ -z "$out_path" ]; then
-        curl $curl_options "$remote_path_with_credential" 2>&1
-        curl_exit_code=$?
-    else
-        curl $curl_options -o "$out_path" "$remote_path_with_credential" 2>&1
-        curl_exit_code=$?
-    fi
+    Say "Payload URLs:"
     
-    if [ $curl_exit_code -gt 0 ]; then
-        download_error_msg="Unable to download $remote_path."
-        # Check for curl timeout codes
-        if [[ $curl_exit_code == 7 || $curl_exit_code == 28 ]]; then
-            download_error_msg+=" Failed to reach the server: connection timeout."
-        else
-            local disable_feed_credential=false
-            local response=$(get_http_header_curl $remote_path $disable_feed_credential)
-            http_code=$( echo "$response" | awk '/^HTTP/{print $2}' | tail -1 )
-            if  [[ ! -z $http_code && $http_code != 2* ]]; then
-                download_error_msg+=" Returned HTTP status code: $http_code."
-            fi
-        fi
-        say_verbose "$download_error_msg"
-        return 1
-    fi
-    return 0
+    for ($linkIndex=0; $linkIndex -lt $DownloadLinks.count; $linkIndex++) {
+        Say "URL #$linkIndex - $($DownloadLinks[$linkIndex].type): $($DownloadLinks[$linkIndex].downloadLink)"
+    }
+    $RepeatableCommand = ".\$ScriptName -Version `"$SpecificVersion`" -InstallDir `"$InstallRoot`" -Architecture `"$CLIArchitecture`""
+    if ($Runtime -eq "dotnet") {
+       $RepeatableCommand+=" -Runtime `"dotnet`""
+    }
+    elseif ($Runtime -eq "aspnetcore") {
+       $RepeatableCommand+=" -Runtime `"aspnetcore`""
+    }
+
+    foreach ($key in $Invocation.BoundParameters.Keys) {
+        if (-not (@("Architecture","Channel","DryRun","InstallDir","Runtime","SharedRuntime","Version","Quality","FeedCredential") -contains $key)) {
+            $RepeatableCommand+=" -$key `"$($Invocation.BoundParameters[$key])`""
+        }
+    }
+    if ($Invocation.BoundParameters.Keys -contains "FeedCredential") {
+        $RepeatableCommand+=" -FeedCredential `"<feedCredential>`""
+    }
+    Say "Repeatable invocation: $RepeatableCommand"
+    if ($SpecificVersion -ne $EffectiveVersion)
+    {
+        Say "NOTE: Due to finding a version manifest with this runtime, it would actually install with version '$EffectiveVersion'"
+    }
 }
 
-
-# Updates global variables $http_code and $download_error_msg
-downloadwget() {
-    eval $invocation
-    unset http_code
-    unset download_error_msg
-    local remote_path="$1"
-    local out_path="${2:-}"
-    # Append feed_credential as late as possible before calling wget to avoid logging feed_credential
-    local remote_path_with_credential="${remote_path}${feed_credential}"
-    local wget_options="--tries 20 "
-
-    local wget_options_extra=''
-    local wget_result=''
-
-    # Test for options that aren't supported on all wget implementations.
-    if [[ $(wget -h 2>&1 | grep -E 'waitretry|connect-timeout') ]]; then
-        wget_options_extra="--waitretry 2 --connect-timeout 15 "
-    else
-        say "wget extra options are unavailable for this environment"
-    fi
-
-    if [ -z "$out_path" ]; then
-        wget -q $wget_options $wget_options_extra -O - "$remote_path_with_credential" 2>&1
-        wget_result=$?
-    else
-        wget $wget_options $wget_options_extra -O "$out_path" "$remote_path_with_credential" 2>&1
-        wget_result=$?
-    fi
-
-    if [[ $wget_result != 0 ]]; then
-        local disable_feed_credential=false
-        local response=$(get_http_header_wget $remote_path $disable_feed_credential)
-        http_code=$( echo "$response" | awk '/^  HTTP/{print $2}' | tail -1 )
-        download_error_msg="Unable to download $remote_path."
-        if  [[ ! -z $http_code && $http_code != 2* ]]; then
-            download_error_msg+=" Returned HTTP status code: $http_code."
-        # wget exit code 4 stands for network-issue
-        elif [[ $wget_result == 4 ]]; then
-            download_error_msg+=" Failed to reach the server: connection timeout."
-        fi
-        say_verbose "$download_error_msg"
-        return 1
-    fi
-
-    return 0
-}
-
-get_download_link_from_aka_ms() {
-    eval $invocation
+function Get-AkaMSDownloadLink([string]$Channel, [string]$Quality, [bool]$Internal, [string]$Product, [string]$Architecture) {
+    Say-Invocation $MyInvocation 
 
     #quality is not supported for LTS or current channel
-    if [[ ! -z "$normalized_quality"  && ("$normalized_channel" == "LTS" || "$normalized_channel" == "current") ]]; then
-        normalized_quality=""
-        say_warning "Specifying quality for current or LTS channel is not supported, the quality will be ignored."
-    fi
-
-    say_verbose "Retrieving primary payload URL from aka.ms for channel: '$normalized_channel', quality: '$normalized_quality', product: '$normalized_product', os: '$normalized_os', architecture: '$normalized_architecture'." 
-
+    if (![string]::IsNullOrEmpty($Quality) -and (@("LTS", "current") -contains $Channel)) {
+        $Quality = ""
+        Say-Warning "Specifying quality for current or LTS channel is not supported, the quality will be ignored."
+    }
+    Say-Verbose "Retrieving primary payload URL from aka.ms link for channel: '$Channel', quality: '$Quality' product: '$Product', os: 'win', architecture: '$Architecture'." 
+   
     #construct aka.ms link
-    aka_ms_link="https://aka.ms/dotnet"
-    if  [ "$internal" = true ]; then
-        aka_ms_link="$aka_ms_link/internal"
-    fi
-    aka_ms_link="$aka_ms_link/$normalized_channel"
-    if [[ ! -z "$normalized_quality" ]]; then
-        aka_ms_link="$aka_ms_link/$normalized_quality"
-    fi
-    aka_ms_link="$aka_ms_link/$normalized_product-$normalized_os-$normalized_architecture.tar.gz"
-    say_verbose "Constructed aka.ms link: '$aka_ms_link'."
+    $akaMsLink = "https://aka.ms/dotnet"
+    if ($Internal) {
+        $akaMsLink += "/internal"
+    }
+    $akaMsLink += "/$Channel"
+    if (-not [string]::IsNullOrEmpty($Quality)) {
+        $akaMsLink +="/$Quality"
+    }
+    $akaMsLink +="/$Product-win-$Architecture.zip"
+    Say-Verbose  "Constructed aka.ms link: '$akaMsLink'."
+    $akaMsDownloadLink=$null
 
-    #get HTTP response
-    #do not pass credentials as a part of the $aka_ms_link and do not apply credentials in the get_http_header function
-    #otherwise the redirect link would have credentials as well
-    #it would result in applying credentials twice to the resulting link and thus breaking it, and in echoing credentials to the output as a part of redirect link
-    disable_feed_credential=true
-    response="$(get_http_header $aka_ms_link $disable_feed_credential)"
+    for ($maxRedirections = 9; $maxRedirections -ge 0; $maxRedirections--)
+    {
+        #get HTTP response
+        #do not pass credentials as a part of the $akaMsLink and do not apply credentials in the GetHTTPResponse function
+        #otherwise the redirect link would have credentials as well
+        #it would result in applying credentials twice to the resulting link and thus breaking it, and in echoing credentials to the output as a part of redirect link
+        $Response= GetHTTPResponse -Uri $akaMsLink -HeaderOnly $true -DisableRedirect $true -DisableFeedCredential $true
+        Say-Verbose "Received response:`n$Response"
 
-    say_verbose "Received response: $response"
-    # Get results of all the redirects.
-    http_codes=$( echo "$response" | awk '$1 ~ /^HTTP/ {print $2}' )
-    # They all need to be 301, otherwise some links are broken (except for the last, which is not a redirect but 200 or 404).
-    broken_redirects=$( echo "$http_codes" | sed '$d' | grep -v '301' )
+        if ([string]::IsNullOrEmpty($Response)) {
+            Say-Verbose "The link '$akaMsLink' is not valid: failed to get redirect location. The resource is not available."
+            return $null
+        }
 
-    # All HTTP codes are 301 (Moved Permanently), the redirect link exists.
-    if [[ -z "$broken_redirects" ]]; then
-        aka_ms_download_link=$( echo "$response" | awk '$1 ~ /^Location/{print $2}' | tail -1 | tr -d '\r')
+        #if HTTP code is 301 (Moved Permanently), the redirect link exists
+        if  ($Response.StatusCode -eq 301)
+        {
+            try {
+                $akaMsDownloadLink = $Response.Headers.GetValues("Location")[0]
 
-        if [[ -z "$aka_ms_download_link" ]]; then
-            say_verbose "The aka.ms link '$aka_ms_link' is not valid: failed to get redirect location."
-            return 1
-        fi
+                if ([string]::IsNullOrEmpty($akaMsDownloadLink)) {
+                    Say-Verbose "The link '$akaMsLink' is not valid: server returned 301 (Moved Permanently), but the headers do not contain the redirect location."
+                    return $null
+                }
 
-        say_verbose "The redirect location retrieved: '$aka_ms_download_link'."
-        return 0
-    else
-        say_verbose "The aka.ms link '$aka_ms_link' is not valid: received HTTP code: $(echo "$broken_redirects" | paste -sd "," -)."
-        return 1
-    fi
+                Say-Verbose "The redirect location retrieved: '$akaMsDownloadLink'."
+                # This may yet be a link to another redirection. Attempt to retrieve the page again.
+                $akaMsLink = $akaMsDownloadLink
+                continue
+            }
+            catch {
+                Say-Verbose "The link '$akaMsLink' is not valid: failed to get redirect location."
+                return $null
+            }
+        }
+        elseif ((($Response.StatusCode -lt 300) -or ($Response.StatusCode -ge 400)) -and (-not [string]::IsNullOrEmpty($akaMsDownloadLink)))
+        {
+            # Redirections have ended.
+            return $akaMsDownloadLink
+        }
+
+        Say-Verbose "The link '$akaMsLink' is not valid: failed to retrieve the redirection location."
+        return $null
+    }
+
+    Say-Verbose "Aka.ms links have redirected more than the maximum allowed redirections. This may be caused by a cyclic redirection of aka.ms links."
+    return $null
+
 }
 
-get_feeds_to_use()
+function Get-AkaMsLink-And-Version([string] $NormalizedChannel, [string] $NormalizedQuality, [bool] $Internal, [string] $ProductName, [string] $Architecture) {
+    $AkaMsDownloadLink = Get-AkaMSDownloadLink -Channel $NormalizedChannel -Quality $NormalizedQuality -Internal $Internal -Product $ProductName -Architecture $Architecture
+   
+    if ([string]::IsNullOrEmpty($AkaMsDownloadLink)){
+        if (-not [string]::IsNullOrEmpty($NormalizedQuality)) {
+            # if quality is specified - exit with error - there is no fallback approach
+            Say-Error "Failed to locate the latest version in the channel '$NormalizedChannel' with '$NormalizedQuality' quality for '$ProductName', os: 'win', architecture: '$Architecture'."
+            Say-Error "Refer to: https://aka.ms/dotnet-os-lifecycle for information on .NET Core support."
+            throw "aka.ms link resolution failure"
+        }
+        Say-Verbose "Falling back to latest.version file approach."
+        return ($null, $null, $null)
+    }
+    else {
+        Say-Verbose "Retrieved primary named payload URL from aka.ms link: '$AkaMsDownloadLink'."
+        Say-Verbose  "Downloading using legacy url will not be attempted."
+
+        #get version from the path
+        $pathParts = $AkaMsDownloadLink.Split('/')
+        if ($pathParts.Length -ge 2) { 
+            $SpecificVersion = $pathParts[$pathParts.Length - 2]
+            Say-Verbose "Version: '$SpecificVersion'."
+        }
+        else {
+            Say-Error "Failed to extract the version from download link '$AkaMsDownloadLink'."
+            return ($null, $null, $null)
+        }
+
+        #retrieve effective (product) version
+        $EffectiveVersion = Get-Product-Version -SpecificVersion $SpecificVersion -PackageDownloadLink $AkaMsDownloadLink
+        Say-Verbose "Product version: '$EffectiveVersion'."
+
+        return ($AkaMsDownloadLink, $SpecificVersion, $EffectiveVersion);
+    }
+}
+
+function Get-Feeds-To-Use()
 {
-    feeds=(
-    "https://dotnetcli.azureedge.net/dotnet"
+    $feeds = @(
+    "https://dotnetcli.azureedge.net/dotnet",
     "https://dotnetbuilds.azureedge.net/public"
     )
 
-    if [[ -n "$azure_feed" ]]; then
-        feeds=("$azure_feed")
-    fi
+    if (-not [string]::IsNullOrEmpty($AzureFeed)) {
+        $feeds = @($AzureFeed)
+    }
 
-    if [[ "$no_cdn" == "true" ]]; then
-        feeds=(
-        "https://dotnetcli.blob.core.windows.net/dotnet"
+    if ($NoCdn) {
+        $feeds = @(
+        "https://dotnetcli.blob.core.windows.net/dotnet",
         "https://dotnetbuilds.blob.core.windows.net/public"
         )
 
-        if [[ -n "$uncached_feed" ]]; then
-            feeds=("$uncached_feed")
-        fi
-    fi
+        if (-not [string]::IsNullOrEmpty($UncachedFeed)) {
+            $feeds = @($UncachedFeed)
+        }
+    }
+
+    return $feeds
 }
 
-# THIS FUNCTION MAY EXIT (if the determined version is already installed).
-generate_download_links() {
-
-    download_links=()
-    specific_versions=()
-    effective_versions=()
-    link_types=()
-
-    # If generate_akams_links returns false, no fallback to old links. Just terminate.
-    # This function may also 'exit' (if the determined version is already installed).
-    generate_akams_links || return
-
-    # Check other feeds only if we haven't been able to find an aka.ms link.
-    if [[ "${#download_links[@]}" -lt 1 ]]; then
-        for feed in ${feeds[@]}
-        do
-            # generate_regular_links may also 'exit' (if the determined version is already installed).
-            generate_regular_links $feed || return
-        done
-    fi
-
-    if [[ "${#download_links[@]}" -eq 0 ]]; then
-        say_err "Failed to resolve the exact version number."
-        return 1
-    fi
-
-    say_verbose "Generated ${#download_links[@]} links."
-    for link_index in ${!download_links[@]}
-    do
-        say_verbose "Link $link_index: ${link_types[$link_index]}, ${effective_versions[$link_index]}, ${download_links[$link_index]}"
-    done
-}
-
-# THIS FUNCTION MAY EXIT (if the determined version is already installed).
-generate_akams_links() {
-    local valid_aka_ms_link=true;
-
-    normalized_version="$(to_lowercase "$version")"
-    if [[ "$normalized_version" != "latest" ]] && [ -n "$normalized_quality" ]; then
-        say_err "Quality and Version options are not allowed to be specified simultaneously. See https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet-install-script#options for details."
-        return 1
-    fi
-
-    if [[ -n "$json_file" || "$normalized_version" != "latest" ]]; then
-        # aka.ms links are not needed when exact version is specified via command or json file
-        return
-    fi
-
-    get_download_link_from_aka_ms || valid_aka_ms_link=false
-
-    if [[ "$valid_aka_ms_link" == true ]]; then
-        say_verbose "Retrieved primary payload URL from aka.ms link: '$aka_ms_download_link'."
-        say_verbose "Downloading using legacy url will not be attempted."
-
-        download_link=$aka_ms_download_link
-
-        #get version from the path
-        IFS='/'
-        read -ra pathElems <<< "$download_link"
-        count=${#pathElems[@]}
-        specific_version="${pathElems[count-2]}"
-        unset IFS;
-        say_verbose "Version: '$specific_version'."
-
-        #Retrieve effective version
-        effective_version="$(get_specific_product_version "$azure_feed" "$specific_version" "$download_link")"
-
-        # Add link info to arrays
-        download_links+=($download_link)
-        specific_versions+=($specific_version)
-        effective_versions+=($effective_version)
-        link_types+=("aka.ms")
-
-        #  Check if the SDK version is already installed.
-        if [[ "$dry_run" != true ]] && is_dotnet_package_installed "$install_root" "$asset_relative_path" "$effective_version"; then
-            say "$asset_name with version '$effective_version' is already installed."
-            exit 0
-        fi
-
-        return 0
-    fi
-
-    # if quality is specified - exit with error - there is no fallback approach
-    if [ ! -z "$normalized_quality" ]; then
-        say_err "Failed to locate the latest version in the channel '$normalized_channel' with '$normalized_quality' quality for '$normalized_product', os: '$normalized_os', architecture: '$normalized_architecture'."
-        say_err "Refer to: https://aka.ms/dotnet-os-lifecycle for information on .NET Core support."
-        return 1
-    fi
-    say_verbose "Falling back to latest.version file approach."
-}
-
-# THIS FUNCTION MAY EXIT (if the determined version is already installed)
-# args:
-# feed - $1
-generate_regular_links() {
-    local feed="$1"
-    local valid_legacy_download_link=true
-
-    specific_version=$(get_specific_version_from_version "$feed" "$channel" "$normalized_architecture" "$version" "$json_file") || specific_version='0'
-
-    if [[ "$specific_version" == '0' ]]; then
-        say_verbose "Failed to resolve the specific version number using feed '$feed'"
-        return
-    fi
-
-    effective_version="$(get_specific_product_version "$feed" "$specific_version")"
-    say_verbose "specific_version=$specific_version"
-
-    download_link="$(construct_download_link "$feed" "$channel" "$normalized_architecture" "$specific_version" "$normalized_os")"
-    say_verbose "Constructed primary named payload URL: $download_link"
-
-    # Add link info to arrays
-    download_links+=($download_link)
-    specific_versions+=($specific_version)
-    effective_versions+=($effective_version)
-    link_types+=("primary")
-
-    legacy_download_link="$(construct_legacy_download_link "$feed" "$channel" "$normalized_architecture" "$specific_version")" || valid_legacy_download_link=false
-
-    if [ "$valid_legacy_download_link" = true ]; then
-        say_verbose "Constructed legacy named payload URL: $legacy_download_link"
+function Resolve-AssetName-And-RelativePath([string] $Runtime) {
     
-        download_links+=($legacy_download_link)
-        specific_versions+=($specific_version)
-        effective_versions+=($effective_version)
-        link_types+=("legacy")
-    else
-        legacy_download_link=""
-        say_verbose "Cound not construct a legacy_download_link; omitting..."
-    fi
+    if ($Runtime -eq "dotnet") {
+        $assetName = ".NET Core Runtime"
+        $dotnetPackageRelativePath = "shared\Microsoft.NETCore.App"
+    }
+    elseif ($Runtime -eq "aspnetcore") {
+        $assetName = "ASP.NET Core Runtime"
+        $dotnetPackageRelativePath = "shared\Microsoft.AspNetCore.App"
+    }
+    elseif ($Runtime -eq "windowsdesktop") {
+        $assetName = ".NET Core Windows Desktop Runtime"
+        $dotnetPackageRelativePath = "shared\Microsoft.WindowsDesktop.App"
+    }
+    elseif (-not $Runtime) {
+        $assetName = ".NET Core SDK"
+        $dotnetPackageRelativePath = "sdk"
+    }
+    else {
+        throw "Invalid value for `$Runtime"
+    }
 
-    #  Check if the SDK version is already installed.
-    if [[ "$dry_run" != true ]] && is_dotnet_package_installed "$install_root" "$asset_relative_path" "$effective_version"; then
-        say "$asset_name with version '$effective_version' is already installed."
-        exit 0
-    fi
+    return ($assetName, $dotnetPackageRelativePath)
 }
 
-print_dry_run() {
+function Prepare-Install-Directory {
+    New-Item -ItemType Directory -Force -Path $InstallRoot | Out-Null
 
-    say "Payload URLs:"
-
-    for link_index in "${!download_links[@]}"
-        do
-            say "URL #$link_index - ${link_types[$link_index]}: ${download_links[$link_index]}"
-    done
-
-    resolved_version=${specific_versions[0]}
-    repeatable_command="./$script_name --version "\""$resolved_version"\"" --install-dir "\""$install_root"\"" --architecture "\""$normalized_architecture"\"" --os "\""$normalized_os"\"""
+    $installDrive = $((Get-Item $InstallRoot -Force).PSDrive.Name);
+    $diskInfo = $null
+    try{
+        $diskInfo = Get-PSDrive -Name $installDrive
+    }
+    catch{
+        Say-Warning "Failed to check the disk space. Installation will continue, but it may fail if you do not have enough disk space."
+    }
     
-    if [ ! -z "$normalized_quality" ]; then
-        repeatable_command+=" --quality "\""$normalized_quality"\"""
-    fi
-
-    if [[ "$runtime" == "dotnet" ]]; then
-        repeatable_command+=" --runtime "\""dotnet"\"""
-    elif [[ "$runtime" == "aspnetcore" ]]; then
-        repeatable_command+=" --runtime "\""aspnetcore"\"""
-    fi
-
-    repeatable_command+="$non_dynamic_parameters"
-
-    if [ -n "$feed_credential" ]; then
-        repeatable_command+=" --feed-credential "\""<feed_credential>"\"""
-    fi
-
-    say "Repeatable invocation: $repeatable_command"
+    if ( ($null -ne $diskInfo) -and ($diskInfo.Free / 1MB -le 100)) {
+        throw "There is not enough disk space on drive ${installDrive}:"
+    }
 }
 
-calculate_vars() {
-    eval $invocation
+Say "Note that the intended use of this script is for Continuous Integration (CI) scenarios, where:"
+Say "- The SDK needs to be installed without user interaction and without admin rights."
+Say "- The SDK installation doesn't need to persist across multiple CI runs."
+Say "To set up a development environment or to run apps, use installers rather than this script. Visit https://dotnet.microsoft.com/download to get the installer.`r`n"
 
-    script_name=$(basename "$0")
-    normalized_architecture="$(get_normalized_architecture_from_architecture "$architecture")"
-    say_verbose "Normalized architecture: '$normalized_architecture'."
-    normalized_os="$(get_normalized_os "$user_defined_os")"
-    say_verbose "Normalized OS: '$normalized_os'."
-    normalized_quality="$(get_normalized_quality "$quality")"
-    say_verbose "Normalized quality: '$normalized_quality'."
-    normalized_channel="$(get_normalized_channel "$channel")"
-    say_verbose "Normalized channel: '$normalized_channel'."
-    normalized_product="$(get_normalized_product "$runtime")"
-    say_verbose "Normalized product: '$normalized_product'."
-    install_root="$(resolve_installation_path "$install_dir")"
-    say_verbose "InstallRoot: '$install_root'."
-
-    normalized_architecture="$(get_normalized_architecture_for_specific_sdk_version "$version" "$normalized_channel" "$normalized_architecture")"
-
-    if [[ "$runtime" == "dotnet" ]]; then
-        asset_relative_path="shared/Microsoft.NETCore.App"
-        asset_name=".NET Core Runtime"
-    elif [[ "$runtime" == "aspnetcore" ]]; then
-        asset_relative_path="shared/Microsoft.AspNetCore.App"
-        asset_name="ASP.NET Core Runtime"
-    elif [ -z "$runtime" ]; then
-        asset_relative_path="sdk"
-        asset_name=".NET Core SDK"
-    fi
-
-    get_feeds_to_use
+if ($SharedRuntime -and (-not $Runtime)) {
+    $Runtime = "dotnet"
 }
 
-install_dotnet() {
-    eval $invocation
-    local download_failed=false
-    local download_completed=false
+$OverrideNonVersionedFiles = !$SkipNonVersionedFiles
 
-    mkdir -p "$install_root"
-    zip_path="$(mktemp "$temporary_file_template")"
-    say_verbose "Zip path: $zip_path"
+$CLIArchitecture = Get-CLIArchitecture-From-Architecture $Architecture
+$NormalizedQuality = Get-NormalizedQuality $Quality
+Say-Verbose "Normalized quality: '$NormalizedQuality'"
+$NormalizedChannel = Get-NormalizedChannel $Channel
+Say-Verbose "Normalized channel: '$NormalizedChannel'"
+$NormalizedProduct = Get-NormalizedProduct $Runtime
+Say-Verbose "Normalized product: '$NormalizedProduct'"
+$FeedCredential = ValidateFeedCredential $FeedCredential
 
-    for link_index in "${!download_links[@]}"
-    do
-        download_link="${download_links[$link_index]}"
-        specific_version="${specific_versions[$link_index]}"
-        effective_version="${effective_versions[$link_index]}"
-        link_type="${link_types[$link_index]}"
+$InstallRoot = Resolve-Installation-Path $InstallDir
+Say-Verbose "InstallRoot: $InstallRoot"
+$ScriptName = $MyInvocation.MyCommand.Name
+($assetName, $dotnetPackageRelativePath) = Resolve-AssetName-And-RelativePath -Runtime $Runtime
 
-        say "Attempting to download using $link_type link $download_link"
+$feeds = Get-Feeds-To-Use
+$DownloadLinks = @()
 
-        # The download function will set variables $http_code and $download_error_msg in case of failure.
-        download_failed=false
-        download "$download_link" "$zip_path" 2>&1 || download_failed=true
-
-        if [ "$download_failed" = true ]; then
-            case $http_code in
-            404)
-                say "The resource at $link_type link '$download_link' is not available."
-                ;;
-            *)
-                say "Failed to download $link_type link '$download_link': $download_error_msg"
-                ;;
-            esac
-            rm -f "$zip_path" 2>&1 && say_verbose "Temporary zip file $zip_path was removed"
-        else
-            download_completed=true
-            break
-        fi
-    done
-
-    if [[ "$download_completed" == false ]]; then
-        say_err "Could not find \`$asset_name\` with version = $specific_version"
-        say_err "Refer to: https://aka.ms/dotnet-os-lifecycle for information on .NET Core support"
-        return 1
-    fi
-
-    say "Extracting zip from $download_link"
-    extract_dotnet_package "$zip_path" "$install_root" || return 1
-
-    #  Check if the SDK version is installed; if not, fail the installation.
-    # if the version contains "RTM" or "servicing"; check if a 'release-type' SDK version is installed.
-    if [[ $specific_version == *"rtm"* || $specific_version == *"servicing"* ]]; then
-        IFS='-'
-        read -ra verArr <<< "$specific_version"
-        release_version="${verArr[0]}"
-        unset IFS;
-        say_verbose "Checking installation: version = $release_version"
-        if is_dotnet_package_installed "$install_root" "$asset_relative_path" "$release_version"; then
-            say "Installed version is $effective_version"
-            return 0
-        fi
-    fi
-
-    #  Check if the standard SDK version is installed.
-    say_verbose "Checking installation: version = $effective_version"
-    if is_dotnet_package_installed "$install_root" "$asset_relative_path" "$effective_version"; then
-        say "Installed version is $effective_version"
-        return 0
-    fi
-
-    # Version verification failed. More likely something is wrong either with the downloaded content or with the verification algorithm.
-    say_err "Failed to verify the version of installed \`$asset_name\`.\nInstallation source: $download_link.\nInstallation location: $install_root.\nReport the bug at https://github.com/dotnet/install-scripts/issues."
-    say_err "\`$asset_name\` with version = $effective_version failed to install with an error."
-    return 1
+if ($Version.ToLowerInvariant() -ne "latest" -and -not [string]::IsNullOrEmpty($Quality)) {
+    throw "Quality and Version options are not allowed to be specified simultaneously. See https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet-install-script#options for details."
 }
 
-args=("$@")
+# aka.ms links can only be used if the user did not request a specific version via the command line or a global.json file.
+if ([string]::IsNullOrEmpty($JSonFile) -and ($Version -eq "latest")) {
+    ($DownloadLink, $SpecificVersion, $EffectiveVersion) = Get-AkaMsLink-And-Version $NormalizedChannel $NormalizedQuality $Internal $NormalizedProduct $CLIArchitecture
+    
+    if ($null -ne $DownloadLink) {
+        $DownloadLinks += New-Object PSObject -Property @{downloadLink="$DownloadLink";specificVersion="$SpecificVersion";effectiveVersion="$EffectiveVersion";type='aka.ms'}
+        Say-Verbose "Generated aka.ms link $DownloadLink with version $EffectiveVersion"
+        
+        if (-Not $DryRun) {
+            Say-Verbose "Checking if the version $EffectiveVersion is already installed"
+            if (Is-Dotnet-Package-Installed -InstallRoot $InstallRoot -RelativePathToPackage $dotnetPackageRelativePath -SpecificVersion $EffectiveVersion)
+            {
+                Say "$assetName with version '$EffectiveVersion' is already installed."
+                Prepend-Sdk-InstallRoot-To-Path -InstallRoot $InstallRoot
+                return
+            }
+        }
+    }
+}
 
-local_version_file_relative_path="/.version"
-bin_folder_relative_path=""
-temporary_file_template="${TMPDIR:-/tmp}/dotnet.XXXXXXXXX"
+# Primary and legacy links cannot be used if a quality was specified.
+# If we already have an aka.ms link, no need to search the blob feeds.
+if ([string]::IsNullOrEmpty($NormalizedQuality) -and 0 -eq $DownloadLinks.count)
+{
+    foreach ($feed in $feeds) {
+        try {
+            $SpecificVersion = Get-Specific-Version-From-Version -AzureFeed $feed -Channel $Channel -Version $Version -JSonFile $JSonFile
+            $DownloadLink, $EffectiveVersion = Get-Download-Link -AzureFeed $feed -SpecificVersion $SpecificVersion -CLIArchitecture $CLIArchitecture
+            $LegacyDownloadLink = Get-LegacyDownload-Link -AzureFeed $feed -SpecificVersion $SpecificVersion -CLIArchitecture $CLIArchitecture
+            
+            $DownloadLinks += New-Object PSObject -Property @{downloadLink="$DownloadLink";specificVersion="$SpecificVersion";effectiveVersion="$EffectiveVersion";type='primary'}
+            Say-Verbose "Generated primary link $DownloadLink with version $EffectiveVersion"
+    
+            if (-not [string]::IsNullOrEmpty($LegacyDownloadLink)) {
+                $DownloadLinks += New-Object PSObject -Property @{downloadLink="$LegacyDownloadLink";specificVersion="$SpecificVersion";effectiveVersion="$EffectiveVersion";type='legacy'}
+                Say-Verbose "Generated legacy link $LegacyDownloadLink with version $EffectiveVersion"
+            }
+    
+            if (-Not $DryRun) {
+                Say-Verbose "Checking if the version $EffectiveVersion is already installed"
+                if (Is-Dotnet-Package-Installed -InstallRoot $InstallRoot -RelativePathToPackage $dotnetPackageRelativePath -SpecificVersion $EffectiveVersion)
+                {
+                    Say "$assetName with version '$EffectiveVersion' is already installed."
+                    Prepend-Sdk-InstallRoot-To-Path -InstallRoot $InstallRoot
+                    return
+                }
+            }
+        }
+        catch
+        {
+            Say-Verbose "Failed to acquire download links from feed $feed. Exception: $_"
+        }
+    }
+}
 
-channel="LTS"
-version="Latest"
-json_file=""
-install_dir="<auto>"
-architecture="<auto>"
-dry_run=false
-no_path=false
-no_cdn=false
-azure_feed=""
-uncached_feed=""
-feed_credential=""
-verbose=false
-runtime=""
-runtime_id=""
-quality=""
-internal=false
-override_non_versioned_files=true
-non_dynamic_parameters=""
-user_defined_os=""
+if ($DownloadLinks.count -eq 0) {
+    throw "Failed to resolve the exact version number."
+}
 
-while [ $# -ne 0 ]
-do
-    name="$1"
-    case "$name" in
-        -c|--channel|-[Cc]hannel)
-            shift
-            channel="$1"
-            ;;
-        -v|--version|-[Vv]ersion)
-            shift
-            version="$1"
-            ;;
-        -q|--quality|-[Qq]uality)
-            shift
-            quality="$1"
-            ;;
-        --internal|-[Ii]nternal)
-            internal=true
-            non_dynamic_parameters+=" $name"
-            ;;
-        -i|--install-dir|-[Ii]nstall[Dd]ir)
-            shift
-            install_dir="$1"
-            ;;
-        --arch|--architecture|-[Aa]rch|-[Aa]rchitecture)
-            shift
-            architecture="$1"
-            ;;
-        --os|-[Oo][SS])
-            shift
-            user_defined_os="$1"
-            ;;
-        --shared-runtime|-[Ss]hared[Rr]untime)
-            say_warning "The --shared-runtime flag is obsolete and may be removed in a future version of this script. The recommended usage is to specify '--runtime dotnet'."
-            if [ -z "$runtime" ]; then
-                runtime="dotnet"
-            fi
-            ;;
-        --runtime|-[Rr]untime)
-            shift
-            runtime="$1"
-            if [[ "$runtime" != "dotnet" ]] && [[ "$runtime" != "aspnetcore" ]]; then
-                say_err "Unsupported value for --runtime: '$1'. Valid values are 'dotnet' and 'aspnetcore'."
-                if [[ "$runtime" == "windowsdesktop" ]]; then
-                    say_err "WindowsDesktop archives are manufactured for Windows platforms only."
-                fi
-                exit 1
-            fi
-            ;;
-        --dry-run|-[Dd]ry[Rr]un)
-            dry_run=true
-            ;;
-        --no-path|-[Nn]o[Pp]ath)
-            no_path=true
-            non_dynamic_parameters+=" $name"
-            ;;
-        --verbose|-[Vv]erbose)
-            verbose=true
-            non_dynamic_parameters+=" $name"
-            ;;
-        --no-cdn|-[Nn]o[Cc]dn)
-            no_cdn=true
-            non_dynamic_parameters+=" $name"
-            ;;
-        --azure-feed|-[Aa]zure[Ff]eed)
-            shift
-            azure_feed="$1"
-            non_dynamic_parameters+=" $name "\""$1"\"""
-            ;;
-        --uncached-feed|-[Uu]ncached[Ff]eed)
-            shift
-            uncached_feed="$1"
-            non_dynamic_parameters+=" $name "\""$1"\"""
-            ;;
-        --feed-credential|-[Ff]eed[Cc]redential)
-            shift
-            feed_credential="$1"
-            #feed_credential should start with "?", for it to be added to the end of the link.
-            #adding "?" at the beginning of the feed_credential if needed.
-            [[ -z "$(echo $feed_credential)" ]] || [[ $feed_credential == \?* ]] || feed_credential="?$feed_credential"
-            ;;
-        --runtime-id|-[Rr]untime[Ii]d)
-            shift
-            runtime_id="$1"
-            non_dynamic_parameters+=" $name "\""$1"\"""
-            say_warning "Use of --runtime-id is obsolete and should be limited to the versions below 2.1. To override architecture, use --architecture option instead. To override OS, use --os option instead."
-            ;;
-        --jsonfile|-[Jj][Ss]on[Ff]ile)
-            shift
-            json_file="$1"
-            ;;
-        --skip-non-versioned-files|-[Ss]kip[Nn]on[Vv]ersioned[Ff]iles)
-            override_non_versioned_files=false
-            non_dynamic_parameters+=" $name"
-            ;;
-        -?|--?|-h|--help|-[Hh]elp)
-            script_name="$(basename "$0")"
-            echo ".NET Tools Installer"
-            echo "Usage: $script_name [-c|--channel <CHANNEL>] [-v|--version <VERSION>] [-p|--prefix <DESTINATION>]"
-            echo "       $script_name -h|-?|--help"
-            echo ""
-            echo "$script_name is a simple command line interface for obtaining dotnet cli."
-            echo ""
-            echo "Options:"
-            echo "  -c,--channel <CHANNEL>         Download from the channel specified, Defaults to \`$channel\`."
-            echo "      -Channel"
-            echo "          Possible values:"
-            echo "          - Current - most current release"
-            echo "          - LTS - most current supported release"
-            echo "          - 2-part version in a format A.B - represents a specific release"
-            echo "              examples: 2.0; 1.0"
-            echo "          - 3-part version in a format A.B.Cxx - represents a specific SDK release"
-            echo "              examples: 5.0.1xx, 5.0.2xx."
-            echo "              Supported since 5.0 release"
-            echo "          Note: The version parameter overrides the channel parameter when any version other than 'latest' is used."
-            echo "  -v,--version <VERSION>         Use specific VERSION, Defaults to \`$version\`."
-            echo "      -Version"
-            echo "          Possible values:"
-            echo "          - latest - the latest build on specific channel"
-            echo "          - 3-part version in a format A.B.C - represents specific version of build"
-            echo "              examples: 2.0.0-preview2-006120; 1.1.0"
-            echo "  -q,--quality <quality>         Download the latest build of specified quality in the channel."
-            echo "      -Quality"
-            echo "          The possible values are: daily, signed, validated, preview, GA."
-            echo "          Works only in combination with channel. Not applicable for current and LTS channels and will be ignored if those channels are used." 
-            echo "          For SDK use channel in A.B.Cxx format. Using quality for SDK together with channel in A.B format is not supported." 
-            echo "          Supported since 5.0 release." 
-            echo "          Note: The version parameter overrides the channel parameter when any version other than 'latest' is used, and therefore overrides the quality."
-            echo "  --internal,-Internal               Download internal builds. Requires providing credentials via --feed-credential parameter."
-            echo "  --feed-credential <FEEDCREDENTIAL> Token to access Azure feed. Used as a query string to append to the Azure feed."
-            echo "      -FeedCredential                This parameter typically is not specified."
-            echo "  -i,--install-dir <DIR>             Install under specified location (see Install Location below)"
-            echo "      -InstallDir"
-            echo "  --architecture <ARCHITECTURE>      Architecture of dotnet binaries to be installed, Defaults to \`$architecture\`."
-            echo "      --arch,-Architecture,-Arch"
-            echo "          Possible values: x64, arm, arm64 and s390x"
-            echo "  --os <system>                    Specifies operating system to be used when selecting the installer."
-            echo "          Overrides the OS determination approach used by the script. Supported values: osx, linux, linux-musl, freebsd, rhel.6."
-            echo "          In case any other value is provided, the platform will be determined by the script based on machine configuration."
-            echo "          Not supported for legacy links. Use --runtime-id to specify platform for legacy links."
-            echo "          Refer to: https://aka.ms/dotnet-os-lifecycle for more information."
-            echo "  --runtime <RUNTIME>                Installs a shared runtime only, without the SDK."
-            echo "      -Runtime"
-            echo "          Possible values:"
-            echo "          - dotnet     - the Microsoft.NETCore.App shared runtime"
-            echo "          - aspnetcore - the Microsoft.AspNetCore.App shared runtime"
-            echo "  --dry-run,-DryRun                  Do not perform installation. Display download link."
-            echo "  --no-path, -NoPath                 Do not set PATH for the current process."
-            echo "  --verbose,-Verbose                 Display diagnostics information."
-            echo "  --azure-feed,-AzureFeed            For internal use only."
-            echo "                                     Allows using a different storage to download SDK archives from."
-            echo "                                     This parameter is only used if --no-cdn is false."
-            echo "  --uncached-feed,-UncachedFeed      For internal use only."
-            echo "                                     Allows using a different storage to download SDK archives from."
-            echo "                                     This parameter is only used if --no-cdn is true."
-            echo "  --skip-non-versioned-files         Skips non-versioned files if they already exist, such as the dotnet executable."
-            echo "      -SkipNonVersionedFiles"
-            echo "  --no-cdn,-NoCdn                    Disable downloading from the Azure CDN, and use the uncached feed directly."
-            echo "  --jsonfile <JSONFILE>              Determines the SDK version from a user specified global.json file."
-            echo "                                     Note: global.json must have a value for 'SDK:Version'"
-            echo "  -?,--?,-h,--help,-Help             Shows this help message"
-            echo ""
-            echo "Install Location:"
-            echo "  Location is chosen in following order:"
-            echo "    - --install-dir option"
-            echo "    - Environmental variable DOTNET_INSTALL_DIR"
-            echo "    - $HOME/.dotnet"
-            exit 0
-            ;;
-        *)
-            say_err "Unknown argument \`$name\`"
-            exit 1
-            ;;
-    esac
+if ($DryRun) {
+    PrintDryRunOutput $MyInvocation $DownloadLinks
+    return
+}
 
-    shift
-done
+Prepare-Install-Directory
 
-say "Note that the intended use of this script is for Continuous Integration (CI) scenarios, where:"
-say "- The SDK needs to be installed without user interaction and without admin rights."
-say "- The SDK installation doesn't need to persist across multiple CI runs."
-say "To set up a development environment or to run apps, use installers rather than this script. Visit https://dotnet.microsoft.com/download to get the installer.\n"
+$ZipPath = [System.IO.Path]::combine([System.IO.Path]::GetTempPath(), [System.IO.Path]::GetRandomFileName())
+Say-Verbose "Zip path: $ZipPath"
 
-if [ "$internal" = true ] && [ -z "$(echo $feed_credential)" ]; then
-    message="Provide credentials via --feed-credential parameter."
-    if [ "$dry_run" = true ]; then
-        say_warning "$message"
-    else
-        say_err "$message"
-        exit 1
-    fi
-fi
+$DownloadSucceeded = $false
+$DownloadedLink = $null
+$ErrorMessages = @()
 
-check_min_reqs
-calculate_vars
-# generate_regular_links call below will 'exit' if the determined version is already installed.
-generate_download_links
+foreach ($link in $DownloadLinks)
+{
+    Say-Verbose "Downloading `"$($link.type)`" link $($link.downloadLink)"
 
-if [[ "$dry_run" = true ]]; then
-    print_dry_run
-    exit 0
-fi
+    try {
+        DownloadFile -Source $link.downloadLink -OutPath $ZipPath
+        Say-Verbose "Download succeeded."
+        $DownloadSucceeded = $true
+        $DownloadedLink = $link
+        break
+    }
+    catch {
+        $StatusCode = $null
+        $ErrorMessage = $null
 
-install_dotnet
+        if ($PSItem.Exception.Data.Contains("StatusCode")) {
+            $StatusCode = $PSItem.Exception.Data["StatusCode"]
+        }
+    
+        if ($PSItem.Exception.Data.Contains("ErrorMessage")) {
+            $ErrorMessage = $PSItem.Exception.Data["ErrorMessage"]
+        } else {
+            $ErrorMessage = $PSItem.Exception.Message
+        }
 
-bin_path="$(get_absolute_path "$(combine_paths "$install_root" "$bin_folder_relative_path")")"
-if [ "$no_path" = false ]; then
-    say "Adding to current process PATH: \`$bin_path\`. Note: This change will be visible only when sourcing script."
-    export PATH="$bin_path":"$PATH"
-else
-    say "Binaries of dotnet can be found in $bin_path"
-fi
+        Say-Verbose "Download failed with status code $StatusCode. Error message: $ErrorMessage"
+        $ErrorMessages += "Downloading from `"$($link.type)`" link has failed with error:`nUri: $($link.downloadLink)`nStatusCode: $StatusCode`nError: $ErrorMessage"
+    }
 
-say "Note that the script does not resolve dependencies during installation."
-say "To check the list of dependencies, go to https://docs.microsoft.com/dotnet/core/install, select your operating system and check the \"Dependencies\" section."
-say "Installation finished successfully."
+    # This link failed. Clean up before trying the next one.
+    SafeRemoveFile -Path $ZipPath
+}
+
+if (-not $DownloadSucceeded) {
+    foreach ($ErrorMessage in $ErrorMessages) {
+        Say-Error $ErrorMessages
+    }
+
+    throw "Could not find `"$assetName`" with version = $($DownloadLinks[0].effectiveVersion)`nRefer to: https://aka.ms/dotnet-os-lifecycle for information on .NET support"
+}
+
+Say "Extracting the archive."
+Extract-Dotnet-Package -ZipPath $ZipPath -OutPath $InstallRoot
+
+#  Check if the SDK version is installed; if not, fail the installation.
+$isAssetInstalled = $false
+
+# if the version contains "RTM" or "servicing"; check if a 'release-type' SDK version is installed.
+if ($DownloadedLink.effectiveVersion -Match "rtm" -or $DownloadedLink.effectiveVersion -Match "servicing") {
+    $ReleaseVersion = $DownloadedLink.effectiveVersion.Split("-")[0]
+    Say-Verbose "Checking installation: version = $ReleaseVersion"
+    $isAssetInstalled = Is-Dotnet-Package-Installed -InstallRoot $InstallRoot -RelativePathToPackage $dotnetPackageRelativePath -SpecificVersion $ReleaseVersion
+}
+
+#  Check if the SDK version is installed.
+if (!$isAssetInstalled) {
+    Say-Verbose "Checking installation: version = $($DownloadedLink.effectiveVersion)"
+    $isAssetInstalled = Is-Dotnet-Package-Installed -InstallRoot $InstallRoot -RelativePathToPackage $dotnetPackageRelativePath -SpecificVersion $DownloadedLink.effectiveVersion
+}
+
+# Version verification failed. More likely something is wrong either with the downloaded content or with the verification algorithm.
+if (!$isAssetInstalled) {
+    Say-Error "Failed to verify the version of installed `"$assetName`".`nInstallation source: $($DownloadedLink.downloadLink).`nInstallation location: $InstallRoot.`nReport the bug at https://github.com/dotnet/install-scripts/issues."
+    throw "`"$assetName`" with version = $($DownloadedLink.effectiveVersion) failed to install with an unknown error."
+}
+
+SafeRemoveFile -Path $ZipPath
+
+Prepend-Sdk-InstallRoot-To-Path -InstallRoot $InstallRoot
+
+Say "Note that the script does not resolve dependencies during installation."
+Say "To check the list of dependencies, go to https://docs.microsoft.com/dotnet/core/install/windows#dependencies"
+Say "Installed version is $($DownloadedLink.effectiveVersion)"
+Say "Installation finished"
+
+# SIG # Begin signature block
+# MIInnQYJKoZIhvcNAQcCoIInjjCCJ4oCAQExDzANBglghkgBZQMEAgEFADB5Bgor
+# BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCBPbD3vCI+sY1o7
+# t+9GwL7gEDtWJk/5Ypegl3ITSKy+X6CCDYEwggX/MIID56ADAgECAhMzAAACzI61
+# lqa90clOAAAAAALMMA0GCSqGSIb3DQEBCwUAMH4xCzAJBgNVBAYTAlVTMRMwEQYD
+# VQQIEwpXYXNoaW5ndG9uMRAwDgYDVQQHEwdSZWRtb25kMR4wHAYDVQQKExVNaWNy
+# b3NvZnQgQ29ycG9yYXRpb24xKDAmBgNVBAMTH01pY3Jvc29mdCBDb2RlIFNpZ25p
+# bmcgUENBIDIwMTEwHhcNMjIwNTEyMjA0NjAxWhcNMjMwNTExMjA0NjAxWjB0MQsw
+# CQYDVQQGEwJVUzETMBEGA1UECBMKV2FzaGluZ3RvbjEQMA4GA1UEBxMHUmVkbW9u
+# ZDEeMBwGA1UEChMVTWljcm9zb2Z0IENvcnBvcmF0aW9uMR4wHAYDVQQDExVNaWNy
+# b3NvZnQgQ29ycG9yYXRpb24wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIB
+# AQCiTbHs68bADvNud97NzcdP0zh0mRr4VpDv68KobjQFybVAuVgiINf9aG2zQtWK
+# No6+2X2Ix65KGcBXuZyEi0oBUAAGnIe5O5q/Y0Ij0WwDyMWaVad2Te4r1Eic3HWH
+# UfiiNjF0ETHKg3qa7DCyUqwsR9q5SaXuHlYCwM+m59Nl3jKnYnKLLfzhl13wImV9
+# DF8N76ANkRyK6BYoc9I6hHF2MCTQYWbQ4fXgzKhgzj4zeabWgfu+ZJCiFLkogvc0
+# RVb0x3DtyxMbl/3e45Eu+sn/x6EVwbJZVvtQYcmdGF1yAYht+JnNmWwAxL8MgHMz
+# xEcoY1Q1JtstiY3+u3ulGMvhAgMBAAGjggF+MIIBejAfBgNVHSUEGDAWBgorBgEE
+# AYI3TAgBBggrBgEFBQcDAzAdBgNVHQ4EFgQUiLhHjTKWzIqVIp+sM2rOHH11rfQw
+# UAYDVR0RBEkwR6RFMEMxKTAnBgNVBAsTIE1pY3Jvc29mdCBPcGVyYXRpb25zIFB1
+# ZXJ0byBSaWNvMRYwFAYDVQQFEw0yMzAwMTIrNDcwNTI5MB8GA1UdIwQYMBaAFEhu
+# ZOVQBdOCqhc3NyK1bajKdQKVMFQGA1UdHwRNMEswSaBHoEWGQ2h0dHA6Ly93d3cu
+# bWljcm9zb2Z0LmNvbS9wa2lvcHMvY3JsL01pY0NvZFNpZ1BDQTIwMTFfMjAxMS0w
+# Ny0wOC5jcmwwYQYIKwYBBQUHAQEEVTBTMFEGCCsGAQUFBzAChkVodHRwOi8vd3d3
+# Lm1pY3Jvc29mdC5jb20vcGtpb3BzL2NlcnRzL01pY0NvZFNpZ1BDQTIwMTFfMjAx
+# MS0wNy0wOC5jcnQwDAYDVR0TAQH/BAIwADANBgkqhkiG9w0BAQsFAAOCAgEAeA8D
+# sOAHS53MTIHYu8bbXrO6yQtRD6JfyMWeXaLu3Nc8PDnFc1efYq/F3MGx/aiwNbcs
+# J2MU7BKNWTP5JQVBA2GNIeR3mScXqnOsv1XqXPvZeISDVWLaBQzceItdIwgo6B13
+# vxlkkSYMvB0Dr3Yw7/W9U4Wk5K/RDOnIGvmKqKi3AwyxlV1mpefy729FKaWT7edB
+# d3I4+hldMY8sdfDPjWRtJzjMjXZs41OUOwtHccPazjjC7KndzvZHx/0VWL8n0NT/
+# 404vftnXKifMZkS4p2sB3oK+6kCcsyWsgS/3eYGw1Fe4MOnin1RhgrW1rHPODJTG
+# AUOmW4wc3Q6KKr2zve7sMDZe9tfylonPwhk971rX8qGw6LkrGFv31IJeJSe/aUbG
+# dUDPkbrABbVvPElgoj5eP3REqx5jdfkQw7tOdWkhn0jDUh2uQen9Atj3RkJyHuR0
+# GUsJVMWFJdkIO/gFwzoOGlHNsmxvpANV86/1qgb1oZXdrURpzJp53MsDaBY/pxOc
+# J0Cvg6uWs3kQWgKk5aBzvsX95BzdItHTpVMtVPW4q41XEvbFmUP1n6oL5rdNdrTM
+# j/HXMRk1KCksax1Vxo3qv+13cCsZAaQNaIAvt5LvkshZkDZIP//0Hnq7NnWeYR3z
+# 4oFiw9N2n3bb9baQWuWPswG0Dq9YT9kb+Cs4qIIwggd6MIIFYqADAgECAgphDpDS
+# AAAAAAADMA0GCSqGSIb3DQEBCwUAMIGIMQswCQYDVQQGEwJVUzETMBEGA1UECBMK
+# V2FzaGluZ3RvbjEQMA4GA1UEBxMHUmVkbW9uZDEeMBwGA1UEChMVTWljcm9zb2Z0
+# IENvcnBvcmF0aW9uMTIwMAYDVQQDEylNaWNyb3NvZnQgUm9vdCBDZXJ0aWZpY2F0
+# ZSBBdXRob3JpdHkgMjAxMTAeFw0xMTA3MDgyMDU5MDlaFw0yNjA3MDgyMTA5MDla
+# MH4xCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpXYXNoaW5ndG9uMRAwDgYDVQQHEwdS
+# ZWRtb25kMR4wHAYDVQQKExVNaWNyb3NvZnQgQ29ycG9yYXRpb24xKDAmBgNVBAMT
+# H01pY3Jvc29mdCBDb2RlIFNpZ25pbmcgUENBIDIwMTEwggIiMA0GCSqGSIb3DQEB
+# AQUAA4ICDwAwggIKAoICAQCr8PpyEBwurdhuqoIQTTS68rZYIZ9CGypr6VpQqrgG
+# OBoESbp/wwwe3TdrxhLYC/A4wpkGsMg51QEUMULTiQ15ZId+lGAkbK+eSZzpaF7S
+# 35tTsgosw6/ZqSuuegmv15ZZymAaBelmdugyUiYSL+erCFDPs0S3XdjELgN1q2jz
+# y23zOlyhFvRGuuA4ZKxuZDV4pqBjDy3TQJP4494HDdVceaVJKecNvqATd76UPe/7
+# 4ytaEB9NViiienLgEjq3SV7Y7e1DkYPZe7J7hhvZPrGMXeiJT4Qa8qEvWeSQOy2u
+# M1jFtz7+MtOzAz2xsq+SOH7SnYAs9U5WkSE1JcM5bmR/U7qcD60ZI4TL9LoDho33
+# X/DQUr+MlIe8wCF0JV8YKLbMJyg4JZg5SjbPfLGSrhwjp6lm7GEfauEoSZ1fiOIl
+# XdMhSz5SxLVXPyQD8NF6Wy/VI+NwXQ9RRnez+ADhvKwCgl/bwBWzvRvUVUvnOaEP
+# 6SNJvBi4RHxF5MHDcnrgcuck379GmcXvwhxX24ON7E1JMKerjt/sW5+v/N2wZuLB
+# l4F77dbtS+dJKacTKKanfWeA5opieF+yL4TXV5xcv3coKPHtbcMojyyPQDdPweGF
+# RInECUzF1KVDL3SV9274eCBYLBNdYJWaPk8zhNqwiBfenk70lrC8RqBsmNLg1oiM
+# CwIDAQABo4IB7TCCAekwEAYJKwYBBAGCNxUBBAMCAQAwHQYDVR0OBBYEFEhuZOVQ
+# BdOCqhc3NyK1bajKdQKVMBkGCSsGAQQBgjcUAgQMHgoAUwB1AGIAQwBBMAsGA1Ud
+# DwQEAwIBhjAPBgNVHRMBAf8EBTADAQH/MB8GA1UdIwQYMBaAFHItOgIxkEO5FAVO
+# 4eqnxzHRI4k0MFoGA1UdHwRTMFEwT6BNoEuGSWh0dHA6Ly9jcmwubWljcm9zb2Z0
+# LmNvbS9wa2kvY3JsL3Byb2R1Y3RzL01pY1Jvb0NlckF1dDIwMTFfMjAxMV8wM18y
+# Mi5jcmwwXgYIKwYBBQUHAQEEUjBQME4GCCsGAQUFBzAChkJodHRwOi8vd3d3Lm1p
+# Y3Jvc29mdC5jb20vcGtpL2NlcnRzL01pY1Jvb0NlckF1dDIwMTFfMjAxMV8wM18y
+# Mi5jcnQwgZ8GA1UdIASBlzCBlDCBkQYJKwYBBAGCNy4DMIGDMD8GCCsGAQUFBwIB
+# FjNodHRwOi8vd3d3Lm1pY3Jvc29mdC5jb20vcGtpb3BzL2RvY3MvcHJpbWFyeWNw
+# cy5odG0wQAYIKwYBBQUHAgIwNB4yIB0ATABlAGcAYQBsAF8AcABvAGwAaQBjAHkA
+# XwBzAHQAYQB0AGUAbQBlAG4AdAAuIB0wDQYJKoZIhvcNAQELBQADggIBAGfyhqWY
+# 4FR5Gi7T2HRnIpsLlhHhY5KZQpZ90nkMkMFlXy4sPvjDctFtg/6+P+gKyju/R6mj
+# 82nbY78iNaWXXWWEkH2LRlBV2AySfNIaSxzzPEKLUtCw/WvjPgcuKZvmPRul1LUd
+# d5Q54ulkyUQ9eHoj8xN9ppB0g430yyYCRirCihC7pKkFDJvtaPpoLpWgKj8qa1hJ
+# Yx8JaW5amJbkg/TAj/NGK978O9C9Ne9uJa7lryft0N3zDq+ZKJeYTQ49C/IIidYf
+# wzIY4vDFLc5bnrRJOQrGCsLGra7lstnbFYhRRVg4MnEnGn+x9Cf43iw6IGmYslmJ
+# aG5vp7d0w0AFBqYBKig+gj8TTWYLwLNN9eGPfxxvFX1Fp3blQCplo8NdUmKGwx1j
+# NpeG39rz+PIWoZon4c2ll9DuXWNB41sHnIc+BncG0QaxdR8UvmFhtfDcxhsEvt9B
+# xw4o7t5lL+yX9qFcltgA1qFGvVnzl6UJS0gQmYAf0AApxbGbpT9Fdx41xtKiop96
+# eiL6SJUfq/tHI4D1nvi/a7dLl+LrdXga7Oo3mXkYS//WsyNodeav+vyL6wuA6mk7
+# r/ww7QRMjt/fdW1jkT3RnVZOT7+AVyKheBEyIXrvQQqxP/uozKRdwaGIm1dxVk5I
+# RcBCyZt2WwqASGv9eZ/BvW1taslScxMNelDNMYIZcjCCGW4CAQEwgZUwfjELMAkG
+# A1UEBhMCVVMxEzARBgNVBAgTCldhc2hpbmd0b24xEDAOBgNVBAcTB1JlZG1vbmQx
+# HjAcBgNVBAoTFU1pY3Jvc29mdCBDb3Jwb3JhdGlvbjEoMCYGA1UEAxMfTWljcm9z
+# b2Z0IENvZGUgU2lnbmluZyBQQ0EgMjAxMQITMwAAAsyOtZamvdHJTgAAAAACzDAN
+# BglghkgBZQMEAgEFAKCBrjAZBgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgor
+# BgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAvBgkqhkiG9w0BCQQxIgQgNQFZgkyG
+# luNzcU2g8/R/8PaAnIpTnmBnw3/0HJQjl9wwQgYKKwYBBAGCNwIBDDE0MDKgFIAS
+# AE0AaQBjAHIAbwBzAG8AZgB0oRqAGGh0dHA6Ly93d3cubWljcm9zb2Z0LmNvbTAN
+# BgkqhkiG9w0BAQEFAASCAQABpLusOOxklzXjvllIe1AgDCgkYd0BN4cT3yQ8uULV
+# e+OnVgGOLnPcffCSGZ/SQMgJndoRMBSBd0jH5JxSkSuLXJpEWs1nl4QUg93FxYLr
+# pMdFepMsN733h5JuZGcTFf7P23IOxYaVEC+mKLbkOxIJaxgDQYSgliSg9X2hwLJ2
+# frCUV4b3ZWL0R495LhGpo65B7Ik/OOeHXWcs8d7vOnE/ObPHFv3fn1QTrq+KvbhA
+# TWEmL3P9P0Jn7k6gJjrTOxpgcDenr0IE5X63oe7y32LgLlJbr1OjKQUUCPVQ16d9
+# bgkhRp0gghdSAbDKjQuEAQ+e3GTeoNWnzxPlQfMLP0droYIW/DCCFvgGCisGAQQB
+# gjcDAwExghboMIIW5AYJKoZIhvcNAQcCoIIW1TCCFtECAQMxDzANBglghkgBZQME
+# AgEFADCCAVEGCyqGSIb3DQEJEAEEoIIBQASCATwwggE4AgEBBgorBgEEAYRZCgMB
+# MDEwDQYJYIZIAWUDBAIBBQAEIGXZSvVWqDs0wjW8JLHjKJ41lgzXHpdGqPCyYSvk
+# gIH0AgZi1XtjQncYEzIwMjIwODAzMTI1NjA1Ljc2OFowBIACAfSggdCkgc0wgcox
+# CzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpXYXNoaW5ndG9uMRAwDgYDVQQHEwdSZWRt
+# b25kMR4wHAYDVQQKExVNaWNyb3NvZnQgQ29ycG9yYXRpb24xJTAjBgNVBAsTHE1p
+# Y3Jvc29mdCBBbWVyaWNhIE9wZXJhdGlvbnMxJjAkBgNVBAsTHVRoYWxlcyBUU1Mg
+# RVNOOjEyQkMtRTNBRS03NEVCMSUwIwYDVQQDExxNaWNyb3NvZnQgVGltZS1TdGFt
+# cCBTZXJ2aWNloIIRUzCCBwwwggT0oAMCAQICEzMAAAGhAYVVmblUXYoAAQAAAaEw
+# DQYJKoZIhvcNAQELBQAwfDELMAkGA1UEBhMCVVMxEzARBgNVBAgTCldhc2hpbmd0
+# b24xEDAOBgNVBAcTB1JlZG1vbmQxHjAcBgNVBAoTFU1pY3Jvc29mdCBDb3Jwb3Jh
+# dGlvbjEmMCQGA1UEAxMdTWljcm9zb2Z0IFRpbWUtU3RhbXAgUENBIDIwMTAwHhcN
+# MjExMjAyMTkwNTI0WhcNMjMwMjI4MTkwNTI0WjCByjELMAkGA1UEBhMCVVMxEzAR
+# BgNVBAgTCldhc2hpbmd0b24xEDAOBgNVBAcTB1JlZG1vbmQxHjAcBgNVBAoTFU1p
+# Y3Jvc29mdCBDb3Jwb3JhdGlvbjElMCMGA1UECxMcTWljcm9zb2Z0IEFtZXJpY2Eg
+# T3BlcmF0aW9uczEmMCQGA1UECxMdVGhhbGVzIFRTUyBFU046MTJCQy1FM0FFLTc0
+# RUIxJTAjBgNVBAMTHE1pY3Jvc29mdCBUaW1lLVN0YW1wIFNlcnZpY2UwggIiMA0G
+# CSqGSIb3DQEBAQUAA4ICDwAwggIKAoICAQDayTxe5WukkrYxxVuHLYW9BEWCD9kk
+# jnnHsOKwGddIPbZlLY+l5ovLDNf+BEMQKAZQI3DX91l1yCDuP9X7tOPC48ZRGXA/
+# bf9ql0FK5438gIl7cV528XeEOFwc/A+UbIUfW296Omg8Z62xaQv3jrG4U/priArF
+# /er1UA1HNuIGUyqjlygiSPwK2NnFApi1JD+Uef5c47kh7pW1Kj7RnchpFeY9MekP
+# QRia7cEaUYU4sqCiJVdDJpefLvPT9EdthlQx75ldx+AwZf2a9T7uQRSBh8tpxPdI
+# DDkKiWMwjKTrAY09A3I/jidqPuc8PvX+sqxqyZEN2h4GA0Edjmk64nkIukAK18K5
+# nALDLO9SMTxpAwQIHRDtZeTClvAPCEoy1vtPD7f+eqHqStuu+XCkfRjXEpX9+h9f
+# rsB0/BgD5CBf3ELLAa8TefMfHZWEJRTPNrbXMKizSrUSkVv/3HP/ZsJpwaz5My2R
+# byc3Ah9bT76eBJkyfT5FN9v/KQ0HnxhRMs6HHhTmNx+LztYci+vHf0D3QH1eCjZW
+# ZRjp1mOyxpPU2mDMG6gelvJse1JzRADo7YIok/J3Ccbm8MbBbm85iogFltFHecHF
+# EFwrsDGBFnNYHMhcbarQNA+gY2e2l9fAkX3MjI7Uklkoz74/P6KIqe5jcd9FPCbb
+# SbYH9OLsteeYOQIDAQABo4IBNjCCATIwHQYDVR0OBBYEFBa/IDLbY475VQyKiZSw
+# 47l0/cypMB8GA1UdIwQYMBaAFJ+nFV0AXmJdg/Tl0mWnG1M1GelyMF8GA1UdHwRY
+# MFYwVKBSoFCGTmh0dHA6Ly93d3cubWljcm9zb2Z0LmNvbS9wa2lvcHMvY3JsL01p
+# Y3Jvc29mdCUyMFRpbWUtU3RhbXAlMjBQQ0ElMjAyMDEwKDEpLmNybDBsBggrBgEF
+# BQcBAQRgMF4wXAYIKwYBBQUHMAKGUGh0dHA6Ly93d3cubWljcm9zb2Z0LmNvbS9w
+# a2lvcHMvY2VydHMvTWljcm9zb2Z0JTIwVGltZS1TdGFtcCUyMFBDQSUyMDIwMTAo
+# MSkuY3J0MAwGA1UdEwEB/wQCMAAwEwYDVR0lBAwwCgYIKwYBBQUHAwgwDQYJKoZI
+# hvcNAQELBQADggIBACDDIxElfXlG5YKcKrLPSS+f3JWZprwKEiASvivaHTBRlXtA
+# s+TkadcsEei+9w5vmF5tCUzTH4c0nCI7bZxnsL+S6XsiOs3Z1V4WX+IwoXUJ4zLv
+# s0+mT4vjGDtYfKQ/bsmJKar2c99m/fHv1Wm2CTcyaePvi86Jh3UyLjdRILWbtzs4
+# oImFMwwKbzHdPopxrBhgi+C1YZshosWLlgzyuxjUl+qNg1m52MJmf11loI7D9HJo
+# aQzd+rf928Y8rvULmg2h/G50o+D0UJ1Fa/cJJaHfB3sfKw9X6GrtXYGjmM3+g+Ah
+# aVsfupKXNtOFu5tnLKvAH5OIjEDYV1YKmlXuBuhbYassygPFMmNgG2Ank3drEcDc
+# ZhCXXqpRszNo1F6Gu5JCpQZXbOJM9Ue5PlJKtmImAYIGsw+pnHy/r5ggSYOp4g5Z
+# 1oU9GhVCM3V0T9adee6OUXBk1rE4dZc/UsPlj0qoiljL+lN1A5gkmmz7k5tIObVG
+# B7dJdz8J0FwXRE5qYu1AdvauVbZwGQkL1x8aK/svjEQW0NUyJ29znDHiXl5vLoRT
+# jjFpshUBi2+IY+mNqbLmj24j5eT+bjDlE3HmNtLPpLcMDYqZ1H+6U6YmaiNmac2j
+# RXDAaeEE/uoDMt2dArfJP7M+MDv3zzNNTINeuNEtDVgm9zwfgIUCXnDZuVtiMIIH
+# cTCCBVmgAwIBAgITMwAAABXF52ueAptJmQAAAAAAFTANBgkqhkiG9w0BAQsFADCB
+# iDELMAkGA1UEBhMCVVMxEzARBgNVBAgTCldhc2hpbmd0b24xEDAOBgNVBAcTB1Jl
+# ZG1vbmQxHjAcBgNVBAoTFU1pY3Jvc29mdCBDb3Jwb3JhdGlvbjEyMDAGA1UEAxMp
+# TWljcm9zb2Z0IFJvb3QgQ2VydGlmaWNhdGUgQXV0aG9yaXR5IDIwMTAwHhcNMjEw
+# OTMwMTgyMjI1WhcNMzAwOTMwMTgzMjI1WjB8MQswCQYDVQQGEwJVUzETMBEGA1UE
+# CBMKV2FzaGluZ3RvbjEQMA4GA1UEBxMHUmVkbW9uZDEeMBwGA1UEChMVTWljcm9z
+# b2Z0IENvcnBvcmF0aW9uMSYwJAYDVQQDEx1NaWNyb3NvZnQgVGltZS1TdGFtcCBQ
+# Q0EgMjAxMDCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBAOThpkzntHIh
+# C3miy9ckeb0O1YLT/e6cBwfSqWxOdcjKNVf2AX9sSuDivbk+F2Az/1xPx2b3lVNx
+# WuJ+Slr+uDZnhUYjDLWNE893MsAQGOhgfWpSg0S3po5GawcU88V29YZQ3MFEyHFc
+# UTE3oAo4bo3t1w/YJlN8OWECesSq/XJprx2rrPY2vjUmZNqYO7oaezOtgFt+jBAc
+# nVL+tuhiJdxqD89d9P6OU8/W7IVWTe/dvI2k45GPsjksUZzpcGkNyjYtcI4xyDUo
+# veO0hyTD4MmPfrVUj9z6BVWYbWg7mka97aSueik3rMvrg0XnRm7KMtXAhjBcTyzi
+# YrLNueKNiOSWrAFKu75xqRdbZ2De+JKRHh09/SDPc31BmkZ1zcRfNN0Sidb9pSB9
+# fvzZnkXftnIv231fgLrbqn427DZM9ituqBJR6L8FA6PRc6ZNN3SUHDSCD/AQ8rdH
+# GO2n6Jl8P0zbr17C89XYcz1DTsEzOUyOArxCaC4Q6oRRRuLRvWoYWmEBc8pnol7X
+# KHYC4jMYctenIPDC+hIK12NvDMk2ZItboKaDIV1fMHSRlJTYuVD5C4lh8zYGNRiE
+# R9vcG9H9stQcxWv2XFJRXRLbJbqvUAV6bMURHXLvjflSxIUXk8A8FdsaN8cIFRg/
+# eKtFtvUeh17aj54WcmnGrnu3tz5q4i6tAgMBAAGjggHdMIIB2TASBgkrBgEEAYI3
+# FQEEBQIDAQABMCMGCSsGAQQBgjcVAgQWBBQqp1L+ZMSavoKRPEY1Kc8Q/y8E7jAd
+# BgNVHQ4EFgQUn6cVXQBeYl2D9OXSZacbUzUZ6XIwXAYDVR0gBFUwUzBRBgwrBgEE
+# AYI3TIN9AQEwQTA/BggrBgEFBQcCARYzaHR0cDovL3d3dy5taWNyb3NvZnQuY29t
+# L3BraW9wcy9Eb2NzL1JlcG9zaXRvcnkuaHRtMBMGA1UdJQQMMAoGCCsGAQUFBwMI
+# MBkGCSsGAQQBgjcUAgQMHgoAUwB1AGIAQwBBMAsGA1UdDwQEAwIBhjAPBgNVHRMB
+# Af8EBTADAQH/MB8GA1UdIwQYMBaAFNX2VsuP6KJcYmjRPZSQW9fOmhjEMFYGA1Ud
+# HwRPME0wS6BJoEeGRWh0dHA6Ly9jcmwubWljcm9zb2Z0LmNvbS9wa2kvY3JsL3By
+# b2R1Y3RzL01pY1Jvb0NlckF1dF8yMDEwLTA2LTIzLmNybDBaBggrBgEFBQcBAQRO
+# MEwwSgYIKwYBBQUHMAKGPmh0dHA6Ly93d3cubWljcm9zb2Z0LmNvbS9wa2kvY2Vy
+# dHMvTWljUm9vQ2VyQXV0XzIwMTAtMDYtMjMuY3J0MA0GCSqGSIb3DQEBCwUAA4IC
+# AQCdVX38Kq3hLB9nATEkW+Geckv8qW/qXBS2Pk5HZHixBpOXPTEztTnXwnE2P9pk
+# bHzQdTltuw8x5MKP+2zRoZQYIu7pZmc6U03dmLq2HnjYNi6cqYJWAAOwBb6J6Gng
+# ugnue99qb74py27YP0h1AdkY3m2CDPVtI1TkeFN1JFe53Z/zjj3G82jfZfakVqr3
+# lbYoVSfQJL1AoL8ZthISEV09J+BAljis9/kpicO8F7BUhUKz/AyeixmJ5/ALaoHC
+# gRlCGVJ1ijbCHcNhcy4sa3tuPywJeBTpkbKpW99Jo3QMvOyRgNI95ko+ZjtPu4b6
+# MhrZlvSP9pEB9s7GdP32THJvEKt1MMU0sHrYUP4KWN1APMdUbZ1jdEgssU5HLcEU
+# BHG/ZPkkvnNtyo4JvbMBV0lUZNlz138eW0QBjloZkWsNn6Qo3GcZKCS6OEuabvsh
+# VGtqRRFHqfG3rsjoiV5PndLQTHa1V1QJsWkBRH58oWFsc/4Ku+xBZj1p/cvBQUl+
+# fpO+y/g75LcVv7TOPqUxUYS8vwLBgqJ7Fx0ViY1w/ue10CgaiQuPNtq6TPmb/wrp
+# NPgkNWcr4A245oyZ1uEi6vAnQj0llOZ0dFtq0Z4+7X6gMTN9vMvpe784cETRkPHI
+# qzqKOghif9lwY1NNje6CbaUFEMFxBmoQtB1VM1izoXBm8qGCAsowggIzAgEBMIH4
+# oYHQpIHNMIHKMQswCQYDVQQGEwJVUzETMBEGA1UECBMKV2FzaGluZ3RvbjEQMA4G
+# A1UEBxMHUmVkbW9uZDEeMBwGA1UEChMVTWljcm9zb2Z0IENvcnBvcmF0aW9uMSUw
+# IwYDVQQLExxNaWNyb3NvZnQgQW1lcmljYSBPcGVyYXRpb25zMSYwJAYDVQQLEx1U
+# aGFsZXMgVFNTIEVTTjoxMkJDLUUzQUUtNzRFQjElMCMGA1UEAxMcTWljcm9zb2Z0
+# IFRpbWUtU3RhbXAgU2VydmljZaIjCgEBMAcGBSsOAwIaAxUAG3F2jO4LEMVLwgKG
+# XdYMN4FBgOCggYMwgYCkfjB8MQswCQYDVQQGEwJVUzETMBEGA1UECBMKV2FzaGlu
+# Z3RvbjEQMA4GA1UEBxMHUmVkbW9uZDEeMBwGA1UEChMVTWljcm9zb2Z0IENvcnBv
+# cmF0aW9uMSYwJAYDVQQDEx1NaWNyb3NvZnQgVGltZS1TdGFtcCBQQ0EgMjAxMDAN
+# BgkqhkiG9w0BAQUFAAIFAOaUaAIwIhgPMjAyMjA4MDMxMTIwMzRaGA8yMDIyMDgw
+# NDExMjAzNFowczA5BgorBgEEAYRZCgQBMSswKTAKAgUA5pRoAgIBADAGAgEAAgEI
+# MAcCAQACAhIDMAoCBQDmlbmCAgEAMDYGCisGAQQBhFkKBAIxKDAmMAwGCisGAQQB
+# hFkKAwKgCjAIAgEAAgMHoSChCjAIAgEAAgMBhqAwDQYJKoZIhvcNAQEFBQADgYEA
+# bqvBFqohycksQZhSEJZTiCeQ6hwWlYWRXL1PerCFbLmK+4vgr57BkwFsu5KzBE2z
+# i1eHNrssK4BcBLYyIhDIjMSqqtrvclrB6SSDag1WcxZrz42xatvyhKXZd52a5R5Q
+# xJw66cvwkDa4UmEtVOnbkaOPyyAql72D9w/XLHY0nmUxggQNMIIECQIBATCBkzB8
+# MQswCQYDVQQGEwJVUzETMBEGA1UECBMKV2FzaGluZ3RvbjEQMA4GA1UEBxMHUmVk
+# bW9uZDEeMBwGA1UEChMVTWljcm9zb2Z0IENvcnBvcmF0aW9uMSYwJAYDVQQDEx1N
+# aWNyb3NvZnQgVGltZS1TdGFtcCBQQ0EgMjAxMAITMwAAAaEBhVWZuVRdigABAAAB
+# oTANBglghkgBZQMEAgEFAKCCAUowGgYJKoZIhvcNAQkDMQ0GCyqGSIb3DQEJEAEE
+# MC8GCSqGSIb3DQEJBDEiBCCGB/0CqUv9yvdxWNnaciRCHPCM4WmcYpKBUNiR1Xg+
+# yjCB+gYLKoZIhvcNAQkQAi8xgeowgecwgeQwgb0EIOsIVPE6gYJoIIKOhHIF7UlJ
+# Cswl4IJPISvOKInfjtCEMIGYMIGApH4wfDELMAkGA1UEBhMCVVMxEzARBgNVBAgT
+# Cldhc2hpbmd0b24xEDAOBgNVBAcTB1JlZG1vbmQxHjAcBgNVBAoTFU1pY3Jvc29m
+# dCBDb3Jwb3JhdGlvbjEmMCQGA1UEAxMdTWljcm9zb2Z0IFRpbWUtU3RhbXAgUENB
+# IDIwMTACEzMAAAGhAYVVmblUXYoAAQAAAaEwIgQgy8rtxrFwV1rcLxTDP8W6Af+y
+# Za2AaaMVTQY3E9A2eHMwDQYJKoZIhvcNAQELBQAEggIAEJIvjnhqXrrsyJWHHG9i
+# gKBBM3d51KglP0nJ0dY1zp7uUIBTQ53LVONE1SFiqbw6akydYum6iTaI7tvFWJRW
+# dx5Fq56gt+QY2YO0nsn3zH3ulyUUkhHuMsx5N/pQT6tsEMu6tWCuWucf44JQHlyY
+# x8/C+S5QoA7DId3ugccCFpZWUMb76QWReDtalDz3XY/gNSBT2DTJ8WT78WREcYKu
+# aBO52cUXKKLtr5ZoPcdEElB/TPuctcC6Hh0+J4Y6PCNwOVPodpEmjMSV0tAN8tZp
+# T3cyf9YPnwXNdDiaikZlPSO0pXCM5+KjrBm5hnj6+J8qMc+Qc91UMh2J96kZWVmm
+# PsWE7YA4DlWrIWn2mdGLtTJP4sOlqRjigP9rdBFo0oG9c1ySKw3rN7zpGTDnFdkS
+# vxeCoLWx48BJ4bE3Siwx6cwrYScmIgyobLb1Ztu5FEmFUn8maX5oo8IY9kPsODOG
+# 3y8hPoLOOj2lRdslV9bdjtrbnqeY5Nq/oKuftbX8iD2MYFgWOqeufw3TcQiSz2uF
+# tKGolAePdRf1S7c81CC89g7tcwy1TILR9M2JdWOwosAtpFXxX6Vc1OGiRwPAyXBL
+# dvDqiTx5zb9k87hfJvwix/oXfo4fNCNdE/i/VbmsAJjcxd+eEBbJ9Oc+oPqC/5zq
+# pPtLXUsVfUWX58dPRnYeMAg=
+# SIG # End signature block
