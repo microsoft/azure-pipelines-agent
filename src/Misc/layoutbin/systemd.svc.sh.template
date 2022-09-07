@@ -13,15 +13,6 @@ TEMPLATE_PATH=./bin/vsts.agent.service.template
 TEMP_PATH=./bin/vsts.agent.service.temp
 CONFIG_PATH=.service
 
-user_id=`id -u`
-
-# systemctl must run as sudo
-# this script is a convenience wrapper around systemctl
-if [ $user_id -ne 0 ]; then
-    echo "Must run as sudo"
-    exit 1
-fi
-
 function failed()
 {
    local error=${1:-Undefined error}
@@ -29,14 +20,15 @@ function failed()
    exit 1
 }
 
-if [ ! -f "${TEMPLATE_PATH}" ]; then
-    failed "Must run from agent root or install is corrupt"
+# systemctl must run as sudo
+# this script is a convenience wrapper around systemctl
+user_id=`id -u`
+if [ $user_id -ne 0 ]; then
+    failed "This script requires to run with sudo."
 fi
 
-#check if we run as root
-if [[ $(id -u) != "0" ]]; then
-    echo "Failed: This script requires to run with sudo." >&2
-    exit 1
+if [ ! -f "${TEMPLATE_PATH}" ]; then
+    failed "Must run from agent root or install is corrupt"
 fi
 
 function install()
