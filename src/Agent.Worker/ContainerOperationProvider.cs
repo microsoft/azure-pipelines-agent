@@ -148,8 +148,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             await RemoveContainerNetworkAsync(executionContext, _containerNetwork);
         }
 
-        private async Task<string> GetMSIAccessToken(CancellationToken cancellationToken)
+        private async Task<string> GetMSIAccessToken(IExecutionContext executionContext)
         {
+            CancellationToken cancellationToken = executionContext.CancellationToken;
             Trace.Entering();
             // Check environment variable for debugging
             var envVar = System.Environment.GetEnvironmentVariable("DEBUG_MSI_LOGIN_INFO");
@@ -157,6 +158,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ChainedTokenCredential credential = envVar == "1"
                 ? new ChainedTokenCredential(new ManagedIdentityCredential(clientId: null), new VisualStudioCredential(), new AzureCliCredential())
                 : new ChainedTokenCredential(new ManagedIdentityCredential(clientId: null));
+            executionContext.Debug("Retrieving AAD token using MSI authentication...");
             AccessToken accessToken = await credential.GetTokenAsync(new TokenRequestContext(new[] {
                 "https://management.core.windows.net/"
             }), cancellationToken);
@@ -164,9 +166,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return accessToken.Token.ToString();
         }
 
-        private async Task<string> GetAcrPasswordFromAADToken(string AADToken, string tenantId, string registryServer, CancellationToken cancellationToken)
+        private async Task<string> GetAcrPasswordFromAADToken(IExecutionContext executionContext, string AADToken, string tenantId, string registryServer)
         {
             Trace.Entering();
+            CancellationToken cancellationToken = executionContext.CancellationToken;
             Uri url = new Uri(registryServer + "/oauth2/exchange");
             const int retryLimit = 5;
             using HttpClientHandler httpClientHandler = HostContext.CreateHttpClientHandler();
@@ -186,17 +189,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             int timeToWait = 0;
             do
             {
+                executionContext.Debug("Attempting to convert AAD token to an ACR token");
                 try
                 {
                     var response = await httpClient.PostAsync(url, formUrlEncodedContent, cancellationToken).ConfigureAwait(false);
                     if (response.StatusCode == HttpStatusCode.OK)
                     {
+                        executionContext.Debug("Successfully converted AAD token to an ACR token");
                         string result = await response.Content.ReadAsStringAsync();
                         Dictionary<string, string> list = JsonConvert.DeserializeObject<Dictionary<string, string>>(result);
                         ACRpassword = list["refresh_token"];
                     }
                     else if (response.StatusCode == HttpStatusCode.TooManyRequests || response.StatusCode == HttpStatusCode.InternalServerError)
                     {
+                        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+                        {
+                            executionContext.Debug("Too many requests were made to get an ACR token. Retrying...");
+                        } else
+                        {
+                            executionContext.Debug("Internal server error occurred. Retrying...");
+                        }
                         if (retryCount < retryLimit)
                         {
                             waitedTime = 2000 + timeToWait * 2;
@@ -216,6 +228,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 catch
                 {
+                    executionContext.Debug("A socket error occurred while handling your request. Retrying...");
                     waitedTime = 2000 + timeToWait * 2;
                     retryCount++;
                     await Task.Delay(timeToWait);
@@ -260,19 +273,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     try
                     {
+                        executionContext.Debug("Attempting to get endpoint authorization scheme...");
                         authType = registryEndpoint.Authorization?.Scheme;
-                        Console.WriteLine("Endpoint Authorization Scheme: " + authType);
                     }
-                    catch { }
-                    try
-                    {
-                        registryEndpoint.Authorization?.Parameters?.TryGetValue("scheme", out authType);
-                        Console.WriteLine("Endpoint Authorization Parameter Scheme: " + authType);
+                    catch {
+                        executionContext.Debug("Failed to get endpoint authorization scheme.");
                     }
-                    catch { }
                     if (string.IsNullOrEmpty(authType))
                     {
-                       authType = "ServicePrincipal";
+                        try
+                        {
+                            executionContext.Debug("Attempting to get endpoint authorization scheme as an authorization parameter...");
+                            registryEndpoint.Authorization?.Parameters?.TryGetValue("scheme", out authType);
+                        }
+                        catch
+                        {
+                            executionContext.Debug("Failed to get endpoint authorization scheme as an authorization parameter. Will default authorization scheme to ServicePrincipal");
+                            authType = "ServicePrincipal";
+                        }
                     }
                     string loginServer = string.Empty;
                     registryEndpoint.Authorization?.Parameters?.TryGetValue("loginServer", out loginServer);
@@ -287,10 +305,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         registryEndpoint.Authorization?.Parameters?.TryGetValue("tenantid", out tenantId);
                         // Documentation says to pass username through this way
                         username = Guid.Empty.ToString("D");
-                        string AADToken = await GetMSIAccessToken(executionContext.CancellationToken);
+                        string AADToken = await GetMSIAccessToken(executionContext);
+                        executionContext.Debug("Successfully retrieved AAD token using the MSI authentication scheme.");
                         // change to getting password from string
-                        password = await GetAcrPasswordFromAADToken(AADToken: AADToken, tenantId: tenantId,
-                            registryServer: registryServer, cancellationToken: executionContext.CancellationToken);
+                        password = await GetAcrPasswordFromAADToken(executionContext: executionContext, AADToken: AADToken, tenantId: tenantId,
+                            registryServer: registryServer);
 
                     }
                     else
