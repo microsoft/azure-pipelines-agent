@@ -202,15 +202,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                     else if (response.StatusCode == HttpStatusCode.TooManyRequests || response.StatusCode == HttpStatusCode.InternalServerError)
                     {
-                        if (response.StatusCode == HttpStatusCode.TooManyRequests)
-                        {
-                            executionContext.Debug("Too many requests were made to get an ACR token. Retrying...");
-                        } else
-                        {
-                            executionContext.Debug("Internal server error occurred. Retrying...");
-                        }
                         if (retryCount < retryLimit)
                         {
+                            if (response.StatusCode == HttpStatusCode.TooManyRequests)
+                            {
+                                executionContext.Debug("Too many requests were made to get an ACR token. Retrying...");
+                            }
+                            else
+                            {
+                                executionContext.Debug("Internal server error occurred. Retrying...");
+                            }
                             waitedTime = 2000 + timeToWait * 2;
                             retryCount++;
                             await Task.Delay(timeToWait);
