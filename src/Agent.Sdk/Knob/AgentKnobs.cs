@@ -105,6 +105,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTS_DISABLE_GIT_PROMPT"),
             new BuiltInDefaultKnobSource("true"));
 
+        public static readonly Knob GitUseSecureParameterPassing = new Knob(
+            nameof(GitUseSecureParameterPassing),
+            "If true, don't pass auth token in git parameters",
+            new RuntimeKnobSource("agent.GitUseSecureParameterPassing"),
+            new EnvironmentKnobSource("AGENT_GIT_USE_SECURE_PARAMETER_PASSING"),
+            new BuiltInDefaultKnobSource("true"));
+
         public const string QuietCheckoutRuntimeVarName = "agent.source.checkout.quiet";
         public const string QuietCheckoutEnvVarName = "AGENT_SOURCE_CHECKOUT_QUIET";
 

@@ -306,6 +306,10 @@ get_machine_architecture() {
             echo "arm64"
             return 0
             ;;
+        s390x)
+            echo "s390x"
+            return 0
+            ;;
         esac
     fi
 
@@ -339,10 +343,56 @@ get_normalized_architecture_from_architecture() {
             echo "arm64"
             return 0
             ;;
+        s390x)
+            echo "s390x"
+            return 0
+            ;;
     esac
 
     say_err "Architecture \`$architecture\` not supported. If you think this is a bug, report it at https://github.com/dotnet/install-scripts/issues"
     return 1
+}
+
+# args:
+# version - $1
+# channel - $2
+# architecture - $3
+get_normalized_architecture_for_specific_sdk_version() {
+    eval $invocation
+
+    local is_version_support_arm64="$(is_arm64_supported "$1")"
+    local is_channel_support_arm64="$(is_arm64_supported "$2")"
+    local architecture="$3";
+    local osname="$(get_current_os_name)"
+
+    if [ "$osname" == "osx" ] && [ "$architecture" == "arm64" ] && { [ "$is_version_support_arm64" = false ] || [ "$is_channel_support_arm64" = false ]; }; then
+        #check if rosetta is installed
+        if [ "$(/usr/bin/pgrep oahd >/dev/null 2>&1;echo $?)" -eq 0 ]; then 
+            say_verbose "Changing user architecture from '$architecture' to 'x64' because .NET SDKs prior to version 6.0 do not support arm64." 
+            echo "x64"
+            return 0;
+        else
+            say_err "Architecture \`$architecture\` is not supported for .NET SDK version \`$version\`. Please install Rosetta to allow emulation of the \`$architecture\` .NET SDK on this platform"
+            return 1
+        fi
+    fi
+
+    echo "$architecture"
+    return 0
+}
+
+# args:
+# version or channel - $1
+is_arm64_supported() {
+    #any channel or version that starts with the specified versions
+    case "$1" in
+        ( "1"* | "2"* | "3"*  | "4"* | "5"*) 
+            echo false
+            return 0
+    esac
+
+    echo true
+    return 0
 }
 
 # args:
@@ -515,7 +565,7 @@ parse_globaljson_file_for_version() {
         return 1
     fi
 
-    sdk_section=$(cat $json_file | awk '/"sdk"/,/}/')
+    sdk_section=$(cat $json_file | tr -d "\r" | awk '/"sdk"/,/}/')
     if [ -z "$sdk_section" ]; then
         say_err "Unable to parse the SDK node in \`$json_file\`"
         return 1
@@ -980,8 +1030,6 @@ download() {
         sleep $((attempts*10))
     done
 
-
-
     if [ "$failed" = true ]; then
         say_verbose "Download failed: $remote_path"
         return 1
@@ -1338,6 +1386,8 @@ calculate_vars() {
     install_root="$(resolve_installation_path "$install_dir")"
     say_verbose "InstallRoot: '$install_root'."
 
+    normalized_architecture="$(get_normalized_architecture_for_specific_sdk_version "$version" "$normalized_channel" "$normalized_architecture")"
+
     if [[ "$runtime" == "dotnet" ]]; then
         asset_relative_path="shared/Microsoft.NETCore.App"
         asset_name=".NET Core Runtime"
@@ -1587,7 +1637,7 @@ do
             echo "      -InstallDir"
             echo "  --architecture <ARCHITECTURE>      Architecture of dotnet binaries to be installed, Defaults to \`$architecture\`."
             echo "      --arch,-Architecture,-Arch"
-            echo "          Possible values: x64, arm, and arm64"
+            echo "          Possible values: x64, arm, arm64 and s390x"
             echo "  --os <system>                    Specifies operating system to be used when selecting the installer."
             echo "          Overrides the OS determination approach used by the script. Supported values: osx, linux, linux-musl, freebsd, rhel.6."
             echo "          In case any other value is provided, the platform will be determined by the script based on machine configuration."
