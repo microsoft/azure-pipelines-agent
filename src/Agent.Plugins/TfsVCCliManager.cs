@@ -10,6 +10,8 @@ using System.Text;
 using Agent.Sdk;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using System.IO;
+using Agent.Sdk.Knob;
 
 namespace Agent.Plugins.Repository
 {
@@ -107,6 +109,17 @@ namespace Agent.Plugins.Repository
             await RunCommandAsync(formatFlags, quiet, true, args);
         }
 
+        private string WriteCommandToFile(string command)
+        {
+            Guid guid = Guid.NewGuid();
+            string temporaryName = $"tfs_cmd_{guid}.txt";
+            using(StreamWriter sw = new StreamWriter(Path.Combine(this.SourcesDirectory, temporaryName)))
+            {
+                sw.WriteLine(command);
+            }
+            return temporaryName;
+        }
+
         protected async Task<int> RunCommandAsync(FormatFlags formatFlags, bool quiet, bool failOnNonZeroExitCode, params string[] args)
         {
             // Validation.
@@ -139,9 +152,17 @@ namespace Agent.Plugins.Repository
                     }
                 };
                 string arguments = FormatArguments(formatFlags, args);
+                bool useSecureParameterPassing = AgentKnobs.TfVCUseSecureParameterPassing.GetValue(ExecutionContext).AsBoolean();
+                string temporaryFileWithCommand = "";
+                if (useSecureParameterPassing)
+                {
+                    temporaryFileWithCommand = WriteCommandToFile(arguments);
+                    arguments = $"@{temporaryFileWithCommand}";
+                    ExecutionContext.Debug($"{AgentKnobs.TfVCUseSecureParameterPassing.Name} is enabled, passing command via file");
+                }
                 ExecutionContext.Command($@"tf {arguments}");
 
-                return await processInvoker.ExecuteAsync(
+                var result =  await processInvoker.ExecuteAsync(
                     workingDirectory: SourcesDirectory,
                     fileName: "tf",
                     arguments: arguments,
@@ -149,6 +170,13 @@ namespace Agent.Plugins.Repository
                     requireExitCodeZero: failOnNonZeroExitCode,
                     outputEncoding: OutputEncoding,
                     cancellationToken: CancellationToken);
+
+                if(useSecureParameterPassing)
+                {
+                    File.Delete(Path.Combine(this.SourcesDirectory, temporaryFileWithCommand));
+                }
+
+                return result;
             }
         }
 
@@ -225,7 +253,19 @@ namespace Agent.Plugins.Repository
                         result.Output.Add(e.Data);
                     }
                 };
-                string arguments = FormatArguments(formatFlags, args);
+                string formattedArguments = FormatArguments(formatFlags, args);
+                string arguments = "";
+                string cmdFileName = "";
+                bool useSecretParameterPassing = AgentKnobs.TfVCUseSecureParameterPassing.GetValue(ExecutionContext).AsBoolean();
+                if (useSecretParameterPassing)
+                {
+                    cmdFileName = WriteCommandToFile(formattedArguments);
+                    arguments = $"@{cmdFileName}";
+                } else
+                {
+                    arguments = formattedArguments;
+                }
+                
                 ExecutionContext.Debug($@"tf {arguments}");
                 // TODO: Test whether the output encoding needs to be specified on a non-Latin OS.
                 try
@@ -244,7 +284,29 @@ namespace Agent.Plugins.Repository
                     result.Exception = ex;
                 }
 
+                if(useSecretParameterPassing)
+                {
+                    CleanupTfsVCOutput(ref result, formattedArguments);
+                    File.Delete(Path.Combine(this.SourcesDirectory, cmdFileName));
+                }
+
                 return result;
+            }
+        }
+
+        private void CleanupTfsVCOutput(ref TfsVCPorcelainCommandResult command, string executedCommand)
+        {
+            List<string> stringsToRemove = new List<string>();
+            foreach(var item in command.Output)
+            {
+                if(item.Contains(executedCommand))
+                {
+                    stringsToRemove.Add(item);
+                }
+            }
+            foreach(var item in stringsToRemove)
+            {
+                command.Output.Remove(item);
             }
         }
 
