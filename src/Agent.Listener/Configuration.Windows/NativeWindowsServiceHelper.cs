@@ -461,6 +461,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 var isManagedServiceAccount = IsManagedServiceAccount(logonAccount);
                 Trace.Info($"Account '{logonAccount}' is managed service account: {isManagedServiceAccount}.");
+
+                // If the account name specified by the lpServiceStartName parameter is the name of a managed service account or virtual account name,
+                // the lpPassword parameter must be NULL. More info: https://learn.microsoft.com/en-us/windows/win32/api/winsvc/nf-winsvc-createservicea
+                if (isManagedServiceAccount)
+                {
+                    logonPassword = null;
+                }
             }
             catch (Win32Exception e)
             {
@@ -947,21 +954,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         /// </summary>
         /// <param name="accountName">account name</param>
         /// <returns>Returns true if account is managed service.</returns>
-        /// <exception cref="Win32Exception">Throws this exception if there is some error during check.</exception>
         public bool IsManagedServiceAccount(String accountName)
         {
             bool isServiceAccount;
             accountName = SanitizeManagedServiceAccountName(accountName);
-            var result = this.CheckNetIsServiceAccount(null, accountName, out isServiceAccount);
-            if (result == 0)
+            var returnCode = this.CheckNetIsServiceAccount(null, accountName, out isServiceAccount);
+
+            if (returnCode != ReturnCode.S_OK)
             {
-                return isServiceAccount;
+                Trace.Warning($"NetIsServiceAccount return code is {returnCode}");
             }
-            else
-            {
-                var lastErrorCode = (int)GetLastError();
-                throw new Win32Exception(lastErrorCode);
-            }
+
+            return isServiceAccount;
         }
 
         /// <summary>
