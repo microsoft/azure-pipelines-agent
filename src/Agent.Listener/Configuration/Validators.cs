@@ -94,7 +94,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     {
                         NTAccount ntaccount = new NTAccount(logonAccount + '$');
                         SecurityIdentifier sid = (SecurityIdentifier)ntaccount.Translate(typeof(SecurityIdentifier));
-                        Console.WriteLine("If you are trying to use a gMSA account, put a dollar sign ($) at the end of the account name");
+                        Console.WriteLine(StringUtil.Loc("AutoLogonAccountGmsaHint"));
                     }
                 }
                 catch
