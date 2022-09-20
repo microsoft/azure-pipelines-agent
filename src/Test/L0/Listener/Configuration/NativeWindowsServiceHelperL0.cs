@@ -93,22 +93,5 @@ namespace Test.L0.Listener.Configuration
                 Assert.True(!isManagedServiceAccount, "Account should be properly determined as not managed service");
             }
         }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "ConfigurationManagement")]
-        public void EnsureIsManagedServiceAccount_ThrowsExceptionDuringCheck()
-        {
-            using (TestHostContext tc = new TestHostContext(this, "EnsureIsManagedServiceAccount_TrueForManagedAccount"))
-            {
-                Tracing trace = tc.GetTrace();
-
-                trace.Info("Creating an instance of the MockNativeWindowsServiceHelper class");
-                var windowsServiceHelper = new MockNativeWindowsServiceHelper();
-                windowsServiceHelper.ShouldErrorHappenDuringManagedServiceAccoutCheck = true;
-
-                Assert.Throws<Win32Exception>(() => windowsServiceHelper.IsManagedServiceAccount("managedServiceAccount$"));
-            }
-        }
     }
 }
