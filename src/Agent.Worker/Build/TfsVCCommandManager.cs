@@ -12,6 +12,7 @@ using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using System.IO;
 using Agent.Sdk.Knob;
 using BuildXL.Cache.ContentStore.Interfaces.Results;
+using System.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -108,7 +109,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return RunCommandAsync(FormatFlags.None, args);
         }
 
-  
         protected async Task RunCommandAsync(FormatFlags formatFlags, params string[] args)
         {
             // Validation.
@@ -156,9 +156,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 {
                     File.Delete(Path.Combine(this.SourcesDirectory, temporaryFileWithCommand));
                 }
-
             }
-
         }
 
         protected Task<string> RunPorcelainCommandAsync(params string[] args)
@@ -197,10 +195,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             Guid guid = Guid.NewGuid();
             string temporaryName = $"tfs_cmd_{guid}.txt";
-            using (StreamWriter sw = new StreamWriter(Path.Combine(this.SourcesDirectory, temporaryName)))
-            {
-                sw.WriteLine(command);
-            }
+            using StreamWriter sw = new StreamWriter(Path.Combine(this.SourcesDirectory, temporaryName));
+            sw.WriteLine(command);
             return temporaryName;
         }
 
@@ -276,25 +272,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     File.Delete(Path.Combine(this.SourcesDirectory, cmdFileName));
                 }
 
-
                 return result;
             }
         }
 
         private void CleanupTfsVCOutput(ref TfsVCPorcelainCommandResult command, string executedCommand)
         {
-            List<string> stringsToRemove = new List<string>();
-            foreach (var item in command.Output)
-            {
-                if (item.Contains(executedCommand))
-                {
-                    stringsToRemove.Add(item);
-                }
-            }
-            foreach (var item in stringsToRemove)
-            {
-                command.Output.Remove(item);
-            }
+            List<string> stringsToRemove = command
+                .Output
+                .Where(item => item.Contains(executedCommand))
+                .ToList();
+            command.Output.RemoveAll(item => stringsToRemove.Contains(item));
         }
 
         private string FormatArguments(FormatFlags formatFlags, params string[] args)

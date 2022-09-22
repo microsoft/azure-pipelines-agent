@@ -12,6 +12,7 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System.IO;
 using Agent.Sdk.Knob;
+using System.Linq;
 
 namespace Agent.Plugins.Repository
 {
@@ -113,10 +114,8 @@ namespace Agent.Plugins.Repository
         {
             Guid guid = Guid.NewGuid();
             string temporaryName = $"tfs_cmd_{guid}.txt";
-            using(StreamWriter sw = new StreamWriter(Path.Combine(this.SourcesDirectory, temporaryName)))
-            {
-                sw.WriteLine(command);
-            }
+            using StreamWriter sw = new StreamWriter(Path.Combine(this.SourcesDirectory, temporaryName));
+            sw.WriteLine(command);
             return temporaryName;
         }
 
@@ -296,18 +295,11 @@ namespace Agent.Plugins.Repository
 
         private void CleanupTfsVCOutput(ref TfsVCPorcelainCommandResult command, string executedCommand)
         {
-            List<string> stringsToRemove = new List<string>();
-            foreach(var item in command.Output)
-            {
-                if(item.Contains(executedCommand))
-                {
-                    stringsToRemove.Add(item);
-                }
-            }
-            foreach(var item in stringsToRemove)
-            {
-                command.Output.Remove(item);
-            }
+            List<string> stringsToRemove = command
+                .Output
+                .Where(item => item.Contains(executedCommand))
+                .ToList();
+            command.Output.RemoveAll(item => stringsToRemove.Contains(item));
         }
 
         private string FormatArguments(FormatFlags formatFlags, params string[] args)

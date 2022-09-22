@@ -369,7 +369,5 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("VSTSAGENT_DUMP_PACKAGES_VERIFICATION_RESULTS"),
             new EnvironmentKnobSource("VSTSAGENT_DUMP_PACKAGES_VERIFICATION_RESULTS"),
             new BuiltInDefaultKnobSource("false"));
-
-  
     }
 }
