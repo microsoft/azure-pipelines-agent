@@ -200,7 +200,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return temporaryName;
         }
 
-
         protected async Task<TfsVCPorcelainCommandResult> TryRunPorcelainCommandAsync(FormatFlags formatFlags, bool ignoreStderr, params string[] args)
         {
             // Validation.
