@@ -260,7 +260,8 @@ namespace Agent.Plugins.Repository
                 {
                     cmdFileName = WriteCommandToFile(formattedArguments);
                     arguments = $"@{cmdFileName}";
-                } else
+                }
+                else
                 {
                     arguments = formattedArguments;
                 }
