@@ -90,7 +90,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 try
                 {
-                    if(!logonAccount[logonAccount.Length - 1].Equals('$'))
+                    if(!logonAccount.EndsWith('$'))
                     {
                         NTAccount ntaccount = new NTAccount(logonAccount + '$');
                         SecurityIdentifier sid = (SecurityIdentifier)ntaccount.Translate(typeof(SecurityIdentifier));

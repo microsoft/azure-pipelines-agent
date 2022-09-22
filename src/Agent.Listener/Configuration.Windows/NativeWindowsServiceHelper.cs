@@ -374,7 +374,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
-        public bool IsWellKnownIdentity(String accountName)
+        public bool IsWellKnownIdentity(string accountName)
         {
             var ntaccount = new NTAccount(accountName);
             var sid = (SecurityIdentifier)ntaccount.Translate(typeof(SecurityIdentifier));
@@ -469,9 +469,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     logonPassword = null;
                 }
             }
-            catch (Win32Exception e)
+            catch (Win32Exception exception)
             {
-                Trace.Info($"Fail to check account '{logonAccount}' is managed service account or not due to error: {e.Message}");
+                Trace.Info($"Fail to check account '{logonAccount}' is managed service account or not due to error: {exception.Message}");
             }
 
             string agentServiceExecutable = "\"" + Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), WindowsServiceControlManager.WindowsServiceControllerName) + "\"";
@@ -954,11 +954,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         /// </summary>
         /// <param name="accountName">account name</param>
         /// <returns>Returns true if account is managed service.</returns>
-        public bool IsManagedServiceAccount(String accountName)
+        public bool IsManagedServiceAccount(string accountName)
         {
-            bool isServiceAccount;
             accountName = SanitizeManagedServiceAccountName(accountName);
-            var returnCode = this.CheckNetIsServiceAccount(null, accountName, out isServiceAccount);
+            var returnCode = this.CheckNetIsServiceAccount(null, accountName, out bool isServiceAccount);
 
             if (returnCode != ReturnCode.S_OK)
             {
@@ -1036,9 +1035,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         {
             // remove the last '$' for MSA
             ArgUtil.NotNullOrEmpty(accountName, nameof(accountName));
-            if (accountName[accountName.Length - 1].Equals('$'))
+            if (accountName.EndsWith('$'))
             {
-                return accountName.Remove(accountName.Length - 1);
+                return accountName.TrimEnd('$');
             }
             else
             {

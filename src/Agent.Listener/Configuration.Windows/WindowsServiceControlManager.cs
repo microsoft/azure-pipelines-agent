@@ -64,7 +64,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 domainName = Environment.MachineName;
             }
 
-            Trace.Info("LogonAccount after transforming: {0}, user: {1}, domain: {2}", logonAccount, userName, domainName);
+            Trace.Info($"LogonAccount after transforming: {logonAccount}, user: {userName}, domain: {domainName}");
 
             string logonPassword = string.Empty;
             if (!defaultServiceAccount.Equals(new NTAccount(logonAccount)) &&
@@ -79,7 +79,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     }
                     catch (ArgumentException e)
                     {
-                        Trace.Warning("LogonAccount {0} is not managed service account, although you did not specify WindowsLogonPassword - maybe you wanted to use managed service account? Please see https://aka.ms/gmsa for guidelines to set up sMSA/gMSA account.", logonAccount, userName, domainName);
+                        Trace.Warning($"LogonAccount {logonAccount} is not managed service account, although you did not specify WindowsLogonPassword - maybe you wanted to use managed service account? Please see https://aka.ms/gmsa for guidelines to set up sMSA/gMSA account.");
                         throw;
                     }
 
