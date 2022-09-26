@@ -57,7 +57,6 @@ namespace Test.L0.Listener.Configuration
             }
         }
 
-
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "ConfigurationManagement")]

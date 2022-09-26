@@ -1035,14 +1035,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         {
             // remove the last '$' for MSA
             ArgUtil.NotNullOrEmpty(accountName, nameof(accountName));
-            if (accountName.EndsWith('$'))
-            {
-                return accountName.TrimEnd('$');
-            }
-            else
-            {
-                return accountName;
-            }
+            return accountName.TrimEnd('$');
         }
 
         // Helper class not to repeat whenever we deal with LSA* api
