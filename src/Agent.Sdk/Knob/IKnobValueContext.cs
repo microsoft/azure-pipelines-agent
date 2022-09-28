@@ -6,6 +6,7 @@ namespace Agent.Sdk.Knob
     public interface IKnobValueContext
     {
         string GetVariableValueOrDefault(string variableName);
+
         IScopedEnvironment GetScopedEnvironment();
     }
 }

@@ -5,7 +5,6 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Agent.Sdk.Knob
 {
-
     public class RuntimeKnobSource : IKnobSource
     {
         private string _runTimeVar;
@@ -39,5 +38,4 @@ namespace Agent.Sdk.Knob
             return $"$({_runTimeVar})";
         }
     }
-
 }
