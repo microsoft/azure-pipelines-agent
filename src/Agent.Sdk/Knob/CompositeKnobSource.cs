@@ -29,6 +29,23 @@ namespace Agent.Sdk.Knob
             return null;
         }
 
+        /// <summary>
+        /// Returns knob value by specific source type
+        /// </summary>
+        /// <returns>Returns knob value if it's found in knob sources, otherwise returns null</returns>
+        public KnobValue GetValue<T>(IKnobValueContext context)
+        {
+            foreach (var source in _sources)
+            {
+                if (source.GetType() == typeof(T))
+                {
+                    return source.GetValue(context);
+                }
+            }
+
+            return null;
+        }
+
         public string GetDisplayString()
         {
             var strings = new List<string>();
@@ -61,5 +78,4 @@ namespace Agent.Sdk.Knob
             return false;
         }
     }
-
 }

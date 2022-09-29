@@ -7,7 +7,6 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Agent.Sdk.Knob
 {
-
     public class DeprecatedKnob : Knob
     {
         public override bool IsDeprecated => true;
@@ -63,6 +62,14 @@ namespace Agent.Sdk.Knob
             ArgUtil.NotNull(Source, nameof(Source));
 
             return Source.GetValue(context);
+        }
+
+        public KnobValue GetValue<T>(IKnobValueContext context)
+        {
+             ArgUtil.NotNull(context, nameof(context));
+             ArgUtil.NotNull(Source, nameof(Source));
+
+             return Source.GetValue<T>(context);
         }
 
         public static List<Knob> GetAllKnobsFor<T>()

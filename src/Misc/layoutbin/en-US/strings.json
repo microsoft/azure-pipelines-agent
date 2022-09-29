@@ -42,6 +42,7 @@
   "AttachmentExceededMaximum": "Skipping attachment as it exceeded the maximum allowed size 75MB: {0}",
   "AttemptRemoveCredFromConfig": "An unsuccessful attempt was made using git command line to remove \"{0}\" from the git config. Attempting to modify the git config file directly to remove the credential.",
   "AuthenticationType": "authentication type",
+  "AutoLogonAccountGmsaHint": "If you are trying to use a gMSA account, please put a dollar sign ($) at the end of the account name)",
   "AutoLogonAccountNameDescription": "User account to use for autologon",
   "AutoLogonOverwriteDeniedError": "Unable to configure autologon as it is already configured for a different user ({0}) on the machine. Use '--overwriteautologon' if you wish to overwrite.",
   "AutoLogonPolicies_LegalNotice": "Legal Notice",

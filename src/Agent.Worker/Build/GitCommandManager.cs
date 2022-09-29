@@ -102,6 +102,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         // git version
         Task<Version> GitVersion(IExecutionContext context);
+
+        // git status
+        Task<int> GitStatus(IExecutionContext context, string repositoryPath);
     }
 
     public class GitCommandManager : AgentService, IGitCommandManager
@@ -328,6 +331,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             context.Debug($"Undo any changes to tracked files in the working tree for repository at {repositoryPath}.");
             return await ExecuteGitCommandAsync(context, repositoryPath, "reset", "--hard HEAD");
+        }
+
+        // git status
+        public async Task<int> GitStatus(IExecutionContext context, string repositoryPath)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+
+            context.Debug($"Show the working tree status for repository at {repositoryPath}.");
+            return await ExecuteGitCommandAsync(context, repositoryPath, "status", string.Empty);
         }
 
         // get remote set-url <origin> <url>
