@@ -40,7 +40,7 @@ parameters:
 - name: linux_arm64
   type: boolean
   default: true
-- name: rhel6_x64
+- name: rhel7_x64
   type: boolean
   default: true
 - name: macOS_x64
@@ -53,6 +53,8 @@ resources:
     image: azpagentinfra/arm:latest
   - container: dotnetcore_centos6
     image: azpagentinfra/centos6:latest
+  - container: dotnetcore_centos7
+    image: azpagentinfra/centos7:latest
 
 stages:
 
@@ -157,16 +159,16 @@ stages:
         publishArtifacts: ${{ parameters.publishArtifacts }}
         buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
 
-  # RHEL6 (x64)
-  - ${{ if parameters.rhel6_x64 }}:
+  # RHEL7 (x64)
+  - ${{ if parameters.rhel7_x64  }}:
     - template: build-jobs.yml
       parameters:
-        jobName: build_rhel6_x64
-        displayName: RHEL6 (x64)
+        jobName: build_rhel7_x64
+        displayName: RHEL7 (x64)
         pool:
           vmImage: ubuntu-18.04
-        container: dotnetcore_centos6
-        os: rhel.6
+        container: dotnetcore_centos7
+        os: linux
         arch: x64
         branch: ${{ parameters.branch }}
         componentDetection: false
