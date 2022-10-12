@@ -3,7 +3,6 @@
 
 namespace Agent.Sdk.Knob
 {
-
     public class BuiltInDefaultKnobSource : IKnobSource
     {
         private string _value;
@@ -23,5 +22,4 @@ namespace Agent.Sdk.Knob
             return "Default";
         }
     }
-
 }
