@@ -176,38 +176,38 @@ extends:
               Invoke-RestMethod @assetsParams
             displayName: Create agent release on Github
 
-      - ${{ if not(parameters.onlyGitHubRelease) }}:
-        - stage: CreatePRs
-          jobs:
-          ################################################################################
-          - job: create_ado_prs
-          ################################################################################
+      - stage: CreatePRs
+        condition: not(parameters.onlyGitHubRelease)
+        jobs:
+        ################################################################################
+        - job: create_ado_prs
+        ################################################################################
+          displayName: Create PRs in AzureDevOps and ConfigChange
+          pool:
+            vmImage: ubuntu-18.04
+
+          steps:
+          - checkout: self
+
+          - ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/master') }}:
+            - script: git checkout ${{ variables.releaseBranch }}
+              displayName: Checkout release branch
+
+          # Download all agent hashes created in previous phases
+          - task: DownloadBuildArtifacts@0
+            displayName: Download Agent Hashes
+            inputs:
+              artifactName: hash
+              downloadPath: $(Build.SourcesDirectory)/_hashes
+
+          - bash: |
+              set -x
+              cd release
+              npm install
+              ls
+              node createAdoPrs.js ${{ parameters.version }}
             displayName: Create PRs in AzureDevOps and ConfigChange
-            pool:
-              vmImage: ubuntu-18.04
-
-            steps:
-            - checkout: self
-
-            - ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/master') }}:
-              - script: git checkout ${{ variables.releaseBranch }}
-                displayName: Checkout release branch
-
-            # Download all agent hashes created in previous phases
-            - task: DownloadBuildArtifacts@0
-              displayName: Download Agent Hashes
-              inputs:
-                artifactName: hash
-                downloadPath: $(Build.SourcesDirectory)/_hashes
-
-            - bash: |
-                set -x
-                cd release
-                npm install
-                ls
-                node createAdoPrs.js ${{ parameters.version }}
-              displayName: Create PRs in AzureDevOps and ConfigChange
-              env:
-                USERNAME: $(User)
-                PAT: $(AdoPAT)
-                USEREMAIL: $(Email)
+            env:
+              USERNAME: $(User)
+              PAT: $(AdoPAT)
+              USEREMAIL: $(Email)
