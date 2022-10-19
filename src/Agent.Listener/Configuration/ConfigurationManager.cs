@@ -380,13 +380,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             if (saveProxySetting)
             {
                 Trace.Info("Save proxy setting to disk.");
-                (vstsProxy as VstsAgentWebProxy).SaveProxySetting();
+                vstsProxy.SaveProxySetting();
             }
 
             if (saveCertSetting)
             {
                 Trace.Info("Save agent cert setting to disk.");
-                (agentCertManager as AgentCertificateManager).SaveCertificateSetting();
+                agentCertManager.SaveCertificateSetting();
             }
 
             _term.WriteLine(StringUtil.Loc("SavedSettings", DateTime.UtcNow));
@@ -562,10 +562,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 if (isConfigured)
                 {
                     // delete proxy setting
-                    (HostContext.GetService<IVstsAgentWebProxy>() as VstsAgentWebProxy).DeleteProxySetting();
+                    HostContext.GetService<IVstsAgentWebProxy>().DeleteProxySetting();
 
                     // delete agent cert setting
-                    (HostContext.GetService<IAgentCertificateManager>() as AgentCertificateManager).DeleteCertificateSetting();
+                    HostContext.GetService<IAgentCertificateManager>().DeleteCertificateSetting();
 
                     // delete agent runtime option
                     _store.DeleteAgentRuntimeOptions();
@@ -735,7 +735,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 Trace.Info("Reset proxy base on commandline args.");
                 string proxyUserName = command.GetProxyUserName();
                 string proxyPassword = command.GetProxyPassword();
-                (vstsProxy as VstsAgentWebProxy).SetupProxy(proxyUrl, proxyUserName, proxyPassword);
+                vstsProxy.SetupProxy(proxyUrl, proxyUserName, proxyPassword);
                 saveProxySetting = true;
             }
 
@@ -785,7 +785,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             if (skipCertValidation || !string.IsNullOrEmpty(caCert) || !string.IsNullOrEmpty(clientCert))
             {
                 Trace.Info("Reset agent cert setting base on commandline args.");
-                (agentCertManager as AgentCertificateManager).SetupCertificate(skipCertValidation, caCert, clientCert, clientCertKey, clientCertArchive, clientCertPassword);
+                agentCertManager.SetupCertificate(skipCertValidation, caCert, clientCert, clientCertKey, clientCertArchive, clientCertPassword);
                 saveCertSetting = true;
             }
 
