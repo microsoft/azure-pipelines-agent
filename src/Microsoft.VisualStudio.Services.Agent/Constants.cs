@@ -340,6 +340,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string SourceBranch = "build.sourcebranch";
                 public static readonly string SourceTfvcShelveset = "build.sourcetfvcshelveset";
                 public static readonly string SourceVersion = "build.sourceversion";
+                public static readonly string SourceVersionMessage = "build.sourceVersionMessage";
                 public static readonly string SourcesDirectory = "build.sourcesdirectory";
                 public static readonly string StagingDirectory = "build.stagingdirectory";
                 public static readonly string SyncSources = "build.syncSources";
@@ -420,6 +421,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string Debug = "system.debug";
                 public static readonly string DefaultWorkingDirectory = "system.defaultworkingdirectory";
                 public static readonly string DefinitionId = "system.definitionid";
+                public static readonly string DefinitionName = "system.definitionName";
                 public static readonly string EnableAccessToken = "system.enableAccessToken";
                 public static readonly string HostType = "system.hosttype";
                 public static readonly string JobAttempt = "system.jobAttempt";
@@ -432,6 +434,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string PullRequestTargetBranchName = "system.pullrequest.targetbranch";
                 public static readonly string SelfManageGitCreds = "system.selfmanagegitcreds";
                 public static readonly string ServerType = "system.servertype";
+                public static readonly string SourceVersionMessage = "system.sourceVersionMessage";
                 public static readonly string StageAttempt = "system.stageAttempt";
                 public static readonly string StageName = "system.stageName";
                 public static readonly string TFServerUrl = "system.TeamFoundationServerUri"; // back compat variable, do not document
@@ -514,6 +517,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Build.SourceBranch,
                 Build.SourceTfvcShelveset,
                 Build.SourceVersion,
+                Build.SourceVersionMessage,
                 Build.SourcesDirectory,
                 Build.StagingDirectory,
                 Build.SyncSources,
@@ -555,6 +559,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 System.Debug,
                 System.DefaultWorkingDirectory,
                 System.DefinitionId,
+                System.DefinitionName,
                 System.EnableAccessToken,
                 System.HostType,
                 System.JobAttempt,
@@ -567,6 +572,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 System.PullRequestTargetBranchName,
                 System.SelfManageGitCreds,
                 System.ServerType,
+                System.SourceVersionMessage,
                 System.StageAttempt,
                 System.StageName,
                 System.TFServerUrl,

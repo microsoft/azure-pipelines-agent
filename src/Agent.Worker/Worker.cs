@@ -60,6 +60,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 ArgUtil.NotNull(jobMessage, nameof(jobMessage));
                 HostContext.WritePerfCounter($"WorkerJobMessageReceived_{jobMessage.RequestId.ToString()}");
 
+                Trace.Info("Deactivating vso commands in job message variables.");
+                jobMessage = WorkerUtilities.DeactivateVsoCommandsFromJobMessageVariables(jobMessage);
+
                 // Initialize the secret masker and set the thread culture.
                 InitializeSecretMasker(jobMessage);
                 SetCulture(jobMessage);

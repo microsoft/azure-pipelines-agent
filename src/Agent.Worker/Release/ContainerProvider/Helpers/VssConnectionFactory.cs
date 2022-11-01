@@ -55,16 +55,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider
             return connection;
         }
 
-        private static VssClientCredentials GetCredentials(String accessToken)
+        private static VssClientCredentials GetCredentials(string accessToken)
         {
             VssClientCredentials cred;
             if (string.IsNullOrEmpty(accessToken))
             {
-                cred = new VssClientCredentials(new VssAadCredential());
+                cred = new VssClientCredentials(federatedCredential: new VssAadCredential());
             }
             else
             {
-                cred = new VssClientCredentials(new VssOAuthAccessTokenCredential(accessToken));
+                cred = new VssClientCredentials(federatedCredential: new VssOAuthAccessTokenCredential(accessToken));
             }
 
             cred.PromptType = CredentialPromptType.DoNotPrompt;
