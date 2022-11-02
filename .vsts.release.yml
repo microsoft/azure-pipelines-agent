@@ -94,35 +94,29 @@ extends:
           # Upload agent packages to Azure blob storage and refresh Azure CDN
           - powershell: |
               Write-Host "Preloading Azure modules." # This is for better performance, to avoid module-autoloading.
-              Import-Module AzureRM, AzureRM.profile, AzureRM.Storage, Azure.Storage, AzureRM.Cdn -ErrorAction Ignore -PassThru
-              if (!(Test-Path "$HOME\Documents\WindowsPowerShell\profile.ps1"))
-              {
-                Write-Host "Creating empty PowerShell profile for Enable-AzureRmAlias"
-                New-Item -Path "$HOME\Documents\WindowsPowerShell\profile.ps1" -ItemType File -Force | Out-Null
-              }
-              Enable-AzureRmAlias -Scope CurrentUser
+              Import-Module Azure, Az.Accounts, Az.Storage, Az.Cdn -ErrorAction Ignore -PassThru
               $uploadFiles = New-Object System.Collections.ArrayList
               $certificateThumbprint = (Get-ItemProperty -Path "$(ServicePrincipalReg)").ServicePrincipalCertThumbprint
               $clientId = (Get-ItemProperty -Path "$(ServicePrincipalReg)").ServicePrincipalClientId
               Write-Host "##vso[task.setsecret]$certificateThumbprint"
               Write-Host "##vso[task.setsecret]$clientId"
-              Login-AzureRmAccount -ServicePrincipal -CertificateThumbprint $certificateThumbprint -ApplicationId $clientId -TenantId $(TenantId)
-              Select-AzureRmSubscription -SubscriptionId $(SubscriptionId)
-              $storage = Get-AzureRmStorageAccount -ResourceGroupName vstsagentpackage -AccountName vstsagentpackage
+              Login-AzAccount -ServicePrincipal -CertificateThumbprint $certificateThumbprint -ApplicationId $clientId -TenantId $(TenantId)
+              Select-AzSubscription -SubscriptionId $(SubscriptionId)
+              $storage = Get-AzStorageAccount -ResourceGroupName vstsagentpackage -AccountName vstsagentpackage
               $versionDir = "${{ parameters.version }}"
               Get-ChildItem -LiteralPath "$(System.ArtifactsDirectory)/agent" | ForEach-Object {
                 $target=$_
                 Get-ChildItem -LiteralPath "$(System.ArtifactsDirectory)/agent/$target" -Include "*.zip","*.tar.gz" | ForEach-Object {
                   $executable = $_
                   Write-Host "Uploading $executable to BlobStorage vstsagentpackage/agent/$versionDir"
-                  Set-AzureStorageBlobContent -Context $storage.Context -Container agent -File "$(System.ArtifactsDirectory)/agent/$target/$executable" -Blob "$versionDir/$executable" -Force
+                  Set-AzStorageBlobContent -Context $storage.Context -Container agent -File "$(System.ArtifactsDirectory)/agent/$target/$executable" -Blob "$versionDir/$executable" -Force
                   $uploadFiles.Add("/agent/$versionDir/$executable")
                 }
               }
               Write-Host "Purge Azure CDN Cache"
-              Unpublish-AzureRmCdnEndpointContent -EndpointName vstsagentpackage -ProfileName vstsagentpackage -ResourceGroupName vstsagentpackage -PurgeContent $uploadFiles
+              Unpublish-AzCdnEndpointContent -EndpointName vstsagentpackage -ProfileName vstsagentpackage -ResourceGroupName vstsagentpackage -PurgeContent $uploadFiles
               Write-Host "Force Refresh Azure CDN Cache"
-              Publish-AzureRmCdnEndpointContent -EndpointName vstsagentpackage -ProfileName vstsagentpackage -ResourceGroupName vstsagentpackage -LoadContent $uploadFiles
+              Publish-AzCdnEndpointContent -EndpointName vstsagentpackage -ProfileName vstsagentpackage -ResourceGroupName vstsagentpackage -LoadContent $uploadFiles
             displayName: Upload to Azure Blob
             condition: not(parameters.onlyGitHubRelease)
 
