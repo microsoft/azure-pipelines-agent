@@ -22,6 +22,10 @@ namespace Microsoft.VisualStudio.Services.Agent
         string ProxyPassword { get; }
         List<string> ProxyBypassList { get; }
         IWebProxy WebProxy { get; }
+        void SetupProxy(string proxyAddress, string proxyUsername, string proxyPassword);
+        void SaveProxySetting();
+        void LoadProxyBypassList();
+        void DeleteProxySetting();
     }
 
     public class VstsAgentWebProxy : AgentService, IVstsAgentWebProxy

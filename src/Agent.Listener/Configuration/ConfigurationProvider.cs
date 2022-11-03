@@ -19,6 +19,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
     {
         string ConfigurationProviderType { get; }
 
+        bool IsCollectionPossible { get; }
+
         void GetServerUrl(AgentSettings agentSettings, CommandSettings command);
 
         void GetCollectionName(AgentSettings agentSettings, CommandSettings command, bool isHosted);
@@ -48,6 +50,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public string ConfigurationProviderType
             => Constants.Agent.AgentConfigurationProvider.BuildReleasesAgentConfiguration;
+
+        public bool IsCollectionPossible 
+            => false;
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -135,6 +140,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public Type ExtensionType => typeof(IConfigurationProvider);
         public string ConfigurationProviderType
             => Constants.Agent.AgentConfigurationProvider.DeploymentAgentConfiguration;
+        public bool IsCollectionPossible 
+            => true;
         protected ITerminal _term;
         protected string _projectName = string.Empty;
         private IDeploymentGroupServer _deploymentGroupServer = null;
