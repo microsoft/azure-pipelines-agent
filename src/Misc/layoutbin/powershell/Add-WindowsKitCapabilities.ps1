@@ -19,11 +19,11 @@ foreach ($valueName in $valueNames) {
         continue
     }
 	
-	# Format input version to support Windows "10" versioning (parsing needs major.minor[.build[.revision]] format)
-	$inputVersion = $splitInstallDirectory[-1]
-	if ($inputVersion -notcontains ".") {
-		$inputVersion += ".0"
-	}
+    # Format input version to support Windows "10" versioning (parsing needs major.minor[.build[.revision]] format)
+    $inputVersion = $splitInstallDirectory[-1]
+    if ($inputVersion -notcontains ".") {
+        $inputVersion += ".0"
+    }
 
     $version = $null
     if (!([System.Version]::TryParse($inputVersion, [ref]$version))) {
@@ -52,13 +52,13 @@ $versionSubKeyNames =
     Get-RegistrySubKeyNames -Hive 'LocalMachine' -View 'Registry32' -KeyName $rootsKeyName |
     Where-Object { $_ -clike '*.*.*.*' }
 foreach ($versionSubKeyName in $versionSubKeyNames) {
-	# Parse the version.
+    # Parse the version.
     $version = $null
     if (!([System.Version]::TryParse($versionSubKeyName, [ref]$version))) {
         continue
     }
 
-	# Save the Windows UAP info (for sorting).
+    # Save the Windows UAP info (for sorting).
     $windowsUAPSdks += New-Object psobject -Property @{
         Version = $version
     }
