@@ -10,7 +10,6 @@ namespace Microsoft.VisualStudio.Services.Agent
     public enum WellKnownDirectory
     {
         Bin,
-        Diag,
         Externals,
         LegacyPSHost,
         Root,
@@ -38,7 +37,8 @@ namespace Microsoft.VisualStudio.Services.Agent
         ProxyBypass,
         Autologon,
         Options,
-        SetupInfo
+        SetupInfo,
+        TaskExceptionList // We need to remove this config file - once Node 6 handler is dropped
     }
 
     public static class Constants
@@ -155,9 +155,11 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public const string Once = "once";
                     public const string RunAsAutoLogon = "runasautologon";
                     public const string RunAsService = "runasservice";
+                    public const string PreventServiceStart = "preventservicestart";
                     public const string SslSkipCertValidation = "sslskipcertvalidation";
                     public const string Unattended = "unattended";
                     public const string Version = "version";
+                    public const string EnableServiceSidTypeUnrestricted = "enableservicesidtypeunrestricted";
                 }
             }
 
@@ -277,6 +279,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 //
                 public static readonly string AcceptTeeEula = "agent.acceptteeeula";
                 public static readonly string BuildDirectory = "agent.builddirectory";
+                public static readonly string CloudId = "agent.cloudid";
                 public static readonly string ContainerId = "agent.containerid";
                 public static readonly string ContainerMapping = "agent.containermapping";
                 public static readonly string ContainerNetwork = "agent.containernetwork";
@@ -337,6 +340,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string SourceBranch = "build.sourcebranch";
                 public static readonly string SourceTfvcShelveset = "build.sourcetfvcshelveset";
                 public static readonly string SourceVersion = "build.sourceversion";
+                public static readonly string SourceVersionMessage = "build.sourceVersionMessage";
                 public static readonly string SourcesDirectory = "build.sourcesdirectory";
                 public static readonly string StagingDirectory = "build.stagingdirectory";
                 public static readonly string SyncSources = "build.syncSources";
@@ -360,6 +364,15 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string GitLfsSupport = "agent.source.git.lfs";
                 public static readonly string GitShallowDepth = "agent.source.git.shallowFetchDepth";
                 public static readonly string SkipSyncSource = "agent.source.skip";
+            }
+
+            public static class Maintenance
+            {
+                //
+                // Keep alphabetical. If you add or remove a variable here, do the same in ReadOnlyVariables
+                //
+                public static readonly string DeleteWorkingDirectoryDaysThreshold = "maintenance.deleteworkingdirectory.daysthreshold";
+                public static readonly string JobTimeout = "maintenance.jobtimeoutinminutes";
             }
 
             public static class Pipeline
@@ -408,6 +421,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string Debug = "system.debug";
                 public static readonly string DefaultWorkingDirectory = "system.defaultworkingdirectory";
                 public static readonly string DefinitionId = "system.definitionid";
+                public static readonly string DefinitionName = "system.definitionName";
                 public static readonly string EnableAccessToken = "system.enableAccessToken";
                 public static readonly string HostType = "system.hosttype";
                 public static readonly string JobAttempt = "system.jobAttempt";
@@ -420,6 +434,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string PullRequestTargetBranchName = "system.pullrequest.targetbranch";
                 public static readonly string SelfManageGitCreds = "system.selfmanagegitcreds";
                 public static readonly string ServerType = "system.servertype";
+                public static readonly string SourceVersionMessage = "system.sourceVersionMessage";
                 public static readonly string StageAttempt = "system.stageAttempt";
                 public static readonly string StageName = "system.stageName";
                 public static readonly string TFServerUrl = "system.TeamFoundationServerUri"; // back compat variable, do not document
@@ -434,12 +449,20 @@ namespace Microsoft.VisualStudio.Services.Agent
                 // Keep alphabetical. If you add or remove a variable here, do the same in ReadOnlyVariables
                 //
                 public static readonly string DisplayName = "task.displayname";
+                /// <summary>
+                /// Declares requirement to skip translating of strings into checkout tasks.
+                /// It's required to prevent translating of agent system paths in container jobs.
+                /// This is for internal agent usage, set up during task execution and is not indented to be used in
+                /// cross-service communication/obtained by users.
+                /// </summary>
+                public static readonly string SkipTranslatorForCheckout = "task.skipTranslatorForCheckout";
             }
 
             public static List<string> ReadOnlyVariables = new List<string>(){
                 // Agent variables
                 Agent.AcceptTeeEula,
                 Agent.BuildDirectory,
+                Agent.CloudId,
                 Agent.ContainerId,
                 Agent.ContainerMapping,
                 Agent.ContainerNetwork,
@@ -494,6 +517,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Build.SourceBranch,
                 Build.SourceTfvcShelveset,
                 Build.SourceVersion,
+                Build.SourceVersionMessage,
                 Build.SourcesDirectory,
                 Build.StagingDirectory,
                 Build.SyncSources,
@@ -535,6 +559,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 System.Debug,
                 System.DefaultWorkingDirectory,
                 System.DefinitionId,
+                System.DefinitionName,
                 System.EnableAccessToken,
                 System.HostType,
                 System.JobAttempt,
@@ -547,6 +572,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 System.PullRequestTargetBranchName,
                 System.SelfManageGitCreds,
                 System.ServerType,
+                System.SourceVersionMessage,
                 System.StageAttempt,
                 System.StageName,
                 System.TFServerUrl,
@@ -554,7 +580,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                 System.TeamProjectId,
                 System.WorkFolder,
                 // Task variables
-                Task.DisplayName
+                Task.DisplayName,
+                Task.SkipTranslatorForCheckout
             };
         }
     }

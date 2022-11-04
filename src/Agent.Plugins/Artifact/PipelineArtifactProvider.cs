@@ -8,54 +8,38 @@ using System.Threading;
 using Agent.Sdk;
 using Agent.Plugins.PipelineArtifact.Telemetry;
 using Microsoft.TeamFoundation.Build.WebApi;
-using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using BuildXL.Cache.ContentStore.Hashing;
 using Microsoft.VisualStudio.Services.Agent.Blob;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common;
+using Microsoft.VisualStudio.Services.BlobStore.Common;
 
 namespace Agent.Plugins
 {
     internal class PipelineArtifactProvider : IArtifactProvider
     {
-        // Old default for hosted agents was 16*2 cores = 32. 
-        // In my tests of a node_modules folder, this 32x parallelism was consistently around 47 seconds.
-        // At 192x it was around 16 seconds and 256x was no faster.
-        private const int DefaultDedupStoreClientMaxParallelism = 192;
-
-        internal static int GetDedupStoreClientMaxParallelism(AgentTaskPluginExecutionContext context) {
-            int parallelism = DefaultDedupStoreClientMaxParallelism;
-            if(context.Variables.TryGetValue("AZURE_PIPELINES_DEDUP_PARALLELISM", out VariableValue v)) {
-                if (!int.TryParse(v.Value, out parallelism)) {
-                    context.Info($"Could not parse the value of AZURE_PIPELINES_DEDUP_PARALLELISM, '{v.Value}', as an integer. Defaulting to {DefaultDedupStoreClientMaxParallelism}");
-                    parallelism = DefaultDedupStoreClientMaxParallelism;
-                }
-            }
-            context.Info(string.Format("Dedup parallelism: {0}", parallelism));
-            return parallelism;
-        } 
-
         private readonly IAppTraceSource tracer;
         private readonly AgentTaskPluginExecutionContext context;
         private readonly VssConnection connection;
 
         public PipelineArtifactProvider(AgentTaskPluginExecutionContext context, VssConnection connection, IAppTraceSource tracer)
         {
-            var dedupStoreHttpClient = connection.GetClient<DedupStoreHttpClient>();
             this.tracer = tracer;
             this.context = context;
             this.connection = connection;
-            dedupStoreHttpClient.SetTracer(tracer);
-            int parallelism = GetDedupStoreClientMaxParallelism(context);
-            var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, parallelism);
         }
 
         public async Task DownloadSingleArtifactAsync(ArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClientAsync(
-                this.context.IsSystemDebugTrue(), (str) => this.context.Output(str), this.connection, cancellationToken);
+                this.context.IsSystemDebugTrue(),
+                (str) => this.context.Output(str),
+                this.connection,
+                DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
+                WellKnownDomainIds.DefaultDomainId,
+                cancellationToken);
 
             using(clientTelemetry) {
                 var manifestId = DedupIdentifier.Create(buildArtifact.Resource.Data);
@@ -91,7 +75,12 @@ namespace Agent.Plugins
         public async Task DownloadMultipleArtifactsAsync(ArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClientAsync(
-                this.context.IsSystemDebugTrue(), (str) => this.context.Output(str), this.connection, cancellationToken);
+                this.context.IsSystemDebugTrue(),
+                (str) => this.context.Output(str),
+                this.connection,
+                DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
+                WellKnownDomainIds.DefaultDomainId,
+                cancellationToken);
 
             using(clientTelemetry) {
                 var artifactNameAndManifestIds = buildArtifacts.ToDictionary(

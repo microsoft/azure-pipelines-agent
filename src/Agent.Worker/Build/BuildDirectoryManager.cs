@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
 
@@ -55,7 +56,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             // Create the tracking config for this execution of the pipeline
             var agentSettings = HostContext.GetService<IConfigurationStore>().GetSettings();
-            var newConfig = trackingManager.Create(executionContext, repositories, ShouldOverrideBuildDirectory(repositories, agentSettings));
+            var shouldOverrideBuildDirectory = ShouldOverrideBuildDirectory(repositories, agentSettings);
+            var newConfig = trackingManager.Create(executionContext, repositories, shouldOverrideBuildDirectory);
 
             // Load the tracking config from the last execution of the pipeline
             var existingConfig = trackingManager.LoadExistingTrackingConfig(executionContext);
@@ -63,7 +65,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // If there aren't any major changes, merge the configurations and use the same workspace
             if (trackingManager.AreTrackingConfigsCompatible(executionContext, newConfig, existingConfig))
             {
-                newConfig = trackingManager.MergeTrackingConfigs(executionContext, newConfig, existingConfig);
+                bool disableOverrideTfvcBuildDirectoryKnob = AgentKnobs.DisableOverrideTfvcBuildDirectory.GetValue(executionContext).AsBoolean();
+                newConfig = trackingManager.MergeTrackingConfigs(executionContext, newConfig, existingConfig, shouldOverrideBuildDirectory && !disableOverrideTfvcBuildDirectoryKnob);
             }
             else if (existingConfig != null)
             {

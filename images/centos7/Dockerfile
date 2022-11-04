@@ -1,0 +1,40 @@
+FROM centos:centos7.9.2009
+RUN yum install -y \
+        "perl(Time::HiRes)" \
+        autoconf \
+        cmake \
+        cmake3 \
+        devtoolset-2-toolchain \
+        doxygen \
+        expat-devel \
+        gcc \
+        gcc-c++ \
+        libicu \
+        unzip \
+        gdb \
+        gettext-devel \
+        krb5-devel \
+        libedit-devel \
+        libidn-devel \
+        libmetalink-devel \
+        libnghttp2-devel \
+        libssh2-devel \
+        libunwind-devel \
+        libuuid-devel \
+        lttng-ust-devel \
+        lzma \
+        ncurses-devel \
+        openssl-devel \
+        perl-devel \
+        python-argparse \
+        python27 \
+        readline-devel \
+        swig \
+        xz \
+        zlib-devel \
+        curl \
+        git \
+        openssl \
+    && \
+    yum clean all
+    

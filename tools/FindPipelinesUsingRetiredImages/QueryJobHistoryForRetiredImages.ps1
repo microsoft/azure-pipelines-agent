@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 param (
     [Parameter(Mandatory = $true)]
     [string] $accountUrl,
@@ -15,11 +17,11 @@ $vstsAuthHeader = @{"Authorization"="Basic $base64authinfo"}
 $allHeaders = $vstsAuthHeader + @{"Content-Type"="application/json"; "Accept"="application/json"}
 
 # List of deprecated images
-[string[]] $deprecatedImages = 'WINCON', 'win1803', 'macOS-10.13', 'macOS 10.13', 'MacOS 1013', 'MacOS-1013', 'DefaultHosted', 'vs2015 win2012r2', 'vs2015-win2012r2'
+[string[]] $deprecatedImages = 'macOS-10.15', 'macOS 10.15', 'MacOS 1015', 'MacOS-1015', 'Ubuntu16', 'ubuntu-16.04', 'VS2017', 'vs2017 win2016', 'vs2017-win2016', 'windows-2016-vs2017'
 
 try
 {
-    $result = Invoke-WebRequest -Headers $allHeaders -Method GET "$accountUrl/_apis/DistributedTask/pools?api-version=5.0-preview"
+    $result = Invoke-WebRequest -Headers $allHeaders -Method GET "$accountUrl/_apis/DistributedTask/pools?api-version=6.1-preview"
     if ($result.StatusCode -ne 200)
     {
         Write-Output $result.Content
@@ -82,7 +84,7 @@ try
                 {
                     if ($job.agentSpecification -and
                         $job.agentSpecification.VMImage -and
-                        $deprecatedImages.Contains($job.agentSpecification.VMImage))
+                        ($job.agentSpecification.VMImage -imatch ($deprecatedImages -join '|')))
                     {
                         $hashJobsToDef[$job.definition.name] = $job.definition._links.web.href
                     }

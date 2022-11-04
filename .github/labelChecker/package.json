@@ -11,6 +11,6 @@
   "dependencies": {
     "@actions/core": "1.2.6",
     "@actions/github": "2.1.1",
-    "typed-rest-client": "1.7.1"
+    "typed-rest-client": "^1.8.9"
   }
 }

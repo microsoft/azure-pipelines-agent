@@ -55,6 +55,6 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
 
         public const string FinalizeAsync = "FinalizeAsync";
 
-        public const string InitialzieFailed = "InitialzieFailed";
+        public const string InitializeFailed = "InitializeFailed";
     }
 }

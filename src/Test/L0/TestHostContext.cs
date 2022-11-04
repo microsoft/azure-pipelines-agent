@@ -16,6 +16,7 @@ using System.Net.Http.Headers;
 using Agent.Sdk;
 using Agent.Sdk.Knob;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
@@ -25,7 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         private readonly ConcurrentDictionary<Type, object> _serviceSingletons = new ConcurrentDictionary<Type, object>();
         private readonly ITraceManager _traceManager;
         private readonly Terminal _term;
-        private readonly SecretMasker _secretMasker;
+        private readonly ILoggedSecretMasker _secretMasker;
         private CancellationTokenSource _agentShutdownTokenSource = new CancellationTokenSource();
         private string _suiteName;
         private string _testName;
@@ -36,7 +37,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         public event EventHandler Unloading;
         public CancellationToken AgentShutdownToken => _agentShutdownTokenSource.Token;
         public ShutdownReason AgentShutdownReason { get; private set; }
-        public ISecretMasker SecretMasker => _secretMasker;
+        public ILoggedSecretMasker SecretMasker => _secretMasker;
         public TestHostContext(object testClass, [CallerMemberName] string testName = "")
         {
             ArgUtil.NotNull(testClass, nameof(testClass));
@@ -61,7 +62,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             var traceListener = new HostTraceListener(TraceFileName);
             traceListener.DisableConsoleReporting = true;
-            _secretMasker = new SecretMasker();
+            _secretMasker = new LoggedSecretMasker(new SecretMasker());
             _secretMasker.AddValueEncoder(ValueEncoders.JsonStringEscape);
             _secretMasker.AddValueEncoder(ValueEncoders.UriDataEscape);
             _secretMasker.AddValueEncoder(ValueEncoders.BackslashEscape);
@@ -77,9 +78,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             if (!TestUtil.IsWindows())
             {
-                string eulaFile = Path.Combine(GetDirectory(WellKnownDirectory.Externals), Constants.Path.TeeDirectory, "license.html");
-                Directory.CreateDirectory(GetDirectory(WellKnownDirectory.Externals));
-                Directory.CreateDirectory(Path.Combine(GetDirectory(WellKnownDirectory.Externals), Constants.Path.TeeDirectory));
+                string eulaFile = Path.Combine(GetDirectory(WellKnownDirectory.Root), "license.html");
                 File.WriteAllText(eulaFile, "testeulafile");
             }
         }
@@ -180,12 +179,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     path = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
                     break;
 
-                case WellKnownDirectory.Diag:
-                    path = Path.Combine(
-                        GetDirectory(WellKnownDirectory.Root),
-                        Constants.Path.DiagDirectory);
-                    break;
-
                 case WellKnownDirectory.Externals:
                     path = Path.Combine(
                         GetDirectory(WellKnownDirectory.Root),
@@ -266,6 +259,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             _trace.Info($"Well known directory '{directory}': '{path}'");
             return path;
+        }
+
+        public string GetDiagDirectory(HostType hostType = HostType.Undefined)
+        {
+            return Path.Combine(
+                        GetDirectory(WellKnownDirectory.Root),
+                        Constants.Path.DiagDirectory);
         }
 
         public string GetConfigFile(WellKnownConfigFile configFile)
@@ -432,7 +432,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     _loadContext = null;
                 }
                 _traceManager?.Dispose();
-                _secretMasker?.Dispose();
                 _term?.Dispose();
                 _trace?.Dispose();
                 _agentShutdownTokenSource?.Dispose();

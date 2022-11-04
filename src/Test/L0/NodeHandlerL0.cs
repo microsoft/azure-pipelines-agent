@@ -42,10 +42,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
-        [Fact]
+        [Theory]
+        [InlineData("node10")]
+        [InlineData("node16")]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public void UseNewNodeForNewNodeHandler()
+        public void UseNewNodeForNewNodeHandler(string nodeVersion)
         {
             using (TestHostContext thc = CreateTestHostContext())
             {
@@ -56,11 +58,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 nodeHandler.Initialize(thc);
                 nodeHandler.ExecutionContext = CreateTestExecutionContext(thc);
-                nodeHandler.Data = new Node10HandlerData();
+                nodeHandler.Data = nodeVersion == "node16" ? (BaseNodeHandlerData)new Node16HandlerData() : (BaseNodeHandlerData)new Node10HandlerData();
 
                 string actualLocation = nodeHandler.GetNodeLocation();
+                // We should fall back to node10 for node16 tasks, since RHEL 6 is not capable with Node16.
+                if (PlatformUtil.RunningOnRHEL6 && nodeVersion == "node16")
+                {
+                    nodeVersion = "node10";
+                }
                 string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
-                    "node10",
+                    nodeVersion,
                     "bin",
                     $"node{IOUtil.ExeExtension}");
                 Assert.Equal(expectedLocation, actualLocation);

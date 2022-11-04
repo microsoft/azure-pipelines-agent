@@ -16,7 +16,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
     [ServiceLocator(Default = typeof(NodeHandler))]
     public interface INodeHandler : IHandler
     {
-        // Data can be of these two types: NodeHandlerData and Node10HandlerData
+        // Data can be of these three types: NodeHandlerData, Node10HandlerData and Node16HandlerData
         BaseNodeHandlerData Data { get; set; }
     }
 
@@ -134,29 +134,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 outputEncoding = Encoding.UTF8;
             }
 
-            // Execute the process. Exit code 0 should always be returned.
-            // A non-zero exit code indicates infrastructural failure.
-            // Task failure should be communicated over STDOUT using ## commands.
-            Task step = StepHost.ExecuteAsync(workingDirectory: StepHost.ResolvePathForStepHost(workingDirectory),
-                                              fileName: StepHost.ResolvePathForStepHost(file),
-                                              arguments: arguments,
-                                              environment: Environment,
-                                              requireExitCodeZero: true,
-                                              outputEncoding: outputEncoding,
-                                              killProcessOnCancel: false,
-                                              inheritConsoleHandler: !ExecutionContext.Variables.Retain_Default_Encoding,
-                                              cancellationToken: ExecutionContext.CancellationToken);
-
-            // Wait for either the node exit or force finish through ##vso command
-            await System.Threading.Tasks.Task.WhenAny(step, ExecutionContext.ForceCompleted);
-
-            if (ExecutionContext.ForceCompleted.IsCompleted)
+            try
             {
-                ExecutionContext.Debug("The task was marked as \"done\", but the process has not closed after 5 seconds. Treating the task as complete.");
+                // Execute the process. Exit code 0 should always be returned.
+                // A non-zero exit code indicates infrastructural failure.
+                // Task failure should be communicated over STDOUT using ## commands.
+                Task step = StepHost.ExecuteAsync(workingDirectory: StepHost.ResolvePathForStepHost(workingDirectory),
+                                                  fileName: StepHost.ResolvePathForStepHost(file),
+                                                  arguments: arguments,
+                                                  environment: Environment,
+                                                  requireExitCodeZero: true,
+                                                  outputEncoding: outputEncoding,
+                                                  killProcessOnCancel: false,
+                                                  inheritConsoleHandler: !ExecutionContext.Variables.Retain_Default_Encoding,
+                                                  cancellationToken: ExecutionContext.CancellationToken);
+
+                // Wait for either the node exit or force finish through ##vso command
+                await System.Threading.Tasks.Task.WhenAny(step, ExecutionContext.ForceCompleted);
+
+                if (ExecutionContext.ForceCompleted.IsCompleted)
+                {
+                    ExecutionContext.Debug("The task was marked as \"done\", but the process has not closed after 5 seconds. Treating the task as complete.");
+                }
+                else
+                {
+                    await step;
+                }
             }
-            else
+            finally
             {
-                await step;
+                StepHost.OutputDataReceived -= OnDataReceived;
+                StepHost.ErrorDataReceived -= OnDataReceived;
             }
         }
 
@@ -164,11 +172,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         {
             bool useNode10 = AgentKnobs.UseNode10.GetValue(ExecutionContext).AsBoolean();
             bool taskHasNode10Data = Data is Node10HandlerData;
+            bool taskHasNode16Data = Data is Node16HandlerData;
 
             string nodeFolder = "node";
-            if (taskHasNode10Data || useNode10)
+            if (PlatformUtil.RunningOnRHEL6 && taskHasNode16Data)
             {
-                Trace.Info($"Task.json has node10 handler data: {taskHasNode10Data}, use node10 for node tasks: {useNode10}");
+                Trace.Info($"Detected RedHat 6, using node 10 as execution handler, instead node16");
+                nodeFolder = "node10";
+            }
+            else if (taskHasNode16Data)
+            {
+                Trace.Info($"Task.json has node16 handler data: {taskHasNode16Data}");
+                nodeFolder = "node16";
+            }
+            else if (taskHasNode10Data)
+            {
+                Trace.Info($"Task.json has node10 handler data: {taskHasNode10Data}");
+                nodeFolder = "node10";
+            }
+            if (useNode10)
+            {
+                Trace.Info($"Found UseNode10 knob, use node10 for node tasks: {useNode10}");
                 nodeFolder = "node10";
             }
 

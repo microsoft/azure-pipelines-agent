@@ -10,6 +10,7 @@ using Microsoft.VisualStudio.Services.Client;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.OAuth;
 using Microsoft.VisualStudio.Services.WebApi;
+using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider
 {
@@ -24,7 +25,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider
 
         private static readonly TimeSpan _minTimeout = TimeSpan.FromMinutes(5);
 
-        public static async Task<VssConnection> GetVssConnectionAsync(Uri uri, string accessToken, DelegatingHandler retryOnTimeoutMessageHandler = null)
+        public static async Task<VssConnection> GetVssConnectionAsync(
+            Uri uri, 
+            string accessToken, 
+            DelegatingHandler retryOnTimeoutMessageHandler = null, 
+            ITraceWriter trace = null)
         {
             VssConnection connection;
             if (!_vssConnections.TryGetValue(uri, out connection))
@@ -36,7 +41,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider
                     retryOnTimeoutMessageHandler
                 };
 
-                connection = VssUtil.CreateConnection(uri, cred, handlers);
+                connection = VssUtil.CreateConnection(uri, cred, trace, handlers);
                 connection.Settings.SendTimeout = TimeSpan.FromSeconds(Math.Max(_minTimeout.TotalSeconds, connection.Settings.SendTimeout.TotalSeconds));
                 await connection.ConnectAsync().ConfigureAwait(false);
 
@@ -50,16 +55,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider
             return connection;
         }
 
-        private static VssClientCredentials GetCredentials(String accessToken)
+        private static VssClientCredentials GetCredentials(string accessToken)
         {
             VssClientCredentials cred;
             if (string.IsNullOrEmpty(accessToken))
             {
-                cred = new VssClientCredentials(new VssAadCredential());
+                cred = new VssClientCredentials(federatedCredential: new VssAadCredential());
             }
             else
             {
-                cred = new VssClientCredentials(new VssOAuthAccessTokenCredential(accessToken));
+                cred = new VssClientCredentials(federatedCredential: new VssOAuthAccessTokenCredential(accessToken));
             }
 
             cred.PromptType = CredentialPromptType.DoNotPrompt;

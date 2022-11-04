@@ -47,7 +47,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         bool IsServiceExists(string serviceName);
 
-        void InstallService(string serviceName, string serviceDisplayName, string logonAccount, string logonPassword);
+        void InstallService(string serviceName, string serviceDisplayName, string logonAccount, string logonPassword, bool setServiceSidTypeAsUnrestricted);
 
         void UninstallService(string serviceName);
 
@@ -76,6 +76,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         void GrantDirectoryPermissionForAccount(string accountName, IList<string> folders);
 
         void RevokeDirectoryPermissionForAccount(IList<string> folders);
+
+        bool IsWellKnownIdentity(string accountName);
+
+        bool IsManagedServiceAccount(string accountName);
     }
 
     public class NativeWindowsServiceHelper : AgentService, INativeWindowsServiceHelper
@@ -370,10 +374,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
-        public static bool IsWellKnownIdentity(String accountName)
+        public bool IsWellKnownIdentity(string accountName)
         {
-            NTAccount ntaccount = new NTAccount(accountName);
-            SecurityIdentifier sid = (SecurityIdentifier)ntaccount.Translate(typeof(SecurityIdentifier));
+            var ntaccount = new NTAccount(accountName);
+            var sid = (SecurityIdentifier)ntaccount.Translate(typeof(SecurityIdentifier));
 
             SecurityIdentifier networkServiceSid = new SecurityIdentifier(WellKnownSidType.NetworkServiceSid, null);
             SecurityIdentifier localServiceSid = new SecurityIdentifier(WellKnownSidType.LocalServiceSid, null);
@@ -448,10 +452,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             ServiceController service = ServiceController.GetServices().FirstOrDefault(x => x.ServiceName.Equals(serviceName, StringComparison.OrdinalIgnoreCase));
             return service != null;
         }
-
-        public void InstallService(string serviceName, string serviceDisplayName, string logonAccount, string logonPassword)
+        
+        public void InstallService(string serviceName, string serviceDisplayName, string logonAccount, string logonPassword, bool setServiceSidTypeAsUnrestricted)
         {
             Trace.Entering();
+
+            try
+            {
+                var isManagedServiceAccount = IsManagedServiceAccount(logonAccount);
+                Trace.Info($"Account '{logonAccount}' is managed service account: {isManagedServiceAccount}.");
+
+                // If the account name specified by the lpServiceStartName parameter is the name of a managed service account or virtual account name,
+                // the lpPassword parameter must be NULL. More info: https://learn.microsoft.com/en-us/windows/win32/api/winsvc/nf-winsvc-createservicea
+                if (isManagedServiceAccount)
+                {
+                    logonPassword = null;
+                }
+            }
+            catch (Win32Exception exception)
+            {
+                Trace.Info($"Fail to check account '{logonAccount}' is managed service account or not due to error: {exception.Message}");
+            }
 
             string agentServiceExecutable = "\"" + Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), WindowsServiceControlManager.WindowsServiceControllerName) + "\"";
             IntPtr scmHndl = IntPtr.Zero;
@@ -592,6 +613,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 else
                 {
                     _term.WriteLine(StringUtil.Loc("ServiceDelayedStartOptionSet", serviceName));
+                }
+
+                if (setServiceSidTypeAsUnrestricted)
+                {
+                    this.setServiceSidTypeAsUnrestricted(svcHndl, serviceName);
                 }
 
                 _term.WriteLine(StringUtil.Loc("ServiceConfigured", serviceName));
@@ -923,6 +949,36 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Trace.Info(StringUtil.Format($"Delete the group {groupName}."));
             DeleteLocalGroup(groupName);
         }
+        /// <summary>
+        /// Checks if account is managed service
+        /// </summary>
+        /// <param name="accountName">account name</param>
+        /// <returns>Returns true if account is managed service.</returns>
+        public bool IsManagedServiceAccount(string accountName)
+        {
+            accountName = SanitizeManagedServiceAccountName(accountName);
+            var returnCode = this.CheckNetIsServiceAccount(null, accountName, out bool isServiceAccount);
+
+            if (returnCode != ReturnCode.S_OK)
+            {
+                Trace.Warning($"NetIsServiceAccount return code is {returnCode}");
+            }
+
+            return isServiceAccount;
+        }
+
+        /// <summary>
+        /// Checks if account is managed service
+        /// </summary>
+        /// <param name="ServerName"></param>
+        /// <param name="AccountName"></param>
+        /// <param name="isServiceAccount"></param>
+        /// <returns>Returns 0 if account is managed service, otherwise - returns non-zero code</returns>
+        /// <exception cref="Win32Exception">Throws exception if there's an error during check</exception>
+        public virtual uint CheckNetIsServiceAccount(string ServerName, string AccountName, out bool isServiceAccount)
+        {
+            return NativeWindowsServiceHelper.NetIsServiceAccount(ServerName, AccountName, out isServiceAccount);
+        }
 
         private bool IsValidCredentialInternal(string domain, string userName, string logonPassword, UInt32 logonType)
         {
@@ -968,6 +1024,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 Trace.Error(exception);
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Removes '$' character from managed service account name
+        /// </summary>
+        /// <param name="accountName">account name</param>
+        /// <returns></returns>
+        private string SanitizeManagedServiceAccountName(string accountName)
+        {
+            // remove the last '$' for MSA
+            ArgUtil.NotNullOrEmpty(accountName, nameof(accountName));
+            return accountName.TrimEnd('$');
         }
 
         // Helper class not to repeat whenever we deal with LSA* api
@@ -1085,10 +1153,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         private const UInt32 LOGON32_PROVIDER_DEFAULT = 0;
 
+        private const int SERVICE_SID_TYPE_UNRESTRICTED = 0x00000001;
         private const int SERVICE_WIN32_OWN_PROCESS = 0x00000010;
         private const int SERVICE_NO_CHANGE = -1;
         private const int SERVICE_CONFIG_FAILURE_ACTIONS = 0x2;
         private const int SERVICE_CONFIG_DELAYED_AUTO_START_INFO = 0x3;
+        private const int SERVICE_CONFIG_SERVICE_SID_INFO = 0x5;
 
         // TODO Fix this. This is not yet available in coreclr (newer version?)
         private const int UnicodeCharSize = 2;
@@ -1179,6 +1249,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             public bool fDelayedAutostart;
         }
 
+        [StructLayout(LayoutKind.Sequential)]
+        public struct SERVICE_SID_INFO
+        {
+            public int dwServiceSidType;
+        }
+
         // Class to represent a failure action which consists of a recovery
         // action type and an action delay
         private class FailureAction
@@ -1255,6 +1331,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Reboot = 2,
             RunCommand = 3
         }
+
+        [DllImport("Logoncli.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern uint NetIsServiceAccount(string ServerName, string AccountName, [MarshalAs(UnmanagedType.Bool)] out bool IsServiceAccount);
 
         [DllImport("Netapi32.dll")]
         private extern static int NetLocalGroupGetInfo(string servername,
@@ -1359,10 +1438,45 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public static extern bool ChangeServiceFailureActions(IntPtr hService, int dwInfoLevel, ref SERVICE_FAILURE_ACTIONS lpInfo);
 
         [DllImport("advapi32.dll", EntryPoint = "ChangeServiceConfig2")]
+        public static extern bool ChangeServiceSidType(IntPtr hService, int dwInfoLevel, ref SERVICE_SID_INFO lpInfo);
+
+        [DllImport("advapi32.dll", EntryPoint = "ChangeServiceConfig2")]
         public static extern bool ChangeServiceDelayedAutoStart(IntPtr hService, int dwInfoLevel, ref SERVICE_DELAYED_AUTO_START_INFO lpInfo);
 
         [DllImport("kernel32.dll")]
         static extern uint GetLastError();
+        /// <summary>
+        /// Sets service sid type as SERVICE_SID_TYPE_UNRESTRICTED - to make service more configurable for admins from the point of permissions 
+        /// </summary>
+        /// <param name="svcHndl">Service handler</param>
+        /// <param name="serviceName">Service name</param>
+        private void setServiceSidTypeAsUnrestricted(IntPtr svcHndl, string serviceName)
+        {
+            // Change service SID type to unrestricted
+            SERVICE_SID_INFO ssi = new SERVICE_SID_INFO();
+            ssi.dwServiceSidType = SERVICE_SID_TYPE_UNRESTRICTED;
+
+            // Call the ChangeServiceDelayedAutoStart() abstraction of ChangeServiceConfig2()
+            bool serviceSidTypeResult = ChangeServiceSidType(svcHndl, SERVICE_CONFIG_SERVICE_SID_INFO, ref ssi);
+            //Check the return
+            if (!serviceSidTypeResult)
+            {
+                int lastErrorCode = (int)GetLastError();
+                Exception win32exception = new Win32Exception(lastErrorCode);
+                if (lastErrorCode == ReturnCode.ERROR_ACCESS_DENIED)
+                {
+                    throw new SecurityException(StringUtil.Loc("AccessDeniedSettingSidType"), win32exception);
+                }
+                else
+                {
+                    throw win32exception;
+                }
+            }
+            else
+            {
+                _term.WriteLine(StringUtil.Loc("ServiceSidTypeSet", serviceName));
+            }
+        }
     }
 
     [StructLayout(LayoutKind.Sequential)]

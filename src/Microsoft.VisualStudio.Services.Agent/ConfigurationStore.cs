@@ -39,13 +39,19 @@ namespace Microsoft.VisualStudio.Services.Agent
         public int AgentId { get; set; }
 
         [DataMember(EmitDefaultValue = false)]
+        public string AgentCloudId { get; set; }
+
+        [DataMember(EmitDefaultValue = false)]
         public string AgentName { get; set; }
 
         [DataMember(EmitDefaultValue = false)]
         public bool AlwaysExtractTask { get; set; }
 
+        [DataMember(EmitDefaultValue = false)]
+        public bool EnableServiceSidTypeUnrestricted { get; set; }
+
         [IgnoreDataMember]
-        public bool IsHosted => !string.IsNullOrEmpty(NotificationPipeName) || !string.IsNullOrEmpty(NotificationSocketAddress);
+        public bool IsHosted => AgentCloudId != null;
 
         [DataMember(EmitDefaultValue = false)]
         public string Fingerprint
@@ -123,6 +129,9 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         [DataMember(EmitDefaultValue = false)]
         public string EnvironmentName { get; set; }
+
+        [DataMember(EmitDefaultValue = false)]
+        public int MaxDedupParallelism { get; set; }
     }
 
     [DataContract]
