@@ -123,7 +123,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             ArgUtil.NotNull(authResult, nameof(authResult));
             trace.Info($"receive AAD auth result with {authResult.AccessTokenType} token");
 
-            var aadCred = new VssAadCredential(new VssAadToken(authResult.AccessTokenType, authResult.AccessToken));
+            var aadCred = new VssAadCredential(new VssAadToken(authResult));
             VssCredentials creds = new VssCredentials(null, aadCred, CredentialPromptType.DoNotPrompt);
             trace.Info("cred created");
 

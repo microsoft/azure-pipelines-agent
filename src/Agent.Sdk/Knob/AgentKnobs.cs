@@ -369,12 +369,5 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("VSTSAGENT_DUMP_PACKAGES_VERIFICATION_RESULTS"),
             new EnvironmentKnobSource("VSTSAGENT_DUMP_PACKAGES_VERIFICATION_RESULTS"),
             new BuiltInDefaultKnobSource("false"));
-
-        public static readonly Knob MaskedSecretMinLength = new Knob(
-            nameof(MaskedSecretMinLength),
-            "Minimum lenght of secret which will be masked in logs",
-            new RuntimeKnobSource("AGENT_MIN_SECRET_LENGTH"),
-            new EnvironmentKnobSource("AGENT_MIN_SECRET_LENGTH"),
-            new BuiltInDefaultKnobSource("0"));
     }
 }
