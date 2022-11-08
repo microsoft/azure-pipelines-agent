@@ -1,6 +1,16 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.ServiceProcess;
+using System.Threading;
+using System.Threading.Tasks;
 using Agent.Sdk;
 using Agent.Sdk.Knob;
 using Azure.Core;
@@ -12,15 +22,6 @@ using Microsoft.VisualStudio.Services.Common;
 using Microsoft.Win32;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.ServiceProcess;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -162,11 +163,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             AccessToken accessToken = await credential.GetTokenAsync(new TokenRequestContext(new[] {
                 "https://management.core.windows.net/"
             }), cancellationToken);
-            // To print the token, you can convert it to string 
+
             return accessToken.Token.ToString();
         }
 
-        private async Task<string> GetAcrPasswordFromAADToken(IExecutionContext executionContext, string AADToken, string tenantId, string registryServer)
+        private async Task<string> GetAcrPasswordFromAADToken(IExecutionContext executionContext, string AADToken, string tenantId, string registryServer, string loginServer)
         {
             Trace.Entering();
             CancellationToken cancellationToken = executionContext.CancellationToken;
@@ -174,79 +175,61 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             const int retryLimit = 5;
             using HttpClientHandler httpClientHandler = HostContext.CreateHttpClientHandler();
             using HttpClient httpClient = new HttpClient(httpClientHandler);
-            httpClient.DefaultRequestHeaders.Add("Content-Type", "application/x-www-form-urlencoded");
+            httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Content-Type", "application/x-www-form-urlencoded");
+
             List<KeyValuePair<string, string>> keyValuePairs = new List<KeyValuePair<string, string>>
             {
                 new KeyValuePair<string, string>("grant_type", "access_token"),
-                new KeyValuePair<string, string>("service", registryServer[8..]),
+                new KeyValuePair<string, string>("service", loginServer),
                 new KeyValuePair<string, string>("tenant", tenantId),
                 new KeyValuePair<string, string>("access_token", AADToken)
             };
             using FormUrlEncodedContent formUrlEncodedContent = new FormUrlEncodedContent(keyValuePairs);
-            string ACRpassword = string.Empty;
-            int waitedTime = 0;
+            string AcrPassword = string.Empty;
             int retryCount = 0;
+            int timeElapsed = 0;
             int timeToWait = 0;
             do
             {
                 executionContext.Debug("Attempting to convert AAD token to an ACR token");
-                try
+
+                var response = await httpClient.PostAsync(url, formUrlEncodedContent, cancellationToken).ConfigureAwait(false);
+                executionContext.Debug($"Status Code: {response.StatusCode}");
+
+                if (response.StatusCode == HttpStatusCode.OK)
                 {
-                    var response = await httpClient.PostAsync(url, formUrlEncodedContent, cancellationToken).ConfigureAwait(false);
-                    if (response.StatusCode == HttpStatusCode.OK)
-                    {
-                        executionContext.Debug("Successfully converted AAD token to an ACR token");
-                        string result = await response.Content.ReadAsStringAsync();
-                        Dictionary<string, string> list = JsonConvert.DeserializeObject<Dictionary<string, string>>(result);
-                        ACRpassword = list["refresh_token"];
-                    }
-                    else if (response.StatusCode == HttpStatusCode.TooManyRequests || response.StatusCode == HttpStatusCode.InternalServerError)
-                    {
-                        if (retryCount < retryLimit)
-                        {
-                            if (response.StatusCode == HttpStatusCode.TooManyRequests)
-                            {
-                                executionContext.Debug("Too many requests were made to get an ACR token. Retrying...");
-                            }
-                            else
-                            {
-                                executionContext.Debug("Internal server error occurred. Retrying...");
-                            }
-                            waitedTime = 2000 + timeToWait * 2;
-                            retryCount++;
-                            await Task.Delay(timeToWait);
-                            timeToWait = waitedTime;
-                        }
-                        else
-                        {
-                            throw new NotSupportedException("Could not fetch access token for ACR at the moment. Please try again in a few minutes.");
-                        }
-                    }
-                    else
-                    {
-                        throw new NotSupportedException("Could not fetch access token for ACR. Please configure Managed Service Identity (MSI) for Azure Container Registry with the appropriate permissions - https://docs.microsoft.com/en-us/azure/app-service/tutorial-custom-container?pivots=container-linux#configure-app-service-to-deploy-the-image-from-the-registry.");
-                    }
+                    executionContext.Debug("Successfully converted AAD token to an ACR token");
+                    string result = await response.Content.ReadAsStringAsync();
+                    Dictionary<string, string> list = JsonConvert.DeserializeObject<Dictionary<string, string>>(result);
+                    AcrPassword = list["refresh_token"];
                 }
-                catch
+                else if (response.StatusCode == HttpStatusCode.TooManyRequests)
                 {
-                    executionContext.Debug("A socket error occurred while handling your request. Retrying...");
-                    waitedTime = 2000 + timeToWait * 2;
+                    executionContext.Debug("Too many requests were made to get an ACR token. Retrying...");
+
+                    timeElapsed = 2000 + timeToWait * 2;
                     retryCount++;
                     await Task.Delay(timeToWait);
-                    timeToWait = waitedTime;
-                    // Socket/network error handled here
+                    timeToWait = timeElapsed;
                 }
-            } while (retryCount < retryLimit && string.IsNullOrEmpty(ACRpassword));
-            if (string.IsNullOrEmpty(ACRpassword))
+                else
+                {
+                    throw new NotSupportedException("Could not fetch access token for ACR. Please configure Managed Service Identity (MSI) for Azure Container Registry with the appropriate permissions - https://docs.microsoft.com/en-us/azure/app-service/tutorial-custom-container?pivots=container-linux#configure-app-service-to-deploy-the-image-from-the-registry.");
+                }
+
+            } while (retryCount < retryLimit && string.IsNullOrEmpty(AcrPassword));
+
+            if (string.IsNullOrEmpty(AcrPassword))
             {
                 throw new NotSupportedException("Could not acquire ACR token from given AAD token. Please check that the necessary access is provided and try again.");
             }
-            return ACRpassword;
+            return AcrPassword;
         }
 
         private async Task PullContainerAsync(IExecutionContext executionContext, ContainerInfo container)
         {
             Trace.Entering();
+
             ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNull(container, nameof(container));
             ArgUtil.NotNullOrEmpty(container.ContainerImage, nameof(container.ContainerImage));
@@ -276,29 +259,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     {
                         executionContext.Debug("Attempting to get endpoint authorization scheme...");
                         authType = registryEndpoint.Authorization?.Scheme;
-                    }
-                    catch {
-                        executionContext.Debug("Failed to get endpoint authorization scheme.");
-                    }
-                    if (string.IsNullOrEmpty(authType))
-                    {
-                        try
+
+                        if (string.IsNullOrEmpty(authType))
                         {
                             executionContext.Debug("Attempting to get endpoint authorization scheme as an authorization parameter...");
                             registryEndpoint.Authorization?.Parameters?.TryGetValue("scheme", out authType);
                         }
-                        catch
-                        {
-                            executionContext.Debug("Failed to get endpoint authorization scheme as an authorization parameter. Will default authorization scheme to ServicePrincipal");
-                            authType = "ServicePrincipal";
-                        }
                     }
+                    catch
+                    {
+                        executionContext.Debug("Failed to get endpoint authorization scheme as an authorization parameter. Will default authorization scheme to ServicePrincipal");
+                        authType = "ServicePrincipal";
+                    }
+
                     string loginServer = string.Empty;
                     registryEndpoint.Authorization?.Parameters?.TryGetValue("loginServer", out loginServer);
                     if (loginServer != null)
                     {
                         loginServer = loginServer.ToLower();
                     }
+
                     registryServer = $"https://{loginServer}";
                     if (string.Equals(authType, "ManagedServiceIdentity", StringComparison.OrdinalIgnoreCase))
                     {
@@ -309,9 +289,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         string AADToken = await GetMSIAccessToken(executionContext);
                         executionContext.Debug("Successfully retrieved AAD token using the MSI authentication scheme.");
                         // change to getting password from string
-                        password = await GetAcrPasswordFromAADToken(executionContext: executionContext, AADToken: AADToken, tenantId: tenantId,
-                            registryServer: registryServer);
-
+                        password = await GetAcrPasswordFromAADToken(executionContext, AADToken, tenantId, registryServer, loginServer);
                     }
                     else
                     {
