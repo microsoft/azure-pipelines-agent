@@ -23,7 +23,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         bool EnsureGitLFSVersion(Version requiredVersion, bool throwOnNotMatch);
 
         // setup git execution info, git location, version, useragent, execpath
-        Task LoadGitExecutionInfo(IExecutionContext context, bool useBuiltInGit);
+        Task LoadGitExecutionInfo(IExecutionContext context, bool useBuiltInGit, Dictionary<string, string> gitEnv = null);
 
         // git init <LocalDir>
         Task<int> GitInit(IExecutionContext context, string repositoryPath);
@@ -121,6 +121,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         private string _gitLfsPath = null;
         private Version _gitLfsVersion = null;
 
+        private Dictionary<string, string> _gitEnv = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "GIT_TERMINAL_PROMPT", "0" },
+        };
+
         public bool EnsureGitVersion(Version requiredVersion, bool throwOnNotMatch)
         {
             ArgUtil.NotNull(_gitVersion, nameof(_gitVersion));
@@ -155,8 +160,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return _gitLfsVersion >= requiredVersion;
         }
 
-        public async Task LoadGitExecutionInfo(IExecutionContext context, bool useBuiltInGit)
+        public async Task LoadGitExecutionInfo(IExecutionContext context, bool useBuiltInGit, Dictionary<string, string> gitEnv = null)
         {
+            if (gitEnv != null)
+            {
+                foreach (var env in gitEnv)
+                {
+                    if (!string.IsNullOrEmpty(env.Key))
+                    {
+                        _gitEnv[env.Key] = env.Value ?? string.Empty;
+                    }
+                }
+            }
+
             // Resolve the location of git.
             if (useBuiltInGit)
             {
@@ -255,7 +271,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             //define options for fetch
             string options = $"{tags} --prune {pruneTags} --progress --no-recurse-submodules {remoteName} {depth} {string.Join(" ", refSpec)}";
-
 
             return await ExecuteGitCommandAsync(context, repositoryPath, "fetch", options, additionalCommandLine, cancellationToken);
         }
@@ -727,14 +742,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         private IDictionary<string, string> GetGitEnvironmentVariables(IExecutionContext context)
         {
-            Dictionary<string, string> gitEnv = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                { "GIT_TERMINAL_PROMPT", "0" },
-            };
-
             if (!string.IsNullOrEmpty(_gitHttpUserAgentEnv))
             {
-                gitEnv["GIT_HTTP_USER_AGENT"] = _gitHttpUserAgentEnv;
+                _gitEnv["GIT_HTTP_USER_AGENT"] = _gitHttpUserAgentEnv;
             }
 
             // Add the public variables.
@@ -755,10 +765,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     continue;
                 }
 
-                gitEnv[formattedKey] = pair.Value ?? string.Empty;
+                _gitEnv[formattedKey] = pair.Value ?? string.Empty;
             }
 
-            return gitEnv;
+            return _gitEnv;
         }
     }
 }

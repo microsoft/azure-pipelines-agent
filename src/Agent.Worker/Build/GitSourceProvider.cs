@@ -363,9 +363,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             bool gitUseSecureParameterPassing = AgentKnobs.GitUseSecureParameterPassing.GetValue(executionContext).AsBoolean();
 
+            Dictionary<string, string> gitEnv = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            // Git-lfs will try to pull down asset if any of the local/user/system setting exist.
+            // If customer didn't enable `LFS` in their pipeline definition, we will use ENV to disable LFS fetch/checkout.
+            if (!gitLfsSupport)
+            {
+                gitEnv["GIT_LFS_SKIP_SMUDGE"] = "1";
+                executionContext.Debug("GIT_LFS_SKIP_SMUDGE variable set to 1");
+            }
+
             // Initialize git command manager
             _gitCommandManager = HostContext.GetService<IGitCommandManager>();
-            await _gitCommandManager.LoadGitExecutionInfo(executionContext, useBuiltInGit: !preferGitFromPath);
+            await _gitCommandManager.LoadGitExecutionInfo(executionContext, useBuiltInGit: !preferGitFromPath, gitEnv);
 
             // Make sure the build machine met all requirements for the git repository
             // For now, the requirement we have are:
