@@ -751,7 +751,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             foreach (KeyValuePair<string, string> pair in context.Variables.Public)
             {
                 // Add the variable using the formatted name.
-                string formattedKey = (pair.Key ?? string.Empty).Replace('.', '_').Replace(' ', '_').ToUpperInvariant();
+                string formattedKey = VarUtil.ConvertToEnvVariableFormat(pair.Key);
 
                 // Skip any GIT_TRACE variable since GIT_TRACE will affect ouput from every git command.
                 // This will fail the parse logic for detect git version, remote url, etc.

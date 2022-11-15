@@ -65,6 +65,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
+        /// <summary>
+        /// Returns value in environment variables format.
+        /// Example: env.var -> ENV_VAR
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public static string ConvertToEnvVariableFormat(string value)
+        {
+            return value?.Replace('.', '_').Replace(' ', '_').ToUpperInvariant() ?? string.Empty;
+        }
+
         public static JToken ExpandEnvironmentVariables(IHostContext context, JToken target)
         {
             var mapFuncs = new Dictionary<JTokenType, Func<JToken, JToken>>
