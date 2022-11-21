@@ -263,9 +263,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public static readonly List<string> VariablesVulnerableToExecution = new List<string>
         {
             Constants.Variables.Build.SourceVersionMessage,
-            Constants.Variables.System.SourceVersionMessage,
             Constants.Variables.Build.DefinitionName,
-            Constants.Variables.System.DefinitionName
+            Constants.Variables.System.SourceVersionMessage,
+            Constants.Variables.System.DefinitionName,
+            Constants.Variables.System.JobDisplayName,
+            Constants.Variables.System.PhaseDisplayName,
+            Constants.Variables.System.StageDisplayName,
+            Constants.Variables.Release.ReleaseDefinitionName,
+            Constants.Variables.Release.ReleaseEnvironmentName,
+            Constants.Variables.Agent.MachineName,
+            Constants.Variables.Agent.Name,
         };
 
         public void ExpandValues(IDictionary<string, string> target)
