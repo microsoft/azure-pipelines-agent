@@ -175,7 +175,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             bool taskHasNode16Data = Data is Node16HandlerData;
 
             string nodeFolder = "node";
-            if (taskHasNode16Data)
+            if (PlatformUtil.RunningOnRHEL6 && taskHasNode16Data)
+            {
+                Trace.Info($"Detected RedHat 6, using node 10 as execution handler, instead node16");
+                nodeFolder = "node10";
+            }
+            else if (taskHasNode16Data)
             {
                 Trace.Info($"Task.json has node16 handler data: {taskHasNode16Data}");
                 nodeFolder = "node16";
@@ -185,7 +190,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 Trace.Info($"Task.json has node10 handler data: {taskHasNode10Data}");
                 nodeFolder = "node10";
             }
-            else if (useNode10)
+            if (useNode10)
             {
                 Trace.Info($"Found UseNode10 knob, use node10 for node tasks: {useNode10}");
                 nodeFolder = "node10";

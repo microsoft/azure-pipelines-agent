@@ -9,6 +9,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
 {
     public class StringUtilL0
     {
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        [InlineData("##vso[task.setvariable variable=testVar]a", "**vso[task.setvariable variable=testVar]a")]
+        [InlineData("echo \"##vso[task.setvariable variable=testVar]a\"", "echo \"**vso[task.setvariable variable=testVar]a\"")]
+        [InlineData("##vso a", "**vso a")]
+        [InlineData("##vso[] a", "**vso[] a")]
+        [InlineData("## vso", "## vso")]
+        [InlineData("#vso", "#vso")]
+        [InlineData("##vs", "##vs")]
+        [InlineData("##VsO", "**vso")]
+        [InlineData("", "")]
+        [InlineData(null, "")]
+        [InlineData(" ", " ")]
+        public void DeactivateVsoCommandsFromStringTest(string input, string expected)
+        {
+            var result = StringUtil.DeactivateVsoCommands(input);
+
+            Assert.Equal(expected, result);
+        }
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]

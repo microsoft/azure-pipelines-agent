@@ -112,6 +112,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_GIT_USE_SECURE_PARAMETER_PASSING"),
             new BuiltInDefaultKnobSource("true"));
 
+        public static readonly Knob TfVCUseSecureParameterPassing = new Knob(
+            nameof(TfVCUseSecureParameterPassing),
+            "If true, don't pass auth token in TFVC parameters",
+            new RuntimeKnobSource("agent.TfVCUseSecureParameterPassing"),
+            new EnvironmentKnobSource("AGENT_TFVC_USE_SECURE_PARAMETER_PASSING"),
+            new BuiltInDefaultKnobSource("true"));
+
         public const string QuietCheckoutRuntimeVarName = "agent.source.checkout.quiet";
         public const string QuietCheckoutEnvVarName = "AGENT_SOURCE_CHECKOUT_QUIET";
 

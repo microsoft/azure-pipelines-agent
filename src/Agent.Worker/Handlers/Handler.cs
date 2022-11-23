@@ -101,7 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     foreach (KeyValuePair<string, string> pair in endpoint.Authorization.Parameters)
                     {
                         AddEnvironmentVariable(
-                            key: $"ENDPOINT_AUTH_PARAMETER_{partialKey}_{pair.Key?.Replace(' ', '_').ToUpperInvariant()}",
+                            key: $"ENDPOINT_AUTH_PARAMETER_{partialKey}_{VarUtil.ConvertToEnvVariableFormat(pair.Key)}",
                             value: pair.Value);
                     }
                 }
@@ -117,7 +117,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                         foreach (KeyValuePair<string, string> pair in endpoint.Data)
                         {
                             AddEnvironmentVariable(
-                                key: $"ENDPOINT_DATA_{partialKey}_{pair.Key?.Replace(' ', '_').ToUpperInvariant()}",
+                                key: $"ENDPOINT_DATA_{partialKey}_{VarUtil.ConvertToEnvVariableFormat(pair.Key)}",
                                 value: pair.Value);
                         }
                     }
@@ -159,7 +159,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             foreach (KeyValuePair<string, string> pair in Inputs)
             {
                 AddEnvironmentVariable(
-                    key: $"INPUT_{pair.Key?.Replace(' ', '_').ToUpperInvariant()}",
+                    key: $"INPUT_{VarUtil.ConvertToEnvVariableFormat(pair.Key)}",
                     value: pair.Value);
             }
         }
@@ -182,7 +182,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 }
 
                 // Add the variable using the formatted name.
-                string formattedKey = (pair.Key ?? string.Empty).Replace('.', '_').Replace(' ', '_').ToUpperInvariant();
+                string formattedKey = VarUtil.ConvertToEnvVariableFormat(pair.Key);
                 AddEnvironmentVariable(formattedKey, pair.Value);
 
                 // Store the name.
@@ -202,7 +202,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 foreach (KeyValuePair<string, string> pair in RuntimeVariables.Private)
                 {
                     // Add the variable using the formatted name.
-                    string formattedKey = (pair.Key ?? string.Empty).Replace('.', '_').Replace(' ', '_').ToUpperInvariant();
+                    string formattedKey = VarUtil.ConvertToEnvVariableFormat(pair.Key);
                     AddEnvironmentVariable($"SECRET_{formattedKey}", pair.Value);
 
                     // Store the name.
@@ -239,14 +239,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             foreach (KeyValuePair<string, string> pair in ExecutionContext.TaskVariables.Public)
             {
                 // Add the variable using the formatted name.
-                string formattedKey = (pair.Key ?? string.Empty).Replace('.', '_').Replace(' ', '_').ToUpperInvariant();
+                string formattedKey = VarUtil.ConvertToEnvVariableFormat(pair.Key);
                 AddEnvironmentVariable($"VSTS_TASKVARIABLE_{formattedKey}", pair.Value);
             }
 
             foreach (KeyValuePair<string, string> pair in ExecutionContext.TaskVariables.Private)
             {
                 // Add the variable using the formatted name.
-                string formattedKey = (pair.Key ?? string.Empty).Replace('.', '_').Replace(' ', '_').ToUpperInvariant();
+                string formattedKey = VarUtil.ConvertToEnvVariableFormat(pair.Key);
                 AddEnvironmentVariable($"VSTS_TASKVARIABLE_{formattedKey}", pair.Value);
             }
         }

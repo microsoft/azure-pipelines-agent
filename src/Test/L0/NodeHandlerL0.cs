@@ -22,6 +22,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "Common")]
         public void UseNodeForNodeHandlerEnvVarNotSet()
         {
+            var agentUseNode10 = Environment.GetEnvironmentVariable("AGENT_USE_NODE10");
+            Environment.SetEnvironmentVariable("AGENT_USE_NODE10", null);
             using (TestHostContext thc = CreateTestHostContext())
             {
                 thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
@@ -40,6 +42,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     $"node{IOUtil.ExeExtension}");
                 Assert.Equal(expectedLocation, actualLocation);
             }
+            Environment.SetEnvironmentVariable("AGENT_USE_NODE10", agentUseNode10);
         }
 
         [Theory]
@@ -61,6 +64,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 nodeHandler.Data = nodeVersion == "node16" ? (BaseNodeHandlerData)new Node16HandlerData() : (BaseNodeHandlerData)new Node10HandlerData();
 
                 string actualLocation = nodeHandler.GetNodeLocation();
+                // We should fall back to node10 for node16 tasks, since RHEL 6 is not capable with Node16.
+                if (PlatformUtil.RunningOnRHEL6 && nodeVersion == "node16")
+                {
+                    nodeVersion = "node10";
+                }
                 string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
                     nodeVersion,
                     "bin",
