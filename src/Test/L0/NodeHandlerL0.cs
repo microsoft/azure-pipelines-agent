@@ -12,11 +12,19 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Moq;
 using Xunit;
 using Agent.Sdk;
+using Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
     public sealed class NodeHandlerL0
     {
+        private Mock<INodeHandlerHelper> nodeHandlerHalper;
+
+        public NodeHandlerL0()
+        {
+            nodeHandlerHalper = GetMockedNodeHandlerHelper();
+        }
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
@@ -29,7 +37,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
                 thc.SetSingleton(new ExtensionManager() as IExtensionManager);
 
-                NodeHandler nodeHandler = new NodeHandler();
+                NodeHandler nodeHandler = new NodeHandler(nodeHandlerHalper.Object);
 
                 nodeHandler.Initialize(thc);
                 nodeHandler.ExecutionContext = CreateTestExecutionContext(thc);
@@ -57,7 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
                 thc.SetSingleton(new ExtensionManager() as IExtensionManager);
 
-                NodeHandler nodeHandler = new NodeHandler();
+                NodeHandler nodeHandler = new NodeHandler(nodeHandlerHalper.Object);
 
                 nodeHandler.Initialize(thc);
                 nodeHandler.ExecutionContext = CreateTestExecutionContext(thc);
@@ -91,7 +99,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
                     thc.SetSingleton(new ExtensionManager() as IExtensionManager);
 
-                    NodeHandler nodeHandler = new NodeHandler();
+                    NodeHandler nodeHandler = new NodeHandler(nodeHandlerHalper.Object);
 
                     nodeHandler.Initialize(thc);
                     nodeHandler.ExecutionContext = CreateTestExecutionContext(thc);
@@ -125,7 +133,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 variables.Add("AGENT_USE_NODE10", new VariableValue("true"));
 
-                NodeHandler nodeHandler = new NodeHandler();
+                NodeHandler nodeHandler = new NodeHandler(nodeHandlerHalper.Object);
 
                 nodeHandler.Initialize(thc);
                 nodeHandler.ExecutionContext = CreateTestExecutionContext(thc, variables);
@@ -155,7 +163,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 // Explicitly set variable feature flag to false
                 variables.Add("AGENT_USE_NODE10", new VariableValue("false"));
 
-                NodeHandler nodeHandler = new NodeHandler();
+                NodeHandler nodeHandler = new NodeHandler(nodeHandlerHalper.Object);
 
                 nodeHandler.Initialize(thc);
                 nodeHandler.ExecutionContext = CreateTestExecutionContext(thc, variables);
@@ -167,6 +175,219 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     "bin",
                     $"node{IOUtil.ExeExtension}");
                 Assert.Equal(expectedLocation, actualLocation);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void UseLTSNodeIfUseNodeKnobIsLTS()
+        {
+            using (TestHostContext thc = CreateTestHostContext())
+            {
+                thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
+                thc.SetSingleton(new ExtensionManager() as IExtensionManager);
+
+                Mock<INodeHandlerHelper> mockedNodeHandlerHelper = GetMockedNodeHandlerHelper();
+                mockedNodeHandlerHelper
+                    .SetupSequence(x => x.IsNodeFolderExist(It.IsAny<string>(), It.IsAny<IHostContext>()))
+                    .Returns(false)
+                    .Returns(true);
+
+                mockedNodeHandlerHelper
+                    .Setup(x => x.GetFilteredPossibleNodeFolders(It.IsAny<string>(), It.IsAny<string[]>()))
+                    .Returns(new string[] { "node16" });
+
+                var variables = new Dictionary<string, VariableValue>();
+
+                variables.Add("AGENT_USE_NODE", new VariableValue("lts"));
+
+                NodeHandler nodeHandler = new NodeHandler(mockedNodeHandlerHelper.Object);
+
+                nodeHandler.Initialize(thc);
+                nodeHandler.ExecutionContext = CreateTestExecutionContext(thc, variables);
+                nodeHandler.Data = new Node10HandlerData();
+
+                string actualLocation = nodeHandler.GetNodeLocation();
+                string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
+                    "node16",
+                    "bin",
+                    $"node{IOUtil.ExeExtension}");
+                Assert.Equal(expectedLocation, actualLocation);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void ThrowExceptionIfUseNodeKnobIsLTSAndLTSNotAvailable()
+        {
+            using (TestHostContext thc = CreateTestHostContext())
+            {
+                thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
+                thc.SetSingleton(new ExtensionManager() as IExtensionManager);
+
+                Mock<INodeHandlerHelper> mockedNodeHandlerHelper = GetMockedNodeHandlerHelper();
+                mockedNodeHandlerHelper
+                    .SetupSequence(x => x.IsNodeFolderExist(It.IsAny<string>(), It.IsAny<IHostContext>()))
+                    .Returns(false)
+                    .Returns(false);
+
+                mockedNodeHandlerHelper
+                    .Setup(x => x.GetFilteredPossibleNodeFolders(It.IsAny<string>(), It.IsAny<string[]>()))
+                    .Returns(new string[] { "node16" });
+
+                var variables = new Dictionary<string, VariableValue>();
+
+                variables.Add("AGENT_USE_NODE", new VariableValue("lts"));
+
+                NodeHandler nodeHandler = new NodeHandler(mockedNodeHandlerHelper.Object);
+
+                nodeHandler.Initialize(thc);
+                nodeHandler.ExecutionContext = CreateTestExecutionContext(thc, variables);
+                nodeHandler.Data = new Node10HandlerData();
+
+                Assert.Throws<FileNotFoundException>(() => nodeHandler.GetNodeLocation());
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void ThrowExceptionIfUseNodeKnobIsLTSAndFilteredPossibleNodeFoldersEmpty()
+        {
+            using (TestHostContext thc = CreateTestHostContext())
+            {
+                thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
+                thc.SetSingleton(new ExtensionManager() as IExtensionManager);
+
+                Mock<INodeHandlerHelper> mockedNodeHandlerHelper = GetMockedNodeHandlerHelper();
+                mockedNodeHandlerHelper
+                    .Setup(x => x.IsNodeFolderExist(It.IsAny<string>(), It.IsAny<IHostContext>()))
+                    .Returns(false);
+
+                var variables = new Dictionary<string, VariableValue>();
+
+                variables.Add("AGENT_USE_NODE", new VariableValue("lts"));
+
+                NodeHandler nodeHandler = new NodeHandler(mockedNodeHandlerHelper.Object);
+
+                nodeHandler.Initialize(thc);
+                nodeHandler.ExecutionContext = CreateTestExecutionContext(thc, variables);
+                nodeHandler.Data = new Node10HandlerData();
+
+                Assert.Throws<FileNotFoundException>(() => nodeHandler.GetNodeLocation());
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void UseFirstAvailableNodeIfUseNodeKnobIsUpgrade()
+        {
+            using (TestHostContext thc = CreateTestHostContext())
+            {
+                thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
+                thc.SetSingleton(new ExtensionManager() as IExtensionManager);
+
+                Mock<INodeHandlerHelper> mockedNodeHandlerHelper = GetMockedNodeHandlerHelper();
+                mockedNodeHandlerHelper
+                    .SetupSequence(x => x.IsNodeFolderExist(It.IsAny<string>(), It.IsAny<IHostContext>()))
+                    .Returns(false)
+                    .Returns(true);
+                mockedNodeHandlerHelper
+                .Setup(x => x.GetFilteredPossibleNodeFolders(It.IsAny<string>(), It.IsAny<string[]>()))
+                .Returns(new string[] { "nextAvailableNode1", "nextAvailableNode2" });
+
+                var variables = new Dictionary<string, VariableValue>();
+
+                variables.Add("AGENT_USE_NODE", new VariableValue("upgrade"));
+
+                NodeHandler nodeHandler = new NodeHandler(mockedNodeHandlerHelper.Object);
+
+                nodeHandler.Initialize(thc);
+                nodeHandler.ExecutionContext = CreateTestExecutionContext(thc, variables);
+                nodeHandler.Data = new Node10HandlerData();
+
+                string actualLocation = nodeHandler.GetNodeLocation();
+                string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
+                    "nextAvailableNode1",
+                    "bin",
+                    $"node{IOUtil.ExeExtension}");
+                Assert.Equal(expectedLocation, actualLocation);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void UseSecondAvailableNodeIfUseNodeKnobIsUpgradeFilteredNodeFoldersFirstNotAvailable()
+        {
+            using (TestHostContext thc = CreateTestHostContext())
+            {
+                thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
+                thc.SetSingleton(new ExtensionManager() as IExtensionManager);
+
+                Mock<INodeHandlerHelper> mockedNodeHandlerHelper = GetMockedNodeHandlerHelper();
+                mockedNodeHandlerHelper
+                    .SetupSequence(x => x.IsNodeFolderExist(It.IsAny<string>(), It.IsAny<IHostContext>()))
+                    .Returns(false)
+                    .Returns(false)
+                    .Returns(true);
+                mockedNodeHandlerHelper
+                .Setup(x => x.GetFilteredPossibleNodeFolders(It.IsAny<string>(), It.IsAny<string[]>()))
+                .Returns(new string[] { "nextAvailableNode1", "nextAvailableNode2" });
+
+                var variables = new Dictionary<string, VariableValue>();
+
+                variables.Add("AGENT_USE_NODE", new VariableValue("upgrade"));
+
+                NodeHandler nodeHandler = new NodeHandler(mockedNodeHandlerHelper.Object);
+
+                nodeHandler.Initialize(thc);
+                nodeHandler.ExecutionContext = CreateTestExecutionContext(thc, variables);
+                nodeHandler.Data = new Node10HandlerData();
+
+                string actualLocation = nodeHandler.GetNodeLocation();
+                string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
+                    "nextAvailableNode2",
+                    "bin",
+                    $"node{IOUtil.ExeExtension}");
+                Assert.Equal(expectedLocation, actualLocation);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void ThrowExceptionIfUseNodeKnobIsUpgradeFilteredNodeFoldersAllNotAvailable()
+        {
+            using (TestHostContext thc = CreateTestHostContext())
+            {
+                thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
+                thc.SetSingleton(new ExtensionManager() as IExtensionManager);
+
+                Mock<INodeHandlerHelper> mockedNodeHandlerHelper = GetMockedNodeHandlerHelper();
+                mockedNodeHandlerHelper
+                    .SetupSequence(x => x.IsNodeFolderExist(It.IsAny<string>(), It.IsAny<IHostContext>()))
+                    .Returns(false)
+                    .Returns(false)
+                    .Returns(false);
+                mockedNodeHandlerHelper
+                .Setup(x => x.GetFilteredPossibleNodeFolders(It.IsAny<string>(), It.IsAny<string[]>()))
+                .Returns(new string[] { "nextAvailableNode1", "nextAvailableNode2" });
+
+                var variables = new Dictionary<string, VariableValue>();
+
+                variables.Add("AGENT_USE_NODE", new VariableValue("upgrade"));
+
+                NodeHandler nodeHandler = new NodeHandler(mockedNodeHandlerHelper.Object);
+
+                nodeHandler.Initialize(thc);
+                nodeHandler.ExecutionContext = CreateTestExecutionContext(thc, variables);
+                nodeHandler.Data = new Node10HandlerData();
+
+                Assert.Throws<FileNotFoundException>(() => nodeHandler.GetNodeLocation());
             }
         }
 
@@ -204,6 +425,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 });
 
             return executionContext.Object;
+        }
+
+        private Mock<INodeHandlerHelper> GetMockedNodeHandlerHelper()
+        {
+            // please don't change this method since test rely on the default behavior
+            // override the behaviour in specific test instead
+            var nodeHandlerHelper = new Mock<INodeHandlerHelper>();
+
+            nodeHandlerHelper
+                .Setup(x => x.IsNodeFolderExist(It.IsAny<string>(), It.IsAny<IHostContext>()))
+                .Returns(true);
+
+            nodeHandlerHelper
+                .Setup(x => x.GetNodeFolderPath(It.IsAny<string>(), It.IsAny<IHostContext>()))
+                .Returns((string nodeFolderName, IHostContext hostContext) => Path.Combine(
+                    hostContext.GetDirectory(WellKnownDirectory.Externals),
+                    nodeFolderName,
+                    "bin",
+                    $"node{IOUtil.ExeExtension}"));
+
+            nodeHandlerHelper
+                .Setup(x => x.GetFilteredPossibleNodeFolders(It.IsAny<string>(), It.IsAny<string[]>()))
+                .Returns(Array.Empty<string>);
+
+            return nodeHandlerHelper;
         }
     }
 }
