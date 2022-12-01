@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Microsoft.VisualStudio.Services.Agent.Listener;
+using Microsoft.VisualStudio.Services.Agent.Blob;
 using Microsoft.VisualStudio.Services.Agent.Capabilities;
 using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.Agent.Worker;
@@ -59,7 +60,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 typeof(IHostContext),
                 typeof(ITraceManager),
                 typeof(IThrottlingReporter),
-                typeof(ICapabilitiesProvider)
+                typeof(ICapabilitiesProvider),
+                typeof(IDedupRecord)
             };
             Validate(
                 assembly: typeof(IHostContext).GetTypeInfo().Assembly,

@@ -7,15 +7,19 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
     public interface IConfigurationProvider : IExtension, IAgentService
     {
         string ConfigurationProviderType { get; }
+
+        bool IsCollectionPossible { get; }
 
         void GetServerUrl(AgentSettings agentSettings, CommandSettings command);
 
@@ -46,6 +50,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public string ConfigurationProviderType
             => Constants.Agent.AgentConfigurationProvider.BuildReleasesAgentConfiguration;
+
+        public bool IsCollectionPossible 
+            => false;
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -133,6 +140,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public Type ExtensionType => typeof(IConfigurationProvider);
         public string ConfigurationProviderType
             => Constants.Agent.AgentConfigurationProvider.DeploymentAgentConfiguration;
+        public bool IsCollectionPossible 
+            => true;
         protected ITerminal _term;
         protected string _projectName = string.Empty;
         private IDeploymentGroupServer _deploymentGroupServer = null;
@@ -255,7 +264,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 Trace.Info("Tfs Collection level url to connect - {0}", uriBuilder.Uri.AbsoluteUri);
                 url = uriBuilder.Uri.AbsoluteUri;
             }
-            VssConnection deploymentGroupconnection = VssUtil.CreateConnection(new Uri(url), creds);
+            VssConnection deploymentGroupconnection = VssUtil.CreateConnection(new Uri(url), creds, trace: Trace);
 
             await _deploymentGroupServer.ConnectAsync(deploymentGroupconnection);
             Trace.Info("Connect complete for deployment group");
@@ -360,6 +369,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                         azureSubscriptionId = string.Empty;
                     }
                 }
+                catch (SocketException ex)
+                {
+                    azureSubscriptionId = string.Empty;
+                    ExceptionsUtil.HandleSocketException(ex, imdsUri, Trace.Info);
+                }
                 catch (Exception ex)
                 {
                     // An exception will be thrown if the Agent Machine is a non-Azure VM.
@@ -425,7 +439,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 Trace.Info("Tfs Collection level url to connect - {0}", uriBuilder.Uri.AbsoluteUri);
                 url = uriBuilder.Uri.AbsoluteUri;
             }
-            VssConnection environmentConnection = VssUtil.CreateConnection(new Uri(url), creds);
+            VssConnection environmentConnection = VssUtil.CreateConnection(new Uri(url), creds, trace: Trace);
 
             await _environmentsServer.ConnectAsync(environmentConnection);
             Trace.Info("Connection complete for environment");
@@ -441,6 +455,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             var environmentInstance = await GetEnvironmentAsync(_projectName, environmentName);
 
+            agentSettings.EnvironmentName = environmentName;
             agentSettings.EnvironmentId = environmentInstance.Id;
             agentSettings.ProjectName = environmentInstance.Project.Name;
             agentSettings.ProjectId = environmentInstance.Project.Id.ToString();

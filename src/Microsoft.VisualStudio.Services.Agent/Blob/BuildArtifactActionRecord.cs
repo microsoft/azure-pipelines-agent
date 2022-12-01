@@ -2,10 +2,10 @@
 // Licensed under the MIT License.
 
 using System;
-using Agent.Sdk.Blob;
+using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Content.Common.Telemetry;
 
-namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
+namespace Microsoft.VisualStudio.Services.Agent.Blob
 {
     /// <summary>
     /// Telemetry record for use with Build Artifact events.
@@ -17,7 +17,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             Uri baseAddress, 
             string eventNamePrefix, 
             string eventNameSuffix, 
-            IAsyncCommandContext context, 
+            IKnobValueContext context, 
             uint attemptNumber = 1)
             : base(level, baseAddress, eventNamePrefix, eventNameSuffix, context, attemptNumber)
         {

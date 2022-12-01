@@ -60,7 +60,7 @@ namespace Agent.Sdk
         public Dictionary<string, VariableValue> Variables { get; set; }
         public Dictionary<string, VariableValue> TaskVariables { get; set; }
         public Dictionary<string, string> Inputs { get; set; }
-        public ContainerInfo Container {get; set; }
+        public ContainerInfo Container { get; set; }
         public Dictionary<string, string> JobSettings { get; set; }
 
         [JsonIgnore]
@@ -126,7 +126,7 @@ namespace Agent.Sdk
 
             VssCredentials credentials = VssUtil.GetVssCredential(systemConnection);
             ArgUtil.NotNull(credentials, nameof(credentials));
-            return VssUtil.CreateConnection(systemConnection.Url, credentials);
+            return VssUtil.CreateConnection(systemConnection.Url, credentials, trace: _trace);
         }
 
         public string GetInput(string name, bool required = false)
@@ -193,6 +193,15 @@ namespace Agent.Sdk
             Output($"##vso[telemetry.publish area={area};feature={feature}]{Escape(propertiesAsJson)}");
         }
 
+        public void PublishTelemetry(string area, string feature, Dictionary<string, object> properties)
+        {
+            ArgUtil.NotNull(area, nameof(area));
+            ArgUtil.NotNull(feature, nameof(feature));
+            ArgUtil.NotNull(properties, nameof(properties));
+            string propertiesAsJson = StringUtil.ConvertToJson(properties, Formatting.None);
+            Output($"##vso[telemetry.publish area={area};feature={feature}]{Escape(propertiesAsJson)}");
+        }
+
         public void PublishTelemetry(string area, string feature, TelemetryRecord record)
             => PublishTelemetry(area, feature, record?.GetAssignedProperties());
 
@@ -214,14 +223,14 @@ namespace Agent.Sdk
 
         public bool IsSystemDebugTrue()
         {
-             if (Variables.TryGetValue("system.debug", out VariableValue systemDebugVar))
+            if (Variables.TryGetValue("system.debug", out VariableValue systemDebugVar))
             {
                 return string.Equals(systemDebugVar?.Value, "true", StringComparison.OrdinalIgnoreCase);
             }
             return false;
         }
 
-        public void PrependPath(string directory)
+        public virtual void PrependPath(string directory)
         {
             ArgUtil.NotNull(directory, nameof(directory));
             PathUtil.PrependPath(directory);
@@ -325,6 +334,21 @@ namespace Agent.Sdk
                     WebProxy = new AgentWebProxy(proxyUrl, proxyUsername, proxyPassword, proxyBypassHosts)
                 };
             }
+            // back-compat of proxy configuration via environment variables
+            else if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("VSTS_HTTP_PROXY")))
+            {
+                var ProxyUrl = Environment.GetEnvironmentVariable("VSTS_HTTP_PROXY");
+                ProxyUrl = ProxyUrl.Trim();
+                var ProxyUsername = Environment.GetEnvironmentVariable("VSTS_HTTP_PROXY_USERNAME");
+                var ProxyPassword = Environment.GetEnvironmentVariable("VSTS_HTTP_PROXY_PASSWORD");
+                return new AgentWebProxySettings()
+                {
+                    ProxyAddress = ProxyUrl,
+                    ProxyUsername = ProxyUsername,
+                    ProxyPassword = ProxyPassword,
+                    WebProxy = new AgentWebProxy(proxyUrl, ProxyUsername, ProxyPassword, null)
+                };
+            }
             else
             {
                 return null;
@@ -333,16 +357,10 @@ namespace Agent.Sdk
 
         private string Escape(string input)
         {
-            if (AgentKnobs.DecodePercents.GetValue(this).AsBoolean())
-            {
-                input = input.Replace("%", "%AZP25");
-            }
-            foreach (var mapping in _commandEscapeMappings)
-            {
-                input = input.Replace(mapping.Key, mapping.Value);
-            }
+            var unescapePercents = AgentKnobs.DecodePercents.GetValue(this).AsBoolean();
+            var escaped = CommandStringConvertor.Escape(input, unescapePercents);
 
-            return input;
+            return escaped;
         }
 
         string IKnobValueContext.GetVariableValueOrDefault(string variableName)
@@ -354,21 +372,5 @@ namespace Agent.Sdk
         {
             return new SystemEnvironment();
         }
-
-        private Dictionary<string, string> _commandEscapeMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            {
-                ";", "%3B"
-            },
-            {
-                "\r", "%0D"
-            },
-            {
-                "\n", "%0A"
-            },
-            {
-                "]", "%5D"
-            },
-        };
     }
 }

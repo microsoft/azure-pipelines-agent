@@ -1,15 +1,29 @@
 ﻿using System;
 using System.Threading.Tasks;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
     internal class RetryHelper
     {
+        /// <summary>
+        /// Returns exponential delay - depending on number of retry
+        /// Considers that retryNumber starts from 0
+        /// Initial delay - 1 second
+        /// </summary>
+        /// <returns></returns>
+        public static int ExponentialDelay(int retryNumber)
+        {
+            return (int)(Math.Pow(retryNumber + 1, 2) * 1000);
+        }
+
+
         public RetryHelper(IExecutionContext executionContext, int maxRetries = 3)
         {
             Debug = (str) => executionContext.Debug(str);
             Warning = (str) => executionContext.Warning(str);
             MaxRetries = maxRetries;
+            ExecutionContext = executionContext;
         }
 
         public RetryHelper(IAsyncCommandContext commandContext, int maxRetries = 3)
@@ -48,6 +62,59 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         }
 
+        /// <summary>
+        /// Runs action with maxRetries number of retries
+        /// </summary>
+        /// <param name="action">Action to execute with retries</param>
+        /// <param name="timeDelayInterval">Function to calculate delay between retries depending on retry number. Should take retry number as argument and consider that it starts from 0.</param>
+        /// <returns></returns>
+        public async Task RetryStep(Func<Task> action, Func<int, int> timeDelayInterval)
+        {
+            int retryCounter = 0;
+            do
+            {
+                using (new SimpleTimer($"RetryHelper Method:{action.Method} ", Debug))
+                {
+                    var delayInterval = timeDelayInterval(retryCounter);
+                    try
+                    {
+                        if (retryCounter > 0)
+                        {
+                            //ReInitialize _forceCompleted and _forceCompleteCancellationTokenSource
+                            ExecutionContext.ReInitializeForceCompleted();
+                        }
+
+                        Debug($"Invoking Method: {action.Method}. Attempt count: {retryCounter}");
+                        await action();
+
+                        if (ExecutionContext.Result != TaskResult.Failed || ExhaustedRetryCount(retryCounter))
+                        {
+                            return;
+                        }
+                        else
+                        {
+                            string exceptionMessage = $"Task result {ExecutionContext.Result}";
+                            ExecutionContext.Result = null;
+                            Warning($"RetryHelper encountered task failure, will retry (attempt #: {retryCounter + 1} out of {this.MaxRetries}) after {delayInterval} ms");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        if (!ShouldRetryStepOnException(ex) || ExhaustedRetryCount(retryCounter))
+                        {
+                            throw;
+                        }
+                        Warning($"RetryHelper encountered exception, will retry (attempt #: {retryCounter + 1} {ex.Message}) afer {delayInterval} ms");
+                    }
+                    //Cancel force task completion before the next attempt
+                    ExecutionContext.CancelForceTaskCompletion();
+
+                    await Task.Delay(timeDelayInterval(retryCounter), ExecutionContext.CancellationToken);
+                    retryCounter++;
+                }
+            } while (true);
+        }
+
         private bool ExhaustedRetryCount(int retryCount)
         {
             if (retryCount >= MaxRetries)
@@ -58,8 +125,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return false;
         }
 
+        private bool ShouldRetryStepOnException(Exception exception)
+        {
+            return !(exception is TimeoutException) && !(exception is OperationCanceledException);
+        }
+
         private readonly int MaxRetries;
         private readonly Action<string> Debug;
         private readonly Action<string> Warning;
+        private readonly IExecutionContext ExecutionContext;
     }
 }

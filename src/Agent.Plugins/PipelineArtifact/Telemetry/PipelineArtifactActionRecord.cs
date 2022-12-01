@@ -3,7 +3,7 @@
 
 using System;
 using Agent.Sdk;
-using Agent.Sdk.Blob;
+using Microsoft.VisualStudio.Services.Agent.Blob;
 using Microsoft.VisualStudio.Services.Content.Common.Telemetry;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 

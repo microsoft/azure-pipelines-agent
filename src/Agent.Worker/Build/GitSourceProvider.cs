@@ -14,6 +14,7 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Text;
 using System.Diagnostics;
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -36,6 +37,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     _gitCommandManager.EnsureGitVersion(_minGitVersionSupportSSLBackendOverride, throwOnNotMatch: true);
                 }
             }
+        }
+
+        public override bool GitSupportsConfigEnv(IExecutionContext executionContext, IGitCommandManager gitCommandManager)
+        {
+            return false;
         }
 
         public override string GenerateAuthHeader(string username, string password)
@@ -67,6 +73,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
         }
 
+        public override bool GitSupportsConfigEnv(IExecutionContext executionContext, IGitCommandManager gitCommandManager)
+        {
+            // v2.31 git supports --config-env.
+            return gitCommandManager.EnsureGitVersion(_minGitVersionConfigEnv, throwOnNotMatch: false);
+        }
+
         public override void RequirementCheck(IExecutionContext executionContext, ServiceEndpoint endpoint)
         {
             if (PlatformUtil.RunningOnWindows)
@@ -87,7 +99,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string base64encodedAuthHeader = Convert.ToBase64String(Encoding.UTF8.GetBytes(authHeader));
 
             // add base64 encoding auth header into secretMasker.
-            HostContext.SecretMasker.AddValue(base64encodedAuthHeader);
+            HostContext.SecretMasker.AddValue(base64encodedAuthHeader, WellKnownSecretAliases.GitSourceProviderAuthHeader);
             return $"basic {base64encodedAuthHeader}";
         }
     }
@@ -129,6 +141,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 ArgUtil.NotNull(_gitCommandManager, nameof(_gitCommandManager));
                 return _gitCommandManager.EnsureGitLFSVersion(_minGitLfsVersionSupportAuthHeader, throwOnNotMatch: false);
             }
+        }
+
+        public override bool GitSupportsConfigEnv(IExecutionContext executionContext, IGitCommandManager gitCommandManager)
+        {
+            // v2.31 git supports --config-env.
+            return gitCommandManager.EnsureGitVersion(_minGitVersionConfigEnv, throwOnNotMatch: false);
         }
 
         // When the repository is a TfsGit, figure out the endpoint is hosted vsts git or on-prem tfs git
@@ -221,9 +239,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         // Minimum git-lfs version that supports adding the extra auth header
         protected Version _minGitLfsVersionSupportAuthHeader = new Version(2, 1);
 
+        // min git version that supports new way to pass config via --config-env
+        // Info: https://github.com/git/git/commit/ce81b1da230cf04e231ce337c2946c0671ffb303
+        protected Version _minGitVersionConfigEnv = new Version(2, 31);
+
         public abstract bool GitUseAuthHeaderCmdlineArg { get; }
         public abstract bool GitLfsUseAuthHeaderCmdlineArg { get; }
         public abstract void RequirementCheck(IExecutionContext executionContext, ServiceEndpoint endpoint);
+        public abstract bool GitSupportsConfigEnv(IExecutionContext executionContext, IGitCommandManager gitCommandManager);
+
         public abstract string GenerateAuthHeader(string username, string password);
 
         public async Task GetSourceAsync(
@@ -294,6 +318,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             bool exposeCred = executionContext.Variables.GetBoolean(Constants.Variables.System.EnableAccessToken) ?? false;
 
+            // fetch tags unless the endpoint data explicitly says otherwise
+            bool fetchTags = true;
+            if (endpoint.Data.ContainsKey(EndpointData.FetchTags))
+            {
+                fetchTags = StringUtil.ConvertToBoolean(endpoint.Data[EndpointData.FetchTags]);
+            }
+
             Trace.Info($"Repository url={repositoryUrl}");
             Trace.Info($"targetPath={targetPath}");
             Trace.Info($"sourceBranch={sourceBranch}");
@@ -305,6 +336,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             Trace.Info($"fetchDepth={fetchDepth}");
             Trace.Info($"gitLfsSupport={gitLfsSupport}");
             Trace.Info($"acceptUntrustedCerts={acceptUntrustedCerts}");
+            Trace.Info($"fetchTags={fetchTags}");
 
             bool preferGitFromPath = true;
             bool schannelSslBackend = false;
@@ -329,9 +361,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 executionContext.Output(StringUtil.Loc("SelfManageGitCreds"));
             }
 
+            bool gitUseSecureParameterPassing = AgentKnobs.GitUseSecureParameterPassing.GetValue(executionContext).AsBoolean();
+
+            Dictionary<string, string> gitEnv = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            // Git-lfs will try to pull down asset if any of the local/user/system setting exist.
+            // If customer didn't enable `LFS` in their pipeline definition, we will use ENV to disable LFS fetch/checkout.
+            if (!gitLfsSupport)
+            {
+                gitEnv["GIT_LFS_SKIP_SMUDGE"] = "1";
+                executionContext.Debug("GIT_LFS_SKIP_SMUDGE variable set to 1");
+            }
+
             // Initialize git command manager
             _gitCommandManager = HostContext.GetService<IGitCommandManager>();
-            await _gitCommandManager.LoadGitExecutionInfo(executionContext, useBuiltInGit: !preferGitFromPath);
+            await _gitCommandManager.LoadGitExecutionInfo(executionContext, useBuiltInGit: !preferGitFromPath, gitEnv);
 
             // Make sure the build machine met all requirements for the git repository
             // For now, the requirement we have are:
@@ -521,6 +565,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 // If any git commands exit with non-zero return code or any exception happened during git.exe invoke, fall back to delete the repo folder.
                 if (clean)
                 {
+                    await RunGitStatusIfSystemDebug(executionContext, targetPath);
+
                     Boolean softCleanSucceed = true;
 
                     // git clean -ffdx
@@ -599,6 +645,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 }
             }
 
+            await RunGitStatusIfSystemDebug(executionContext, targetPath);
+
             cancellationToken.ThrowIfCancellationRequested();
             executionContext.Progress(0, "Starting fetch...");
 
@@ -631,7 +679,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 // as long 2.9 git exist, VSTS repo, TFS repo and Github repo will use this to handle auth challenge.
                 if (GitUseAuthHeaderCmdlineArg)
                 {
-                    additionalFetchArgs.Add($"-c http.extraheader=\"AUTHORIZATION: {GenerateAuthHeader(username, password)}\"");
+                    string configKey = "http.extraheader";
+                    string args = ComposeGitArgs(executionContext, _gitCommandManager, configKey, username, password);
+                    additionalFetchArgs.Add(args);
                 }
                 else
                 {
@@ -719,7 +769,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     if (GitLfsUseAuthHeaderCmdlineArg)
                     {
                         string authorityUrl = repositoryUrl.AbsoluteUri.Replace(repositoryUrl.PathAndQuery, string.Empty);
-                        additionalLfsFetchArgs.Add($"-c http.{authorityUrl}.extraheader=\"AUTHORIZATION: {GenerateAuthHeader(username, password)}\"");
+                        string configKey = $"http.{authorityUrl}.extraheader";
+                        string lfsFetchArgs = ComposeGitArgs(executionContext, _gitCommandManager, configKey, username, password);
+                        additionalLfsFetchArgs.Add(lfsFetchArgs);
                     }
                     else
                     {
@@ -757,7 +809,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 additionalFetchSpecs.Add(StringUtil.Format("+{0}:{1}", sourceBranch, GetRemoteRefName(sourceBranch)));
             }
 
-            int exitCode_fetch = await _gitCommandManager.GitFetch(executionContext, targetPath, "origin", fetchDepth, additionalFetchSpecs, string.Join(" ", additionalFetchArgs), cancellationToken);
+            int exitCode_fetch = await _gitCommandManager.GitFetch(executionContext, targetPath, "origin", fetchDepth, fetchTags, additionalFetchSpecs, string.Join(" ", additionalFetchArgs), cancellationToken);
             if (exitCode_fetch != 0)
             {
                 throw new InvalidOperationException($"Git fetch failed with exit code: {exitCode_fetch}");
@@ -825,7 +877,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     if (GitUseAuthHeaderCmdlineArg)
                     {
                         string authorityUrl = repositoryUrl.AbsoluteUri.Replace(repositoryUrl.PathAndQuery, string.Empty);
-                        additionalSubmoduleUpdateArgs.Add($"-c http.{authorityUrl}.extraheader=\"AUTHORIZATION: {GenerateAuthHeader(username, password)}\"");
+                        string configKey = $"http.{authorityUrl}.extraheader";
+                        string submoduleUpdateArgs = ComposeGitArgs(executionContext, _gitCommandManager, configKey, username, password);
+                        additionalSubmoduleUpdateArgs.Add(submoduleUpdateArgs);
                     }
 
                     // Prepare proxy config for submodule update.
@@ -888,10 +942,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     string configKey = $"http.{repositoryUrl.AbsoluteUri}.extraheader";
                     string configValue = $"\"AUTHORIZATION: {GenerateAuthHeader(username, password)}\"";
                     _configModifications[configKey] = configValue.Trim('\"');
-                    int exitCode_config = await _gitCommandManager.GitConfig(executionContext, targetPath, configKey, configValue);
-                    if (exitCode_config != 0)
+
+                    if (gitUseSecureParameterPassing)
                     {
-                        throw new InvalidOperationException($"Git config failed with exit code: {exitCode_config}");
+                        await SetAuthTokenInGitConfig(executionContext, _gitCommandManager, targetPath, configKey, configValue.Trim('\"'));
+                    }
+                    else
+                    {
+                        int exitCode_config = await _gitCommandManager.GitConfig(executionContext, targetPath, configKey, configValue);
+                        if (exitCode_config != 0)
+                        {
+                            throw new InvalidOperationException($"Git config failed with exit code: {exitCode_config}");
+                        }
                     }
                 }
 
@@ -1005,10 +1067,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         string configKey = $"http.{repositoryUrl.AbsoluteUri}.extraheader";
                         string configValue = $"\"AUTHORIZATION: {GenerateAuthHeader(username, password)}\"";
                         _configModifications[configKey] = configValue.Trim('\"');
-                        int exitCode_config = await _gitCommandManager.GitConfig(executionContext, targetPath, configKey, configValue);
-                        if (exitCode_config != 0)
+
+                        if (gitUseSecureParameterPassing)
                         {
-                            throw new InvalidOperationException($"Git config failed with exit code: {exitCode_config}");
+                            await SetAuthTokenInGitConfig(executionContext, _gitCommandManager, targetPath, configKey, configValue.Trim('\"'));
+                        }
+                        else
+                        {
+                            int exitCode_config = await _gitCommandManager.GitConfig(executionContext, targetPath, configKey, configValue);
+                            if (exitCode_config != 0)
+                            {
+                                throw new InvalidOperationException($"Git config failed with exit code: {exitCode_config}");
+                            }
                         }
                     }
 
@@ -1027,6 +1097,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 {
                     executionContext.Debug("Remove git.sslkey askpass file.");
                     IOUtil.DeleteFile(_clientCertPrivateKeyAskPassFile);
+                }
+            }
+
+            await RunGitStatusIfSystemDebug(executionContext, targetPath);
+        }
+
+        private async Task RunGitStatusIfSystemDebug(IExecutionContext executionContext, string targetPath)
+        {
+            if (executionContext.WriteDebug)
+            {
+                var exitCode_gitStatus = await _gitCommandManager.GitStatus(executionContext, targetPath);
+
+                if (exitCode_gitStatus != 0)
+                {
+                    executionContext.Warning($"git status failed with exit code: {exitCode_gitStatus}");
                 }
             }
         }
@@ -1114,6 +1199,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     throw new InvalidOperationException($"Git prune failed with exit code: {exitCode_prune}");
                 }
 
+                // git lfs prune
+                var lfsVersion = await _gitCommandManager.GitLfsVersion(executionContext);
+                if (lfsVersion is null)
+                {
+                    executionContext.Debug("Machine does not have git-lfs installed. Skipping git lfs prune");
+                } else
+                {
+                    int exitCode_lFSPrune = await _gitCommandManager.GitLFSPrune(executionContext, repositoryPath);
+                    if (exitCode_lFSPrune != 0)
+                    {
+                        throw new InvalidOperationException($"Git lfs prune failed with exit code: {exitCode_lFSPrune}");
+                    }
+                }
+
                 // git count-objects after git repack
                 executionContext.Output("Repository status after executing 'git repack'");
                 int exitCode_countobjectsafter = await _gitCommandManager.GitCountObjects(executionContext, repositoryPath);
@@ -1179,7 +1278,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 // if unable to use git.exe unset http.extraheader, http.proxy or core.askpass, modify git config file on disk. make sure we don't left credential.
                 if (!string.IsNullOrEmpty(configValue))
                 {
-                    executionContext.Warning(StringUtil.Loc("AttemptRemoveCredFromConfig"));
+                    executionContext.Warning(StringUtil.Loc("AttemptRemoveCredFromConfig", configKey));
                     string gitConfig = Path.Combine(targetPath, ".git/config");
                     if (File.Exists(gitConfig))
                     {
@@ -1203,6 +1302,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 {
                     executionContext.Warning(StringUtil.Loc("FailToRemoveGitConfig", configKey, configKey, targetPath));
                 }
+            }
+        }
+
+        private async Task ReplaceTokenPlaceholder(IExecutionContext executionContext, string targetPath, string configKey, string tokenPlaceholderConfigValue, string configValue)
+        {
+            //modify git config file on disk.
+            if (!string.IsNullOrEmpty(configValue))
+            {
+                string gitConfig = Path.Combine(targetPath, ".git", "config");
+                if (File.Exists(gitConfig))
+                {
+                    string gitConfigContent = File.ReadAllText(gitConfig);
+                    using (StreamWriter config = new StreamWriter(gitConfig))
+                    {
+                        if (gitConfigContent.Contains(tokenPlaceholderConfigValue))
+                        {
+                            executionContext.Debug($"Replace token placeholder in git config file");
+                            gitConfigContent = Regex.Replace(gitConfigContent, tokenPlaceholderConfigValue, configValue, RegexOptions.IgnoreCase);
+                        }
+                        await config.WriteAsync(gitConfigContent);
+                    }
+                }
+            }
+            else
+            {
+                executionContext.Warning(StringUtil.Loc("FailToReplaceTokenPlaceholderInGitConfig", configKey));
             }
         }
 
@@ -1266,6 +1391,56 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
 
             return refName;
+        }
+
+        private string ComposeGitArgs(IExecutionContext executionContext,
+            IGitCommandManager gitCommandManager,
+            string configKey,
+            string username,
+            string password)
+        {
+            bool gitSupportsConfigEnv = GitSupportsConfigEnv(executionContext, gitCommandManager);
+            bool gitUseSecureParameterPassing = AgentKnobs.GitUseSecureParameterPassing.GetValue(executionContext).AsBoolean();
+            string configValue = $"AUTHORIZATION: {GenerateAuthHeader(username, password)}";
+
+            // if git version is v2.31 or higher and GitUseSecureParameterPassing knob is enabled
+            if (gitSupportsConfigEnv && gitUseSecureParameterPassing)
+            {
+                string envVariableName = $"env_var_{configKey}";
+                Environment.SetEnvironmentVariable(envVariableName, configValue);
+
+                executionContext.Debug($"Set environment variable {envVariableName}");
+                return $"--config-env={configKey}={envVariableName}";
+            }
+            else
+            {
+                executionContext.Debug($"Use git -c option");
+                return $"-c {configKey}=\"{configValue}\"";
+            }
+        }
+
+        private async Task SetAuthTokenInGitConfig(IExecutionContext executionContext,
+            IGitCommandManager gitCommandManager,
+            string targetPath,
+            string configKey,
+            string configValue)
+        {
+            // Configure a placeholder value. This approach avoids the credential being captured
+            // by process creation audit events, which are commonly logged. For more information,
+            // refer to https://docs.microsoft.com/en-us/windows-server/identity/ad-ds/manage/component-updates/command-line-process-auditing
+
+            Guid tokenPlaceholder = Guid.NewGuid();
+            string tokenPlaceholderConfigValue = $"\"AUTHORIZATION: placeholder_{tokenPlaceholder}\"";
+
+            executionContext.Debug($"Configured placeholder: {tokenPlaceholderConfigValue}");
+
+            int exitCode_config = await gitCommandManager.GitConfig(executionContext, targetPath, configKey, tokenPlaceholderConfigValue);
+            if (exitCode_config != 0)
+            {
+                throw new InvalidOperationException($"Git config failed with exit code: {exitCode_config}");
+            }
+
+            await ReplaceTokenPlaceholder(executionContext, targetPath, configKey, tokenPlaceholderConfigValue.Trim('\"'), configValue);
         }
     }
 }

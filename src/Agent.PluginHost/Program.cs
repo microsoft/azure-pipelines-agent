@@ -6,12 +6,14 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.Loader;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
+using Agent.Sdk.Util;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 
@@ -68,9 +70,16 @@ namespace Agent.PluginHost
                         ArgUtil.NotNull(taskPlugin, nameof(taskPlugin));
                         taskPlugin.RunAsync(executionContext, tokenSource.Token).GetAwaiter().GetResult();
                     }
+                    catch (SocketException ex)
+                    {
+                        ExceptionsUtil.HandleSocketException(ex, executionContext.VssConnection.Uri.ToString(), executionContext.Error);
+                    }
+                    catch (AggregateException ex)
+                    {
+                        ExceptionsUtil.HandleAggregateException((AggregateException)ex, executionContext.Error);
+                    }
                     catch (Exception ex)
                     {
-                        // any exception throw from plugin will fail the task.
                         executionContext.Error(ex.Message);
                         executionContext.Debug(ex.StackTrace);
                     }

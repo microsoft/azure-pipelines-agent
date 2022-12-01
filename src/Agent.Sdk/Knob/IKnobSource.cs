@@ -3,11 +3,10 @@
 
 namespace Agent.Sdk.Knob
 {
-
     public interface IKnobSource
     {
         KnobValue GetValue(IKnobValueContext context);
+
         string GetDisplayString();
     }
-
 }

@@ -178,11 +178,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             string entryScript = Container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, Container.TranslateToContainerPath(targetEntryScript));
 
             string userArgs = "";
+            string workingDirectoryParam = "";
             if (!PlatformUtil.RunningOnWindows)
             {
                 userArgs = $"-u {Container.CurrentUserId}";
+                if (Container.CurrentUserName == "root")
+                {
+                    workingDirectoryParam = $" -w /root";
+                }
+                else
+                {
+                    workingDirectoryParam = $" -w /home/{Container.CurrentUserName}";
+                }
             }
-            string containerExecutionArgs = $"exec -i {userArgs} {Container.ContainerId} {node} {entryScript}";
+
+            string containerExecutionArgs = $"exec -i {userArgs} {workingDirectoryParam} {Container.ContainerId} {node} {entryScript}";
 
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
             {

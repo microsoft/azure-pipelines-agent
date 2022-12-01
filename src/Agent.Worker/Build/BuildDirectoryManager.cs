@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
 
@@ -55,7 +56,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             // Create the tracking config for this execution of the pipeline
             var agentSettings = HostContext.GetService<IConfigurationStore>().GetSettings();
-            var newConfig = trackingManager.Create(executionContext, repositories, ShouldOverrideBuildDirectory(repositories, agentSettings));
+            var shouldOverrideBuildDirectory = ShouldOverrideBuildDirectory(repositories, agentSettings);
+            var newConfig = trackingManager.Create(executionContext, repositories, shouldOverrideBuildDirectory);
 
             // Load the tracking config from the last execution of the pipeline
             var existingConfig = trackingManager.LoadExistingTrackingConfig(executionContext);
@@ -63,7 +65,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // If there aren't any major changes, merge the configurations and use the same workspace
             if (trackingManager.AreTrackingConfigsCompatible(executionContext, newConfig, existingConfig))
             {
-                newConfig = trackingManager.MergeTrackingConfigs(executionContext, newConfig, existingConfig);
+                bool disableOverrideTfvcBuildDirectoryKnob = AgentKnobs.DisableOverrideTfvcBuildDirectory.GetValue(executionContext).AsBoolean();
+                newConfig = trackingManager.MergeTrackingConfigs(executionContext, newConfig, existingConfig, shouldOverrideBuildDirectory && !disableOverrideTfvcBuildDirectoryKnob);
             }
             else if (existingConfig != null)
             {
@@ -122,7 +125,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // Set the default clone path for each repository (the Checkout task may override this later)
             foreach (var repository in repositories)
             {
-                var repoPath = GetDefaultRepositoryPath(executionContext, repository, newConfig.SourcesDirectory);
+                string repoPath = GetDefaultRepositoryPath(executionContext, repository, newConfig);
 
                 if (!string.Equals(repoPath, defaultSourceDirectory, StringComparison.Ordinal))
                 {
@@ -290,18 +293,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         private string GetDefaultRepositoryPath(
             IExecutionContext executionContext,
             RepositoryResource repository,
-            string defaultSourcesDirectory)
+            TrackingConfig newConfig
+            )
         {
+            string repoPath = String.Empty;
+            string workDirectory = HostContext.GetDirectory(WellKnownDirectory.Work);
+
             if (RepositoryUtil.HasMultipleCheckouts(executionContext.JobSettings))
             {
                 // If we have multiple checkouts they should all be rooted to the sources directory (_work/1/s/repo1)
-                return Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), defaultSourcesDirectory, RepositoryUtil.GetCloneDirectory(repository));
+                var repoSourceDirectory = newConfig?.RepositoryTrackingInfo.Where(item => string.Equals(item.Identifier, repository.Alias, StringComparison.OrdinalIgnoreCase)).Select(item => item.SourcesDirectory).FirstOrDefault();
+                if (repoSourceDirectory != null)
+                {
+                    repoPath = Path.Combine(workDirectory, repoSourceDirectory);
+                }
+                else
+                {
+                    repoPath = Path.Combine(workDirectory, newConfig.SourcesDirectory, RepositoryUtil.GetCloneDirectory(repository));
+                }
             }
             else
             {
                 // For single checkouts, the repository is rooted to the sources folder (_work/1/s)
-                return Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), defaultSourcesDirectory);
+                repoPath = Path.Combine(workDirectory, newConfig.SourcesDirectory);
             }
+
+            return repoPath;
         }
     }
 }

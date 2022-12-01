@@ -148,9 +148,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             {
                 Reference = new TaskStepDefinitionReference
                 {
-                    Id = Guid.Parse("e9bafed4-0b18-4f58-968d-86655b4d2ce9"),
+                    Id = Guid.Parse("f9bafed4-0b18-4f58-968d-86655b4d2ce9"),
                     Name = "CmdLine",
-                    Version = "2.177.3"
+                    Version = "2.201.1"
                 },
                 Name = "CmdLine",
                 DisplayName = "CmdLine",
@@ -194,7 +194,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             var stringFile = Path.Combine(assemblyLocation, "en-US", "strings.json");
             StringUtil.LoadExternalLocalization(stringFile);
 
-            _l1HostContext = new L1HostContext("Agent", GetLogFile(this, testName));
+            _l1HostContext = new L1HostContext(HostType.Agent, GetLogFile(this, testName));
             SetupMocks(_l1HostContext);
 
             // Use different working directories for each test

@@ -3,17 +3,22 @@
 
 using Agent.Sdk;
 using Agent.Sdk.Knob;
+using Agent.Sdk.Util;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Common;
+using Microsoft.VisualStudio.Services.WebApi;
+using Newtonsoft.Json;
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -34,6 +39,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         private IAgentServer _agentServer;
         private int _poolId;
         private int _agentId;
+        private string _serverUrl;
+        private VssCredentials _creds;
+        private ILocationServer _locationServer;
+        private bool _hashValidationDisabled;
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -46,6 +55,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             var settings = configStore.GetSettings();
             _poolId = settings.PoolId;
             _agentId = settings.AgentId;
+            _serverUrl = settings.ServerUrl;
+            var credManager = HostContext.GetService<ICredentialManager>();
+            _creds = credManager.LoadCredentials();
+            _locationServer = HostContext.GetService<ILocationServer>();
+            _hashValidationDisabled = AgentKnobs.DisableHashValidation.GetValue(_knobContext).AsBoolean();
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "invokeScript")]
@@ -134,6 +148,40 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Trace.Info($"Current running agent version is {BuildConstants.AgentPackage.Version}");
             PackageVersion agentVersion = new PackageVersion(BuildConstants.AgentPackage.Version);
 
+            //Checking if current system support .NET 6 agent
+            if (agentVersion.Major == 2 && serverVersion.Major == 3)
+            {
+                Trace.Verbose("Checking if your system supports .NET 6");
+
+                try
+                {
+                    string systemId = PlatformUtil.GetSystemId();
+                    SystemVersion systemVersion = PlatformUtil.GetSystemVersion();
+
+                    Trace.Verbose($"The system you are running on: \"{systemId}\" ({systemVersion})");
+
+                    if (PlatformUtil.DoesSystemPersistsInNet6Whitelist())
+                    {
+                        // Check version of the system
+                        if (!PlatformUtil.IsNet6Supported())
+                        {
+                            Trace.Warning($"The operating system the agent is running on is \"{systemId}\" ({systemVersion}), which will not be supported by the .NET 6 based v3 agent. Please upgrade the operating system of this host to ensure compatibility with the v3 agent. See https://aka.ms/azdo-pipeline-agent-version");
+                            return false;
+                        }
+                    } else
+                    {
+                        Trace.Warning($"The operating system the agent is running on is \"{systemId}\" ({systemVersion}), which has not been tested with the .NET 6 based v3 agent. The v2 agent wil not automatically upgrade to the v3 agent. You can manually download the .NET 6 based v3 agent from https://github.com/microsoft/azure-pipelines-agent/releases. See https://aka.ms/azdo-pipeline-agent-version");
+                        return false;
+                    }
+
+                    Trace.Verbose("The system persists in the list of systems supporting .NET 6");
+                }
+                catch (Exception ex)
+                {
+                    Trace.Error($"Error has occurred while checking if system supports .NET 6: {ex}");
+                }
+            }
+
             if (serverVersion.CompareTo(agentVersion) > 0)
             {
                 return true;
@@ -152,6 +200,47 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 return true;
             }
 
+            return false;
+        }
+
+        private bool HashValidation(string archiveFile)
+        {
+            if (_hashValidationDisabled)
+            {
+                Trace.Info($"Agent package hash validation disabled, so skipping it");
+                return true;
+            }
+
+            // DownloadUrl for offline agent update is started from Url of ADO On-Premises
+            // DownloadUrl for online agent update is started from Url of feed with agent packages
+            bool isOfflineUpdate = _targetPackage.DownloadUrl.StartsWith(_serverUrl);
+            if (isOfflineUpdate)
+            {
+                Trace.Info($"Skipping checksum validation for offline agent update");
+                return true;
+            }
+
+            if (string.IsNullOrEmpty(_targetPackage.HashValue))
+            {
+                Trace.Warning($"Unable to perform the necessary checksum validation since the target package hash is missed");
+                return false;
+            }
+
+            string expectedHash = _targetPackage.HashValue;
+            string actualHash = IOUtil.GetFileHash(archiveFile);
+            bool hashesMatch = StringUtil.AreHashesEqual(actualHash, expectedHash);
+
+            if (hashesMatch)
+            {
+                Trace.Info($"Checksum validation succeeded");
+                return true;
+            }
+
+            // A hash mismatch can occur in two cases:
+            // 1) The archive is compromised
+            // 2) The archive was not fully downloaded or was damaged during downloading
+            // There is no way to determine the case so we just return false in both cases (without throwing an exception)
+            Trace.Warning($"Checksum validation failed\n  Expected hash: '{expectedHash}'\n  Actual hash: '{actualHash}'");
             return false;
         }
 
@@ -175,11 +264,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             int agentSuffix = 1;
             string archiveFile = null;
             bool downloadSucceeded = false;
+            bool validationSucceeded = false;
 
             try
             {
                 // Download the agent, using multiple attempts in order to be resilient against any networking/CDN issues
-                for (int attempt = 1; attempt <= Constants.AgentDownloadRetryMaxAttempts; attempt++)
+                for (int attempt = 1; attempt <= Constants.AgentDownloadRetryMaxAttempts && !validationSucceeded; attempt++)
                 {
                     // Generate an available package name, and do our best effort to clean up stale local zip files
                     while (true)
@@ -193,22 +283,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             archiveFile = Path.Combine(latestAgentDirectory, $"agent{agentSuffix}.tar.gz");
                         }
 
-                        try
+                        // The package name is generated, check if there is already a file with the same name and path
+                        if (!string.IsNullOrEmpty(archiveFile) && File.Exists(archiveFile))
                         {
-                            // delete .zip file
-                            if (!string.IsNullOrEmpty(archiveFile) && File.Exists(archiveFile))
+                            Trace.Verbose("Deleting latest agent package zip '{0}'", archiveFile);
+                            try
                             {
-                                Trace.Verbose("Deleting latest agent package zip '{0}'", archiveFile);
+                                // Such a file already exists, so try deleting it
                                 IOUtil.DeleteFile(archiveFile);
-                            }
 
-                            break;
+                                // The file was successfully deleted, so we can use the generated package name
+                                break;
+                            }
+                            catch (Exception ex)
+                            {
+                                // Couldn't delete the file for whatever reason, so generate another package name
+                                Trace.Warning("Failed to delete agent package zip '{0}'. Exception: {1}", archiveFile, ex);
+                                agentSuffix++;
+                            }
                         }
-                        catch (Exception ex)
+                        else
                         {
-                            // couldn't delete the file for whatever reason, so generate another name
-                            Trace.Warning("Failed to delete agent package zip '{0}'. Exception: {1}", archiveFile, ex);
-                            agentSuffix++;
+                            // There is no a file with the same name and path, so we can use the generated package name
+                            break;
                         }
                     }
 
@@ -236,13 +333,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             }
 
                             Trace.Info($"Download agent: finished download");
+
                             downloadSucceeded = true;
-                            break;
+                            validationSucceeded = HashValidation(archiveFile);
                         }
                         catch (OperationCanceledException) when (token.IsCancellationRequested)
                         {
                             Trace.Info($"Agent download has been canceled.");
                             throw;
+                        }
+                        catch (SocketException ex)
+                        {
+                            ExceptionsUtil.HandleSocketException(ex, _targetPackage.DownloadUrl, Trace.Warning);
                         }
                         catch (Exception ex)
                         {
@@ -258,7 +360,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
                 if (!downloadSucceeded)
                 {
-                    throw new TaskCanceledException($"Agent package '{archiveFile}' failed after {Constants.AgentDownloadRetryMaxAttempts} download attempts");
+                    throw new TaskCanceledException($"Agent package '{archiveFile}' failed after {Constants.AgentDownloadRetryMaxAttempts} download attempts.");
+                }
+
+                if (!validationSucceeded)
+                {
+                    throw new TaskCanceledException(@"Agent package checksum validation failed.
+There are possible reasons why this happened:
+  1) The agent package was compromised.
+  2) The agent package was not fully downloaded or was corrupted during the download process.
+You can skip checksum validation for the agent package by setting the environment variable DISABLE_HASH_VALIDATION=true");
                 }
 
                 // If we got this far, we know that we've successfully downloadeded the agent package
@@ -323,6 +434,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 {
                     //it is not critical if we fail to delete the .zip file
                     Trace.Warning("Failed to delete agent package zip '{0}'. Exception: {1}", archiveFile, ex);
+                }
+            }
+
+            if (!String.IsNullOrEmpty(AgentKnobs.DisableAuthenticodeValidation.GetValue(HostContext).AsString()))
+            {
+                Trace.Warning("Authenticode validation skipped for downloaded agent package since it is disabled currently by agent settings.");
+            }
+            else
+            {
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    var isValid = this.VerifyAgentAuthenticode(latestAgentDirectory);
+                    if (!isValid)
+                    {
+                        throw new Exception("Authenticode validation of agent assemblies failed.");
+                    }
+                    else
+                    {
+                        Trace.Info("Authenticode validation of agent assemblies passed successfully.");
+                    }
+                }
+                else
+                {
+                    Trace.Info("Authenticode validation skipped since it's not supported on non-Windows platforms at the moment.");
                 }
             }
 
@@ -456,7 +591,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         private string GenerateUpdateScript(bool restartInteractiveAgent)
         {
             int processId = Process.GetCurrentProcess().Id;
-            string updateLog = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Diag), $"SelfUpdate-{DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")}.log");
+            string updateLog = Path.Combine(HostContext.GetDiagDirectory(), $"SelfUpdate-{DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")}.log");
             string agentRoot = HostContext.GetDirectory(WellKnownDirectory.Root);
 
             string templateName = "update.sh.template";
@@ -510,6 +645,41 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 Trace.Error(ex);
                 Trace.Info($"Catch exception during report update state, ignore this error and continue auto-update.");
             }
+        }
+        /// <summary>
+        /// Verifies authenticode sign of agent assemblies
+        /// </summary>
+        /// <param name="agentFolderPath"></param>
+        /// <returns></returns>
+        private bool VerifyAgentAuthenticode(string agentFolderPath)
+        {
+            if (!Directory.Exists(agentFolderPath))
+            {
+                Trace.Error($"Agent folder {agentFolderPath} not found.");
+                return false;
+            }
+
+            var agentDllFiles = Directory.GetFiles(agentFolderPath, "*.dll", SearchOption.AllDirectories);
+            var agentExeFiles = Directory.GetFiles(agentFolderPath, "*.exe", SearchOption.AllDirectories);
+
+            var agentAssemblies = agentDllFiles.Concat(agentExeFiles);
+            Trace.Verbose(String.Format("Found {0} agent assemblies. Performing authenticode validation...", agentAssemblies.Count()));
+
+            foreach (var assemblyFile in agentAssemblies)
+            {
+                FileInfo info = new FileInfo(assemblyFile);
+                try
+                {
+                    InstallerVerifier.VerifyFileSignedByMicrosoft(info.FullName, this.Trace);
+                }
+                catch (Exception e)
+                {
+                    Trace.Error(e);
+                    return false;
+                }
+            }
+
+            return true;
         }
     }
 

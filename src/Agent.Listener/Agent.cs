@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Util;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.Agent.Listener.Diagnostics;
@@ -222,7 +223,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         }
                         else
                         {
-                            Trace.Info($"Autologon is configured on the machine but current Agent.Listner.exe is launched from the windows service");
+                            Trace.Info($"Autologon is configured on the machine but current Agent.Listener.exe is launched from the windows service");
                         }
                     }
                 }
@@ -454,10 +455,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                     Trace.Info($"Skip message deletion for cancellation message '{message.MessageId}'.");
                                 }
                             }
+                            else if (string.Equals(message.MessageType, JobMetadataMessage.MessageType, StringComparison.OrdinalIgnoreCase))
+                            {
+                                var metadataMessage = JsonUtility.FromString<JobMetadataMessage>(message.Body);
+                                jobDispatcher.MetadataUpdate(metadataMessage);
+                            }
                             else
                             {
                                 Trace.Error($"Received message {message.MessageId} with unsupported message type {message.MessageType}.");
                             }
+                        }
+                        catch (AggregateException e)
+                        {
+                            ExceptionsUtil.HandleAggregateException((AggregateException)e, Trace.Error);
                         }
                         finally
                         {

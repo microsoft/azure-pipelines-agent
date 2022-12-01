@@ -24,7 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             IntPtr processHandle = process.SafeHandle.DangerousGetHandle();
 
             IntPtr environmentBlockAddress;
-            if (Environment.Is64BitOperatingSystem)
+            if (Environment.Is64BitProcess)
             {
                 PROCESS_BASIC_INFORMATION64 pbi = new PROCESS_BASIC_INFORMATION64();
                 int returnLength = 0;

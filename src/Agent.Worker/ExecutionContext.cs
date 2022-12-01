@@ -55,8 +55,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         // logging
         bool WriteDebug { get; }
-        long Write(string tag, string message);
+        long Write(string tag, string message, bool canMaskSecrets = true);
         void QueueAttachFile(string type, string name, string filePath);
+        ITraceWriter GetTraceWriter();
 
         // timeline record update methods
         void Start(string currentOperation = null);
@@ -74,6 +75,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         void SetStepTarget(Pipelines.StepTarget target);
         string TranslatePathForStepTarget(string val);
         IHostContext GetHostContext();
+        /// <summary>
+        /// Re-initializes force completed - between next retry attempt
+        /// </summary>
+        /// <returns></returns>
+        void ReInitializeForceCompleted();
+        /// <summary>
+        /// Cancel force task completion between retry attempts
+        /// </summary>
+        /// <returns></returns>
+        void CancelForceTaskCompletion();
     }
 
     public sealed class ExecutionContext : AgentService, IExecutionContext, IDisposable
@@ -96,6 +107,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private Guid _detailTimelineId;
         private int _childTimelineRecordOrder = 0;
         private CancellationTokenSource _cancellationTokenSource;
+        private CancellationTokenSource _forceCompleteCancellationTokenSource = new CancellationTokenSource();
         private TaskCompletionSource<int> _forceCompleted = new TaskCompletionSource<int>();
         private bool _throttlingReported = false;
         private ExecutionTargetInfo _defaultStepTarget;
@@ -112,6 +124,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public Guid Id => _record.Id;
         public Task ForceCompleted => _forceCompleted.Task;
         public CancellationToken CancellationToken => _cancellationTokenSource.Token;
+        public CancellationToken ForceCompleteCancellationToken => _forceCompleteCancellationTokenSource.Token;
         public List<ServiceEndpoint> Endpoints { get; private set; }
         public List<SecureFile> SecureFiles { get; private set; }
         public List<Pipelines.RepositoryResource> Repositories { get; private set; }
@@ -164,7 +177,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             if (_disableLogUploads)
             {
-                _buildLogsFolderPath = Path.Combine(hostContext.GetDirectory(WellKnownDirectory.Diag), _buildLogsFolderName);
+                _buildLogsFolderPath = Path.Combine(hostContext.GetDiagDirectory(), _buildLogsFolderName);
                 Directory.CreateDirectory(_buildLogsFolderPath);
             }
 
@@ -181,9 +194,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Trace.Info("Force finish current task in 5 sec.");
             Task.Run(async () =>
             {
-                await Task.Delay(TimeSpan.FromSeconds(5));
-                _forceCompleted?.TrySetResult(1);
+                await Task.Delay(TimeSpan.FromSeconds(5), ForceCompleteCancellationToken);
+                if (!ForceCompleteCancellationToken.IsCancellationRequested)
+                {
+                    _forceCompleted?.TrySetResult(1);
+                }
             });
+        }
+
+        public void CancelForceTaskCompletion()
+        {
+            Trace.Info($"Forced completion canceled");
+            this._forceCompleteCancellationTokenSource.Cancel();
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1721: Property names should not match get methods")]
@@ -631,6 +653,43 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Hook up JobServerQueueThrottling event, we will log warning on server tarpit.
             _jobServerQueue.JobServerQueueThrottling += JobServerQueueThrottling_EventReceived;
+
+            // Check if a system supports .NET 6
+            PackageVersion agentVersion = new PackageVersion(BuildConstants.AgentPackage.Version);
+
+            if (agentVersion.Major < 3)
+            {
+                try
+                {
+                    Trace.Verbose("Checking if your system supports .NET 6");
+
+                    string systemId = PlatformUtil.GetSystemId();
+                    SystemVersion systemVersion = PlatformUtil.GetSystemVersion();
+                    string notSupportNet6Message = null;
+
+                    if (PlatformUtil.DoesSystemPersistsInNet6Whitelist())
+                    {
+                        // Check version of the system
+                        if (!PlatformUtil.IsNet6Supported())
+                        {
+                            notSupportNet6Message = $"The operating system the agent is running on is \"{systemId}\" ({systemVersion}), which will not be supported by the .NET 6 based v3 agent. Please upgrade the operating system of this host to ensure compatibility with the v3 agent. See https://aka.ms/azdo-pipeline-agent-version";
+                        }
+                    }
+                    else
+                    {
+                        notSupportNet6Message = $"The operating system the agent is running on is \"{systemId}\" ({systemVersion}), which has not been tested with the .NET 6 based v3 agent. The v2 agent wil not automatically upgrade to the v3 agent. You can manually download the .NET 6 based v3 agent from https://github.com/microsoft/azure-pipelines-agent/releases. See https://aka.ms/azdo-pipeline-agent-version";
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(notSupportNet6Message))
+                    {
+                        AddIssue(new Issue() { Type = IssueType.Warning, Message = notSupportNet6Message });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Trace.Error($"Error has occurred while checking if system supports .NET 6: {ex}");
+                }
+            }
         }
 
         private string GetWorkspaceIdentifier(Pipelines.AgentJobRequestMessage message)
@@ -647,9 +706,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // Do not add a format string overload. In general, execution context messages are user facing and
         // therefore should be localized. Use the Loc methods from the StringUtil class. The exception to
         // the rule is command messages - which should be crafted using strongly typed wrapper methods.
-        public long Write(string tag, string message)
+        public long Write(string tag, string inputMessage, bool canMaskSecrets = true)
         {
-            string msg = HostContext.SecretMasker.MaskSecrets($"{tag}{message}");
+            string message = canMaskSecrets ? HostContext.SecretMasker.MaskSecrets($"{tag}{inputMessage}") : inputMessage;
+
             long totalLines;
             lock (_loggerLock)
             {
@@ -657,11 +717,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 if (_disableLogUploads)
                 {
-                    _buildLogsWriter.WriteLine(msg);
+                    _buildLogsWriter.WriteLine(message);
                 }
                 else
                 {
-                    _logger.Write(msg);
+                    _logger.Write(message);
                 }
             }
 
@@ -673,11 +733,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     lock (parentContext._loggerLock)
                     {
-                        parentContext._logger.Write(msg);
+                        parentContext._logger.Write(message);
                     }
                 }
 
-                _jobServerQueue.QueueWebConsoleLine(_record.Id, msg, totalLines);
+                _jobServerQueue.QueueWebConsoleLine(_record.Id, message, totalLines);
             }
 
             // write to plugin daemon,
@@ -688,7 +748,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     _logPlugin = HostContext.GetService<IAgentLogPlugin>();
                 }
 
-                _logPlugin.Write(_record.Id, msg);
+                _logPlugin.Write(_record.Id, message);
             }
 
             return totalLines;
@@ -706,6 +766,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             _jobServerQueue.QueueFileUpload(_mainTimelineId, _record.Id, type, name, filePath, deleteSource: false);
+        }
+
+        public ITraceWriter GetTraceWriter()
+        {
+            return Trace;
         }
 
         private void InitializeTimelineRecord(Guid timelineId, Guid timelineRecordId, Guid? parentTimelineRecordId, string recordType, string displayName, string refName, int? order)
@@ -789,11 +854,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public string TranslatePathForStepTarget(string val)
         {
             var stepTarget = StepTarget();
-            if (stepTarget != null)
+            var isCheckoutType = Convert.ToBoolean(this.Variables.Get(Constants.Variables.Task.SkipTranslatorForCheckout, true));
+            if (stepTarget == null || (isCheckoutType && (_currentStepTarget == null || stepTarget is HostInfo)))
             {
-                return stepTarget.TranslateContainerPathForImageOS(PlatformUtil.HostOS, stepTarget.TranslateToContainerPath(val));
+                return val;
             }
-            return val;
+            return stepTarget.TranslateContainerPathForImageOS(PlatformUtil.HostOS, stepTarget.TranslateToContainerPath(val));
         }
 
         public ExecutionTargetInfo StepTarget()
@@ -834,9 +900,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return new SystemEnvironment();
         }
 
+        public void ReInitializeForceCompleted()
+        {
+            this._forceCompleted = new TaskCompletionSource<int>();
+            this._forceCompleteCancellationTokenSource = new CancellationTokenSource();
+        }
+
         public void Dispose()
         {
             _cancellationTokenSource?.Dispose();
+            _forceCompleteCancellationTokenSource?.Dispose();
 
             _buildLogsWriter?.Dispose();
             _buildLogsWriter = null;
@@ -873,10 +946,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
 
         // Do not add a format string overload. See comment on ExecutionContext.Write().
-        public static void Output(this IExecutionContext context, string message)
+        public static void Output(this IExecutionContext context, string message, bool canMaskSecrets = true)
         {
             ArgUtil.NotNull(context, nameof(context));
-            context.Write(null, message);
+            context.Write(null, message, canMaskSecrets);
         }
 
         // Do not add a format string overload. See comment on ExecutionContext.Write().

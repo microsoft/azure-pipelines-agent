@@ -4,11 +4,13 @@
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using System;
 using System.Collections.Generic;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Common;
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -108,6 +110,11 @@ namespace Microsoft.VisualStudio.Services.Agent
                         _messageConnection = newConnection;
                         _messageTaskAgentClient = client;
                     }
+                    catch (SocketException ex)
+                    {
+                        ExceptionsUtil.HandleSocketException(ex, _requestConnection.Uri.ToString(), Trace.Error);
+                        newConnection?.Dispose();
+                    }
                     catch (Exception ex)
                     {
                         Trace.Error($"Catch exception during reset {connectionType} connection.");
@@ -128,6 +135,11 @@ namespace Microsoft.VisualStudio.Services.Agent
                         _requestConnection = newConnection;
                         _requestTaskAgentClient = client;
                     }
+                    catch (SocketException ex)
+                    {
+                        ExceptionsUtil.HandleSocketException(ex, _requestConnection.Uri.ToString(), Trace.Error);
+                        newConnection?.Dispose();
+                    }
                     catch (Exception ex)
                     {
                         Trace.Error($"Catch exception during reset {connectionType} connection.");
@@ -147,6 +159,11 @@ namespace Microsoft.VisualStudio.Services.Agent
                         var client = newConnection.GetClient<TaskAgentHttpClient>();
                         _genericConnection = newConnection;
                         _genericTaskAgentClient = client;
+                    }
+                    catch (SocketException ex)
+                    {
+                        ExceptionsUtil.HandleSocketException(ex, _requestConnection.Uri.ToString(), Trace.Error);
+                        newConnection?.Dispose();
                     }
                     catch (Exception ex)
                     {
@@ -191,7 +208,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             int attemptCount = 5;
             while (attemptCount-- > 0)
             {
-                var connection = VssUtil.CreateConnection(serverUrl, credentials, timeout: timeout);
+                var connection = VssUtil.CreateConnection(serverUrl, credentials, timeout: timeout, trace: Trace);
                 try
                 {
                     await connection.ConnectAsync();

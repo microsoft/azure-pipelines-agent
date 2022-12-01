@@ -7,7 +7,9 @@ using Microsoft.VisualStudio.Services.WebPlatform;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Net.Sockets;
 using System.Threading.Tasks;
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
 {
@@ -79,6 +81,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
                 ciService = context.GetHostContext().GetService<ICustomerIntelligenceServer>();
                 vssConnection = WorkerUtilities.GetVssConnection(context);
                 ciService.Initialize(vssConnection);
+            }
+            catch (SocketException ex)
+            {
+                ExceptionsUtil.HandleSocketException(ex, WorkerUtilities.GetVssConnection(context).Uri.ToString(), context.Warning);
+                return;
             }
             catch (Exception ex)
             {

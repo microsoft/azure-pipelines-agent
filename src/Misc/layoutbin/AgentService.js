@@ -25,10 +25,10 @@ var runService = function() {
             if (interactive) {
                 console.log('Starting Agent listener interactively');                
                 // skip all paramters before interactive (inclusive)
-                listenerArgs = ['run'].concat(process.argv.splice(3));
+                listenerArgs = ['run'].concat(process.argv.slice(3));
             } else {
                 console.log('Starting Agent listener with startup type: service');
-                listenerArgs = ['run', '--startuptype', 'service'].concat(process.argv.splice(2))
+                listenerArgs = ['run', '--startuptype', 'service'].concat(process.argv.slice(2))
             }
 
             listener = childProcess.spawn(listenerExePath, listenerArgs, { env: process.env });

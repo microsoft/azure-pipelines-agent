@@ -7,7 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
-using Agent.Sdk.Blob;
+using Microsoft.VisualStudio.Services.Agent.Blob;
 using Agent.Plugins.PipelineArtifact.Telemetry;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
@@ -17,6 +17,7 @@ using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.BlobStore.Common;
 
 namespace Agent.Plugins
 {
@@ -37,12 +38,19 @@ namespace Agent.Plugins
             int pipelineId,
             string name,
             string source,
+            IDictionary<string, string> properties,
             CancellationToken cancellationToken)
         {
             VssConnection connection = context.VssConnection;
 
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                .CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, cancellationToken);
+                .CreateDedupManifestClientAsync(
+                    context.IsSystemDebugTrue(),
+                    (str) => context.Output(str),
+                    connection,
+                    DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
+                    WellKnownDomainIds.DefaultDomainId,
+                    cancellationToken);
 
             using (clientTelemetry)
             {
@@ -69,10 +77,13 @@ namespace Agent.Plugins
 
                 // 2) associate the pipeline artifact with an build artifact
                 BuildServer buildServer = new BuildServer(connection);
-                Dictionary<string, string> propertiesDictionary = new Dictionary<string, string>();
-                propertiesDictionary.Add(PipelineArtifactConstants.RootId, result.RootId.ValueString);
-                propertiesDictionary.Add(PipelineArtifactConstants.ProofNodes, StringUtil.ConvertToJson(result.ProofNodes.ToArray()));
-                propertiesDictionary.Add(PipelineArtifactConstants.ArtifactSize, result.ContentSize.ToString());
+
+                var propertiesDictionary = new Dictionary<string, string>(properties ?? new Dictionary<string, string>())
+                {
+                    { PipelineArtifactConstants.RootId, result.RootId.ValueString },
+                    { PipelineArtifactConstants.ProofNodes, StringUtil.ConvertToJson(result.ProofNodes.ToArray()) },
+                    { PipelineArtifactConstants.ArtifactSize, result.ContentSize.ToString() }
+                };
 
                 BuildArtifact buildArtifact = await AsyncHttpRetryHelper.InvokeAsync(
                     async () => 
@@ -128,7 +139,14 @@ namespace Agent.Plugins
         {
             VssConnection connection = context.VssConnection;
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                .CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, cancellationToken);
+                .CreateDedupManifestClientAsync(
+                    context.IsSystemDebugTrue(),
+                    (str) => context.Output(str),
+                    connection,
+                    DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
+                    WellKnownDomainIds.DefaultDomainId,
+                    cancellationToken);
+
             BuildServer buildServer = new BuildServer(connection);
 
             using (clientTelemetry)
@@ -175,7 +193,8 @@ namespace Agent.Plugins
                             downloadParameters.TargetDirectory,
                             proxyUri: null,
                             minimatchPatterns: downloadParameters.MinimatchFilters,
-                            minimatchFilterWithArtifactName: downloadParameters.MinimatchFilterWithArtifactName);
+                            minimatchFilterWithArtifactName: downloadParameters.MinimatchFilterWithArtifactName,
+                            customMinimatchOptions: downloadParameters.CustomMinimatchOptions);
 
                         PipelineArtifactActionRecord downloadRecord = clientTelemetry.CreateRecord<PipelineArtifactActionRecord>((level, uri, type) =>
                             new PipelineArtifactActionRecord(level, uri, type, nameof(DownloadAsync), context));
@@ -229,7 +248,8 @@ namespace Agent.Plugins
                         manifestId,
                         downloadParameters.TargetDirectory,
                         proxyUri: null,
-                        minimatchPatterns: downloadParameters.MinimatchFilters);
+                        minimatchPatterns: downloadParameters.MinimatchFilters,
+                        customMinimatchOptions: downloadParameters.CustomMinimatchOptions);
 
                     PipelineArtifactActionRecord downloadRecord = clientTelemetry.CreateRecord<PipelineArtifactActionRecord>((level, uri, type) =>
                             new PipelineArtifactActionRecord(level, uri, type, nameof(DownloadAsync), context));

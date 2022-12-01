@@ -55,7 +55,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             Guid JobId = Guid.NewGuid();
             var sidecarContainers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                ["nginx"] =  "nginx"
+                ["nginx"] = "nginx"
             };
             var jobRequest = new Pipelines.AgentJobRequestMessage(plan, timeline, JobId, jobName, jobName, "ubuntu", sidecarContainers, variables, new List<MaskHint>(), resources, null, tasks);
             return jobRequest;
@@ -226,6 +226,80 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             Pipelines.VersionInfo scrubbedInfo = scrubbedRepo.Properties.Get<Pipelines.VersionInfo>(Pipelines.RepositoryPropertyNames.VersionInfo);
 
             Assert.Equal("[PII]", scrubbedInfo.Author);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void VerifyJobRequestMessageVsoCommandsDeactivated()
+        {
+            Pipelines.AgentJobRequestMessage message = CreateJobRequestMessage("jobWithVsoCommands");
+
+            message.Variables[Constants.Variables.Build.SourceVersionMessage] = "##vso[setVariable]etc1";
+            message.Variables[Constants.Variables.System.SourceVersionMessage] = "##vso[setVariable]etc2";
+            message.Variables[Constants.Variables.Build.DefinitionName] = "##vso[setVariable]etc3";
+            message.Variables[Constants.Variables.System.DefinitionName] = "##vso[setVariable]etc4";
+            message.Variables[Constants.Variables.Release.ReleaseDefinitionName] = "##vso[setVariable]etc5";
+            message.Variables[Constants.Variables.Release.ReleaseEnvironmentName] = "##vso[setVariable]etc6";
+
+            var scrubbedMessage = WorkerUtilities.DeactivateVsoCommandsFromJobMessageVariables(message);
+
+            Assert.Equal("**vso[setVariable]etc1", scrubbedMessage.Variables[Constants.Variables.Build.SourceVersionMessage]);
+            Assert.Equal("**vso[setVariable]etc2", scrubbedMessage.Variables[Constants.Variables.System.SourceVersionMessage]);
+            Assert.Equal("**vso[setVariable]etc3", scrubbedMessage.Variables[Constants.Variables.Build.DefinitionName]);
+            Assert.Equal("**vso[setVariable]etc4", scrubbedMessage.Variables[Constants.Variables.System.DefinitionName]);
+            Assert.Equal("**vso[setVariable]etc5", scrubbedMessage.Variables[Constants.Variables.Release.ReleaseDefinitionName]);
+            Assert.Equal("**vso[setVariable]etc6", scrubbedMessage.Variables[Constants.Variables.Release.ReleaseEnvironmentName]);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void VerifyIfOtherVariablesNotDeactivatesVsoCommands()
+        {
+            Pipelines.AgentJobRequestMessage message = CreateJobRequestMessage("jobWithVsoCommands");
+
+            message.Variables[Constants.Variables.Build.RepoName] = "##vso[setVariable]etc1";
+            message.Variables[Constants.Variables.System.JobId] = "##vso[setVariable]etc2";
+
+            var scrubbedMessage = WorkerUtilities.DeactivateVsoCommandsFromJobMessageVariables(message);
+
+            Assert.Equal("##vso[setVariable]etc1", scrubbedMessage.Variables[Constants.Variables.Build.RepoName]);
+            Assert.Equal("##vso[setVariable]etc2", scrubbedMessage.Variables[Constants.Variables.System.JobId]);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void VerifyJobRequestMessageVsoCommandsDeactivatedIfVariableCasesNotMatch()
+        {
+            Pipelines.AgentJobRequestMessage message = CreateJobRequestMessage("jobWithVsoCommands");
+
+            message.Variables[Constants.Variables.Build.SourceVersionMessage.ToUpper()] = "##vso[setVariable]etc1";
+            message.Variables[Constants.Variables.System.SourceVersionMessage.ToLower()] = "##vso[setVariable]etc2";
+
+            var scrubbedMessage = WorkerUtilities.DeactivateVsoCommandsFromJobMessageVariables(message);
+
+            Assert.Equal("**vso[setVariable]etc1", scrubbedMessage.Variables[Constants.Variables.Build.SourceVersionMessage]);
+            Assert.Equal("**vso[setVariable]etc2", scrubbedMessage.Variables[Constants.Variables.System.SourceVersionMessage]);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void VerifyJobRequestMessageVsoCommandsDeactivatedIfVariableCasesHandlesNullValues()
+        {
+            Pipelines.AgentJobRequestMessage message = CreateJobRequestMessage("jobWithVsoCommands");
+
+            message.Variables[Constants.Variables.Build.SourceVersionMessage] = "";
+            message.Variables[Constants.Variables.System.SourceVersionMessage] = null;
+            message.Variables[Constants.Variables.Build.DefinitionName] = " ";
+
+            var scrubbedMessage = WorkerUtilities.DeactivateVsoCommandsFromJobMessageVariables(message);
+
+            Assert.Equal("", scrubbedMessage.Variables[Constants.Variables.Build.SourceVersionMessage]);
+            Assert.Equal("", scrubbedMessage.Variables[Constants.Variables.System.SourceVersionMessage]);
+            Assert.Equal(" ", scrubbedMessage.Variables[Constants.Variables.Build.DefinitionName]);
         }
 
         private bool IsMessageIdentical(Pipelines.AgentJobRequestMessage source, Pipelines.AgentJobRequestMessage target)

@@ -20,7 +20,8 @@ namespace Microsoft.VisualStudio.Services.Agent
         NewJobRequest = 1,
         CancelRequest = 2,
         AgentShutdown = 3,
-        OperatingSystemShutdown = 4
+        OperatingSystemShutdown = 4,
+        JobMetadataUpdate = 5,
     }
 
     public struct WorkerMessage

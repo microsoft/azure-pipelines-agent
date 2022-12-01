@@ -9,6 +9,7 @@ using Microsoft.VisualStudio.Services.Common;
 using System.Net.Http;
 using Microsoft.VisualStudio.Services.WebApi;
 using Agent.Sdk;
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -22,6 +23,10 @@ namespace Microsoft.VisualStudio.Services.Agent
         string ClientCertificateArchiveFile { get; }
         string ClientCertificatePassword { get; }
         IVssClientCertificateManager VssClientCertificateManager { get; }
+        void SetupCertificate(bool skipCertValidation, string caCert, string clientCert, string clientCertPrivateKey, string clientCertArchive, string clientCertPassword);
+        void SaveCertificateSetting();
+        void DeleteCertificateSetting();
+        void LoadCertificateSettings();
     }
 
     public class AgentCertificateManager : AgentService, IAgentCertificateManager
@@ -194,7 +199,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     {
                         var cerdStore = HostContext.GetService<IAgentCredentialStore>();
                         ClientCertificatePassword = cerdStore.Read($"VSTS_AGENT_CLIENT_CERT_PASSWORD_{certSetting.ClientCertPasswordLookupKey}").Password;
-                        HostContext.SecretMasker.AddValue(ClientCertificatePassword);
+                        HostContext.SecretMasker.AddValue(ClientCertificatePassword, WellKnownSecretAliases.ClientCertificatePassword);
                     }
 
                     _agentClientCertificateManager.AddClientCertificate(ClientCertificateArchiveFile, ClientCertificatePassword);

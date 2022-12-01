@@ -88,15 +88,20 @@ namespace Agent.Plugins.Repository
                 string agentHomeDir = context.Variables.GetValueOrDefault("agent.homedirectory")?.Value;
                 ArgUtil.NotNullOrEmpty(agentHomeDir, nameof(agentHomeDir));
                 gitPath = Path.Combine(agentHomeDir, "externals", "git", "cmd", $"git.exe");
+                gitLfsPath = Path.Combine(agentHomeDir, "externals", "git", PlatformUtil.BuiltOnX86 ? "mingw32" : "mingw64", "bin", "git-lfs.exe");
 
                 // Prepend the PATH.
                 context.Output(StringUtil.Loc("Prepending0WithDirectoryContaining1", "Path", Path.GetFileName(gitPath)));
+                // We need to prepend git-lfs path first so that we call
+                // externals/git/cmd/git.exe instead of externals/git/mingw**/bin/git.exe
+                context.PrependPath(Path.GetDirectoryName(gitLfsPath));
                 context.PrependPath(Path.GetDirectoryName(gitPath));
                 context.Debug($"PATH: '{Environment.GetEnvironmentVariable("PATH")}'");
             }
             else
             {
                 gitPath = WhichUtil.Which("git", require: true, trace: context);
+                gitLfsPath = WhichUtil.Which("git-lfs", require: false, trace: context);
             }
 
             ArgUtil.File(gitPath, nameof(gitPath));
@@ -105,11 +110,6 @@ namespace Agent.Plugins.Repository
             gitVersion = await GitVersion(context);
             ArgUtil.NotNull(gitVersion, nameof(gitVersion));
             context.Debug($"Detect git version: {gitVersion.ToString()}.");
-
-            // Resolve the location of git-lfs.
-            // This should be best effort since checkout lfs objects is an option.
-            // We will check and ensure git-lfs version later
-            gitLfsPath = WhichUtil.Which("git-lfs", require: false, trace: context);
 
             // Get the Git-LFS version if git-lfs exist in %PATH%.
             if (!string.IsNullOrEmpty(gitLfsPath))
@@ -122,8 +122,8 @@ namespace Agent.Plugins.Repository
             Version minRequiredGitVersion = new Version(2, 0);
             EnsureGitVersion(minRequiredGitVersion, throwOnNotMatch: true);
 
-            // suggest user upgrade to 2.9 for better git experience
-            Version recommendGitVersion = new Version(2, 9);
+            // suggest user upgrade to 2.17 for better git experience
+            Version recommendGitVersion = new Version(2, 17);
             if (!EnsureGitVersion(recommendGitVersion, throwOnNotMatch: false))
             {
                 context.Output(StringUtil.Loc("UpgradeToLatestGit", recommendGitVersion, gitVersion));
@@ -154,7 +154,7 @@ namespace Agent.Plugins.Repository
         }
 
         // git fetch --tags --prune --progress --no-recurse-submodules [--depth=15] origin [+refs/pull/*:refs/remote/pull/*]
-        public async Task<int> GitFetch(AgentTaskPluginExecutionContext context, string repositoryPath, string remoteName, int fetchDepth, List<string> refSpec, string additionalCommandLine, CancellationToken cancellationToken)
+        public async Task<int> GitFetch(AgentTaskPluginExecutionContext context, string repositoryPath, string remoteName, int fetchDepth, bool fetchTags, List<string> refSpec, string additionalCommandLine, CancellationToken cancellationToken)
         {
             context.Debug($"Fetch git repository at: {repositoryPath} remote: {remoteName}.");
             if (refSpec != null && refSpec.Count > 0)
@@ -174,24 +174,26 @@ namespace Agent.Plugins.Repository
             bool reducedOutput = AgentKnobs.QuietCheckout.GetValue(context).AsBoolean();
             string progress = reducedOutput ? string.Empty : "--progress";
 
-            // default options for git fetch.
-            string options = StringUtil.Format($"{forceTag} --tags --prune {progress} --no-recurse-submodules {remoteName} {string.Join(" ", refSpec)}");
+            string tags = "--tags";
+            if (!fetchTags)
+            {
+                tags = "--no-tags";
+            }
+
+            // insert prune-tags if knob is false to sync tags with the remote
+            string pruneTags = string.Empty;
+            if (EnsureGitVersion(new Version(2, 17), throwOnNotMatch: false) && !AgentKnobs.DisableFetchPruneTags.GetValue(context).AsBoolean())
+            {
+                pruneTags = "--prune-tags";
+            }
 
             // If shallow fetch add --depth arg
             // If the local repository is shallowed but there is no fetch depth provide for this build,
             // add --unshallow to convert the shallow repository to a complete repository
-            if (fetchDepth > 0)
-            {
-                options = StringUtil.Format($"{forceTag} --tags --prune {progress} --no-recurse-submodules --depth={fetchDepth} {remoteName} {string.Join(" ", refSpec)}");
-            }
-            else
-            {
-                if (File.Exists(Path.Combine(repositoryPath, ".git", "shallow")))
-                {
-                    options = StringUtil.Format($"{forceTag} --tags --prune {progress} --no-recurse-submodules --unshallow {remoteName} {string.Join(" ", refSpec)}");
-                }
-            }
+            string depth = fetchDepth > 0 ? $"--depth={fetchDepth}" : (File.Exists(Path.Combine(repositoryPath, ".git", "shallow")) ? "--unshallow" : string.Empty );
 
+            //define options for fetch
+            string options = $"{forceTag} {tags} --prune {pruneTags} {progress} --no-recurse-submodules {remoteName} {depth} {string.Join(" ", refSpec)}";
             int retryCount = 0;
             int fetchExitCode = 0;
             while (retryCount < 3)
@@ -236,10 +238,20 @@ namespace Agent.Plugins.Repository
         // git lfs fetch origin [ref]
         public async Task<int> GitLFSFetch(AgentTaskPluginExecutionContext context, string repositoryPath, string remoteName, string refSpec, string additionalCommandLine, CancellationToken cancellationToken)
         {
+            string lfsconfig = ".lfsconfig";
+            context.Debug($"Checkout {lfsconfig} for git repository at: {repositoryPath} remote: {remoteName}.");
+
+            // default options for git checkout .lfsconfig
+            string options = StringUtil.Format($"{refSpec} -- {lfsconfig}");
+            int exitCodeLfsConfigCheckout = await ExecuteGitCommandAsync(context, repositoryPath, "checkout", options, additionalCommandLine, cancellationToken);
+            if (exitCodeLfsConfigCheckout != 0) {
+                context.Debug("There were some issues while checkout of .lfsconfig - probably because this file does not exist (see message above for more details). Continue fetching.");
+            }
+
             context.Debug($"Fetch LFS objects for git repository at: {repositoryPath} remote: {remoteName}.");
 
             // default options for git lfs fetch.
-            string options = StringUtil.Format($"fetch origin {refSpec}");
+            options = StringUtil.Format($"fetch origin {refSpec}");
 
             int retryCount = 0;
             int fetchExitCode = 0;
@@ -445,6 +457,45 @@ namespace Agent.Plugins.Repository
             return exitcode == 0;
         }
 
+        /// <summary>
+        /// Get the value of a git config key. Values of the key can be get from latest function parameter.
+        /// git config --get-all <key>
+        /// <param name="context">Execution context of the agent tasks</param>
+        /// <param name="repositoryPath">Local repository path on agent</param>
+        /// <param name="configKey">Git config key name</param>
+        /// <param name="values">Output array of values of the key</param>
+        /// </summary>
+        public async Task<bool> GitConfigExist(AgentTaskPluginExecutionContext context, string repositoryPath, string configKey, IList<string> existingConfigValues)
+        {
+            // git config --get-all {configKey} will return 0 and print the value if the config exist.
+            context.Debug($"Checking git config {configKey} exist or not");
+
+            // ignore any outputs by redirect them into a string list, since the output might contains secrets.
+            if (existingConfigValues == null)
+            {
+                existingConfigValues = new List<string>();
+            }
+
+            int exitcode = await ExecuteGitCommandAsync(context, repositoryPath, "config", StringUtil.Format($"--get-all {configKey}"), existingConfigValues);
+            return exitcode == 0;
+        }
+
+        /// <summary>
+        /// Verify if git config contains config key with some regex pattern
+        /// git config --get-regexp <configKeyPattern>
+        /// </summary>
+        public async Task<bool> GitConfigRegexExist(AgentTaskPluginExecutionContext context, string repositoryPath, string configKeyPattern)
+        {
+            // git config --get-regexp {configKeyPattern} will return 0 and print the value if the config exist.
+            context.Debug($"Checking git config {configKeyPattern} exist or not");
+
+            // ignore any outputs by redirect them into a string list, since the output might contains secrets.
+            List<string> outputStrings = new List<string>();
+            int exitcode = await ExecuteGitCommandAsync(context, repositoryPath, "config", StringUtil.Format($"--get-regexp {configKeyPattern}"), outputStrings);
+
+            return exitcode == 0;
+        }
+
         // git config --unset-all <key>
         public async Task<int> GitConfigUnset(AgentTaskPluginExecutionContext context, string repositoryPath, string configKey)
         {
@@ -473,6 +524,15 @@ namespace Agent.Plugins.Repository
             return await ExecuteGitCommandAsync(context, repositoryPath, "prune", "-v");
         }
 
+        // git lfs prune
+        public async Task<int> GitLFSPrune(AgentTaskPluginExecutionContext context, string repositoryPath)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+
+            context.Debug("Deletes local copies of LFS files which are old, thus freeing up disk space. Prune operates by enumerating all the locally stored objects, and then deleting any which are not referenced by at least ONE of the following:");
+            return await ExecuteGitCommandAsync(context, repositoryPath, "lfs", "prune");
+        }
+
         // git count-objects -v -H
         public async Task<int> GitCountObjects(AgentTaskPluginExecutionContext context, string repositoryPath)
         {
@@ -492,6 +552,15 @@ namespace Agent.Plugins.Repository
         {
             context.Debug("Get git-lfs logs.");
             return await ExecuteGitCommandAsync(context, repositoryPath, "lfs", "logs last");
+        }
+
+        // git status
+        public async Task<int> GitStatus(AgentTaskPluginExecutionContext context, string repositoryPath)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+
+            context.Debug($"Show the working tree status for repository at {repositoryPath}.");
+            return await ExecuteGitCommandAsync(context, repositoryPath, "status", string.Empty);
         }
 
         // git version

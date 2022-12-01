@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -11,8 +12,8 @@ using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using Agent.Plugins.PipelineArtifact.Telemetry;
 using Agent.Sdk;
-using Agent.Sdk.Blob;
 using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Blob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
 using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
@@ -20,6 +21,7 @@ using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.WebApi;
+using Minimatch;
 
 namespace Agent.Plugins
 {
@@ -54,7 +56,14 @@ namespace Agent.Plugins
         public async Task DownloadMultipleArtifactsAsync(ArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context) 
         {
             context.Warning(StringUtil.Loc("DownloadArtifactWarning", "UNC"));
-            var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, cancellationToken);
+            var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(
+                context.IsSystemDebugTrue(),
+                (str) => context.Output(str),
+                connection,
+                this.factory.GetDedupStoreClientMaxParallelism(context),
+                WellKnownDomainIds.DefaultDomainId,
+                cancellationToken);
+
             using (clientTelemetry)
             {
                 FileShareActionRecord downloadRecord = clientTelemetry.CreateRecord<FileShareActionRecord>((level, uri, type) =>
@@ -82,7 +91,8 @@ namespace Agent.Plugins
             {
                 var downloadRootPath = Path.Combine(buildArtifact.Resource.Data, buildArtifact.Name);
                 var minimatchPatterns = downloadParameters.MinimatchFilters.Select(pattern => Path.Combine(buildArtifact.Resource.Data, pattern));
-                var record = await this.DownloadFileShareArtifactAsync(downloadRootPath, Path.Combine(downloadParameters.TargetDirectory, buildArtifact.Name), defaultParallelCount, cancellationToken, minimatchPatterns);
+                var customMinimatchOptions = downloadParameters.CustomMinimatchOptions;
+                var record = await this.DownloadFileShareArtifactAsync(downloadRootPath, Path.Combine(downloadParameters.TargetDirectory, buildArtifact.Name), defaultParallelCount, downloadParameters, cancellationToken, minimatchPatterns);
                 totalContentSize += record.ContentSize;
                 totalFileCount += record.FileCount;
                 records.Add(record);
@@ -97,7 +107,14 @@ namespace Agent.Plugins
             int parallelCount,
             CancellationToken cancellationToken) 
         {
-            var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, cancellationToken);
+            var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(
+                context.IsSystemDebugTrue(),
+                (str) => context.Output(str),
+                connection,
+                this.factory.GetDedupStoreClientMaxParallelism(context),
+                WellKnownDomainIds.DefaultDomainId,
+                cancellationToken);
+
             using (clientTelemetry)
             {
                 FileShareActionRecord publishRecord = clientTelemetry.CreateRecord<FileShareActionRecord>((level, uri, type) =>
@@ -178,6 +195,7 @@ namespace Agent.Plugins
             string sourcePath,
             string destPath,
             int parallelCount,
+            ArtifactDownloadParameters downloadParameters,
             CancellationToken cancellationToken,
             IEnumerable<string> minimatchPatterns = null)
         {
@@ -189,10 +207,49 @@ namespace Agent.Plugins
 
             sourcePath = sourcePath.TrimEnd(trimChars);
 
-            var artifactName =  new DirectoryInfo(destPath).Name;
+            var artifactName = new DirectoryInfo(sourcePath).Name;
 
-            IEnumerable<FileInfo> files =
-                new DirectoryInfo(sourcePath).EnumerateFiles("*", SearchOption.AllDirectories);
+            List<FileInfo> files =
+                new DirectoryInfo(sourcePath).EnumerateFiles("*", SearchOption.AllDirectories).ToList<FileInfo>();
+
+            ArtifactItemFilters filters = new ArtifactItemFilters(connection, tracer);
+
+            // Getting list of file paths. It is useful to handle list of paths instead of files.
+            // Also it allows to use the same methods for FileContainerProvider and FileShareProvider.
+            List<string> paths = new List<string>();
+            foreach (FileInfo file in files)
+            {
+                string pathInArtifact = filters.RemoveSourceDirFromPath(file, sourcePath);
+                paths.Add(Path.Combine(artifactName, pathInArtifact));
+            }
+
+            Options customMinimatchOptions;
+            if (downloadParameters.CustomMinimatchOptions != null)
+            {
+                customMinimatchOptions = downloadParameters.CustomMinimatchOptions;
+            }
+            else
+            {
+                customMinimatchOptions = new Options()
+                {
+                    Dot = true,
+                    NoBrace = true,
+                    AllowWindowsPaths = PlatformUtil.RunningOnWindows
+                };
+            }
+
+            Hashtable map = filters.GetMapToFilterItems(paths, downloadParameters.MinimatchFilters, customMinimatchOptions);
+
+            // Returns filtered list of artifact items. Uses minimatch filters specified in downloadParameters.
+            IEnumerable<FileInfo> filteredFiles = filters.ApplyPatternsMapToFileShareItems(files, map, sourcePath);
+
+            tracer.Info($"{filteredFiles.ToList().Count} final results");
+
+            IEnumerable<FileInfo> excludedItems = files.Except(filteredFiles);
+            foreach (FileInfo item in excludedItems)
+            {
+                tracer.Info($"File excluded: {item.FullName}");
+            }
 
             var parallelism = new ExecutionDataflowBlockOptions()
             {
@@ -226,7 +283,7 @@ namespace Agent.Plugins
                 },
                 dataflowBlockOptions: parallelism);
                 
-                await actionBlock.SendAllAndCompleteAsync(files, actionBlock, cancellationToken);
+                await actionBlock.SendAllAndCompleteAsync(filteredFiles, actionBlock, cancellationToken);
 
             watch.Stop();
 

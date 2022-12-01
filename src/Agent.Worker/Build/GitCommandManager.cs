@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
@@ -22,13 +23,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         bool EnsureGitLFSVersion(Version requiredVersion, bool throwOnNotMatch);
 
         // setup git execution info, git location, version, useragent, execpath
-        Task LoadGitExecutionInfo(IExecutionContext context, bool useBuiltInGit);
+        Task LoadGitExecutionInfo(IExecutionContext context, bool useBuiltInGit, Dictionary<string, string> gitEnv = null);
 
         // git init <LocalDir>
         Task<int> GitInit(IExecutionContext context, string repositoryPath);
 
         // git fetch --tags --prune --progress --no-recurse-submodules [--depth=15] origin [+refs/pull/*:refs/remote/pull/*]
-        Task<int> GitFetch(IExecutionContext context, string repositoryPath, string remoteName, int fetchDepth, List<string> refSpec, string additionalCommandLine, CancellationToken cancellationToken);
+        Task<int> GitFetch(IExecutionContext context, string repositoryPath, string remoteName, int fetchDepth, bool fetchTags, List<string> refSpec, string additionalCommandLine, CancellationToken cancellationToken);
 
         // git lfs fetch origin [ref]
         Task<int> GitLFSFetch(IExecutionContext context, string repositoryPath, string remoteName, string refSpec, string additionalCommandLine, CancellationToken cancellationToken);
@@ -93,11 +94,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         // git prune
         Task<int> GitPrune(IExecutionContext context, string repositoryPath);
 
+        // git lfs prune
+        Task<int> GitLFSPrune(IExecutionContext context, string repositoryPath);
+
         // git count-objects -v -H
         Task<int> GitCountObjects(IExecutionContext context, string repositoryPath);
 
         // git version
         Task<Version> GitVersion(IExecutionContext context);
+
+        // git status
+        Task<int> GitStatus(IExecutionContext context, string repositoryPath);
     }
 
     public class GitCommandManager : AgentService, IGitCommandManager
@@ -113,6 +120,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         private Version _gitVersion = null;
         private string _gitLfsPath = null;
         private Version _gitLfsVersion = null;
+
+        private Dictionary<string, string> _gitEnv = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "GIT_TERMINAL_PROMPT", "0" },
+        };
 
         public bool EnsureGitVersion(Version requiredVersion, bool throwOnNotMatch)
         {
@@ -148,8 +160,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return _gitLfsVersion >= requiredVersion;
         }
 
-        public async Task LoadGitExecutionInfo(IExecutionContext context, bool useBuiltInGit)
+        public async Task LoadGitExecutionInfo(IExecutionContext context, bool useBuiltInGit, Dictionary<string, string> gitEnv = null)
         {
+            if (gitEnv != null)
+            {
+                foreach (var env in gitEnv)
+                {
+                    if (!string.IsNullOrEmpty(env.Key))
+                    {
+                        _gitEnv[env.Key] = env.Value ?? string.Empty;
+                    }
+                }
+            }
+
             // Resolve the location of git.
             if (useBuiltInGit)
             {
@@ -159,9 +182,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 if (PlatformUtil.RunningOnWindows)
                 {
                     _gitPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "git", "cmd", $"git{IOUtil.ExeExtension}");
+                    _gitLfsPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "git", PlatformUtil.BuiltOnX86 ? "mingw32" : "mingw64", "bin", "git-lfs.exe");
 
                     // Prepend the PATH.
                     context.Output(StringUtil.Loc("Prepending0WithDirectoryContaining1", Constants.PathVariable, Path.GetFileName(_gitPath)));
+                    // We need to prepend git-lfs path first so that we call
+                    // externals/git/cmd/git.exe instead of externals/git/mingw**/bin/git.exe
+                    PathUtil.PrependPath(Path.GetDirectoryName(_gitLfsPath));
                     PathUtil.PrependPath(Path.GetDirectoryName(_gitPath));
                     context.Debug($"{Constants.PathVariable}: '{Environment.GetEnvironmentVariable(Constants.PathVariable)}'");
                 }
@@ -169,6 +196,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             else
             {
                 _gitPath = WhichUtil.Which("git", require: true, trace: Trace);
+                _gitLfsPath = WhichUtil.Which("git-lfs", require: false, trace: Trace);
             }
 
             ArgUtil.File(_gitPath, nameof(_gitPath));
@@ -177,11 +205,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             _gitVersion = await GitVersion(context);
             ArgUtil.NotNull(_gitVersion, nameof(_gitVersion));
             context.Debug($"Detect git version: {_gitVersion.ToString()}.");
-
-            // Resolve the location of git-lfs.
-            // This should be best effort since checkout lfs objects is an option.
-            // We will check and ensure git-lfs version later
-            _gitLfsPath = WhichUtil.Which("git-lfs", require: false, trace: Trace);
 
             // Get the Git-LFS version if git-lfs exist in %PATH%.
             if (!string.IsNullOrEmpty(_gitLfsPath))
@@ -194,8 +217,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             Version minRequiredGitVersion = new Version(2, 0);
             EnsureGitVersion(minRequiredGitVersion, throwOnNotMatch: true);
 
-            // suggest user upgrade to 2.9 for better git experience
-            Version recommendGitVersion = new Version(2, 9);
+            // suggest user upgrade to 2.17 for better git experience
+            Version recommendGitVersion = new Version(2, 17);
             if (!EnsureGitVersion(recommendGitVersion, throwOnNotMatch: false))
             {
                 context.Output(StringUtil.Loc("UpgradeToLatestGit", recommendGitVersion, _gitVersion));
@@ -218,7 +241,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         }
 
         // git fetch --tags --prune --progress --no-recurse-submodules [--depth=15] origin [+refs/pull/*:refs/remote/pull/*]
-        public async Task<int> GitFetch(IExecutionContext context, string repositoryPath, string remoteName, int fetchDepth, List<string> refSpec, string additionalCommandLine, CancellationToken cancellationToken)
+        public async Task<int> GitFetch(IExecutionContext context, string repositoryPath, string remoteName, int fetchDepth, bool fetchTags, List<string> refSpec, string additionalCommandLine, CancellationToken cancellationToken)
         {
             ArgUtil.NotNull(context, nameof(context));
 
@@ -228,23 +251,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 refSpec = refSpec.Where(r => !string.IsNullOrEmpty(r)).ToList();
             }
 
-            // default options for git fetch.
-            string options = StringUtil.Format($"--tags --prune --progress --no-recurse-submodules {remoteName} {string.Join(" ", refSpec)}");
+            string tags = "--tags";
+            if (!fetchTags)
+            {
+                tags = "--no-tags";
+            }
+
+            // insert prune-tags if DisableFetchPruneTags knob is false and Git version is above 2.17
+            string pruneTags = string.Empty;
+            if (EnsureGitVersion(new Version(2, 17), throwOnNotMatch: false) && !AgentKnobs.DisableFetchPruneTags.GetValue(context).AsBoolean())
+            {
+                pruneTags = "--prune-tags";
+            }
 
             // If shallow fetch add --depth arg
             // If the local repository is shallowed but there is no fetch depth provide for this build,
             // add --unshallow to convert the shallow repository to a complete repository
-            if (fetchDepth > 0)
-            {
-                options = StringUtil.Format($"--tags --prune --progress --no-recurse-submodules --depth={fetchDepth} {remoteName} {string.Join(" ", refSpec)}");
-            }
-            else
-            {
-                if (File.Exists(Path.Combine(repositoryPath, ".git", "shallow")))
-                {
-                    options = StringUtil.Format($"--tags --prune --progress --no-recurse-submodules --unshallow {remoteName} {string.Join(" ", refSpec)}");
-                }
-            }
+            string depth = fetchDepth > 0 ? $"--depth={fetchDepth}" : (File.Exists(Path.Combine(repositoryPath, ".git", "shallow")) ? "--unshallow" : string.Empty );
+
+            //define options for fetch
+            string options = $"{tags} --prune {pruneTags} --progress --no-recurse-submodules {remoteName} {depth} {string.Join(" ", refSpec)}";
 
             return await ExecuteGitCommandAsync(context, repositoryPath, "fetch", options, additionalCommandLine, cancellationToken);
         }
@@ -254,10 +280,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             ArgUtil.NotNull(context, nameof(context));
 
+            string lfsconfig = ".lfsconfig";
+            context.Debug($"Checkout {lfsconfig} for git repository at: {repositoryPath} remote: {remoteName}.");
+
+            // default options for git checkout .lfsconfig
+            string options = StringUtil.Format($"{refSpec} -- {lfsconfig}");
+            int exitCodeLfsConfigCheckout = await ExecuteGitCommandAsync(context, repositoryPath, "checkout", options, additionalCommandLine, cancellationToken);
+            if (exitCodeLfsConfigCheckout != 0) {
+                context.Debug("There were some issues while checkout of .lfsconfig - probably because this file does not exist (see message above for more details). Continue fetching.");
+            }
+
             context.Debug($"Fetch LFS objects for git repository at: {repositoryPath} remote: {remoteName}.");
 
             // default options for git lfs fetch.
-            string options = StringUtil.Format($"fetch origin {refSpec}");
+            options = StringUtil.Format($"fetch origin {refSpec}");
             return await ExecuteGitCommandAsync(context, repositoryPath, "lfs", options, additionalCommandLine, cancellationToken);
         }
 
@@ -310,6 +346,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             context.Debug($"Undo any changes to tracked files in the working tree for repository at {repositoryPath}.");
             return await ExecuteGitCommandAsync(context, repositoryPath, "reset", "--hard HEAD");
+        }
+
+        // git status
+        public async Task<int> GitStatus(IExecutionContext context, string repositoryPath)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+
+            context.Debug($"Show the working tree status for repository at {repositoryPath}.");
+            return await ExecuteGitCommandAsync(context, repositoryPath, "status", string.Empty);
         }
 
         // get remote set-url <origin> <url>
@@ -504,6 +549,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return await ExecuteGitCommandAsync(context, repositoryPath, "prune", "-v");
         }
 
+        // git lfs prune
+        public async Task<int> GitLFSPrune(IExecutionContext context, string repositoryPath)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+
+            context.Debug("Deletes local copies of LFS files which are old, thus freeing up disk space. Prune operates by enumerating all the locally stored objects, and then deleting any which are not referenced by at least ONE of the following:");
+            return await ExecuteGitCommandAsync(context, repositoryPath, "lfs", "prune");
+        }
+
         // git count-objects -v -H
         public async Task<int> GitCountObjects(IExecutionContext context, string repositoryPath)
         {
@@ -688,21 +742,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         private IDictionary<string, string> GetGitEnvironmentVariables(IExecutionContext context)
         {
-            Dictionary<string, string> gitEnv = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                { "GIT_TERMINAL_PROMPT", "0" },
-            };
-
             if (!string.IsNullOrEmpty(_gitHttpUserAgentEnv))
             {
-                gitEnv["GIT_HTTP_USER_AGENT"] = _gitHttpUserAgentEnv;
+                _gitEnv["GIT_HTTP_USER_AGENT"] = _gitHttpUserAgentEnv;
             }
 
             // Add the public variables.
             foreach (KeyValuePair<string, string> pair in context.Variables.Public)
             {
                 // Add the variable using the formatted name.
-                string formattedKey = (pair.Key ?? string.Empty).Replace('.', '_').Replace(' ', '_').ToUpperInvariant();
+                string formattedKey = VarUtil.ConvertToEnvVariableFormat(pair.Key);
 
                 // Skip any GIT_TRACE variable since GIT_TRACE will affect ouput from every git command.
                 // This will fail the parse logic for detect git version, remote url, etc.
@@ -716,10 +765,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     continue;
                 }
 
-                gitEnv[formattedKey] = pair.Value ?? string.Empty;
+                _gitEnv[formattedKey] = pair.Value ?? string.Empty;
             }
 
-            return gitEnv;
+            return _gitEnv;
         }
     }
 }

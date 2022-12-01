@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -69,6 +70,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
                 }
             }
 
+            var secretKnobs = Knob.GetAllKnobsFor<AgentKnobs>().Where(k => k is SecretKnob);
+
             // Get filtered env vars.
             IEnumerable<string> names =
                 variables.Keys
@@ -84,6 +87,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
                     continue;
                 }
 
+                if (secretKnobs.Any(k => k.Source.HasSourceWithTypeEnvironmentByName(name)))
+                {
+                    HostContext.SecretMasker.AddValue(value, $"EnvironmentCapabilitiesProvider_GetCapabilitiesAsync_{name}");
+                }
                 Trace.Info($"Adding '{name}': '{value}'");
                 capabilities.Add(new Capability(name, value));
             }
