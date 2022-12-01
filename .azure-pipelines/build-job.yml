@@ -83,6 +83,8 @@ jobs:
     ${{ if ne(parameters.os, 'win') }}:
       devCommand: ./dev.sh
     layoutRoot: '_layout/${{ parameters.os }}-${{ parameters.arch }}'
+    ${{ if eq(parameters.os, 'rhel.6') }}:
+      AGENT_USE_NODE10: true
 
   steps:
 
@@ -115,7 +117,7 @@ jobs:
         ADO_ENABLE_LOGISSUE: true
 
   # Check if broken symlinks exist in the agent build
-  - task: Bash@3
+  - task: Bash@3.201.1
     inputs:
       filePath: src/Misc/check-symlinks.sh
     displayName: Check symlinks
@@ -155,7 +157,7 @@ jobs:
       condition: always()
 
     # Upload test log
-    - task: PublishBuildArtifacts@1
+    - task: PublishBuildArtifacts@1.200.0
       displayName: Publish Test logs
       inputs:
         pathToPublish: src/Test/TestLogs
@@ -211,7 +213,7 @@ jobs:
       displayName: Hash Package
 
     # Upload agent package zip as build artifact
-    - task: PublishBuildArtifacts@1
+    - task: PublishBuildArtifacts@1.200.0
       displayName: Publish Artifact
       inputs:
         pathToPublish: _package
@@ -219,7 +221,7 @@ jobs:
         artifactType: container
 
     # Publish agent package hash too
-    - task: PublishBuildArtifacts@1
+    - task: PublishBuildArtifacts@1.200.0
       displayName: Publish Artifact
       inputs:
         pathToPublish: _package_hash

@@ -121,6 +121,90 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             return hc;
         }
 
+        private TestHostContext CreateMSITestContext([CallerMemberName] String testName = "")
+        {
+            var hc = new TestHostContext(this, testName);
+            _jobEc = new Agent.Worker.ExecutionContext();
+            _config = new Mock<IConfigurationStore>();
+            _extensions = new Mock<IExtensionManager>();
+            _jobExtension = new Mock<IJobExtension>();
+            _jobServer = new Mock<IJobServer>();
+            _jobServerQueue = new Mock<IJobServerQueue>();
+            _proxyConfig = new Mock<IVstsAgentWebProxy>();
+            _cert = new Mock<IAgentCertificateManager>();
+            _taskServer = new Mock<ITaskServer>();
+            _stepRunner = new Mock<IStepsRunner>();
+            _logger = new Mock<IPagingLogger>();
+            _temp = new Mock<ITempDirectoryManager>();
+            _diagnosticLogManager = new Mock<IDiagnosticLogManager>();
+
+            var expressionManager = new ExpressionManager();
+            expressionManager.Initialize(hc);
+            hc.SetSingleton<IExpressionManager>(expressionManager);
+
+            _jobRunner = new JobRunner();
+            _jobRunner.Initialize(hc);
+
+            TaskOrchestrationPlanReference plan = new TaskOrchestrationPlanReference();
+            TimelineReference timeline = new Timeline(Guid.NewGuid());
+            JobEnvironment environment = new JobEnvironment();
+            environment.Variables[Constants.Variables.System.Culture] = "en-US";
+            environment.SystemConnection = new ServiceEndpoint()
+            {
+                Name = WellKnownServiceEndpointNames.SystemVssConnection,
+                Url = new Uri("https://test.visualstudio.com"),
+                Authorization = new EndpointAuthorization()
+                {
+                    Scheme = "ManagedServiceIdentity",
+                }
+            };
+            environment.SystemConnection.Authorization.Parameters["AccessToken"] = "token";
+
+            List<TaskInstance> tasks = new List<TaskInstance>();
+            Guid JobId = Guid.NewGuid();
+            _message = Pipelines.AgentJobRequestMessageUtil.Convert(new AgentJobRequestMessage(plan, timeline, JobId, testName, testName, environment, tasks));
+
+            _extensions.Setup(x => x.GetExtensions<IJobExtension>()).
+                Returns(new[] { _jobExtension.Object }.ToList());
+
+            _initResult.Clear();
+
+            _jobExtension.Setup(x => x.InitializeJob(It.IsAny<IExecutionContext>(), It.IsAny<Pipelines.AgentJobRequestMessage>())).
+                Returns(Task.FromResult(_initResult));
+            _jobExtension.Setup(x => x.HostType)
+                .Returns<string>(null);
+
+            _proxyConfig.Setup(x => x.ProxyAddress)
+                .Returns(string.Empty);
+
+            var settings = new AgentSettings
+            {
+                AgentId = 1,
+                AgentName = "agent1",
+                ServerUrl = "https://test.visualstudio.com",
+                WorkFolder = "_work",
+            };
+
+            _config.Setup(x => x.GetSettings())
+                .Returns(settings);
+
+            _logger.Setup(x => x.Setup(It.IsAny<Guid>(), It.IsAny<Guid>()));
+
+            hc.SetSingleton(_config.Object);
+            hc.SetSingleton(_jobServer.Object);
+            hc.SetSingleton(_jobServerQueue.Object);
+            hc.SetSingleton(_proxyConfig.Object);
+            hc.SetSingleton(_cert.Object);
+            hc.SetSingleton(_taskServer.Object);
+            hc.SetSingleton(_stepRunner.Object);
+            hc.SetSingleton(_extensions.Object);
+            hc.SetSingleton(_temp.Object);
+            hc.SetSingleton(_diagnosticLogManager.Object);
+            hc.EnqueueInstance<IExecutionContext>(_jobEc);
+            hc.EnqueueInstance<IPagingLogger>(_logger.Object);
+            return hc;
+        }
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
@@ -142,10 +226,47 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        public async Task JobExtensionInitializeFailureMSI()
+        {
+            using (var _tokenSource = new CancellationTokenSource())
+            using (TestHostContext hc = CreateMSITestContext())
+            {
+                _jobExtension.Setup(x => x.InitializeJob(It.IsAny<IExecutionContext>(), It.IsAny<Pipelines.AgentJobRequestMessage>()))
+                    .Throws(new Exception());
+
+                await _jobRunner.RunAsync(_message, _tokenSource.Token);
+
+                Assert.Equal(TaskResult.Failed, _jobEc.Result);
+                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.IsAny<IList<IStep>>()), Times.Never);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
         public async Task JobExtensionInitializeCancelled()
         {
             using (var _tokenSource = new CancellationTokenSource())
             using (TestHostContext hc = CreateTestContext())
+            {
+                _jobExtension.Setup(x => x.InitializeJob(It.IsAny<IExecutionContext>(), It.IsAny<Pipelines.AgentJobRequestMessage>()))
+                    .Throws(new OperationCanceledException());
+                _tokenSource.Cancel();
+
+                await _jobRunner.RunAsync(_message, _tokenSource.Token);
+
+                Assert.Equal(TaskResult.Canceled, _jobEc.Result);
+                _stepRunner.Verify(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.IsAny<IList<IStep>>()), Times.Never);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task JobExtensionInitializeMSICancelled()
+        {
+            using (var _tokenSource = new CancellationTokenSource())
+            using (TestHostContext hc = CreateMSITestContext())
             {
                 _jobExtension.Setup(x => x.InitializeJob(It.IsAny<IExecutionContext>(), It.IsAny<Pipelines.AgentJobRequestMessage>()))
                     .Throws(new OperationCanceledException());
@@ -180,7 +301,45 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        public async Task UploadDiganosticLogIfEnvironmentVariableSetMSI()
+        {
+            using (var _tokenSource = new CancellationTokenSource())
+            using (TestHostContext hc = CreateMSITestContext())
+            {
+                _message.Variables[Constants.Variables.Agent.Diagnostic] = "true";
+
+                await _jobRunner.RunAsync(_message, _tokenSource.Token);
+
+                _diagnosticLogManager.Verify(x => x.UploadDiagnosticLogsAsync(It.IsAny<IExecutionContext>(),
+                                                                         It.IsAny<Pipelines.AgentJobRequestMessage>(),
+                                                                         It.IsAny<DateTime>()),
+                                             Times.Once);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
         public async Task DontUploadDiagnosticLogIfEnvironmentVariableFalse()
+        {
+            using (var _tokenSource = new CancellationTokenSource())
+            using (TestHostContext hc = CreateTestContext())
+            {
+                _message.Variables[Constants.Variables.Agent.Diagnostic] = "false";
+
+                await _jobRunner.RunAsync(_message, _tokenSource.Token);
+
+                _diagnosticLogManager.Verify(x => x.UploadDiagnosticLogsAsync(It.IsAny<IExecutionContext>(),
+                                                                         It.IsAny<Pipelines.AgentJobRequestMessage>(),
+                                                                         It.IsAny<DateTime>()),
+                                             Times.Never);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task DontUploadDiagnosticLogIfEnvironmentVariableFalseMSI()
         {
             using (var _tokenSource = new CancellationTokenSource())
             using (TestHostContext hc = CreateTestContext())
@@ -230,10 +389,38 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        public void DontUpdateWebConsoleLineRateIfJobServerQueueIsNullMSI()
+        {
+            using (var _tokenSource = new CancellationTokenSource())
+            using (TestHostContext hc = CreateMSITestContext())
+            {
+                _jobRunner.JobServerQueue = null;
+                _jobRunner.UpdateMetadata(new JobMetadataMessage(It.IsAny<Guid>(), It.IsAny<Int32>()));
+                _jobServerQueue.Verify(x => x.UpdateWebConsoleLineRate(It.IsAny<Int32>()), Times.Never());
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
         public void UpdateWebConsoleLineRateIfJobServerQueueIsNotNull()
         {
             using (var _tokenSource = new CancellationTokenSource())
             using (TestHostContext hc = CreateTestContext())
+            {
+                _jobRunner.JobServerQueue = hc.GetService<IJobServerQueue>();
+                _jobRunner.UpdateMetadata(new JobMetadataMessage(It.IsAny<Guid>(), It.IsAny<Int32>()));
+                _jobServerQueue.Verify(x => x.UpdateWebConsoleLineRate(It.IsAny<Int32>()), Times.Once());
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void UpdateWebConsoleLineRateIfJobServerQueueIsNotNullMSI()
+        {
+            using (var _tokenSource = new CancellationTokenSource())
+            using (TestHostContext hc = CreateMSITestContext())
             {
                 _jobRunner.JobServerQueue = hc.GetService<IJobServerQueue>();
                 _jobRunner.UpdateMetadata(new JobMetadataMessage(It.IsAny<Guid>(), It.IsAny<Int32>()));

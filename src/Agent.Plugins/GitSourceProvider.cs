@@ -388,7 +388,7 @@ namespace Agent.Plugins.Repository
             foreach (var variable in executionContext.Variables)
             {
                 // Add the variable using the formatted name.
-                string formattedKey = (variable.Key ?? string.Empty).Replace('.', '_').Replace(' ', '_').ToUpperInvariant();
+                string formattedKey = VarUtil.ConvertToEnvVariableFormat(variable.Key);
                 gitEnv[formattedKey] = variable.Value?.Value ?? string.Empty;
             }
 

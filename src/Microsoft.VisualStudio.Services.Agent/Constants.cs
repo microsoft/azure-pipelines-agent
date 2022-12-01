@@ -41,6 +41,13 @@ namespace Microsoft.VisualStudio.Services.Agent
         TaskExceptionList // We need to remove this config file - once Node 6 handler is dropped
     }
 
+    public enum WellKnownScriptShell
+    {
+        Bash,
+        Cmd,
+        PowerShell
+    }
+
     public static class Constants
     {
         /// <summary>Name of environment variable holding the path.</summary>
@@ -272,6 +279,26 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static readonly string MacroPrefix = "$(";
             public static readonly string MacroSuffix = ")";
 
+            /// <summary>
+            /// These variables potentially may be used to execute scripts without the knowledge of the owner of the pipelines.
+            /// We want to prevent this by not expanding them and replacing these variables in user scripts with environment variables.
+            /// Note that the replacement will only take place for inline scripts.
+            /// </summary>
+            public static readonly List<string> VariablesVulnerableToExecution = new List<string>
+            {
+                Agent.MachineName,
+                Agent.Name,
+                Build.DefinitionName,
+                Build.SourceVersionMessage,
+                Release.ReleaseDefinitionName,
+                Release.ReleaseEnvironmentName,
+                System.DefinitionName,
+                System.JobDisplayName,
+                System.PhaseDisplayName,
+                System.SourceVersionMessage,
+                System.StageDisplayName
+            };
+
             public static class Agent
             {
                 //
@@ -279,6 +306,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 //
                 public static readonly string AcceptTeeEula = "agent.acceptteeeula";
                 public static readonly string BuildDirectory = "agent.builddirectory";
+                public static readonly string CloudId = "agent.cloudid";
                 public static readonly string ContainerId = "agent.containerid";
                 public static readonly string ContainerMapping = "agent.containermapping";
                 public static readonly string ContainerNetwork = "agent.containernetwork";
@@ -323,11 +351,11 @@ namespace Microsoft.VisualStudio.Services.Agent
                 //
                 public static readonly string ArtifactStagingDirectory = "build.artifactstagingdirectory";
                 public static readonly string BinariesDirectory = "build.binariesdirectory";
-                public static readonly string Number = "build.buildNumber";
                 public static readonly string Clean = "build.clean";
                 public static readonly string DefinitionName = "build.definitionname";
                 public static readonly string GatedRunCI = "build.gated.runci";
                 public static readonly string GatedShelvesetName = "build.gated.shelvesetname";
+                public static readonly string Number = "build.buildNumber";
                 public static readonly string RepoClean = "build.repository.clean";
                 public static readonly string RepoGitSubmoduleCheckout = "build.repository.git.submodulecheckout";
                 public static readonly string RepoId = "build.repository.id";
@@ -339,6 +367,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string SourceBranch = "build.sourcebranch";
                 public static readonly string SourceTfvcShelveset = "build.sourcetfvcshelveset";
                 public static readonly string SourceVersion = "build.sourceversion";
+                public static readonly string SourceVersionMessage = "build.sourceVersionMessage";
                 public static readonly string SourcesDirectory = "build.sourcesdirectory";
                 public static readonly string StagingDirectory = "build.stagingdirectory";
                 public static readonly string SyncSources = "build.syncSources";
@@ -390,17 +419,17 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string ArtifactsDirectory = "system.artifactsDirectory";
                 public static readonly string AttemptNumber = "release.attemptNumber";
                 public static readonly string DisableRobocopy = "release.disableRobocopy";
+                public static readonly string ReleaseDefinitionId = "release.definitionId";
                 public static readonly string ReleaseDefinitionName = "release.definitionName";
+                public static readonly string ReleaseDescription = "release.releaseDescription";
+                public static readonly string ReleaseDownloadBufferSize = "release.artifact.download.buffersize";
                 public static readonly string ReleaseEnvironmentName = "release.environmentName";
                 public static readonly string ReleaseEnvironmentUri = "release.environmentUri";
-                public static readonly string ReleaseDefinitionId = "release.definitionId";
-                public static readonly string ReleaseDescription = "release.releaseDescription";
                 public static readonly string ReleaseId = "release.releaseId";
                 public static readonly string ReleaseName = "release.releaseName";
+                public static readonly string ReleaseParallelDownloadLimit = "release.artifact.download.parallellimit";
                 public static readonly string ReleaseRequestedForId = "release.requestedForId";
                 public static readonly string ReleaseUri = "release.releaseUri";
-                public static readonly string ReleaseDownloadBufferSize = "release.artifact.download.buffersize";
-                public static readonly string ReleaseParallelDownloadLimit = "release.artifact.download.parallellimit";
                 public static readonly string ReleaseWebUrl = "release.releaseWebUrl";
                 public static readonly string RequestorId = "release.requestedFor";
                 public static readonly string RobocopyMT = "release.robocopyMT";
@@ -419,9 +448,11 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string Debug = "system.debug";
                 public static readonly string DefaultWorkingDirectory = "system.defaultworkingdirectory";
                 public static readonly string DefinitionId = "system.definitionid";
+                public static readonly string DefinitionName = "system.definitionName";
                 public static readonly string EnableAccessToken = "system.enableAccessToken";
                 public static readonly string HostType = "system.hosttype";
                 public static readonly string JobAttempt = "system.jobAttempt";
+                public static readonly string JobDisplayName = "system.jobDisplayName";
                 public static readonly string JobId = "system.jobId";
                 public static readonly string JobName = "system.jobName";
                 public static readonly string PhaseAttempt = "system.phaseAttempt";
@@ -431,7 +462,9 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string PullRequestTargetBranchName = "system.pullrequest.targetbranch";
                 public static readonly string SelfManageGitCreds = "system.selfmanagegitcreds";
                 public static readonly string ServerType = "system.servertype";
+                public static readonly string SourceVersionMessage = "system.sourceVersionMessage";
                 public static readonly string StageAttempt = "system.stageAttempt";
+                public static readonly string StageDisplayName = "system.stageDisplayName";
                 public static readonly string StageName = "system.stageName";
                 public static readonly string TFServerUrl = "system.TeamFoundationServerUri"; // back compat variable, do not document
                 public static readonly string TeamProject = "system.teamproject";
@@ -454,17 +487,25 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string SkipTranslatorForCheckout = "task.skipTranslatorForCheckout";
             }
 
+            public static readonly Dictionary<string, WellKnownScriptShell> ScriptShellsPerTasks = new Dictionary<string, WellKnownScriptShell>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["PowerShell"] = WellKnownScriptShell.PowerShell,
+                ["Bash"] = WellKnownScriptShell.Bash,
+                ["CmdLine"] = WellKnownScriptShell.Cmd
+            };
+
             public static List<string> ReadOnlyVariables = new List<string>(){
                 // Agent variables
                 Agent.AcceptTeeEula,
                 Agent.BuildDirectory,
+                Agent.CloudId,
                 Agent.ContainerId,
                 Agent.ContainerMapping,
                 Agent.ContainerNetwork,
                 Agent.Diagnostic,
+                Agent.GitUseSChannel,
                 Agent.HomeDirectory,
                 Agent.Id,
-                Agent.GitUseSChannel,
                 Agent.JobName,
                 Agent.JobStatus,
                 Agent.MachineName,
@@ -472,20 +513,20 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Agent.OS,
                 Agent.OSArchitecture,
                 Agent.OSVersion,
+                Agent.ProxyBypassList,
+                Agent.ProxyPassword,
                 Agent.ProxyUrl,
                 Agent.ProxyUsername,
-                Agent.ProxyPassword,
-                Agent.ProxyBypassList,
-                Agent.RetainDefaultEncoding,
                 Agent.ReadOnlyVariables,
+                Agent.RetainDefaultEncoding,
                 Agent.RootDirectory,
                 Agent.RunMode,
                 Agent.ServerOMDirectory,
                 Agent.ServicePortPrefix,
                 Agent.SslCAInfo,
                 Agent.SslClientCert,
-                Agent.SslClientCertKey,
                 Agent.SslClientCertArchive,
+                Agent.SslClientCertKey,
                 Agent.SslClientCertPassword,
                 Agent.SslSkipCertValidation,
                 Agent.TempDirectory,
@@ -496,11 +537,11 @@ namespace Microsoft.VisualStudio.Services.Agent
                 // Build variables
                 Build.ArtifactStagingDirectory,
                 Build.BinariesDirectory,
-                Build.Number,
                 Build.Clean,
                 Build.DefinitionName,
                 Build.GatedRunCI,
                 Build.GatedShelvesetName,
+                Build.Number,
                 Build.RepoClean,
                 Build.RepoGitSubmoduleCheckout,
                 Build.RepoId,
@@ -512,6 +553,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Build.SourceBranch,
                 Build.SourceTfvcShelveset,
                 Build.SourceVersion,
+                Build.SourceVersionMessage,
                 Build.SourcesDirectory,
                 Build.StagingDirectory,
                 Build.SyncSources,
@@ -530,17 +572,17 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Release.ArtifactsDirectory,
                 Release.AttemptNumber,
                 Release.DisableRobocopy,
+                Release.ReleaseDefinitionId,
                 Release.ReleaseDefinitionName,
+                Release.ReleaseDescription,
+                Release.ReleaseDownloadBufferSize,
                 Release.ReleaseEnvironmentName,
                 Release.ReleaseEnvironmentUri,
-                Release.ReleaseDefinitionId,
-                Release.ReleaseDescription,
                 Release.ReleaseId,
                 Release.ReleaseName,
+                Release.ReleaseParallelDownloadLimit,
                 Release.ReleaseRequestedForId,
                 Release.ReleaseUri,
-                Release.ReleaseDownloadBufferSize,
-                Release.ReleaseParallelDownloadLimit,
                 Release.ReleaseWebUrl,
                 Release.RequestorId,
                 Release.RobocopyMT,
@@ -553,9 +595,11 @@ namespace Microsoft.VisualStudio.Services.Agent
                 System.Debug,
                 System.DefaultWorkingDirectory,
                 System.DefinitionId,
+                System.DefinitionName,
                 System.EnableAccessToken,
                 System.HostType,
                 System.JobAttempt,
+                System.JobDisplayName,
                 System.JobId,
                 System.JobName,
                 System.PhaseAttempt,
@@ -565,7 +609,9 @@ namespace Microsoft.VisualStudio.Services.Agent
                 System.PullRequestTargetBranchName,
                 System.SelfManageGitCreds,
                 System.ServerType,
+                System.SourceVersionMessage,
                 System.StageAttempt,
+                System.StageDisplayName,
                 System.StageName,
                 System.TFServerUrl,
                 System.TeamProject,
@@ -574,6 +620,16 @@ namespace Microsoft.VisualStudio.Services.Agent
                 // Task variables
                 Task.DisplayName,
                 Task.SkipTranslatorForCheckout
+            };
+        }
+
+        public static class ScriptShells
+        {
+            public static Dictionary<WellKnownScriptShell, EnvVariableParts> EnvVariablePartsPerShell = new Dictionary<WellKnownScriptShell, EnvVariableParts>
+            {
+                [WellKnownScriptShell.PowerShell] = new EnvVariableParts { Prefix = "$env:", Suffix = "" },
+                [WellKnownScriptShell.Bash] = new EnvVariableParts { Prefix = "$", Suffix = "" },
+                [WellKnownScriptShell.Cmd] = new EnvVariableParts { Prefix = "%", Suffix = "" }
             };
         }
     }

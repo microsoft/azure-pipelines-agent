@@ -277,9 +277,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         private void CleanupTfsVCOutput(ref TfsVCPorcelainCommandResult command, string executedCommand)
         {
+            // tf.exe removes double quotes from the output, we also replace it in the input command to correctly find the extra output
             List<string> stringsToRemove = command
                 .Output
-                .Where(item => item.Contains(executedCommand))
+                .Where(item => item.Contains(executedCommand.Replace("\"", "")))
                 .ToList();
             command.Output.RemoveAll(item => stringsToRemove.Contains(item));
         }
