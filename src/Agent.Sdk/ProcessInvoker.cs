@@ -20,7 +20,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
     // The implementation of the process invoker does not hook up DataReceivedEvent and ErrorReceivedEvent of Process,
     // instead, we read both STDOUT and STDERR stream manually on separate thread.
     // The reason is we find a huge perf issue about process STDOUT/STDERR with those events.
-    public sealed partial class ProcessInvoker : IDisposable
+    public partial class ProcessInvoker : IDisposable
     {
         private Process _proc;
         private Stopwatch _stopWatch;
@@ -329,12 +329,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 while (true)
                 {
                     Task outputSignal = _outputProcessEvent.WaitAsync();
-                    
                     bool continueAfterCancelProcessTreeKillAttempt = AgentKnobs.ContinueAfterCancelProcessTreeKillAttempt.GetValue(UtilKnobValueContext.Instance()).AsBoolean();
-
                     Task[] tasks;
 
-                    if(continueAfterCancelProcessTreeKillAttempt)
+                    if (continueAfterCancelProcessTreeKillAttempt)
                     {
                         tasks = new Task[] { outputSignal, _processExitedCompletionSource.Task, afterCancelKillProcessTreeAttemptSignal.WaitAsync() };
                     }
@@ -360,7 +358,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 // data buffers one last time before returning
                 ProcessOutput();
 
-                Trace.Info($"Finished process {_proc.Id} with exit code {_proc.ExitCode}, and elapsed time {_stopWatch.Elapsed}.");
+                if(_proc.HasExited)
+                { 
+                    Trace.Info($"Finished process {_proc.Id} with exit code {_proc.ExitCode}, and elapsed time {_stopWatch.Elapsed}.");
+                }
+                else
+                {
+                    Trace.Info($"Process _proc.HasExited={_proc.HasExited}, {_proc.Id},  and elapsed time {_stopWatch.Elapsed}.");
+                }
             }
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -437,7 +442,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
-        private async Task CancelAndKillProcessTree(bool killProcessOnCancel)
+        internal protected virtual async Task CancelAndKillProcessTree(bool killProcessOnCancel)
         {
             ArgUtil.NotNull(_proc, nameof(_proc));
             if (!killProcessOnCancel)

@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk;
+using Agent.Sdk.Knob;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -42,7 +44,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        [Trait("SkipOn", "windows")]
         [Trait("SkipOn", "darwin")]
         public async Task TestCancel()
         {
@@ -55,7 +56,79 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 {
                     processInvoker.Initialize(hc);
                     Stopwatch watch = Stopwatch.StartNew();
-                    Task execTask = processInvoker.ExecuteAsync("", "bash", $"-c \"sleep {SecondsToRun}s\"", null, tokenSource.Token);
+                    Task execTask;
+                    if (TestUtil.IsWindows())
+                    {
+                        execTask = processInvoker.ExecuteAsync("", "cmd", $"/c \"ping 127.0.0.1 -n {SecondsToRun} > nul\"", null, tokenSource.Token);
+                    }
+                    else
+                    {
+                        execTask = processInvoker.ExecuteAsync("", "bash", $"-c \"sleep {SecondsToRun}s\"", null, tokenSource.Token);
+                    }
+
+                    await Task.Delay(500);
+                    tokenSource.Cancel();
+                    try
+                    {
+                        await execTask;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        trace.Info("Get expected OperationCanceledException.");
+                    }
+
+                    Assert.True(execTask.IsCompleted);
+                    Assert.True(!execTask.IsFaulted);
+                    Assert.True(execTask.IsCanceled);
+                    watch.Stop();
+                    long elapsedSeconds = watch.ElapsedMilliseconds / 1000;
+
+                    // if cancellation fails, then execution time is more than 15 seconds
+                    long expectedSeconds = (SecondsToRun * 3) / 4;
+
+                    Assert.True(elapsedSeconds <= expectedSeconds, $"cancellation failed, because task took too long to run. {elapsedSeconds}");
+                }
+            }
+        }
+
+        class ProcessInvokerWithOutKillingCancelledTask : ProcessInvoker
+        {
+            public ProcessInvokerWithOutKillingCancelledTask(ITraceWriter trace, bool disableWorkerCommands = false) : base(trace, disableWorkerCommands)
+            {
+            }
+
+            // override CancelAndKillProcessTree to avoid killing the cancelled task,
+            // so we can test that execution continues 
+            protected internal override Task CancelAndKillProcessTree(bool killProcessOnCancel)
+            {
+                return Task.CompletedTask;
+            }
+        }
+
+        //Run a process that normally takes 20sec to finish and cancel it.
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        [Trait("SkipOn", "darwin")]
+        public async Task TestCancelEnsureCompletedWhenTaskNotKilled()
+        {
+            const int SecondsToRun = 20;
+            using (TestHostContext hc = new TestHostContext(this))
+            using (var tokenSource = new CancellationTokenSource())
+            {
+                Tracing trace = hc.GetTrace();
+                using (var processInvoker = new ProcessInvokerWithOutKillingCancelledTask(trace, false))
+                {
+                    Stopwatch watch = Stopwatch.StartNew();
+                    Task execTask;
+                    if (TestUtil.IsWindows())
+                    {
+                        execTask = processInvoker.ExecuteAsync("", "cmd", $"/c \"ping 127.0.0.1 -n {SecondsToRun} > nul\"", null, tokenSource.Token);
+                    }
+                    else
+                    {
+                        execTask = processInvoker.ExecuteAsync("", "bash", $"-c \"sleep {SecondsToRun}s\"", null, tokenSource.Token);
+                    }
 
                     await Task.Delay(500);
                     tokenSource.Cancel();

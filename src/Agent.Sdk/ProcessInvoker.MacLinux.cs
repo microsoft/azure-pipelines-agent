@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace Microsoft.VisualStudio.Services.Agent.Util
 {
-    public sealed partial class ProcessInvoker : IDisposable
+    public partial class ProcessInvoker : IDisposable
     {
         private async Task<bool> SendPosixSignal(PosixSignals signal, TimeSpan timeout)
         {
