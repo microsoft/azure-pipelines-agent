@@ -377,5 +377,12 @@ namespace Agent.Sdk.Knob
             "If true, continue cancellation after attempt to KillProcessTree",
             new EnvironmentKnobSource(ContinueAfterCancelProcessTreeKillAttemptVariableName),
             new BuiltInDefaultKnobSource("true"));
+
+        public static readonly Knob UseNode = new Knob(
+            nameof(UseNode),
+            "Forces the agent to use different version of Node if when configured runner is not available. Possible values: LTS - make agent use latest LTS version of Node; UPGRADE - make agent use next available version of Node",
+            new RuntimeKnobSource("AGENT_USE_NODE"),
+            new EnvironmentKnobSource("AGENT_USE_NODE"),
+            new BuiltInDefaultKnobSource(string.Empty));
     }
 }

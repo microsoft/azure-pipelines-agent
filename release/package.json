@@ -12,7 +12,7 @@
   "dependencies": {
     "@octokit/rest": "^16.43.1",
     "azure-devops-node-api": "^10.2.2",
-    "azure-pipelines-task-lib": "^3.1.10",
+    "azure-pipelines-task-lib": "^3.3.1",
     "got": "^11.8.2",
     "node-getopt": "^0.3.2"
   }

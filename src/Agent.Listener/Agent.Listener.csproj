@@ -20,4 +20,10 @@
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="4.4.0" />
     <PackageReference Include="vss-api-netcore" Version="$(VssApiVersion)" />
   </ItemGroup>
+
+  <ItemGroup>
+    <None Update="net6.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>

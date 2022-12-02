@@ -83,8 +83,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 .Setup(x => x.Variables)
                 .Returns(new Variables(tc, copy: new Dictionary<string, VariableValue>(), warnings: out warnings));
             executionContext
-                .Setup(x => x.Write(It.IsAny<string>(), It.IsAny<string>()))
-                .Callback((string tag, string message) =>
+                .Setup(x => x.Write(It.IsAny<string>(), It.IsAny<string>(), true))
+                .Callback((string tag, string message, bool canMaskSecrets) =>
                 {
                     trace.Info($"{tag}{message}");
                 });

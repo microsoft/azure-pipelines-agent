@@ -1,0 +1,129 @@
+[
+  {
+    "id": "alpine",
+    "versions": [
+      {
+        "name": "3.13+"
+      }
+    ]
+  },
+  {
+    "id": "amzn",
+    "versions": [
+      {
+        "name": "2"
+      }
+    ]
+  },
+  {
+    "id": "centos",
+    "versions": [
+      {
+        "name": "7+"
+      }
+    ]
+  },
+  {
+    "id": "debian",
+    "versions": [
+      {
+        "name": "10+"
+      }
+    ]
+  },
+  {
+    "id": "fedora",
+    "versions": [
+      {
+        "name": "33+"
+      }
+    ]
+  },
+  {
+    "id": "macOS",
+    "versions": [
+      {
+        "name": "10.15+"
+      }
+    ]
+  },
+  {
+    "id": "opensuse-leap",
+    "versions": [
+      {
+        "name": "15+"
+      }
+    ]
+  },
+  {
+    "id": "rhel",
+    "versions": [
+      {
+        "name": "7+"
+      }
+    ]
+  },
+  {
+    "id": "sles",
+    "versions": [
+      {
+        "name": "12.2+"
+      }
+    ]
+  },
+  {
+    "id": "ubuntu",
+    "versions": [
+      {
+        "name": "16.04"
+      },
+      {
+        "name": "18.04"
+      },
+      {
+        "name": "20.04+"
+      }
+
+    ]
+  },
+  {
+    "id": "Windows Client",
+    "versions": [
+      {
+        "name": "7",
+        "version": "7601+"
+      },
+      {
+        "name": "8.1"
+      },
+      {
+        "name": "10",
+        "version": "14393+"
+      }
+    ]
+  },
+  {
+    "id": "Windows Nano Server",
+    "versions": [
+      {
+        "version": "17763+"
+      }
+    ]
+  },
+  {
+    "id": "Windows Server",
+    "versions": [
+      {
+        "name": "2012+"
+      }
+    ]
+  },
+  {
+    "id": "Windows Server Core",
+    "versions": [
+      {
+        "name": "2012+"
+      }
+    ]
+  }
+]

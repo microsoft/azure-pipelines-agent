@@ -460,8 +460,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 .Setup(x => x.WriteDebug)
                 .Returns(true);
             _executionContext
-                .Setup(x => x.Write(It.IsAny<string>(), It.IsAny<string>()))
-                .Callback((string tag, string message) => _trace.Info($"[ExecutionContext]{tag} {message}"));
+                .Setup(x => x.Write(It.IsAny<string>(), It.IsAny<string>(), true))
+                .Callback((string tag, string message, bool canMaskSecrets) => _trace.Info($"[ExecutionContext]{tag} {message}"));
         }
 
         public sealed class MockTfsVCWorkspace : ITfsVCWorkspace

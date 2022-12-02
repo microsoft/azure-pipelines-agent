@@ -55,7 +55,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         // logging
         bool WriteDebug { get; }
-        long Write(string tag, string message);
+        long Write(string tag, string message, bool canMaskSecrets = true);
         void QueueAttachFile(string type, string name, string filePath);
         ITraceWriter GetTraceWriter();
 
@@ -653,6 +653,43 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Hook up JobServerQueueThrottling event, we will log warning on server tarpit.
             _jobServerQueue.JobServerQueueThrottling += JobServerQueueThrottling_EventReceived;
+
+            // Check if a system supports .NET 6
+            PackageVersion agentVersion = new PackageVersion(BuildConstants.AgentPackage.Version);
+
+            if (agentVersion.Major < 3)
+            {
+                try
+                {
+                    Trace.Verbose("Checking if your system supports .NET 6");
+
+                    string systemId = PlatformUtil.GetSystemId();
+                    SystemVersion systemVersion = PlatformUtil.GetSystemVersion();
+                    string notSupportNet6Message = null;
+
+                    if (PlatformUtil.DoesSystemPersistsInNet6Whitelist())
+                    {
+                        // Check version of the system
+                        if (!PlatformUtil.IsNet6Supported())
+                        {
+                            notSupportNet6Message = $"The operating system the agent is running on is \"{systemId}\" ({systemVersion}), which will not be supported by the .NET 6 based v3 agent. Please upgrade the operating system of this host to ensure compatibility with the v3 agent. See https://aka.ms/azdo-pipeline-agent-version";
+                        }
+                    }
+                    else
+                    {
+                        notSupportNet6Message = $"The operating system the agent is running on is \"{systemId}\" ({systemVersion}), which has not been tested with the .NET 6 based v3 agent. The v2 agent wil not automatically upgrade to the v3 agent. You can manually download the .NET 6 based v3 agent from https://github.com/microsoft/azure-pipelines-agent/releases. See https://aka.ms/azdo-pipeline-agent-version";
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(notSupportNet6Message))
+                    {
+                        AddIssue(new Issue() { Type = IssueType.Warning, Message = notSupportNet6Message });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Trace.Error($"Error has occurred while checking if system supports .NET 6: {ex}");
+                }
+            }
         }
 
         private string GetWorkspaceIdentifier(Pipelines.AgentJobRequestMessage message)
@@ -669,9 +706,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // Do not add a format string overload. In general, execution context messages are user facing and
         // therefore should be localized. Use the Loc methods from the StringUtil class. The exception to
         // the rule is command messages - which should be crafted using strongly typed wrapper methods.
-        public long Write(string tag, string message)
+        public long Write(string tag, string inputMessage, bool canMaskSecrets = true)
         {
-            string msg = HostContext.SecretMasker.MaskSecrets($"{tag}{message}");
+            string message = canMaskSecrets ? HostContext.SecretMasker.MaskSecrets($"{tag}{inputMessage}") : inputMessage;
+
             long totalLines;
             lock (_loggerLock)
             {
@@ -679,11 +717,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 if (_disableLogUploads)
                 {
-                    _buildLogsWriter.WriteLine(msg);
+                    _buildLogsWriter.WriteLine(message);
                 }
                 else
                 {
-                    _logger.Write(msg);
+                    _logger.Write(message);
                 }
             }
 
@@ -695,11 +733,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     lock (parentContext._loggerLock)
                     {
-                        parentContext._logger.Write(msg);
+                        parentContext._logger.Write(message);
                     }
                 }
 
-                _jobServerQueue.QueueWebConsoleLine(_record.Id, msg, totalLines);
+                _jobServerQueue.QueueWebConsoleLine(_record.Id, message, totalLines);
             }
 
             // write to plugin daemon,
@@ -710,7 +748,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     _logPlugin = HostContext.GetService<IAgentLogPlugin>();
                 }
 
-                _logPlugin.Write(_record.Id, msg);
+                _logPlugin.Write(_record.Id, message);
             }
 
             return totalLines;
@@ -908,10 +946,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
 
         // Do not add a format string overload. See comment on ExecutionContext.Write().
-        public static void Output(this IExecutionContext context, string message)
+        public static void Output(this IExecutionContext context, string message, bool canMaskSecrets = true)
         {
             ArgUtil.NotNull(context, nameof(context));
-            context.Write(null, message);
+            context.Write(null, message, canMaskSecrets);
         }
 
         // Do not add a format string overload. See comment on ExecutionContext.Write().
