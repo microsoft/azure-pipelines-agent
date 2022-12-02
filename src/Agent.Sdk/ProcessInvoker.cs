@@ -445,9 +445,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         internal protected virtual async Task CancelAndKillProcessTree(bool killProcessOnCancel)
         {
-            Trace.Info("skipping CancelAndKillProcessTree");
-            return ;
-            
             ArgUtil.NotNull(_proc, nameof(_proc));
             if (!killProcessOnCancel)
             {
