@@ -315,13 +315,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 }
             }
 
-            using (var registration = cancellationToken.Register(async () => await CancelAndKillProcessTree(killProcessOnCancel)))
+            AsyncManualResetEvent afterCancelKillProcessTreeAttemptSignal = new AsyncManualResetEvent();
+            using (var registration = cancellationToken.Register(async () =>
+            {
+                await CancelAndKillProcessTree(killProcessOnCancel);
+
+                // signal to ensure we exit the loop after we attempt to cancel and kill the process tree (which is best effort)
+                afterCancelKillProcessTreeAttemptSignal.Set();
+            }))
             {
                 Trace.Info($"Process started with process id {_proc.Id}, waiting for process exit.");
                 while (true)
                 {
                     Task outputSignal = _outputProcessEvent.WaitAsync();
-                    var signaled = await Task.WhenAny(outputSignal, _processExitedCompletionSource.Task);
+                    var signaled = await Task.WhenAny(outputSignal, _processExitedCompletionSource.Task, afterCancelKillProcessTreeAttemptSignal.WaitAsync());
 
                     if (signaled == outputSignal)
                     {
@@ -532,7 +539,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                                 standardIn.Close();
                                 break;
                             }
-                    }
+                        }
                     }
                 }
 
