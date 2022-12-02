@@ -369,5 +369,12 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("VSTSAGENT_DUMP_PACKAGES_VERIFICATION_RESULTS"),
             new EnvironmentKnobSource("VSTSAGENT_DUMP_PACKAGES_VERIFICATION_RESULTS"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob ContinueAfterCancelProcessTreeKillAttempt = new Knob(
+            nameof(ContinueAfterCancelProcessTreeKillAttempt),
+            "If true, continue cancellation after attempt to KillProcessTree",
+            new RuntimeKnobSource("VSTSAGENT_CONTINUE_AFTER_CANCEL_PROCESSTREEKILL_ATTEMPT"),
+            new EnvironmentKnobSource("VSTSAGENT_CONTINUE_AFTER_CANCEL_PROCESSTREEKILL_ATTEMPT"),
+            new BuiltInDefaultKnobSource("true"));
     }
 }

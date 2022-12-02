@@ -11,6 +11,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.Framework.Common;
 
 namespace Microsoft.VisualStudio.Services.Agent.Util
@@ -328,7 +329,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 while (true)
                 {
                     Task outputSignal = _outputProcessEvent.WaitAsync();
-                    var signaled = await Task.WhenAny(outputSignal, _processExitedCompletionSource.Task, afterCancelKillProcessTreeAttemptSignal.WaitAsync());
+                    
+                    bool continueAfterCancelProcessTreeKillAttempt = AgentKnobs.ContinueAfterCancelProcessTreeKillAttempt.GetValue(UtilKnobValueContext.Instance()).AsBoolean();
+
+                    Task[] tasks;
+
+                    if(continueAfterCancelProcessTreeKillAttempt)
+                    {
+                        tasks = new Task[] { outputSignal, _processExitedCompletionSource.Task, afterCancelKillProcessTreeAttemptSignal.WaitAsync() };
+                    }
+                    else
+                    {
+                        tasks = new Task[] { outputSignal, _processExitedCompletionSource.Task };
+                    }
+
+                    var signaled = await Task.WhenAny(tasks);
 
                     if (signaled == outputSignal)
                     {
