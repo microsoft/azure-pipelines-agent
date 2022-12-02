@@ -155,18 +155,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
                 try
                 {
-                    OS[] supportedSystems = GetSupportedSystemsNet6();
-
                     string systemId = PlatformUtil.GetSystemId();
-                    OSVersion systemVersion = PlatformUtil.GetSystemVersion();
+                    SystemVersion systemVersion = PlatformUtil.GetSystemVersion();
 
                     Trace.Verbose($"The system you are running on: \"{systemId}\" ({systemVersion})");
 
-                    // Check if the system persists in the whitelist
-                    if (supportedSystems.Any((system) => system.Equals(systemId)))
+                    if (PlatformUtil.DoesSystemPersistsInNet6Whitelist())
                     {
                         // Check version of the system
-                        if (!supportedSystems.Any((system) => system.Equals(systemId, systemVersion)))
+                        if (!PlatformUtil.IsNet6Supported())
                         {
                             Trace.Warning($"The operating system the agent is running on is \"{systemId}\" ({systemVersion}), which will not be supported by the .NET 6 based v3 agent. Please upgrade the operating system of this host to ensure compatibility with the v3 agent. See https://aka.ms/azdo-pipeline-agent-version");
                             return false;
@@ -181,7 +178,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 }
                 catch (Exception ex)
                 {
-                    Trace.Error($"Error has occurred while checking if system supports .NET 6: {ex} ");
+                    Trace.Error($"Error has occurred while checking if system supports .NET 6: {ex}");
                 }
             }
 
@@ -684,18 +681,6 @@ You can skip checksum validation for the agent package by setting the environmen
 
             return true;
         }
-
-        private OS[] GetSupportedSystemsNet6()
-        {
-            string supportOSfilePath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), "net6.json");
-            if (!File.Exists(supportOSfilePath))
-            {
-                return Array.Empty<OS>();
-            }
-
-            string supportOSfileContent = File.ReadAllText(supportOSfilePath);
-            return JsonConvert.DeserializeObject<OS[]>(supportOSfileContent)!;
-        }
     }
 
     public class UpdaterKnobValueContext : IKnobValueContext
@@ -708,35 +693,6 @@ You can skip checksum validation for the agent package by setting the environmen
         public IScopedEnvironment GetScopedEnvironment()
         {
             return new SystemEnvironment();
-        }
-    }
-
-    public class OS
-    {
-        public string Id { get; set; }
-
-        public OSVersion[] Versions { get; set; }
-
-        public OS() { }
-
-        public bool Equals(string systemId)
-        {
-            return this.Id.Equals(systemId, StringComparison.OrdinalIgnoreCase);
-        }
-
-        public bool Equals(string systemId, OSVersion systemVersion)
-        {
-            if (!this.Equals(systemId))
-            {
-                return false;
-            }
-
-            if (this.Versions.Length == 0)
-            {
-                return false;
-            }
-
-            return this.Versions.Any(version => version.Equals(systemVersion));
         }
     }
 }

@@ -5,10 +5,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Xml;
 using System.Xml.Linq;
 using Agent.Sdk.Knob;
 using BuildXL.Cache.MemoizationStore.Interfaces.Caches;
@@ -22,6 +22,7 @@ namespace Agent.Sdk
     public static class PlatformUtil
     {
         private static UtilKnobValueContext _knobContext = UtilKnobValueContext.Instance();
+        private static OperatingSystem[] net6SupportedSystems;
 
         // System.Runtime.InteropServices.OSPlatform is a struct, so it is
         // not suitable for switch statements.
@@ -96,13 +97,13 @@ namespace Agent.Sdk
             };
         }
 
-        public static OSVersion GetSystemVersion()
+        public static SystemVersion GetSystemVersion()
         {
             return PlatformUtil.HostOS switch
             {
-                PlatformUtil.OS.Linux => new OSVersion(GetLinuxName(), null),
-                PlatformUtil.OS.OSX => new OSVersion(GetOSxName(), null),
-                PlatformUtil.OS.Windows => new OSVersion(GetWindowsName(), GetWindowsVersion()),
+                PlatformUtil.OS.Linux => new SystemVersion(GetLinuxName(), null),
+                PlatformUtil.OS.OSX => new SystemVersion(GetOSxName(), null),
+                PlatformUtil.OS.Windows => new SystemVersion(GetWindowsName(), GetWindowsVersion()),
                 _ => null
             };
         }
@@ -227,7 +228,7 @@ namespace Agent.Sdk
                 {
                     var productName = key.GetValue("ProductName");
                     var productNameRegexMatch = productNameRegex.Match(productName?.ToString());
-                    
+
                     if (productNameRegexMatch.Success)
                     {
                         return productNameRegexMatch.Groups["versionNumber"]?.Value;
@@ -307,10 +308,43 @@ namespace Agent.Sdk
             // https://github.com/dotnet/runtime/issues/35365#issuecomment-667467706
             get => AgentKnobs.UseLegacyHttpHandler.GetValue(_knobContext).AsBoolean();
         }
+
+        private static OperatingSystem[] GetNet6SupportedSystems()
+        {
+            string supportOSfilePath = Path.Combine(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "net6.json");
+            if (!File.Exists(supportOSfilePath))
+            {
+                return Array.Empty<OperatingSystem>();
+            }
+
+            string supportOSfileContent = File.ReadAllText(supportOSfilePath);
+            return JsonConvert.DeserializeObject<OperatingSystem[]>(supportOSfileContent)!;
+        }
+
+        public static bool IsNet6Supported()
+        {
+            net6SupportedSystems ??= GetNet6SupportedSystems();
+
+            string systemId = PlatformUtil.GetSystemId();
+            SystemVersion systemVersion = PlatformUtil.GetSystemVersion();
+            return net6SupportedSystems.Any((s) => s.Equals(systemId, systemVersion));
+        }
+
+        public static bool DoesSystemPersistsInNet6Whitelist()
+        {
+            if (net6SupportedSystems == null)
+            {
+                net6SupportedSystems = GetNet6SupportedSystems();
+            }
+
+            string systemId = PlatformUtil.GetSystemId();
+
+            return net6SupportedSystems.Any((s) => s.Equals(systemId));
+        }
     }
 
 #pragma warning disable CS0659 // Type overrides Object.Equals(object o) but does not override Object.GetHashCode()
-    public class OSVersion
+    public class SystemVersion
 #pragma warning restore CS0659 // Type overrides Object.Equals(object o) but does not override Object.GetHashCode()
     {
         public ParsedVersion Name { get; }
@@ -318,9 +352,10 @@ namespace Agent.Sdk
         public ParsedVersion Version { get; }
 
         [JsonConstructor]
-        public OSVersion(string name, string version)
+        public SystemVersion(string name, string version)
         {
-            if (name == null && version == null) {
+            if (name == null && version == null)
+            {
                 throw new Exception("You need to provide at least one not-nullable parameter");
             }
 
@@ -337,7 +372,7 @@ namespace Agent.Sdk
 
         public override bool Equals(object obj)
         {
-            if (obj is OSVersion comparingOSVersion)
+            if (obj is SystemVersion comparingOSVersion)
             {
                 return ((this.Name != null && comparingOSVersion.Name != null)
                     ? this.Name.Equals(comparingOSVersion.Name)
@@ -360,7 +395,7 @@ namespace Agent.Sdk
 
             if (this.Version != null)
             {
-               
+
                 result.Append(string.Format("{0}OS version: {1}",
                     string.IsNullOrEmpty(result.ToString()) ? string.Empty : ", ",
                     this.Version));
@@ -426,4 +461,22 @@ namespace Agent.Sdk
             return this.originalString;
         }
     }
+
+    public class OperatingSystem
+    {
+        public string Id { get; set; }
+
+        public SystemVersion[] Versions { get; set; }
+
+        public OperatingSystem() { }
+
+        public bool Equals(string systemId) => 
+            this.Id.Equals(systemId, StringComparison.OrdinalIgnoreCase);
+
+        public bool Equals(string systemId, SystemVersion systemVersion) => 
+            this.Equals(systemId) || this.Versions.Length > 0 
+                ? this.Versions.Any(version => version.Equals(systemVersion))
+                : false;
+    }
+
 }
