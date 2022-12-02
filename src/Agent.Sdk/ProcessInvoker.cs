@@ -326,10 +326,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }))
             {
                 Trace.Info($"Process started with process id {_proc.Id}, waiting for process exit.");
+                bool continueAfterCancelProcessTreeKillAttempt = AgentKnobs.ContinueAfterCancelProcessTreeKillAttempt.GetValue(UtilKnobValueContext.Instance()).AsBoolean();
+
                 while (true)
                 {
                     Task outputSignal = _outputProcessEvent.WaitAsync();
-                    bool continueAfterCancelProcessTreeKillAttempt = AgentKnobs.ContinueAfterCancelProcessTreeKillAttempt.GetValue(UtilKnobValueContext.Instance()).AsBoolean();
                     Task[] tasks;
 
                     if (continueAfterCancelProcessTreeKillAttempt)
@@ -444,6 +445,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         internal protected virtual async Task CancelAndKillProcessTree(bool killProcessOnCancel)
         {
+            Trace.Info("skipping CancelAndKillProcessTree");
+            return ;
+            
             ArgUtil.NotNull(_proc, nameof(_proc));
             if (!killProcessOnCancel)
             {
