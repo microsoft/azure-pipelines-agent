@@ -121,13 +121,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 {
                     Stopwatch watch = Stopwatch.StartNew();
                     Task execTask;
+
+                    const bool continueAfterCancelProcessTreeKillAttempt = true;
                     if (TestUtil.IsWindows())
                     {
-                        execTask = processInvoker.ExecuteAsync("", "cmd", $"/c \"ping 127.0.0.1 -n {SecondsToRun} > nul\"", null, tokenSource.Token);
+                        execTask = processInvoker.ExecuteAsync("", "cmd", $"/c \"ping 127.0.0.1 -n {SecondsToRun} > nul\"", null, false, null, false, null, false, false, false, continueAfterCancelProcessTreeKillAttempt, tokenSource.Token);
                     }
                     else
                     {
-                        execTask = processInvoker.ExecuteAsync("", "bash", $"-c \"sleep {SecondsToRun}s\"", null, tokenSource.Token);
+                        execTask = processInvoker.ExecuteAsync("", "bash", $"-c \"sleep {SecondsToRun}s\"", null, false, null, false, null, false, false, false, continueAfterCancelProcessTreeKillAttempt, tokenSource.Token);
                     }
 
                     await Task.Delay(500);
@@ -228,8 +230,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                     processInvoker.Initialize(hc);
                     var proc = (TestUtil.IsWindows())
-                        ? processInvoker.ExecuteAsync("", "cmd.exe", "/c more", null, false, null, false, redirectSTDIN, false, true, cancellationTokenSource.Token)
-                        : processInvoker.ExecuteAsync("", "bash", "-c \"read input; echo $input; read input; echo $input; read input; echo $input;\"", null, false, null, false, redirectSTDIN, false, true, cancellationTokenSource.Token);
+                        ? processInvoker.ExecuteAsync("", "cmd.exe", "/c more", null, false, null, false, redirectSTDIN, false, true, ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault, cancellationTokenSource.Token)
+                        : processInvoker.ExecuteAsync("", "bash", "-c \"read input; echo $input; read input; echo $input; read input; echo $input;\"", null, false, null, false, redirectSTDIN, false, true, ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault, cancellationTokenSource.Token);
 
                     redirectSTDIN.Enqueue("More line of STDIN");
                     redirectSTDIN.Enqueue("More line of STDIN");
@@ -284,6 +286,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                         {
                             var proc = await processInvoker.ExecuteAsync("", "bash", "-c \"cat /proc/$$/oom_score_adj\"", null, false, null, false, null, false, false,
                                                                 highPriorityProcess: false,
+                                                                continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
                                                                 cancellationToken: tokenSource.Token);
                             Assert.Equal(oomScoreAdj, 500);
                         }
@@ -326,6 +329,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                                                                     new Dictionary<string, string> { {"PIPELINE_JOB_OOMSCOREADJ", "1234"} },
                                                                     false, null, false, null, false, false,
                                                                     highPriorityProcess: false,
+                                                                    continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
                                                                     cancellationToken: tokenSource.Token);
                             Assert.Equal(oomScoreAdj, 1234);
                         }
@@ -368,6 +372,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                         {
                             var proc = await processInvoker.ExecuteAsync("", "bash", "-c \"cat /proc/$$/oom_score_adj\"", null, false, null, false, null, false, false,
                                                                 highPriorityProcess: true,
+                                                                continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
                                                                 cancellationToken: tokenSource.Token);
                             Assert.Equal(oomScoreAdj, 123);
                         }

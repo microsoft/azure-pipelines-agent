@@ -190,6 +190,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                   outputEncoding: outputEncoding,
                                                   killProcessOnCancel: false,
                                                   inheritConsoleHandler: !ExecutionContext.Variables.Retain_Default_Encoding,
+                                                  continueAfterCancelProcessTreeKillAttempt: _continueAfterCancelProcessTreeKillAttempt,
                                                   cancellationToken: ExecutionContext.CancellationToken);
 
                 // Wait for either the node exit or force finish through ##vso command

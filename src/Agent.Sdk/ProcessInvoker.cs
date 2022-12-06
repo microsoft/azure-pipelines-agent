@@ -22,6 +22,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
     // The reason is we find a huge perf issue about process STDOUT/STDERR with those events.
     public partial class ProcessInvoker : IDisposable
     {
+        public static readonly bool ContinueAfterCancelProcessTreeKillAttemptDefault = false;
         private Process _proc;
         private Stopwatch _stopWatch;
         private int _asyncStreamReaderCount = 0;
@@ -32,6 +33,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         private readonly ConcurrentQueue<string> _outputData = new ConcurrentQueue<string>();
         private readonly TimeSpan _sigintTimeout = TimeSpan.FromMilliseconds(7500);
         private readonly TimeSpan _sigtermTimeout = TimeSpan.FromMilliseconds(2500);
+
         private ITraceWriter Trace { get; set; }
 
         private class AsyncManualResetEvent
@@ -195,6 +197,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 inheritConsoleHandler: inheritConsoleHandler,
                 keepStandardInOpen: false,
                 highPriorityProcess: false,
+                continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
                 cancellationToken: cancellationToken);
         }
 
@@ -210,6 +213,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             bool inheritConsoleHandler,
             bool keepStandardInOpen,
             bool highPriorityProcess,
+            bool continueAfterCancelProcessTreeKillAttempt,
             CancellationToken cancellationToken)
         {
             ArgUtil.Null(_proc, nameof(_proc));
@@ -226,6 +230,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             Trace.Info($"  Persist current code page: '{inheritConsoleHandler}'");
             Trace.Info($"  Keep redirected STDIN open: '{keepStandardInOpen}'");
             Trace.Info($"  High priority process: '{highPriorityProcess}'");
+            Trace.Info($"  ContinueAfterCancelProcessTreeKillAttempt: '{continueAfterCancelProcessTreeKillAttempt}'");
 
             _proc = new Process();
             _proc.StartInfo.FileName = fileName;
@@ -326,7 +331,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }))
             {
                 Trace.Info($"Process started with process id {_proc.Id}, waiting for process exit.");
-                bool continueAfterCancelProcessTreeKillAttempt = AgentKnobs.ContinueAfterCancelProcessTreeKillAttempt.GetValue(UtilKnobValueContext.Instance()).AsBoolean();
 
                 while (true)
                 {

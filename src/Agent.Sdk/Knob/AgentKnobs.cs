@@ -375,8 +375,9 @@ namespace Agent.Sdk.Knob
         public static readonly Knob ContinueAfterCancelProcessTreeKillAttempt = new Knob(
             nameof(ContinueAfterCancelProcessTreeKillAttempt),
             "If true, continue cancellation after attempt to KillProcessTree",
+            new RuntimeKnobSource(ContinueAfterCancelProcessTreeKillAttemptVariableName),
             new EnvironmentKnobSource(ContinueAfterCancelProcessTreeKillAttemptVariableName),
-            new BuiltInDefaultKnobSource("true"));
+            new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob UseNode = new Knob(
             nameof(UseNode),
