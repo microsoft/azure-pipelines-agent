@@ -260,6 +260,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_USE_CREDSCAN_REGEXES"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob MaskedSecretMinLength = new Knob(
+            nameof(MaskedSecretMinLength),
+            "Specify the length of the secrets, which, if shorter, will be ignored in the logs.",
+            new RuntimeKnobSource("AZP_IGNORE_SECRETS_SHORTER_THAN"),
+            new EnvironmentKnobSource("AZP_IGNORE_SECRETS_SHORTER_THAN"),
+            new BuiltInDefaultKnobSource("0"));
+
         // Misc
         public static readonly Knob DisableAgentDowngrade = new Knob(
             nameof(DisableAgentDowngrade),

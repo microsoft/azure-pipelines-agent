@@ -36,7 +36,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         List<ServiceEndpoint> Endpoints { get; }
         List<SecureFile> SecureFiles { get; }
         List<Pipelines.RepositoryResource> Repositories { get; }
-        Dictionary<string,string> JobSettings { get; }
+        Dictionary<string, string> JobSettings { get; }
 
         PlanFeatures Features { get; }
         Variables Variables { get; }
@@ -524,6 +524,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 imageName = Environment.GetEnvironmentVariable("_PREVIEW_VSTS_DOCKER_IMAGE");
             }
+
+            var minSecretLen = AgentKnobs.MaskedSecretMinLength.GetValue(this).AsInt();
+
+            try
+            {
+                this.HostContext.SecretMasker.MinSecretLength = minSecretLen;
+            }
+            catch (ArgumentException ex)
+            {
+                warnings.Add(ex.Message);
+            }
+
+            this.HostContext.SecretMasker.RemoveShortSecretsFromDictionary();
 
             Containers = new List<ContainerInfo>();
             _defaultStepTarget = null;
