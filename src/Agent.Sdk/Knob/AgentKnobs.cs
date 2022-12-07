@@ -112,6 +112,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_GIT_USE_SECURE_PARAMETER_PASSING"),
             new BuiltInDefaultKnobSource("true"));
 
+        public static readonly Knob TfVCUseSecureParameterPassing = new Knob(
+            nameof(TfVCUseSecureParameterPassing),
+            "If true, don't pass auth token in TFVC parameters",
+            new RuntimeKnobSource("agent.TfVCUseSecureParameterPassing"),
+            new EnvironmentKnobSource("AGENT_TFVC_USE_SECURE_PARAMETER_PASSING"),
+            new BuiltInDefaultKnobSource("true"));
+
         public const string QuietCheckoutRuntimeVarName = "agent.source.checkout.quiet";
         public const string QuietCheckoutEnvVarName = "AGENT_SOURCE_CHECKOUT_QUIET";
 
@@ -253,6 +260,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_USE_CREDSCAN_REGEXES"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob MaskedSecretMinLength = new Knob(
+            nameof(MaskedSecretMinLength),
+            "Specify the length of the secrets, which, if shorter, will be ignored in the logs.",
+            new RuntimeKnobSource("AZP_IGNORE_SECRETS_SHORTER_THAN"),
+            new EnvironmentKnobSource("AZP_IGNORE_SECRETS_SHORTER_THAN"),
+            new BuiltInDefaultKnobSource("0"));
+
         // Misc
         public static readonly Knob DisableAgentDowngrade = new Knob(
             nameof(DisableAgentDowngrade),
@@ -362,5 +376,21 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("VSTSAGENT_DUMP_PACKAGES_VERIFICATION_RESULTS"),
             new EnvironmentKnobSource("VSTSAGENT_DUMP_PACKAGES_VERIFICATION_RESULTS"),
             new BuiltInDefaultKnobSource("false"));
+
+        public const string ContinueAfterCancelProcessTreeKillAttemptVariableName = "VSTSAGENT_CONTINUE_AFTER_CANCEL_PROCESSTREEKILL_ATTEMPT";
+
+        public static readonly Knob ContinueAfterCancelProcessTreeKillAttempt = new Knob(
+            nameof(ContinueAfterCancelProcessTreeKillAttempt),
+            "If true, continue cancellation after attempt to KillProcessTree",
+            new RuntimeKnobSource(ContinueAfterCancelProcessTreeKillAttemptVariableName),
+            new EnvironmentKnobSource(ContinueAfterCancelProcessTreeKillAttemptVariableName),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseNode = new Knob(
+            nameof(UseNode),
+            "Forces the agent to use different version of Node if when configured runner is not available. Possible values: LTS - make agent use latest LTS version of Node; UPGRADE - make agent use next available version of Node",
+            new RuntimeKnobSource("AGENT_USE_NODE"),
+            new EnvironmentKnobSource("AGENT_USE_NODE"),
+            new BuiltInDefaultKnobSource(string.Empty));
     }
 }

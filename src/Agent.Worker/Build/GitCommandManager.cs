@@ -23,7 +23,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         bool EnsureGitLFSVersion(Version requiredVersion, bool throwOnNotMatch);
 
         // setup git execution info, git location, version, useragent, execpath
-        Task LoadGitExecutionInfo(IExecutionContext context, bool useBuiltInGit);
+        Task LoadGitExecutionInfo(IExecutionContext context, bool useBuiltInGit, Dictionary<string, string> gitEnv = null);
 
         // git init <LocalDir>
         Task<int> GitInit(IExecutionContext context, string repositoryPath);
@@ -102,6 +102,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         // git version
         Task<Version> GitVersion(IExecutionContext context);
+
+        // git status
+        Task<int> GitStatus(IExecutionContext context, string repositoryPath);
     }
 
     public class GitCommandManager : AgentService, IGitCommandManager
@@ -117,6 +120,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         private Version _gitVersion = null;
         private string _gitLfsPath = null;
         private Version _gitLfsVersion = null;
+
+        private Dictionary<string, string> _gitEnv = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "GIT_TERMINAL_PROMPT", "0" },
+        };
 
         public bool EnsureGitVersion(Version requiredVersion, bool throwOnNotMatch)
         {
@@ -152,8 +160,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return _gitLfsVersion >= requiredVersion;
         }
 
-        public async Task LoadGitExecutionInfo(IExecutionContext context, bool useBuiltInGit)
+        public async Task LoadGitExecutionInfo(IExecutionContext context, bool useBuiltInGit, Dictionary<string, string> gitEnv = null)
         {
+            if (gitEnv != null)
+            {
+                foreach (var env in gitEnv)
+                {
+                    if (!string.IsNullOrEmpty(env.Key))
+                    {
+                        _gitEnv[env.Key] = env.Value ?? string.Empty;
+                    }
+                }
+            }
+
             // Resolve the location of git.
             if (useBuiltInGit)
             {
@@ -253,7 +272,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             //define options for fetch
             string options = $"{tags} --prune {pruneTags} --progress --no-recurse-submodules {remoteName} {depth} {string.Join(" ", refSpec)}";
 
-
             return await ExecuteGitCommandAsync(context, repositoryPath, "fetch", options, additionalCommandLine, cancellationToken);
         }
 
@@ -328,6 +346,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             context.Debug($"Undo any changes to tracked files in the working tree for repository at {repositoryPath}.");
             return await ExecuteGitCommandAsync(context, repositoryPath, "reset", "--hard HEAD");
+        }
+
+        // git status
+        public async Task<int> GitStatus(IExecutionContext context, string repositoryPath)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+
+            context.Debug($"Show the working tree status for repository at {repositoryPath}.");
+            return await ExecuteGitCommandAsync(context, repositoryPath, "status", string.Empty);
         }
 
         // get remote set-url <origin> <url>
@@ -715,21 +742,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         private IDictionary<string, string> GetGitEnvironmentVariables(IExecutionContext context)
         {
-            Dictionary<string, string> gitEnv = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                { "GIT_TERMINAL_PROMPT", "0" },
-            };
-
             if (!string.IsNullOrEmpty(_gitHttpUserAgentEnv))
             {
-                gitEnv["GIT_HTTP_USER_AGENT"] = _gitHttpUserAgentEnv;
+                _gitEnv["GIT_HTTP_USER_AGENT"] = _gitHttpUserAgentEnv;
             }
 
             // Add the public variables.
             foreach (KeyValuePair<string, string> pair in context.Variables.Public)
             {
                 // Add the variable using the formatted name.
-                string formattedKey = (pair.Key ?? string.Empty).Replace('.', '_').Replace(' ', '_').ToUpperInvariant();
+                string formattedKey = VarUtil.ConvertToEnvVariableFormat(pair.Key);
 
                 // Skip any GIT_TRACE variable since GIT_TRACE will affect ouput from every git command.
                 // This will fail the parse logic for detect git version, remote url, etc.
@@ -743,10 +765,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     continue;
                 }
 
-                gitEnv[formattedKey] = pair.Value ?? string.Empty;
+                _gitEnv[formattedKey] = pair.Value ?? string.Empty;
             }
 
-            return gitEnv;
+            return _gitEnv;
         }
     }
 }

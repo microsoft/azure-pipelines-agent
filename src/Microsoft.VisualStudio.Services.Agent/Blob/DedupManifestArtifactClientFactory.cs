@@ -166,6 +166,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
 
         public int GetDedupStoreClientMaxParallelism(AgentTaskPluginExecutionContext context)
         {
+            ConfigureEnvironmentVariables(context);
+            
             int parallelism = DefaultDedupStoreClientMaxParallelism;
 
             if (context.Variables.TryGetValue("AZURE_PIPELINES_DEDUP_PARALLELISM", out VariableValue v))
@@ -188,6 +190,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             return parallelism;
         }
 
+        private static readonly string[] EnvironmentVariables = new [] { "VSO_DEDUP_REDIRECT_TIMEOUT_IN_SEC" };
+
+        private static void ConfigureEnvironmentVariables(AgentTaskPluginExecutionContext context)
+        {
+            foreach(string varName in EnvironmentVariables)
+            {
+                if (context.Variables.TryGetValue(varName, out VariableValue v))
+                {
+                    if (v.Value.Equals(Environment.GetEnvironmentVariable(varName), StringComparison.Ordinal))
+                    {
+                        context.Output($"{varName} is already set to `{v.Value}`.");
+                    }
+                    else
+                    {
+                        Environment.SetEnvironmentVariable(varName, v.Value);
+                        context.Output($"Set {varName} to `{v.Value}`.");
+                    }
+                }
+            }
+        }
 
 
         public static IAppTraceSource CreateArtifactsTracer(bool verbose, Action<string> traceOutput)

@@ -240,6 +240,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                                        killProcessOnCancel: false,
                                                                        redirectStandardIn: null,
                                                                        inheritConsoleHandler: !ExecutionContext.Variables.Retain_Default_Encoding,
+                                                                       continueAfterCancelProcessTreeKillAttempt: _continueAfterCancelProcessTreeKillAttempt,
                                                                        cancellationToken: ExecutionContext.CancellationToken);
 
                     // the exit code from vstsPSHost.exe indicate how many error record we get during execution

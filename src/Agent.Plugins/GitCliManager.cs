@@ -554,6 +554,15 @@ namespace Agent.Plugins.Repository
             return await ExecuteGitCommandAsync(context, repositoryPath, "lfs", "logs last");
         }
 
+        // git status
+        public async Task<int> GitStatus(AgentTaskPluginExecutionContext context, string repositoryPath)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+
+            context.Debug($"Show the working tree status for repository at {repositoryPath}.");
+            return await ExecuteGitCommandAsync(context, repositoryPath, "status", string.Empty);
+        }
+
         // git version
         public virtual async Task<Version> GitVersion(AgentTaskPluginExecutionContext context)
         {

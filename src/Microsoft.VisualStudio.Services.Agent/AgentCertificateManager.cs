@@ -23,6 +23,10 @@ namespace Microsoft.VisualStudio.Services.Agent
         string ClientCertificateArchiveFile { get; }
         string ClientCertificatePassword { get; }
         IVssClientCertificateManager VssClientCertificateManager { get; }
+        void SetupCertificate(bool skipCertValidation, string caCert, string clientCert, string clientCertPrivateKey, string clientCertArchive, string clientCertPassword);
+        void SaveCertificateSetting();
+        void DeleteCertificateSetting();
+        void LoadCertificateSettings();
     }
 
     public class AgentCertificateManager : AgentService, IAgentCertificateManager
