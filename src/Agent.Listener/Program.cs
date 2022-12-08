@@ -105,7 +105,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         {
                             p.PriorityClass = ProcessPriorityClass.AboveNormal;
                         }
-                        catch(Exception e)
+                        catch (Exception e)
                         {
                             trace.Warning("Unable to change Windows process priority");
                             trace.Warning(e.Message);

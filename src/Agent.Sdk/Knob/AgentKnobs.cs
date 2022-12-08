@@ -260,6 +260,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_USE_CREDSCAN_REGEXES"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob MaskedSecretMinLength = new Knob(
+            nameof(MaskedSecretMinLength),
+            "Specify the length of the secrets, which, if shorter, will be ignored in the logs.",
+            new RuntimeKnobSource("AZP_IGNORE_SECRETS_SHORTER_THAN"),
+            new EnvironmentKnobSource("AZP_IGNORE_SECRETS_SHORTER_THAN"),
+            new BuiltInDefaultKnobSource("0"));
+
         // Misc
         public static readonly Knob DisableAgentDowngrade = new Knob(
             nameof(DisableAgentDowngrade),
@@ -368,6 +375,15 @@ namespace Agent.Sdk.Knob
             "If true, dumps info about invalid MD5 sums of installed packages",
             new RuntimeKnobSource("VSTSAGENT_DUMP_PACKAGES_VERIFICATION_RESULTS"),
             new EnvironmentKnobSource("VSTSAGENT_DUMP_PACKAGES_VERIFICATION_RESULTS"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public const string ContinueAfterCancelProcessTreeKillAttemptVariableName = "VSTSAGENT_CONTINUE_AFTER_CANCEL_PROCESSTREEKILL_ATTEMPT";
+
+        public static readonly Knob ContinueAfterCancelProcessTreeKillAttempt = new Knob(
+            nameof(ContinueAfterCancelProcessTreeKillAttempt),
+            "If true, continue cancellation after attempt to KillProcessTree",
+            new RuntimeKnobSource(ContinueAfterCancelProcessTreeKillAttemptVariableName),
+            new EnvironmentKnobSource(ContinueAfterCancelProcessTreeKillAttemptVariableName),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob UseNode = new Knob(
