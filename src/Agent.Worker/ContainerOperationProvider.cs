@@ -810,6 +810,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     throw new InvalidOperationException($"Docker network create failed with exit code {networkExitCode}");
                 }
             }
+            else
+            {
+                Trace.Info("Skipping creation of a new docker network. Reusing the host network.");
+            }
 
             // Expose docker network to env
             executionContext.Variables.Set(Constants.Variables.Agent.ContainerNetwork, network);
