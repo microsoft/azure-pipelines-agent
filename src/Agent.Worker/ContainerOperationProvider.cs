@@ -3,17 +3,24 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
-using System.ServiceProcess;
-using System.Threading.Tasks;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.ServiceProcess;
 using System.Threading;
+using System.Threading.Tasks;
+using Agent.Sdk;
+using Agent.Sdk.Knob;
+using Azure.Core;
+using Azure.Identity;
+using Microsoft.TeamFoundation.Work.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.Win32;
-using Agent.Sdk;
-using Agent.Sdk.Knob;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
@@ -142,9 +149,87 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             await RemoveContainerNetworkAsync(executionContext, _containerNetwork);
         }
 
+        private async Task<string> GetMSIAccessToken(IExecutionContext executionContext)
+        {
+            CancellationToken cancellationToken = executionContext.CancellationToken;
+            Trace.Entering();
+            // Check environment variable for debugging
+            var envVar = System.Environment.GetEnvironmentVariable("DEBUG_MSI_LOGIN_INFO");
+            // Future: Set this client id. This is the MSI client ID.
+            ChainedTokenCredential credential = envVar == "1"
+                ? new ChainedTokenCredential(new ManagedIdentityCredential(clientId: null), new VisualStudioCredential(), new AzureCliCredential())
+                : new ChainedTokenCredential(new ManagedIdentityCredential(clientId: null));
+            executionContext.Debug("Retrieving AAD token using MSI authentication...");
+            AccessToken accessToken = await credential.GetTokenAsync(new TokenRequestContext(new[] {
+                "https://management.core.windows.net/"
+            }), cancellationToken);
+
+            return accessToken.Token.ToString();
+        }
+
+        private async Task<string> GetAcrPasswordFromAADToken(IExecutionContext executionContext, string AADToken, string tenantId, string registryServer, string loginServer)
+        {
+            Trace.Entering();
+            CancellationToken cancellationToken = executionContext.CancellationToken;
+            Uri url = new Uri(registryServer + "/oauth2/exchange");
+            const int retryLimit = 5;
+            using HttpClientHandler httpClientHandler = HostContext.CreateHttpClientHandler();
+            using HttpClient httpClient = new HttpClient(httpClientHandler);
+            httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Content-Type", "application/x-www-form-urlencoded");
+
+            List<KeyValuePair<string, string>> keyValuePairs = new List<KeyValuePair<string, string>>
+            {
+                new KeyValuePair<string, string>("grant_type", "access_token"),
+                new KeyValuePair<string, string>("service", loginServer),
+                new KeyValuePair<string, string>("tenant", tenantId),
+                new KeyValuePair<string, string>("access_token", AADToken)
+            };
+            using FormUrlEncodedContent formUrlEncodedContent = new FormUrlEncodedContent(keyValuePairs);
+            string AcrPassword = string.Empty;
+            int retryCount = 0;
+            int timeElapsed = 0;
+            int timeToWait = 0;
+            do
+            {
+                executionContext.Debug("Attempting to convert AAD token to an ACR token");
+
+                var response = await httpClient.PostAsync(url, formUrlEncodedContent, cancellationToken).ConfigureAwait(false);
+                executionContext.Debug($"Status Code: {response.StatusCode}");
+
+                if (response.StatusCode == HttpStatusCode.OK)
+                {
+                    executionContext.Debug("Successfully converted AAD token to an ACR token");
+                    string result = await response.Content.ReadAsStringAsync();
+                    Dictionary<string, string> list = JsonConvert.DeserializeObject<Dictionary<string, string>>(result);
+                    AcrPassword = list["refresh_token"];
+                }
+                else if (response.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    executionContext.Debug("Too many requests were made to get an ACR token. Retrying...");
+
+                    timeElapsed = 2000 + timeToWait * 2;
+                    retryCount++;
+                    await Task.Delay(timeToWait);
+                    timeToWait = timeElapsed;
+                }
+                else
+                {
+                    throw new NotSupportedException("Could not fetch access token for ACR. Please configure Managed Service Identity (MSI) for Azure Container Registry with the appropriate permissions - https://docs.microsoft.com/en-us/azure/app-service/tutorial-custom-container?pivots=container-linux#configure-app-service-to-deploy-the-image-from-the-registry.");
+                }
+
+            } while (retryCount < retryLimit && string.IsNullOrEmpty(AcrPassword));
+
+            if (string.IsNullOrEmpty(AcrPassword))
+            {
+                throw new NotSupportedException("Could not acquire ACR token from given AAD token. Please check that the necessary access is provided and try again.");
+            }
+            return AcrPassword;
+        }
+
         private async Task PullContainerAsync(IExecutionContext executionContext, ContainerInfo container)
         {
             Trace.Entering();
+
             ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNull(container, nameof(container));
             ArgUtil.NotNullOrEmpty(container.ContainerImage, nameof(container.ContainerImage));
@@ -165,20 +250,52 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 string username = string.Empty;
                 string password = string.Empty;
                 string registryType = string.Empty;
+                string authType = string.Empty;
 
                 registryEndpoint.Data?.TryGetValue("registrytype", out registryType);
                 if (string.Equals(registryType, "ACR", StringComparison.OrdinalIgnoreCase))
                 {
+                    try
+                    {
+                        executionContext.Debug("Attempting to get endpoint authorization scheme...");
+                        authType = registryEndpoint.Authorization?.Scheme;
+
+                        if (string.IsNullOrEmpty(authType))
+                        {
+                            executionContext.Debug("Attempting to get endpoint authorization scheme as an authorization parameter...");
+                            registryEndpoint.Authorization?.Parameters?.TryGetValue("scheme", out authType);
+                        }
+                    }
+                    catch
+                    {
+                        executionContext.Debug("Failed to get endpoint authorization scheme as an authorization parameter. Will default authorization scheme to ServicePrincipal");
+                        authType = "ServicePrincipal";
+                    }
+
                     string loginServer = string.Empty;
                     registryEndpoint.Authorization?.Parameters?.TryGetValue("loginServer", out loginServer);
-                    if (loginServer != null) {
+                    if (loginServer != null)
+                    {
                         loginServer = loginServer.ToLower();
                     }
 
-                    registryEndpoint.Authorization?.Parameters?.TryGetValue("serviceprincipalid", out username);
-                    registryEndpoint.Authorization?.Parameters?.TryGetValue("serviceprincipalkey", out password);
-
                     registryServer = $"https://{loginServer}";
+                    if (string.Equals(authType, "ManagedServiceIdentity", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string tenantId = string.Empty;
+                        registryEndpoint.Authorization?.Parameters?.TryGetValue("tenantid", out tenantId);
+                        // Documentation says to pass username through this way
+                        username = Guid.Empty.ToString("D");
+                        string AADToken = await GetMSIAccessToken(executionContext);
+                        executionContext.Debug("Successfully retrieved AAD token using the MSI authentication scheme.");
+                        // change to getting password from string
+                        password = await GetAcrPasswordFromAADToken(executionContext, AADToken, tenantId, registryServer, loginServer);
+                    }
+                    else
+                    {
+                        registryEndpoint.Authorization?.Parameters?.TryGetValue("serviceprincipalid", out username);
+                        registryEndpoint.Authorization?.Parameters?.TryGetValue("serviceprincipalkey", out password);
+                    }
                 }
                 else
                 {
@@ -325,7 +442,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Tasks)));
                 }
             }
-            
+
             container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tools), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tools)),
                 readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Tools)));
 
@@ -433,11 +550,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 if (container.IsJobContainer)
                 {
                     // Ensure bash exist in the image
-                    int execWhichBashExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"sh -c \"command -v bash\"");
-                    if (execWhichBashExitCode != 0)
-                    {
-                        throw new InvalidOperationException($"Docker exec fail with exit code {execWhichBashExitCode}");
-                    }
+                    await DockerExec(executionContext, container.ContainerId, $"sh -c \"command -v bash\"");
 
                     // Get current username
                     container.CurrentUserName = (await ExecuteCommandAsync(executionContext, "whoami", string.Empty)).FirstOrDefault();
@@ -446,6 +559,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     // Get current userId
                     container.CurrentUserId = (await ExecuteCommandAsync(executionContext, "id", $"-u {container.CurrentUserName}")).FirstOrDefault();
                     ArgUtil.NotNullOrEmpty(container.CurrentUserId, nameof(container.CurrentUserId));
+                    // Get current groupId
+                    container.CurrentGroupId = (await ExecuteCommandAsync(executionContext, "id", $"-g {container.CurrentUserName}")).FirstOrDefault();
+                    ArgUtil.NotNullOrEmpty(container.CurrentGroupId, nameof(container.CurrentGroupId));
+                    // Get current group name
+                    container.CurrentGroupName = (await ExecuteCommandAsync(executionContext, "id", $"-gn {container.CurrentUserName}")).FirstOrDefault();
+                    ArgUtil.NotNullOrEmpty(container.CurrentGroupName, nameof(container.CurrentGroupName));
 
                     executionContext.Output(StringUtil.Loc("CreateUserWithSameUIDInsideContainer", container.CurrentUserId));
 
@@ -456,63 +575,79 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     string containerUserName = string.Empty;
 
                     // We need to find out whether there is a user with same UID inside the container
-                    List<string> userNames = new List<string>();
-                    int execGrepExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"bash -c \"getent passwd {container.CurrentUserId} | cut -d: -f1 \"", userNames);
-                    if (execGrepExitCode != 0)
-                    {
-                        throw new InvalidOperationException($"Docker exec fail with exit code {execGrepExitCode}");
-                    }
+                    List<string> userNames = await DockerExec(executionContext, container.ContainerId, $"bash -c \"getent passwd {container.CurrentUserId} | cut -d: -f1 \"");
 
                     if (userNames.Count > 0)
                     {
-                        // check all potential username that might match the UID.
+                        // check all potential usernames that might match the UID
                         foreach (string username in userNames)
                         {
-                            int execIdExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"id -u {username}");
-                            if (execIdExitCode == 0)
+                            try
                             {
+                                await DockerExec(executionContext, container.ContainerId, $"id -u {username}");
                                 containerUserName = username;
                                 break;
+                            }
+                            catch (Exception ex) when (ex is InvalidOperationException)
+                            {
+                                // check next username
                             }
                         }
                     }
 
-                    // Create a new user with same UID
-                    if (string.IsNullOrEmpty(containerUserName))
+                    // Determinate if we need to use another primary group for container user.
+                    // The user created inside the container must have the same group ID (GID)
+                    // as the user on the host on which the agent is running.
+                    bool useHostGroupId = false;
+                    int hostGroupId;
+                    int hostUserId;
+                    if (AgentKnobs.UseHostGroupId.GetValue(executionContext).AsBoolean() &&
+                        int.TryParse(container.CurrentGroupId, out hostGroupId) &&
+                        int.TryParse(container.CurrentUserId, out hostUserId) &&
+                        hostGroupId != hostUserId)
+                    {
+                        Trace.Info($"Host group id ({hostGroupId}) is not matching host user id ({hostUserId}), using {hostGroupId} as a primary GID inside container");
+                        useHostGroupId = true;
+                    }
+
+                    if (string.IsNullOrEmpty(containerUserName)) // Create a new user with same UID as on the host
                     {
                         string userNameSuffix = "_azpcontainer";
                         // Linux allows for a 32-character username
-                        int keepLength = Math.Min(32 - userNameSuffix.Length, container.CurrentUserName.Length);
-                        containerUserName = $"{container.CurrentUserName.Substring(0, keepLength)}{userNameSuffix}";
-                        int execUseraddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"useradd -m -u {container.CurrentUserId} {containerUserName}");
-                        if (execUseraddExitCode != 0)
+                        containerUserName = KeepAllowedLength(container.CurrentUserName, 32, userNameSuffix);
+                        string fallback = $"useradd -m -u {container.CurrentUserId} {containerUserName}";
+                        if (useHostGroupId) // Create a new user with the same UID and the same GID as on the host
                         {
-                            throw new InvalidOperationException($"Docker exec fail with exit code {execUseraddExitCode}");
+                            try
+                            {
+                                // Linux allows for a 32-character groupname
+                                string containerGroupName = KeepAllowedLength(container.CurrentGroupName, 32, userNameSuffix);
+                                await DockerExec(executionContext, container.ContainerId, $"groupadd -g {container.CurrentGroupId} {containerGroupName}");
+                                await DockerExec(executionContext, container.ContainerId, $"useradd -m -g {container.CurrentGroupId} -u {container.CurrentUserId} {containerUserName}");
+                            }
+                            catch (Exception ex) when (ex is InvalidOperationException)
+                            {
+                                Trace.Info($"Falling back to the '{fallback}' command.");
+                                await DockerExec(executionContext, container.ContainerId, fallback);
+                            }
+                        }
+                        else
+                        {
+                            await DockerExec(executionContext, container.ContainerId, fallback);
                         }
                     }
 
                     executionContext.Output(StringUtil.Loc("GrantContainerUserSUDOPrivilege", containerUserName));
 
                     // Create a new group for giving sudo permission
-                    int execGroupaddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"groupadd azure_pipelines_sudo");
-                    if (execGroupaddExitCode != 0)
-                    {
-                        throw new InvalidOperationException($"Docker exec fail with exit code {execGroupaddExitCode}");
-                    }
+                    string sudoGroupName = "azure_pipelines_sudo";
+                    await DockerExec(executionContext, container.ContainerId, $"groupadd {sudoGroupName}");
 
                     // Add the new created user to the new created sudo group.
-                    int execUsermodExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"usermod -a -G azure_pipelines_sudo {containerUserName}");
-                    if (execUsermodExitCode != 0)
-                    {
-                        throw new InvalidOperationException($"Docker exec fail with exit code {execUsermodExitCode}");
-                    }
+                    await DockerExec(executionContext, container.ContainerId, $"usermod -a -G {sudoGroupName} {containerUserName}");
 
                     // Allow the new sudo group run any sudo command without providing password.
-                    int execEchoExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"su -c \"echo '%azure_pipelines_sudo ALL=(ALL:ALL) NOPASSWD:ALL' >> /etc/sudoers\"");
-                    if (execUsermodExitCode != 0)
-                    {
-                        throw new InvalidOperationException($"Docker exec fail with exit code {execEchoExitCode}");
-                    }
+                    await DockerExec(executionContext, container.ContainerId, $"su -c \"echo '%{sudoGroupName} ALL=(ALL:ALL) NOPASSWD:ALL' >> /etc/sudoers\"");
 
                     if (AgentKnobs.SetupDockerGroup.GetValue(executionContext).AsBoolean())
                     {
@@ -527,12 +662,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                         // We need to find out whether there is a group with same GID inside the container
                         string existingGroupName = null;
-                        List<string> groupsOutput = new List<string>();
-                        int execGroupGrepExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"bash -c \"cat /etc/group\"", groupsOutput);
-                        if (execGroupGrepExitCode != 0)
-                        {
-                            throw new InvalidOperationException($"Docker exec fail with exit code {execGroupGrepExitCode}");
-                        }
+                        List<string> groupsOutput = await DockerExec(executionContext, container.ContainerId, $"bash -c \"cat /etc/group\"");
 
                         if (groupsOutput.Count > 0)
                         {
@@ -566,28 +696,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         {
                             // create a new group with same gid
                             existingGroupName = "azure_pipelines_docker";
-                            int execDockerGroupaddExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"groupadd -g {dockerSockGroupId} azure_pipelines_docker");
-                            if (execDockerGroupaddExitCode != 0)
-                            {
-                                throw new InvalidOperationException($"Docker exec fail with exit code {execDockerGroupaddExitCode}");
-                            }
+                            await DockerExec(executionContext, container.ContainerId, $"groupadd -g {dockerSockGroupId} {existingGroupName}");
                         }
                         // Add the new created user to the docker socket group.
-                        int execGroupUsermodExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"usermod -a -G {existingGroupName} {containerUserName}");
-                        if (execGroupUsermodExitCode != 0)
-                        {
-                            throw new InvalidOperationException($"Docker exec fail with exit code {execGroupUsermodExitCode}");
-                        }
+                        await DockerExec(executionContext, container.ContainerId, $"usermod -a -G {existingGroupName} {containerUserName}");
 
                         // if path to node is just 'node', with no path, let's make sure it is actually there
                         if (string.Equals(container.CustomNodePath, "node", StringComparison.OrdinalIgnoreCase))
                         {
-                            List<string> nodeVersionOutput = new List<string>();
-                            int execNodeVersionExitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, $"bash -c \"node -v\"", nodeVersionOutput);
-                            if (execNodeVersionExitCode != 0)
-                            {
-                                throw new InvalidOperationException($"Unable to get node version on container {container.ContainerId}. Got exit code {execNodeVersionExitCode} from docker exec");
-                            }
+                            List<string> nodeVersionOutput = await DockerExec(executionContext, container.ContainerId, $"bash -c \"node -v\"");
                             if (nodeVersionOutput.Count > 0)
                             {
                                 executionContext.Output($"Detected Node Version: {nodeVersionOutput[0]}");
@@ -728,6 +845,36 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 throw new InvalidOperationException($"Failed to initialize, {container.ContainerNetworkAlias} service is {serviceHealth}.");
             }
+        }
+
+        private async Task<List<string>> DockerExec(IExecutionContext context, string containerId, string command)
+        {
+            Trace.Info($"Docker-exec is going to execute: `{command}`; container id: `{containerId}`");
+            List<string> output = new List<string>();
+            int exitCode = await _dockerManger.DockerExec(context, containerId, string.Empty, command, output);
+            string commandOutput = "command does not have output";
+            if (output.Count > 0)
+            {
+                commandOutput = $"command output: `{output[0]}`";
+            }
+            for (int i = 1; i < output.Count; i++)
+            {
+                commandOutput += $", `{output[i]}`";
+            }
+            string message = $"Docker-exec executed: `{command}`; container id: `{containerId}`; exit code: `{exitCode}`; {commandOutput}";
+            if (exitCode != 0)
+            {
+                Trace.Error(message);
+                throw new InvalidOperationException(message);
+            }
+            Trace.Info(message);
+            return output;
+        }
+
+        private static string KeepAllowedLength(string name, int allowedLength, string suffix = "")
+        {
+            int keepNameLength = Math.Min(allowedLength - suffix.Length, name.Length);
+            return $"{name.Substring(0, keepNameLength)}{suffix}";
         }
 
         private static void ThrowIfAlreadyInContainer()

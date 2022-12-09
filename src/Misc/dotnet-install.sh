@@ -306,6 +306,10 @@ get_machine_architecture() {
             echo "arm64"
             return 0
             ;;
+        s390x)
+            echo "s390x"
+            return 0
+            ;;
         esac
     fi
 
@@ -339,10 +343,56 @@ get_normalized_architecture_from_architecture() {
             echo "arm64"
             return 0
             ;;
+        s390x)
+            echo "s390x"
+            return 0
+            ;;
     esac
 
     say_err "Architecture \`$architecture\` not supported. If you think this is a bug, report it at https://github.com/dotnet/install-scripts/issues"
     return 1
+}
+
+# args:
+# version - $1
+# channel - $2
+# architecture - $3
+get_normalized_architecture_for_specific_sdk_version() {
+    eval $invocation
+
+    local is_version_support_arm64="$(is_arm64_supported "$1")"
+    local is_channel_support_arm64="$(is_arm64_supported "$2")"
+    local architecture="$3";
+    local osname="$(get_current_os_name)"
+
+    if [ "$osname" == "osx" ] && [ "$architecture" == "arm64" ] && { [ "$is_version_support_arm64" = false ] || [ "$is_channel_support_arm64" = false ]; }; then
+        #check if rosetta is installed
+        if [ "$(/usr/bin/pgrep oahd >/dev/null 2>&1;echo $?)" -eq 0 ]; then 
+            say_verbose "Changing user architecture from '$architecture' to 'x64' because .NET SDKs prior to version 6.0 do not support arm64." 
+            echo "x64"
+            return 0;
+        else
+            say_err "Architecture \`$architecture\` is not supported for .NET SDK version \`$version\`. Please install Rosetta to allow emulation of the \`$architecture\` .NET SDK on this platform"
+            return 1
+        fi
+    fi
+
+    echo "$architecture"
+    return 0
+}
+
+# args:
+# version or channel - $1
+is_arm64_supported() {
+    #any channel or version that starts with the specified versions
+    case "$1" in
+        ( "1"* | "2"* | "3"*  | "4"* | "5"*) 
+            echo false
+            return 0
+    esac
+
+    echo true
+    return 0
 }
 
 # args:
@@ -401,6 +451,10 @@ get_normalized_channel() {
 
     local channel="$(to_lowercase "$1")"
 
+    if [[ $channel == current ]]; then
+        say_warning 'Value "Current" is deprecated for -Channel option. Use "STS" instead.'
+    fi
+
     if [[ $channel == release/* ]]; then
         say_warning 'Using branch name with -Channel option is no longer supported with newer releases. Use -Quality option with a channel in X.Y format instead.';
     fi
@@ -409,6 +463,14 @@ get_normalized_channel() {
         case "$channel" in
             lts)
                 echo "LTS"
+                return 0
+                ;;
+            sts)
+                echo "STS"
+                return 0
+                ;;
+            current)
+                echo "STS"
                 return 0
                 ;;
             *)
@@ -515,7 +577,7 @@ parse_globaljson_file_for_version() {
         return 1
     fi
 
-    sdk_section=$(cat $json_file | awk '/"sdk"/,/}/')
+    sdk_section=$(cat $json_file | tr -d "\r" | awk '/"sdk"/,/}/')
     if [ -z "$sdk_section" ]; then
         say_err "Unable to parse the SDK node in \`$json_file\`"
         return 1
@@ -980,8 +1042,6 @@ download() {
         sleep $((attempts*10))
     done
 
-
-
     if [ "$failed" = true ]; then
         say_verbose "Download failed: $remote_path"
         return 1
@@ -1079,10 +1139,11 @@ downloadwget() {
 get_download_link_from_aka_ms() {
     eval $invocation
 
-    #quality is not supported for LTS or current channel
-    if [[ ! -z "$normalized_quality"  && ("$normalized_channel" == "LTS" || "$normalized_channel" == "current") ]]; then
+    #quality is not supported for LTS or STS channel
+    #STS maps to current
+    if [[ ! -z "$normalized_quality"  && ("$normalized_channel" == "LTS" || "$normalized_channel" == "STS") ]]; then
         normalized_quality=""
-        say_warning "Specifying quality for current or LTS channel is not supported, the quality will be ignored."
+        say_warning "Specifying quality for STS or LTS channel is not supported, the quality will be ignored."
     fi
 
     say_verbose "Retrieving primary payload URL from aka.ms for channel: '$normalized_channel', quality: '$normalized_quality', product: '$normalized_product', os: '$normalized_os', architecture: '$normalized_architecture'." 
@@ -1191,7 +1252,7 @@ generate_akams_links() {
 
     normalized_version="$(to_lowercase "$version")"
     if [[ "$normalized_version" != "latest" ]] && [ -n "$normalized_quality" ]; then
-        say_err "Either Quality or Version option has to be specified. See https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet-install-script#options for details."
+        say_err "Quality and Version options are not allowed to be specified simultaneously. See https://learn.microsoft.com/dotnet/core/tools/dotnet-install-script#options for details."
         return 1
     fi
 
@@ -1337,6 +1398,8 @@ calculate_vars() {
     say_verbose "Normalized product: '$normalized_product'."
     install_root="$(resolve_installation_path "$install_dir")"
     say_verbose "InstallRoot: '$install_root'."
+
+    normalized_architecture="$(get_normalized_architecture_for_specific_sdk_version "$version" "$normalized_channel" "$normalized_architecture")"
 
     if [[ "$runtime" == "dotnet" ]]; then
         asset_relative_path="shared/Microsoft.NETCore.App"
@@ -1559,13 +1622,14 @@ do
             echo "  -c,--channel <CHANNEL>         Download from the channel specified, Defaults to \`$channel\`."
             echo "      -Channel"
             echo "          Possible values:"
-            echo "          - Current - most current release"
-            echo "          - LTS - most current supported release"
+            echo "          - STS - the most recent Standard Term Support release"
+            echo "          - LTS - the most recent Long Term Support release"
             echo "          - 2-part version in a format A.B - represents a specific release"
             echo "              examples: 2.0; 1.0"
             echo "          - 3-part version in a format A.B.Cxx - represents a specific SDK release"
             echo "              examples: 5.0.1xx, 5.0.2xx."
             echo "              Supported since 5.0 release"
+            echo "          Warning: Value 'Current' is deprecated for the Channel parameter. Use 'STS' instead."
             echo "          Note: The version parameter overrides the channel parameter when any version other than 'latest' is used."
             echo "  -v,--version <VERSION>         Use specific VERSION, Defaults to \`$version\`."
             echo "      -Version"
@@ -1576,7 +1640,7 @@ do
             echo "  -q,--quality <quality>         Download the latest build of specified quality in the channel."
             echo "      -Quality"
             echo "          The possible values are: daily, signed, validated, preview, GA."
-            echo "          Works only in combination with channel. Not applicable for current and LTS channels and will be ignored if those channels are used." 
+            echo "          Works only in combination with channel. Not applicable for STS and LTS channels and will be ignored if those channels are used." 
             echo "          For SDK use channel in A.B.Cxx format. Using quality for SDK together with channel in A.B format is not supported." 
             echo "          Supported since 5.0 release." 
             echo "          Note: The version parameter overrides the channel parameter when any version other than 'latest' is used, and therefore overrides the quality."
@@ -1587,7 +1651,7 @@ do
             echo "      -InstallDir"
             echo "  --architecture <ARCHITECTURE>      Architecture of dotnet binaries to be installed, Defaults to \`$architecture\`."
             echo "      --arch,-Architecture,-Arch"
-            echo "          Possible values: x64, arm, and arm64"
+            echo "          Possible values: x64, arm, arm64 and s390x"
             echo "  --os <system>                    Specifies operating system to be used when selecting the installer."
             echo "          Overrides the OS determination approach used by the script. Supported values: osx, linux, linux-musl, freebsd, rhel.6."
             echo "          In case any other value is provided, the platform will be determined by the script based on machine configuration."
@@ -1666,5 +1730,5 @@ else
 fi
 
 say "Note that the script does not resolve dependencies during installation."
-say "To check the list of dependencies, go to https://docs.microsoft.com/dotnet/core/install, select your operating system and check the \"Dependencies\" section."
+say "To check the list of dependencies, go to https://learn.microsoft.com/dotnet/core/install, select your operating system and check the \"Dependencies\" section."
 say "Installation finished successfully."

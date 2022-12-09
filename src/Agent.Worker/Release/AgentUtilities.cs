@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 {
@@ -20,7 +21,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                 var sortedVariables = variables.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase);
                 foreach (var pair in sortedVariables)
                 {
-                    string varName = pair.Key.ToUpperInvariant().Replace(".", "_").Replace(" ", "_");
+                    string varName = VarUtil.ConvertToEnvVariableFormat(pair.Key);
                     builder.AppendFormat(
                         "{0}\t\t\t\t[{1}] --> [{2}]",
                         Environment.NewLine,

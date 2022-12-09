@@ -12,6 +12,7 @@ using System.Linq;
 using System.IO;
 using Microsoft.VisualStudio.Services.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
@@ -27,6 +28,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         string TaskDirectory { get; set; }
         Pipelines.TaskStepDefinitionReference Task { get; set; }
         Task RunAsync();
+        void AfterExecutionContextInitialized();
     }
 
     public abstract class Handler : AgentService
@@ -34,6 +36,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         // On Windows, the maximum supported size of a environment variable value is 32k.
         // You can set environment variables greater then 32K, but Node won't be able to read them.
         private const int _windowsEnvironmentVariableMaximumSize = 32766;
+        
+        protected bool _continueAfterCancelProcessTreeKillAttempt;
 
         protected IWorkerCommandManager CommandManager { get; private set; }
 
@@ -53,6 +57,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             base.Initialize(hostContext);
             CommandManager = hostContext.GetService<IWorkerCommandManager>();
+        }
+
+        public void AfterExecutionContextInitialized()
+        {
+            _continueAfterCancelProcessTreeKillAttempt = AgentKnobs.ContinueAfterCancelProcessTreeKillAttempt.GetValue(ExecutionContext).AsBoolean();
+            Trace.Info($"Handler.AfterExecutionContextInitialized _continueAfterCancelProcessTreeKillAttempt = {_continueAfterCancelProcessTreeKillAttempt}");
         }
 
         protected void AddEndpointsToEnvironment()
@@ -101,7 +111,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     foreach (KeyValuePair<string, string> pair in endpoint.Authorization.Parameters)
                     {
                         AddEnvironmentVariable(
-                            key: $"ENDPOINT_AUTH_PARAMETER_{partialKey}_{pair.Key?.Replace(' ', '_').ToUpperInvariant()}",
+                            key: $"ENDPOINT_AUTH_PARAMETER_{partialKey}_{VarUtil.ConvertToEnvVariableFormat(pair.Key)}",
                             value: pair.Value);
                     }
                 }
@@ -117,7 +127,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                         foreach (KeyValuePair<string, string> pair in endpoint.Data)
                         {
                             AddEnvironmentVariable(
-                                key: $"ENDPOINT_DATA_{partialKey}_{pair.Key?.Replace(' ', '_').ToUpperInvariant()}",
+                                key: $"ENDPOINT_DATA_{partialKey}_{VarUtil.ConvertToEnvVariableFormat(pair.Key)}",
                                 value: pair.Value);
                         }
                     }
@@ -159,7 +169,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             foreach (KeyValuePair<string, string> pair in Inputs)
             {
                 AddEnvironmentVariable(
-                    key: $"INPUT_{pair.Key?.Replace(' ', '_').ToUpperInvariant()}",
+                    key: $"INPUT_{VarUtil.ConvertToEnvVariableFormat(pair.Key)}",
                     value: pair.Value);
             }
         }
@@ -182,7 +192,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 }
 
                 // Add the variable using the formatted name.
-                string formattedKey = (pair.Key ?? string.Empty).Replace('.', '_').Replace(' ', '_').ToUpperInvariant();
+                string formattedKey = VarUtil.ConvertToEnvVariableFormat(pair.Key);
                 AddEnvironmentVariable(formattedKey, pair.Value);
 
                 // Store the name.
@@ -202,7 +212,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 foreach (KeyValuePair<string, string> pair in RuntimeVariables.Private)
                 {
                     // Add the variable using the formatted name.
-                    string formattedKey = (pair.Key ?? string.Empty).Replace('.', '_').Replace(' ', '_').ToUpperInvariant();
+                    string formattedKey = VarUtil.ConvertToEnvVariableFormat(pair.Key);
                     AddEnvironmentVariable($"SECRET_{formattedKey}", pair.Value);
 
                     // Store the name.
@@ -239,14 +249,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             foreach (KeyValuePair<string, string> pair in ExecutionContext.TaskVariables.Public)
             {
                 // Add the variable using the formatted name.
-                string formattedKey = (pair.Key ?? string.Empty).Replace('.', '_').Replace(' ', '_').ToUpperInvariant();
+                string formattedKey = VarUtil.ConvertToEnvVariableFormat(pair.Key);
                 AddEnvironmentVariable($"VSTS_TASKVARIABLE_{formattedKey}", pair.Value);
             }
 
             foreach (KeyValuePair<string, string> pair in ExecutionContext.TaskVariables.Private)
             {
                 // Add the variable using the formatted name.
-                string formattedKey = (pair.Key ?? string.Empty).Replace('.', '_').Replace(' ', '_').ToUpperInvariant();
+                string formattedKey = VarUtil.ConvertToEnvVariableFormat(pair.Key);
                 AddEnvironmentVariable($"VSTS_TASKVARIABLE_{formattedKey}", pair.Value);
             }
         }
