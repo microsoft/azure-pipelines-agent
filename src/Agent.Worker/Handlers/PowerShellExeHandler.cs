@@ -150,6 +150,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                                      killProcessOnCancel: false,
                                                                      redirectStandardIn: null,
                                                                      inheritConsoleHandler: !ExecutionContext.Variables.Retain_Default_Encoding,
+                                                                     continueAfterCancelProcessTreeKillAttempt: _continueAfterCancelProcessTreeKillAttempt,
                                                                      cancellationToken: ExecutionContext.CancellationToken);
                     FlushErrorData();
 

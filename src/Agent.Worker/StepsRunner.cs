@@ -344,6 +344,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                                 killProcessOnCancel: false,
                                                 redirectStandardIn: null,
                                                 inheritConsoleHandler: true,
+                                                continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,                                                
                                                 cancellationToken: step.ExecutionContext.CancellationToken);
                         if (exitCode == 0)
                         {

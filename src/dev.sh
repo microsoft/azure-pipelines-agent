@@ -190,7 +190,6 @@ function cmd_package ()
     heading "Packaging ${agent_pkg_name}"
 
     rm -Rf "${LAYOUT_DIR:?}/_diag"
-    find "${LAYOUT_DIR}/bin" -type f -name '*.pdb' -delete
 
     mkdir -p "$PACKAGE_DIR"
     rm -Rf "${PACKAGE_DIR:?}"/*

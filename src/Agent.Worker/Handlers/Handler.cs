@@ -12,6 +12,7 @@ using System.Linq;
 using System.IO;
 using Microsoft.VisualStudio.Services.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
@@ -27,6 +28,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         string TaskDirectory { get; set; }
         Pipelines.TaskStepDefinitionReference Task { get; set; }
         Task RunAsync();
+        void AfterExecutionContextInitialized();
     }
 
     public abstract class Handler : AgentService
@@ -34,6 +36,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         // On Windows, the maximum supported size of a environment variable value is 32k.
         // You can set environment variables greater then 32K, but Node won't be able to read them.
         private const int _windowsEnvironmentVariableMaximumSize = 32766;
+        
+        protected bool _continueAfterCancelProcessTreeKillAttempt;
 
         protected IWorkerCommandManager CommandManager { get; private set; }
 
@@ -53,6 +57,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             base.Initialize(hostContext);
             CommandManager = hostContext.GetService<IWorkerCommandManager>();
+        }
+
+        public void AfterExecutionContextInitialized()
+        {
+            _continueAfterCancelProcessTreeKillAttempt = AgentKnobs.ContinueAfterCancelProcessTreeKillAttempt.GetValue(ExecutionContext).AsBoolean();
+            Trace.Info($"Handler.AfterExecutionContextInitialized _continueAfterCancelProcessTreeKillAttempt = {_continueAfterCancelProcessTreeKillAttempt}");
         }
 
         protected void AddEndpointsToEnvironment()
