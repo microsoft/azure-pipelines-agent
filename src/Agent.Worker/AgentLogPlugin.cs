@@ -122,6 +122,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                                              redirectStandardIn: _redirectedStdin,
                                                              inheritConsoleHandler: false,
                                                              keepStandardInOpen: true,
+                                                             continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
                                                              cancellationToken: token);
 
                 // construct plugin context

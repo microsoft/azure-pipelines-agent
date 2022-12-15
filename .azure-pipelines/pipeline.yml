@@ -107,7 +107,7 @@ stages:
         jobName: build_linux_x64
         displayName: Linux (x64)
         pool:
-          vmImage: ubuntu-18.04
+          vmImage: ubuntu-20.04
         os: linux
         arch: x64
         branch: ${{ parameters.branch }}
@@ -164,7 +164,7 @@ stages:
         jobName: build_rhel6_x64
         displayName: RHEL6 (x64)
         pool:
-          vmImage: ubuntu-18.04
+          vmImage: ubuntu-20.04
         container: dotnetcore_centos6
         os: rhel.6
         arch: x64

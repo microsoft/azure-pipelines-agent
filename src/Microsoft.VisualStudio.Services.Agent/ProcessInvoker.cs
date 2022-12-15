@@ -72,6 +72,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             bool killProcessOnCancel,
             InputQueue<string> redirectStandardIn,
             bool inheritConsoleHandler,
+            bool continueAfterCancelProcessTreeKillAttempt,
             CancellationToken cancellationToken);
 
         Task<int> ExecuteAsync(
@@ -85,6 +86,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             InputQueue<string> redirectStandardIn,
             bool inheritConsoleHandler,
             bool keepStandardInOpen,
+            bool continueAfterCancelProcessTreeKillAttempt,
             CancellationToken cancellationToken);
 
         Task<int> ExecuteAsync(
@@ -99,6 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             bool inheritConsoleHandler,
             bool keepStandardInOpen,
             bool highPriorityProcess,
+            bool continueAfterCancelProcessTreeKillAttempt,
             CancellationToken cancellationToken);
     }
 
@@ -220,6 +223,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 killProcessOnCancel: killProcessOnCancel,
                 redirectStandardIn: redirectStandardIn,
                 inheritConsoleHandler: false,
+                continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
                 cancellationToken: cancellationToken
             );
         }
@@ -234,6 +238,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             bool killProcessOnCancel,
             InputQueue<string> redirectStandardIn,
             bool inheritConsoleHandler,
+            bool continueAfterCancelProcessTreeKillAttempt,
             CancellationToken cancellationToken)
         {
             return ExecuteAsync(
@@ -247,6 +252,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 redirectStandardIn: redirectStandardIn,
                 inheritConsoleHandler: inheritConsoleHandler,
                 keepStandardInOpen: false,
+                continueAfterCancelProcessTreeKillAttempt: continueAfterCancelProcessTreeKillAttempt,
                 cancellationToken: cancellationToken
             );
         }
@@ -262,6 +268,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             InputQueue<string> redirectStandardIn,
             bool inheritConsoleHandler,
             bool keepStandardInOpen,
+            bool continueAfterCancelProcessTreeKillAttempt,
             CancellationToken cancellationToken)
         {
             return ExecuteAsync(
@@ -276,6 +283,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 inheritConsoleHandler: inheritConsoleHandler,
                 keepStandardInOpen: keepStandardInOpen,
                 highPriorityProcess: false,
+                continueAfterCancelProcessTreeKillAttempt: continueAfterCancelProcessTreeKillAttempt,
                 cancellationToken: cancellationToken
             );
         }
@@ -292,23 +300,25 @@ namespace Microsoft.VisualStudio.Services.Agent
             bool inheritConsoleHandler,
             bool keepStandardInOpen,
             bool highPriorityProcess,
+            bool continueAfterCancelProcessTreeKillAttempt,
             CancellationToken cancellationToken)
         {
             _invoker.ErrorDataReceived += this.ErrorDataReceived;
             _invoker.OutputDataReceived += this.OutputDataReceived;
             return await _invoker.ExecuteAsync(
-                workingDirectory,
-                fileName,
-                arguments,
-                environment,
-                requireExitCodeZero,
-                outputEncoding,
-                killProcessOnCancel,
-                redirectStandardIn,
-                inheritConsoleHandler,
-                keepStandardInOpen,
-                highPriorityProcess,
-                cancellationToken);
+                workingDirectory: workingDirectory,
+                fileName: fileName,
+                arguments: arguments,
+                environment: environment,
+                requireExitCodeZero: requireExitCodeZero,
+                outputEncoding: outputEncoding,
+                killProcessOnCancel: killProcessOnCancel,
+                redirectStandardIn: redirectStandardIn,
+                inheritConsoleHandler: inheritConsoleHandler,
+                keepStandardInOpen: keepStandardInOpen,
+                highPriorityProcess: highPriorityProcess,
+                continueAfterCancelProcessTreeKillAttempt: continueAfterCancelProcessTreeKillAttempt,
+                cancellationToken: cancellationToken);
         }
 
         public void Dispose()

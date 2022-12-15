@@ -77,6 +77,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                             outputEncoding: null,
                                             killProcessOnCancel: false,
                                             inheritConsoleHandler: !ExecutionContext.Variables.Retain_Default_Encoding,
+                                            continueAfterCancelProcessTreeKillAttempt: _continueAfterCancelProcessTreeKillAttempt,
                                             cancellationToken: ExecutionContext.CancellationToken);
             }
             finally

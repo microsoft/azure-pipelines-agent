@@ -42,7 +42,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             base.Initialize(hostContext);
             _dockerManger = HostContext.GetService<IDockerCommandManager>();
-            _containerNetwork = $"vsts_network_{Guid.NewGuid().ToString("N")}";
+            _containerNetwork = $"vsts_network_{Guid.NewGuid():N}";
+        }
+
+        private string GetContainerNetwork(IExecutionContext executionContext)
+        {
+            var useHostNetwork = AgentKnobs.DockerNetworkCreateDriver.GetValue(executionContext).AsString() == "host";
+            return useHostNetwork ? "host" : _containerNetwork;
         }
 
         public async Task StartContainersAsync(IExecutionContext executionContext, object data)
@@ -110,8 +116,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Create local docker network for this job to avoid port conflict when multiple agents run on same machine.
             // All containers within a job join the same network
-            await CreateContainerNetworkAsync(executionContext, _containerNetwork);
-            containers.ForEach(container => container.ContainerNetwork = _containerNetwork);
+            var containerNetwork = GetContainerNetwork(executionContext);
+            await CreateContainerNetworkAsync(executionContext, containerNetwork);
+            containers.ForEach(container => container.ContainerNetwork = containerNetwork);
 
             foreach (var container in containers)
             {
@@ -146,7 +153,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 await StopContainerAsync(executionContext, container);
             }
             // Remove the container network
-            await RemoveContainerNetworkAsync(executionContext, _containerNetwork);
+            var containerNetwork = GetContainerNetwork(executionContext);
+            await RemoveContainerNetworkAsync(executionContext, containerNetwork);
         }
 
         private async Task<string> GetMSIAccessToken(IExecutionContext executionContext)
@@ -793,11 +801,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             Trace.Entering();
             ArgUtil.NotNull(executionContext, nameof(executionContext));
-            int networkExitCode = await _dockerManger.DockerNetworkCreate(executionContext, network);
-            if (networkExitCode != 0)
+            
+            if (network != "host")
             {
-                throw new InvalidOperationException($"Docker network create failed with exit code {networkExitCode}");
+                int networkExitCode = await _dockerManger.DockerNetworkCreate(executionContext, network);
+                if (networkExitCode != 0)
+                {
+                    throw new InvalidOperationException($"Docker network create failed with exit code {networkExitCode}");
+                }
             }
+            else
+            {
+                Trace.Info("Skipping creation of a new docker network. Reusing the host network.");
+            }
+
             // Expose docker network to env
             executionContext.Variables.Set(Constants.Variables.Agent.ContainerNetwork, network);
         }
@@ -808,13 +825,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNull(network, nameof(network));
 
-            executionContext.Output($"Remove container network: {network}");
-
-            int removeExitCode = await _dockerManger.DockerNetworkRemove(executionContext, network);
-            if (removeExitCode != 0)
+            if (network != "host")
             {
-                executionContext.Warning($"Docker network rm failed with exit code {removeExitCode}");
+                executionContext.Output($"Remove container network: {network}");
+
+                int removeExitCode = await _dockerManger.DockerNetworkRemove(executionContext, network);
+                if (removeExitCode != 0)
+                {
+                    executionContext.Warning($"Docker network rm failed with exit code {removeExitCode}");
+                }
             }
+
             // Remove docker network from env
             executionContext.Variables.Set(Constants.Variables.Agent.ContainerNetwork, null);
         }

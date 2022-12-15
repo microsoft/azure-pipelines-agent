@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using System;
 using Newtonsoft.Json.Linq;
 using System.Text.RegularExpressions;
+using System.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
@@ -20,8 +21,44 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         BaseNodeHandlerData Data { get; set; }
     }
 
+    [ServiceLocator(Default = typeof(NodeHandlerHelper))]
+    public interface INodeHandlerHelper
+    {
+        string[] GetFilteredPossibleNodeFolders(string nodeFolderName, string[] possibleNodeFolders);
+        string GetNodeFolderPath(string nodeFolderName, IHostContext hostContext);
+        bool IsNodeFolderExist(string nodeFolderName, IHostContext hostContext);
+    }
+
+    public class NodeHandlerHelper : INodeHandlerHelper
+    {
+        public bool IsNodeFolderExist(string nodeFolderName, IHostContext hostContext) => File.Exists(GetNodeFolderPath(nodeFolderName, hostContext));
+
+        public string GetNodeFolderPath(string nodeFolderName, IHostContext hostContext) => Path.Combine(
+            hostContext.GetDirectory(WellKnownDirectory.Externals),
+            nodeFolderName,
+            "bin",
+            $"node{IOUtil.ExeExtension}");
+
+        public string[] GetFilteredPossibleNodeFolders(string nodeFolderName, string[] possibleNodeFolders)
+        {
+            int nodeFolderIndex = Array.IndexOf(possibleNodeFolders, nodeFolderName);
+
+            return nodeFolderIndex >= 0 ?
+                possibleNodeFolders.Skip(nodeFolderIndex + 1).ToArray()
+                : Array.Empty<string>();
+        }
+    }
+
     public sealed class NodeHandler : Handler, INodeHandler
     {
+        private readonly INodeHandlerHelper nodeHandlerHelper;
+        private const string nodeFolder = "node";
+        private const string node10Folder = "node10";
+        private const string node16Folder = "node16";
+        private const string nodeLTS = node16Folder;
+        private const string useNodeKnobLtsKey = "LTS";
+        private const string useNodeKnobUpgradeKey = "UPGRADE";
+        private string[] possibleNodeFolders = { nodeFolder, node10Folder, node16Folder };
         private static Regex _vstsTaskLibVersionNeedsFix = new Regex("^[0-2]\\.[0-9]+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static string[] _extensionsNode6 ={
             "if (process.versions.node && process.versions.node.match(/^5\\./)) {",
@@ -41,6 +78,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             "   return str1 === str;",
             "};"
         };
+
+        public NodeHandler()
+        {
+            this.nodeHandlerHelper = new NodeHandlerHelper();
+        }
+
+        public NodeHandler(INodeHandlerHelper nodeHandlerHelper)
+        {
+            this.nodeHandlerHelper = nodeHandlerHelper;
+        }
 
         public BaseNodeHandlerData Data { get; set; }
 
@@ -115,10 +162,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 file = GetNodeLocation();
 
                 ExecutionContext.Debug("Using node path: " + file);
-                if (!File.Exists(file))
-                {
-                    throw new FileNotFoundException(StringUtil.Loc("MissingNodePath", file));
-                }
             }
 
             // Format the arguments passed to node.
@@ -147,6 +190,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                   outputEncoding: outputEncoding,
                                                   killProcessOnCancel: false,
                                                   inheritConsoleHandler: !ExecutionContext.Variables.Retain_Default_Encoding,
+                                                  continueAfterCancelProcessTreeKillAttempt: _continueAfterCancelProcessTreeKillAttempt,
                                                   cancellationToken: ExecutionContext.CancellationToken);
 
                 // Wait for either the node exit or force finish through ##vso command
@@ -173,33 +217,69 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             bool useNode10 = AgentKnobs.UseNode10.GetValue(ExecutionContext).AsBoolean();
             bool taskHasNode10Data = Data is Node10HandlerData;
             bool taskHasNode16Data = Data is Node16HandlerData;
+            string useNodeKnob = AgentKnobs.UseNode.GetValue(ExecutionContext).AsString();
 
-            string nodeFolder = "node";
+            string nodeFolder = NodeHandler.nodeFolder;
             if (PlatformUtil.RunningOnRHEL6 && taskHasNode16Data)
             {
                 Trace.Info($"Detected RedHat 6, using node 10 as execution handler, instead node16");
-                nodeFolder = "node10";
+                nodeFolder = NodeHandler.node10Folder;
             }
             else if (taskHasNode16Data)
             {
                 Trace.Info($"Task.json has node16 handler data: {taskHasNode16Data}");
-                nodeFolder = "node16";
+                nodeFolder = NodeHandler.node16Folder;
             }
             else if (taskHasNode10Data)
             {
                 Trace.Info($"Task.json has node10 handler data: {taskHasNode10Data}");
-                nodeFolder = "node10";
+                nodeFolder = NodeHandler.node10Folder;
             }
+
             if (useNode10)
             {
                 Trace.Info($"Found UseNode10 knob, use node10 for node tasks: {useNode10}");
-                nodeFolder = "node10";
+                nodeFolder = NodeHandler.node10Folder;
             }
 
-            return Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals),
-                nodeFolder,
-                "bin",
-                $"node{IOUtil.ExeExtension}");
+            if (!nodeHandlerHelper.IsNodeFolderExist(nodeFolder, HostContext))
+            {
+                string[] filteredPossibleNodeFolders = nodeHandlerHelper.GetFilteredPossibleNodeFolders(nodeFolder, possibleNodeFolders);
+
+                if (!String.IsNullOrWhiteSpace(useNodeKnob) && filteredPossibleNodeFolders.Length > 0)
+                {
+                    Trace.Info($"Found UseNode knob with value \"{useNodeKnob}\", will try to find appropriate Node Runner");
+                    
+                    switch (useNodeKnob.ToUpper())
+                    {
+                        case NodeHandler.useNodeKnobLtsKey:
+                            if (nodeHandlerHelper.IsNodeFolderExist(NodeHandler.nodeLTS, HostContext))
+                            {
+                                ExecutionContext.Warning($"Configured runner {nodeFolder} is not available, latest LTS version {NodeHandler.nodeLTS} will be used. See http://aka.ms/azdo-node-runner");
+                                Trace.Info($"Found LTS version of node installed");
+                                return nodeHandlerHelper.GetNodeFolderPath(NodeHandler.nodeLTS, HostContext);
+                            }
+                            break;
+                        case NodeHandler.useNodeKnobUpgradeKey:
+                            string firstExistedNodeFolder = filteredPossibleNodeFolders.FirstOrDefault(nf => nodeHandlerHelper.IsNodeFolderExist(nf, HostContext));
+
+                            if (firstExistedNodeFolder != null)
+                            {
+                                ExecutionContext.Warning($"Configured runner {nodeFolder} is not available, next available version will be used. See http://aka.ms/azdo-node-runner");
+                                Trace.Info($"Found {firstExistedNodeFolder} installed");
+                                return nodeHandlerHelper.GetNodeFolderPath(firstExistedNodeFolder, HostContext);
+                            }
+                            break;
+                        default:
+                            Trace.Error($"Value of UseNode knob cannot be recognized");
+                            break;
+                    }
+                }
+
+                throw new FileNotFoundException(StringUtil.Loc("MissingNodePath", nodeHandlerHelper.GetNodeFolderPath(nodeFolder, HostContext)));
+            }
+
+            return nodeHandlerHelper.GetNodeFolderPath(nodeFolder, HostContext);
         }
 
         private void OnDataReceived(object sender, ProcessDataReceivedEventArgs e)

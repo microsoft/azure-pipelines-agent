@@ -134,7 +134,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             // Check that the target container is still running, if not Skip task execution
                             IDockerCommandManager dockerManager = HostContext.GetService<IDockerCommandManager>();
                             bool isContainerRunning = await dockerManager.IsContainerRunning(ExecutionContext, containerTarget.ContainerId);
-                            
+
                             if (!isContainerRunning)
                             {
                                 ExecutionContext.Result = TaskResult.Skipped;
@@ -230,7 +230,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     taskDecoratorManager.IsInjectedInputsContainsSecrets(inputs, out var inputsWithSecrets))
                 {
                     var inputsForReport = taskDecoratorManager.GenerateTaskResultMessage(inputsWithSecrets);
-                    
+
                     ExecutionContext.Result = TaskResult.Skipped;
                     ExecutionContext.ResultCode = StringUtil.Loc("SecretsAreNotAllowedInInjectedTaskInputs", inputsForReport);
                     return;
@@ -487,10 +487,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     if ((currentExecution.All.Any(x => x is PowerShell3HandlerData)) &&
                         (currentExecution.All.Any(x => x is BaseNodeHandlerData)))
-                        {
-                            Trace.Info($"Since we are targeting a container, we will prefer a node handler if one is available");
-                            preferPowershellHandler = false;
-                        }
+                    {
+                        Trace.Info($"Since we are targeting a container, we will prefer a node handler if one is available");
+                        preferPowershellHandler = false;
+                    }
                 }
             }
             Trace.Info($"Get handler data for target platform {targetOS.ToString()}");
@@ -560,13 +560,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(Task.Reference, nameof(Task.Reference));
             ArgUtil.NotNull(taskDefinition.Data, nameof(taskDefinition.Data));
 
-            ExecutionContext.Output("==============================================================================");
-            ExecutionContext.Output($"Task         : {taskDefinition.Data.FriendlyName}");
-            ExecutionContext.Output($"Description  : {taskDefinition.Data.Description}");
-            ExecutionContext.Output($"Version      : {Task.Reference.Version}");
-            ExecutionContext.Output($"Author       : {taskDefinition.Data.Author}");
-            ExecutionContext.Output($"Help         : {taskDefinition.Data.HelpUrl ?? taskDefinition.Data.HelpMarkDown}");
-            ExecutionContext.Output("==============================================================================");
+            ExecutionContext.Output("==============================================================================", false);
+            ExecutionContext.Output($"Task         : {taskDefinition.Data.FriendlyName}", false);
+            ExecutionContext.Output($"Description  : {taskDefinition.Data.Description}", false);
+            ExecutionContext.Output($"Version      : {Task.Reference.Version}", false);
+            ExecutionContext.Output($"Author       : {taskDefinition.Data.Author}", false);
+            ExecutionContext.Output($"Help         : {taskDefinition.Data.HelpUrl ?? taskDefinition.Data.HelpMarkDown}", false);
+            ExecutionContext.Output("==============================================================================", false);
         }
 
         private void PublishTelemetry(Definition taskDefinition, HandlerData handlerData)
