@@ -44,7 +44,7 @@ extends:
         ################################################################################
           displayName: Create Release Branch
           pool:
-            vmImage: ubuntu-18.04
+            vmImage: ubuntu-20.04
 
           steps:
           - checkout: self
@@ -177,7 +177,7 @@ extends:
           ################################################################################
             displayName: Create PRs in AzureDevOps and ConfigChange
             pool:
-              vmImage: ubuntu-18.04
+              vmImage: ubuntu-20.04
 
             steps:
             - checkout: self

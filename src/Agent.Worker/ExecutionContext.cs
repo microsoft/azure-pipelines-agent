@@ -666,43 +666,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Hook up JobServerQueueThrottling event, we will log warning on server tarpit.
             _jobServerQueue.JobServerQueueThrottling += JobServerQueueThrottling_EventReceived;
-
-            // Check if a system supports .NET 6
-            PackageVersion agentVersion = new PackageVersion(BuildConstants.AgentPackage.Version);
-
-            if (agentVersion.Major < 3)
-            {
-                try
-                {
-                    Trace.Verbose("Checking if your system supports .NET 6");
-
-                    string systemId = PlatformUtil.GetSystemId();
-                    SystemVersion systemVersion = PlatformUtil.GetSystemVersion();
-                    string notSupportNet6Message = null;
-
-                    if (PlatformUtil.DoesSystemPersistsInNet6Whitelist())
-                    {
-                        // Check version of the system
-                        if (!PlatformUtil.IsNet6Supported())
-                        {
-                            notSupportNet6Message = $"The operating system the agent is running on is \"{systemId}\" ({systemVersion}), which will not be supported by the .NET 6 based v3 agent. Please upgrade the operating system of this host to ensure compatibility with the v3 agent. See https://aka.ms/azdo-pipeline-agent-version";
-                        }
-                    }
-                    else
-                    {
-                        notSupportNet6Message = $"The operating system the agent is running on is \"{systemId}\" ({systemVersion}), which has not been tested with the .NET 6 based v3 agent. The v2 agent wil not automatically upgrade to the v3 agent. You can manually download the .NET 6 based v3 agent from https://github.com/microsoft/azure-pipelines-agent/releases. See https://aka.ms/azdo-pipeline-agent-version";
-                    }
-
-                    if (!string.IsNullOrWhiteSpace(notSupportNet6Message))
-                    {
-                        AddIssue(new Issue() { Type = IssueType.Warning, Message = notSupportNet6Message });
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Trace.Error($"Error has occurred while checking if system supports .NET 6: {ex}");
-                }
-            }
         }
 
         private string GetWorkspaceIdentifier(Pipelines.AgentJobRequestMessage message)
