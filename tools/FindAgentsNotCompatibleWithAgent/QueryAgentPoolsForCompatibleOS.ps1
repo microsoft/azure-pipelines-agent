@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 <# 
 .SYNOPSIS 
-    Predict whether agents will be able to upgrade frpom pipeline agent v2 to agent v3
+    Predict whether agents will be able to upgrade from pipeline agent v2 to agent v3
 
 .DESCRIPTION 
     The Azure Pipeline agent v2 uses .NET 3.1 Core, while agent v3 runs on .NET 6. This means agent v3 will drop support for operating systems not supported by .NET 6 (https://github.com/dotnet/core/blob/main/release-notes/6.0/supported-os.md)
