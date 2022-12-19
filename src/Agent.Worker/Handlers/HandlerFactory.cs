@@ -3,9 +3,11 @@
 
 using System;
 using System.Collections.Generic;
+using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using System.IO;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
@@ -55,6 +57,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             IHandler handler;
             if (data is BaseNodeHandlerData)
             {
+                // Node 6
+                if (data is NodeHandlerData)
+                {
+                    bool shouldShowDeprecationWarning = !AgentKnobs.DisableNode6DeprecationWarning.GetValue(executionContext).AsBoolean();
+                    if (shouldShowDeprecationWarning)
+                    {
+                        var exceptionList = this.getTaskExceptionList();
+                        if (!exceptionList.Contains(task.Id))
+                        {
+                            executionContext.Warning(StringUtil.Loc("DeprecatedNode6"));
+                        }
+                    }
+                }
                 // Node 6 and 10.
                 handler = HostContext.CreateService<INodeHandler>();
                 (handler as INodeHandler).Data = data as BaseNodeHandlerData;
@@ -110,7 +125,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             handler.Inputs = inputs;
             handler.SecureFiles = secureFiles;
             handler.TaskDirectory = taskDirectory;
+
+            handler.AfterExecutionContextInitialized();
             return handler;
+        }
+
+        /// <summary> 
+        /// This method provides a list of in-the-box pipeline tasks for which we don't want to display the warning about the Node6 execution handler. 
+        /// </summary>
+        /// <remarks>We need to remove this method - once Node 6 handler is dropped</remarks>
+        /// <returns> List of tasks ID </returns>
+        private List<Guid> getTaskExceptionList()
+        {
+            var exceptionListFile = HostContext.GetConfigFile(WellKnownConfigFile.TaskExceptionList);
+            var exceptionList = new List<Guid>();
+
+            if (File.Exists(exceptionListFile))
+            {
+                try
+                {
+                    exceptionList = IOUtil.LoadObject<List<Guid>>(exceptionListFile);
+                }
+                catch (Exception ex)
+                {
+                    Trace.Info($"Unable to deserialize exception list {ex}");
+                    exceptionList = new List<Guid>();
+                }
+            }
+
+            return exceptionList;
         }
     }
 }

@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -85,7 +86,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             string val = new String(chars.ToArray());
             if (!string.IsNullOrEmpty(val))
             {
-                HostContext.SecretMasker.AddValue(val);
+                HostContext.SecretMasker.AddValue(val, WellKnownSecretAliases.TerminalReadSecret);
             }
 
             Trace.Info($"Read value: '{val}'");

@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk;
 using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -9,6 +10,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -537,7 +539,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var data = command.Data;
             if (!string.IsNullOrEmpty(data))
             {
-                context.GetHostContext().SecretMasker.AddValue(data);
+                context.GetHostContext().SecretMasker.AddValue(data, WellKnownSecretAliases.TaskSetSecretCommand);
             }
         }
     }
@@ -606,6 +608,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     throw new InvalidOperationException(StringUtil.Loc("MultilineSecret"));
                 }
+
+                var unescapePercents = AgentKnobs.DecodePercents.GetValue(context).AsBoolean();
+                var commandEscapeData = CommandStringConvertor.Escape(command.Data, unescapePercents);
+                context.GetHostContext().SecretMasker.AddValue(commandEscapeData, WellKnownSecretAliases.TaskSetVariableCommand);
             }
 
             var checker = context.GetHostContext().GetService<ITaskRestrictionsChecker>();
@@ -721,7 +727,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Mask auth parameter data upfront to avoid accidental secret exposure by invalid endpoint/key/data
             if (String.Equals(field, "authParameter", StringComparison.OrdinalIgnoreCase))
             {
-                context.GetHostContext().SecretMasker.AddValue(data);
+                context.GetHostContext().SecretMasker.AddValue(data, WellKnownSecretAliases.TaskSetEndpointCommandAuthParameter);
             }
 
             String endpointIdInput;

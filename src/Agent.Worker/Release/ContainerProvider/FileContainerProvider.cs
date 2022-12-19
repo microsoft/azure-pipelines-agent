@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -14,6 +15,7 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEngine;
 using Microsoft.VisualStudio.Services.FileContainer;
 using Microsoft.VisualStudio.Services.FileContainer.Client;
 using Microsoft.VisualStudio.Services.WebApi;
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider.Helpers
 {
@@ -42,7 +44,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider
                     var data = await VssConnectionFactory.GetVssConnectionAsync(
                         tfsUrl,
                         accessToken,
-                        httpRetryOnTimeoutMessageHandler)
+                        httpRetryOnTimeoutMessageHandler,
+                        this._executionContext.GetTraceWriter())
                         .ConfigureAwait(false);
                     return data;
                 });
@@ -90,7 +93,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider
             this._executionContext.Debug(StringUtil.Format("Get file container client for file {0}", ticketedItem.Path));
 
             VssConnection vssConnection = await GetVssConnection();
-            var fileContainer = vssConnection.GetClient<FileContainerHttpClient>();
+
+            FileContainerHttpClient fileContainer = null;
+            try
+            {
+                fileContainer = vssConnection.GetClient<FileContainerHttpClient>();
+            }
+            catch (SocketException e)
+            {
+                ExceptionsUtil.HandleSocketException(e, vssConnection.Uri.ToString(), this._executionContext.Error);
+                throw;
+            }
 
             this._executionContext.Debug(StringUtil.Format("Start fetch file stream from filecontainer service for file {0}", ticketedItem.Path));
 

@@ -5,6 +5,7 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using BuildXL.Cache.ContentStore.Hashing;
@@ -16,6 +17,7 @@ using VsoHash = Microsoft.VisualStudio.Services.BlobStore.Common.VsoHash;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -66,7 +68,16 @@ namespace Microsoft.VisualStudio.Services.Agent
                 await Task.Delay(100);
             }
 
-            _taskClient = _connection.GetClient<TaskHttpClient>();
+            try
+            {
+                _taskClient = _connection.GetClient<TaskHttpClient>();
+            }
+            catch (SocketException e)
+            {
+                ExceptionsUtil.HandleSocketException(e, _connection.Uri.ToString(), Trace.Error);
+                throw;
+            }
+
             _hasConnection = true;
         }
 
@@ -160,13 +171,14 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public async Task<(DedupIdentifier dedupId, ulong length)> UploadAttachmentToBlobStore(bool verbose, string itemPath, Guid planId, Guid jobId, CancellationToken cancellationToken)
         {
+            int maxParallelism = HostContext.GetService<IConfigurationStore>().GetSettings().MaxDedupParallelism;
             var (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                    .CreateDedupClientAsync(verbose, (str) => Trace.Info(str), this._connection, cancellationToken);
+                    .CreateDedupClientAsync(verbose, (str) => Trace.Info(str), this._connection, maxParallelism, cancellationToken);
 
             var results = await BlobStoreUtils.UploadToBlobStore(verbose, itemPath, (level, uri, type) =>
                 new TimelineRecordAttachmentTelemetryRecord(level, uri, type, nameof(UploadAttachmentToBlobStore), planId, jobId, Guid.Empty), (str) => Trace.Info(str), dedupClient, clientTelemetry, cancellationToken);
 
-            await clientTelemetry.CommitTelemetry(planId, jobId);
+            await clientTelemetry.CommitTelemetryUpload(planId, jobId);
 
             return results;
         }

@@ -28,6 +28,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
             CancellationToken cancellationToken = default(CancellationToken));
         Task<TestRunStatistic> GetTestRunSummaryByOutcomeAsync(string project,int runId,object userState = null,
             CancellationToken cancellationToken = default);
+        Task<CodeCoverageSummary> UpdateCodeCoverageSummaryAsync(VssConnection connection, string project, int buildId);
     }
 
     public class TestResultsServer : AgentService, ITestResultsServer
@@ -49,6 +50,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
             {
                 TestHttpClient = connection.GetClient<TestManagementHttpClient>();
             }
+        }
+        
+        public async Task<CodeCoverageSummary> UpdateCodeCoverageSummaryAsync(VssConnection connection ,string project, int buildId)
+        {
+            TestResultsHttpClient tcmClient = connection.GetClient<TestResultsHttpClient>();
+            return await tcmClient.UpdateCodeCoverageSummaryAsync(project, buildId);     
         }
 
         public async Task<List<TestCaseResult>> AddTestResultsToTestRunAsync(

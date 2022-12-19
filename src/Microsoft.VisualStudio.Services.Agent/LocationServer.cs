@@ -2,11 +2,13 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Net.Sockets;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Location.Client;
 using Microsoft.VisualStudio.Services.Location;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -32,6 +34,11 @@ namespace Microsoft.VisualStudio.Services.Agent
             try
             {
                 await _connection.ConnectAsync();
+            }
+            catch (SocketException ex)
+            {
+                ExceptionsUtil.HandleSocketException(ex, _connection.Uri.ToString(), Trace.Error);
+                throw;
             }
             catch (Exception ex)
             {

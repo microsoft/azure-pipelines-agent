@@ -10,7 +10,9 @@ CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
 NODE_URL=https://nodejs.org/dist
 NODE_VERSION="6.17.1"
 NODE10_VERSION="10.24.1"
-MINGIT_VERSION="2.30.2"
+NODE16_VERSION="16.17.1"
+MINGIT_VERSION="2.38.1"
+LFS_VERSION="2.13.3"
 
 get_abs_path() {
   # exploits the fact that pwd will print abs path when no args
@@ -144,6 +146,7 @@ if [[ "$PACKAGERUNTIME" == "win-x64" ]]; then
     acquireExternalTool "$CONTAINER_URL/azcopy/1/azcopy.zip" azcopy
     acquireExternalTool "$CONTAINER_URL/pdbstr/1/pdbstr.zip" pdbstr
     acquireExternalTool "$CONTAINER_URL/mingit/${MINGIT_VERSION}/MinGit-${MINGIT_VERSION}-64-bit.zip" git
+    acquireExternalTool "$CONTAINER_URL/git-lfs/${LFS_VERSION}/x64/git-lfs.exe" git/mingw64/bin
     acquireExternalTool "$CONTAINER_URL/symstore/1/symstore.zip" symstore
     acquireExternalTool "$CONTAINER_URL/vstshost/m122_887c6659/vstshost.zip" vstshost
     acquireExternalTool "$CONTAINER_URL/vstsom/m122_887c6659/vstsom.zip" vstsom
@@ -155,12 +158,15 @@ if [[ "$PACKAGERUNTIME" == "win-x64" ]]; then
     fi
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x64/node.exe" node10/bin
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x64/node.lib" node10/bin
+    acquireExternalTool "$NODE_URL/v${NODE16_VERSION}/win-x64/node.exe" node16/bin
+    acquireExternalTool "$NODE_URL/v${NODE16_VERSION}/win-x64/node.lib" node16/bin
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v3.4.4/nuget.exe" nuget
 fi
 
 if [[ "$PACKAGERUNTIME" == "win-x86" ]]; then
     acquireExternalTool "$CONTAINER_URL/pdbstr/1/pdbstr.zip" pdbstr
     acquireExternalTool "$CONTAINER_URL/mingit/${MINGIT_VERSION}/MinGit-${MINGIT_VERSION}-32-bit.zip" git
+    acquireExternalTool "$CONTAINER_URL/git-lfs/${LFS_VERSION}/x32/git-lfs.exe" git/mingw32/bin
     acquireExternalTool "$CONTAINER_URL/symstore/1/symstore.zip" symstore
     acquireExternalTool "$CONTAINER_URL/vstsom/m153_d91bed0b/vstsom.zip" tf
     acquireExternalTool "$CONTAINER_URL/vswhere/2_8_4/vswhere.zip" vswhere
@@ -170,6 +176,8 @@ if [[ "$PACKAGERUNTIME" == "win-x86" ]]; then
     fi
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x86/node.exe" node10/bin
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x86/node.lib" node10/bin
+    acquireExternalTool "$NODE_URL/v${NODE16_VERSION}/win-x86/node.exe" node16/bin
+    acquireExternalTool "$NODE_URL/v${NODE16_VERSION}/win-x86/node.lib" node16/bin
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v3.4.4/nuget.exe" nuget
 fi
 
@@ -179,11 +187,11 @@ if [[ "$PACKAGERUNTIME" == "osx-x64" ]]; then
         acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-darwin-x64.tar.gz" node fix_nested_dir
     fi
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-darwin-x64.tar.gz" node10 fix_nested_dir
+    acquireExternalTool "$NODE_URL/v${NODE16_VERSION}/node-v${NODE16_VERSION}-darwin-x64.tar.gz" node16 fix_nested_dir
 fi
 
 # Download the external tools common across OSX and Linux PACKAGERUNTIMEs.
 if [[ "$PACKAGERUNTIME" == "linux-x64" || "$PACKAGERUNTIME" == "linux-arm" || "$PACKAGERUNTIME" == "linux-arm64" || "$PACKAGERUNTIME" == "osx-x64" || "$PACKAGERUNTIME" == "rhel.6-x64" ]]; then
-    acquireExternalTool "$CONTAINER_URL/tee/14_135_0/TEE-CLC-14.135.0.zip" tee fix_nested_dir
     acquireExternalTool "$CONTAINER_URL/vso-task-lib/0.5.5/vso-task-lib.tar.gz" vso-task-lib
 fi
 
@@ -193,6 +201,7 @@ if [[ "$PACKAGERUNTIME" == "linux-x64" || "$PACKAGERUNTIME" == "rhel.6-x64" ]]; 
         acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz" node fix_nested_dir
     fi
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-linux-x64.tar.gz" node10 fix_nested_dir
+    acquireExternalTool "$NODE_URL/v${NODE16_VERSION}/node-v${NODE16_VERSION}-linux-x64.tar.gz" node16 fix_nested_dir
 fi
 
 if [[ "$PACKAGERUNTIME" == "linux-arm" ]]; then
@@ -200,6 +209,7 @@ if [[ "$PACKAGERUNTIME" == "linux-arm" ]]; then
         acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-armv7l.tar.gz" node fix_nested_dir
     fi
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-linux-armv7l.tar.gz" node10 fix_nested_dir
+    acquireExternalTool "$NODE_URL/v${NODE16_VERSION}/node-v${NODE16_VERSION}-linux-armv7l.tar.gz" node16 fix_nested_dir
 fi
 
 if [[ "$PACKAGERUNTIME" == "linux-arm64" ]]; then
@@ -207,13 +217,31 @@ if [[ "$PACKAGERUNTIME" == "linux-arm64" ]]; then
         acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-arm64.tar.gz" node fix_nested_dir
     fi
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-linux-arm64.tar.gz" node10 fix_nested_dir
+    acquireExternalTool "$NODE_URL/v${NODE16_VERSION}/node-v${NODE16_VERSION}-linux-arm64.tar.gz" node16 fix_nested_dir
+fi
+
+if [[ "$PACKAGERUNTIME" != "win-x64" && "$PACKAGERUNTIME" != "win-x86" ]]; then
+    # remove `npm`, `npx`, `corepack`, and related `node_modules` from the `externals/node*` agent directory
+    # they are installed along with node, but agent does not use them
+
+    rm -rf "$LAYOUT_DIR/externals/node/lib"
+    rm "$LAYOUT_DIR/externals/node/bin/npm"
+
+    rm -rf "$LAYOUT_DIR/externals/node10/lib"
+    rm "$LAYOUT_DIR/externals/node10/bin/npm"
+    rm "$LAYOUT_DIR/externals/node10/bin/npx"
+
+    rm -rf "$LAYOUT_DIR/externals/node16/lib"
+    rm "$LAYOUT_DIR/externals/node16/bin/npm"
+    rm "$LAYOUT_DIR/externals/node16/bin/npx"
+    rm "$LAYOUT_DIR/externals/node16/bin/corepack"
 fi
 
 if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
     # cmdline task
     acquireExternalTool "$CONTAINER_URL/l1Tasks/d9bafed4-0b18-4f58-968d-86655b4d2ce9.zip" "Tasks" false dont_uncompress
     # cmdline node10 task
-    acquireExternalTool "$CONTAINER_URL/l1Tasks/e9bafed4-0b18-4f58-968d-86655b4d2ce9.zip" "Tasks" false dont_uncompress
+    acquireExternalTool "$CONTAINER_URL/l1Tasks/f9bafed4-0b18-4f58-968d-86655b4d2ce9.zip" "Tasks" false dont_uncompress
 
     # with the current setup of this package there are backslashes so it fails to extract on non-windows at runtime
     # we may need to fix this in the Agent

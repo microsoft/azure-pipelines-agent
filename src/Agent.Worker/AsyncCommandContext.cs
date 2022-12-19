@@ -17,6 +17,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         void InitializeCommandContext(IExecutionContext context, string name);
         void Output(string message);
         void Debug(string message);
+        void Warn(string message);
         Task WaitAsync();
         IHostContext GetHostContext();
     }
@@ -39,6 +40,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             Info,
             Debug,
+            Warning
         }
 
         private IExecutionContext _executionContext;
@@ -69,6 +71,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             _outputQueue.Enqueue(new OutputMessage(OutputType.Debug, message));
         }
 
+        public void Warn(string message)
+        {
+            _outputQueue.Enqueue(new OutputMessage(OutputType.Warning, message));
+        }
+
         public async Task WaitAsync()
         {
             Trace.Entering();
@@ -88,6 +95,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         case OutputType.Debug:
                             _executionContext.Debug(output.Message);
                             break;
+                        case OutputType.Warning:
+                            _executionContext.Warning(output.Message);
+                            break;
                     }
                 }
 
@@ -105,6 +115,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         break;
                     case OutputType.Debug:
                         _executionContext.Debug(output.Message);
+                        break;
+                    case OutputType.Warning:
+                        _executionContext.Warning(output.Message);
                         break;
                 }
             }

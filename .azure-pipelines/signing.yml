@@ -1,209 +1,202 @@
 parameters:
-- name: layoutRoot
-  type: string
-- name: isWindows
-  type: boolean
-  default: true
+  - name: layoutRoot
+    type: string
+  - name: isWindows
+    type: boolean
+    default: true
 
 steps:
-- ${{ if parameters.isWindows }}:
+  - ${{ if parameters.isWindows }}:
+      - task: PowerShell@2
+        inputs:
+          targetType: 'filePath'
+          filePath: ./.azure-pipelines/scripts/RemoveSignatureForThirdPartyAssemlies.ps1
+          arguments: '-LayoutRoot ${{ parameters.layoutRoot }}'
+          errorActionPreference: 'continue'
+        displayName: Remove signatures from the third party packages
+        condition: ne(variables['DISABLE_SIGNATURE_REMOVAL'], 'true')
+
+      - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@1
+        inputs:
+          ConnectedServiceName: VSTSAgentESRP
+          FolderPath: '${{ parameters.layoutRoot }}/bin'
+          Pattern: AgentService.exe
+          signConfigType: inlineSignParams
+          inlineOperation: |
+            [{
+            "keyCode": "CP-235845-SN",
+            "operationSetCode": "StrongNameSign",
+            "parameters": [],
+            "toolName": "sign",
+            "toolVersion": "1.0"
+            },
+            {
+            "keyCode": "CP-235845-SN",
+            "operationSetCode": "StrongNameVerify",
+            "parameters": [],
+            "toolName": "sign",
+            "toolVersion": "1.0"
+            }
+            ]
+        displayName: Sign Agent Assemblies (Strong Name Signing)
+
   - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@1
     inputs:
       ConnectedServiceName: VSTSAgentESRP
       FolderPath: '${{ parameters.layoutRoot }}/bin'
-      Pattern: AgentService.exe
+      Pattern: |
+        Agent.*.dll
+        Agent.*.exe
+        Microsoft.VisualStudio.Services.Agent.dll
+        AgentService.exe
+        **\AgentService.resources.dll
+      UseMinimatch: true
       signConfigType: inlineSignParams
       inlineOperation: |
         [{
-        "keyCode": "CP-235845-SN",
-        "operationSetCode": "StrongNameSign",
-        "parameters": [],
+        "keyCode": "CP-230012",
+        "operationSetCode": "SigntoolSign",
+        "parameters": [{
+        "parameterName": "OpusName",
+        "parameterValue": "Microsoft"
+        },
+        {
+        "parameterName": "OpusInfo",
+        "parameterValue": "http://www.microsoft.com"
+        },
+        {
+        "parameterName": "FileDigest",
+        "parameterValue": "/fd \"SHA256\""
+        },
+        {
+        "parameterName": "PageHash",
+        "parameterValue": "/NPH"
+        },
+        {
+        "parameterName": "TimeStamp",
+        "parameterValue": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
+        }
+        ],
         "toolName": "sign",
         "toolVersion": "1.0"
         },
         {
-        "keyCode": "CP-235845-SN",
-        "operationSetCode": "StrongNameVerify",
+        "keyCode": "CP-230012",
+        "operationSetCode": "SigntoolVerify",
         "parameters": [],
         "toolName": "sign",
         "toolVersion": "1.0"
         }
         ]
-    displayName: Sign Agent Assemblies (Strong Name Signing)
+    displayName: Sign Agent Assemblies (Authenticode Signing)
 
-- task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@1
-  inputs:
-    ConnectedServiceName: VSTSAgentESRP
-    FolderPath: '${{ parameters.layoutRoot }}/bin'
-    Pattern: |
-      Agent.*.dll
-      Agent.*.exe
-      Microsoft.VisualStudio.Services.Agent.dll
-      AgentService.exe
-    UseMinimatch: true
-    signConfigType: inlineSignParams
-    inlineOperation: |
-      [{
-      "keyCode": "CP-230012",
-      "operationSetCode": "SigntoolSign",
-      "parameters": [{
-      "parameterName": "OpusName",
-      "parameterValue": "Microsoft"
-      },
-      {
-      "parameterName": "OpusInfo",
-      "parameterValue": "http://www.microsoft.com"
-      },
-      {
-      "parameterName": "FileDigest",
-      "parameterValue": "/fd \"SHA256\""
-      },
-      {
-      "parameterName": "PageHash",
-      "parameterValue": "/NPH"
-      },
-      {
-      "parameterName": "TimeStamp",
-      "parameterValue": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
-      }
-      ],
-      "toolName": "sign",
-      "toolVersion": "1.0"
-      },
-      {
-      "keyCode": "CP-230012",
-      "operationSetCode": "SigntoolVerify",
-      "parameters": [],
-      "toolName": "sign",
-      "toolVersion": "1.0"
-      }
-      ]
-  displayName: Sign Agent Assemblies (Authenticode Signing)
+  - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@1
+    inputs:
+      ConnectedServiceName: VSTSAgentESRP
+      FolderPath: '${{ parameters.layoutRoot }}'
+      Pattern: |
+        bin\powershell\**\*.ps1
+        bin\powershell\**\*.psm1
+        externals\vstshost\**\*.ps1
+        externals\vstshost\**\*.psd1
+        externals\vstshost\**\*.psm1
+      UseMinimatch: true
+      signConfigType: inlineSignParams
+      inlineOperation: |
+        [{
+        "keyCode": "CP-230012",
+        "operationSetCode": "SigntoolSign",
+        "parameters": [{
+        "parameterName": "OpusName",
+        "parameterValue": "Microsoft"
+        },
+        {
+        "parameterName": "OpusInfo",
+        "parameterValue": "http://www.microsoft.com"
+        },
+        {
+        "parameterName": "FileDigest",
+        "parameterValue": "/fd \"SHA256\""
+        },
+        {
+        "parameterName": "PageHash",
+        "parameterValue": "/NPH"
+        },
+        {
+        "parameterName": "TimeStamp",
+        "parameterValue": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
+        }
+        ],
+        "toolName": "sign",
+        "toolVersion": "1.0"
+        },
+        {
+        "keyCode": "CP-230012",
+        "operationSetCode": "SigntoolVerify",
+        "parameters": [],
+        "toolName": "sign",
+        "toolVersion": "1.0"
+        }
+        ]
+    displayName: Sign PowerShell Scripts (Authenticode Signing)
 
-- task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@1
-  inputs:
-    ConnectedServiceName: VSTSAgentESRP
-    FolderPath: '${{ parameters.layoutRoot }}'
-    Pattern: |
-      bin\powershell\**\*.ps1
-      bin\powershell\**\*.psm1
-      externals\vstshost\**\*.ps1
-      externals\vstshost\**\*.psd1
-      externals\vstshost\**\*.psm1
-    UseMinimatch: true
-    signConfigType: inlineSignParams
-    inlineOperation: |
-      [{
-      "keyCode": "CP-230012",
-      "operationSetCode": "SigntoolSign",
-      "parameters": [{
-      "parameterName": "OpusName",
-      "parameterValue": "Microsoft"
-      },
-      {
-      "parameterName": "OpusInfo",
-      "parameterValue": "http://www.microsoft.com"
-      },
-      {
-      "parameterName": "FileDigest",
-      "parameterValue": "/fd \"SHA256\""
-      },
-      {
-      "parameterName": "PageHash",
-      "parameterValue": "/NPH"
-      },
-      {
-      "parameterName": "TimeStamp",
-      "parameterValue": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
-      }
-      ],
-      "toolName": "sign",
-      "toolVersion": "1.0"
-      },
-      {
-      "keyCode": "CP-230012",
-      "operationSetCode": "SigntoolVerify",
-      "parameters": [],
-      "toolName": "sign",
-      "toolVersion": "1.0"
-      }
-      ]
-  displayName: Sign PowerShell Scripts (Authenticode Signing)
+  - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@1
+    inputs:
+      ConnectedServiceName: VSTSAgentESRP
+      FolderPath: '${{ parameters.layoutRoot }}'
+      Pattern: |
+        bin\**\*.dll
+        bin\**\*.exe
+        externals\**\*.exe
+        externals\**\*.dll
+        externals\**\*.pyd
+      UseMinimatch: true
+      signConfigType: inlineSignParams
+      inlineOperation: |
+        [{
+        "keyCode": "CP-231522",
+        "operationSetCode": "SigntoolSign",
+        "parameters": [{
+        "parameterName": "OpusName",
+        "parameterValue": "Microsoft"
+        },
+        {
+        "parameterName": "OpusInfo",
+        "parameterValue": "http://www.microsoft.com"
+        },
+        {
+        "parameterName": "Append",
+        "parameterValue": "/as"
+        },
+        {
+        "parameterName": "FileDigest",
+        "parameterValue": "/fd \"SHA256\""
+        },
+        {
+        "parameterName": "PageHash",
+        "parameterValue": "/NPH"
+        },
+        {
+        "parameterName": "TimeStamp",
+        "parameterValue": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
+        }
+        ],
+        "toolName": "sign",
+        "toolVersion": "1.0"
+        },
+        {
+        "keyCode": "CP-231522",
+        "operationSetCode": "SigntoolVerify",
+        "parameters": [],
+        "toolName": "sign",
+        "toolVersion": "1.0"
+        }
+        ]
+    displayName: Sign Agent Assemblies (3rd Party Assemblies Signing)
 
-- task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@1
-  inputs:
-    ConnectedServiceName: VSTSAgentESRP
-    FolderPath: '${{ parameters.layoutRoot }}'
-    Pattern: |
-      bin\Ben.Demystifier.dll
-      bin\CommandLine.dll
-      bin\DotNet.Glob.dll
-      bin\Minimatch.dll
-      bin\NCrontab.Signed.dll
-      bin\Newtonsoft.Json.dll
-      bin\Newtonsoft.Json.Bson.dll
-      bin\RocksDbNative.dll
-      bin\RocksDbSharp.dll
-      bin\RuntimeContracts.dll
-      bin\Symstore.Interop.dll
-      bin\System.Interactive.Async.dll
-      bin\System.IO.Abstractions.dll
-      bin\System.Linq.Async.dll
-      bin\YamlDotNet.dll
-      bin\native\amd64\rocksdb.dll
-      externals\git\**\*.dll
-      externals\git\**\*.exe
-      externals\node\bin\node.exe
-      externals\node10\bin\node.exe
-      externals\vstshost\Minimatch.dll
-      externals\vstsom\Newtonsoft.Json.dll
-      externals\tf\Newtonsoft.Json.dll
-    UseMinimatch: true
-    signConfigType: inlineSignParams
-    inlineOperation: |
-      [{
-      "keyCode": "CP-231522",
-      "operationSetCode": "SigntoolSign",
-      "parameters": [{
-      "parameterName": "OpusName",
-      "parameterValue": "Microsoft"
-      },
-      {
-      "parameterName": "OpusInfo",
-      "parameterValue": "http://www.microsoft.com"
-      },
-      {
-      "parameterName": "Append",
-      "parameterValue": "/as"
-      },
-      {
-      "parameterName": "FileDigest",
-      "parameterValue": "/fd \"SHA256\""
-      },
-      {
-      "parameterName": "PageHash",
-      "parameterValue": "/NPH"
-      },
-      {
-      "parameterName": "TimeStamp",
-      "parameterValue": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
-      }
-      ],
-      "toolName": "sign",
-      "toolVersion": "1.0"
-      },
-      {
-      "keyCode": "CP-231522",
-      "operationSetCode": "SigntoolVerify",
-      "parameters": [],
-      "toolName": "sign",
-      "toolVersion": "1.0"
-      }
-      ]
-  displayName: Sign Agent Assemblies (3rd Party Assemblies Signing)
-
-- task: DeleteFiles@1
-  inputs:
-    SourceFolder: '${{ parameters.layoutRoot }}'
-    Contents: '**\CodeSignSummary-*.md'
-  displayName: Delete CodeSignSummary.md
+  - task: DeleteFiles@1
+    inputs:
+      SourceFolder: '${{ parameters.layoutRoot }}'
+      Contents: '**\CodeSignSummary-*.md'
+    displayName: Delete CodeSignSummary.md
+    retryCountOnTaskFailure: 4

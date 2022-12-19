@@ -79,14 +79,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 return false;
             }
 
+            var logonAccount = arg.TrimStart('.');
+
             try
             {
-                var logonAccount = arg.TrimStart('.');
                 NTAccount ntaccount = new NTAccount(logonAccount);
                 SecurityIdentifier sid = (SecurityIdentifier)ntaccount.Translate(typeof(SecurityIdentifier));
             }
             catch (IdentityNotMappedException)
             {
+                try
+                {
+                    if(!logonAccount.EndsWith('$'))
+                    {
+                        NTAccount ntaccount = new NTAccount(logonAccount + '$');
+                        SecurityIdentifier sid = (SecurityIdentifier)ntaccount.Translate(typeof(SecurityIdentifier));
+                        Console.WriteLine(StringUtil.Loc("AutoLogonAccountGmsaHint"));
+                    }
+                }
+                catch
+                {
+                    return false;
+                }
+
                 return false;
             }
 

@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -42,6 +43,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
         public string DockerPath { get; private set; }
 
         public string DockerInstanceLabel { get; private set; }
+        private static UtilKnobValueContext _knobContext = UtilKnobValueContext.Instance();
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -222,14 +224,44 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(network, nameof(network));
-
             var usingWindowsContainers = context.Containers.Where(x => x.ExecutionOS != PlatformUtil.OS.Windows).Count() == 0;
             var networkDrivers = await ExecuteDockerCommandAsync(context, "info", "-f \"{{range .Plugins.Network}}{{println .}}{{end}}\"");
-            if (usingWindowsContainers && networkDrivers.Contains("nat"))
+            var valueMTU = AgentKnobs.MTUValueForContainerJobs.GetValue(_knobContext).AsString();
+            var driver = AgentKnobs.DockerNetworkCreateDriver.GetValue(context).AsString();
+            var additionalNetworCreateOptions = AgentKnobs.DockerAdditionalNetworkOptions.GetValue(context).AsString();
+            string optionMTU = "";
+
+            if (!String.IsNullOrEmpty(valueMTU))
             {
-                return await ExecuteDockerCommandAsync(context, "network", $"create --label {DockerInstanceLabel} {network} --driver nat", context.CancellationToken);
+                optionMTU = $"-o \"com.docker.network.driver.mtu={valueMTU}\"";
             }
-            return await ExecuteDockerCommandAsync(context, "network", $"create --label {DockerInstanceLabel} {network}", context.CancellationToken);
+
+            string options = $"create --label {DockerInstanceLabel} {network} {optionMTU}";
+
+            if (!String.IsNullOrEmpty(driver))
+            {
+                if (networkDrivers.Contains(driver))
+                {
+                    options += $" --driver {driver}";
+                }
+                else
+                {
+                    string warningMessage = $"Specified '{driver}' driver not found!";
+                    Trace.Warning(warningMessage);
+                    context.Warning(warningMessage);
+                }
+            }
+            else if (usingWindowsContainers && networkDrivers.Contains("nat"))
+            {
+                options += $" --driver nat";
+            }
+
+            if (!String.IsNullOrEmpty(additionalNetworCreateOptions))
+            {
+                options += $" {additionalNetworCreateOptions}";
+            }
+
+            return await ExecuteDockerCommandAsync(context, "network", options, context.CancellationToken);
         }
 
         public async Task<int> DockerNetworkRemove(IExecutionContext context, string network)

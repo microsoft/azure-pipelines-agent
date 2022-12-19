@@ -22,7 +22,7 @@ source "$SCRIPT_DIR/.helpers.sh"
 DOTNETSDK_ROOT="$SCRIPT_DIR/../_dotnetsdk"
 DOTNETSDK_VERSION="3.1.100"
 DOTNETSDK_INSTALLDIR="$DOTNETSDK_ROOT/$DOTNETSDK_VERSION"
-AGENT_VERSION=$(cat "$SCRIPT_DIR/agentversion")
+AGENT_VERSION=$(cat "$SCRIPT_DIR/agentversion" | head -n 1 | tr -d "\n\r")
 
 DOTNET_ERROR_PREFIX="##vso[task.logissue type=error]"
 DOTNET_WARNING_PREFIX="##vso[task.logissue type=warning]"
@@ -75,43 +75,38 @@ function detect_platform_and_runtime_id ()
     fi
 }
 
-function cmd_build ()
-{
-    heading "Building"
-    TARGET="Build"
+function make_build (){
+    TARGET=$1
+
+    echo "MSBuild target = ${TARGET}"
+
     if  [[ "$ADO_ENABLE_LOGISSUE" == "true" ]]; then
 
-        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
+        dotnet msbuild -t:"${TARGET}" -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
          | sed -e "/\: warning /s/^/${DOTNET_WARNING_PREFIX} /;" \
          | sed -e "/\: error /s/^/${DOTNET_ERROR_PREFIX} /;" \
          || failed build
     else
-        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
+        dotnet msbuild -t:"${TARGET}" -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
          || failed build
     fi
 
-
     mkdir -p "${LAYOUT_DIR}/bin/en-US"
     grep --invert-match '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > "${LAYOUT_DIR}/bin/en-US/strings.json"
+}
 
+function cmd_build ()
+{
+    heading "Building"
+
+    make_build "Build"
 }
 
 function cmd_layout ()
 {
     heading "Creating layout"
-    TARGET="layout"
-    if  [[ "$ADO_ENABLE_LOGISSUE" == "true" ]]; then
-        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
-         | sed -e "/\: warning /s/^/${DOTNET_WARNING_PREFIX} /;" \
-         | sed -e "/\: error /s/^/${DOTNET_ERROR_PREFIX} /;" \
-         || failed build
-    else
-        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
-         || failed build
-    fi
 
-    mkdir -p "${LAYOUT_DIR}/bin/en-US"
-    grep --invert-match '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > "${LAYOUT_DIR}/bin/en-US/strings.json"
+    make_build "Layout"
 
     #change execution flag to allow running with sudo
     if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "darwin") ]]; then
@@ -176,7 +171,7 @@ function cmd_package ()
         echo "You must build first.  Expecting to find ${LAYOUT_DIR}/bin"
     fi
 
-    agent_ver=$(cat "${SCRIPT_DIR}/agentversion" | tail -n 1) || failed "version"
+    agent_ver="$AGENT_VERSION" || failed "version"
 
     if [[ ("$PACKAGE_TYPE" == "pipelines-agent") ]]; then
         agent_pkg_name="pipelines-agent-${RUNTIME_ID}-${agent_ver}"
@@ -195,7 +190,6 @@ function cmd_package ()
     heading "Packaging ${agent_pkg_name}"
 
     rm -Rf "${LAYOUT_DIR:?}/_diag"
-    find "${LAYOUT_DIR}/bin" -type f -name '*.pdb' -delete
 
     mkdir -p "$PACKAGE_DIR"
     rm -Rf "${PACKAGE_DIR:?}"/*
@@ -218,13 +212,35 @@ function cmd_package ()
     popd > /dev/null
 }
 
+function cmd_hash ()
+{
+    pushd "$PACKAGE_DIR" > /dev/null
+
+    files=`ls -1`
+
+    number_of_files=`wc -l <<< "$files"`
+
+    if [[ number_of_files -ne 1 ]]; then
+        echo "Expecting to find exactly one file (agent package) in $PACKAGE_DIR"
+        exit 1
+    fi
+
+    agent_package_file=$files
+
+    rm -rf ../../_package_hash
+    mkdir ../../_package_hash
+    openssl dgst -sha256 $agent_package_file >> "../../_package_hash/$agent_package_file.sha256"
+
+    popd > /dev/null
+}
+
 function cmd_report ()
 {
     heading "Generating Reports"
 
     if [[ ("$CURRENT_PLATFORM" != "windows") ]]; then
         echo "Coverage reporting only available on Windows"
-        exit -1
+        exit 1
     fi
 
     mkdir -p "$REPORT_DIR"
@@ -244,7 +260,7 @@ function cmd_report ()
 
         # for some reason CodeCoverage.exe will only write the output file in the current directory
         pushd $COVERAGE_REPORT_DIR > /dev/null
-        "${HOME}/.nuget/packages/microsoft.codecoverage/15.9.2/build/netstandard1.0/CodeCoverage/CodeCoverage.exe" analyze  "/output:coverage.xml" "$LATEST_COVERAGE_FILE"
+        "${HOME}/.nuget/packages/microsoft.codecoverage/16.4.0/build/netstandard1.0/CodeCoverage/CodeCoverage.exe" analyze  "/output:coverage.xml" "$LATEST_COVERAGE_FILE"
         popd > /dev/null
 
         if ! command -v reportgenerator.exe > /dev/null; then
@@ -281,8 +297,6 @@ LAYOUT_DIR="$SCRIPT_DIR/../_layout/$RUNTIME_ID"
 DOWNLOAD_DIR="$SCRIPT_DIR/../_downloads/$RUNTIME_ID/netcore2x"
 PACKAGE_DIR="$SCRIPT_DIR/../_package/$RUNTIME_ID"
 REPORT_DIR="$SCRIPT_DIR/../_reports/$RUNTIME_ID"
-INTEGRATION_DIR="$SCRIPT_DIR/../_layout/integrations"
-NODE="${LAYOUT_DIR}/externals/node10/bin/node"
 
 if [[ (! -d "${DOTNETSDK_INSTALLDIR}") || (! -e "${DOTNETSDK_INSTALLDIR}/.${DOTNETSDK_VERSION}") || (! -e "${DOTNETSDK_INSTALLDIR}/dotnet") ]]; then
 
@@ -301,7 +315,8 @@ if [[ (! -d "${DOTNETSDK_INSTALLDIR}") || (! -e "${DOTNETSDK_INSTALLDIR}/.${DOTN
         echo "Convert ${DOTNETSDK_INSTALLDIR} to Windows style path"
         sdkinstallwindow_path=${DOTNETSDK_INSTALLDIR:1}
         sdkinstallwindow_path=${sdkinstallwindow_path:0:1}:${sdkinstallwindow_path:1}
-        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"./Misc/dotnet-install.ps1\" -Version ${DOTNETSDK_VERSION} -InstallDir \"${sdkinstallwindow_path}\" -NoPath; exit \$LastExitCode;" || checkRC dotnet-install.ps1
+        architecture=$( echo $RUNTIME_ID | cut -d "-" -f2)
+        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"./Misc/dotnet-install.ps1\" -Version ${DOTNETSDK_VERSION} -InstallDir \"${sdkinstallwindow_path}\" -Architecture ${architecture}  -NoPath; exit \$LastExitCode;" || checkRC dotnet-install.ps1
     else
         bash ./Misc/dotnet-install.sh --version ${DOTNETSDK_VERSION} --install-dir "${DOTNETSDK_INSTALLDIR}" --no-path || checkRC dotnet-install.sh
     fi
@@ -350,6 +365,7 @@ case $DEV_CMD in
    "l") cmd_layout;;
    "package") cmd_package;;
    "p") cmd_package;;
+   "hash") cmd_hash;;
    "report") cmd_report;;
    *) echo "Invalid command. Use (l)ayout, (b)uild, (t)est, test(l0), test(l1), or (p)ackage.";;
 esac

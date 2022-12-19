@@ -67,15 +67,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             // Execute the process. Exit code 0 should always be returned.
             // A non-zero exit code indicates infrastructural failure.
             // Task failure should be communicated over STDOUT using ## commands.
-            await StepHost.ExecuteAsync(workingDirectory: StepHost.ResolvePathForStepHost(scriptDirectory),
-                                        fileName: powerShellExe,
-                                        arguments: powerShellExeArgs,
-                                        environment: Environment,
-                                        requireExitCodeZero: true,
-                                        outputEncoding: null,
-                                        killProcessOnCancel: false,
-                                        inheritConsoleHandler: !ExecutionContext.Variables.Retain_Default_Encoding,
-                                        cancellationToken: ExecutionContext.CancellationToken);
+            try
+            {
+                await StepHost.ExecuteAsync(workingDirectory: StepHost.ResolvePathForStepHost(scriptDirectory),
+                                            fileName: powerShellExe,
+                                            arguments: powerShellExeArgs,
+                                            environment: Environment,
+                                            requireExitCodeZero: true,
+                                            outputEncoding: null,
+                                            killProcessOnCancel: false,
+                                            inheritConsoleHandler: !ExecutionContext.Variables.Retain_Default_Encoding,
+                                            continueAfterCancelProcessTreeKillAttempt: _continueAfterCancelProcessTreeKillAttempt,
+                                            cancellationToken: ExecutionContext.CancellationToken);
+            }
+            finally
+            {
+                StepHost.OutputDataReceived -= OnDataReceived;
+                StepHost.ErrorDataReceived -= OnDataReceived;
+            }
         }
 
         private void OnDataReceived(object sender, ProcessDataReceivedEventArgs e)

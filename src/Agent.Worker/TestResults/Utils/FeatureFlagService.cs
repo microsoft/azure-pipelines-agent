@@ -39,8 +39,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
                 var featureFlag = featureAvailabilityHttpClient?.GetFeatureFlagByNameAsync(featureFlagName).Result;
                 if (featureFlag != null && featureFlag.EffectiveState.Equals("On", StringComparison.OrdinalIgnoreCase))
                 {
+                    _executionContext.Debug(StringUtil.Format("{0} is on", featureFlagName));
                     return true;
                 }
+                _executionContext.Debug(StringUtil.Format("{0} is off", featureFlagName));
             }
             catch
             {

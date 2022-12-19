@@ -88,6 +88,9 @@ namespace Agent.Sdk
         public bool SkipContainerImagePull { get; private set; }
         public string CurrentUserName { get; set; }
         public string CurrentUserId { get; set; }
+        public string CurrentGroupName { get; set; }
+        public string CurrentGroupId { get; set; }
+
         public bool IsJobContainer { get; set; }
         public bool MapDockerSocket { get; set; }
         public PlatformUtil.OS ImageOS {

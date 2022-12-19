@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Agent.Listener.CommandLine;
 using Agent.Sdk;
+using Agent.Sdk.Util;
 using CommandLine;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json;
@@ -65,17 +66,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             // Mask secret arguments
             if (Configure != null)
             {
-                context.SecretMasker.AddValue(Configure.Password);
-                context.SecretMasker.AddValue(Configure.ProxyPassword);
-                context.SecretMasker.AddValue(Configure.SslClientCert);
-                context.SecretMasker.AddValue(Configure.Token);
-                context.SecretMasker.AddValue(Configure.WindowsLogonPassword);
+                context.SecretMasker.AddValue(Configure.Password, WellKnownSecretAliases.ConfigurePassword);
+                context.SecretMasker.AddValue(Configure.ProxyPassword, WellKnownSecretAliases.ConfigureProxyPassword);
+                context.SecretMasker.AddValue(Configure.SslClientCert, WellKnownSecretAliases.ConfigureSslClientCert);
+                context.SecretMasker.AddValue(Configure.Token, WellKnownSecretAliases.ConfigureToken);
+                context.SecretMasker.AddValue(Configure.WindowsLogonPassword, WellKnownSecretAliases.ConfigureWindowsLogonPassword);
             }
 
             if (Remove != null)
             {
-                context.SecretMasker.AddValue(Remove.Password);
-                context.SecretMasker.AddValue(Remove.Token);
+                context.SecretMasker.AddValue(Remove.Password, WellKnownSecretAliases.RemovePassword);
+                context.SecretMasker.AddValue(Remove.Token, WellKnownSecretAliases.RemoveToken);
             }
 
             PrintArguments();
@@ -100,7 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         bool secret = Constants.Agent.CommandLine.Args.Secrets.Any(x => string.Equals(x, name, StringComparison.OrdinalIgnoreCase));
                         if (secret)
                         {
-                            context.SecretMasker.AddValue(val);
+                            context.SecretMasker.AddValue(val, $"CommandSettings_{fullKey}");
                         }
 
                         // Store the value.
@@ -149,6 +150,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 defaultValue: false);
         }
 
+        public bool GetPreventServiceStart()
+        {
+            return TestFlagOrPrompt(
+                value: Configure?.PreventServiceStart,
+                name: Constants.Agent.CommandLine.Flags.PreventServiceStart,
+                description: StringUtil.Loc("PreventServiceStartDescription"),
+                defaultValue: false
+            );
+        }
+
         public bool GetRunAsAutoLogon()
         {
             return TestFlagOrPrompt(
@@ -193,6 +204,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 name: Constants.Agent.CommandLine.Flags.LaunchBrowser,
                 description: StringUtil.Loc("LaunchBrowser"),
                 defaultValue: true);
+        }
+        /// <summary>
+        /// Returns EnableServiceSidTypeUnrestricted flag or prompts user to set it up
+        /// </summary>
+        /// <returns>Parameter value</returns>
+        public bool GetEnableServiceSidTypeUnrestricted()
+        {
+            return TestFlagOrPrompt(
+                value: Configure?.EnableServiceSidTypeUnrestricted,
+                name: Constants.Agent.CommandLine.Flags.EnableServiceSidTypeUnrestricted,
+                description: StringUtil.Loc("EnableServiceSidTypeUnrestricted"),
+                defaultValue: false);
         }
         //
         // Args.

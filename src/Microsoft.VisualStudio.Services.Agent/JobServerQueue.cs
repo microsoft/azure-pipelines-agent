@@ -20,6 +20,7 @@ namespace Microsoft.VisualStudio.Services.Agent
     {
         event EventHandler<ThrottlingEventArgs> JobServerQueueThrottling;
         Task ShutdownAsync();
+        Task DrainQueues();
         void Start(Pipelines.AgentJobRequestMessage jobRequest);
         void QueueWebConsoleLine(Guid stepRecordId, string line, long lineNumber);
         void QueueFileUpload(Guid timelineId, Guid timelineRecordId, string type, string name, string path, bool deleteSource);
@@ -89,6 +90,28 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             base.Initialize(hostContext);
             _jobServer = hostContext.GetService<IJobServer>();
+        }
+
+        public async Task DrainQueues()
+        {
+            // Drain the queue
+            // ProcessWebConsoleLinesQueueAsync() will never throw exception, live console update is always best effort.
+            Trace.Verbose("Draining web console line queue.");
+            await ProcessWebConsoleLinesQueueAsync(runOnce: true);
+            Trace.Info("Web console line queue drained.");
+
+            // ProcessFilesUploadQueueAsync() will never throw exception, log file upload is always best effort.
+            Trace.Verbose("Draining file upload queue.");
+            await ProcessFilesUploadQueueAsync(runOnce: true);
+            Trace.Info("File upload queue drained.");
+
+            // ProcessTimelinesUpdateQueueAsync() will throw exception during shutdown
+            // if there is any timeline records that failed to update contains output variabls.
+            Trace.Verbose("Draining timeline update queue.");
+            await ProcessTimelinesUpdateQueueAsync(runOnce: true);
+            Trace.Info("Timeline update queue drained.");
+
+            Trace.Info("All queues are drained.");
         }
 
         public void Start(Pipelines.AgentJobRequestMessage jobRequest)
@@ -169,24 +192,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             _queueInProcess = false;
             Trace.Info("All queue process task stopped.");
 
-            // Drain the queue
-            // ProcessWebConsoleLinesQueueAsync() will never throw exception, live console update is always best effort.
-            Trace.Verbose("Draining web console line queue.");
-            await ProcessWebConsoleLinesQueueAsync(runOnce: true);
-            Trace.Info("Web console line queue drained.");
-
-            // ProcessFilesUploadQueueAsync() will never throw exception, log file upload is always best effort.
-            Trace.Verbose("Draining file upload queue.");
-            await ProcessFilesUploadQueueAsync(runOnce: true);
-            Trace.Info("File upload queue drained.");
-
-            // ProcessTimelinesUpdateQueueAsync() will throw exception during shutdown
-            // if there is any timeline records that failed to update contains output variabls.
-            Trace.Verbose("Draining timeline update queue.");
-            await ProcessTimelinesUpdateQueueAsync(runOnce: true);
-            Trace.Info("Timeline update queue drained.");
-
-            Trace.Info("All queue process tasks have been stopped, and all queues are drained.");
+            await DrainQueues();
         }
 
         public void QueueWebConsoleLine(Guid stepRecordId, string line, long lineNumber)

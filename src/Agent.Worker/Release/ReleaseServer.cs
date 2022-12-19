@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -10,6 +11,7 @@ using Microsoft.VisualStudio.Services.ReleaseManagement.WebApi.Clients;
 using Microsoft.VisualStudio.Services.ReleaseManagement.WebApi.Contracts;
 using Microsoft.VisualStudio.Services.WebApi;
 using RMContracts = Microsoft.VisualStudio.Services.ReleaseManagement.WebApi;
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 {
@@ -45,6 +47,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                 {
                     await _connection.ConnectAsync();
                     break;
+                }
+                catch (SocketException ex)
+                {
+                    ExceptionsUtil.HandleSocketException(ex, _connection.Uri.ToString(), Trace.Error);
                 }
                 catch (Exception ex) when (attemptCount > 0)
                 {

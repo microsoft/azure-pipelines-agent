@@ -15,6 +15,7 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 
 namespace Agent.Plugins.PipelineArtifact
@@ -67,6 +68,7 @@ namespace Agent.Plugins.PipelineArtifact
         static readonly string pipelineVersionToDownloadLatest = "latest";
         static readonly string pipelineVersionToDownloadSpecific = "specific";
         static readonly string pipelineVersionToDownloadLatestFromBranch = "latestFromBranch";
+        private const int MaxRetries = 3; 
 
         protected override async Task ProcessCommandInternalAsync(
             AgentTaskPluginExecutionContext context,
@@ -105,6 +107,9 @@ namespace Agent.Plugins.PipelineArtifact
                 throw new ArgumentException(StringUtil.Loc("ArtifactNameIsNotValid", artifactName));
             }
             context.Debug($"ArtifactName: {artifactName}");
+
+            // Empty input field "Matching pattern" must be recognised as default value '**'
+            itemPattern = string.IsNullOrEmpty(itemPattern) ? "**" : itemPattern;
 
             string[] minimatchPatterns = itemPattern.Split(
                 new[] { "\n" },
@@ -194,7 +199,7 @@ namespace Agent.Plugins.PipelineArtifact
                 bool isProjGuid = Guid.TryParse(projectName, out projectId);
                 if (!isProjGuid) 
                 {
-                    projectId = await GetProjectIdAsync(context, projectName);
+                    projectId = await GetProjectIdAsync(context, projectName, token);
                 }
                 context.Debug($"ProjectId: {projectId.ToString()}");
                 // Set the default pipelineId to 0, which is an invalid build id and it has to be reassigned to a valid build id.
@@ -313,7 +318,15 @@ namespace Agent.Plugins.PipelineArtifact
             return fullPath;
         }
 
-        private async Task<int> GetPipelineIdAsync(AgentTaskPluginExecutionContext context, string pipelineDefinition, string pipelineVersionToDownload, string project, string[] tagFilters, BuildResult resultFilter = BuildResult.Succeeded, string branchName = null, CancellationToken cancellationToken = default(CancellationToken))
+        private async Task<int> GetPipelineIdAsync(
+            AgentTaskPluginExecutionContext context,
+            string pipelineDefinition,
+            string pipelineVersionToDownload,
+            string project,
+            string[] tagFilters,
+            BuildResult resultFilter = BuildResult.Succeeded,
+            string branchName = null,
+            CancellationToken cancellationToken = default(CancellationToken))
         {
             if(String.IsNullOrWhiteSpace(pipelineDefinition)) 
             {
@@ -326,7 +339,16 @@ namespace Agent.Plugins.PipelineArtifact
             var isDefinitionNum = Int32.TryParse(pipelineDefinition, out int definition);
             if (!isDefinitionNum)
             {
-                var definitionRef = (await buildHttpClient.GetDefinitionsAsync(new System.Guid(project), pipelineDefinition, cancellationToken: cancellationToken)).FirstOrDefault();
+                var definitionReferencesWithName = await AsyncHttpRetryHelper.InvokeAsync(
+                    async () => await buildHttpClient.GetDefinitionsAsync(new Guid(project), pipelineDefinition, cancellationToken: cancellationToken),
+                    maxRetries: MaxRetries,
+                    tracer: tracer,
+                    context: "GetBuildDefinitionReferencesByName",
+                    cancellationToken: cancellationToken,
+                    continueOnCapturedContext: false);
+                
+                var definitionRef = definitionReferencesWithName.FirstOrDefault();
+                
                 if (definitionRef == null)
                 {
                     throw new ArgumentException(StringUtil.Loc("PipelineDoesNotExist", pipelineDefinition));
@@ -341,11 +363,36 @@ namespace Agent.Plugins.PipelineArtifact
             List<Build> list;
             if (pipelineVersionToDownload == pipelineVersionToDownloadLatest)
             {
-                list = await buildHttpClient.GetBuildsAsync(project, definitions, tagFilters: tagFilters, queryOrder: BuildQueryOrder.FinishTimeDescending, resultFilter: resultFilter);
+                list = await AsyncHttpRetryHelper.InvokeAsync(
+                    async () => await buildHttpClient.GetBuildsAsync(
+                        project,
+                        definitions,
+                        tagFilters: tagFilters,
+                        queryOrder: BuildQueryOrder.FinishTimeDescending,
+                        resultFilter: resultFilter,
+                        cancellationToken: cancellationToken),
+                    maxRetries: MaxRetries,
+                    tracer: tracer,
+                    context: "GetLatestBuild",
+                    cancellationToken: cancellationToken,
+                    continueOnCapturedContext: false);
             }
             else if (pipelineVersionToDownload == pipelineVersionToDownloadLatestFromBranch)
             {
-                list = await buildHttpClient.GetBuildsAsync(project, definitions, branchName: branchName, tagFilters: tagFilters, queryOrder: BuildQueryOrder.FinishTimeDescending, resultFilter: resultFilter);
+                list = await AsyncHttpRetryHelper.InvokeAsync(
+                    async () => await buildHttpClient.GetBuildsAsync(
+                        project,
+                        definitions,
+                        branchName: branchName,
+                        tagFilters: tagFilters,
+                        queryOrder: BuildQueryOrder.FinishTimeDescending,
+                        resultFilter: resultFilter,
+                        cancellationToken: cancellationToken),
+                    maxRetries: MaxRetries,
+                    tracer: tracer,
+                    context: "GetLatestBuildFromBranch",
+                    cancellationToken: cancellationToken,
+                    continueOnCapturedContext: false);
             }
             else
             {
@@ -384,23 +431,26 @@ namespace Agent.Plugins.PipelineArtifact
             return result;
         }
       
-        private async Task<Guid> GetProjectIdAsync(AgentTaskPluginExecutionContext context, string projectName)
+        private async Task<Guid> GetProjectIdAsync(AgentTaskPluginExecutionContext context, string projectName, CancellationToken cancellationToken)
         {
             VssConnection connection = context.VssConnection;
             var projectClient = connection.GetClient<ProjectHttpClient>();
-
-            TeamProject proj = null;
-
+            
             try
             {
-                proj = await projectClient.GetProject(projectName);
+                TeamProject project = await AsyncHttpRetryHelper.InvokeAsync(
+                    async () => await projectClient.GetProject(projectName),
+                    maxRetries: MaxRetries,
+                    tracer: tracer,
+                    context: "GetProjectByName",
+                    cancellationToken: cancellationToken,
+                    continueOnCapturedContext: false);
+                return project.Id;
             }
             catch (Exception ex)
             {
-                throw new ArgumentException("Get project failed " + projectName + " , exception: " + ex);
+                throw new ArgumentException("Get project failed for project: " + projectName, ex);
             }
-
-            return proj.Id;
         }
 
         private void OutputBuildInfo(AgentTaskPluginExecutionContext context, int? pipelineId){

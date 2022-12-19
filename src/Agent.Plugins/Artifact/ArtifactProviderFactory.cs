@@ -12,15 +12,19 @@ namespace Agent.Plugins
 {
     internal class ArtifactProviderFactory
     {
-        private readonly FileContainerProvider fileContainerProvider;
-        private readonly PipelineArtifactProvider pipelineArtifactProvider;
-        private readonly FileShareProvider fileShareProvider;
+        private AgentTaskPluginExecutionContext _context;
+        private VssConnection _connection;
+        private IAppTraceSource _tracer;
+
+        private FileContainerProvider fileContainerProvider;
+        private PipelineArtifactProvider pipelineArtifactProvider;
+        private FileShareProvider fileShareProvider;
 
         public ArtifactProviderFactory(AgentTaskPluginExecutionContext context, VssConnection connection, IAppTraceSource tracer)
         {
-            pipelineArtifactProvider = new PipelineArtifactProvider(context, connection, tracer);
-            fileContainerProvider = new FileContainerProvider(connection, tracer);
-            fileShareProvider = new FileShareProvider(context, connection, tracer);
+            this._connection = connection;
+            this._context = context;
+            this._tracer = tracer;
         }
 
         public IArtifactProvider GetProvider(BuildArtifact buildArtifact)
@@ -28,15 +32,15 @@ namespace Agent.Plugins
             string artifactType = buildArtifact.Resource.Type;
             if (PipelineArtifactConstants.PipelineArtifact.Equals(artifactType, StringComparison.CurrentCultureIgnoreCase))
             {
-                return pipelineArtifactProvider;
+                return pipelineArtifactProvider ?? (pipelineArtifactProvider = new PipelineArtifactProvider(this._context, this._connection, this._tracer));
             }
             else if (PipelineArtifactConstants.Container.Equals(artifactType, StringComparison.CurrentCultureIgnoreCase))
             {
-                return fileContainerProvider;
+                return fileContainerProvider ?? (fileContainerProvider = new FileContainerProvider(this._connection, this._tracer));
             }
             else if (PipelineArtifactConstants.FileShareArtifact.Equals(artifactType, StringComparison.CurrentCultureIgnoreCase))
             {
-                return fileShareProvider;
+                return fileShareProvider ?? (fileShareProvider = new FileShareProvider(this._context, this._connection, this._tracer));
             }
             else
             {

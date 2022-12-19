@@ -7,6 +7,7 @@ namespace Agent.Plugins
     {
         public const string AzurePipelinesAgent = "AzurePipelinesAgent";
         public const string ArtifactSize = "artifactsize";
+        public const string BuildArtifactDownload = "BuildArtifactDownload";
         public const string Container = "Container";
         public const string PipelineArtifact = "PipelineArtifact";
         public const string PipelineCache = "PipelineCache";
@@ -15,5 +16,6 @@ namespace Agent.Plugins
         public const string RootId = "RootId";
         public const string SaveCache = "SaveCache";
         public const string FileShareArtifact = "filepath";
+        public const string CustomPropertiesPrefix = "user-";
     }
 }

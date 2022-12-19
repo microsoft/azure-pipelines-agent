@@ -11,6 +11,7 @@ using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Microsoft.VisualStudio.Services.Agent.Util
 {
@@ -232,6 +233,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 // Store the instance.
                 s_locStrings = locStrings;
             }
+        }
+
+        public static string HashNormalizer(string hash)
+        {
+            // Reducing the hash to the lower case without hyphens.
+            // For example: from "A1-B2-C3-D4-E5-F6", we get "a1b2c3d5f6".
+            return String.Join("", hash.Split("-")).ToLower();
+        }
+
+        public static bool AreHashesEqual(string leftValue, string rightValue)
+        {
+            // Compare hashes.
+            // For example: "A1-B2-C3-D4-E5-F6" and "a1b2c3d5f6" are the same hash.
+            return HashNormalizer(leftValue) == HashNormalizer(rightValue);
+        }
+
+        /// <summary>
+        /// Finds all vso commands in the line and deactivates them
+        /// </summary>
+        /// <returns>String without vso commands that can be executed</returns>
+        public static string DeactivateVsoCommands(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+            {
+                return string.Empty;
+            }
+
+            var vsoRegex = new Regex("##vso", RegexOptions.IgnoreCase);
+            return vsoRegex.Replace(input, "**vso");
         }
     }
 }

@@ -5,7 +5,7 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 namespace Agent.Sdk.Knob
 {
 
-    public class EnvironmentKnobSource : IKnobSource
+    public class EnvironmentKnobSource : IEnvironmentKnobSource
     {
         private string _envVar;
 
@@ -29,6 +29,11 @@ namespace Agent.Sdk.Knob
         public string GetDisplayString()
         {
             return $"${{{_envVar}}}";
+        }
+
+        public string GetEnvironmentVariableName()
+        {
+            return _envVar;
         }
     }
 

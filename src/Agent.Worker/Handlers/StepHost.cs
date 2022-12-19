@@ -31,6 +31,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                Encoding outputEncoding,
                                bool killProcessOnCancel,
                                bool inheritConsoleHandler,
+                               bool continueAfterCancelProcessTreeKillAttempt,
                                CancellationToken cancellationToken);
     }
 
@@ -64,6 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                             Encoding outputEncoding,
                                             bool killProcessOnCancel,
                                             bool inheritConsoleHandler,
+                                            bool continueAfterCancelProcessTreeKillAttempt,
                                             CancellationToken cancellationToken)
         {
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
@@ -80,6 +82,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                          killProcessOnCancel: killProcessOnCancel,
                                                          redirectStandardIn: null,
                                                          inheritConsoleHandler: inheritConsoleHandler,
+                                                         continueAfterCancelProcessTreeKillAttempt: continueAfterCancelProcessTreeKillAttempt,
                                                          cancellationToken: cancellationToken);
             }
         }
@@ -134,6 +137,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                             Encoding outputEncoding,
                                             bool killProcessOnCancel,
                                             bool inheritConsoleHandler,
+                                            bool continueAfterCancelProcessTreeKillAttempt,
                                             CancellationToken cancellationToken)
         {
             // make sure container exist.
@@ -178,11 +182,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             string entryScript = Container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, Container.TranslateToContainerPath(targetEntryScript));
 
             string userArgs = "";
+            string workingDirectoryParam = "";
             if (!PlatformUtil.RunningOnWindows)
             {
                 userArgs = $"-u {Container.CurrentUserId}";
+                if (Container.CurrentUserName == "root")
+                {
+                    workingDirectoryParam = $" -w /root";
+                }
+                else
+                {
+                    workingDirectoryParam = $" -w /home/{Container.CurrentUserName}";
+                }
             }
-            string containerExecutionArgs = $"exec -i {userArgs} {Container.ContainerId} {node} {entryScript}";
+
+            string containerExecutionArgs = $"exec -i {userArgs} {workingDirectoryParam} {Container.ContainerId} {node} {entryScript}";
 
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
             {
@@ -209,6 +223,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                          killProcessOnCancel: killProcessOnCancel,
                                                          redirectStandardIn: redirectStandardIn,
                                                          inheritConsoleHandler: inheritConsoleHandler,
+                                                         continueAfterCancelProcessTreeKillAttempt: continueAfterCancelProcessTreeKillAttempt,
                                                          cancellationToken: cancellationToken);
             }
         }
