@@ -3,16 +3,22 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Xml.Linq;
 using Agent.Sdk.Knob;
+using Agent.Sdk.Util;
 using BuildXL.Cache.MemoizationStore.Interfaces.Caches;
 using BuildXL.Utilities;
+using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.Win32;
 using Newtonsoft.Json;
@@ -23,6 +29,7 @@ namespace Agent.Sdk
     {
         private static UtilKnobValueContext _knobContext = UtilKnobValueContext.Instance();
         private static OperatingSystem[] net6SupportedSystems;
+        private static HttpClient httpClient = new HttpClient();
 
         // System.Runtime.InteropServices.OSPlatform is a struct, so it is
         // not suitable for switch statements.
@@ -309,34 +316,47 @@ namespace Agent.Sdk
             get => AgentKnobs.UseLegacyHttpHandler.GetValue(_knobContext).AsBoolean();
         }
 
-        private static OperatingSystem[] GetNet6SupportedSystems()
+        private async static Task<OperatingSystem[]> GetNet6SupportedSystems()
         {
+            string serverFileUrl = "https://raw.githubusercontent.com/microsoft/azure-pipelines-agent/master/src/Agent.Listener/net6.json";
             string supportOSfilePath = Path.Combine(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "net6.json");
-            if (!File.Exists(supportOSfilePath))
+            string supportOSfileContent;
+
+            if (!File.Exists(supportOSfilePath) || File.GetLastWriteTimeUtc(supportOSfilePath) < DateTime.UtcNow.AddHours(-1)) {
+                HttpResponseMessage response = await httpClient.GetAsync(serverFileUrl);
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new Exception($"Getting file \"net6.json\" from server failed. Status code: {response.StatusCode}");
+                }
+                supportOSfileContent = await response.Content.ReadAsStringAsync();
+                await File.WriteAllTextAsync(supportOSfilePath, supportOSfileContent);
+            } 
+            else
             {
-                return Array.Empty<OperatingSystem>();
+                if (net6SupportedSystems != null)
+                {
+                    return net6SupportedSystems;
+                }
+
+                supportOSfileContent = await File.ReadAllTextAsync(supportOSfilePath);
             }
 
-            string supportOSfileContent = File.ReadAllText(supportOSfilePath);
-            return JsonConvert.DeserializeObject<OperatingSystem[]>(supportOSfileContent)!;
+            net6SupportedSystems = JsonConvert.DeserializeObject<OperatingSystem[]>(supportOSfileContent);
+            return net6SupportedSystems;
         }
 
-        public static bool IsNet6Supported()
+        public async static Task<bool> IsNet6Supported()
         {
-            net6SupportedSystems ??= GetNet6SupportedSystems();
+            OperatingSystem[] net6SupportedSystems = await GetNet6SupportedSystems();
 
             string systemId = PlatformUtil.GetSystemId();
             SystemVersion systemVersion = PlatformUtil.GetSystemVersion();
             return net6SupportedSystems.Any((s) => s.Equals(systemId, systemVersion));
         }
 
-        public static bool DoesSystemPersistsInNet6Whitelist()
+        public async static Task<bool> DoesSystemPersistsInNet6Whitelist()
         {
-            if (net6SupportedSystems == null)
-            {
-                net6SupportedSystems = GetNet6SupportedSystems();
-            }
-
+            OperatingSystem[] net6SupportedSystems = await GetNet6SupportedSystems();
             string systemId = PlatformUtil.GetSystemId();
 
             return net6SupportedSystems.Any((s) => s.Equals(systemId));
@@ -474,7 +494,7 @@ namespace Agent.Sdk
             this.Id.Equals(systemId, StringComparison.OrdinalIgnoreCase);
 
         public bool Equals(string systemId, SystemVersion systemVersion) => 
-            this.Equals(systemId) || this.Versions.Length > 0 
+            this.Equals(systemId) && this.Versions.Length > 0 
                 ? this.Versions.Any(version => version.Equals(systemVersion))
                 : false;
     }

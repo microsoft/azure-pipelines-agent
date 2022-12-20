@@ -578,6 +578,7 @@
   "ServiceConfigured": "Service {0} successfully configured",
   "ServiceDelayedStartOptionSet": "Service {0} successfully set to delayed auto start",
   "ServiceInstalled": "Service {0} successfully installed",
+  "ServiceLockErrorRetry": "Service DB lock failed with code {0}. Retrying after {1} seconds...",
   "ServiceRecoveryOptionSet": "Service {0} successfully set recovery option",
   "ServiceSidTypeSet": "Service {0} successfully set SID type",
   "ServiceStartedSuccessfully": "Service {0} started successfully",
