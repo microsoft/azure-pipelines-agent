@@ -65,7 +65,7 @@ namespace Agent.Plugins.PipelineCache
         /// Windows will use 7z to extract the TAR file (only if 7z is installed on the machine and is part of PATH variables). 
         /// Non-Windows machines will extract TAR file using the 'tar' command'.
         /// </remarks>
-        public static Task DownloadAndExtractTarAsync(
+        public static async Task DownloadAndExtractTarAsync(
             AgentTaskPluginExecutionContext context,
             Manifest manifest,
             DedupManifestArtifactClient dedupManifestClient,
@@ -75,34 +75,61 @@ namespace Agent.Plugins.PipelineCache
             ValidateTarManifest(manifest);
 
             Directory.CreateDirectory(targetDirectory);
+            string tarFile;
+            if (Environment.GetEnvironmentVariable("PIPELINE_CACHING_DOWNLOAD_TAR_TO_FILE") == "1") 
+            {
+                tarFile = Path.Combine(targetDirectory, "temp.tar");
+            }
+            else
+            {
+                tarFile = null;
+            }
+
             
             DedupIdentifier dedupId = DedupIdentifier.Create(manifest.Items.Single(i => i.Path.EndsWith(archive, StringComparison.OrdinalIgnoreCase)).Blob.Id);          
 
-            ProcessStartInfo processStartInfo = GetExtractStartProcessInfo(context, targetDirectory);
+            ProcessStartInfo processStartInfo = GetExtractStartProcessInfo(context, targetDirectory, tarFile);
 
-            Func<Process, CancellationToken, Task> downloadTaskFunc =
-                (process, ct) =>
-                Task.Run(async () => {
-                    try
-                    {
-                        await dedupManifestClient.DownloadToStreamAsync(dedupId, process.StandardInput.BaseStream, proxyUri: null, cancellationToken: ct);
-                        process.StandardInput.BaseStream.Close();
-                    }
-                    catch (Exception e)
-                    {
+            Func<Process, CancellationToken, Task> additionalTaskToExecuteWhilstRunningProcess;
+            try
+            {
+                if (tarFile != null)
+                {
+                    await dedupManifestClient.DownloadFileToPathAsync(dedupId, tarFile, proxyUri: null, cancellationToken);
+                    additionalTaskToExecuteWhilstRunningProcess = null;
+                }
+                else
+                {
+                    additionalTaskToExecuteWhilstRunningProcess = async (process, ct) => {
                         try
                         {
-                            process.Kill();
+                            await dedupManifestClient.DownloadToStreamAsync(dedupId, process.StandardInput.BaseStream, proxyUri: null, cancellationToken: ct);
+                            process.StandardInput.BaseStream.Close();
                         }
-                        catch {}
-                        ExceptionDispatchInfo.Capture(e).Throw();
-                    }
-                });
+                        catch (Exception e)
+                        {
+                            try
+                            {
+                                process.Kill();
+                            }
+                            catch {}
+                            ExceptionDispatchInfo.Capture(e).Throw();
+                        }
+                    };
+                }
+            }
+            finally
+            {
+                if (File.Exists(tarFile))
+                {
+                    File.Delete(tarFile);
+                }
+            }
 
-            return RunProcessAsync(
+            await RunProcessAsync(
                 context,
                 processStartInfo,
-                downloadTaskFunc,
+                additionalTaskToExecuteWhilstRunningProcess,
                 () => { },
                 cancellationToken);
         }
@@ -133,7 +160,10 @@ namespace Agent.Plugins.PipelineCache
                 // Our goal is to always have the process ended or killed by the time we exit the function.
                 try
                 {
-                    await additionalTaskToExecuteWhilstRunningProcess(process, cancellationToken);
+                    if (additionalTaskToExecuteWhilstRunningProcess != null)
+                    {
+                        await additionalTaskToExecuteWhilstRunningProcess(process, cancellationToken);
+                    }
                     process.WaitForExit();
 
                     int exitCode = process.ExitCode;
@@ -191,13 +221,23 @@ namespace Agent.Plugins.PipelineCache
             return String.IsNullOrWhiteSpace(location) ? "tar"  : location;
         }
 
-        private static ProcessStartInfo GetExtractStartProcessInfo(AgentTaskPluginExecutionContext context, string targetDirectory)
+        private static ProcessStartInfo GetExtractStartProcessInfo(AgentTaskPluginExecutionContext context, string targetDirectory, string tarFile)
         {
             string processFileName, processArguments;
             if (isWindows && CheckIf7ZExists())
             {
                 processFileName = "7z";
-                processArguments = $"x -si -aoa -o\"{targetDirectory}\" -ttar";
+                processArguments = $"x -aoa -o\"{targetDirectory}\" -ttar";
+
+                if (tarFile == null)
+                {
+                    processArguments += $" -si";
+                }
+                else
+                {
+                    processArguments += $" \"{tarFile}\"";
+                }
+                
                 if (context.IsSystemDebugTrue())
                 {
                     processArguments = "-bb1 " + processArguments;
@@ -206,7 +246,15 @@ namespace Agent.Plugins.PipelineCache
             else
             {
                 processFileName = GetTar(context);
-                processArguments = $"-xf - -C ."; // Instead of targetDirectory, we are providing . to tar, because the tar process is being started from targetDirectory.
+                processArguments = $"-xf -C ."; // Instead of targetDirectory, we are providing . to tar, because the tar process is being started from targetDirectory.
+                if (tarFile == null)
+                {
+                    processArguments += $" -";
+                }
+                else
+                {
+                    processArguments += $" \"{tarFile}\"";
+                }
                 if (context.IsSystemDebugTrue())
                 {
                     processArguments = "-v " + processArguments;
