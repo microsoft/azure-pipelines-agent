@@ -39,7 +39,7 @@ namespace AgentService
                 catch (Win32Exception ex)
                 {
                     Console.WriteLine("[ERROR] Unable to create '{0}' event source under 'Application' event log.", AgentService.EventSourceName);
-                    Console.WriteLine("[ERROR] {0}",ex.Message);
+                    Console.WriteLine("[ERROR] {0}", ex.Message);
                     Console.WriteLine("[ERROR] Error Code: {0}", ex.ErrorCode);
                     return 1;
                 }

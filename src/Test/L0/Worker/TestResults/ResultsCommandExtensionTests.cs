@@ -164,7 +164,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             List<string> warnings;
             _variables = new Variables(_hc, new Dictionary<string, VariableValue>(), out warnings);
             _variables.Set("build.buildId", "1");
-            if(includePipelineVariables)
+            if (includePipelineVariables)
             {
                 _variables.Set("system.jobName", "job1");
                 _variables.Set("system.phaseName", "phase1");

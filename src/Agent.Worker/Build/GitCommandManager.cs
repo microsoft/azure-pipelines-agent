@@ -267,7 +267,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // If shallow fetch add --depth arg
             // If the local repository is shallowed but there is no fetch depth provide for this build,
             // add --unshallow to convert the shallow repository to a complete repository
-            string depth = fetchDepth > 0 ? $"--depth={fetchDepth}" : (File.Exists(Path.Combine(repositoryPath, ".git", "shallow")) ? "--unshallow" : string.Empty );
+            string depth = fetchDepth > 0 ? $"--depth={fetchDepth}" : (File.Exists(Path.Combine(repositoryPath, ".git", "shallow")) ? "--unshallow" : string.Empty);
 
             //define options for fetch
             string options = $"{tags} --prune {pruneTags} --progress --no-recurse-submodules {remoteName} {depth} {string.Join(" ", refSpec)}";
@@ -286,7 +286,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // default options for git checkout .lfsconfig
             string options = StringUtil.Format($"{refSpec} -- {lfsconfig}");
             int exitCodeLfsConfigCheckout = await ExecuteGitCommandAsync(context, repositoryPath, "checkout", options, additionalCommandLine, cancellationToken);
-            if (exitCodeLfsConfigCheckout != 0) {
+            if (exitCodeLfsConfigCheckout != 0)
+            {
                 context.Debug("There were some issues while checkout of .lfsconfig - probably because this file does not exist (see message above for more details). Continue fetching.");
             }
 

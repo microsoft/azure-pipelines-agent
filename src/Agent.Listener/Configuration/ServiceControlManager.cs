@@ -73,7 +73,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
 
             serviceDisplayName = StringUtil.Format(serviceDisplayNamePattern, accountName, resourceCollection, settings.AgentName);
-        
+
             Trace.Info($"Service name '{serviceName}' display name '{serviceDisplayName}' will be used for service configuration.");
         }
     }

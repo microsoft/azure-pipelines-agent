@@ -12,7 +12,7 @@ using System.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
-    public sealed class PluginInternalCommandExtension: BaseWorkerCommandExtension
+    public sealed class PluginInternalCommandExtension : BaseWorkerCommandExtension
     {
         public PluginInternalCommandExtension()
         {
@@ -22,7 +22,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    public sealed class PluginInternalUpdateRepositoryPathCommand: IWorkerCommand
+    public sealed class PluginInternalUpdateRepositoryPathCommand : IWorkerCommand
     {
         public string Name => "updaterepositorypath";
         public List<string> Aliases => null;
@@ -72,7 +72,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         // So, we will just reset the repo local path
                         string buildDirectory = context.Variables.Get(Constants.Variables.Pipeline.Workspace);
                         string repoRelativePath = directoryManager.GetRelativeRepositoryPath(buildDirectory, repositoryPath);
-                        
+
                         string sourcesDirectory = context.Variables.Get(Constants.Variables.Build.SourcesDirectory);
                         string repoLocalPath = context.Variables.Get(Constants.Variables.Build.RepoLocalPath);
                         string newRepoLocation = Path.Combine(_workDirectory, repoRelativePath);

@@ -24,7 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             string pattern = $"^(?<{targetPort}>\\d+)/(?<{proto}>\\w+) -> (?<{host}>.+):(?<{hostPort}>\\d+)$";
 
             List<PortMapping> portMappings = new List<PortMapping>();
-            foreach(var line in portMappingLines)
+            foreach (var line in portMappingLines)
             {
                 Match m = Regex.Match(line, pattern, RegexOptions.None, TimeSpan.FromSeconds(1));
                 if (m.Success)

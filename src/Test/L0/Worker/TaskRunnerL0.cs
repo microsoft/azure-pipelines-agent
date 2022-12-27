@@ -33,7 +33,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             public HandlerData Expected;
             public ExecutionTargetInfo StepTarget = null;
 
-            public void RunTest(TestHostContext hc, Dictionary<string, VariableValue> variables=null)
+            public void RunTest(TestHostContext hc, Dictionary<string, VariableValue> variables = null)
             {
                 var _ec = new Mock<IExecutionContext>();
                 _ec.Setup(x => x.StepTarget()).Returns(StepTarget);
@@ -69,10 +69,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public void GetHandlerHostOnlyTests()
         {
-            var nodeData = new NodeHandlerData() { Platforms=new string[]{"linux", "osx" }};
+            var nodeData = new NodeHandlerData() { Platforms = new string[] { "linux", "osx" } };
             var nodeOnlyExecutionData = new ExecutionData();
             nodeOnlyExecutionData.Node = nodeData;
-            var powerShell3Data = new PowerShell3HandlerData() { Platforms=new string[]{"windows"}};
+            var powerShell3Data = new PowerShell3HandlerData() { Platforms = new string[] { "windows" } };
             var ps3OnlyExecutionData = new ExecutionData();
             ps3OnlyExecutionData.PowerShell3 = powerShell3Data;
             var mixedExecutionData = new ExecutionData();
@@ -108,14 +108,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             var nodeData = new NodeHandlerData();
             var nodeOnlyExecutionData = new ExecutionData();
             nodeOnlyExecutionData.Node = nodeData;
-            var powerShell3Data = new PowerShell3HandlerData() { Platforms=new string[]{"windows"}};
+            var powerShell3Data = new PowerShell3HandlerData() { Platforms = new string[] { "windows" } };
             var ps3OnlyExecutionData = new ExecutionData();
             ps3OnlyExecutionData.PowerShell3 = powerShell3Data;
             var mixedExecutionData = new ExecutionData();
             mixedExecutionData.Node = nodeData;
             mixedExecutionData.PowerShell3 = powerShell3Data;
 
-            ContainerInfo containerInfo = new ContainerInfo() {};
+            ContainerInfo containerInfo = new ContainerInfo() { };
 
             foreach (var test in new GetHandlerTest[] {
                 new GetHandlerTest() { Name="Empty Test",                  Input=null,                  Expected=null,            HostOS=PlatformUtil.OS.Windows, StepTarget=containerInfo },
@@ -145,14 +145,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             var nodeData = new NodeHandlerData();
             var nodeOnlyExecutionData = new ExecutionData();
             nodeOnlyExecutionData.Node = nodeData;
-            var powerShell3Data = new PowerShell3HandlerData() { Platforms=new string[]{"windows"}};
+            var powerShell3Data = new PowerShell3HandlerData() { Platforms = new string[] { "windows" } };
             var ps3OnlyExecutionData = new ExecutionData();
             ps3OnlyExecutionData.PowerShell3 = powerShell3Data;
             var mixedExecutionData = new ExecutionData();
             mixedExecutionData.Node = nodeData;
             mixedExecutionData.PowerShell3 = powerShell3Data;
 
-            ContainerInfo containerInfo = new ContainerInfo() {};
+            ContainerInfo containerInfo = new ContainerInfo() { };
 
             foreach (var test in new GetHandlerTest[] {
                 new GetHandlerTest() { Name="Empty Test",                  Input=null,                  Expected=null,            HostOS=PlatformUtil.OS.Windows, StepTarget=containerInfo },

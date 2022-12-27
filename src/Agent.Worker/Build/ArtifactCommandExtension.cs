@@ -15,7 +15,7 @@ using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
-    public sealed class ArtifactCommandExtension: BaseWorkerCommandExtension
+    public sealed class ArtifactCommandExtension : BaseWorkerCommandExtension
     {
         public ArtifactCommandExtension()
         {
@@ -26,7 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         }
     }
 
-    public sealed class ArtifactAssociateCommand: IWorkerCommand
+    public sealed class ArtifactAssociateCommand : IWorkerCommand
     {
         public string Name => "associate";
         public List<string> Aliases => null;
@@ -122,7 +122,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         }
     }
 
-    public sealed class ArtifactUploadCommand: IWorkerCommand
+    public sealed class ArtifactUploadCommand : IWorkerCommand
     {
         public string Name => "upload";
         public List<string> Aliases => null;

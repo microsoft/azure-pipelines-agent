@@ -18,7 +18,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
         bool GetFeatureFlagState(string featureFlagName, Guid serviceInstanceId);
     }
 
-    public class FeatureFlagService :  AgentService, IFeatureFlagService
+    public class FeatureFlagService : AgentService, IFeatureFlagService
     {
         private IExecutionContext _executionContext;
         private VssConnection _connection;

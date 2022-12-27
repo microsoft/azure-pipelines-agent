@@ -483,20 +483,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
             };
 
             RetryExecutor retryExecutor = new RetryExecutor();
-                retryExecutor.ShouldRetryAction = (ex) =>
+            retryExecutor.ShouldRetryAction = (ex) =>
+            {
+                bool retry = true;
+                if (ex is InvalidOperationException)
                 {
-                    bool retry = true;
-                    if (ex is InvalidOperationException)
-                    {
-                        retry = false;
-                    }
-                    else
-                    {
-                        Trace.Warning(ex.ToString());
-                    }
+                    retry = false;
+                }
+                else
+                {
+                    Trace.Warning(ex.ToString());
+                }
 
-                    return retry;
-                };
+                return retry;
+            };
 
             retryExecutor.Execute(
                 () =>

@@ -10,20 +10,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 {
     public class DeploymentTypeNotDeterminedException : Exception
     {
-        public DeploymentTypeNotDeterminedException() {}
+        public DeploymentTypeNotDeterminedException() { }
 
-        public DeploymentTypeNotDeterminedException(string message) : base(message) {}
+        public DeploymentTypeNotDeterminedException(string message) : base(message) { }
 
-        public DeploymentTypeNotDeterminedException(string message, Exception inner) : base(message, inner) {}
+        public DeploymentTypeNotDeterminedException(string message, Exception inner) : base(message, inner) { }
     }
 
     public class DeploymentTypeNotRecognizedException : Exception
     {
-        public DeploymentTypeNotRecognizedException() {}
+        public DeploymentTypeNotRecognizedException() { }
 
-        public DeploymentTypeNotRecognizedException(string message) : base(message) {}
+        public DeploymentTypeNotRecognizedException(string message) : base(message) { }
 
-        public DeploymentTypeNotRecognizedException(string message, Exception inner) : base(message, inner) {}
+        public DeploymentTypeNotRecognizedException(string message, Exception inner) : base(message, inner) { }
     }
 
     public class ServerUtil

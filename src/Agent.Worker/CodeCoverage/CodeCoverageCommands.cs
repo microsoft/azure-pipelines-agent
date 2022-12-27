@@ -15,7 +15,7 @@ using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
 {
-    public sealed class CodeCoverageCommandExtension: BaseWorkerCommandExtension
+    public sealed class CodeCoverageCommandExtension : BaseWorkerCommandExtension
     {
 
         public CodeCoverageCommandExtension()
@@ -27,7 +27,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
     }
 
     #region publish code coverage helper methods
-    public sealed class PublishCodeCoverageCommand: IWorkerCommand
+    public sealed class PublishCodeCoverageCommand : IWorkerCommand
     {
         public string Name => "publish";
         public List<string> Aliases => null;
@@ -149,9 +149,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
             }
             catch (SocketException ex)
             {
-                #pragma warning disable CA2000 // Dispose objects before losing scope
+#pragma warning disable CA2000 // Dispose objects before losing scope
                 ExceptionsUtil.HandleSocketException(ex, WorkerUtilities.GetVssConnection(executionContext).Uri.ToString(), executionContext.Warning);
-                #pragma warning restore CA2000 // Dispose objects before losing scope
+#pragma warning restore CA2000 // Dispose objects before losing scope
             }
             catch (Exception ex)
             {

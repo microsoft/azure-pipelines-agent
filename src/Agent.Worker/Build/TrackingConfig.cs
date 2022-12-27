@@ -55,7 +55,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             RepositoryUrl = copy.RepositoryUrl;
             System = copy.System;
             // Let's make sure this file gets cleaned up by the garbage collector
-            LastRunOn = new DateTime(1,1,1,0,0,0,DateTimeKind.Utc);
+            LastRunOn = new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         }
 
         public TrackingConfig Clone()

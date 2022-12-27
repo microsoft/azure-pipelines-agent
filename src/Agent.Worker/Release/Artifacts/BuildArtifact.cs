@@ -128,13 +128,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             if (artifactDetails.TryGetValue("RelativePath", out relativePath))
             {
                 var buildArtifactDetails = new BuildArtifactDetails
-                    {
-                        Credentials = vssCredentials,
-                        RelativePath = artifactDetails["RelativePath"],
-                        AccessToken = accessToken,
-                        Project = projectId.ToString(),
-                        TfsUrl = new Uri(tfsUrl)
-                    };
+                {
+                    Credentials = vssCredentials,
+                    RelativePath = artifactDetails["RelativePath"],
+                    AccessToken = accessToken,
+                    Project = projectId.ToString(),
+                    TfsUrl = new Uri(tfsUrl)
+                };
 
                 if (artifactDetails.ContainsKey("DefinitionName"))
                 {

@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.TestManagement.WebApi;
@@ -45,7 +45,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         public int Priority;
 
         public string ComputerName;
-                
+
         public int ResetCount;
 
         public ShallowReference Build;

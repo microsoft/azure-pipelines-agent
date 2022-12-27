@@ -154,8 +154,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
 
             Assert.NotNull(runData);
             Assert.Equal(1, runData.Results.Length);
-            Assert.Equal(true, DateTime.Compare((DateTime) SqlDateTime.MinValue, runData.Results[0].StartedDate) < 0);
-            Assert.Equal(true, DateTime.Compare((DateTime) SqlDateTime.MinValue, runData.Results[0].CompletedDate) < 0);
+            Assert.Equal(true, DateTime.Compare((DateTime)SqlDateTime.MinValue, runData.Results[0].StartedDate) < 0);
+            Assert.Equal(true, DateTime.Compare((DateTime)SqlDateTime.MinValue, runData.Results[0].CompletedDate) < 0);
         }
 
         [Fact]
@@ -862,13 +862,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         {
             if (disposing)
             {
-              try
-              {
-                  File.Delete(_trxResultFile);
-              }
-              catch
-              {
-              }
+                try
+                {
+                    File.Delete(_trxResultFile);
+                }
+                catch
+                {
+                }
             }
         }
 

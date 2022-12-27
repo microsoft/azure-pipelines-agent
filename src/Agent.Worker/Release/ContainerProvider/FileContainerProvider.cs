@@ -128,7 +128,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider
         {
             return new ContainerItem
             {
-                ItemType = (ItemType) (int) x.ItemType,
+                ItemType = (ItemType)(int)x.ItemType,
                 Path = x.Path,
                 FileLength = x.FileLength,
                 ContainerId = x.ContainerId,

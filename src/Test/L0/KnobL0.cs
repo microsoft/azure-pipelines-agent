@@ -41,16 +41,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             var environment = new LocalEnvironment();
 
             var executionContext = new Mock<IExecutionContext>();
-                executionContext
-                    .Setup(x => x.GetScopedEnvironment())
-                    .Returns(environment);
+            executionContext
+                .Setup(x => x.GetScopedEnvironment())
+                .Returns(environment);
 
             {
                 var knobValue = TestKnobs.A.GetValue(executionContext.Object);
                 Assert.True(knobValue.Source.GetType() == typeof(BuiltInDefaultKnobSource));
             }
 
-            environment.SetEnvironmentVariable("A","true");
+            environment.SetEnvironmentVariable("A", "true");
 
             {
                 var knobValue = TestKnobs.A.GetValue(executionContext.Object);
@@ -59,7 +59,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 Assert.True(string.Equals(knobValue.AsString(), "true", StringComparison.OrdinalIgnoreCase));
             }
 
-            environment.SetEnvironmentVariable("A","false");
+            environment.SetEnvironmentVariable("A", "false");
 
             {
                 var knobValue = TestKnobs.A.GetValue(executionContext.Object);

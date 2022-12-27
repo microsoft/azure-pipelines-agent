@@ -369,7 +369,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
             _ec.Setup(x => x.Restrictions).Returns(new List<TaskRestrictions>());
             _ec.Setup(x => x.Endpoints).Returns(new List<ServiceEndpoint> { new ServiceEndpoint { Url = new Uri("http://dummyurl"), Name = WellKnownServiceEndpointNames.SystemVssConnection, Authorization = endpointAuthorization } });
             _ec.Setup(x => x.Variables).Returns(_variables);
-            _ec.Setup(x => x.TranslateToHostPath(It.IsAny<string>())).Returns( (string x) => x );
+            _ec.Setup(x => x.TranslateToHostPath(It.IsAny<string>())).Returns((string x) => x);
             var asyncCommands = new List<IAsyncCommandContext>();
             _ec.Setup(x => x.AsyncCommands).Returns(asyncCommands);
             _ec.Setup(x => x.GetHostContext()).Returns(_hc);
