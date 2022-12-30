@@ -10,10 +10,11 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
-    public sealed class TaskCommandExtension: BaseWorkerCommandExtension
+    public sealed class TaskCommandExtension : BaseWorkerCommandExtension
     {
         public TaskCommandExtension()
         {
@@ -35,8 +36,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    [CommandRestriction(AllowedInRestrictedMode=true)]
-    public sealed class TaskDetailCommand: IWorkerCommand
+    [CommandRestriction(AllowedInRestrictedMode = true)]
+    public sealed class TaskDetailCommand : IWorkerCommand
     {
         public string Name => "logdetail";
         public List<string> Aliases => null;
@@ -227,7 +228,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    public sealed class TaskUploadSummaryCommand: IWorkerCommand
+    public sealed class TaskUploadSummaryCommand : IWorkerCommand
     {
         public string Name => "uploadsummary";
         public List<string> Aliases => null;
@@ -254,7 +255,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    public sealed class TaskUploadFileCommand: IWorkerCommand
+    public sealed class TaskUploadFileCommand : IWorkerCommand
     {
         public string Name => "uploadfile";
         public List<string> Aliases => null;
@@ -282,7 +283,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    public sealed class TaskAddAttachmentCommand: IWorkerCommand
+    public sealed class TaskAddAttachmentCommand : IWorkerCommand
     {
         public string Name => "addattachment";
         public List<string> Aliases => null;
@@ -338,11 +339,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    [CommandRestriction(AllowedInRestrictedMode=true)]
-    public sealed class TaskIssueCommand: IWorkerCommand
+    [CommandRestriction(AllowedInRestrictedMode = true)]
+    public sealed class TaskIssueCommand : IWorkerCommand
     {
         public string Name => "logissue";
-        public List<string> Aliases => new List<string>(){"issue"};
+        public List<string> Aliases => new List<string>() { "issue" };
 
         public void Execute(IExecutionContext context, Command command)
         {
@@ -460,8 +461,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    [CommandRestriction(AllowedInRestrictedMode=true)]
-    public sealed class TaskCompleteCommand: IWorkerCommand
+    [CommandRestriction(AllowedInRestrictedMode = true)]
+    public sealed class TaskCompleteCommand : IWorkerCommand
     {
         public string Name => "complete";
         public List<string> Aliases => null;
@@ -495,8 +496,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    [CommandRestriction(AllowedInRestrictedMode=true)]
-    public sealed class TaskProgressCommand: IWorkerCommand
+    [CommandRestriction(AllowedInRestrictedMode = true)]
+    public sealed class TaskProgressCommand : IWorkerCommand
     {
         public string Name => "setprogress";
         public List<string> Aliases => null;
@@ -524,8 +525,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    [CommandRestriction(AllowedInRestrictedMode=true)]
-    public sealed class TaskSetSecretCommand: IWorkerCommand
+    [CommandRestriction(AllowedInRestrictedMode = true)]
+    public sealed class TaskSetSecretCommand : IWorkerCommand
     {
         public string Name => "setsecret";
         public List<string> Aliases => null;
@@ -538,13 +539,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var data = command.Data;
             if (!string.IsNullOrEmpty(data))
             {
-                context.GetHostContext().SecretMasker.AddValue(data);
+                context.GetHostContext().SecretMasker.AddValue(data, WellKnownSecretAliases.TaskSetSecretCommand);
             }
         }
     }
 
-    [CommandRestriction(AllowedInRestrictedMode=true)]
-    public sealed class TaskSetVariableCommand: IWorkerCommand
+    [CommandRestriction(AllowedInRestrictedMode = true)]
+    public sealed class TaskSetVariableCommand : IWorkerCommand
     {
         public string Name => "setvariable";
         public List<string> Aliases => null;
@@ -610,7 +611,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 var unescapePercents = AgentKnobs.DecodePercents.GetValue(context).AsBoolean();
                 var commandEscapeData = CommandStringConvertor.Escape(command.Data, unescapePercents);
-                context.GetHostContext().SecretMasker.AddValue(commandEscapeData);
+                context.GetHostContext().SecretMasker.AddValue(commandEscapeData, WellKnownSecretAliases.TaskSetVariableCommand);
             }
 
             var checker = context.GetHostContext().GetService<ITaskRestrictionsChecker>();
@@ -621,8 +622,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    [CommandRestriction(AllowedInRestrictedMode=true)]
-    public sealed class TaskDebugCommand: IWorkerCommand
+    [CommandRestriction(AllowedInRestrictedMode = true)]
+    public sealed class TaskDebugCommand : IWorkerCommand
     {
         public string Name => "debug";
         public List<string> Aliases => null;
@@ -637,8 +638,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    [CommandRestriction(AllowedInRestrictedMode=true)]
-    public sealed class TaskSetTaskVariableCommand: IWorkerCommand
+    [CommandRestriction(AllowedInRestrictedMode = true)]
+    public sealed class TaskSetTaskVariableCommand : IWorkerCommand
     {
         public string Name => "settaskvariable";
         public List<string> Aliases => null;
@@ -699,7 +700,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    public sealed class TaskSetEndpointCommand: IWorkerCommand
+    public sealed class TaskSetEndpointCommand : IWorkerCommand
     {
         public string Name => "setendpoint";
         public List<string> Aliases => null;
@@ -726,7 +727,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Mask auth parameter data upfront to avoid accidental secret exposure by invalid endpoint/key/data
             if (String.Equals(field, "authParameter", StringComparison.OrdinalIgnoreCase))
             {
-                context.GetHostContext().SecretMasker.AddValue(data);
+                context.GetHostContext().SecretMasker.AddValue(data, WellKnownSecretAliases.TaskSetEndpointCommandAuthParameter);
             }
 
             String endpointIdInput;
@@ -780,8 +781,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    [CommandRestriction(AllowedInRestrictedMode=true)]
-    public sealed class TaskPrepandPathCommand: IWorkerCommand
+    [CommandRestriction(AllowedInRestrictedMode = true)]
+    public sealed class TaskPrepandPathCommand : IWorkerCommand
     {
         public string Name => "prependpath";
         public List<string> Aliases => null;

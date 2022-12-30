@@ -9,7 +9,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 {
     public class L1HostContext : HostContext
     {
-        public L1HostContext(string hostType, string logFile = null)
+        public L1HostContext(HostType hostType, string logFile = null)
             : base(hostType, logFile)
         {
         }

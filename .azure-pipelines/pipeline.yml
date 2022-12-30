@@ -69,7 +69,7 @@ stages:
         jobName: build_windows_x64
         displayName: Windows (x64)
         pool:
-          vmImage: vs2017-win2016
+          vmImage: windows-2019
         os: win
         arch: x64
         branch: ${{ parameters.branch }}
@@ -89,8 +89,7 @@ stages:
         jobName: build_windows_x86
         displayName: Windows (x86)
         pool:
-          name: buildDevs
-          demands: 'Agent.OSArchitecture -equals X86'
+          vmImage: windows-2019
         os: win
         arch: x86
         branch: ${{ parameters.branch }}
@@ -108,7 +107,7 @@ stages:
         jobName: build_linux_x64
         displayName: Linux (x64)
         pool:
-          vmImage: ubuntu-18.04
+          vmImage: ubuntu-20.04
         os: linux
         arch: x64
         branch: ${{ parameters.branch }}
@@ -126,15 +125,13 @@ stages:
         jobName: build_linux_arm
         displayName: Linux (ARM)
         pool:
-          name: buildDevs
-          demands: 'Agent.OSArchitecture -equals ARM'
-        container: dotnetcore_arm
+          vmImage: "ubuntu-20.04"
         timeoutInMinutes: 75
         os: linux
         arch: arm
         branch: ${{ parameters.branch }}
         componentDetection: false
-        unitTests: ${{ parameters.test }}
+        unitTests: false
         functionalTests: false
         sign: false
         publishArtifacts: ${{ parameters.publishArtifacts }}
@@ -147,8 +144,8 @@ stages:
         jobName: build_linux_arm64
         displayName: Linux (ARM64)
         pool:
-          name: buildDevs
-          demands: 'Agent.OSArchitecture -equals ARM64'
+          name: 1ES_ARM_Agent_Pool
+          vmImage: Ubuntu_2004_ARM64
         timeoutInMinutes: 75
         os: linux
         arch: arm64
@@ -167,7 +164,7 @@ stages:
         jobName: build_rhel6_x64
         displayName: RHEL6 (x64)
         pool:
-          vmImage: ubuntu-18.04
+          vmImage: ubuntu-20.04
         container: dotnetcore_centos6
         os: rhel.6
         arch: x64
@@ -186,7 +183,7 @@ stages:
         jobName: build_osx
         displayName: macOS (x64)
         pool:
-          vmImage: macOS-10.14
+          vmImage: macOS-11
         os: osx
         arch: x64
         branch: ${{ parameters.branch }}

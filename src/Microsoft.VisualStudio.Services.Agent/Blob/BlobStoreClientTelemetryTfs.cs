@@ -14,8 +14,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
 {
     public class BlobStoreClientTelemetryTfs : BlobStoreClientTelemetry
     {
-        public BlobStoreClientTelemetryTfs(IAppTraceSource tracer, Uri baseAddress, VssConnection connection) 
-            : base(tracer, baseAddress, new CustomerIntelligenceTelemetrySender(connection))
+        private CustomerIntelligenceTelemetrySender sender;
+
+        public BlobStoreClientTelemetryTfs(IAppTraceSource tracer, Uri baseAddress, VssConnection connection)
+            : this(tracer, baseAddress, new CustomerIntelligenceTelemetrySender(connection))
         {
         }
 
@@ -23,18 +25,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
         public BlobStoreClientTelemetryTfs(IAppTraceSource tracer, Uri baseAddress, VssConnection connection, ITelemetrySender sender)
             : base(tracer, baseAddress, sender)
         {
+            this.sender = sender as CustomerIntelligenceTelemetrySender;
+        }
+
+        private BlobStoreClientTelemetryTfs(IAppTraceSource tracer, Uri baseAddress, CustomerIntelligenceTelemetrySender sender)
+            : base(tracer, baseAddress, sender)
+        {
+            this.sender = sender;
         }
 
         public async Task CommitTelemetryUpload(Guid planId, Guid jobId)
         {
-            var ciSender = this.senders.OfType<CustomerIntelligenceTelemetrySender>().FirstOrDefault();
-            await (ciSender?.CommitTelemetryUpload(planId, jobId) ?? Task.CompletedTask);
+            await (this.sender?.CommitTelemetryUpload(planId, jobId) ?? Task.CompletedTask);
         }
 
         public Dictionary<string, object> GetArtifactDownloadTelemetry(Guid planId, Guid jobId)
         {
-            var ciSender = this.senders.OfType<CustomerIntelligenceTelemetrySender>().FirstOrDefault();
-            return ciSender?.GetArtifactDownloadTelemetry(planId, jobId);
+            return this.sender?.GetArtifactDownloadTelemetry(planId, jobId);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                this.sender = null;
+            }
+
+            base.Dispose(disposing);
         }
     }
 }

@@ -28,7 +28,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
             {
                 Add(capabilities, "Agent.OSVersion", GetOSVersionString());
                 Add(capabilities, "Cmd", Environment.GetEnvironmentVariable("comspec"));
-            } 
+            }
             else if (PlatformUtil.RunningOnMacOS)
             {
                 Add(capabilities, "Agent.OSVersion", GetDarwinVersionString());
@@ -91,13 +91,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
             string build = GetHklmValue(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion", "CurrentBuildNumber") as string;
             return StringUtil.Format("{0}.{1}", majorMinorString, build);
         }
-        
-       // 10.0 covers all versions prior to Darwin 5
-       // Mac OS X 10.1 mapped to Darwin 5.x, and the mapping continues that way
-       // So just subtract 4 from the Darwin version.
-       // https://en.wikipedia.org/wiki/Darwin_%28operating_system%29
-       // with Big Sur Apple made the jump from 10.* to 11.* that means that
-       // the version reported from that point is 20.1.0.0 for 11.0.1
+
+        // 10.0 covers all versions prior to Darwin 5
+        // Mac OS X 10.1 mapped to Darwin 5.x, and the mapping continues that way
+        // So just subtract 4 from the Darwin version.
+        // https://en.wikipedia.org/wiki/Darwin_%28operating_system%29
+        // with Big Sur Apple made the jump from 10.* to 11.* that means that
+        // the version reported from that point is 20.1.0.0 for 11.0.1
         private static string GetDarwinVersionString()
         {
             // from .net 5 onwards the runtime returns the product version instead of the darwin kernel version
@@ -117,7 +117,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
             }
             else
             {
-                return $"11.{version.Major - 20}";
+                return $"{version.Major - 9}.{(version.Minor > 0 ? version.Minor - 1 : version.Minor)}";
             }
         }
     }

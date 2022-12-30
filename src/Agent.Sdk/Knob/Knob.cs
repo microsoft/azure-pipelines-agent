@@ -7,12 +7,18 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Agent.Sdk.Knob
 {
-
     public class DeprecatedKnob : Knob
     {
         public override bool IsDeprecated => true;
+        public string DeprecationInfo;
         public DeprecatedKnob(string name, string description, params IKnobSource[] sources) : base(name, description, sources)
         {
+            DeprecationInfo = "";
+        }
+
+        public DeprecatedKnob(string name, string description, string deprecationInfo, params IKnobSource[] sources) : base(name, description, sources)
+        {
+            DeprecationInfo = deprecationInfo;
         }
     }
 
@@ -24,10 +30,17 @@ namespace Agent.Sdk.Knob
         }
     }
 
+    public class SecretKnob : Knob
+    {
+        public SecretKnob(string name, string description, params IKnobSource[] sources) : base(name, description, sources)
+        {
+        }
+    }
+
     public class Knob
     {
         public string Name { get; private set; }
-        public IKnobSource Source { get; private set;}
+        public ICompositeKnobSource Source { get; private set; }
         public string Description { get; private set; }
         public virtual bool IsDeprecated => false;  // is going away at a future date
         public virtual bool IsExperimental => false; // may go away at a future date
@@ -49,6 +62,14 @@ namespace Agent.Sdk.Knob
             ArgUtil.NotNull(Source, nameof(Source));
 
             return Source.GetValue(context);
+        }
+
+        public KnobValue GetValue<T>(IKnobValueContext context)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(Source, nameof(Source));
+
+            return Source.GetValue<T>(context);
         }
 
         public static List<Knob> GetAllKnobsFor<T>()

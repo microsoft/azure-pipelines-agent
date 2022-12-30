@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Util;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Capabilities;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -12,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -46,7 +48,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Trace.Verbose("store created");
             _term = hostContext.GetService<ITerminal>();
             _locationServer = hostContext.GetService<ILocationServer>();
-            _serverUtil = new ServerUtil();
+            _serverUtil = new ServerUtil(Trace);
         }
 
         public bool IsConfigured()
@@ -75,7 +77,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             ArgUtil.NotNull(command, nameof(command));
 
             if (PlatformUtil.RunningOnWindows)
-            { 
+            {
                 CheckAgentRootDirectorySecure();
             }
 
@@ -87,69 +89,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             // Populate proxy setting from commandline args
             var vstsProxy = HostContext.GetService<IVstsAgentWebProxy>();
-            bool saveProxySetting = false;
-            string proxyUrl = command.GetProxyUrl();
-            if (!string.IsNullOrEmpty(proxyUrl))
-            {
-                if (!Uri.IsWellFormedUriString(proxyUrl, UriKind.Absolute))
-                {
-                    throw new ArgumentOutOfRangeException(nameof(proxyUrl));
-                }
-
-                Trace.Info("Reset proxy base on commandline args.");
-                string proxyUserName = command.GetProxyUserName();
-                string proxyPassword = command.GetProxyPassword();
-                (vstsProxy as VstsAgentWebProxy).SetupProxy(proxyUrl, proxyUserName, proxyPassword);
-                saveProxySetting = true;
-            }
+            bool saveProxySetting = SetupVstsProxySetting(vstsProxy, command);
 
             // Populate cert setting from commandline args
             var agentCertManager = HostContext.GetService<IAgentCertificateManager>();
-            bool saveCertSetting = false;
-            bool skipCertValidation = command.GetSkipCertificateValidation();
-            string caCert = command.GetCACertificate();
-            string clientCert = command.GetClientCertificate();
-            string clientCertKey = command.GetClientCertificatePrivateKey();
-            string clientCertArchive = command.GetClientCertificateArchrive();
-            string clientCertPassword = command.GetClientCertificatePassword();
-
-            // We require all Certificate files are under agent root.
-            // So we can set ACL correctly when configure as service
-            if (!string.IsNullOrEmpty(caCert))
-            {
-                caCert = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), caCert);
-                ArgUtil.File(caCert, nameof(caCert));
-            }
-
-            if (!string.IsNullOrEmpty(clientCert) &&
-                !string.IsNullOrEmpty(clientCertKey) &&
-                !string.IsNullOrEmpty(clientCertArchive))
-            {
-                // Ensure all client cert pieces are there.
-                clientCert = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), clientCert);
-                clientCertKey = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), clientCertKey);
-                clientCertArchive = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), clientCertArchive);
-
-                ArgUtil.File(clientCert, nameof(clientCert));
-                ArgUtil.File(clientCertKey, nameof(clientCertKey));
-                ArgUtil.File(clientCertArchive, nameof(clientCertArchive));
-            }
-            else if (!string.IsNullOrEmpty(clientCert) ||
-                     !string.IsNullOrEmpty(clientCertKey) ||
-                     !string.IsNullOrEmpty(clientCertArchive))
-            {
-                // Print out which args are missing.
-                ArgUtil.NotNullOrEmpty(Constants.Agent.CommandLine.Args.SslClientCert, Constants.Agent.CommandLine.Args.SslClientCert);
-                ArgUtil.NotNullOrEmpty(Constants.Agent.CommandLine.Args.SslClientCertKey, Constants.Agent.CommandLine.Args.SslClientCertKey);
-                ArgUtil.NotNullOrEmpty(Constants.Agent.CommandLine.Args.SslClientCertArchive, Constants.Agent.CommandLine.Args.SslClientCertArchive);
-            }
-
-            if (skipCertValidation || !string.IsNullOrEmpty(caCert) || !string.IsNullOrEmpty(clientCert))
-            {
-                Trace.Info("Reset agent cert setting base on commandline args.");
-                (agentCertManager as AgentCertificateManager).SetupCertificate(skipCertValidation, caCert, clientCert, clientCertKey, clientCertArchive, clientCertPassword);
-                saveCertSetting = true;
-            }
+            bool saveCertSetting = SetupCertSettings(agentCertManager, command);
 
             AgentSettings agentSettings = new AgentSettings();
             // TEE EULA
@@ -162,7 +106,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     WriteSection(StringUtil.Loc("EulasSectionHeader"));
 
                     // Verify the EULA exists on disk in the expected location.
-                    string eulaFile = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), Constants.Path.TeeDirectory, "license.html");
+                    string eulaFile = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), "license.html");
                     ArgUtil.File(eulaFile, nameof(eulaFile));
 
                     // Write elaborate verbiage about the TEE EULA.
@@ -186,23 +130,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
 
             // Create the configuration provider as per agent type.
-            string agentType;
-            if (command.GetDeploymentOrMachineGroup())
-            {
-                agentType = Constants.Agent.AgentConfigurationProvider.DeploymentAgentConfiguration;
-            }
-            else if (command.GetDeploymentPool())
-            {
-                agentType = Constants.Agent.AgentConfigurationProvider.SharedDeploymentAgentConfiguration;
-            }
-            else if (command.GetEnvironmentVMResource())
-            {
-                agentType = Constants.Agent.AgentConfigurationProvider.EnvironmentVMResourceConfiguration;
-            }
-            else
-            {
-                agentType = Constants.Agent.AgentConfigurationProvider.BuildReleasesAgentConfiguration;
-            }
+            string agentType = GetAgentTypeFromCommand(command);
 
             var extensionManager = HostContext.GetService<IExtensionManager>();
             IConfigurationProvider agentProvider =
@@ -215,6 +143,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             ICredentialProvider credProvider = null;
             VssCredentials creds = null;
             WriteSection(StringUtil.Loc("ConnectSectionHeader"));
+
             while (true)
             {
                 // Get the URL
@@ -222,20 +151,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                 // Get the credentials
                 credProvider = GetCredentialProvider(command, agentSettings.ServerUrl);
-                creds = credProvider.GetVssCredentials(HostContext);
                 Trace.Info("cred retrieved");
                 try
                 {
-                    // Determine the service deployment type based on connection data. (Hosted/OnPremises)
-                    isHostedServer = await _serverUtil.IsDeploymentTypeHosted(agentSettings.ServerUrl, creds, _locationServer);
+                    isHostedServer = await checkIsHostedServer(agentProvider, agentSettings, credProvider);
 
                     // Get the collection name for deployment group
                     agentProvider.GetCollectionName(agentSettings, command, isHostedServer);
 
                     // Validate can connect.
+                    creds = credProvider.GetVssCredentials(HostContext);
                     await agentProvider.TestConnectionAsync(agentSettings, creds, isHostedServer);
                     Trace.Info("Test Connection complete.");
                     break;
+                }
+                catch (SocketException e)
+                {
+                    ExceptionsUtil.HandleSocketException(e, agentSettings.ServerUrl, _term.WriteError);
                 }
                 catch (Exception e) when (!command.Unattended())
                 {
@@ -283,6 +215,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 agent = await agentProvider.GetAgentAsync(agentSettings);
                 if (agent != null)
                 {
+                    _term.WriteLine(StringUtil.Loc("AgentWithSameNameAlreadyExistInPool", agentSettings.PoolName, agentSettings.AgentName));
+
                     if (command.GetReplace())
                     {
                         // Update existing agent with new PublicKey, agent version and SystemCapabilities.
@@ -324,6 +258,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     }
                 }
             }
+
             // Add Agent Id to settings
             agentSettings.AgentId = agent.Id;
 
@@ -420,6 +355,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 Trace.Error(ex);
                 throw new InvalidOperationException(StringUtil.Loc("LocalClockSkewed"));
             }
+            catch (SocketException ex)
+            {
+                ExceptionsUtil.HandleSocketException(ex, agentSettings.ServerUrl, Trace.Error);
+                throw;
+            }
 
             // We will Combine() what's stored with root.  Defaults to string a relative path
             agentSettings.WorkFolder = command.GetWork();
@@ -434,19 +374,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             agentSettings.DisableLogUploads = command.GetDisableLogUploads();
 
             agentSettings.AlwaysExtractTask = command.GetAlwaysExtractTask();
-            
+
             _store.SaveSettings(agentSettings);
 
             if (saveProxySetting)
             {
                 Trace.Info("Save proxy setting to disk.");
-                (vstsProxy as VstsAgentWebProxy).SaveProxySetting();
+                vstsProxy.SaveProxySetting();
             }
 
             if (saveCertSetting)
             {
                 Trace.Info("Save agent cert setting to disk.");
-                (agentCertManager as AgentCertificateManager).SaveCertificateSetting();
+                agentCertManager.SaveCertificateSetting();
             }
 
             _term.WriteLine(StringUtil.Loc("SavedSettings", DateTime.UtcNow));
@@ -467,11 +407,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             if (PlatformUtil.RunningOnWindows)
             {
                 // config windows service
-                bool runAsService = command.GetRunAsService();
-                if (runAsService)
+                if (command.GetRunAsService())
                 {
                     Trace.Info("Configuring to run the agent as service");
                     var serviceControlManager = HostContext.GetService<IWindowsServiceControlManager>();
+                    agentSettings.EnableServiceSidTypeUnrestricted = command.GetEnableServiceSidTypeUnrestricted();
+
                     serviceControlManager.ConfigureService(agentSettings, command);
                 }
                 // config auto logon
@@ -558,12 +499,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                     // Get the credentials
                     var credProvider = GetCredentialProvider(command, settings.ServerUrl);
-                    VssCredentials creds = credProvider.GetVssCredentials(HostContext);
                     Trace.Info("cred retrieved");
 
                     bool isEnvironmentVMResource = false;
                     bool isDeploymentGroup = (settings.MachineGroupId > 0) || (settings.DeploymentGroupId > 0);
-                    if(!isDeploymentGroup)
+                    if (!isDeploymentGroup)
                     {
                         isEnvironmentVMResource = settings.EnvironmentId > 0;
                     }
@@ -580,8 +520,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     IConfigurationProvider agentProvider = (extensionManager.GetExtensions<IConfigurationProvider>()).FirstOrDefault(x => x.ConfigurationProviderType == agentType);
                     ArgUtil.NotNull(agentProvider, agentType);
 
-                    // Determine the service deployment type based on connection data. (Hosted/OnPremises)
-                    bool isHostedServer = await _serverUtil.IsDeploymentTypeHosted(settings.ServerUrl, creds, _locationServer);
+                    bool isHostedServer = await checkIsHostedServer(agentProvider, settings, credProvider);
+                    VssCredentials creds = credProvider.GetVssCredentials(HostContext);
 
                     await agentProvider.TestConnectionAsync(settings, creds, isHostedServer);
 
@@ -622,10 +562,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 if (isConfigured)
                 {
                     // delete proxy setting
-                    (HostContext.GetService<IVstsAgentWebProxy>() as VstsAgentWebProxy).DeleteProxySetting();
+                    HostContext.GetService<IVstsAgentWebProxy>().DeleteProxySetting();
 
                     // delete agent cert setting
-                    (HostContext.GetService<IAgentCertificateManager>() as AgentCertificateManager).DeleteCertificateSetting();
+                    HostContext.GetService<IAgentCertificateManager>().DeleteCertificateSetting();
 
                     // delete agent runtime option
                     _store.DeleteAgentRuntimeOptions();
@@ -637,6 +577,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 {
                     _term.WriteLine(StringUtil.Loc("Skipping") + currentAction);
                 }
+            }
+            catch (SocketException ex)
+            {
+                ExceptionsUtil.HandleSocketException(ex, _store.GetSettings().ServerUrl, _term.WriteLine);
+                throw;
             }
             catch (Exception)
             {
@@ -763,16 +708,138 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                         _term.Write(StringUtil.Loc("agentRootFolderInsecure", bulitInUsersGroup.ToString()));
                     }
                 }
-                else 
+                else
                 {
                     Trace.Warning("Can't get path to the agent root folder, check was skipped.");
                 }
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 Trace.Warning("Can't check permissions for agent root folder:");
                 Trace.Warning(ex.Message);
                 _term.Write(StringUtil.Loc("agentRootFolderCheckError"));
             }
+        }
+
+        private bool SetupVstsProxySetting(IVstsAgentWebProxy vstsProxy, CommandSettings command)
+        {
+            ArgUtil.NotNull(command, nameof(command));
+
+            bool saveProxySetting = false;
+            string proxyUrl = command.GetProxyUrl();
+            if (!string.IsNullOrEmpty(proxyUrl))
+            {
+                if (!Uri.IsWellFormedUriString(proxyUrl, UriKind.Absolute))
+                {
+                    throw new ArgumentOutOfRangeException(nameof(proxyUrl));
+                }
+
+                Trace.Info("Reset proxy base on commandline args.");
+                string proxyUserName = command.GetProxyUserName();
+                string proxyPassword = command.GetProxyPassword();
+                vstsProxy.SetupProxy(proxyUrl, proxyUserName, proxyPassword);
+                saveProxySetting = true;
+            }
+
+            return saveProxySetting;
+        }
+
+        private bool SetupCertSettings(IAgentCertificateManager agentCertManager, CommandSettings command)
+        {
+            bool saveCertSetting = false;
+            bool skipCertValidation = command.GetSkipCertificateValidation();
+            string caCert = command.GetCACertificate();
+            string clientCert = command.GetClientCertificate();
+            string clientCertKey = command.GetClientCertificatePrivateKey();
+            string clientCertArchive = command.GetClientCertificateArchrive();
+            string clientCertPassword = command.GetClientCertificatePassword();
+
+            // We require all Certificate files are under agent root.
+            // So we can set ACL correctly when configure as service
+            if (!string.IsNullOrEmpty(caCert))
+            {
+                caCert = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), caCert);
+                ArgUtil.File(caCert, nameof(caCert));
+            }
+
+            if (!string.IsNullOrEmpty(clientCert) &&
+                !string.IsNullOrEmpty(clientCertKey) &&
+                !string.IsNullOrEmpty(clientCertArchive))
+            {
+                // Ensure all client cert pieces are there.
+                clientCert = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), clientCert);
+                clientCertKey = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), clientCertKey);
+                clientCertArchive = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), clientCertArchive);
+
+                ArgUtil.File(clientCert, nameof(clientCert));
+                ArgUtil.File(clientCertKey, nameof(clientCertKey));
+                ArgUtil.File(clientCertArchive, nameof(clientCertArchive));
+            }
+            else if (!string.IsNullOrEmpty(clientCert) ||
+                     !string.IsNullOrEmpty(clientCertKey) ||
+                     !string.IsNullOrEmpty(clientCertArchive))
+            {
+                // Print out which args are missing.
+                ArgUtil.NotNullOrEmpty(Constants.Agent.CommandLine.Args.SslClientCert, Constants.Agent.CommandLine.Args.SslClientCert);
+                ArgUtil.NotNullOrEmpty(Constants.Agent.CommandLine.Args.SslClientCertKey, Constants.Agent.CommandLine.Args.SslClientCertKey);
+                ArgUtil.NotNullOrEmpty(Constants.Agent.CommandLine.Args.SslClientCertArchive, Constants.Agent.CommandLine.Args.SslClientCertArchive);
+            }
+
+            if (skipCertValidation || !string.IsNullOrEmpty(caCert) || !string.IsNullOrEmpty(clientCert))
+            {
+                Trace.Info("Reset agent cert setting base on commandline args.");
+                agentCertManager.SetupCertificate(skipCertValidation, caCert, clientCert, clientCertKey, clientCertArchive, clientCertPassword);
+                saveCertSetting = true;
+            }
+
+            return saveCertSetting;
+        }
+
+        private string GetAgentTypeFromCommand(CommandSettings command)
+        {
+            string agentType = Constants.Agent.AgentConfigurationProvider.BuildReleasesAgentConfiguration;
+
+            if (command.GetDeploymentOrMachineGroup())
+            {
+                agentType = Constants.Agent.AgentConfigurationProvider.DeploymentAgentConfiguration;
+            }
+            else if (command.GetDeploymentPool())
+            {
+                agentType = Constants.Agent.AgentConfigurationProvider.SharedDeploymentAgentConfiguration;
+            }
+            else if (command.GetEnvironmentVMResource())
+            {
+                agentType = Constants.Agent.AgentConfigurationProvider.EnvironmentVMResourceConfiguration;
+            }
+
+            return agentType;
+        }
+
+        private async Task<bool> checkIsHostedServer(IConfigurationProvider agentProvider, AgentSettings agentSettings, ICredentialProvider credProvider)
+        {
+            bool isHostedServer = false;
+            VssCredentials creds = credProvider.GetVssCredentials(HostContext);
+
+            try
+            {
+                // Determine the service deployment type based on connection data. (Hosted/OnPremises)
+                await _serverUtil.DetermineDeploymentType(agentSettings.ServerUrl, creds, _locationServer);
+            }
+            catch (VssUnauthorizedException)
+            {
+                // In case if GetConnectionData returned some auth problem need to check
+                // maybe connect will be successfull with CollectionName
+                // (as example PAT was generated for url/CollectionName)
+                if (!agentProvider.IsCollectionPossible) throw;
+            }
+
+            if (!_serverUtil.TryGetDeploymentType(out isHostedServer))
+            {
+                Trace.Warning(@"Deployment type determination has been failed;
+assume it is OnPremises and the deployment type determination was not implemented for this server version.");
+            }
+
+            return isHostedServer;
         }
     }
 }

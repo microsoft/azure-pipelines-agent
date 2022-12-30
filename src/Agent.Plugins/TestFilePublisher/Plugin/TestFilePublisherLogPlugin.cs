@@ -4,8 +4,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Sockets;
 using System.Threading.Tasks;
 using Agent.Plugins.Log.TestResultParser.Contracts;
+using Agent.Sdk.Util;
 using Agent.Sdk;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
@@ -52,6 +54,18 @@ namespace Agent.Plugins.Log.TestFilePublisher
                                      new TestFilePublisher(context.VssConnection, PipelineConfig, new TestFileTraceListener(context), _logger, _telemetry);
                 await _testFilePublisher.InitializeAsync();
                 _telemetry.AddOrUpdate(TelemetryConstants.PluginInitialized, true);
+            }
+            catch (SocketException ex)
+            {
+                ExceptionsUtil.HandleSocketException(ex, context.VssConnection.Uri.ToString(), _logger.Warning);
+
+                if (_telemetry != null)
+                {
+                    _telemetry.AddOrUpdate(TelemetryConstants.PluginDisabled, true);
+                    _telemetry.AddOrUpdate(TelemetryConstants.InitializeFailed, ex);
+                    await _telemetry.PublishCumulativeTelemetryAsync();
+                }
+                return false;
             }
             catch (Exception ex)
             {

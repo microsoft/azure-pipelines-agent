@@ -88,7 +88,7 @@ async function createAdoPR(directory, release)
     {
         fs.copyFileSync(file, target);
     }
-    var newBranch = `users/${process.env.USER}/agent-${release}`;
+    var newBranch = `users/${process.env.USERNAME}/agent-${release}`;
     util.execInForeground(`${GIT} add ${targetDirectory}`, directory, opt.dryrun);
     commitAndPush(directory, release, newBranch);
 
@@ -128,7 +128,7 @@ async function createConfigChangePR(repoPath, agentVersion) {
         fs.copyFileSync(file, publishScriptPathInSystem);
     }
 
-    const newBranch = `users/${process.env.USER}/agent-${agentVersion}`;
+    const newBranch = `users/${process.env.USERNAME}/agent-${agentVersion}`;
     util.execInForeground(`${GIT} add ${publishScriptPathInRepo}`, repoPath, opt.dryrun);
     commitAndPush(repoPath, agentVersion, newBranch);
 
@@ -149,11 +149,16 @@ async function createConfigChangePR(repoPath, agentVersion) {
 /**
  * Queries whatsprintis.it for current sprint version
  * 
+ * @throws An error will be thrown if the response does not contain a sprint version as a three-digit numeric value
  * @returns current sprint version
  */
 async function getCurrentSprint() {
     const response = await got.get('https://whatsprintis.it/?json', { responseType: 'json' });
-    return response.body.sprint;
+    const sprint = response.body.sprint;
+    if (!/^\d\d\d$/.test(sprint)) {
+        throw new Error(`Sprint must be a three-digit number; received: ${sprint}`);
+    }
+    return sprint;
 }
 
 async function main()
@@ -168,8 +173,8 @@ async function main()
         util.verifyMinimumNodeVersion();
         util.verifyMinimumGitVersion();
         createIntegrationFiles(newRelease);
-        util.execInForeground(`${GIT} config --global user.email "${process.env.USER}@microsoft.com"`, null, opt.dryrun);
-        util.execInForeground(`${GIT} config --global user.name "${process.env.USER}"`, null, opt.dryrun);
+        util.execInForeground(`${GIT} config --global user.email "${process.env.USEREMAIL}"`, null, opt.dryrun);
+        util.execInForeground(`${GIT} config --global user.name "${process.env.USERNAME}"`, null, opt.dryrun);
 
         var pathToAdo = path.join(INTEGRATION_DIR, 'AzureDevOps');
         await createAdoPR(pathToAdo, newRelease);

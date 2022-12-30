@@ -83,6 +83,8 @@ jobs:
     ${{ if ne(parameters.os, 'win') }}:
       devCommand: ./dev.sh
     layoutRoot: '_layout/${{ parameters.os }}-${{ parameters.arch }}'
+    ${{ if eq(parameters.os, 'rhel.6') }}:
+      AGENT_USE_NODE10: true
 
   steps:
 
@@ -101,17 +103,28 @@ jobs:
       parameters:
         branch: ${{ parameters.branch }}
 
+  # 1ES images used on the ARM pool doesn't contain unzip tool, so we need to install it before starting the build
+  - ${{ if eq(parameters.arch, 'arm64') }}:
+    - script: sudo apt-get update && sudo apt-get -y install unzip
+      displayName: Install unzip
+
   # Build agent layout
-  - script: ${{ variables.devCommand }} layout Release
+  - script: ${{ variables.devCommand }} layout Release ${{ parameters.os }}-${{ parameters.arch }}
     workingDirectory: src
     displayName: Build & Layout Release
     ${{ if parameters.enableADOLogIssue }}:
       env:
         ADO_ENABLE_LOGISSUE: true
 
+  # Check if broken symlinks exist in the agent build
+  - task: Bash@3.201.1
+    inputs:
+      filePath: src/Misc/check-symlinks.sh
+    displayName: Check symlinks
+
   # Run l0 tests
   - ${{ if parameters.unitTests }}:
-    - script: ${{ variables.devCommand }} testl0
+    - script: ${{ variables.devCommand }} testl0 Debug ${{ parameters.os }}-${{ parameters.arch }}
       workingDirectory: src
       displayName: Unit tests
 
@@ -122,7 +135,14 @@ jobs:
 
   # Run l1 tests
   - ${{ if parameters.functionalTests }}:
-    - script: ${{ variables.devCommand }} testl1
+    - ${{ if and(eq(parameters.os, 'win'), eq(parameters.arch, 'x86')) }}:
+      - task: UseDotNet@2
+        displayName: Install .NET Core 3.1 SDK
+        inputs:
+          version: '3.1.22'
+          packageType: runtime
+          performMultiLevelLookup: true
+    - script: ${{ variables.devCommand }} testl1 Debug ${{ parameters.os }}-${{ parameters.arch }}
       workingDirectory: src
       displayName: Functional tests
 
@@ -137,7 +157,7 @@ jobs:
       condition: always()
 
     # Upload test log
-    - task: PublishBuildArtifacts@1
+    - task: PublishBuildArtifacts@1.200.0
       displayName: Publish Test logs
       inputs:
         pathToPublish: src/Test/TestLogs
@@ -160,6 +180,12 @@ jobs:
         summaryFileLocation: _reports/**/Cobertura.xml
         pathToSources: src
 
+  - ${{ if eq(parameters.os, 'osx') }}:
+    - task: UseDotNet@2
+      inputs:
+        packageType: 'sdk'
+        version: '2.1.x'
+
   - ${{ if parameters.sign }}:
     # Signing steps
     - template: signing.yml
@@ -178,16 +204,16 @@ jobs:
           flavor: ${{ parameters.arch }}
 
     # Create agent package zip
-    - script: "${{ variables.devCommand }} package Release"
+    - script: "${{ variables.devCommand }} package Release ${{ parameters.os }}-${{ parameters.arch }}"
       workingDirectory: src
       displayName: Package Release
 
-    - script: "${{ variables.devCommand }} hash"
+    - script: "${{ variables.devCommand }} hash Release ${{ parameters.os }}-${{ parameters.arch }}"
       workingDirectory: src
       displayName: Hash Package
 
     # Upload agent package zip as build artifact
-    - task: PublishBuildArtifacts@1
+    - task: PublishBuildArtifacts@1.200.0
       displayName: Publish Artifact
       inputs:
         pathToPublish: _package
@@ -195,7 +221,7 @@ jobs:
         artifactType: container
 
     # Publish agent package hash too
-    - task: PublishBuildArtifacts@1
+    - task: PublishBuildArtifacts@1.200.0
       displayName: Publish Artifact
       inputs:
         pathToPublish: _package_hash

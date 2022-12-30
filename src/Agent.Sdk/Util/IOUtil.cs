@@ -472,12 +472,43 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
+        private static string GetAttributesAsBinary(FileAttributes attributes)
+        {
+            return Convert.ToString((int)attributes, 2).PadLeft(16, '0');
+        }
+
+        private static void SetAttributesWithDiagnostics(FileSystemInfo item, FileAttributes newAttributes)
+        {
+            try
+            {
+                item.Attributes = newAttributes;
+            }
+            catch (ArgumentException ex)
+            {
+                string exceptionMessage = $@"ArgumentException was thrown when trying to set file attributes.
+  File path: {item.FullName}
+  File exists: {item.Exists}
+  File attributes:
+    Current attributes:
+      Readable:         {item.Attributes.ToString()}
+      As int:           {(int)item.Attributes}
+      As binary string: {GetAttributesAsBinary(item.Attributes)}
+    New attributes:
+      Readable:         {newAttributes.ToString()}
+      As int:           {(int)newAttributes}
+      As binary string: {GetAttributesAsBinary(newAttributes)}
+  Exception message: {ex.Message}";
+                throw new ArgumentException(exceptionMessage);
+            }
+        }
+
         private static void RemoveReadOnly(FileSystemInfo item)
         {
             ArgUtil.NotNull(item, nameof(item));
             if (item.Attributes.HasFlag(FileAttributes.ReadOnly))
             {
-                item.Attributes = item.Attributes & ~FileAttributes.ReadOnly;
+                FileAttributes newAttributes = item.Attributes & ~FileAttributes.ReadOnly;
+                SetAttributesWithDiagnostics(item, newAttributes);
             }
         }
 
@@ -490,7 +521,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             if (platform == PlatformUtil.OS.Windows)
             {
                 var paths = path.TrimEnd('\\', '/')
-                                .Split(new char[] {'\\','/'}, StringSplitOptions.RemoveEmptyEntries);
+                                .Split(new char[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
                 Array.Resize(ref paths, paths.Length - 1);
                 return string.Join('\\', paths);
             }

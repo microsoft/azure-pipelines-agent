@@ -10,6 +10,9 @@ using System.Text;
 using Agent.Sdk;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using System.IO;
+using Agent.Sdk.Knob;
+using System.Linq;
 
 namespace Agent.Plugins.Repository
 {
@@ -86,7 +89,7 @@ namespace Agent.Plugins.Repository
 
         protected async Task RunCommandAsync(FormatFlags formatFlags, bool quiet, int retriesOnFailure, params string[] args)
         {
-            for (int attempt = 0; attempt < retriesOnFailure; attempt++)
+            for (int attempt = 0; attempt < retriesOnFailure - 1; attempt++)
             {
                 int exitCode = await RunCommandAsync(formatFlags, quiet, false, args);
 
@@ -100,11 +103,20 @@ namespace Agent.Plugins.Repository
                 await Task.Delay(sleep);
 
                 // Use attempt+2 since we're using 0 based indexing and we're displaying this for the next attempt.
-                ExecutionContext.Output($@"Retrying. Attempt ${attempt+2}/${retriesOnFailure}");
+                ExecutionContext.Output($@"Retrying. Attempt {attempt + 2}/{retriesOnFailure}");
             }
 
             // Perform one last try and fail on non-zero exit code
             await RunCommandAsync(formatFlags, quiet, true, args);
+        }
+
+        private string WriteCommandToFile(string command)
+        {
+            Guid guid = Guid.NewGuid();
+            string temporaryName = $"tfs_cmd_{guid}.txt";
+            using StreamWriter sw = new StreamWriter(Path.Combine(this.SourcesDirectory, temporaryName));
+            sw.WriteLine(command);
+            return temporaryName;
         }
 
         protected async Task<int> RunCommandAsync(FormatFlags formatFlags, bool quiet, bool failOnNonZeroExitCode, params string[] args)
@@ -139,9 +151,17 @@ namespace Agent.Plugins.Repository
                     }
                 };
                 string arguments = FormatArguments(formatFlags, args);
+                bool useSecureParameterPassing = AgentKnobs.TfVCUseSecureParameterPassing.GetValue(ExecutionContext).AsBoolean();
+                string temporaryFileWithCommand = "";
+                if (useSecureParameterPassing)
+                {
+                    temporaryFileWithCommand = WriteCommandToFile(arguments);
+                    arguments = $"@{temporaryFileWithCommand}";
+                    ExecutionContext.Debug($"{AgentKnobs.TfVCUseSecureParameterPassing.Name} is enabled, passing command via file");
+                }
                 ExecutionContext.Command($@"tf {arguments}");
 
-                return await processInvoker.ExecuteAsync(
+                var result = await processInvoker.ExecuteAsync(
                     workingDirectory: SourcesDirectory,
                     fileName: "tf",
                     arguments: arguments,
@@ -149,6 +169,13 @@ namespace Agent.Plugins.Repository
                     requireExitCodeZero: failOnNonZeroExitCode,
                     outputEncoding: OutputEncoding,
                     cancellationToken: CancellationToken);
+
+                if (useSecureParameterPassing)
+                {
+                    File.Delete(Path.Combine(this.SourcesDirectory, temporaryFileWithCommand));
+                }
+
+                return result;
             }
         }
 
@@ -225,7 +252,20 @@ namespace Agent.Plugins.Repository
                         result.Output.Add(e.Data);
                     }
                 };
-                string arguments = FormatArguments(formatFlags, args);
+                string formattedArguments = FormatArguments(formatFlags, args);
+                string arguments = "";
+                string cmdFileName = "";
+                bool useSecretParameterPassing = AgentKnobs.TfVCUseSecureParameterPassing.GetValue(ExecutionContext).AsBoolean();
+                if (useSecretParameterPassing)
+                {
+                    cmdFileName = WriteCommandToFile(formattedArguments);
+                    arguments = $"@{cmdFileName}";
+                }
+                else
+                {
+                    arguments = formattedArguments;
+                }
+
                 ExecutionContext.Debug($@"tf {arguments}");
                 // TODO: Test whether the output encoding needs to be specified on a non-Latin OS.
                 try
@@ -244,8 +284,24 @@ namespace Agent.Plugins.Repository
                     result.Exception = ex;
                 }
 
+                if (useSecretParameterPassing)
+                {
+                    CleanupTfsVCOutput(ref result, formattedArguments);
+                    File.Delete(Path.Combine(this.SourcesDirectory, cmdFileName));
+                }
+
                 return result;
             }
+        }
+
+        private void CleanupTfsVCOutput(ref TfsVCPorcelainCommandResult command, string executedCommand)
+        {
+            // tf.exe removes double quotes from the output, we also replace it in the input command to correctly find the extra output
+            List<string> stringsToRemove = command
+                .Output
+                .Where(item => item.Contains(executedCommand.Replace("\"", "")))
+                .ToList();
+            command.Output.RemoveAll(item => stringsToRemove.Contains(item));
         }
 
         private string FormatArguments(FormatFlags formatFlags, params string[] args)

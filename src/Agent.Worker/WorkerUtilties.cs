@@ -9,6 +9,7 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -25,7 +26,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             VssCredentials credentials = VssUtil.GetVssCredential(systemConnection);
             ArgUtil.NotNull(credentials, nameof(credentials));
-            VssConnection connection = VssUtil.CreateConnection(systemConnection.Url, credentials);
+            ITraceWriter trace = context.GetTraceWriter();
+            VssConnection connection = VssUtil.CreateConnection(systemConnection.Url, credentials, trace);
             return connection;
         }
 
@@ -91,6 +93,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 variables: scrubbedVariables,
                 maskHints: message.MaskHints,
                 jobResources: scrubbedJobResources,
+                workspaceOptions: message.Workspace,
+                steps: message.Steps);
+        }
+
+        // We want to prevent vso commands from running in scripts with some variables
+        public static Pipelines.AgentJobRequestMessage DeactivateVsoCommandsFromJobMessageVariables(Pipelines.AgentJobRequestMessage message)
+        {
+            ArgUtil.NotNull(message, nameof(message));
+            ArgUtil.NotNull(message.Variables, nameof(message.Variables));
+
+            var deactivatedVariables = new Dictionary<string, VariableValue>(message.Variables, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var variableName in Variables.VariablesVulnerableToExecution)
+            {
+                if (deactivatedVariables.TryGetValue(variableName, out var variable))
+                {
+                    var deactivatedVariable = variable ?? new VariableValue();
+
+                    deactivatedVariables[variableName] = StringUtil.DeactivateVsoCommands(deactivatedVariable.Value);
+                }
+            }
+
+            return new Pipelines.AgentJobRequestMessage(
+                plan: message.Plan,
+                timeline: message.Timeline,
+                jobId: message.JobId,
+                jobDisplayName: message.JobDisplayName,
+                jobName: message.JobName,
+                jobContainer: message.JobContainer,
+                jobSidecarContainers: message.JobSidecarContainers,
+                variables: deactivatedVariables,
+                maskHints: message.MaskHints,
+                jobResources: message.Resources,
                 workspaceOptions: message.Workspace,
                 steps: message.Steps);
         }

@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Util;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.Agent.Listener.Diagnostics;
@@ -322,6 +323,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     Task<bool> selfUpdateTask = null;
                     bool runOnceJobReceived = false;
                     jobDispatcher = HostContext.CreateService<IJobDispatcher>();
+                    TaskAgentMessage previuosMessage = null;
 
                     while (!HostContext.AgentShutdownToken.IsCancellationRequested)
                     {
@@ -337,7 +339,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                 if (completeTask == selfUpdateTask)
                                 {
                                     autoUpdateInProgress = false;
-                                    if (await selfUpdateTask)
+
+                                    bool agentUpdated = false;
+                                    try
+                                    {
+                                        agentUpdated = await selfUpdateTask;
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Trace.Info($"Ignore agent update exception. {ex}");
+                                    }
+
+                                    if (agentUpdated)
                                     {
                                         Trace.Info("Auto update task finished at backend, an agent update is ready to apply exit the current agent instance.");
                                         Trace.Info("Stop message queue looping.");
@@ -364,6 +377,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                     {
                                         Trace.Info("Auto update task finished at backend, there is no available agent update needs to apply, continue message queue looping.");
                                     }
+
+                                    message = previuosMessage;// if agent wasn't updated it's needed to process the previous message
+                                    previuosMessage = null;
                                 }
                             }
 
@@ -389,7 +405,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                 }
                             }
 
-                            message = await getNextMessage; //get next message
+                            message ??= await getNextMessage; //get next message
                             HostContext.WritePerfCounter($"MessageReceived_{message.MessageType}");
                             if (string.Equals(message.MessageType, AgentRefreshMessage.MessageType, StringComparison.OrdinalIgnoreCase))
                             {
@@ -416,6 +432,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             else if (string.Equals(message.MessageType, JobRequestMessageTypes.AgentJobRequest, StringComparison.OrdinalIgnoreCase) ||
                                     string.Equals(message.MessageType, JobRequestMessageTypes.PipelineAgentJobRequest, StringComparison.OrdinalIgnoreCase))
                             {
+                                if (autoUpdateInProgress)
+                                {
+                                    previuosMessage = message;
+                                }
+
                                 if (autoUpdateInProgress || runOnceJobReceived)
                                 {
                                     skipMessageDeletion = true;
@@ -463,6 +484,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             {
                                 Trace.Error($"Received message {message.MessageId} with unsupported message type {message.MessageType}.");
                             }
+                        }
+                        catch (AggregateException e)
+                        {
+                            ExceptionsUtil.HandleAggregateException((AggregateException)e, Trace.Error);
                         }
                         finally
                         {

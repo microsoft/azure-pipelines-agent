@@ -16,6 +16,7 @@ using System.Linq;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
+using Agent.Sdk.Knob;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
@@ -82,8 +83,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             File.WriteAllText(capabilitiesFile, capabilitiesContent);
 
             // Copy worker diag log files
-            List<string> workerDiagLogFiles = GetWorkerDiagLogFiles(HostContext.GetDirectory(WellKnownDirectory.Diag), jobStartTimeUtc);
-            executionContext.Debug($"Copying {workerDiagLogFiles.Count()} worker diag logs.");
+            List<string> workerDiagLogFiles = GetWorkerDiagLogFiles(HostContext.GetDiagDirectory(), jobStartTimeUtc);
+            executionContext.Debug($"Copying {workerDiagLogFiles.Count()} worker diag logs from {HostContext.GetDiagDirectory()}.");
 
             foreach (string workerLogFile in workerDiagLogFiles)
             {
@@ -93,9 +94,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 File.Copy(workerLogFile, destination);
             }
 
-            // Copy agent diag log files
-            List<string> agentDiagLogFiles = GetAgentDiagLogFiles(HostContext.GetDirectory(WellKnownDirectory.Diag), jobStartTimeUtc);
-            executionContext.Debug($"Copying {agentDiagLogFiles.Count()} agent diag logs.");
+            // Copy agent diag log files - we are using the worker Host Context and we need the diag folder form the Agent.
+            List<string> agentDiagLogFiles = GetAgentDiagLogFiles(HostContext.GetDiagDirectory(HostType.Agent), jobStartTimeUtc);
+            executionContext.Debug($"Copying {agentDiagLogFiles.Count()} agent diag logs from {HostContext.GetDiagDirectory(HostType.Agent)}.");
 
             foreach (string agentLogFile in agentDiagLogFiles)
             {
@@ -103,6 +104,138 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 string destination = Path.Combine(supportFilesFolder, Path.GetFileName(agentLogFile));
                 File.Copy(agentLogFile, destination);
+            }
+
+            // Read and add to logs waagent.conf settings on Linux
+            if (PlatformUtil.RunningOnLinux)
+            {
+                executionContext.Debug("Dumping of waagent.conf file");
+                string waagentDumpFile = Path.Combine(supportFilesFolder, "waagentConf.txt");
+
+                string configFileName = "waagent.conf";
+                try
+                {
+                    string filePath = Directory.GetFiles("/etc", configFileName).FirstOrDefault();
+                    if (!string.IsNullOrWhiteSpace(filePath))
+                    {
+                        string waagentContent = File.ReadAllText(filePath);
+
+                        File.AppendAllText(waagentDumpFile, "waagent.conf settings");
+                        File.AppendAllText(waagentDumpFile, Environment.NewLine);
+                        File.AppendAllText(waagentDumpFile, waagentContent);
+
+                        executionContext.Debug("Dumping waagent.conf file is completed.");
+                    }
+                    else
+                    {
+                        executionContext.Debug("waagent.conf file wasn't found. Dumping was not done.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    string warningMessage = $"Dumping of waagent.conf was not completed successfully. Error message: {ex.Message}";
+                    executionContext.Warning(warningMessage);
+                }
+            }
+
+            // Copy cloud-init log files from linux machines
+            if (PlatformUtil.RunningOnLinux)
+            {
+                executionContext.Debug("Dumping cloud-init logs.");
+
+                string logsFilePath = $"{HostContext.GetDiagDirectory()}/cloudinit-{jobStartTimeUtc.ToString("yyyyMMdd-HHmmss")}-logs.tar.gz";
+                string resultLogs = await DumpCloudInitLogs(logsFilePath);
+                executionContext.Debug(resultLogs);
+
+                if (File.Exists(logsFilePath))
+                {
+                    string destination = Path.Combine(supportFilesFolder, Path.GetFileName(logsFilePath));
+                    File.Copy(logsFilePath, destination);
+                    executionContext.Debug("Cloud-init logs added to the diagnostics archive.");
+                }
+                else
+                {
+                    executionContext.Debug("Cloud-init logs were not found.");
+                }
+
+                executionContext.Debug("Dumping cloud-init logs is ended.");
+            }
+
+            // Copy event logs for windows machines
+            bool dumpJobEventLogs = AgentKnobs.DumpJobEventLogs.GetValue(executionContext).AsBoolean();
+            if (dumpJobEventLogs && PlatformUtil.RunningOnWindows)
+            {
+                executionContext.Debug("Dumping event viewer logs for current job.");
+
+                try
+                {
+                    string eventLogsFile = $"{HostContext.GetDiagDirectory()}/EventViewer-{jobStartTimeUtc.ToString("yyyyMMdd-HHmmss")}.csv";
+                    await DumpCurrentJobEventLogs(executionContext, eventLogsFile, jobStartTimeUtc);
+
+                    string destination = Path.Combine(supportFilesFolder, Path.GetFileName(eventLogsFile));
+                    File.Copy(eventLogsFile, destination);
+                }
+                catch (Exception ex)
+                {
+                    executionContext.Debug("Failed to dump event viewer logs. Skipping.");
+                    executionContext.Debug($"Error message: {ex}");
+                }
+            }
+
+            bool dumpPackagesVerificationResult = AgentKnobs.DumpPackagesVerificationResult.GetValue(executionContext).AsBoolean();
+            if (dumpPackagesVerificationResult && PlatformUtil.RunningOnLinux && !PlatformUtil.RunningOnRHEL6)
+            {
+                executionContext.Debug("Dumping info about invalid MD5 sums of installed packages.");
+
+                var debsums = WhichUtil.Which("debsums");
+                if (debsums == null)
+                {
+                    executionContext.Debug("Debsums is not installed on the system. Skipping broken packages check.");
+                }
+                else
+                {
+                    try
+                    {
+                        string packageVerificationResults = await GetPackageVerificationResult(debsums);
+                        IEnumerable<string> brokenPackagesInfo = packageVerificationResults
+                            .Split("\n")
+                            .Where((line) => !String.IsNullOrEmpty(line) && !line.EndsWith("OK"));
+
+                        string brokenPackagesLogsPath = $"{HostContext.GetDiagDirectory()}/BrokenPackages-{jobStartTimeUtc.ToString("yyyyMMdd-HHmmss")}.log";
+                        File.AppendAllLines(brokenPackagesLogsPath, brokenPackagesInfo);
+
+                        string destination = Path.Combine(supportFilesFolder, Path.GetFileName(brokenPackagesLogsPath));
+                        File.Copy(brokenPackagesLogsPath, destination);
+                    }
+                    catch (Exception ex)
+                    {
+                        executionContext.Debug("Failed to dump broken packages logs. Skipping.");
+                        executionContext.Debug($"Error message: {ex}");
+                    }
+                }
+            }
+            else
+            {
+                executionContext.Debug("The platform is not based on Debian - skipping debsums check.");
+            }
+
+            try
+            {
+                executionContext.Debug("Starting dumping Agent Azure VM extension logs.");
+                bool logsSuccessfullyDumped = DumpAgentExtensionLogs(executionContext, supportFilesFolder, jobStartTimeUtc);
+                if (logsSuccessfullyDumped)
+                {
+                    executionContext.Debug("Agent Azure VM extension logs successfully dumped.");
+                }
+                else
+                {
+                    executionContext.Debug("Agent Azure VM extension logs not found. Skipping.");
+                }
+            }
+            catch (Exception ex)
+            {
+                executionContext.Debug("Failed to dump Agent Azure VM extension logs. Skipping.");
+                executionContext.Debug($"Error message: {ex}");
             }
 
             executionContext.Debug("Zipping diagnostic files.");
@@ -129,6 +262,120 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             executionContext.QueueAttachFile(type: CoreAttachmentType.DiagnosticLog, name: diagnosticsZipFileName, filePath: diagnosticsZipFilePath);
 
             executionContext.Debug("Diagnostic file upload complete.");
+        }
+
+        /// <summary>
+        /// Dumping Agent Azure VM extension logs to the support files folder.
+        /// </summary>
+        /// <param name="executionContext">Execution context to write debug messages.</param>
+        /// <param name="supportFilesFolder">Destination folder for files to be dumped.</param>
+        /// <param name="jobStartTimeUtc">Date and time to create timestamp.</param>
+        /// <returns>true, if logs have been dumped successfully; otherwise returns false.</returns>
+        private bool DumpAgentExtensionLogs(IExecutionContext executionContext, string supportFilesFolder, DateTime jobStartTimeUtc)
+        {
+            string pathToLogs = String.Empty;
+            string archiveName = String.Empty;
+            string timestamp = jobStartTimeUtc.ToString("yyyyMMdd-HHmmss");
+
+            if (PlatformUtil.RunningOnWindows)
+            {
+                // the extension creates a subfolder with a version number on Windows, and we're taking the latest one
+                string pathToExtensionVersions = ExtensionPaths.WindowsPathToExtensionVersions;
+                if (!Directory.Exists(pathToExtensionVersions))
+                {
+                    executionContext.Debug("Path to subfolders with Agent Azure VM Windows extension logs (of its different versions) does not exist.");
+                    executionContext.Debug($"(directory \"{pathToExtensionVersions}\" not found)");
+                    return false;
+                }
+                string[] subDirs = Directory.GetDirectories(pathToExtensionVersions).Select(dir => Path.GetFileName(dir)).ToArray();
+                if (subDirs.Length == 0)
+                {
+                    executionContext.Debug("Path to Agent Azure VM Windows extension logs (of its different versions) does not contain subfolders.");
+                    executionContext.Debug($"(directory \"{pathToExtensionVersions}\" does not contain subdirectories with logs)");
+                    return false;
+                }
+                Version[] versions = subDirs.Select(dir => new Version(dir)).ToArray();
+                Version maxVersion = versions.Max();
+                pathToLogs = Path.Combine(pathToExtensionVersions, maxVersion.ToString());
+                archiveName = $"AgentWindowsExtensionLogs-{timestamp}-utc.zip";
+            }
+            else if (PlatformUtil.RunningOnLinux)
+            {
+                // the extension does not create a subfolder with a version number on Linux, and we're just taking this folder
+                pathToLogs = ExtensionPaths.LinuxPathToExtensionLogs;
+                if (!Directory.Exists(pathToLogs))
+                {
+                    executionContext.Debug("Path to Agent Azure VM Linux extension logs does not exist.");
+                    executionContext.Debug($"(directory \"{pathToLogs}\" not found)");
+                    return false;
+                }
+                archiveName = $"AgentLinuxExtensionLogs-{timestamp}-utc.zip";
+            }
+            else
+            {
+                executionContext.Debug("Dumping Agent Azure VM extension logs implemented for Windows and Linux only.");
+                return false;
+            }
+
+            executionContext.Debug($"Path to agent extension logs: {pathToLogs}");
+
+            string archivePath = Path.Combine(HostContext.GetDiagDirectory(), archiveName);
+            executionContext.Debug($"Archiving agent extension logs to: {archivePath}");
+            ZipFile.CreateFromDirectory(pathToLogs, archivePath);
+
+            string copyPath = Path.Combine(supportFilesFolder, archiveName);
+            executionContext.Debug($"Copying archived agent extension logs to: {copyPath}");
+            File.Copy(archivePath, copyPath);
+
+            return true;
+        }
+
+        /// <summary>
+        /// Dumping cloud-init logs to diag folder of agent if cloud-init is installed on current machine.
+        /// </summary>
+        /// <param name="logsFile">Path to collect cloud-init logs</param>
+        /// <returns>Returns the method execution logs</returns>
+        private async Task<string> DumpCloudInitLogs(string logsFile)
+        {
+            var builder = new StringBuilder();
+            string cloudInit = WhichUtil.Which("cloud-init", trace: Trace);
+            if (string.IsNullOrEmpty(cloudInit))
+            {
+                return "Cloud-init isn't found on current machine.";
+            }
+
+            string arguments = $"collect-logs -t \"{logsFile}\"";
+
+            try
+            {
+                using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
+                {
+                    processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+                    {
+                        builder.AppendLine(args.Data);
+                    };
+
+                    processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+                    {
+                        builder.AppendLine(args.Data);
+                    };
+
+                    await processInvoker.ExecuteAsync(
+                        workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Bin),
+                        fileName: cloudInit,
+                        arguments: arguments,
+                        environment: null,
+                        requireExitCodeZero: false,
+                        outputEncoding: null,
+                        killProcessOnCancel: false,
+                        cancellationToken: default(CancellationToken));
+                }
+            }
+            catch (Exception ex)
+            {
+                builder.AppendLine(ex.Message);
+            }
+            return builder.ToString();
         }
 
         private string GetCapabilitiesContent(Dictionary<string, string> capabilities)
@@ -175,7 +422,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             int bufferInSeconds = -30;
             DateTime searchTimeUtc = jobStartTimeUtc.AddSeconds(bufferInSeconds);
 
-            foreach (FileInfo file in directoryInfo.GetFiles().Where(f => f.Name.StartsWith("Worker_")))
+            foreach (FileInfo file in directoryInfo.GetFiles().Where(f => f.Name.StartsWith($"{HostType.Worker}_")))
             {
                 // The format of the logs is:
                 // Worker_20171003-143110-utc.log
@@ -203,7 +450,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             String recentLog = null;
             DateTime recentTimeUtc = DateTime.MinValue;
 
-            foreach (FileInfo file in directoryInfo.GetFiles().Where(f => f.Name.StartsWith("Agent_")))
+            foreach (FileInfo file in directoryInfo.GetFiles().Where(f => f.Name.StartsWith($"{HostType.Agent}_")))
             {
                 // The format of the logs is:
                 // Agent_20171003-143110-utc.log
@@ -236,7 +483,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 return await GetEnvironmentContentWindows(agentId, agentName, steps);
             }
-            return GetEnvironmentContentNonWindows(agentId, agentName, steps);
+            return await GetEnvironmentContentNonWindows(agentId, agentName, steps);
         }
 
         private async Task<string> GetEnvironmentContentWindows(int agentId, string agentName, IList<Pipelines.JobStep> steps)
@@ -264,6 +511,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // $psversiontable
             builder.AppendLine("Powershell Version Info:");
             builder.AppendLine(await GetPsVersionInfo());
+
+            builder.AppendLine(await GetLocalGroupMembership());
+
             return builder.ToString();
         }
 
@@ -328,7 +578,53 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return builder.ToString();
         }
 
-        private string GetEnvironmentContentNonWindows(int agentId, string agentName, IList<Pipelines.JobStep> steps)
+        /// <summary>
+        /// Gathers a list of local group memberships for the current user.
+        /// </summary>
+        private async Task<string> GetLocalGroupMembership()
+        {
+            var builder = new StringBuilder();
+
+            string powerShellExe = HostContext.GetService<IPowerShellExeUtil>().GetPath();
+
+            string scriptFile = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), "powershell", "Get-LocalGroupMembership.ps1").Replace("'", "''");
+            ArgUtil.File(scriptFile, nameof(scriptFile));
+            string arguments = $@"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -Command "". '{scriptFile}'""";
+
+            try
+            {
+                using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
+                {
+                    processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+                    {
+                        builder.AppendLine(args.Data);
+                    };
+
+                    processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs args) =>
+                    {
+                        builder.AppendLine(args.Data);
+                    };
+
+                    await processInvoker.ExecuteAsync(
+                        workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Bin),
+                        fileName: powerShellExe,
+                        arguments: arguments,
+                        environment: null,
+                        requireExitCodeZero: false,
+                        outputEncoding: null,
+                        killProcessOnCancel: false,
+                        cancellationToken: default(CancellationToken));
+                }
+            }
+            catch (Exception ex)
+            {
+                builder.AppendLine(ex.Message);
+            }
+
+            return builder.ToString();
+        }
+
+        private async Task<string> GetEnvironmentContentNonWindows(int agentId, string agentName, IList<Pipelines.JobStep> steps)
         {
             var builder = new StringBuilder();
 
@@ -337,6 +633,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             builder.AppendLine($"Agent Id: {agentId}");
             builder.AppendLine($"Agent Name: {agentName}");
             builder.AppendLine($"OS: {System.Runtime.InteropServices.RuntimeInformation.OSDescription}");
+            builder.AppendLine($"User groups: {await GetUserGroupsOnNonWindows()}");
             builder.AppendLine("Steps:");
 
             foreach (Pipelines.TaskStep task in steps.OfType<Pipelines.TaskStep>())
@@ -346,5 +643,111 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             return builder.ToString();
         }
+
+        /// <summary>
+        ///  Get user groups on a non-windows platform using core utility "id".
+        /// </summary>
+        /// <returns>Returns the string with user groups</returns>
+        private async Task<string> GetUserGroupsOnNonWindows()
+        {
+            var idUtil = WhichUtil.Which("id");
+            var stringBuilder = new StringBuilder();
+            try
+            {
+                using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
+                {
+                    processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs mes) =>
+                    {
+                        stringBuilder.AppendLine(mes.Data);
+                    };
+                    processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs mes) =>
+                    {
+                        stringBuilder.AppendLine(mes.Data);
+                    };
+
+                    await processInvoker.ExecuteAsync(
+                        workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Bin),
+                        fileName: idUtil,
+                        arguments: "-nG",
+                        environment: null,
+                        requireExitCodeZero: false,
+                        outputEncoding: null,
+                        killProcessOnCancel: false,
+                        cancellationToken: default(CancellationToken)
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                stringBuilder.AppendLine(ex.Message);
+            }
+
+            return stringBuilder.ToString();
+        }
+
+        // Collects Windows event logs that appeared during the job execution.
+        // Dumps the gathered info into a separate file since the logs are long.
+        private async Task DumpCurrentJobEventLogs(IExecutionContext executionContext, string logFile, DateTime jobStartTimeUtc)
+        {
+            string startDate = jobStartTimeUtc.ToString("u");
+            string endDate = DateTime.UtcNow.ToString("u");
+
+            string powerShellExe = HostContext.GetService<IPowerShellExeUtil>().GetPath();
+            string arguments = $@"
+                Get-WinEvent -ListLog * | where {{ $_.RecordCount -gt 0 }} `
+                | ForEach-Object {{ Get-WinEvent -ErrorAction SilentlyContinue -FilterHashtable @{{ LogName=$_.LogName; StartTime='{startDate}'; EndTime='{endDate}'; }} }} `
+                | Export-CSV {logFile}";
+            using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
+            {
+                await processInvoker.ExecuteAsync(
+                    workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Bin),
+                    fileName: powerShellExe,
+                    arguments: arguments,
+                    environment: null,
+                    requireExitCodeZero: false,
+                    outputEncoding: null,
+                    killProcessOnCancel: false,
+                    cancellationToken: default(CancellationToken));
+            }
+        }
+
+        /// <summary>
+        ///  Git package verification result using the "debsums" utility.
+        /// </summary>
+        /// <returns>String with the "debsums" output</returns>
+        private async Task<string> GetPackageVerificationResult(string debsumsPath)
+        {
+            var stringBuilder = new StringBuilder();
+            using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
+            {
+                processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs mes) =>
+                {
+                    stringBuilder.AppendLine(mes.Data);
+                };
+                processInvoker.ErrorDataReceived += (object sender, ProcessDataReceivedEventArgs mes) =>
+                {
+                    stringBuilder.AppendLine(mes.Data);
+                };
+
+                await processInvoker.ExecuteAsync(
+                    workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Bin),
+                    fileName: debsumsPath,
+                    arguments: string.Empty,
+                    environment: null,
+                    requireExitCodeZero: false,
+                    outputEncoding: null,
+                    killProcessOnCancel: false,
+                    cancellationToken: default(CancellationToken)
+                );
+            }
+
+            return stringBuilder.ToString();
+        }
+    }
+
+    internal static class ExtensionPaths
+    {
+        public static readonly String WindowsPathToExtensionVersions = "C:\\WindowsAzure\\Logs\\Plugins\\Microsoft.VisualStudio.Services.TeamServicesAgent";
+        public static readonly String LinuxPathToExtensionLogs = "/var/log/azure/Microsoft.VisualStudio.Services.TeamServicesAgentLinux";
     }
 }

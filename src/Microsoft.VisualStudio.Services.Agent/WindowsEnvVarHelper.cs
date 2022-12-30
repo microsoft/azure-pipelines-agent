@@ -24,7 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             IntPtr processHandle = process.SafeHandle.DangerousGetHandle();
 
             IntPtr environmentBlockAddress;
-            if (Environment.Is64BitOperatingSystem)
+            if (Environment.Is64BitProcess)
             {
                 PROCESS_BASIC_INFORMATION64 pbi = new PROCESS_BASIC_INFORMATION64();
                 int returnLength = 0;
@@ -101,7 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         }
 
         // Reference: https://github.com/gapotchenko/Gapotchenko.FX/blob/master/Source/Gapotchenko.FX.Diagnostics.Process/ProcessEnvironment.cs
-        static Dictionary<String,String> _EnvToDictionary(byte[] env)
+        static Dictionary<String, String> _EnvToDictionary(byte[] env)
         {
             var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 

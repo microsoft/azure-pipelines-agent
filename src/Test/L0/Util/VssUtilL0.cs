@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-﻿using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Common;
 using System;
 using System.Collections.Generic;
@@ -32,7 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                     trace.Info("Set httptimeout to 360.");
                     Environment.SetEnvironmentVariable("VSTS_HTTP_TIMEOUT", "360");
 
-                    using (var connect = VssUtil.CreateConnection(new Uri("https://github.com/Microsoft/vsts-agent"), new VssCredentials()))
+                    using (var connect = VssUtil.CreateConnection(new Uri("https://github.com/Microsoft/vsts-agent"), new VssCredentials(), trace: null))
                     {
 
                         // Assert.
@@ -45,7 +45,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                         Environment.SetEnvironmentVariable("VSTS_HTTP_TIMEOUT", "3600");
                     }
 
-                    using (var connect = VssUtil.CreateConnection(new Uri("https://github.com/Microsoft/vsts-agent"), new VssCredentials()))
+                    using (var connect = VssUtil.CreateConnection(new Uri("https://github.com/Microsoft/vsts-agent"), new VssCredentials(), trace: null))
                     {
                         // Assert.
                         Assert.Equal(connect.Settings.MaxRetryRequest.ToString(), "10");

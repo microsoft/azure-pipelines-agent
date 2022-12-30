@@ -4,9 +4,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Sockets;
 using System.Threading.Tasks;
 using Agent.Plugins.Log.TestResultParser.Contracts;
+using Agent.Sdk.Util;
 using Agent.Sdk;
+using Microsoft.VisualStudio.Services.Agent.Util;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Agent.Plugins.Log.TestResultParser.Plugin
@@ -48,9 +51,20 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
                     await _telemetry.PublishCumulativeTelemetryAsync();
                     return false; // disable the plugin
                 }
-                
+
                 await _inputDataParser.InitializeAsync(_clientFactory, _pipelineConfig, _logger, _telemetry);
                 _telemetry.AddOrUpdate(TelemetryConstants.PluginInitialized, true);
+            }
+            catch (SocketException ex)
+            {
+                ExceptionsUtil.HandleSocketException(ex, context.VssConnection.Uri.ToString(), _logger.Warning);
+
+                if (_telemetry != null)
+                {
+                    _telemetry?.AddOrUpdate(TelemetryConstants.InitializeFailed, ex);
+                    await _telemetry.PublishCumulativeTelemetryAsync();
+                }
+                return false;
             }
             catch (Exception ex)
             {
@@ -58,7 +72,7 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
                 _logger?.Warning($"Unable to initialize {FriendlyName}.");
                 if (_telemetry != null)
                 {
-                    _telemetry?.AddOrUpdate(TelemetryConstants.InitialzieFailed, ex);
+                    _telemetry?.AddOrUpdate(TelemetryConstants.InitializeFailed, ex);
                     await _telemetry.PublishCumulativeTelemetryAsync();
                 }
                 return false;

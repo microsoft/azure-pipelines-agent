@@ -11,29 +11,39 @@ fi
 # Debian based OS (Debian, Ubuntu, Linux Mint) has /etc/debian_version
 # Fedora based OS (Fedora, Redhat, Centos, Oracle Linux 7) has /etc/redhat-release
 # SUSE based OS (OpenSUSE, SUSE Enterprise) has ID_LIKE=suse in /etc/os-release
+# Mariner based OS (CBL-Mariner) has /etc/mariner-release
+
+function print_repositories_and_deps_warning()
+{
+    echo "Please make sure that required repositories are connected for relevant package installer."
+    echo "For issues with dependencies installation (like 'dependency was not found in repository' or 'problem retrieving the repository index file') - you can reach out to distribution owner for futher support."
+}
 
 function print_errormessage() 
 {
     echo "Can't install dotnet core dependencies."
+    print_repositories_and_deps_warning
     echo "You can manually install all required dependencies based on following documentation"
-    echo "https://docs.microsoft.com/en-us/dotnet/core/dependencies?pivots=os-linux&tabs=netcore31"
+    echo "https://docs.microsoft.com/dotnet/core/install/linux"
 }
 
 function print_rhel6message() 
 {
     echo "We did our best effort to install dotnet core dependencies"
-    echo "However, there are some dependencies which require manual installation" 
+    echo "However, there are some dependencies which require manual installation"
+    print_repositories_and_deps_warning
     echo "You can install all remaining required dependencies based on the following documentation"
-    echo "https://github.com/dotnet/core/blob/master/Documentation/build-and-install-rhel6-prerequisites.md"
+    echo "https://github.com/dotnet/core/blob/main/Documentation/build-and-install-rhel6-prerequisites.md"
 }
 
 function print_rhel6errormessage() 
 {
     echo "We couldn't install dotnet core dependencies"
+    print_repositories_and_deps_warning
     echo "You can manually install all required dependencies based on following documentation"
-    echo "https://docs.microsoft.com/en-us/dotnet/core/dependencies?pivots=os-linux&tabs=netcore31"
+    echo "https://docs.microsoft.com/dotnet/core/install/linux"
     echo "In addition, there are some dependencies which require manual installation. Please follow this documentation" 
-    echo "https://github.com/dotnet/core/blob/master/Documentation/build-and-install-rhel6-prerequisites.md"
+    echo "https://github.com/dotnet/core/blob/main/Documentation/build-and-install-rhel6-prerequisites.md"
 }
 
 if [ -e /etc/os-release ]
@@ -53,7 +63,7 @@ then
         command -v apt
         if [ $? -eq 0 ]
         then
-            apt update && apt install -y liblttng-ust0 libkrb5-3 zlib1g
+            apt update && apt install -y liblttng-ust0 libkrb5-3 zlib1g debsums
             if [ $? -ne 0 ]
             then
                 echo "'apt' failed with exit code '$?'"
@@ -84,7 +94,7 @@ then
             command -v apt-get
             if [ $? -eq 0 ]
             then
-                apt-get update && apt-get install -y liblttng-ust0 libkrb5-3 zlib1g
+                apt-get update && apt-get install -y liblttng-ust0 libkrb5-3 zlib1g debsums
                 if [ $? -ne 0 ]
                 then
                     echo "'apt-get' failed with exit code '$?'"
@@ -194,8 +204,11 @@ then
                     exit 1
                 fi
 
-                # install lttng-ust separately since it's not part of offical package repository
-                yum install -y wget && wget -P /etc/yum.repos.d/ https://packages.efficios.com/repo.files/EfficiOS-RHEL7-x86-64.repo && rpmkeys --import https://packages.efficios.com/rhel/repo.key && yum updateinfo -y && yum install -y lttng-ust
+                # install lttng-ust separately since it's not part of offical package repository, try installing from local package first, then add repo if it's missing
+                if ! yum install -y lttng-ust
+                then
+                    yum install -y wget ca-certificates && wget -P /etc/yum.repos.d/ https://packages.efficios.com/repo.files/EfficiOS-RHEL7-x86-64.repo && rpmkeys --import https://packages.efficios.com/rhel/repo.key && yum updateinfo -y && yum install -y lttng-ust
+                fi
                 if [ $? -ne 0 ]
                 then                    
                     echo "'lttng-ust' installation failed with exit code '$?'"
@@ -209,7 +222,6 @@ then
             fi
         fi
     else
-
         # we might on OpenSUSE
         OSTYPE=$(grep ^ID_LIKE /etc/os-release | cut -f2 -d=)
         if [ -z $OSTYPE ]
@@ -242,6 +254,28 @@ then
                 fi
             else
                 echo "Can not find 'zypper'"
+                print_errormessage
+                exit 1
+            fi
+        elif [ -e /etc/mariner-release ]
+        then
+            echo "The current OS is Mariner based"
+            echo "--------Mariner Version--------"
+            cat /etc/mariner-release
+            echo "------------------------------"
+
+            command -v yum
+            if [ $? -eq 0 ]
+                then
+                yum install -y icu
+                if [ $? -ne 0 ]
+                then                    
+                    echo "'yum' failed with exit code '$?'"
+                    print_errormessage
+                    exit 1
+                fi
+            else
+                echo "Can not find 'yum'"
                 print_errormessage
                 exit 1
             fi

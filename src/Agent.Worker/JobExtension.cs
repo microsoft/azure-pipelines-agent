@@ -141,10 +141,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             {
                                 tag = "(EXPERIMENTAL)";
                             }
-                            var outputLine = $"   Knob: {knob.Name} = {value.AsString()} Source: {value.Source.GetDisplayString()} {tag}";
+                            var stringValue = value.AsString();
+                            if (knob is SecretKnob)
+                            {
+                                HostContext.SecretMasker.AddValue(stringValue, $"JobExtension_InitializeJob_{knob.Name}");
+                            }
+                            var outputLine = $"   Knob: {knob.Name} = {stringValue} Source: {value.Source.GetDisplayString()} {tag}";
+
                             if (knob.IsDeprecated)
                             {
                                 context.Warning(outputLine);
+
+                                string deprecationInfo = (knob as DeprecatedKnob).DeprecationInfo;
+                                if (!string.IsNullOrEmpty(deprecationInfo))
+                                {
+                                    context.Warning(deprecationInfo);
+                                }
                             }
                             else
                             {

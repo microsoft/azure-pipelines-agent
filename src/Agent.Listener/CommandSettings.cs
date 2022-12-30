@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Agent.Listener.CommandLine;
 using Agent.Sdk;
+using Agent.Sdk.Util;
 using CommandLine;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json;
@@ -65,24 +66,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             // Mask secret arguments
             if (Configure != null)
             {
-                context.SecretMasker.AddValue(Configure.Password);
-                context.SecretMasker.AddValue(Configure.ProxyPassword);
-                context.SecretMasker.AddValue(Configure.SslClientCert);
-                context.SecretMasker.AddValue(Configure.Token);
-                context.SecretMasker.AddValue(Configure.WindowsLogonPassword);
+                context.SecretMasker.AddValue(Configure.Password, WellKnownSecretAliases.ConfigurePassword);
+                context.SecretMasker.AddValue(Configure.ProxyPassword, WellKnownSecretAliases.ConfigureProxyPassword);
+                context.SecretMasker.AddValue(Configure.SslClientCert, WellKnownSecretAliases.ConfigureSslClientCert);
+                context.SecretMasker.AddValue(Configure.Token, WellKnownSecretAliases.ConfigureToken);
+                context.SecretMasker.AddValue(Configure.WindowsLogonPassword, WellKnownSecretAliases.ConfigureWindowsLogonPassword);
             }
 
             if (Remove != null)
             {
-                context.SecretMasker.AddValue(Remove.Password);
-                context.SecretMasker.AddValue(Remove.Token);
+                context.SecretMasker.AddValue(Remove.Password, WellKnownSecretAliases.RemovePassword);
+                context.SecretMasker.AddValue(Remove.Token, WellKnownSecretAliases.RemoveToken);
             }
 
             PrintArguments();
 
             // Store and remove any args passed via environment variables.
             var environment = environmentScope.GetEnvironmentVariables();
-            
+
             string envPrefix = "VSTS_AGENT_INPUT_";
             foreach (DictionaryEntry entry in environment)
             {
@@ -100,7 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         bool secret = Constants.Agent.CommandLine.Args.Secrets.Any(x => string.Equals(x, name, StringComparison.OrdinalIgnoreCase));
                         if (secret)
                         {
-                            context.SecretMasker.AddValue(val);
+                            context.SecretMasker.AddValue(val, $"CommandSettings_{fullKey}");
                         }
 
                         // Store the value.
@@ -203,6 +204,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 name: Constants.Agent.CommandLine.Flags.LaunchBrowser,
                 description: StringUtil.Loc("LaunchBrowser"),
                 defaultValue: true);
+        }
+        /// <summary>
+        /// Returns EnableServiceSidTypeUnrestricted flag or prompts user to set it up
+        /// </summary>
+        /// <returns>Parameter value</returns>
+        public bool GetEnableServiceSidTypeUnrestricted()
+        {
+            return TestFlagOrPrompt(
+                value: Configure?.EnableServiceSidTypeUnrestricted,
+                name: Constants.Agent.CommandLine.Flags.EnableServiceSidTypeUnrestricted,
+                description: StringUtil.Loc("EnableServiceSidTypeUnrestricted"),
+                defaultValue: false);
         }
         //
         // Args.
@@ -436,7 +449,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         {
             return GetArg(Run?.StartupType, Constants.Agent.CommandLine.Args.StartupType);
         }
-        
+
         public string GetProxyUrl()
         {
             return GetArg(Configure?.ProxyUrl, Constants.Agent.CommandLine.Args.ProxyUrl);
@@ -454,7 +467,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         public bool GetSkipCertificateValidation()
         {
-            return TestFlag(Configure?.SslSkipCertValidation , Constants.Agent.CommandLine.Flags.SslSkipCertValidation);
+            return TestFlag(Configure?.SslSkipCertValidation, Constants.Agent.CommandLine.Flags.SslSkipCertValidation);
         }
 
         public string GetCACertificate()
@@ -505,7 +518,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         public bool GetDeploymentOrMachineGroup()
         {
-            if (TestFlag(Configure?.DeploymentGroup, Constants.Agent.CommandLine.Flags.DeploymentGroup) || 
+            if (TestFlag(Configure?.DeploymentGroup, Constants.Agent.CommandLine.Flags.DeploymentGroup) ||
                 (Configure?.MachineGroup == true))
             {
                 return true;
@@ -789,7 +802,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         {
             if (Configure != null)
             {
-                _trace.Info(string.Concat(nameof(Configure)," ",ObjectAsJson(Configure)));
+                _trace.Info(string.Concat(nameof(Configure), " ", ObjectAsJson(Configure)));
             }
 
             if (Remove != null)

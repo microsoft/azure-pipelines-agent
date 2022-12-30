@@ -196,9 +196,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Allow up to 20 * 60s for any task to be downloaded from service.
                 // Base on Kusto, the longest we have on the service today is over 850 seconds.
                 // Timeout limit can be overwrite by environment variable
-                var timeoutSeconds = AgentKnobs.TaskDownloadTimeout.GetValue(UtilKnobValueContext.Instance()).AsInt();
+                int timeoutSeconds = AgentKnobs.TaskDownloadTimeout.GetValue(UtilKnobValueContext.Instance()).AsInt();
+                int retryLimit = AgentKnobs.TaskDownloadRetryLimit.GetValue(UtilKnobValueContext.Instance()).AsInt();
 
-                while (retryCount < 3)
+                while (true)
                 {
                     using (var taskDownloadTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds)))
                     using (var taskDownloadCancellation = CancellationTokenSource.CreateLinkedTokenSource(taskDownloadTimeout.Token, executionContext.CancellationToken))
@@ -211,7 +212,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             using (FileStream fs = new FileStream(zipFile, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: _defaultFileStreamBufferSize, useAsync: true))
                             using (Stream result = await taskServer.GetTaskContentZipAsync(task.Id, version, taskDownloadCancellation.Token))
                             {
+                                Trace.Info($"The '{task.Name}' task downloading started.");
                                 await result.CopyToAsync(fs, _defaultCopyBufferSize, taskDownloadCancellation.Token);
+                                Trace.Info($"The '{task.Name}' task downloading finished.");
                                 await fs.FlushAsync(taskDownloadCancellation.Token);
 
                                 // download succeed, break out the retry loop.
@@ -223,7 +226,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             Trace.Info($"Task download has been cancelled.");
                             throw;
                         }
-                        catch (Exception ex) when (retryCount < 2)
+                        catch (Exception ex)
                         {
                             retryCount++;
                             Trace.Error($"Fail to download task '{task.Id} ({task.Name}/{task.Version})' -- Attempt: {retryCount}");
@@ -236,9 +239,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             else
                             {
                                 executionContext.Warning(StringUtil.Loc("TaskDownloadFailed", task.Name, ex.Message));
-                                if (ex.InnerException != null) {
-                                    executionContext.Warning("Inner Exception: {ex.InnerException.Message}");
+                                if (ex.InnerException != null)
+                                {
+                                    executionContext.Warning($"Inner Exception: {ex.InnerException.Message}");
                                 }
+                            }
+
+                            FileInfo zipFileInfo = new FileInfo(zipFile);
+                            if (zipFileInfo.Exists)
+                            {
+                                Trace.Info($"Zip file '{zipFile}' exists; its size in bytes: {zipFileInfo.Length}");
+                            }
+                            else
+                            {
+                                Trace.Info($"Zip file '{zipFile}' can not be found.");
+                            }
+
+                            if (retryCount >= retryLimit)
+                            {
+                                Trace.Info($"Retry limit to download the '{task.Name}' task reached.");
+                                throw;
                             }
                         }
                     }
@@ -321,7 +341,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         public DefinitionData Data { get; set; }
         public string Directory { get; set; }
-        public string ZipPath {get;set;}
+        public string ZipPath { get; set; }
     }
 
     public sealed class DefinitionData
@@ -360,6 +380,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private AzurePowerShellHandlerData _azurePowerShell;
         private NodeHandlerData _node;
         private Node10HandlerData _node10;
+        private Node16HandlerData _node16;
         private PowerShellHandlerData _powerShell;
         private PowerShell3HandlerData _powerShell3;
         private PowerShellExeHandlerData _powerShellExe;
@@ -411,6 +432,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             set
             {
                 _node10 = value;
+                Add(value);
+            }
+        }
+
+        public Node16HandlerData Node16
+        {
+            get
+            {
+                return _node16;
+            }
+
+            set
+            {
+                _node16 = value;
                 Add(value);
             }
         }
@@ -589,17 +624,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
     public sealed class NodeHandlerData : BaseNodeHandlerData
     {
-        public override int Priority => 2;
+        public override int Priority => 3;
     }
 
     public sealed class Node10HandlerData : BaseNodeHandlerData
+    {
+        public override int Priority => 2;
+    }
+    public sealed class Node16HandlerData : BaseNodeHandlerData
     {
         public override int Priority => 1;
     }
 
     public sealed class PowerShell3HandlerData : HandlerData
     {
-        public override int Priority => 3;
+        public override int Priority => 4;
     }
 
     public sealed class PowerShellHandlerData : HandlerData
@@ -617,7 +656,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 4;
+        public override int Priority => 5;
 
         public string WorkingDirectory
         {
@@ -648,7 +687,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 5;
+        public override int Priority => 6;
 
         public string WorkingDirectory
         {
@@ -705,7 +744,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 5;
+        public override int Priority => 6;
 
         public string ScriptType
         {
@@ -762,7 +801,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 6;
+        public override int Priority => 7;
 
         public string WorkingDirectory
         {

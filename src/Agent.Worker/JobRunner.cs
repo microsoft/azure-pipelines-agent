@@ -3,6 +3,7 @@
 
 using Agent.Sdk;
 using Agent.Sdk.Knob;
+using Agent.Sdk.Util;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -31,7 +32,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         private IJobServerQueue _jobServerQueue;
         private ITempDirectoryManager _tempDirectoryManager;
-
+        /// <summary>
+        /// Add public accessor for _jobServerQueue to make JobRunner more testable
+        /// See /Test/L0/Worker/JobRunnerL0.cs
+        /// </summary>
+        public IJobServerQueue JobServerQueue
+        {
+            set => _jobServerQueue = value;
+        }
         public async Task<TaskResult> RunAsync(Pipelines.AgentJobRequestMessage message, CancellationToken jobRequestCancellationToken)
         {
             // Validate parameters.
@@ -72,7 +80,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Trace.Info($"Creating job server with URL: {jobServerUrl}");
             // jobServerQueue is the throttling reporter.
             _jobServerQueue = HostContext.GetService<IJobServerQueue>();
-            VssConnection jobConnection = VssUtil.CreateConnection(jobServerUrl, jobServerCredential, new DelegatingHandler[] { new ThrottlingReportHandler(_jobServerQueue) });
+            VssConnection jobConnection = VssUtil.CreateConnection(
+                jobServerUrl,
+                jobServerCredential,
+                trace: Trace,
+                new DelegatingHandler[] { new ThrottlingReportHandler(_jobServerQueue) }
+                );
             await jobServer.ConnectAsync(jobConnection);
 
             _jobServerQueue.Start(message);
@@ -85,6 +98,43 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Create the job execution context.
                 jobContext = HostContext.CreateService<IExecutionContext>();
                 jobContext.InitializeJob(message, jobRequestCancellationToken);
+
+                // Check if a system supports .NET 6
+                PackageVersion agentVersion = new PackageVersion(BuildConstants.AgentPackage.Version);
+                if (agentVersion.Major < 3)
+                {
+                    try
+                    {
+                        Trace.Verbose("Checking if your system supports .NET 6");
+
+                        string systemId = PlatformUtil.GetSystemId();
+                        SystemVersion systemVersion = PlatformUtil.GetSystemVersion();
+                        string notSupportNet6Message = null;
+
+                        if (await PlatformUtil.DoesSystemPersistsInNet6Whitelist())
+                        {
+                            // Check version of the system
+                            if (!await PlatformUtil.IsNet6Supported())
+                            {
+                                notSupportNet6Message = $"The operating system the agent is running on is \"{systemId}\" ({systemVersion}), which will not be supported by the .NET 6 based v3 agent. Please upgrade the operating system of this host to ensure compatibility with the v3 agent. See https://aka.ms/azdo-pipeline-agent-version";
+                            }
+                        }
+                        else
+                        {
+                            notSupportNet6Message = $"The operating system the agent is running on is \"{systemId}\" ({systemVersion}), which has not been tested with the .NET 6 based v3 agent. The v2 agent wil not automatically upgrade to the v3 agent. You can manually download the .NET 6 based v3 agent from https://github.com/microsoft/azure-pipelines-agent/releases. See https://aka.ms/azdo-pipeline-agent-version";
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(notSupportNet6Message))
+                        {
+                            jobContext.AddIssue(new Issue() { Type = IssueType.Warning, Message = notSupportNet6Message });
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Trace.Error($"Error has occurred while checking if system supports .NET 6: {ex}");
+                    }
+                }
+
                 Trace.Info("Starting the job execution context.");
                 jobContext.Start();
                 jobContext.Section(StringUtil.Loc("StepStarting", message.JobDisplayName));
@@ -128,6 +178,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 jobContext.SetVariable(Constants.Variables.Agent.Id, settings.AgentId.ToString(CultureInfo.InvariantCulture));
                 jobContext.SetVariable(Constants.Variables.Agent.HomeDirectory, HostContext.GetDirectory(WellKnownDirectory.Root), isFilePath: true);
                 jobContext.SetVariable(Constants.Variables.Agent.JobName, message.JobDisplayName);
+                jobContext.SetVariable(Constants.Variables.Agent.CloudId, settings.AgentCloudId);
                 jobContext.SetVariable(Constants.Variables.Agent.MachineName, Environment.MachineName);
                 jobContext.SetVariable(Constants.Variables.Agent.Name, settings.AgentName);
                 jobContext.SetVariable(Constants.Variables.Agent.OS, VarUtil.OS);
@@ -174,7 +225,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 if (taskServerUri != null)
                 {
                     Trace.Info($"Creating task server with {taskServerUri}");
-                    await taskServer.ConnectAsync(VssUtil.CreateConnection(taskServerUri, taskServerCredential));
+                    await taskServer.ConnectAsync(VssUtil.CreateConnection(taskServerUri, taskServerCredential, trace: Trace));
                 }
 
                 // for back compat TFS 2015 RTM/QU1, we may need to switch the task server url to agent config url
@@ -186,7 +237,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         var configStore = HostContext.GetService<IConfigurationStore>();
                         taskServerUri = new Uri(configStore.GetSettings().ServerUrl);
                         Trace.Info($"Recreate task server with configuration server url: {taskServerUri}");
-                        await taskServer.ConnectAsync(VssUtil.CreateConnection(taskServerUri, taskServerCredential));
+                        await taskServer.ConnectAsync(VssUtil.CreateConnection(taskServerUri, taskServerCredential, trace: Trace));
                     }
                 }
 
@@ -206,7 +257,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     {
                         checkoutOptions = jobContext.Variables.ExpandValues(target: checkoutOptions);
                         checkoutOptions = VarUtil.ExpandEnvironmentVariables(HostContext, target: checkoutOptions);
-                        repository.Properties.Set<JToken>(Pipelines.RepositoryPropertyNames.CheckoutOptions, checkoutOptions); ;
+                        repository.Properties.Set<JToken>(Pipelines.RepositoryPropertyNames.CheckoutOptions, checkoutOptions);
                     }
 
                     // expand workspace mapping
@@ -315,6 +366,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Trace.Info("Completing the job execution context.");
                 return await CompleteJobAsync(jobServer, jobContext, message);
             }
+            catch (AggregateException e)
+            {
+                ExceptionsUtil.HandleAggregateException((AggregateException)e, Trace.Error);
+
+                return TaskResult.Failed;
+            }
             finally
             {
                 if (agentShutdownRegistration != null)
@@ -329,7 +386,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void UpdateMetadata(JobMetadataMessage message)
         {
-            if (message.PostLinesFrequencyMillis.HasValue)
+            if (message.PostLinesFrequencyMillis.HasValue && _jobServerQueue != null)
             {
                 _jobServerQueue.UpdateWebConsoleLineRate(message.PostLinesFrequencyMillis.Value);
             }
@@ -370,11 +427,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 await ShutdownQueue(throwOnFailure: true);
             }
+            catch (AggregateException ex)
+            {
+                ExceptionsUtil.HandleAggregateException((AggregateException)ex, Trace.Error);
+
+                result = TaskResultUtil.MergeTaskResults(result, TaskResult.Failed);
+            }
             catch (Exception ex)
             {
                 Trace.Error($"Caught exception from {nameof(JobServerQueue)}.{nameof(_jobServerQueue.ShutdownAsync)}");
                 Trace.Error("This indicate a failure during publish output variables. Fail the job to prevent unexpected job outputs.");
                 Trace.Error(ex);
+
                 result = TaskResultUtil.MergeTaskResults(result, TaskResult.Failed);
             }
 
@@ -435,6 +499,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     Trace.Info("Shutting down the job server queue.");
                     await _jobServerQueue.ShutdownAsync();
+                }
+                catch (AggregateException ex)
+                {
+                    ExceptionsUtil.HandleAggregateException((AggregateException)ex, Trace.Error);
                 }
                 catch (Exception ex) when (!throwOnFailure)
                 {

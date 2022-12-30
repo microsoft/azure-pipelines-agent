@@ -227,18 +227,41 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             var usingWindowsContainers = context.Containers.Where(x => x.ExecutionOS != PlatformUtil.OS.Windows).Count() == 0;
             var networkDrivers = await ExecuteDockerCommandAsync(context, "info", "-f \"{{range .Plugins.Network}}{{println .}}{{end}}\"");
             var valueMTU = AgentKnobs.MTUValueForContainerJobs.GetValue(_knobContext).AsString();
+            var driver = AgentKnobs.DockerNetworkCreateDriver.GetValue(context).AsString();
+            var additionalNetworCreateOptions = AgentKnobs.DockerAdditionalNetworkOptions.GetValue(context).AsString();
             string optionMTU = "";
-            
-            if (!String.IsNullOrEmpty(valueMTU)) {
-                optionMTU = $"-o \"com.docker.network.driver.mtu={valueMTU}\"";
-            }   
 
-            if (usingWindowsContainers && networkDrivers.Contains("nat"))
+            if (!String.IsNullOrEmpty(valueMTU))
             {
-                return await ExecuteDockerCommandAsync(context, "network", $"create --label {DockerInstanceLabel} {network} {optionMTU} --driver nat", context.CancellationToken);
+                optionMTU = $"-o \"com.docker.network.driver.mtu={valueMTU}\"";
             }
 
-            return await ExecuteDockerCommandAsync(context, "network", $"create --label {DockerInstanceLabel} {network} {optionMTU}", context.CancellationToken);
+            string options = $"create --label {DockerInstanceLabel} {network} {optionMTU}";
+
+            if (!String.IsNullOrEmpty(driver))
+            {
+                if (networkDrivers.Contains(driver))
+                {
+                    options += $" --driver {driver}";
+                }
+                else
+                {
+                    string warningMessage = $"Specified '{driver}' driver not found!";
+                    Trace.Warning(warningMessage);
+                    context.Warning(warningMessage);
+                }
+            }
+            else if (usingWindowsContainers && networkDrivers.Contains("nat"))
+            {
+                options += $" --driver nat";
+            }
+
+            if (!String.IsNullOrEmpty(additionalNetworCreateOptions))
+            {
+                options += $" {additionalNetworCreateOptions}";
+            }
+
+            return await ExecuteDockerCommandAsync(context, "network", options, context.CancellationToken);
         }
 
         public async Task<int> DockerNetworkRemove(IExecutionContext context, string network)
@@ -326,7 +349,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
         /// <returns
         /// <c>true</c>, if specified container is running, <c>false</c> otherwise. 
         /// </returns>
-        public async Task<bool> IsContainerRunning(IExecutionContext context, string containerId) {
+        public async Task<bool> IsContainerRunning(IExecutionContext context, string containerId)
+        {
             List<string> filteredItems = await DockerPS(context, $"--filter id={containerId}");
 
             // docker ps function is returning table with containers in Running state.

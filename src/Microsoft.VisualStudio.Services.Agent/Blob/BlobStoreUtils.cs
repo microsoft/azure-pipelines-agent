@@ -36,13 +36,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             traceOutput(StringUtil.Loc("BuildingFileTree"));
             var fileNodes = await GenerateHashes(itemPaths, cancellationToken);
             var rootNode = CreateNodeToUpload(fileNodes.Where(x => x.Success).Select(y => y.Node));
-           
+
             // If there are multiple paths to one DedupId (duplicate files)
             // take the last one
             var fileDedupIds = new Dictionary<DedupIdentifier, string>();
             foreach (var file in fileNodes.Where(x => x.Success))
             {
-                 // ChunkHelper uses 64k block default size
+                // ChunkHelper uses 64k block default size
                 var dedupId = file.Node.GetDedupIdentifier(HashType.Dedup64K);
                 fileDedupIds[dedupId] = file.Path;
             }
@@ -127,7 +127,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                             Node = dedupNode,
                             Success = dedupNode != null
                         };
-                    } 
+                    }
                     catch (Exception)
                     {
                         nodes[i] = new BlobFileInfo
@@ -178,7 +178,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
         {
             // Create chunks and identifier
             var chunk = await ChunkerHelper.CreateFromFileAsync(FileSystem.Instance, itemPath, cancellationToken, false);
-            var rootNode = new DedupNode(new []{ chunk });
+            var rootNode = new DedupNode(new[] { chunk });
             // ChunkHelper uses 64k block default size
             var dedupId = rootNode.GetDedupIdentifier(HashType.Dedup64K);
 
@@ -196,7 +196,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                 actionAsync: async () => await AsyncHttpRetryHelper.InvokeAsync(
                         async () =>
                         {
-                            await uploadSession.UploadAsync(rootNode, new Dictionary<DedupIdentifier, string>(){ [dedupId] = itemPath }, cancellationToken);
+                            await uploadSession.UploadAsync(rootNode, new Dictionary<DedupIdentifier, string>() { [dedupId] = itemPath }, cancellationToken);
                             return uploadSession.UploadStatistics;
                         },
                         maxRetries: 3,

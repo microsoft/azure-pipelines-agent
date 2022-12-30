@@ -5,6 +5,7 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using BuildXL.Cache.ContentStore.Hashing;
@@ -16,6 +17,7 @@ using VsoHash = Microsoft.VisualStudio.Services.BlobStore.Common.VsoHash;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -66,7 +68,16 @@ namespace Microsoft.VisualStudio.Services.Agent
                 await Task.Delay(100);
             }
 
-            _taskClient = _connection.GetClient<TaskHttpClient>();
+            try
+            {
+                _taskClient = _connection.GetClient<TaskHttpClient>();
+            }
+            catch (SocketException e)
+            {
+                ExceptionsUtil.HandleSocketException(e, _connection.Uri.ToString(), Trace.Error);
+                throw;
+            }
+
             _hasConnection = true;
         }
 
@@ -88,7 +99,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             return _taskClient.AppendLogContentAsync(scopeIdentifier, hubName, planId, logId, uploadStream, cancellationToken: cancellationToken);
         }
 
-        public Task AppendTimelineRecordFeedAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, Guid timelineRecordId, Guid stepId, IList<string> lines, long startLine,  CancellationToken cancellationToken)
+        public Task AppendTimelineRecordFeedAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, Guid timelineRecordId, Guid stepId, IList<string> lines, long startLine, CancellationToken cancellationToken)
         {
             CheckConnection();
             return _taskClient.AppendTimelineRecordFeedAsync(scopeIdentifier, hubName, planId, timelineId, timelineRecordId, stepId, lines, startLine, cancellationToken: cancellationToken);
@@ -160,8 +171,9 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public async Task<(DedupIdentifier dedupId, ulong length)> UploadAttachmentToBlobStore(bool verbose, string itemPath, Guid planId, Guid jobId, CancellationToken cancellationToken)
         {
+            int maxParallelism = HostContext.GetService<IConfigurationStore>().GetSettings().MaxDedupParallelism;
             var (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                    .CreateDedupClientAsync(verbose, (str) => Trace.Info(str), this._connection, cancellationToken);
+                    .CreateDedupClientAsync(verbose, (str) => Trace.Info(str), this._connection, maxParallelism, cancellationToken);
 
             var results = await BlobStoreUtils.UploadToBlobStore(verbose, itemPath, (level, uri, type) =>
                 new TimelineRecordAttachmentTelemetryRecord(level, uri, type, nameof(UploadAttachmentToBlobStore), planId, jobId, Guid.Empty), (str) => Trace.Info(str), dedupClient, clientTelemetry, cancellationToken);
@@ -171,7 +183,8 @@ namespace Microsoft.VisualStudio.Services.Agent
             return results;
         }
 
-        private IBlobStoreHttpClient CreateArtifactsClient(VssConnection connection, CancellationToken cancellationToken){
+        private IBlobStoreHttpClient CreateArtifactsClient(VssConnection connection, CancellationToken cancellationToken)
+        {
             var tracer = new CallbackAppTraceSource(str => Trace.Info(str), System.Diagnostics.SourceLevels.Information);
 
             ArtifactHttpClientFactory factory = new ArtifactHttpClientFactory(

@@ -2,11 +2,13 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Util;
 using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.Sockets;
 using Microsoft.IdentityModel.Clients.ActiveDirectory;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Client;
@@ -121,7 +123,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             ArgUtil.NotNull(authResult, nameof(authResult));
             trace.Info($"receive AAD auth result with {authResult.AccessTokenType} token");
 
-            var aadCred = new VssAadCredential(new VssAadToken(authResult));
+            var aadCred = new VssAadCredential(new VssAadToken(authResult.AccessTokenType, authResult.AccessToken));
             VssCredentials creds = new VssCredentials(null, aadCred, CredentialPromptType.DoNotPrompt);
             trace.Info("cred created");
 
@@ -140,6 +142,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         private Uri GetTenantAuthorityUrl(IHostContext context, string serverUrl)
         {
+            Tracing trace = context.GetTrace(nameof(AadDeviceCodeAccessToken));
+
             using (var handler = context.CreateHttpClientHandler())
             using (var client = new HttpClient(handler))
             {
@@ -150,7 +154,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 client.DefaultRequestHeaders.UserAgent.AddRange(VssClientHttpRequestSettings.Default.UserAgent);
                 using (var requestMessage = new HttpRequestMessage(HttpMethod.Head, $"{serverUrl.Trim('/')}/_apis/connectiondata"))
                 {
-                    var response = client.SendAsync(requestMessage).GetAwaiter().GetResult();
+                    HttpResponseMessage response;
+                    try
+                    {
+                        response = client.SendAsync(requestMessage).GetAwaiter().GetResult();
+                    }
+                    catch (SocketException e)
+                    {
+                        ExceptionsUtil.HandleSocketException(e, serverUrl, trace.Error);
+                        throw;
+                    }
 
                     // Get the tenant from the Login URL, MSA backed accounts will not return `Bearer` www-authenticate header.
                     var bearerResult = response.Headers.WwwAuthenticate.Where(p => p.Scheme.Equals("Bearer", StringComparison.OrdinalIgnoreCase)).FirstOrDefault();

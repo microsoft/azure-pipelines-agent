@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-﻿using Microsoft.TeamFoundation.TestManagement.WebApi;
+using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.WebApi;
 using System;
@@ -32,7 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         public TestRunData ReadResults(IExecutionContext executionContext, string filePath, TestRunContext runContext = null)
         {
             // http://windyroad.com.au/dl/Open%20Source/JUnit.xsd
-            
+
             XmlDocument doc = new XmlDocument();
             try
             {
@@ -130,20 +130,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
             if (!runSummary.SuiteTimeStampAvailable)
             {
                 executionContext.Output("Timestamp is not available for one or more testsuites. Total run duration is being calculated as the sum of time durations of detected testsuites");
-               
+
                 if (!runSummary.SuiteTimeDataAvailable)
                 {
                     executionContext.Output("Time is not available for one or more testsuites. Total run duration is being calculated as the sum of time durations of detected testcases");
                 }
             }
             //if start time is not calculated then it should be initialized as present time
-            runSummary.TimeStamp = runSummary.TimeStamp == DateTime.MaxValue 
-                ? presentTime 
+            runSummary.TimeStamp = runSummary.TimeStamp == DateTime.MaxValue
+                ? presentTime
                 : runSummary.TimeStamp;
             //if suite timestamp data is not available even for single testsuite, then fallback to testsuite run time
             //if testsuite run time is not available even for single testsuite, then fallback to total test case duration
-            maxCompletedTime = !runSummary.SuiteTimeStampAvailable || maxCompletedTime == DateTime.MinValue 
-                ? runSummary.TimeStamp.Add(runSummary.SuiteTimeDataAvailable ? runSummary.TestSuiteDuration 
+            maxCompletedTime = !runSummary.SuiteTimeStampAvailable || maxCompletedTime == DateTime.MinValue
+                ? runSummary.TimeStamp.Add(runSummary.SuiteTimeDataAvailable ? runSummary.TestSuiteDuration
                 : runSummary.TotalTestCaseDuration) : maxCompletedTime;
             //create test run data
             var testRunData = new TestRunData(
@@ -180,17 +180,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         private TestSuiteSummary ReadTestSuite(XmlNode rootNode, IdentityRef runUserIdRef)
         {
             TestSuiteSummary testSuiteSummary = new TestSuiteSummary(Name);
-            
+
             XmlNodeList innerTestSuiteNodeList = rootNode.SelectNodes("./testsuite");
-            if(innerTestSuiteNodeList != null)
+            if (innerTestSuiteNodeList != null)
             {
-                foreach(XmlNode innerTestSuiteNode in innerTestSuiteNodeList)
+                foreach (XmlNode innerTestSuiteNode in innerTestSuiteNodeList)
                 {
-                    TestSuiteSummary innerTestSuiteSummary = ReadTestSuite(innerTestSuiteNode , runUserIdRef);
+                    TestSuiteSummary innerTestSuiteSummary = ReadTestSuite(innerTestSuiteNode, runUserIdRef);
                     testSuiteSummary.Results.AddRange(innerTestSuiteSummary.Results);
                 }
             }
-            
+
             TimeSpan totalTestSuiteDuration = TimeSpan.Zero;
             TimeSpan totalTestCaseDuration = TimeSpan.Zero;
 
@@ -326,8 +326,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                 if (timeValue != null)
                 {
                     // Ensure that the time data is a positive value within range
-                    if (Double.TryParse(timeValue, NumberStyles.Any, NumberFormatInfo.InvariantInfo, out double timeInSeconds) 
-                        && !Double.IsNaN(timeInSeconds) 
+                    if (Double.TryParse(timeValue, NumberStyles.Any, NumberFormatInfo.InvariantInfo, out double timeInSeconds)
+                        && !Double.IsNaN(timeInSeconds)
                         && !Double.IsInfinity(timeInSeconds)
                         && timeInSeconds >= 0)
                     {
@@ -362,7 +362,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
             stdout = testCaseNode.SelectSingleNode("./system-out");
 
             resultCreateModel.AttachmentData = new AttachmentData();
-            
+
             if (stdout != null && !string.IsNullOrWhiteSpace(stdout.InnerText))
             {
                 resultCreateModel.AttachmentData.ConsoleLog = stdout.InnerText;
@@ -389,9 +389,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
             public List<TestCaseResultData> Results { get; set; }
 
             public TimeSpan TotalTestCaseDuration { get; set; }
-            
+
             public bool SuiteTimeDataAvailable { get; set; }
-            
+
             public bool SuiteTimeStampAvailable { get; set; }
 
             public TestSuiteSummary(string name)

@@ -16,7 +16,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
     }
 
     public class CredentialManager : AgentService, ICredentialManager
-    {        
+    {
         public static readonly Dictionary<string, Type> CredentialTypes = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase)
         {
             { Constants.Configuration.AAD, typeof(AadDeviceCodeAccessToken)},
@@ -43,20 +43,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Trace.Verbose("Created credential type");
             return creds;
         }
-        
+
         public VssCredentials LoadCredentials()
         {
-            IConfigurationStore store = HostContext.GetService<IConfigurationStore>(); 
+            IConfigurationStore store = HostContext.GetService<IConfigurationStore>();
 
             if (!store.HasCredentials())
             {
                 throw new InvalidOperationException("Credentials not stored.  Must reconfigure.");
             }
-                        
+
             CredentialData credData = store.GetCredentials();
             ICredentialProvider credProv = GetCredentialProvider(credData.Scheme);
             credProv.CredentialData = credData;
-            
+
             VssCredentials creds = credProv.GetVssCredentials(HostContext);
 
             return creds;

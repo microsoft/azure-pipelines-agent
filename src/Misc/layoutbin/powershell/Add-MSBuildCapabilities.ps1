@@ -1,6 +1,41 @@
 [CmdletBinding()]
 param()
 
+function Get-MSBuildCapabilities {
+    param (
+        [Parameter(Mandatory = $true)]
+        [int]$MajorVersion,
+
+        [switch]$Add_x64
+    )
+
+    $vs = Get-VisualStudio -MajorVersion $MajorVersion
+    
+    $capabilitySuffix = [string]::Empty
+    if($Add_x64)
+    {
+        $msbuildInstallationPath = 'MSBuild\Current\Bin\amd64'
+        $capabilitySuffix = "_x64"
+    }
+    else
+    {
+        $msbuildInstallationPath = 'MSBuild\Current\Bin'
+    }
+
+    if ($vs -and $vs.installationPath) {
+        # Add MSBuild_$($MajorVersion).0.
+        # End with "\" for consistency with old MSBuildToolsPath value.
+        $msbuild = ([System.IO.Path]::Combine($vs.installationPath, $msbuildInstallationPath)) + '\'
+        if ((Test-Leaf -LiteralPath "$($msbuild)MSBuild.exe")) {
+            Write-Capability -Name "MSBuild_$($MajorVersion).0$($capabilitySuffix)" -Value $msbuild
+            $latest = $msbuild
+        }
+    }
+    if ($latest) {
+        Write-Capability -Name "MSBuild$($capabilitySuffix)" -Value $latest
+    }
+}
+
 # Define the key names.
 $keyName20 = "Software\Microsoft\MSBuild\ToolsVersions\2.0"
 $keyName35 = "Software\Microsoft\MSBuild\ToolsVersions\3.5"
@@ -26,20 +61,9 @@ if ($vs15 -and $vs15.installationPath) {
     }
 }
 
-$vs16 = Get-VisualStudio -MajorVersion 16
-if ($vs16 -and $vs16.installationPath) {
-    # Add MSBuild_16.0.
-    # End with "\" for consistency with old MSBuildToolsPath value.
-    $msbuild16 = ([System.IO.Path]::Combine($vs16.installationPath, 'MSBuild\Current\Bin')) + '\'
-    if ((Test-Leaf -LiteralPath "$($msbuild16)MSBuild.exe")) {
-        Write-Capability -Name 'MSBuild_16.0' -Value $msbuild16
-        $latest = $msbuild16
-    }
-}
+Get-MSBuildCapabilities -MajorVersion 16
 
-if ($latest) {
-    Write-Capability -Name "MSBuild" -Value $latest
-}
+Get-MSBuildCapabilities -MajorVersion 17
 
 # Add 64-bit.
 $latest = $null
@@ -58,16 +82,6 @@ if ($vs15 -and $vs15.installationPath) {
     }
 }
 
-if ($vs16 -and $vs16.installationPath) {
-    # Add MSBuild_16.0_x64.
-    # End with "\" for consistency with old MSBuildToolsPath value.
-    $msbuild16 = ([System.IO.Path]::Combine($vs16.installationPath, 'MSBuild\Current\Bin\amd64')) + '\'
-    if ((Test-Leaf -LiteralPath "$($msbuild16)MSBuild.exe")) {
-        Write-Capability -Name 'MSBuild_16.0_x64' -Value $msbuild16
-        $latest = $msbuild16
-    }
-}
+Get-MSBuildCapabilities -MajorVersion 16 -Add_x64
 
-if ($latest) {
-    Write-Capability -Name "MSBuild_x64" -Value $latest
-}
+Get-MSBuildCapabilities -MajorVersion 17 -Add_x64

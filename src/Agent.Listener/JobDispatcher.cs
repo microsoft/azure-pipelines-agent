@@ -2,10 +2,12 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk.Knob;
+using Agent.Sdk.Util;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
@@ -309,6 +311,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             {
                 await RunAsync(message, previousJobDispatch, currentJobDispatch);
             }
+            catch (AggregateException e)
+            {
+                ExceptionsUtil.HandleAggregateException((AggregateException)e, Trace.Error);
+            }
             finally
             {
                 Trace.Info("Fire signal for one time used agent.");
@@ -438,6 +444,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                 inheritConsoleHandler: false,
                                 keepStandardInOpen: false,
                                 highPriorityProcess: true,
+                                continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
                                 cancellationToken: workerProcessCancelTokenSource.Token);
                         }
                     );
@@ -658,6 +665,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         // complete job request
                         await CompleteJobRequestAsync(_poolId, message, lockToken, resultOnAbandonOrCancel);
                     }
+                    catch (AggregateException e)
+                    {
+                        ExceptionsUtil.HandleAggregateException((AggregateException)e, Trace.Error);
+                    }
                     finally
                     {
                         // This should be the last thing to run so we don't notify external parties until actually finished
@@ -874,7 +885,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     }
                 }
 
-                var jobConnection = VssUtil.CreateConnection(jobServerUrl, jobServerCredential);
+                var jobConnection = VssUtil.CreateConnection(jobServerUrl, jobServerCredential, trace: Trace);
                 await jobServer.ConnectAsync(jobConnection);
                 var timeline = await jobServer.GetTimelineAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, CancellationToken.None);
                 ArgUtil.NotNull(timeline, nameof(timeline));
@@ -883,6 +894,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 jobRecord.ErrorCount++;
                 jobRecord.Issues.Add(new Issue() { Type = IssueType.Error, Message = errorMessage });
                 await jobServer.UpdateTimelineRecordsAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, new TimelineRecord[] { jobRecord }, CancellationToken.None);
+            }
+            catch (SocketException ex)
+            {
+                ExceptionsUtil.HandleSocketException(ex, message.Resources.Endpoints.SingleOrDefault(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection)).Url.ToString(), Trace.Error);
             }
             catch (Exception ex)
             {

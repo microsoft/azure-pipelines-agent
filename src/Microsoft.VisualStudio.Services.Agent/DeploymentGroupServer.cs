@@ -102,13 +102,13 @@ namespace Microsoft.VisualStudio.Services.Agent
         public Task<List<DeploymentMachine>> GetDeploymentTargetsAsync(string projectName, int deploymentGroupId, string machineName)
         {
             CheckConnection();
-            return _taskAgentClient.GetDeploymentTargetsAsync(projectName, deploymentGroupId, tags : null, name : machineName);
+            return _taskAgentClient.GetDeploymentTargetsAsync(projectName, deploymentGroupId, tags: null, name: machineName);
         }
 
         public Task<List<DeploymentMachine>> GetDeploymentTargetsAsync(Guid projectGuid, int deploymentGroupId, string machineName)
         {
             CheckConnection();
-            return _taskAgentClient.GetDeploymentTargetsAsync(projectGuid, deploymentGroupId, tags : null, name :machineName);
+            return _taskAgentClient.GetDeploymentTargetsAsync(projectGuid, deploymentGroupId, tags: null, name: machineName);
         }
 
         //-----------------------------------------------------------------

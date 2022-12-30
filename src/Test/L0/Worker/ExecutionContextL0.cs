@@ -134,7 +134,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             {
                 ec.Initialize(hc);
 
-                var pipeContainer = new Pipelines.ContainerResource {
+                var pipeContainer = new Pipelines.ContainerResource
+                {
                     Alias = "container"
                 };
                 pipeContainer.Properties.Set<string>("image", "someimage");
@@ -182,7 +183,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             {
                 ec.Initialize(hc);
 
-                var pipeContainer = new Pipelines.ContainerResource {
+                var pipeContainer = new Pipelines.ContainerResource
+                {
                     Alias = "container"
                 };
                 pipeContainer.Properties.Set<string>("image", "someimage");
@@ -231,7 +233,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             {
                 ec.Initialize(hc);
 
-                var pipeContainer = new Pipelines.ContainerResource {
+                var pipeContainer = new Pipelines.ContainerResource
+                {
                     Alias = "container"
                 };
                 pipeContainer.Properties.Set<string>("image", "someimage");
@@ -278,13 +281,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             {
                 ec.Initialize(hc);
 
-                var pipeContainer = new Pipelines.ContainerResource {
+                var pipeContainer = new Pipelines.ContainerResource
+                {
                     Alias = "container"
                 };
-                var pipeContainerSidecar = new Pipelines.ContainerResource {
+                var pipeContainerSidecar = new Pipelines.ContainerResource
+                {
                     Alias = "sidecar"
                 };
-                var pipeContainerExtra = new Pipelines.ContainerResource {
+                var pipeContainerExtra = new Pipelines.ContainerResource
+                {
                     Alias = "extra"
                 };
                 pipeContainer.Properties.Set<string>("image", "someimage");
@@ -479,6 +485,87 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Assert.Equal(Boolean.FalseString, repo3.Properties.Get<string>(RepositoryUtil.IsPrimaryRepository, Boolean.FalseString));
             }
         }
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [InlineData(true, null, null)]
+        [InlineData(true, null, "host")]
+        [InlineData(true, null, "container")]
+        [InlineData(true, "container", null)]
+        [InlineData(true, "container", "host")]
+        [InlineData(true, "container", "container")]
+        [InlineData(false, null, null)]
+        [InlineData(false, null, "host")]
+        [InlineData(false, null, "container")]
+        [InlineData(false, "container", null)]
+        [InlineData(false, "container", "host")]
+        [InlineData(false, "container", "container")]
+        public void TranslatePathForStepTarget_should_convert_path_only_for_containers(bool isCheckout, string jobTarget, string stepTarget)
+        {
+            // Note: the primary repository is defined as the first repository that is checked out in the job
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                ec.Initialize(hc);
+
+                // Arrange: Create a container.
+                var pipeContainer = new Pipelines.ContainerResource
+                {
+                    Alias = "container"
+                };
+                pipeContainer.Properties.Set<string>("image", "someimage");
+
+                // Arrange: Create a job request message.
+                TaskOrchestrationPlanReference plan = new TaskOrchestrationPlanReference();
+                TimelineReference timeline = new TimelineReference();
+                JobEnvironment environment = new JobEnvironment();
+                environment.SystemConnection = new ServiceEndpoint();
+                List<Pipelines.JobStep> steps = new List<Pipelines.JobStep>();
+                steps.Add(new Pipelines.TaskStep
+                {
+                    Target = new Pipelines.StepTarget
+                    {
+                        Target = stepTarget
+                    },
+                    Reference = new Pipelines.TaskStepDefinitionReference()
+                });
+                var resources = new Pipelines.JobResources();
+                resources.Containers.Add(pipeContainer);
+                Guid JobId = Guid.NewGuid();
+                string jobName = "some job name";
+                var jobRequest = new Pipelines.AgentJobRequestMessage(plan, timeline, JobId, jobName, jobName, jobTarget, new Dictionary<string, string>(),
+                    new Dictionary<string, VariableValue>(), new List<MaskHint>(), resources, new Pipelines.WorkspaceOptions(), steps);
+
+                // Arrange
+                var pagingLogger = new Mock<IPagingLogger>();
+                hc.EnqueueInstance(pagingLogger.Object);
+
+                // Act.
+                ec.InitializeJob(jobRequest, CancellationToken.None);
+                ec.SetStepTarget(steps[0].Target);
+                ec.Variables.Set(Constants.Variables.Task.SkipTranslatorForCheckout, isCheckout.ToString());
+
+                string stringBeforeTranslation = hc.GetDirectory(WellKnownDirectory.Work);
+                string stringAfterTranslation = ec.TranslatePathForStepTarget(stringBeforeTranslation);
+
+                // Assert.
+                if ((stepTarget == "container") || (isCheckout is false && jobTarget == "container" && stepTarget == null))
+                {
+                    string stringContainer = "C:\\__w";
+                    if (ec.StepTarget().ExecutionOS != PlatformUtil.OS.Windows)
+                    {
+                        stringContainer = "/__w";
+                    }
+                    Assert.Equal(stringContainer, stringAfterTranslation);
+                }
+                else
+                {
+                    Assert.Equal(stringBeforeTranslation, stringAfterTranslation);
+                }
+            }
+        }
+
 
         private TestHostContext CreateTestContext([CallerMemberName] String testName = "")
         {

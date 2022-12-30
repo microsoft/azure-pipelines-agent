@@ -2,10 +2,12 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk.Knob;
+using Agent.Sdk.Util;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Linq;
+using System.Net.Sockets;
 using System.Collections.Generic;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
@@ -107,6 +109,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     {
                         extension.ProcessCommand(context, command);
                     }
+                    catch (SocketException ex)
+                    {
+#pragma warning disable CA2000 // Dispose objects before losing scope
+                        ExceptionsUtil.HandleSocketException(ex, WorkerUtilities.GetVssConnection(context).Uri.ToString(), context.Error);
+#pragma warning restore CA2000 // Dispose objects before losing scope
+                        context.CommandResult = TaskResult.Failed;
+                    }
                     catch (Exception ex)
                     {
                         context.Error(StringUtil.Loc("CommandProcessFailed", input));
@@ -157,7 +166,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         void Execute(IExecutionContext context, Command command);
     }
 
-    public abstract class BaseWorkerCommandExtension: AgentService, IWorkerCommandExtension
+    public abstract class BaseWorkerCommandExtension : AgentService, IWorkerCommandExtension
     {
 
         public string CommandArea { get; protected set; }

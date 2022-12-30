@@ -18,6 +18,7 @@ using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.PipelineCache.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using JsonSerializer = Microsoft.VisualStudio.Services.Content.Common.JsonSerializer;
+using Microsoft.VisualStudio.Services.BlobStore.Common;
 
 namespace Agent.Plugins.PipelineCache
 {
@@ -40,7 +41,14 @@ namespace Agent.Plugins.PipelineCache
         {
             VssConnection connection = context.VssConnection;
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                .CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, cancellationToken);
+                .CreateDedupManifestClientAsync(
+                    context.IsSystemDebugTrue(),
+                    (str) => context.Output(str),
+                    connection,
+                    DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
+                    WellKnownDomainIds.DefaultDomainId,
+                    cancellationToken);
+
             PipelineCacheClient pipelineCacheClient = await this.CreateClientWithRetryAsync(clientTelemetry, context, connection, cancellationToken);
 
             using (clientTelemetry)
@@ -48,7 +56,7 @@ namespace Agent.Plugins.PipelineCache
                 // Check if the key exists.
                 PipelineCacheActionRecord cacheRecordGet = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
                         new PipelineCacheActionRecord(level, uri, type, PipelineArtifactConstants.RestoreCache, context));
-                PipelineCacheArtifact getResult = await pipelineCacheClient.GetPipelineCacheArtifactAsync(new [] {fingerprint}, cancellationToken, cacheRecordGet);
+                PipelineCacheArtifact getResult = await pipelineCacheClient.GetPipelineCacheArtifactAsync(new[] { fingerprint }, cancellationToken, cacheRecordGet);
                 // Send results to CustomerIntelligence
                 context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineCache, record: cacheRecordGet);
                 //If cache exists, return.
@@ -65,9 +73,9 @@ namespace Agent.Plugins.PipelineCache
 
                 PublishResult result = await clientTelemetry.MeasureActionAsync(
                     record: uploadRecord,
-                    actionAsync: async () => 
+                    actionAsync: async () =>
                         await AsyncHttpRetryHelper.InvokeAsync(
-                            async () => 
+                            async () =>
                             {
                                 return await dedupManifestClient.PublishAsync(uploadPath, cancellationToken);
                             },
@@ -99,15 +107,39 @@ namespace Agent.Plugins.PipelineCache
                     }
                     catch { }
                 }
-                
-                // Cache the artifact
-                PipelineCacheActionRecord cacheRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
-                    new PipelineCacheActionRecord(level, uri, type, PipelineArtifactConstants.SaveCache, context));
-                CreateStatus status = await pipelineCacheClient.CreatePipelineCacheArtifactAsync(options, cancellationToken, cacheRecord);
+
+                // Try to cache the artifact
+                PipelineCacheActionRecord cacheRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>(
+                    (level, uri, type) => new PipelineCacheActionRecord(
+                        level,
+                        uri,
+                        type,
+                        PipelineArtifactConstants.SaveCache,
+                        context));
+
+                try
+                {
+                    _ = await pipelineCacheClient.CreatePipelineCacheArtifactAsync(
+                        options,
+                        cancellationToken,
+                        cacheRecord);
+                }
+                catch
+                {
+                    context.Output($"Failed to cache item.");
+                }
 
                 // Send results to CustomerIntelligence
-                context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineCache, record: uploadRecord);
-                context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineCache, record: cacheRecord);
+                context.PublishTelemetry(
+                    area: PipelineArtifactConstants.AzurePipelinesAgent,
+                    feature: PipelineArtifactConstants.PipelineCache,
+                    record: uploadRecord);
+
+                context.PublishTelemetry(
+                    area: PipelineArtifactConstants.AzurePipelinesAgent,
+                    feature: PipelineArtifactConstants.PipelineCache,
+                    record: cacheRecord);
+
                 context.Output("Saved item.");
             }
         }
@@ -121,7 +153,14 @@ namespace Agent.Plugins.PipelineCache
         {
             VssConnection connection = context.VssConnection;
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                .CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, cancellationToken);
+                .CreateDedupManifestClientAsync(
+                    context.IsSystemDebugTrue(),
+                    (str) => context.Output(str),
+                    connection,
+                    DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
+                    WellKnownDomainIds.DefaultDomainId,
+                    cancellationToken);
+
             PipelineCacheClient pipelineCacheClient = await this.CreateClientWithRetryAsync(clientTelemetry, context, connection, cancellationToken);
 
             using (clientTelemetry)
@@ -129,19 +168,24 @@ namespace Agent.Plugins.PipelineCache
                 PipelineCacheActionRecord cacheRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
                         new PipelineCacheActionRecord(level, uri, type, PipelineArtifactConstants.RestoreCache, context));
 
-                PipelineCacheArtifact result = await AsyncHttpRetryHelper.InvokeAsync(
-                    async () =>
-                    {
-                        return await pipelineCacheClient.GetPipelineCacheArtifactAsync(fingerprints, cancellationToken, cacheRecord);
-                    },
-                    maxRetries: 3,
-                    tracer: tracer,
-                    canRetryDelegate: e => true, // this isn't great, but failing on upload stinks, so just try a couple of times
-                    cancellationToken: cancellationToken,
-                    continueOnCapturedContext: false);
+                PipelineCacheArtifact result = null;
+                try
+                {
+                    result = await pipelineCacheClient.GetPipelineCacheArtifactAsync(
+                        fingerprints,
+                        cancellationToken,
+                        cacheRecord);
+                }
+                catch
+                {
+                    context.Output($"Failed to get cached item.");
+                }
 
                 // Send results to CustomerIntelligence
-                context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineCache, record: cacheRecord);
+                context.PublishTelemetry(
+                    area: PipelineArtifactConstants.AzurePipelinesAgent,
+                    feature: PipelineArtifactConstants.PipelineCache,
+                    record: cacheRecord);
 
                 if (result != null)
                 {
@@ -158,7 +202,7 @@ namespace Agent.Plugins.PipelineCache
 
                     // Send results to CustomerIntelligence
                     context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineCache, record: downloadRecord);
-                    
+
                     context.Output("Cache restored.");
                 }
 
@@ -173,11 +217,11 @@ namespace Agent.Plugins.PipelineCache
                         context.Verbose($"Exact fingerprint: `{result.Fingerprint.ToString()}`");
 
                         bool foundExact = false;
-                        foreach(var fingerprint in fingerprints)
+                        foreach (var fingerprint in fingerprints)
                         {
                             context.Verbose($"This fingerprint: `{fingerprint.ToString()}`");
 
-                            if (fingerprint == result.Fingerprint 
+                            if (fingerprint == result.Fingerprint
                                 || result.Fingerprint.Segments.Length == 1 && result.Fingerprint.Segments.Single() == fingerprint.SummarizeForV1())
                             {
                                 foundExact = true;
@@ -225,7 +269,7 @@ namespace Agent.Plugins.PipelineCache
         private async Task<string> GetUploadPathAsync(ContentFormat contentFormat, AgentTaskPluginExecutionContext context, string path, CancellationToken cancellationToken)
         {
             string uploadPath = path;
-            if(contentFormat == ContentFormat.SingleTar)
+            if (contentFormat == ContentFormat.SingleTar)
             {
                 uploadPath = await TarUtils.ArchiveFilesToTarAsync(context, path, cancellationToken);
             }
@@ -257,15 +301,15 @@ namespace Agent.Plugins.PipelineCache
                     continueOnCapturedContext: false);
 
                 Manifest manifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(manifestPath));
-                await TarUtils.DownloadAndExtractTarAsync (context, manifest, dedupManifestClient, targetDirectory, cancellationToken);
+                await TarUtils.DownloadAndExtractTarAsync(context, manifest, dedupManifestClient, targetDirectory, cancellationToken);
                 try
                 {
-                    if(File.Exists(manifestPath))
+                    if (File.Exists(manifestPath))
                     {
                         File.Delete(manifestPath);
                     }
                 }
-                catch {}
+                catch { }
             }
             else
             {

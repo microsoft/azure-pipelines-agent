@@ -116,7 +116,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 {
                     var repoPath = repo.Properties.Get<string>(RepositoryPropertyNames.Path)?.TrimEnd(Path.DirectorySeparatorChar);
 
-                    if (!string.IsNullOrEmpty(repoPath) && 
+                    if (!string.IsNullOrEmpty(repoPath) &&
                         (localPath.Equals(repoPath, IOUtil.FilePathStringComparison)) ||
                          localPath.StartsWith(repoPath + Path.DirectorySeparatorChar, IOUtil.FilePathStringComparison))
                     {
@@ -157,7 +157,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             {
                 return RepositoryTypes.GitHub;
             }
-            else if (repositoryUrl.IndexOf(".visualstudio.com", StringComparison.OrdinalIgnoreCase) >= 0 
+            else if (repositoryUrl.IndexOf(".visualstudio.com", StringComparison.OrdinalIgnoreCase) >= 0
                   || repositoryUrl.IndexOf("dev.azure.com", StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 if (repositoryUrl.IndexOf("/_git/", StringComparison.OrdinalIgnoreCase) >= 0)
