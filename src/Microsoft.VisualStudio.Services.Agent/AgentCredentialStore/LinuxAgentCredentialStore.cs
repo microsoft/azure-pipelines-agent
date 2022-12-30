@@ -13,7 +13,7 @@ using System.Security.Cryptography;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
-  public sealed class LinuxAgentCredentialStore : AgentService, IAgentCredentialStore
+    public sealed class LinuxAgentCredentialStore : AgentService, IAgentCredentialStore
     {
         // 'msftvsts' 128 bits iv
         private readonly byte[] iv = new byte[] { 0x36, 0x64, 0x37, 0x33, 0x36, 0x36, 0x37, 0x34, 0x37, 0x36, 0x37, 0x33, 0x37, 0x34, 0x37, 0x33 };

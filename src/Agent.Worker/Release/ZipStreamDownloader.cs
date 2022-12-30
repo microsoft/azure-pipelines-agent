@@ -92,7 +92,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 
                     string destFileName = Path.GetFullPath(Path.Combine(localFolderPath, path));
                     string destDirPath = Path.GetFullPath(localFolderPath + Path.DirectorySeparatorChar);
-                    if (!destFileName.StartsWith(destDirPath)) {
+                    if (!destFileName.StartsWith(destDirPath))
+                    {
                         throw new InvalidOperationException(StringUtil.Loc("ZipSlipFailure", destFileName));
                     }
 

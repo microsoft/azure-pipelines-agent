@@ -57,10 +57,10 @@ namespace Test.L0.Plugin.TestGitCliManager
 
                     // Assert
                     Assert.Equal(2, gitCliManagerMock.GitCommandCallsOptions.Count);
-                    
+
                     Assert.True(gitCliManagerMock.GitCommandCallsOptions.Contains("repositoryPath,checkout,refSpec -- .lfsconfig,additionalCmdLine"), "ExecuteGitCommandAsync should pass arguments properly to 'git checkout .lfsconfig' command");
                     Assert.True(gitCliManagerMock.GitCommandCallsOptions.Contains("repositoryPath,lfs,fetch origin refSpec,additionalCmdLine"), "ExecuteGitCommandAsync should pass arguments properly to 'git lfs fetch' command");
-                    
+
                 }
                 finally
                 {

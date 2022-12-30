@@ -134,7 +134,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             {
                 ec.Initialize(hc);
 
-                var pipeContainer = new Pipelines.ContainerResource {
+                var pipeContainer = new Pipelines.ContainerResource
+                {
                     Alias = "container"
                 };
                 pipeContainer.Properties.Set<string>("image", "someimage");
@@ -182,7 +183,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             {
                 ec.Initialize(hc);
 
-                var pipeContainer = new Pipelines.ContainerResource {
+                var pipeContainer = new Pipelines.ContainerResource
+                {
                     Alias = "container"
                 };
                 pipeContainer.Properties.Set<string>("image", "someimage");
@@ -231,7 +233,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             {
                 ec.Initialize(hc);
 
-                var pipeContainer = new Pipelines.ContainerResource {
+                var pipeContainer = new Pipelines.ContainerResource
+                {
                     Alias = "container"
                 };
                 pipeContainer.Properties.Set<string>("image", "someimage");
@@ -278,13 +281,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             {
                 ec.Initialize(hc);
 
-                var pipeContainer = new Pipelines.ContainerResource {
+                var pipeContainer = new Pipelines.ContainerResource
+                {
                     Alias = "container"
                 };
-                var pipeContainerSidecar = new Pipelines.ContainerResource {
+                var pipeContainerSidecar = new Pipelines.ContainerResource
+                {
                     Alias = "sidecar"
                 };
-                var pipeContainerExtra = new Pipelines.ContainerResource {
+                var pipeContainerExtra = new Pipelines.ContainerResource
+                {
                     Alias = "extra"
                 };
                 pipeContainer.Properties.Set<string>("image", "someimage");

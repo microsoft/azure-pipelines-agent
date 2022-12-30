@@ -12,7 +12,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Util
 {
-  public static class VarUtil
+    public static class VarUtil
     {
         public static StringComparer EnvironmentVariableKeyComparer
         {
@@ -63,6 +63,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                         throw new NotSupportedException(); // Should never reach here.
                 }
             }
+        }
+
+        /// <summary>
+        /// Returns value in environment variables format.
+        /// Example: env.var -> ENV_VAR
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public static string ConvertToEnvVariableFormat(string value)
+        {
+            return value?.Replace('.', '_').Replace(' ', '_').ToUpperInvariant() ?? string.Empty;
         }
 
         public static JToken ExpandEnvironmentVariables(IHostContext context, JToken target)

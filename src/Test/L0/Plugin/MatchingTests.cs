@@ -15,7 +15,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
     public class MatchingTests
     {
         private static readonly bool IsWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-        private static readonly string DefaultWorkingDirectory = 
+        private static readonly string DefaultWorkingDirectory =
             IsWindows
                 ? "C:\\working"
                 : "/working";
@@ -27,13 +27,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 return path;
             }
 
-            path = path.Replace('\\','/');
-            
+            path = path.Replace('\\', '/');
+
             if (path.Length >= 2 && path[1] == ':')
             {
                 return path.Substring(2);
             }
-            
+
             return path;
         }
 
@@ -43,7 +43,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
             (string path, bool match)[] testCases,
             [CallerMemberName] string testName = null)
         {
-            using(var hostContext = new TestHostContext(this, testName))
+            using (var hostContext = new TestHostContext(this, testName))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
 
@@ -59,16 +59,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                                     DefaultWorkingDirectory,
                                     p))
                     .ToArray();
-                Func<string,bool> filter = FingerprintCreator.CreateFilter(
+                Func<string, bool> filter = FingerprintCreator.CreateFilter(
                     context,
                     includePatterns,
                     excludePatterns
                 );
 
-                Action<string,bool> assertPath = (path, isMatch) =>
+                Action<string, bool> assertPath = (path, isMatch) =>
                     Assert.True(isMatch == filter(path), $"filter({path}) should have returned {isMatch}.");
 
-                foreach((string path, bool match) in testCases)
+                foreach ((string path, bool match) in testCases)
                 {
                     assertPath(MakeOSPath(path), match);
                 }
@@ -81,9 +81,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         public void MultipleIncludes()
         {
             RunTests(
-                includePatterns: new [] {"good1.tmp","good2.tmp"},
-                excludePatterns: new string[] {},
-                testCases:new []{
+                includePatterns: new[] { "good1.tmp", "good2.tmp" },
+                excludePatterns: new string[] { },
+                testCases: new[]{
                     ("C:\\working\\good1.tmp",true),
                     ("C:\\working\\good2.tmp",true),
                     ("C:\\working\\something.else",false),
@@ -97,9 +97,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         public void AbsoluteAndRelative()
         {
             RunTests(
-                includePatterns: new [] {"C:\\working\\good1.tmp","good2.tmp"},
-                excludePatterns: new string[] {},
-                testCases:new []{
+                includePatterns: new[] { "C:\\working\\good1.tmp", "good2.tmp" },
+                excludePatterns: new string[] { },
+                testCases: new[]{
                     ("C:\\working\\good1.tmp",true),
                     ("C:\\working\\good2.tmp",true),
                     ("C:\\working\\something.else",false),
@@ -114,9 +114,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         public void ExcludeSingleFile()
         {
             RunTests(
-                includePatterns: new [] {"*.tmp"},
-                excludePatterns: new [] {"bad.tmp"},
-                testCases:new []{
+                includePatterns: new[] { "*.tmp" },
+                excludePatterns: new[] { "bad.tmp" },
+                testCases: new[]{
                     ("C:\\working\\good.tmp",true),
                     ("C:\\working\\bad.tmp",false),
                     ("C:\\working\\something.else",false),
@@ -130,9 +130,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         public void ExcludeSingleFileWithDot()
         {
             RunTests(
-                includePatterns: new [] {"./*.tmp"},
-                excludePatterns: new [] {"./bad.tmp"},
-                testCases:new []{
+                includePatterns: new[] { "./*.tmp" },
+                excludePatterns: new[] { "./bad.tmp" },
+                testCases: new[]{
                     ("C:\\working\\good.tmp",true),
                     ("C:\\working\\bad.tmp",false),
                     ("C:\\working\\something.else",false),
@@ -146,9 +146,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         public void DoubleAsteriskAsPartOfPathSegment()
         {
             RunTests(
-                includePatterns: new [] {"./**blah/.tmp"},
-                excludePatterns: new [] {"./bad.tmp"},
-                testCases:new []{
+                includePatterns: new[] { "./**blah/.tmp" },
+                excludePatterns: new[] { "./bad.tmp" },
+                testCases: new[]{
                     ("C:\\working\\good.tmp",false),
                     ("C:\\working\\bad.tmp",false),
                     ("C:\\working\\something.else",false),

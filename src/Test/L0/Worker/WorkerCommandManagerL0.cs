@@ -24,7 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             }
         }
 
-        public class FooCommand: IWorkerCommand
+        public class FooCommand : IWorkerCommand
         {
             public string Name => "foo";
             public List<string> Aliases => null;
@@ -34,7 +34,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             }
         }
 
-        public class Foo2Command: IWorkerCommand
+        public class Foo2Command : IWorkerCommand
         {
             public string Name => "foo";
             public List<string> Aliases => null;
@@ -44,7 +44,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             }
         }
 
-        public class BarCommand: IWorkerCommand
+        public class BarCommand : IWorkerCommand
         {
             public string Name => "bar";
             public List<string> Aliases => new List<string>() { "cat" };

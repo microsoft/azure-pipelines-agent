@@ -149,11 +149,16 @@ async function createConfigChangePR(repoPath, agentVersion) {
 /**
  * Queries whatsprintis.it for current sprint version
  * 
+ * @throws An error will be thrown if the response does not contain a sprint version as a three-digit numeric value
  * @returns current sprint version
  */
 async function getCurrentSprint() {
     const response = await got.get('https://whatsprintis.it/?json', { responseType: 'json' });
-    return response.body.sprint;
+    const sprint = response.body.sprint;
+    if (!/^\d\d\d$/.test(sprint)) {
+        throw new Error(`Sprint must be a three-digit number; received: ${sprint}`);
+    }
+    return sprint;
 }
 
 async function main()

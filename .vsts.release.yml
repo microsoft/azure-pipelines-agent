@@ -17,6 +17,11 @@ parameters:
   default: false
   displayName: Build Stage Only
 
+- name: onlyGitHubRelease
+  type: boolean
+  default: false
+  displayName: Release only for GitHub
+
 variables:
   releaseBranch: releases/${{ parameters.version }}
 
@@ -29,38 +34,37 @@ extends:
     sign: true
     publishArtifacts: true
 
-    ${{ if not(parameters.buildStageOnly) }}:
-      preBuildStages:
-      - ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/master') }}:
-        - stage: Create_Release_Branch
+    preBuildStages:
+    - ${{ if and(not(parameters.buildStageOnly), eq(variables['Build.SourceBranch'], 'refs/heads/master')) }}:
+      - stage: Create_Release_Branch
+        displayName: Create Release Branch
+        jobs:
+        ################################################################################
+        - job: Create_Release_Branch
+        ################################################################################
           displayName: Create Release Branch
-          jobs:
-          ################################################################################
-          - job: Create_Release_Branch
-          ################################################################################
-            displayName: Create Release Branch
-            pool:
-              vmImage: ubuntu-18.04
+          pool:
+            vmImage: ubuntu-20.04
 
-            steps:
-            - checkout: self
+          steps:
+          - checkout: self
 
-            - task: NodeTool@0
-              displayName: Use node 14.15.1
-              inputs:
-                versionSpec: "14.15.1"
+          - task: NodeTool@0
+            displayName: Use node 14.15.1
+            inputs:
+              versionSpec: "14.15.1"
 
-            - script: |
-                cd release
-                npm install
-                node createReleaseBranch.js ${{ parameters.version }} --derivedFrom=${{ parameters.derivedFrom }}
-              env:
-                EDITOR: cat
-                PAT: $(GithubToken)
-              displayName: Push release branch to GitHub
+          - script: |
+              cd release
+              npm install
+              node createReleaseBranch.js ${{ parameters.version }} --derivedFrom=${{ parameters.derivedFrom }}
+            env:
+              EDITOR: cat
+              PAT: $(GithubToken)
+            displayName: Push release branch to GitHub
 
-    ${{ if not(parameters.buildStageOnly) }}:
-      postBuildStages:
+    postBuildStages:
+    - ${{ if not(parameters.buildStageOnly) }}:
       - stage: Release
         jobs:
         ################################################################################
@@ -89,35 +93,29 @@ extends:
           # Upload agent packages to Azure blob storage and refresh Azure CDN
           - powershell: |
               Write-Host "Preloading Azure modules." # This is for better performance, to avoid module-autoloading.
-              Import-Module AzureRM, AzureRM.profile, AzureRM.Storage, Azure.Storage, AzureRM.Cdn -ErrorAction Ignore -PassThru
-              if (!(Test-Path "$HOME\Documents\WindowsPowerShell\profile.ps1"))
-              {
-                Write-Host "Creating empty PowerShell profile for Enable-AzureRmAlias"
-                New-Item -Path "$HOME\Documents\WindowsPowerShell\profile.ps1" -ItemType File -Force | Out-Null
-              }
-              Enable-AzureRmAlias -Scope CurrentUser
+              Import-Module Azure, Az.Accounts, Az.Storage, Az.Cdn -ErrorAction Ignore -PassThru
               $uploadFiles = New-Object System.Collections.ArrayList
               $certificateThumbprint = (Get-ItemProperty -Path "$(ServicePrincipalReg)").ServicePrincipalCertThumbprint
               $clientId = (Get-ItemProperty -Path "$(ServicePrincipalReg)").ServicePrincipalClientId
               Write-Host "##vso[task.setsecret]$certificateThumbprint"
               Write-Host "##vso[task.setsecret]$clientId"
-              Login-AzureRmAccount -ServicePrincipal -CertificateThumbprint $certificateThumbprint -ApplicationId $clientId -TenantId $(TenantId)
-              Select-AzureRmSubscription -SubscriptionId $(SubscriptionId)
-              $storage = Get-AzureRmStorageAccount -ResourceGroupName vstsagentpackage -AccountName vstsagentpackage
+              Login-AzAccount -ServicePrincipal -CertificateThumbprint $certificateThumbprint -ApplicationId $clientId -TenantId $(TenantId)
+              Select-AzSubscription -SubscriptionId $(SubscriptionId)
+              $storage = Get-AzStorageAccount -ResourceGroupName vstsagentpackage -AccountName vstsagentpackage
               $versionDir = "${{ parameters.version }}"
               Get-ChildItem -LiteralPath "$(System.ArtifactsDirectory)/agent" | ForEach-Object {
                 $target=$_
                 Get-ChildItem -LiteralPath "$(System.ArtifactsDirectory)/agent/$target" -Include "*.zip","*.tar.gz" | ForEach-Object {
                   $executable = $_
                   Write-Host "Uploading $executable to BlobStorage vstsagentpackage/agent/$versionDir"
-                  Set-AzureStorageBlobContent -Context $storage.Context -Container agent -File "$(System.ArtifactsDirectory)/agent/$target/$executable" -Blob "$versionDir/$executable" -Force
+                  Set-AzStorageBlobContent -Context $storage.Context -Container agent -File "$(System.ArtifactsDirectory)/agent/$target/$executable" -Blob "$versionDir/$executable" -Force
                   $uploadFiles.Add("/agent/$versionDir/$executable")
                 }
               }
               Write-Host "Purge Azure CDN Cache"
-              Unpublish-AzureRmCdnEndpointContent -EndpointName vstsagentpackage -ProfileName vstsagentpackage -ResourceGroupName vstsagentpackage -PurgeContent $uploadFiles
+              Unpublish-AzCdnEndpointContent -EndpointName vstsagentpackage -ProfileName vstsagentpackage -ResourceGroupName vstsagentpackage -PurgeContent $uploadFiles
               Write-Host "Force Refresh Azure CDN Cache"
-              Publish-AzureRmCdnEndpointContent -EndpointName vstsagentpackage -ProfileName vstsagentpackage -ResourceGroupName vstsagentpackage -LoadContent $uploadFiles
+              Publish-AzCdnEndpointContent -EndpointName vstsagentpackage -ProfileName vstsagentpackage -ResourceGroupName vstsagentpackage -LoadContent $uploadFiles
             displayName: Upload to Azure Blob
 
           # Download all agent hashes created in previous phases
@@ -171,37 +169,38 @@ extends:
               Invoke-RestMethod @assetsParams
             displayName: Create agent release on Github
 
-      - stage: CreatePRs
-        jobs:
-        ################################################################################
-        - job: create_ado_prs
-        ################################################################################
-          displayName: Create PRs in AzureDevOps and ConfigChange
-          pool:
-            vmImage: ubuntu-18.04
-
-          steps:
-          - checkout: self
-
-          - ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/master') }}:
-            - script: git checkout ${{ variables.releaseBranch }}
-              displayName: Checkout release branch
-
-          # Download all agent hashes created in previous phases
-          - task: DownloadBuildArtifacts@0
-            displayName: Download Agent Hashes
-            inputs:
-              artifactName: hash
-              downloadPath: $(Build.SourcesDirectory)/_hashes
-
-          - bash: |
-              set -x
-              cd release
-              npm install
-              ls
-              node createAdoPrs.js ${{ parameters.version }}
+      - ${{ if not(parameters.onlyGitHubRelease) }}:
+        - stage: CreatePRs
+          jobs:
+          ################################################################################
+          - job: create_ado_prs
+          ################################################################################
             displayName: Create PRs in AzureDevOps and ConfigChange
-            env:
-              USERNAME: $(User)
-              PAT: $(AdoPAT)
-              USEREMAIL: $(Email)
+            pool:
+              vmImage: ubuntu-20.04
+
+            steps:
+            - checkout: self
+
+            - ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/master') }}:
+              - script: git checkout ${{ variables.releaseBranch }}
+                displayName: Checkout release branch
+
+            # Download all agent hashes created in previous phases
+            - task: DownloadBuildArtifacts@0
+              displayName: Download Agent Hashes
+              inputs:
+                artifactName: hash
+                downloadPath: $(Build.SourcesDirectory)/_hashes
+
+            - bash: |
+                set -x
+                cd release
+                npm install
+                ls
+                node createAdoPrs.js ${{ parameters.version }}
+              displayName: Create PRs in AzureDevOps and ConfigChange
+              env:
+                USERNAME: $(User)
+                PAT: $(AdoPAT)
+                USEREMAIL: $(Email)

@@ -6,5 +6,7 @@ namespace Agent.Sdk.Knob
     public interface ICompositeKnobSource : IKnobSource
     {
         bool HasSourceWithTypeEnvironmentByName(string name);
+
+        KnobValue GetValue<T>(IKnobValueContext context);
     }
 }

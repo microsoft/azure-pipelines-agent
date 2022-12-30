@@ -22,7 +22,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     public sealed class Worker : AgentService, IWorker
     {
         private readonly TimeSpan _workerStartTimeout = TimeSpan.FromSeconds(30);
-        private static readonly char[] _quoteLikeChars = new char[] {'\'', '"'};
+        private static readonly char[] _quoteLikeChars = new char[] { '\'', '"' };
 
 
         public async Task<int> RunAsync(string pipeIn, string pipeOut)
@@ -59,6 +59,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 var jobMessage = JsonUtility.FromString<Pipelines.AgentJobRequestMessage>(channelMessage.Body);
                 ArgUtil.NotNull(jobMessage, nameof(jobMessage));
                 HostContext.WritePerfCounter($"WorkerJobMessageReceived_{jobMessage.RequestId.ToString()}");
+
+                Trace.Info("Deactivating vso commands in job message variables.");
+                jobMessage = WorkerUtilities.DeactivateVsoCommandsFromJobMessageVariables(jobMessage);
 
                 // Initialize the secret masker and set the thread culture.
                 InitializeSecretMasker(jobMessage);

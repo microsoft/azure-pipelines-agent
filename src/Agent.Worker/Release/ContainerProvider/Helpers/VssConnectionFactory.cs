@@ -26,9 +26,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider
         private static readonly TimeSpan _minTimeout = TimeSpan.FromMinutes(5);
 
         public static async Task<VssConnection> GetVssConnectionAsync(
-            Uri uri, 
-            string accessToken, 
-            DelegatingHandler retryOnTimeoutMessageHandler = null, 
+            Uri uri,
+            string accessToken,
+            DelegatingHandler retryOnTimeoutMessageHandler = null,
             ITraceWriter trace = null)
         {
             VssConnection connection;
@@ -55,16 +55,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider
             return connection;
         }
 
-        private static VssClientCredentials GetCredentials(String accessToken)
+        private static VssClientCredentials GetCredentials(string accessToken)
         {
             VssClientCredentials cred;
             if (string.IsNullOrEmpty(accessToken))
             {
-                cred = new VssClientCredentials(new VssAadCredential());
+                cred = new VssClientCredentials(federatedCredential: new VssAadCredential());
             }
             else
             {
-                cred = new VssClientCredentials(new VssOAuthAccessTokenCredential(accessToken));
+                cred = new VssClientCredentials(federatedCredential: new VssOAuthAccessTokenCredential(accessToken));
             }
 
             cred.PromptType = CredentialPromptType.DoNotPrompt;

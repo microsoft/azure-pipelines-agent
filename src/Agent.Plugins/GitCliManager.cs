@@ -154,7 +154,7 @@ namespace Agent.Plugins.Repository
         }
 
         // git fetch --tags --prune --progress --no-recurse-submodules [--depth=15] origin [+refs/pull/*:refs/remote/pull/*]
-        public async Task<int> GitFetch(AgentTaskPluginExecutionContext context, string repositoryPath, string remoteName, int fetchDepth, List<string> refSpec, string additionalCommandLine, CancellationToken cancellationToken)
+        public async Task<int> GitFetch(AgentTaskPluginExecutionContext context, string repositoryPath, string remoteName, int fetchDepth, bool fetchTags, List<string> refSpec, string additionalCommandLine, CancellationToken cancellationToken)
         {
             context.Debug($"Fetch git repository at: {repositoryPath} remote: {remoteName}.");
             if (refSpec != null && refSpec.Count > 0)
@@ -174,6 +174,12 @@ namespace Agent.Plugins.Repository
             bool reducedOutput = AgentKnobs.QuietCheckout.GetValue(context).AsBoolean();
             string progress = reducedOutput ? string.Empty : "--progress";
 
+            string tags = "--tags";
+            if (!fetchTags)
+            {
+                tags = "--no-tags";
+            }
+
             // insert prune-tags if knob is false to sync tags with the remote
             string pruneTags = string.Empty;
             if (EnsureGitVersion(new Version(2, 17), throwOnNotMatch: false) && !AgentKnobs.DisableFetchPruneTags.GetValue(context).AsBoolean())
@@ -184,10 +190,10 @@ namespace Agent.Plugins.Repository
             // If shallow fetch add --depth arg
             // If the local repository is shallowed but there is no fetch depth provide for this build,
             // add --unshallow to convert the shallow repository to a complete repository
-            string depth = fetchDepth > 0 ? $"--depth={fetchDepth}" : (File.Exists(Path.Combine(repositoryPath, ".git", "shallow")) ? "--unshallow" : string.Empty );
+            string depth = fetchDepth > 0 ? $"--depth={fetchDepth}" : (File.Exists(Path.Combine(repositoryPath, ".git", "shallow")) ? "--unshallow" : string.Empty);
 
             //define options for fetch
-            string options = $"{forceTag} --tags --prune {pruneTags} {progress} --no-recurse-submodules {remoteName} {depth} {string.Join(" ", refSpec)}";
+            string options = $"{forceTag} {tags} --prune {pruneTags} {progress} --no-recurse-submodules {remoteName} {depth} {string.Join(" ", refSpec)}";
             int retryCount = 0;
             int fetchExitCode = 0;
             while (retryCount < 3)
@@ -238,7 +244,8 @@ namespace Agent.Plugins.Repository
             // default options for git checkout .lfsconfig
             string options = StringUtil.Format($"{refSpec} -- {lfsconfig}");
             int exitCodeLfsConfigCheckout = await ExecuteGitCommandAsync(context, repositoryPath, "checkout", options, additionalCommandLine, cancellationToken);
-            if (exitCodeLfsConfigCheckout != 0) {
+            if (exitCodeLfsConfigCheckout != 0)
+            {
                 context.Debug("There were some issues while checkout of .lfsconfig - probably because this file does not exist (see message above for more details). Continue fetching.");
             }
 
@@ -546,6 +553,15 @@ namespace Agent.Plugins.Repository
         {
             context.Debug("Get git-lfs logs.");
             return await ExecuteGitCommandAsync(context, repositoryPath, "lfs", "logs last");
+        }
+
+        // git status
+        public async Task<int> GitStatus(AgentTaskPluginExecutionContext context, string repositoryPath)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+
+            context.Debug($"Show the working tree status for repository at {repositoryPath}.");
+            return await ExecuteGitCommandAsync(context, repositoryPath, "status", string.Empty);
         }
 
         // git version

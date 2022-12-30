@@ -11,7 +11,7 @@ using System.Threading;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
-  public static class ProcessExtensions
+    public static class ProcessExtensions
     {
         public static string GetEnvironmentVariable(this Process process, IHostContext hostContext, string variable)
         {

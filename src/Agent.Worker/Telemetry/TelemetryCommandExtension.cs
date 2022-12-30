@@ -13,7 +13,7 @@ using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
 {
-    public class TelemetryCommandExtension: BaseWorkerCommandExtension
+    public class TelemetryCommandExtension : BaseWorkerCommandExtension
     {
         public TelemetryCommandExtension()
         {
@@ -23,8 +23,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
         }
     }
 
-    [CommandRestriction(AllowedInRestrictedMode=true)]
-    public sealed class PublishTelemetryCommand: IWorkerCommand
+    [CommandRestriction(AllowedInRestrictedMode = true)]
+    public sealed class PublishTelemetryCommand : IWorkerCommand
     {
         public string Name => "publish";
         public List<string> Aliases => null;

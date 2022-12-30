@@ -56,8 +56,8 @@ namespace Agent.Sdk
             // Windows has never automatically enabled Docker.Sock, but Linux does. So we need to set the default here based on OS.
             this.MapDockerSocket = container.Properties.Get<bool>("mapDockerSocket", !PlatformUtil.RunningOnWindows);
             this._imageOS = PlatformUtil.HostOS;
-           _pathMappings = new Dictionary<string, string>( PlatformUtil.RunningOnWindows ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
-           this._readOnlyVolumes = container.ReadOnlyMounts != null ? new List<string>(container.ReadOnlyMounts) : new List<string>();
+            _pathMappings = new Dictionary<string, string>(PlatformUtil.RunningOnWindows ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+            this._readOnlyVolumes = container.ReadOnlyMounts != null ? new List<string>(container.ReadOnlyMounts) : new List<string>();
 
             if (container.Ports?.Count > 0)
             {
@@ -88,9 +88,13 @@ namespace Agent.Sdk
         public bool SkipContainerImagePull { get; private set; }
         public string CurrentUserName { get; set; }
         public string CurrentUserId { get; set; }
+        public string CurrentGroupName { get; set; }
+        public string CurrentGroupId { get; set; }
+
         public bool IsJobContainer { get; set; }
         public bool MapDockerSocket { get; set; }
-        public PlatformUtil.OS ImageOS {
+        public PlatformUtil.OS ImageOS
+        {
             get
             {
                 return _imageOS;
@@ -101,7 +105,7 @@ namespace Agent.Sdk
                 _imageOS = value;
                 if (_pathMappings != null)
                 {
-                    var newMappings = new Dictionary<string, string>( _pathMappings.Comparer);
+                    var newMappings = new Dictionary<string, string>(_pathMappings.Comparer);
                     foreach (var mapping in _pathMappings)
                     {
                         newMappings[mapping.Key] = TranslateContainerPathForImageOS(previousImageOS, mapping.Value);
@@ -257,7 +261,7 @@ namespace Agent.Sdk
                         }
                         else
                         {
-                            retval = retval.Replace("\\","/");
+                            retval = retval.Replace("\\", "/");
                         }
                         return retval;
                     }
@@ -276,7 +280,7 @@ namespace Agent.Sdk
             {
                 if (runningOs == PlatformUtil.OS.Windows && ImageOS == PlatformUtil.OS.Linux)
                 {
-                    return translateWindowsDriveRegex.Replace(path,"/").Replace("\\", "/");
+                    return translateWindowsDriveRegex.Replace(path, "/").Replace("\\", "/");
                 }
             }
             return path;

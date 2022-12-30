@@ -646,12 +646,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
                 List<string> warnings;
                 var variables = new Variables(hc, copy, out warnings);
-                variables.StringTranslator = (str) => {
-                    if (str.StartsWith("/path/to")) {
+                variables.StringTranslator = (str) =>
+                {
+                    if (str.StartsWith("/path/to"))
+                    {
                         return str.Replace("/path/to", "/another/path");
                     }
                     return str;
-                };;
+                };
 
                 Assert.Equal(0, warnings.Count);
 
@@ -874,7 +876,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 foreach (System.Type systemVariableClass in wellKnownSystemVariableClasses)
                 {
                     var wellKnownDistributedTaskFields = systemVariableClass.GetFields();
-                    foreach(var field in wellKnownDistributedTaskFields)
+                    foreach (var field in wellKnownDistributedTaskFields)
                     {
                         var fieldValue = field.GetValue(systemVariableClass);
                         if (fieldValue != null)
@@ -886,7 +888,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 }
 
                 // Assert.
-                foreach(string systemVariable in wellKnownSystemVariables)
+                foreach (string systemVariable in wellKnownSystemVariables)
                 {
                     Assert.True(Constants.Variables.ReadOnlyVariables.Contains(systemVariable), "Constants.Variables.ReadOnlyVariables should contain " + systemVariable);
                 }
@@ -938,7 +940,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var variables = new Variables(hc, new Dictionary<string, VariableValue>(), out warnings);
 
 
-                Dictionary<string,VariableValue> dict1 = new Dictionary<string, VariableValue>();
+                Dictionary<string, VariableValue> dict1 = new Dictionary<string, VariableValue>();
                 variables.CopyInto(dict1, Variables.DefaultStringTranslator);
 
                 Assert.Equal(0, dict1.Count);

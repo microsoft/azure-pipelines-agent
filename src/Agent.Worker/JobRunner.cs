@@ -98,6 +98,43 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Create the job execution context.
                 jobContext = HostContext.CreateService<IExecutionContext>();
                 jobContext.InitializeJob(message, jobRequestCancellationToken);
+
+                // Check if a system supports .NET 6
+                PackageVersion agentVersion = new PackageVersion(BuildConstants.AgentPackage.Version);
+                if (agentVersion.Major < 3)
+                {
+                    try
+                    {
+                        Trace.Verbose("Checking if your system supports .NET 6");
+
+                        string systemId = PlatformUtil.GetSystemId();
+                        SystemVersion systemVersion = PlatformUtil.GetSystemVersion();
+                        string notSupportNet6Message = null;
+
+                        if (await PlatformUtil.DoesSystemPersistsInNet6Whitelist())
+                        {
+                            // Check version of the system
+                            if (!await PlatformUtil.IsNet6Supported())
+                            {
+                                notSupportNet6Message = $"The operating system the agent is running on is \"{systemId}\" ({systemVersion}), which will not be supported by the .NET 6 based v3 agent. Please upgrade the operating system of this host to ensure compatibility with the v3 agent. See https://aka.ms/azdo-pipeline-agent-version";
+                            }
+                        }
+                        else
+                        {
+                            notSupportNet6Message = $"The operating system the agent is running on is \"{systemId}\" ({systemVersion}), which has not been tested with the .NET 6 based v3 agent. The v2 agent wil not automatically upgrade to the v3 agent. You can manually download the .NET 6 based v3 agent from https://github.com/microsoft/azure-pipelines-agent/releases. See https://aka.ms/azdo-pipeline-agent-version";
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(notSupportNet6Message))
+                        {
+                            jobContext.AddIssue(new Issue() { Type = IssueType.Warning, Message = notSupportNet6Message });
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Trace.Error($"Error has occurred while checking if system supports .NET 6: {ex}");
+                    }
+                }
+
                 Trace.Info("Starting the job execution context.");
                 jobContext.Start();
                 jobContext.Section(StringUtil.Loc("StepStarting", message.JobDisplayName));
@@ -141,6 +178,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 jobContext.SetVariable(Constants.Variables.Agent.Id, settings.AgentId.ToString(CultureInfo.InvariantCulture));
                 jobContext.SetVariable(Constants.Variables.Agent.HomeDirectory, HostContext.GetDirectory(WellKnownDirectory.Root), isFilePath: true);
                 jobContext.SetVariable(Constants.Variables.Agent.JobName, message.JobDisplayName);
+                jobContext.SetVariable(Constants.Variables.Agent.CloudId, settings.AgentCloudId);
                 jobContext.SetVariable(Constants.Variables.Agent.MachineName, Environment.MachineName);
                 jobContext.SetVariable(Constants.Variables.Agent.Name, settings.AgentName);
                 jobContext.SetVariable(Constants.Variables.Agent.OS, VarUtil.OS);
@@ -219,7 +257,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     {
                         checkoutOptions = jobContext.Variables.ExpandValues(target: checkoutOptions);
                         checkoutOptions = VarUtil.ExpandEnvironmentVariables(HostContext, target: checkoutOptions);
-                        repository.Properties.Set<JToken>(Pipelines.RepositoryPropertyNames.CheckoutOptions, checkoutOptions); ;
+                        repository.Properties.Set<JToken>(Pipelines.RepositoryPropertyNames.CheckoutOptions, checkoutOptions);
                     }
 
                     // expand workspace mapping

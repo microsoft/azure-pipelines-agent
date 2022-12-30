@@ -8,7 +8,7 @@ using System;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
-    [ AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
+    [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
     public sealed class CommandRestrictionAttribute : Attribute
     {
         public bool AllowedInRestrictedMode { get; set; }
@@ -30,13 +30,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         return true;
                     }
                 }
-                
+
                 return false;
             }
             else
             {
                 return true;
-            } 
+            }
         }
 
         public static Boolean IsSetVariableAllowed(this TaskRestrictions restrictions, String variable)

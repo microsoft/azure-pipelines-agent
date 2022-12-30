@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-﻿using System;
+using System;
 using System.Linq;
 using Agent.Plugins.Log.TestResultParser.Plugin;
 using Xunit;
@@ -36,7 +36,7 @@ namespace Test.L0.Plugin.TestResultParser
             var randomList = Enumerable.Range(1, listSize).OrderBy(e => rnd.Next()).ToList();
 
             var batchedList = randomList.Batch(100).ToArray();
-            
+
             Assert.True(batchedList.Length == 1);
             Assert.True(batchedList[0].Count() == 50);
         }

@@ -29,7 +29,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts.Definit
 
         public string StartCommitArtifactVersion { get; set; }
 
-        public string EndCommitArtifactVersion  { get; set; }
+        public string EndCommitArtifactVersion { get; set; }
 
         public string Alias { get; set; }
     }

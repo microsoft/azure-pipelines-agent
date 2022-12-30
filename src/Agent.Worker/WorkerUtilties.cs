@@ -96,5 +96,38 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 workspaceOptions: message.Workspace,
                 steps: message.Steps);
         }
+
+        // We want to prevent vso commands from running in scripts with some variables
+        public static Pipelines.AgentJobRequestMessage DeactivateVsoCommandsFromJobMessageVariables(Pipelines.AgentJobRequestMessage message)
+        {
+            ArgUtil.NotNull(message, nameof(message));
+            ArgUtil.NotNull(message.Variables, nameof(message.Variables));
+
+            var deactivatedVariables = new Dictionary<string, VariableValue>(message.Variables, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var variableName in Variables.VariablesVulnerableToExecution)
+            {
+                if (deactivatedVariables.TryGetValue(variableName, out var variable))
+                {
+                    var deactivatedVariable = variable ?? new VariableValue();
+
+                    deactivatedVariables[variableName] = StringUtil.DeactivateVsoCommands(deactivatedVariable.Value);
+                }
+            }
+
+            return new Pipelines.AgentJobRequestMessage(
+                plan: message.Plan,
+                timeline: message.Timeline,
+                jobId: message.JobId,
+                jobDisplayName: message.JobDisplayName,
+                jobName: message.JobName,
+                jobContainer: message.JobContainer,
+                jobSidecarContainers: message.JobSidecarContainers,
+                variables: deactivatedVariables,
+                maskHints: message.MaskHints,
+                jobResources: message.Resources,
+                workspaceOptions: message.Workspace,
+                steps: message.Steps);
+        }
     }
 }

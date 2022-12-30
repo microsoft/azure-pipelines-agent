@@ -2,17 +2,35 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Net.Sockets;
+using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using System.Xml.Linq;
 using Agent.Sdk.Knob;
+using Agent.Sdk.Util;
+using BuildXL.Cache.MemoizationStore.Interfaces.Caches;
+using BuildXL.Utilities;
+using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.Win32;
+using Newtonsoft.Json;
 
 namespace Agent.Sdk
 {
     public static class PlatformUtil
     {
         private static UtilKnobValueContext _knobContext = UtilKnobValueContext.Instance();
-        
+        private static OperatingSystem[] net6SupportedSystems;
+        private static HttpClient httpClient = new HttpClient();
+
         // System.Runtime.InteropServices.OSPlatform is a struct, so it is
         // not suitable for switch statements.
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1717: Only FlagsAttribute enums should have plural names")]
@@ -75,6 +93,28 @@ namespace Agent.Sdk
             }
         }
 
+        public static string GetSystemId()
+        {
+            return PlatformUtil.HostOS switch
+            {
+                PlatformUtil.OS.Linux => GetLinuxId(),
+                PlatformUtil.OS.OSX => "MacOS",
+                PlatformUtil.OS.Windows => GetWindowsId(),
+                _ => null
+            };
+        }
+
+        public static SystemVersion GetSystemVersion()
+        {
+            return PlatformUtil.HostOS switch
+            {
+                PlatformUtil.OS.Linux => new SystemVersion(GetLinuxName(), null),
+                PlatformUtil.OS.OSX => new SystemVersion(GetOSxName(), null),
+                PlatformUtil.OS.Windows => new SystemVersion(GetWindowsName(), GetWindowsVersion()),
+                _ => null
+            };
+        }
+
         private static void DetectRHEL6()
         {
             lock (detectedRHEL6lock)
@@ -101,6 +141,123 @@ namespace Agent.Sdk
                     }
                 }
             }
+        }
+
+        private static string GetLinuxId()
+        {
+            if (RunningOnLinux && File.Exists("/etc/os-release"))
+            {
+                Regex linuxIdRegex = new Regex("^ID\\s*=\\s*\"?(?<id>[0-9a-z._-]+)\"?");
+
+                using (StreamReader reader = new StreamReader("/etc/os-release"))
+                {
+                    while (!reader.EndOfStream)
+                    {
+                        string line = reader.ReadLine();
+                        var linuxIdRegexMatch = linuxIdRegex.Match(line);
+
+                        if (linuxIdRegexMatch.Success)
+                        {
+                            return linuxIdRegexMatch.Groups["id"].Value;
+                        }
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private static string GetLinuxName()
+        {
+            if (RunningOnLinux && File.Exists("/etc/os-release"))
+            {
+                Regex linuxVersionIdRegex = new Regex("^VERSION_ID\\s*=\\s*\"?(?<id>[0-9a-z._-]+)\"?");
+
+                using (StreamReader reader = new StreamReader("/etc/os-release"))
+                {
+                    while (!reader.EndOfStream)
+                    {
+                        string line = reader.ReadLine();
+                        var linuxVersionIdRegexMatch = linuxVersionIdRegex.Match(line);
+
+                        if (linuxVersionIdRegexMatch.Success)
+                        {
+                            return linuxVersionIdRegexMatch.Groups["id"].Value;
+                        }
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private static string GetOSxName()
+        {
+            if (RunningOnMacOS && File.Exists("/System/Library/CoreServices/SystemVersion.plist"))
+            {
+                var systemVersionFile = XDocument.Load("/System/Library/CoreServices/SystemVersion.plist");
+                var parsedSystemVersionFile = systemVersionFile.Descendants("dict")
+                    .SelectMany(d => d.Elements("key").Zip(d.Elements().Where(e => e.Name != "key"), (k, v) => new { Key = k, Value = v }))
+                    .ToDictionary(i => i.Key.Value, i => i.Value.Value);
+                return parsedSystemVersionFile.ContainsKey("ProductVersion") ? parsedSystemVersionFile["ProductVersion"] : null;
+            }
+
+            return null;
+        }
+
+        private static string GetWindowsId()
+        {
+            StringBuilder result = new StringBuilder();
+            result.Append("Windows");
+
+            using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion"))
+            {
+                if (key != null)
+                {
+                    var installationType = key.GetValue("InstallationType");
+                    if (installationType != null)
+                    {
+                        result.Append($" {installationType}");
+                    }
+                }
+            }
+
+            return result.ToString();
+        }
+
+        private static string GetWindowsName()
+        {
+            Regex productNameRegex = new Regex("(Windows)(\\sServer)?\\s(?<versionNumber>[\\d.]+)");
+
+            using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion"))
+            {
+                if (key != null)
+                {
+                    var productName = key.GetValue("ProductName");
+                    var productNameRegexMatch = productNameRegex.Match(productName?.ToString());
+
+                    if (productNameRegexMatch.Success)
+                    {
+                        return productNameRegexMatch.Groups["versionNumber"]?.Value;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private static string GetWindowsVersion()
+        {
+            using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion"))
+            {
+                if (key != null)
+                {
+                    var currentBuildNumber = key.GetValue("CurrentBuildNumber");
+                    return currentBuildNumber?.ToString();
+                }
+            }
+
+            return null;
         }
 
         private static bool? detectedRHEL6 = null;
@@ -158,5 +315,189 @@ namespace Agent.Sdk
             // https://github.com/dotnet/runtime/issues/35365#issuecomment-667467706
             get => AgentKnobs.UseLegacyHttpHandler.GetValue(_knobContext).AsBoolean();
         }
+
+        private async static Task<OperatingSystem[]> GetNet6SupportedSystems()
+        {
+            string serverFileUrl = "https://raw.githubusercontent.com/microsoft/azure-pipelines-agent/master/src/Agent.Listener/net6.json";
+            string supportOSfilePath = Path.Combine(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "net6.json");
+            string supportOSfileContent;
+
+            if (!File.Exists(supportOSfilePath) || File.GetLastWriteTimeUtc(supportOSfilePath) < DateTime.UtcNow.AddHours(-1))
+            {
+                HttpResponseMessage response = await httpClient.GetAsync(serverFileUrl);
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new Exception($"Getting file \"net6.json\" from server failed. Status code: {response.StatusCode}");
+                }
+                supportOSfileContent = await response.Content.ReadAsStringAsync();
+                await File.WriteAllTextAsync(supportOSfilePath, supportOSfileContent);
+            }
+            else
+            {
+                if (net6SupportedSystems != null)
+                {
+                    return net6SupportedSystems;
+                }
+
+                supportOSfileContent = await File.ReadAllTextAsync(supportOSfilePath);
+            }
+
+            net6SupportedSystems = JsonConvert.DeserializeObject<OperatingSystem[]>(supportOSfileContent);
+            return net6SupportedSystems;
+        }
+
+        public async static Task<bool> IsNet6Supported()
+        {
+            OperatingSystem[] net6SupportedSystems = await GetNet6SupportedSystems();
+
+            string systemId = PlatformUtil.GetSystemId();
+            SystemVersion systemVersion = PlatformUtil.GetSystemVersion();
+            return net6SupportedSystems.Any((s) => s.Equals(systemId, systemVersion));
+        }
+
+        public async static Task<bool> DoesSystemPersistsInNet6Whitelist()
+        {
+            OperatingSystem[] net6SupportedSystems = await GetNet6SupportedSystems();
+            string systemId = PlatformUtil.GetSystemId();
+
+            return net6SupportedSystems.Any((s) => s.Equals(systemId));
+        }
     }
+
+#pragma warning disable CS0659 // Type overrides Object.Equals(object o) but does not override Object.GetHashCode()
+    public class SystemVersion
+#pragma warning restore CS0659 // Type overrides Object.Equals(object o) but does not override Object.GetHashCode()
+    {
+        public ParsedVersion Name { get; }
+
+        public ParsedVersion Version { get; }
+
+        [JsonConstructor]
+        public SystemVersion(string name, string version)
+        {
+            if (name == null && version == null)
+            {
+                throw new Exception("You need to provide at least one not-nullable parameter");
+            }
+
+            if (name != null)
+            {
+                this.Name = new ParsedVersion(name);
+            }
+
+            if (version != null)
+            {
+                this.Version = new ParsedVersion(version);
+            }
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (obj is SystemVersion comparingOSVersion)
+            {
+                return ((this.Name != null && comparingOSVersion.Name != null)
+                    ? this.Name.Equals(comparingOSVersion.Name)
+                    : true) && ((this.Version != null && comparingOSVersion.Version != null)
+                    ? this.Version.Equals(comparingOSVersion.Version)
+                    : true);
+            }
+
+            return false;
+        }
+
+        public override string ToString()
+        {
+            StringBuilder result = new StringBuilder();
+
+            if (this.Name != null)
+            {
+                result.Append($"OS name: {this.Name}");
+            }
+
+            if (this.Version != null)
+            {
+
+                result.Append(string.Format("{0}OS version: {1}",
+                    string.IsNullOrEmpty(result.ToString()) ? string.Empty : ", ",
+                    this.Version));
+            }
+
+            return result.ToString();
+        }
+    }
+
+#pragma warning disable CS0659 // Type overrides Object.Equals(object o) but does not override Object.GetHashCode()
+    public class ParsedVersion
+#pragma warning restore CS0659 // Type overrides Object.Equals(object o) but does not override Object.GetHashCode()
+    {
+        private readonly Regex parsedVersionRegex = new Regex("^((?<Major>[\\d]+)(\\.(?<Minor>[\\d]+))?(\\.(?<Build>[\\d]+))?(\\.(?<Revision>[\\d]+))?)(?<suffix>[^+]+)?(?<minFlag>[+])?$");
+        private readonly string originalString;
+
+        public Version Version { get; }
+
+        public string Syffix { get; }
+
+        public bool MinFlag { get; }
+
+        public ParsedVersion(string version)
+        {
+            this.originalString = version;
+
+            var parsedVersionRegexMatch = parsedVersionRegex.Match(version.Trim());
+
+            if (!parsedVersionRegexMatch.Success)
+            {
+                throw new Exception($"String {version} can't be parsed");
+            }
+
+            string versionString = string.Format(
+                "{0}.{1}.{2}.{3}",
+                parsedVersionRegexMatch.Groups["Major"].Value,
+                !string.IsNullOrEmpty(parsedVersionRegexMatch.Groups["Minor"].Value) ? parsedVersionRegexMatch.Groups["Minor"].Value : "0",
+                !string.IsNullOrEmpty(parsedVersionRegexMatch.Groups["Build"].Value) ? parsedVersionRegexMatch.Groups["Build"].Value : "0",
+                !string.IsNullOrEmpty(parsedVersionRegexMatch.Groups["Revision"].Value) ? parsedVersionRegexMatch.Groups["Revision"].Value : "0");
+
+            this.Version = new Version(versionString);
+            this.Syffix = parsedVersionRegexMatch.Groups["suffix"].Value;
+            this.MinFlag = !string.IsNullOrEmpty(parsedVersionRegexMatch.Groups["minFlag"].Value);
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (obj is ParsedVersion comparingVersion)
+            {
+                return this.MinFlag
+                    ? this.Version <= comparingVersion.Version
+                    : this.Version == comparingVersion.Version
+                    && (this.Syffix != null && comparingVersion.Syffix != null
+                        ? this.Syffix.Equals(comparingVersion.Syffix, StringComparison.OrdinalIgnoreCase)
+                        : true);
+            }
+
+            return false;
+        }
+
+        public override string ToString()
+        {
+            return this.originalString;
+        }
+    }
+
+    public class OperatingSystem
+    {
+        public string Id { get; set; }
+
+        public SystemVersion[] Versions { get; set; }
+
+        public OperatingSystem() { }
+
+        public bool Equals(string systemId) =>
+            this.Id.Equals(systemId, StringComparison.OrdinalIgnoreCase);
+
+        public bool Equals(string systemId, SystemVersion systemVersion) =>
+            this.Equals(systemId) && this.Versions.Length > 0
+                ? this.Versions.Any(version => version.Equals(systemVersion))
+                : false;
+    }
+
 }

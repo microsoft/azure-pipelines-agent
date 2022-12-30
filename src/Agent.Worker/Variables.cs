@@ -260,6 +260,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             "RequestedFor"
         };
 
+        public static readonly List<string> VariablesVulnerableToExecution = new List<string>
+        {
+            Constants.Variables.Build.SourceVersionMessage,
+            Constants.Variables.Build.DefinitionName,
+            Constants.Variables.System.SourceVersionMessage,
+            Constants.Variables.System.DefinitionName,
+            Constants.Variables.System.JobDisplayName,
+            Constants.Variables.System.PhaseDisplayName,
+            Constants.Variables.System.StageDisplayName,
+            Constants.Variables.Release.ReleaseDefinitionName,
+            Constants.Variables.Release.ReleaseEnvironmentName,
+            Constants.Variables.Agent.MachineName,
+            Constants.Variables.Agent.Name,
+        };
+
         public void ExpandValues(IDictionary<string, string> target)
         {
             ArgUtil.NotNull(target, nameof(target));
@@ -383,7 +398,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             lock (_setLock)
             {
                 Variable dummy;
-                 _expanded.Remove(name, out dummy);
+                _expanded.Remove(name, out dummy);
                 _nonexpanded.Remove(name, out dummy);
                 _trace.Verbose($"Unset '{name}'");
             }
@@ -432,7 +447,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public bool IsReadOnly(string name)
         {
             Variable existingVariable = null;
-            if (!_expanded.TryGetValue(name, out existingVariable)) {
+            if (!_expanded.TryGetValue(name, out existingVariable))
+            {
                 _nonexpanded.TryGetValue(name, out existingVariable);
             }
 

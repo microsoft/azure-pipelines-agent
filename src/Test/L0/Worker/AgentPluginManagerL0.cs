@@ -137,24 +137,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public void GeneratePluginExecutionContextHostInfoTest()
         {
-            
+
             using (TestHostContext tc = CreateTestContext())
             {
                 Tracing trace = tc.GetTrace();
                 var agentPluginManager = new AgentPluginManager();
                 agentPluginManager.Initialize(tc);
 
-                var inputs = new Dictionary<string, string>(){ 
+                var inputs = new Dictionary<string, string>(){
                     { "input1", "foo" },
                     { "input2", tc.GetDirectory(WellKnownDirectory.Work)},
                 };
 
-                var variables = new Dictionary<string, VariableValue>(){ 
+                var variables = new Dictionary<string, VariableValue>(){
                     { "variable1", "foo" },
                     { "variable2", tc.GetDirectory(WellKnownDirectory.Work)},
                 };
 
-                var taskVariables = new Dictionary<string, VariableValue>(){ 
+                var taskVariables = new Dictionary<string, VariableValue>(){
                     { "taskVariable1", "foo" },
                     { "taskVariable2", tc.GetDirectory(WellKnownDirectory.Work)},
                 };
@@ -177,10 +177,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         public void GeneratePluginExecutionContextContainerInfoTest()
         {
             var dockerContainer = new Pipelines.ContainerResource()
-                {
-                    Alias = "vsts_container_preview",
-                    Image = "foo"
-                };
+            {
+                Alias = "vsts_container_preview",
+                Image = "foo"
+            };
 
             using (TestHostContext tc = CreateTestContext())
             {
@@ -193,37 +193,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 {
                     containerWorkPath = "C:\\__w";
                 }
-                var inputs = new Dictionary<string, string>(){ 
+                var inputs = new Dictionary<string, string>(){
                     { "input1", "foo" },
                     { "input2", containerWorkPath},
                     { "input3", tc.GetDirectory(WellKnownDirectory.Work)},
                 };
 
-                var expectedInputs = new Dictionary<string, string>(){ 
+                var expectedInputs = new Dictionary<string, string>(){
                     { "input1", "foo" },
                     { "input2", tc.GetDirectory(WellKnownDirectory.Work)},
                     { "input3", tc.GetDirectory(WellKnownDirectory.Work)},
                 };
 
-                var variables = new Dictionary<string, VariableValue>(){ 
+                var variables = new Dictionary<string, VariableValue>(){
                     { "variable1", "foo" },
                     { "variable2", containerWorkPath},
                     { "variable3", tc.GetDirectory(WellKnownDirectory.Work)},
                 };
 
-                var expectedVariables = new Dictionary<string, VariableValue>(){ 
+                var expectedVariables = new Dictionary<string, VariableValue>(){
                     { "variable1", "foo" },
                     { "variable2", tc.GetDirectory(WellKnownDirectory.Work)},
                     { "variable3", tc.GetDirectory(WellKnownDirectory.Work)},
                 };
 
-                var taskVariables = new Dictionary<string, VariableValue>(){ 
+                var taskVariables = new Dictionary<string, VariableValue>(){
                     { "taskVariable1", "foo" },
                     { "taskVariable2", containerWorkPath},
                     { "taskVariable3", tc.GetDirectory(WellKnownDirectory.Work)},
                 };
 
-                var expectedTaskVariables = new Dictionary<string, VariableValue>(){ 
+                var expectedTaskVariables = new Dictionary<string, VariableValue>(){
                     { "taskVariable1", "foo" },
                     { "taskVariable2", tc.GetDirectory(WellKnownDirectory.Work)},
                     { "taskVariable3", tc.GetDirectory(WellKnownDirectory.Work)},
@@ -265,17 +265,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             if (stepTarget == null)
             {
                 executionContext
-                    .Setup( x => x.StepTarget())
+                    .Setup(x => x.StepTarget())
                     .Returns(new HostInfo());
             }
             else
             {
                 executionContext
-                    .Setup( x => x.StepTarget())
+                    .Setup(x => x.StepTarget())
                     .Returns(stepTarget);
             }
 
-             return executionContext.Object;
+            return executionContext.Object;
         }
     }
 }

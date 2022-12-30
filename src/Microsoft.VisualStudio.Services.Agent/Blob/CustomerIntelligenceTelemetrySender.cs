@@ -104,7 +104,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                 Feature = "BuildArtifacts",
                 Properties = ciData
             };
-            await _ciClient.PublishEventsAsync(new [] { ciEvent });
+            await _ciClient.PublishEventsAsync(new[] { ciEvent });
         }
 
         public Dictionary<string, object> GetArtifactDownloadTelemetry(Guid planId, Guid jobId)

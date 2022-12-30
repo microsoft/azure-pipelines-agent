@@ -25,7 +25,7 @@ using Minimatch;
 
 namespace Agent.Plugins
 {
-    internal class FileShareProvider: IArtifactProvider
+    internal class FileShareProvider : IArtifactProvider
     {
         private readonly AgentTaskPluginExecutionContext context;
         private readonly IAppTraceSource tracer;
@@ -48,15 +48,22 @@ namespace Agent.Plugins
             this.connection = connection;
         }
 
-        public async Task DownloadSingleArtifactAsync(ArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context) 
+        public async Task DownloadSingleArtifactAsync(ArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
             await DownloadMultipleArtifactsAsync(downloadParameters, new List<BuildArtifact> { buildArtifact }, cancellationToken, context);
         }
 
-        public async Task DownloadMultipleArtifactsAsync(ArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context) 
+        public async Task DownloadMultipleArtifactsAsync(ArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
         {
             context.Warning(StringUtil.Loc("DownloadArtifactWarning", "UNC"));
-            var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, this.factory.GetDedupStoreClientMaxParallelism(context), cancellationToken);
+            var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(
+                context.IsSystemDebugTrue(),
+                (str) => context.Output(str),
+                connection,
+                this.factory.GetDedupStoreClientMaxParallelism(context),
+                WellKnownDomainIds.DefaultDomainId,
+                cancellationToken);
+
             using (clientTelemetry)
             {
                 FileShareActionRecord downloadRecord = clientTelemetry.CreateRecord<FileShareActionRecord>((level, uri, type) =>
@@ -90,7 +97,7 @@ namespace Agent.Plugins
                 totalFileCount += record.FileCount;
                 records.Add(record);
             }
-            
+
             return new FileShareDownloadResult(records, totalFileCount, totalContentSize);
         }
 
@@ -98,9 +105,16 @@ namespace Agent.Plugins
             string sourcePath,
             string destPath,
             int parallelCount,
-            CancellationToken cancellationToken) 
+            CancellationToken cancellationToken)
         {
-            var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, this.factory.GetDedupStoreClientMaxParallelism(context), cancellationToken);
+            var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(
+                context.IsSystemDebugTrue(),
+                (str) => context.Output(str),
+                connection,
+                this.factory.GetDedupStoreClientMaxParallelism(context),
+                WellKnownDomainIds.DefaultDomainId,
+                cancellationToken);
+
             using (clientTelemetry)
             {
                 FileShareActionRecord publishRecord = clientTelemetry.CreateRecord<FileShareActionRecord>((level, uri, type) =>
@@ -173,7 +187,7 @@ namespace Agent.Plugins
                     throw new Exception(StringUtil.Loc("RobocopyBasedPublishArtifactTaskFailed", exitCode));
                 }
 
-                return new FileSharePublishResult (exitCode);
+                return new FileSharePublishResult(exitCode);
             }
         }
 
@@ -250,7 +264,7 @@ namespace Agent.Plugins
             var actionBlock = NonSwallowingActionBlock.Create<FileInfo>(
                action: async file =>
                 {
-                    if (minimatchFuncs == null || minimatchFuncs.Any(match => match(file.FullName))) 
+                    if (minimatchFuncs == null || minimatchFuncs.Any(match => match(file.FullName)))
                     {
                         string tempPath = Path.Combine(destPath, Path.GetRelativePath(sourcePath, file.FullName));
                         context.Output(StringUtil.Loc("CopyFileToDestination", file, tempPath));
@@ -268,8 +282,8 @@ namespace Agent.Plugins
                     }
                 },
                 dataflowBlockOptions: parallelism);
-                
-                await actionBlock.SendAllAndCompleteAsync(filteredFiles, actionBlock, cancellationToken);
+
+            await actionBlock.SendAllAndCompleteAsync(filteredFiles, actionBlock, cancellationToken);
 
             watch.Stop();
 

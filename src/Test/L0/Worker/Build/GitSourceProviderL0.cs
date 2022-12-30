@@ -26,7 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 .Setup(x => x.EnsureGitVersion(It.IsAny<Version>(), It.IsAny<bool>()))
                 .Returns(true);
             _gitCommandManager
-                .Setup(x => x.LoadGitExecutionInfo(It.IsAny<IExecutionContext>(), It.IsAny<bool>()))
+                .Setup(x => x.LoadGitExecutionInfo(It.IsAny<IExecutionContext>(), It.IsAny<bool>(), null))
                 .Returns(Task.CompletedTask);
             _gitCommandManager
                 .Setup(x => x.GitInit(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
@@ -35,7 +35,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 .Setup(x => x.GitRemoteAdd(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Returns(Task.FromResult<int>(0));
             _gitCommandManager
-                .Setup(x => x.GitFetch(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<List<string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.GitFetch(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<List<string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.FromResult<int>(0));
             _gitCommandManager
                 .Setup(x => x.GitLFSFetch(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -83,8 +83,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 .Setup(x => x.Variables)
                 .Returns(new Variables(tc, copy: new Dictionary<string, VariableValue>(), warnings: out warnings));
             executionContext
-                .Setup(x => x.Write(It.IsAny<string>(), It.IsAny<string>()))
-                .Callback((string tag, string message) =>
+                .Setup(x => x.Write(It.IsAny<string>(), It.IsAny<string>(), true))
+                .Callback((string tag, string message, bool canMaskSecrets) =>
                 {
                     trace.Info($"{tag}{message}");
                 });
@@ -202,7 +202,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                     _gitCommandManager.Verify(x => x.GitDisableAutoGC(executionContext.Object, dumySourceFolder));
                     _gitCommandManager.Verify(x => x.GitRemoteSetUrl(executionContext.Object, dumySourceFolder, "origin", "https://someuser:SomePassword%21@github.com/microsoft/azure-pipelines-agent"));
                     _gitCommandManager.Verify(x => x.GitRemoteSetPushUrl(executionContext.Object, dumySourceFolder, "origin", "https://someuser:SomePassword%21@github.com/microsoft/azure-pipelines-agent"));
-                    _gitCommandManager.Verify(x => x.GitFetch(executionContext.Object, dumySourceFolder, "origin", It.IsAny<int>(), It.IsAny<List<string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()));
+                    _gitCommandManager.Verify(x => x.GitFetch(executionContext.Object, dumySourceFolder, "origin", It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<List<string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()));
                     _gitCommandManager.Verify(x => x.GitRemoteSetUrl(executionContext.Object, dumySourceFolder, "origin", "https://github.com/microsoft/azure-pipelines-agent"));
                     _gitCommandManager.Verify(x => x.GitRemoteSetPushUrl(executionContext.Object, dumySourceFolder, "origin", "https://github.com/microsoft/azure-pipelines-agent"));
                     _gitCommandManager.Verify(x => x.GitCheckout(executionContext.Object, dumySourceFolder, "a596e13f5db8869f44574be0392fb8fe1e790ce4", It.IsAny<CancellationToken>()));
@@ -245,7 +245,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 // Assert.
                 _gitCommandManager.Verify(x => x.GitInit(executionContext.Object, dumySourceFolder));
                 _gitCommandManager.Verify(x => x.GitRemoteAdd(executionContext.Object, dumySourceFolder, "origin", "https://github.com/microsoft/azure-pipelines-agent"));
-                _gitCommandManager.Verify(x => x.GitFetch(executionContext.Object, dumySourceFolder, "origin", It.IsAny<int>(), new List<string>() { "+refs/heads/*:refs/remotes/origin/*", "+refs/pull/12345:refs/remotes/pull/12345" }, It.IsAny<string>(), It.IsAny<CancellationToken>()));
+                _gitCommandManager.Verify(x => x.GitFetch(executionContext.Object, dumySourceFolder, "origin", It.IsAny<int>(), It.IsAny<bool>(), new List<string>() { "+refs/heads/*:refs/remotes/origin/*", "+refs/pull/12345:refs/remotes/pull/12345" }, It.IsAny<string>(), It.IsAny<CancellationToken>()));
                 _gitCommandManager.Verify(x => x.GitRemoteSetUrl(executionContext.Object, dumySourceFolder, "origin", "https://github.com/microsoft/azure-pipelines-agent"));
                 _gitCommandManager.Verify(x => x.GitRemoteSetPushUrl(executionContext.Object, dumySourceFolder, "origin", "https://github.com/microsoft/azure-pipelines-agent"));
                 _gitCommandManager.Verify(x => x.GitCheckout(executionContext.Object, dumySourceFolder, It.Is<string>(s => s.Equals("refs/remotes/pull/12345")), It.IsAny<CancellationToken>()));
@@ -292,7 +292,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                     _gitCommandManager.Verify(x => x.GitDisableAutoGC(executionContext.Object, dumySourceFolder));
                     _gitCommandManager.Verify(x => x.GitRemoteSetUrl(executionContext.Object, dumySourceFolder, "origin", "https://someuser:SomePassword%21@github.com/microsoft/azure-pipelines-agent"));
                     _gitCommandManager.Verify(x => x.GitRemoteSetPushUrl(executionContext.Object, dumySourceFolder, "origin", "https://someuser:SomePassword%21@github.com/microsoft/azure-pipelines-agent"));
-                    _gitCommandManager.Verify(x => x.GitFetch(executionContext.Object, dumySourceFolder, "origin", It.IsAny<int>(), new List<string>() { "+refs/heads/*:refs/remotes/origin/*", "+refs/pull/12345/merge:refs/remotes/pull/12345/merge" }, It.IsAny<string>(), It.IsAny<CancellationToken>()));
+                    _gitCommandManager.Verify(x => x.GitFetch(executionContext.Object, dumySourceFolder, "origin", It.IsAny<int>(), It.IsAny<bool>(), new List<string>() { "+refs/heads/*:refs/remotes/origin/*", "+refs/pull/12345/merge:refs/remotes/pull/12345/merge" }, It.IsAny<string>(), It.IsAny<CancellationToken>()));
                     _gitCommandManager.Verify(x => x.GitRemoteSetUrl(executionContext.Object, dumySourceFolder, "origin", "https://github.com/microsoft/azure-pipelines-agent"));
                     _gitCommandManager.Verify(x => x.GitRemoteSetPushUrl(executionContext.Object, dumySourceFolder, "origin", "https://github.com/microsoft/azure-pipelines-agent"));
                     _gitCommandManager.Verify(x => x.GitCheckout(executionContext.Object, dumySourceFolder, "refs/remotes/pull/12345/merge", It.IsAny<CancellationToken>()));
@@ -398,7 +398,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                     _gitCommandManager.Verify(x => x.GitDisableAutoGC(executionContext.Object, dumySourceFolder));
                     _gitCommandManager.Verify(x => x.GitRemoteSetUrl(executionContext.Object, dumySourceFolder, "origin", It.Is<string>(s => s.Equals("https://someuser:SomePassword%21@github.com/microsoft/azure-pipelines-agent"))));
                     _gitCommandManager.Verify(x => x.GitRemoteSetPushUrl(executionContext.Object, dumySourceFolder, "origin", It.Is<string>(s => s.Equals("https://someuser:SomePassword%21@github.com/microsoft/azure-pipelines-agent"))));
-                    _gitCommandManager.Verify(x => x.GitFetch(executionContext.Object, dumySourceFolder, "origin", It.IsAny<int>(), It.IsAny<List<string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()));
+                    _gitCommandManager.Verify(x => x.GitFetch(executionContext.Object, dumySourceFolder, "origin", It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<List<string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()));
                     _gitCommandManager.Verify(x => x.GitRemoteSetUrl(executionContext.Object, dumySourceFolder, "origin", "https://github.com/microsoft/azure-pipelines-agent"));
                     _gitCommandManager.Verify(x => x.GitRemoteSetPushUrl(executionContext.Object, dumySourceFolder, "origin", "https://github.com/microsoft/azure-pipelines-agent"));
                     _gitCommandManager.Verify(x => x.GitCheckout(executionContext.Object, dumySourceFolder, "refs/remotes/origin/master", It.IsAny<CancellationToken>()));
@@ -444,7 +444,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                     // Assert.
                     _gitCommandManager.Verify(x => x.GitInit(executionContext.Object, dumySourceFolder));
                     _gitCommandManager.Verify(x => x.GitRemoteAdd(executionContext.Object, dumySourceFolder, "origin", "https://github.com/microsoft/azure-pipelines-agent"));
-                    _gitCommandManager.Verify(x => x.GitFetch(executionContext.Object, dumySourceFolder, "origin", 1, It.IsAny<List<string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()));
+                    _gitCommandManager.Verify(x => x.GitFetch(executionContext.Object, dumySourceFolder, "origin", 1, It.IsAny<bool>(), It.IsAny<List<string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()));
                     _gitCommandManager.Verify(x => x.GitCheckout(executionContext.Object, dumySourceFolder, "refs/remotes/origin/master", It.IsAny<CancellationToken>()));
                 }
                 finally
@@ -492,7 +492,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                     _gitCommandManager.Verify(x => x.GitConfig(executionContext.Object, dumySourceFolder, "remote.origin.lfsurl", "https://someuser:SomePassword%21@github.com/microsoft/azure-pipelines-agent.git/info/lfs"));
                     _gitCommandManager.Verify(x => x.GitConfig(executionContext.Object, dumySourceFolder, "remote.origin.lfspushurl", "https://someuser:SomePassword%21@github.com/microsoft/azure-pipelines-agent.git/info/lfs"));
                     _gitCommandManager.Verify(x => x.GitLFSFetch(executionContext.Object, dumySourceFolder, "origin", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()));
-                    _gitCommandManager.Verify(x => x.GitFetch(executionContext.Object, dumySourceFolder, "origin", It.IsAny<int>(), It.IsAny<List<string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()));
+                    _gitCommandManager.Verify(x => x.GitFetch(executionContext.Object, dumySourceFolder, "origin", It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<List<string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()));
                     _gitCommandManager.Verify(x => x.GitCheckout(executionContext.Object, dumySourceFolder, "refs/remotes/origin/master", It.IsAny<CancellationToken>()));
                 }
                 finally
@@ -543,7 +543,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                     _gitCommandManager.Verify(x => x.GitConfig(executionContext.Object, dumySourceFolder, "remote.origin.lfsurl", "https://someuser:SomePassword%21@github.com/microsoft/azure-pipelines-agent.git/info/lfs"));
                     _gitCommandManager.Verify(x => x.GitConfig(executionContext.Object, dumySourceFolder, "remote.origin.lfspushurl", "https://someuser:SomePassword%21@github.com/microsoft/azure-pipelines-agent.git/info/lfs"));
                     _gitCommandManager.Verify(x => x.GitLFSFetch(executionContext.Object, dumySourceFolder, "origin", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()));
-                    _gitCommandManager.Verify(x => x.GitFetch(executionContext.Object, dumySourceFolder, "origin", 10, It.IsAny<List<string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()));
+                    _gitCommandManager.Verify(x => x.GitFetch(executionContext.Object, dumySourceFolder, "origin", 10, It.IsAny<bool>(), It.IsAny<List<string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()));
                     _gitCommandManager.Verify(x => x.GitCheckout(executionContext.Object, dumySourceFolder, "refs/remotes/origin/master", It.IsAny<CancellationToken>()));
                 }
                 finally

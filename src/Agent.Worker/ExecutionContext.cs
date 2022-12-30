@@ -36,7 +36,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         List<ServiceEndpoint> Endpoints { get; }
         List<SecureFile> SecureFiles { get; }
         List<Pipelines.RepositoryResource> Repositories { get; }
-        Dictionary<string,string> JobSettings { get; }
+        Dictionary<string, string> JobSettings { get; }
 
         PlanFeatures Features { get; }
         Variables Variables { get; }
@@ -55,7 +55,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         // logging
         bool WriteDebug { get; }
-        long Write(string tag, string message);
+        long Write(string tag, string message, bool canMaskSecrets = true);
         void QueueAttachFile(string type, string name, string filePath);
         ITraceWriter GetTraceWriter();
 
@@ -537,6 +537,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 imageName = Environment.GetEnvironmentVariable("_PREVIEW_VSTS_DOCKER_IMAGE");
             }
 
+            var minSecretLen = AgentKnobs.MaskedSecretMinLength.GetValue(this).AsInt();
+
+            try
+            {
+                this.HostContext.SecretMasker.MinSecretLength = minSecretLen;
+            }
+            catch (ArgumentException ex)
+            {
+                warnings.Add(ex.Message);
+            }
+
+            this.HostContext.SecretMasker.RemoveShortSecretsFromDictionary();
+
             Containers = new List<ContainerInfo>();
             _defaultStepTarget = null;
             _currentStepTarget = null;
@@ -681,9 +694,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // Do not add a format string overload. In general, execution context messages are user facing and
         // therefore should be localized. Use the Loc methods from the StringUtil class. The exception to
         // the rule is command messages - which should be crafted using strongly typed wrapper methods.
-        public long Write(string tag, string message)
+        public long Write(string tag, string inputMessage, bool canMaskSecrets = true)
         {
-            string msg = HostContext.SecretMasker.MaskSecrets($"{tag}{message}");
+            string message = canMaskSecrets ? HostContext.SecretMasker.MaskSecrets($"{tag}{inputMessage}") : inputMessage;
+
             long totalLines;
             lock (_loggerLock)
             {
@@ -691,11 +705,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 if (_disableLogUploads)
                 {
-                    _buildLogsWriter.WriteLine(msg);
+                    _buildLogsWriter.WriteLine(message);
                 }
                 else
                 {
-                    _logger.Write(msg);
+                    _logger.Write(message);
                 }
             }
 
@@ -707,11 +721,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     lock (parentContext._loggerLock)
                     {
-                        parentContext._logger.Write(msg);
+                        parentContext._logger.Write(message);
                     }
                 }
 
-                _jobServerQueue.QueueWebConsoleLine(_record.Id, msg, totalLines);
+                _jobServerQueue.QueueWebConsoleLine(_record.Id, message, totalLines);
             }
 
             // write to plugin daemon,
@@ -722,7 +736,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     _logPlugin = HostContext.GetService<IAgentLogPlugin>();
                 }
 
-                _logPlugin.Write(_record.Id, msg);
+                _logPlugin.Write(_record.Id, message);
             }
 
             return totalLines;
@@ -920,10 +934,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
 
         // Do not add a format string overload. See comment on ExecutionContext.Write().
-        public static void Output(this IExecutionContext context, string message)
+        public static void Output(this IExecutionContext context, string message, bool canMaskSecrets = true)
         {
             ArgUtil.NotNull(context, nameof(context));
-            context.Write(null, message);
+            context.Write(null, message, canMaskSecrets);
         }
 
         // Do not add a format string overload. See comment on ExecutionContext.Write().

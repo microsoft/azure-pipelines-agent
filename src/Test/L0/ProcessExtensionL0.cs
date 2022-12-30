@@ -14,6 +14,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
+        [Trait("SkipOn", "darwin")]
         public async Task SuccessReadProcessEnv()
         {
             using (TestHostContext hc = new TestHostContext(this))
@@ -86,7 +87,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     {
                         sleep?.Kill();
                     }
-                    catch {  }
+                    catch { }
                 }
             }
         }
