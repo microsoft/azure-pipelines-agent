@@ -14,7 +14,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         [Trait("Category", "Plugin")]
         public void Fingerprint_IsPath()
         {
-            Action<string,bool> assertPath = (path, isPath) =>
+            Action<string, bool> assertPath = (path, isPath) =>
                 Assert.True(isPath == FingerprintCreator.IsPathyKeySegment(path), $"IsPathy({path}) should have returned {isPath}.");
             assertPath(@"''", false);
             assertPath(@"Windows_NT", false);
@@ -29,7 +29,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
             assertPath(@"./**,!./.git/**", true);
             assertPath(@"/src/foo", true);
             assertPath(@"src/foo", true);
-            
+
             // ones we don't feel great about
             assertPath(@"We should go to the store/mall", true);
             assertPath(@"KEY_SALT=5-macos-10.13-stable-x86_64-apple-darwin", true);

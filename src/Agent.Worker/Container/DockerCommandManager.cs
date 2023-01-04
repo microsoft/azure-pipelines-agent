@@ -349,7 +349,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
         /// <returns
         /// <c>true</c>, if specified container is running, <c>false</c> otherwise. 
         /// </returns>
-        public async Task<bool> IsContainerRunning(IExecutionContext context, string containerId) {
+        public async Task<bool> IsContainerRunning(IExecutionContext context, string containerId)
+        {
             List<string> filteredItems = await DockerPS(context, $"--filter id={containerId}");
 
             // docker ps function is returning table with containers in Running state.

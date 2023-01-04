@@ -129,7 +129,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             _workspaceOptions = new Pipelines.WorkspaceOptions();
             _configurationStore = new Mock<IConfigurationStore>();
             _configurationStore.Setup(store => store.GetSettings()).Returns(new AgentSettings { WorkFolder = this.stubWorkFolder });
-            
+
             steps = new List<Pipelines.JobStep>();
             var selfCheckoutTask = new Pipelines.TaskStep()
             {
@@ -180,17 +180,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             jobSettings = new Dictionary<string, string>();
             jobSettings.Add(WellKnownJobSettings.HasMultipleCheckouts, isMulticheckoutScenario.ToString());
             _ec.Setup(x => x.JobSettings).Returns(jobSettings);
-            
+
             _ec.Setup(x =>
                 x.SetVariable(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>()))
                 .Callback((string varName, string varValue, bool isSecret, bool isOutput, bool isFilePath, bool isReadOnly) => { _variables.Set(varName, varValue, false); });
-            
+
             _extensionManager.Setup(x => x.GetExtensions<ISourceProvider>())
                 .Returns(new List<ISourceProvider> { _sourceProvider.Object });
-            
+
             _sourceProvider.Setup(x => x.RepositoryType)
                 .Returns(Pipelines.RepositoryTypes.ExternalGit);
-            
+
             _buildDirectoryManager.Setup(x => x.PrepareDirectory(_ec.Object, repositories, _workspaceOptions))
                  .Returns(new TrackingConfig(_ec.Object, repositories, 1));
 

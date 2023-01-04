@@ -341,7 +341,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         public DefinitionData Data { get; set; }
         public string Directory { get; set; }
-        public string ZipPath {get;set;}
+        public string ZipPath { get; set; }
     }
 
     public sealed class DefinitionData

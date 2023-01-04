@@ -15,12 +15,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Diagnostics
 
                 string currentDirName = Directory.GetCurrentDirectory();
                 DirectoryInfo directoryInfo = new DirectoryInfo(currentDirName);
-                terminal.WriteLine($"{ directoryInfo.FullName.PadRight(c_padding)} {HasFolderWritePermission(terminal, currentDirName)}");
+                terminal.WriteLine($"{directoryInfo.FullName.PadRight(c_padding)} {HasFolderWritePermission(terminal, currentDirName)}");
 
                 DirectoryInfo[] folders = directoryInfo.GetDirectories();
                 foreach (DirectoryInfo folder in folders)
                 {
-                    terminal.WriteLine($"{ folder.FullName.PadRight(c_padding)} {HasFolderWritePermission(terminal, folder.FullName)}");
+                    terminal.WriteLine($"{folder.FullName.PadRight(c_padding)} {HasFolderWritePermission(terminal, folder.FullName)}");
                 }
 
                 string[] files = Directory.GetFiles(currentDirName);

@@ -257,7 +257,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     {
                         checkoutOptions = jobContext.Variables.ExpandValues(target: checkoutOptions);
                         checkoutOptions = VarUtil.ExpandEnvironmentVariables(HostContext, target: checkoutOptions);
-                        repository.Properties.Set<JToken>(Pipelines.RepositoryPropertyNames.CheckoutOptions, checkoutOptions); ;
+                        repository.Properties.Set<JToken>(Pipelines.RepositoryPropertyNames.CheckoutOptions, checkoutOptions);
                     }
 
                     // expand workspace mapping

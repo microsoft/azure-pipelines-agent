@@ -18,7 +18,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
             private MountVolume Expected;
             private string Title;
 
-            public MountVolumeTest(string input, MountVolume expected, string title="")
+            public MountVolumeTest(string input, MountVolume expected, string title = "")
             {
                 this.Input = input;
                 this.Expected = expected;
@@ -81,10 +81,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         public void DefaultContainerInfoMappings()
         {
             var dockerContainer = new Pipelines.ContainerResource()
-                {
-                    Alias = "vsts_container_preview",
-                    Image = "foo"
-                };
+            {
+                Alias = "vsts_container_preview",
+                Image = "foo"
+            };
             using (TestHostContext hc = CreateTestContext())
             {
                 ContainerInfo info = hc.CreateContainerInfo(dockerContainer, isJobContainer: false);
@@ -101,15 +101,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         public void TranslateContainerPathForImageOSTestsWindowsToLinux()
         {
             var dockerContainer = new Pipelines.ContainerResource()
-                {
-                    Alias = "vsts_container_preview",
-                    Image = "foo"
-                };
+            {
+                Alias = "vsts_container_preview",
+                Image = "foo"
+            };
             using (TestHostContext hc = CreateTestContext())
             {
                 ContainerInfo info = hc.CreateContainerInfo(dockerContainer, isJobContainer: false);
                 info.ImageOS = PlatformUtil.OS.Linux;
-                
+
                 foreach (var test in new string[][] {
                     new string [] { "C:\\path\\for\\linux", "/path/for/linux" },
                     new string [] { "c:\\path\\for\\linux", "/path/for/linux" },
@@ -118,7 +118,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
                     new string [] { "/path/for/linux", "/path/for/linux" },
                     new string [] { "", "" },
                     new string [] { null, null },
-                }) 
+                })
                 {
                     var winPath = test[0];
                     var linPath = test[1];
@@ -134,23 +134,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         public void TranslateContainerPathForImageOSTestsUnixLikeToLinux()
         {
             var dockerContainer = new Pipelines.ContainerResource()
-                {
-                    Alias = "vsts_container_preview",
-                    Image = "foo"
-                };
+            {
+                Alias = "vsts_container_preview",
+                Image = "foo"
+            };
             using (TestHostContext hc = CreateTestContext())
             {
                 ContainerInfo info = hc.CreateContainerInfo(dockerContainer, isJobContainer: false);
                 info.ImageOS = PlatformUtil.OS.Linux;
-                
-                foreach (var os in new PlatformUtil.OS[] { PlatformUtil.OS.Linux, PlatformUtil.OS.OSX})
+
+                foreach (var os in new PlatformUtil.OS[] { PlatformUtil.OS.Linux, PlatformUtil.OS.OSX })
                 {
                     foreach (var test in new string[][] {
                         new string [] { "/path/for/linux", "/path/for/linux" },
                         new string [] { "/", "/" },
                         new string [] { "", "" },
                         new string [] { null, null },
-                    }) 
+                    })
                     {
                         var origPath = test[0];
                         var linPath = test[1];

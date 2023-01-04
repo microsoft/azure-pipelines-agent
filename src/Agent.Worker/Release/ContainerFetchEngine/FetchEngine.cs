@@ -149,7 +149,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEng
 
             if (_downloadedFiles > 0)
             {
-                string message = StringUtil.Loc("RMDownloadProgressDetails", Math.Ceiling(_bytesDownloaded/(1024.0*1024.0)), Math.Floor(_bytesDownloaded/(1024.0*_elapsedDownloadTime.TotalSeconds)), _elapsedDownloadTime);
+                string message = StringUtil.Loc("RMDownloadProgressDetails", Math.Ceiling(_bytesDownloaded / (1024.0 * 1024.0)), Math.Floor(_bytesDownloaded / (1024.0 * _elapsedDownloadTime.TotalSeconds)), _elapsedDownloadTime);
                 ExecutionLogger.Output(message);
             }
         }
@@ -223,7 +223,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEng
 
                         lock (_lock)
                         {
-                            ExecutionLogger.Warning(StringUtil.Loc("RMDownloadTaskCompletedStatus", (int) timeSinceLastTaskCompletion.TotalMinutes));
+                            ExecutionLogger.Warning(StringUtil.Loc("RMDownloadTaskCompletedStatus", (int)timeSinceLastTaskCompletion.TotalMinutes));
                             foreach (IGrouping<TaskStatus, Task> group in taskStates)
                             {
                                 ExecutionLogger.Warning(StringUtil.Loc("RMDownloadTaskStates", group.Key, group.Count()));

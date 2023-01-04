@@ -249,7 +249,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 if (!String.IsNullOrWhiteSpace(useNodeKnob) && filteredPossibleNodeFolders.Length > 0)
                 {
                     Trace.Info($"Found UseNode knob with value \"{useNodeKnob}\", will try to find appropriate Node Runner");
-                    
+
                     switch (useNodeKnob.ToUpper())
                     {
                         case NodeHandler.useNodeKnobLtsKey:

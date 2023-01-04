@@ -110,7 +110,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return true;
         }
 
-        private static bool ShouldRunMaintenance(IExecutionContext executionContext,  TrackingConfig trackingConfig, int totalAvailableTimeInMinutes, Stopwatch totalTimeSpent)
+        private static bool ShouldRunMaintenance(IExecutionContext executionContext, TrackingConfig trackingConfig, int totalAvailableTimeInMinutes, Stopwatch totalTimeSpent)
         {
             bool runMainenance = false;
 

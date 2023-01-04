@@ -144,7 +144,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             var proxyBypassEnv = AgentKnobs.NoProxy.GetValue(HostContext).AsString();
 
-            foreach (string bypass in proxyBypassEnv.Split(new [] {',', ';'}).Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim()))
+            foreach (string bypass in proxyBypassEnv.Split(new[] { ',', ';' }).Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim()))
             {
                 var saveRegexString = ProcessProxyByPassFromEnv(bypass);
 

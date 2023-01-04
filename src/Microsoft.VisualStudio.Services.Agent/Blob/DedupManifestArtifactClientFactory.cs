@@ -122,7 +122,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                 continueOnCapturedContext: false);
 
             var telemetry = new BlobStoreClientTelemetry(tracer, dedupStoreHttpClient.BaseAddress);
-            var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, maxParallelism); 
+            var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, maxParallelism);
             return (new DedupManifestArtifactClient(telemetry, client, tracer), telemetry);
         }
 
@@ -150,7 +150,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                         cancellationToken);
 
                     // this is actually a hidden network call to the location service:
-                     return Task.FromResult(factory.CreateVssHttpClient<IDedupStoreHttpClient, DedupStoreHttpClient>(connection.GetClient<DedupStoreHttpClient>().BaseAddress));
+                    return Task.FromResult(factory.CreateVssHttpClient<IDedupStoreHttpClient, DedupStoreHttpClient>(connection.GetClient<DedupStoreHttpClient>().BaseAddress));
                 },
                 maxRetries: maxRetries,
                 tracer: tracer,
@@ -160,14 +160,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                 continueOnCapturedContext: false);
 
             var telemetry = new BlobStoreClientTelemetryTfs(tracer, dedupStoreHttpClient.BaseAddress, connection);
-            var client = new DedupStoreClient(dedupStoreHttpClient, maxParallelism); 
+            var client = new DedupStoreClient(dedupStoreHttpClient, maxParallelism);
             return (client, telemetry);
         }
 
         public int GetDedupStoreClientMaxParallelism(AgentTaskPluginExecutionContext context)
         {
             ConfigureEnvironmentVariables(context);
-            
+
             int parallelism = DefaultDedupStoreClientMaxParallelism;
 
             if (context.Variables.TryGetValue("AZURE_PIPELINES_DEDUP_PARALLELISM", out VariableValue v))
@@ -190,11 +190,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             return parallelism;
         }
 
-        private static readonly string[] EnvironmentVariables = new [] { "VSO_DEDUP_REDIRECT_TIMEOUT_IN_SEC" };
+        private static readonly string[] EnvironmentVariables = new[] { "VSO_DEDUP_REDIRECT_TIMEOUT_IN_SEC" };
 
         private static void ConfigureEnvironmentVariables(AgentTaskPluginExecutionContext context)
         {
-            foreach(string varName in EnvironmentVariables)
+            foreach (string varName in EnvironmentVariables)
             {
                 if (context.Variables.TryGetValue(varName, out VariableValue v))
                 {

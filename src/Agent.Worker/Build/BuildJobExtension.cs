@@ -166,7 +166,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string pipelineWorkspaceDirectory = Path.Combine(_workDirectory, trackingConfig.BuildDirectory);
 
             UpdateCheckoutTasksAndVariables(executionContext, steps, pipelineWorkspaceDirectory);
-            
+
             // Get default value for RepoLocalPath variable
             string selfRepoPath = GetDefaultRepoLocalPathValue(executionContext, steps, trackingConfig, repoInfo);
 
@@ -361,7 +361,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 {
                     selfRepoPath = trackingConfig.RepositoryTrackingInfo
                         .Where(repo => RepositoryUtil.IsPrimaryRepositoryName(repo.Identifier))
-                        .Select(props => props.SourcesDirectory).FirstOrDefault(); 
+                        .Select(props => props.SourcesDirectory).FirstOrDefault();
                 }
             }
             // For single checkout jobs and multicheckout jobs with default paths set selfRepoPath to the default sources directory

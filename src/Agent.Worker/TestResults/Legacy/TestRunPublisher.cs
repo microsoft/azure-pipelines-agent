@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-﻿using Microsoft.TeamFoundation.TestManagement.WebApi;
+using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -121,7 +121,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                 var testResultsBatch = new TestCaseResult[noOfResultsToBePublished];
                 Array.Copy(testResults, i, currentBatch, 0, noOfResultsToBePublished);
 
-                for (int testResultsIndex = 0; testResultsIndex < noOfResultsToBePublished; testResultsIndex++){
+                for (int testResultsIndex = 0; testResultsIndex < noOfResultsToBePublished; testResultsIndex++)
+                {
 
                     if (IsMaxLimitReachedForSubresultPreProcessing(currentBatch[testResultsIndex].AutomatedTestName, currentBatch[testResultsIndex].TestCaseSubResultData) == false)
                     {
@@ -395,9 +396,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                 }
             }
 
-            if(testCaseResult.SubResults != null && testCaseResult.SubResults.Any() && testCaseResultData.TestCaseSubResultData != null)
+            if (testCaseResult.SubResults != null && testCaseResult.SubResults.Any() && testCaseResultData.TestCaseSubResultData != null)
             {
-                for(int i = 0; i < testCaseResultData.TestCaseSubResultData.Count; i++)
+                for (int i = 0; i < testCaseResultData.TestCaseSubResultData.Count; i++)
                 {
                     await UploadTestSubResultsAttachmentAsync(testRunId, testCaseResult.Id, testCaseResultData.TestCaseSubResultData[i], testCaseResult.SubResults[i], 1, cancellationToken);
                 }
@@ -425,7 +426,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                     .Select(async attachment =>
                     {
                         TestAttachmentRequestModel reqModel = GetAttachmentRequestModel(attachment);
-                        if(reqModel != null)
+                        if (reqModel != null)
                         {
                             await _testResultsServer.CreateTestSubResultAttachmentAsync(reqModel, _projectName, testRunId, testResultId, subresult.Id, cancellationToken);
                         }

@@ -118,7 +118,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     continue;
                 }
 
-                if (interfaceTypeInfo.FullName.Contains("IConverter")){
+                if (interfaceTypeInfo.FullName.Contains("IConverter"))
+                {
                     continue;
                 }
 

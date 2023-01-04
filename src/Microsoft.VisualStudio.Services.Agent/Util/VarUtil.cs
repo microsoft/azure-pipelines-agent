@@ -12,7 +12,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Util
 {
-  public static class VarUtil
+    public static class VarUtil
     {
         public static StringComparer EnvironmentVariableKeyComparer
         {

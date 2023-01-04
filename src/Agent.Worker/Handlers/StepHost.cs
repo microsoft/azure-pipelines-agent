@@ -109,7 +109,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             StringComparison sc = (PlatformUtil.RunningOnWindows)
                                 ? StringComparison.OrdinalIgnoreCase
                                 : StringComparison.Ordinal;
-            if (Container.MountVolumes.Exists(x => {
+            if (Container.MountVolumes.Exists(x =>
+            {
                 if (!string.IsNullOrEmpty(x.SourceVolumePath))
                 {
                     return path.StartsWith(x.SourceVolumePath, sc);

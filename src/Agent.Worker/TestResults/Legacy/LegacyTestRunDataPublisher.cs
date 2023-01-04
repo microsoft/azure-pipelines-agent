@@ -219,7 +219,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                             isTestRunOutcomeFailed = runOutcome.Value;
                         }
                     }
-                    
+
                     StoreTestRunSummaryInEnvVar(testRunSummary);
                 }
             }
@@ -235,7 +235,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         private void StoreTestRunSummaryInEnvVar(TestRunSummary testRunSummary)
         {
             // Storing testrun summary in environment variable, which will be read by PublishPipelineMetadataTask and publish to evidence store.
-            if(_calculateTestRunSummary)
+            if (_calculateTestRunSummary)
             {
                 TestResultUtils.StoreTestRunSummaryInEnvVar(_executionContext, testRunSummary, _testRunner, "PublishTestResults");
             }
@@ -291,10 +291,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                             {
                                 testRunData.AddCustomField(_testRunSystemCustomFieldName, runContext.TestRunSystem);
                                 AddTargetBranchInfoToRunCreateModel(testRunData, runContext.TargetBranchName);
-                                TestRun testRun = await publisher.StartTestRunAsync(testRunData,                   _executionContext.CancellationToken);
+                                TestRun testRun = await publisher.StartTestRunAsync(testRunData, _executionContext.CancellationToken);
                                 await publisher.AddResultsAsync(testRun, testRunData.Results, _executionContext.CancellationToken);
                                 TestRun updatedRun = await publisher.EndTestRunAsync(testRunData, testRun.Id, cancellationToken: _executionContext.CancellationToken);
-                                
+
                                 publishedRuns.Add(updatedRun);
                             }
                             else
@@ -336,7 +336,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 
         private string GetRunName(string runTitle)
         {
-             lock (_sync)
+            lock (_sync)
             {
                 return StringUtil.Format("{0}_{1}", runTitle, ++_runCounter);
             }
@@ -380,11 +380,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         private bool GetTestRunOutcome(TestRunData testRunData, TestRunSummary testRunSummary)
         {
             bool anyFailedTests = false;
-            foreach(var testCaseResultData in testRunData.Results)
+            foreach (var testCaseResultData in testRunData.Results)
             {
                 testRunSummary.Total += 1;
                 Enum.TryParse(testCaseResultData.Outcome, out TestOutcome outcome);
-                switch(outcome)
+                switch (outcome)
                 {
                     case TestOutcome.Failed:
                     case TestOutcome.Aborted:
@@ -400,7 +400,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                     default: break;
                 }
 
-                if(!_calculateTestRunSummary && anyFailedTests)
+                if (!_calculateTestRunSummary && anyFailedTests)
                 {
                     return anyFailedTests;
                 }

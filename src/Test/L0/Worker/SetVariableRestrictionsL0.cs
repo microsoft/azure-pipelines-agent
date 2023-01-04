@@ -83,7 +83,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Command command;
                 var value = "myValue";
 
-                foreach(String variable in new String[] { "myVar", "myvar", "MYVAR", "otherVAR" })
+                foreach (String variable in new String[] { "myVar", "myvar", "MYVAR", "otherVAR" })
                 {
                     command = SetVariableCommand(variable, value);
                     setVariable = new TaskSetVariableCommand();
@@ -117,7 +117,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Command command;
                 var value = "myValue";
 
-                foreach(String variable in new String[] { "myVar", "mything", "MY" })
+                foreach (String variable in new String[] { "myVar", "mything", "MY" })
                 {
                     command = SetVariableCommand(variable, value);
                     setVariable = new TaskSetVariableCommand();
@@ -159,7 +159,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var value = "myValue";
 
                 // settable is both allowed lists
-                foreach(String variable in new String[] { "myVar", "myThing" })
+                foreach (String variable in new String[] { "myVar", "myThing" })
                 {
                     command = SetVariableCommand(variable, value);
                     setVariable = new TaskSetVariableCommand();
@@ -176,7 +176,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     setVariable = new TaskSetVariableCommand();
                     setVariable.Execute(_ec.Object, command);
                     Assert.Equal(null, _variables.Get(variable));
-                    Assert.Equal(lastCount+1, _warnings.Count);
+                    Assert.Equal(lastCount + 1, _warnings.Count);
                     Assert.Contains("SetVariableNotAllowed", _warnings.Last());
                     lastCount = _warnings.Count;
                 }
@@ -209,7 +209,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     setVariable = new TaskSetVariableCommand();
                     setVariable.Execute(_ec.Object, command);
                     Assert.Equal(null, _variables.Get(variable));
-                    Assert.Equal(lastCount+1, _warnings.Count);
+                    Assert.Equal(lastCount + 1, _warnings.Count);
                     Assert.Contains("SetVariableNotAllowed", _warnings.Last());
                     lastCount = _warnings.Count;
                 }

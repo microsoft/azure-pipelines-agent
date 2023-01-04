@@ -66,7 +66,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     return null;
                 }
             }
-            
+
             try
             {
                 // Reads through each run and if it contains failures, then check for failures with flaky awareness.
@@ -78,7 +78,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                         {
                             try
                             {
-                                var testRunStats = _testRunPublisher.GetTestRunSummaryAsync(projectName, testRun.Id,  true, cancellationToken).Result;
+                                var testRunStats = _testRunPublisher.GetTestRunSummaryAsync(projectName, testRun.Id, true, cancellationToken).Result;
                                 if (_testRunPublisher.IsTestRunFailed(testRunStats, cancellationToken))
                                 {
                                     _executionContext.Output("Failed Results are published");

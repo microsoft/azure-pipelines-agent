@@ -62,14 +62,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             try
             {
                 string securityId = _windowsServiceHelper.GetSecurityId(domainName, userName);
-                if(string.IsNullOrEmpty(securityId))
+                if (string.IsNullOrEmpty(securityId))
                 {
                     Trace.Error($"Could not find the Security ID for the user '{domainName}\\{userName}'. AutoLogon will not be configured.");
                     throw new ArgumentException(StringUtil.Loc("InvalidSIDForUser", domainName, userName));
                 }
 
                 //check if the registry exists for the user, if not load the user profile
-                if(!_registryManager.SubKeyExists(RegistryHive.Users, securityId))
+                if (!_registryManager.SubKeyExists(RegistryHive.Users, securityId))
                 {
                     userProfile.dwSize = Marshal.SizeOf(typeof(PROFILEINFO));
                     userProfile.lpUserName = userName;
@@ -77,7 +77,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     _windowsServiceHelper.LoadUserProfile(domainName, userName, logonPassword, out userHandler, out userProfile);
                 }
 
-                if(!_registryManager.SubKeyExists(RegistryHive.Users, securityId))
+                if (!_registryManager.SubKeyExists(RegistryHive.Users, securityId))
                 {
                     throw new InvalidOperationException(StringUtil.Loc("ProfileLoadFailure", domainName, userName));
                 }
@@ -90,7 +90,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
             finally
             {
-                if(userHandler != IntPtr.Zero)
+                if (userHandler != IntPtr.Zero)
                 {
                     _windowsServiceHelper.UnloadUserProfile(userHandler, userProfile);
                 }
@@ -100,7 +100,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public void ResetRegistrySettings(string domainName, string userName)
         {
             string securityId = _windowsServiceHelper.GetSecurityId(domainName, userName);
-            if(string.IsNullOrEmpty(securityId))
+            if (string.IsNullOrEmpty(securityId))
             {
                 Trace.Error($"Could not find the Security ID for the user '{domainName}\\{userName}'. Unconfiguration of AutoLogon is not possible.");
                 throw new ArgumentException(StringUtil.Loc("InvalidSIDForUser", domainName, userName));
@@ -140,7 +140,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 Trace.Info($"Legal notice caption - Subkey - {legalNoticeSubKey} ValueName - {captionValueName}. Is defined - {isLegalNoticeCaptionDefined}");
 
                 var textValueName = RegistryConstants.MachineSettings.ValueNames.LegalNoticeText;
-                var legalNoticeText =  _registryManager.GetValue(RegistryHive.LocalMachine, legalNoticeSubKey, textValueName);
+                var legalNoticeText = _registryManager.GetValue(RegistryHive.LocalMachine, legalNoticeSubKey, textValueName);
                 var isLegalNoticeTextDefined = !string.IsNullOrEmpty(legalNoticeCaption);
                 Trace.Info($"Legal notice text - Subkey - {legalNoticeSubKey} ValueName - {textValueName}. Is defined - {isLegalNoticeTextDefined}");
             }
@@ -164,7 +164,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Trace.Info("****User specific policies/settings****");
             var screenSaverPolicySubKeyName = RegistryConstants.UserSettings.SubKeys.ScreenSaverDomainPolicy;
             var screenSaverValueName = RegistryConstants.UserSettings.ValueNames.ScreenSaver;
-            if(_registryManager.SubKeyExists(RegistryHive.CurrentUser, screenSaverPolicySubKeyName))
+            if (_registryManager.SubKeyExists(RegistryHive.CurrentUser, screenSaverPolicySubKeyName))
             {
                 var screenSaverSettingValue = _registryManager.GetValue(RegistryHive.CurrentUser, screenSaverPolicySubKeyName, screenSaverValueName);
                 Trace.Info($"Screensaver policy.  SubKey - {screenSaverPolicySubKeyName} ValueName - {screenSaverValueName} : {screenSaverSettingValue} (1- enabled)");
@@ -176,7 +176,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             Trace.Info("****User specific settings****");
 
-            var  screenSaverSettingSubKeyName = RegistryConstants.UserSettings.SubKeys.ScreenSaver;
+            var screenSaverSettingSubKeyName = RegistryConstants.UserSettings.SubKeys.ScreenSaver;
             var screenSaverSettingValueName = RegistryConstants.UserSettings.ValueNames.ScreenSaver;
             var screenSaverValue = _registryManager.GetValue(RegistryHive.CurrentUser, screenSaverSettingSubKeyName, screenSaverSettingValueName);
             Trace.Info($"Screensaver - SubKey - {screenSaverSettingSubKeyName}, ValueName - {screenSaverSettingValueName} : {screenSaverValue} (0-disabled, 1-enabled)");
@@ -256,7 +256,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 var legalNoticeCaption = _registryManager.GetValue(RegistryHive.LocalMachine,
                                                                     RegistryConstants.MachineSettings.SubKeys.LegalNotice,
                                                                     RegistryConstants.MachineSettings.ValueNames.LegalNoticeCaption);
-                var legalNoticeText =  _registryManager.GetValue(RegistryHive.LocalMachine,
+                var legalNoticeText = _registryManager.GetValue(RegistryHive.LocalMachine,
                                                                     RegistryConstants.MachineSettings.SubKeys.LegalNotice,
                                                                     RegistryConstants.MachineSettings.ValueNames.LegalNoticeText);
                 if (!string.IsNullOrEmpty(legalNoticeCaption) || !string.IsNullOrEmpty(legalNoticeText))
@@ -269,7 +269,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 Trace.Warning("Following policies may affect the autologon:");
                 _terminal.WriteError(StringUtil.Loc("AutoLogonPoliciesWarningsHeader"));
-                for (int i=0; i < warningReasons.Count; i++)
+                for (int i = 0; i < warningReasons.Count; i++)
                 {
                     var msg = String.Format("{0} - {1}", i + 1, warningReasons[i]);
                     Trace.Warning(msg);
@@ -295,7 +295,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _terminal.WriteLine(StringUtil.Loc("ScreenSaverPoliciesInspection"));
 
             string subKeyName = $"{securityId}\\{RegistryConstants.UserSettings.SubKeys.ScreenSaverDomainPolicy}";
-            if(_registryManager.SubKeyExists(RegistryHive.Users, subKeyName))
+            if (_registryManager.SubKeyExists(RegistryHive.Users, subKeyName))
             {
                 var screenSaverValue = _registryManager.GetValue(RegistryHive.Users, subKeyName, RegistryConstants.UserSettings.ValueNames.ScreenSaver);
                 if (int.TryParse(screenSaverValue, out int isScreenSaverDomainPolicySet)
@@ -351,7 +351,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             var screenSaverSubKey = $"{securityId}\\{RegistryConstants.UserSettings.SubKeys.ScreenSaver}";
             var currentValue = _registryManager.GetValue(targetHive, screenSaverSubKey, RegistryConstants.UserSettings.ValueNames.ScreenSaver);
 
-            if(string.Equals(currentValue, "0", StringComparison.CurrentCultureIgnoreCase))
+            if (string.Equals(currentValue, "0", StringComparison.CurrentCultureIgnoreCase))
             {
                 //we only take the backup of screensaver setting at present, reverting it back if it exists
                 RevertOriginalValue(targetHive, screenSaverSubKey, RegistryConstants.UserSettings.ValueNames.ScreenSaver);
@@ -369,7 +369,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             var actualStartupCmd = _registryManager.GetValue(targetHive, startupProcessSubKeyName, RegistryConstants.UserSettings.ValueNames.StartupProcess);
 
             // Use StartWith() instead of Equals() because we don't know if the startupCmd should include the runOnce parameter
-            if(actualStartupCmd != null && 
+            if (actualStartupCmd != null &&
                actualStartupCmd.StartsWith(expectedStartupCmd, StringComparison.CurrentCultureIgnoreCase))
             {
                 _registryManager.DeleteValue(RegistryHive.Users, startupProcessSubKeyName, RegistryConstants.UserSettings.ValueNames.StartupProcess);
