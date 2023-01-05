@@ -36,7 +36,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         // On Windows, the maximum supported size of a environment variable value is 32k.
         // You can set environment variables greater then 32K, but Node won't be able to read them.
         private const int _windowsEnvironmentVariableMaximumSize = 32766;
-        
+
         protected bool _continueAfterCancelProcessTreeKillAttempt;
 
         protected IWorkerCommandManager CommandManager { get; private set; }

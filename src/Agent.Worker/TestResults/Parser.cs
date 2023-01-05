@@ -130,7 +130,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
     }
 
-    public class ContainerStructureTestParser: Parser, IParser
+    public class ContainerStructureTestParser : Parser, IParser
     {
         public override string Name => "ContainerStructure";
 

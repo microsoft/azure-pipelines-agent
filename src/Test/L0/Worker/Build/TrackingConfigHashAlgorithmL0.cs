@@ -38,7 +38,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 };
 
                 // Act.
-                string hashKey = TrackingConfigHashAlgorithm.ComputeHash(collectionId, definitionId, new [] { repoInfo });
+                string hashKey = TrackingConfigHashAlgorithm.ComputeHash(collectionId, definitionId, new[] { repoInfo });
 
                 // Assert.
                 Assert.Equal("5c5c3d7ac33cca6604736eb3af977f23f1cf1146", hashKey);
@@ -164,7 +164,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
 
                 // Make sure that only the coll, def, identifier, and url are used in the hash
                 Assert.Equal(
-                    TrackingConfigHashAlgorithm.ComputeHash(collectionId, definitionId, new[] { repo1, repo2 }), 
+                    TrackingConfigHashAlgorithm.ComputeHash(collectionId, definitionId, new[] { repo1, repo2 }),
                     TrackingConfigHashAlgorithm.ComputeHash(collectionId, definitionId, new[] { repo1, repo2_newPath }));
 
                 // Make sure that different coll creates different hash

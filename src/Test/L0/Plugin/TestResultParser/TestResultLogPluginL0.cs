@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Agent.Plugins.Log.TestResultParser.Contracts;
@@ -126,7 +126,7 @@ namespace Test.L0.Plugin.TestResultParser
                 {"system.hosttype", new VariableValue("build") },
                 {"system.servertype", new VariableValue("Hosted") }
             });
-            
+
             agentContext.Setup(x => x.Steps).Returns(new List<TaskStepDefinitionReference>()
             {
                 new TaskStepDefinitionReference()

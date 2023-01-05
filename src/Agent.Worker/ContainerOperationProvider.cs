@@ -127,7 +127,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Build JSON to expose docker container name mapping to env
             var containerMapping = new JObject();
-            foreach (var container in containers) {
+            foreach (var container in containers)
+            {
                 var containerInfo = new JObject();
                 containerInfo["id"] = container.ContainerId;
                 containerMapping[container.ContainerName] = containerInfo;
@@ -477,7 +478,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Tools)));
 
             bool externalReadOnly = container.ImageOS != PlatformUtil.OS.Windows || container.isReadOnlyVolume(Constants.DefaultContainerMounts.Externals); // This code was refactored to use PlatformUtils. The previous implementation did not have the externals directory mounted read-only for Windows.
-                                                                    // That seems wrong, but to prevent any potential backwards compatibility issues, we are keeping the same logic
+                                                                                                                                                            // That seems wrong, but to prevent any potential backwards compatibility issues, we are keeping the same logic
             container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Externals), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Externals)), externalReadOnly));
 
             if (container.ImageOS != PlatformUtil.OS.Windows)
@@ -699,10 +700,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             // check all potential groups that might match the GID.
                             foreach (string groupOutput in groupsOutput)
                             {
-                                if(!string.IsNullOrEmpty(groupOutput))
+                                if (!string.IsNullOrEmpty(groupOutput))
                                 {
                                     var groupSegments = groupOutput.Split(':');
-                                    if( groupSegments.Length != 4 )
+                                    if (groupSegments.Length != 4)
                                     {
                                         Trace.Warning($"Unexpected output from /etc/group: '{groupOutput}'");
                                     }
@@ -712,7 +713,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                         var groupName = groupSegments[0];
                                         var groupId = groupSegments[2];
 
-                                        if(string.Equals(dockerSockGroupId, groupId))
+                                        if (string.Equals(dockerSockGroupId, groupId))
                                         {
                                             existingGroupName = groupName;
                                             break;
@@ -722,7 +723,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             }
                         }
 
-                        if(string.IsNullOrEmpty(existingGroupName))
+                        if (string.IsNullOrEmpty(existingGroupName))
                         {
                             // create a new group with same gid
                             existingGroupName = "azure_pipelines_docker";
@@ -823,7 +824,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             Trace.Entering();
             ArgUtil.NotNull(executionContext, nameof(executionContext));
-            
+
             if (network != "host")
             {
                 int networkExitCode = await _dockerManger.DockerNetworkCreate(executionContext, network);

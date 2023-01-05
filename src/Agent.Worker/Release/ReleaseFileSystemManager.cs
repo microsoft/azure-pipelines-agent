@@ -52,7 +52,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
             catch (Exception ex)
             {
                 var exception = ex;
-                
+
                 if (ex is AggregateException)
                 {
                     exception = ((AggregateException)ex).Flatten().InnerException;

@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace Microsoft.VisualStudio.Services.Agent
 {
     //Stephen Toub: http://blogs.msdn.com/b/pfxteam/archive/2012/02/11/10266920.aspx
-    
+
     public class AsyncManualResetEvent
     {
         private volatile TaskCompletionSource<bool> m_tcs = new TaskCompletionSource<bool>();

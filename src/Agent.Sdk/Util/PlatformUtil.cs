@@ -322,7 +322,8 @@ namespace Agent.Sdk
             string supportOSfilePath = Path.Combine(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "net6.json");
             string supportOSfileContent;
 
-            if (!File.Exists(supportOSfilePath) || File.GetLastWriteTimeUtc(supportOSfilePath) < DateTime.UtcNow.AddHours(-1)) {
+            if (!File.Exists(supportOSfilePath) || File.GetLastWriteTimeUtc(supportOSfilePath) < DateTime.UtcNow.AddHours(-1))
+            {
                 HttpResponseMessage response = await httpClient.GetAsync(serverFileUrl);
                 if (!response.IsSuccessStatusCode)
                 {
@@ -330,7 +331,7 @@ namespace Agent.Sdk
                 }
                 supportOSfileContent = await response.Content.ReadAsStringAsync();
                 await File.WriteAllTextAsync(supportOSfilePath, supportOSfileContent);
-            } 
+            }
             else
             {
                 if (net6SupportedSystems != null)
@@ -490,11 +491,11 @@ namespace Agent.Sdk
 
         public OperatingSystem() { }
 
-        public bool Equals(string systemId) => 
+        public bool Equals(string systemId) =>
             this.Id.Equals(systemId, StringComparison.OrdinalIgnoreCase);
 
-        public bool Equals(string systemId, SystemVersion systemVersion) => 
-            this.Equals(systemId) && this.Versions.Length > 0 
+        public bool Equals(string systemId, SystemVersion systemVersion) =>
+            this.Equals(systemId) && this.Versions.Length > 0
                 ? this.Versions.Any(version => version.Equals(systemVersion))
                 : false;
     }

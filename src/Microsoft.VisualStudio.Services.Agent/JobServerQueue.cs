@@ -77,7 +77,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         // In this way, customer still can get instance live console output on job start,
         // at the same time we can cut the load to server after the build run for more than 60s
         private int _webConsoleLineAggressiveDequeueCount = 0;
-        private int _webConsoleLineUpdateRate = (int) _delayForWebConsoleLineDequeueDefault.TotalMilliseconds;
+        private int _webConsoleLineUpdateRate = (int)_delayForWebConsoleLineDequeueDefault.TotalMilliseconds;
         private const int _webConsoleLineAggressiveDequeueLimit = 2 * 15;
         private bool _webConsoleLineAggressiveDequeue = true;
         private TaskCompletionSource<object> _webConsoleLinesDequeueNow = new TaskCompletionSource<object>();
@@ -148,7 +148,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             {
                 if (!Int32.TryParse(postLinesSpeed.Value, out _webConsoleLineUpdateRate))
                 {
-                    _webConsoleLineUpdateRate = (int) _delayForWebConsoleLineDequeueDefault.TotalMilliseconds;
+                    _webConsoleLineUpdateRate = (int)_delayForWebConsoleLineDequeueDefault.TotalMilliseconds;
                 }
             }
 
@@ -682,9 +682,9 @@ namespace Microsoft.VisualStudio.Services.Agent
                     {
                         try
                         {
-                            var (dedupId, length) = await _jobServer.UploadAttachmentToBlobStore(_debugMode, file.Path,  _planId, _jobTimelineRecordId, default(CancellationToken));
+                            var (dedupId, length) = await _jobServer.UploadAttachmentToBlobStore(_debugMode, file.Path, _planId, _jobTimelineRecordId, default(CancellationToken));
                             // Notify TFS
-                            await _jobServer.AssosciateAttachmentAsync(_scopeIdentifier, _hubName, _planId, file.TimelineId, file.TimelineRecordId, file.Type, file.Name, dedupId, (long) length, default(CancellationToken));
+                            await _jobServer.AssosciateAttachmentAsync(_scopeIdentifier, _hubName, _planId, file.TimelineId, file.TimelineRecordId, file.Type, file.Name, dedupId, (long)length, default(CancellationToken));
                         }
                         catch
                         {

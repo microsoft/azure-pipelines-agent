@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-﻿using TestRunContext = Microsoft.TeamFoundation.TestClient.PublishTestResults.TestRunContext;
+using TestRunContext = Microsoft.TeamFoundation.TestClient.PublishTestResults.TestRunContext;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 {

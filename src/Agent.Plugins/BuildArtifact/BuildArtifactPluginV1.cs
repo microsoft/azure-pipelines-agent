@@ -75,10 +75,11 @@ namespace Agent.Plugins.BuildArtifacts
         static readonly string buildVersionToDownloadSpecific = "specific";
         static readonly string buildVersionToDownloadLatestFromBranch = "latestFromBranch";
         static readonly string extractedTarsTempDir = "extracted_tars";
-        static readonly Options minimatchOptions = new Options() {
-           Dot = true,
-           NoBrace = true,
-           AllowWindowsPaths = PlatformUtil.RunningOnWindows
+        static readonly Options minimatchOptions = new Options()
+        {
+            Dot = true,
+            NoBrace = true,
+            AllowWindowsPaths = PlatformUtil.RunningOnWindows
         };
 
         protected override async Task ProcessCommandInternalAsync(
@@ -219,9 +220,9 @@ namespace Agent.Plugins.BuildArtifacts
                 {
                     throw new ArgumentNullException(StringUtil.Loc("CannotBeNullOrEmpty"), "Project Name");
                 }
-                Guid projectId; 
+                Guid projectId;
                 bool isProjGuid = Guid.TryParse(projectName, out projectId);
-                if (!isProjGuid) 
+                if (!isProjGuid)
                 {
                     projectId = await GetProjectIdAsync(context, projectName);
                 }
@@ -352,7 +353,7 @@ namespace Agent.Plugins.BuildArtifacts
         {
             FileAttributes dirAttributes;
             context.Output(StringUtil.Loc("CleaningDestinationFolder", directoryPath));
-            
+
             try
             {
                 dirAttributes = File.GetAttributes(directoryPath);
@@ -393,7 +394,7 @@ namespace Agent.Plugins.BuildArtifacts
 
         private async Task<int> GetPipelineIdAsync(AgentTaskPluginExecutionContext context, string pipelineDefinition, string buildVersionToDownload, string project, string[] tagFilters, BuildResult resultFilter = BuildResult.Succeeded, string branchName = null, CancellationToken cancellationToken = default(CancellationToken))
         {
-            if(String.IsNullOrWhiteSpace(pipelineDefinition)) 
+            if (String.IsNullOrWhiteSpace(pipelineDefinition))
             {
                 throw new InvalidOperationException(StringUtil.Loc("CannotBeNullOrEmpty", "Pipeline Definition"));
             }
@@ -461,7 +462,7 @@ namespace Agent.Plugins.BuildArtifacts
 
             return result;
         }
-      
+
         private async Task<Guid> GetProjectIdAsync(AgentTaskPluginExecutionContext context, string projectName)
         {
             VssConnection connection = context.VssConnection;
@@ -481,7 +482,8 @@ namespace Agent.Plugins.BuildArtifacts
             return proj.Id;
         }
 
-        private void OutputBuildInfo(AgentTaskPluginExecutionContext context, int? pipelineId){
+        private void OutputBuildInfo(AgentTaskPluginExecutionContext context, int? pipelineId)
+        {
             context.Output(StringUtil.Loc("DownloadingFromBuild", pipelineId));
             // populate output variable 'BuildNumber' with buildId
             context.SetVariable("BuildNumber", pipelineId.ToString());

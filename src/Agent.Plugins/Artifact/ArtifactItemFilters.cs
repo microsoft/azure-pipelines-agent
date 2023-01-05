@@ -167,7 +167,7 @@ namespace Agent.Plugins
         private void UpdatePatternsMap(bool isIncludePattern, List<string> paths, IEnumerable<Func<string, bool>> minimatcherFuncs, ref Hashtable map)
         {
             string patternType = isIncludePattern ? "include" : "exclude";
-            tracer.Info($"Applying { patternType } pattern against original list.");
+            tracer.Info($"Applying {patternType} pattern against original list.");
 
             List<string> matchResults = this.FilterItemsByPatterns(paths, minimatcherFuncs);
             int matchCount = 0;

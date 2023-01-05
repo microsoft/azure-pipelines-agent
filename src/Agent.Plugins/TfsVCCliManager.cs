@@ -103,7 +103,7 @@ namespace Agent.Plugins.Repository
                 await Task.Delay(sleep);
 
                 // Use attempt+2 since we're using 0 based indexing and we're displaying this for the next attempt.
-                ExecutionContext.Output($@"Retrying. Attempt {attempt+2}/{retriesOnFailure}");
+                ExecutionContext.Output($@"Retrying. Attempt {attempt + 2}/{retriesOnFailure}");
             }
 
             // Perform one last try and fail on non-zero exit code
@@ -161,7 +161,7 @@ namespace Agent.Plugins.Repository
                 }
                 ExecutionContext.Command($@"tf {arguments}");
 
-                var result =  await processInvoker.ExecuteAsync(
+                var result = await processInvoker.ExecuteAsync(
                     workingDirectory: SourcesDirectory,
                     fileName: "tf",
                     arguments: arguments,
@@ -170,7 +170,7 @@ namespace Agent.Plugins.Repository
                     outputEncoding: OutputEncoding,
                     cancellationToken: CancellationToken);
 
-                if(useSecureParameterPassing)
+                if (useSecureParameterPassing)
                 {
                     File.Delete(Path.Combine(this.SourcesDirectory, temporaryFileWithCommand));
                 }
@@ -265,7 +265,7 @@ namespace Agent.Plugins.Repository
                 {
                     arguments = formattedArguments;
                 }
-                
+
                 ExecutionContext.Debug($@"tf {arguments}");
                 // TODO: Test whether the output encoding needs to be specified on a non-Latin OS.
                 try
@@ -284,7 +284,7 @@ namespace Agent.Plugins.Repository
                     result.Exception = ex;
                 }
 
-                if(useSecretParameterPassing)
+                if (useSecretParameterPassing)
                 {
                     CleanupTfsVCOutput(ref result, formattedArguments);
                     File.Delete(Path.Combine(this.SourcesDirectory, cmdFileName));

@@ -170,7 +170,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 List<string> stdout = new List<string>();
                 redirectSTDIN.Enqueue("Single line of STDIN");
 
-                using (var cancellationTokenSource = new CancellationTokenSource() )
+                using (var cancellationTokenSource = new CancellationTokenSource())
                 using (var processInvoker = new ProcessInvokerWrapper())
                 {
                     processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
@@ -220,7 +220,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 Int32 exitCode = -1;
                 List<string> stdout = new List<string>();
                 redirectSTDIN.Enqueue("Single line of STDIN");
-                using (var cancellationTokenSource = new CancellationTokenSource() )
+                using (var cancellationTokenSource = new CancellationTokenSource())
                 using (var processInvoker = new ProcessInvokerWrapper())
                 {
                     processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
@@ -326,7 +326,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                         try
                         {
                             var proc = await processInvoker.ExecuteAsync("", "bash", "-c \"cat /proc/$$/oom_score_adj\"",
-                                                                    new Dictionary<string, string> { {"PIPELINE_JOB_OOMSCOREADJ", "1234"} },
+                                                                    new Dictionary<string, string> { { "PIPELINE_JOB_OOMSCOREADJ", "1234" } },
                                                                     false, null, false, null, false, false,
                                                                     highPriorityProcess: false,
                                                                     continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
@@ -406,7 +406,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     processInvoker.DisableWorkerCommands = true;
                     processInvoker.Initialize(hc);
                     exitCode = (TestUtil.IsWindows())
-                        ? await processInvoker.ExecuteAsync("", "powershell.exe",  $@"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command ""Write-Host '##vso somecommand'""", null, CancellationToken.None)
+                        ? await processInvoker.ExecuteAsync("", "powershell.exe", $@"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command ""Write-Host '##vso somecommand'""", null, CancellationToken.None)
                         : await processInvoker.ExecuteAsync("", "bash", "-c \"echo '##vso somecommand'\"", null, CancellationToken.None);
 
                     trace.Info("Exit Code: {0}", exitCode);
@@ -437,7 +437,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     };
                     processInvoker.Initialize(hc);
                     exitCode = (TestUtil.IsWindows())
-                        ? await processInvoker.ExecuteAsync("", "powershell.exe",  $@"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command ""Write-Host '##vso somecommand'""", null, CancellationToken.None)
+                        ? await processInvoker.ExecuteAsync("", "powershell.exe", $@"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command ""Write-Host '##vso somecommand'""", null, CancellationToken.None)
                         : await processInvoker.ExecuteAsync("", "bash", "-c \"echo '##vso somecommand'\"", null, CancellationToken.None);
 
                     trace.Info("Exit Code: {0}", exitCode);

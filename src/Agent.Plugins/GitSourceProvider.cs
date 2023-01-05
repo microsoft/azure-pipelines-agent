@@ -695,7 +695,7 @@ namespace Agent.Plugins.Repository
             if (await gitCommandManager.GitConfigExist(executionContext, targetPath, $"http.extraheader", existingExtraheaders))
             {
                 executionContext.Debug("Remove http.extraheader setting from git config.");
-                foreach(var configValue in existingExtraheaders)
+                foreach (var configValue in existingExtraheaders)
                 {
                     await RemoveGitConfig(executionContext, gitCommandManager, targetPath, $"http.extraheader", configValue);
                 }

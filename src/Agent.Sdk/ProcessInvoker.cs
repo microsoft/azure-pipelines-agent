@@ -62,7 +62,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
-        public bool DisableWorkerCommands {get; set; }
+        public bool DisableWorkerCommands { get; set; }
 
         public event EventHandler<ProcessDataReceivedEventArgs> OutputDataReceived;
         public event EventHandler<ProcessDataReceivedEventArgs> ErrorDataReceived;
@@ -363,8 +363,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 // data buffers one last time before returning
                 ProcessOutput();
 
-                if(_proc.HasExited)
-                { 
+                if (_proc.HasExited)
+                {
                     Trace.Info($"Finished process {_proc.Id} with exit code {_proc.ExitCode}, and elapsed time {_stopWatch.Elapsed}.");
                 }
                 else

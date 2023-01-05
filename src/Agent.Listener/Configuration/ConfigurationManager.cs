@@ -77,7 +77,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             ArgUtil.NotNull(command, nameof(command));
 
             if (PlatformUtil.RunningOnWindows)
-            { 
+            {
                 CheckAgentRootDirectorySecure();
             }
 
@@ -374,7 +374,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             agentSettings.DisableLogUploads = command.GetDisableLogUploads();
 
             agentSettings.AlwaysExtractTask = command.GetAlwaysExtractTask();
-            
+
             _store.SaveSettings(agentSettings);
 
             if (saveProxySetting)
@@ -503,7 +503,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                     bool isEnvironmentVMResource = false;
                     bool isDeploymentGroup = (settings.MachineGroupId > 0) || (settings.DeploymentGroupId > 0);
-                    if(!isDeploymentGroup)
+                    if (!isDeploymentGroup)
                     {
                         isEnvironmentVMResource = settings.EnvironmentId > 0;
                     }
@@ -520,7 +520,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     IConfigurationProvider agentProvider = (extensionManager.GetExtensions<IConfigurationProvider>()).FirstOrDefault(x => x.ConfigurationProviderType == agentType);
                     ArgUtil.NotNull(agentProvider, agentType);
 
-                    bool isHostedServer = await checkIsHostedServer(agentProvider, settings, credProvider);;
+                    bool isHostedServer = await checkIsHostedServer(agentProvider, settings, credProvider);
                     VssCredentials creds = credProvider.GetVssCredentials(HostContext);
 
                     await agentProvider.TestConnectionAsync(settings, creds, isHostedServer);
@@ -708,21 +708,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                         _term.Write(StringUtil.Loc("agentRootFolderInsecure", bulitInUsersGroup.ToString()));
                     }
                 }
-                else 
+                else
                 {
                     Trace.Warning("Can't get path to the agent root folder, check was skipped.");
                 }
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 Trace.Warning("Can't check permissions for agent root folder:");
                 Trace.Warning(ex.Message);
                 _term.Write(StringUtil.Loc("agentRootFolderCheckError"));
             }
         }
 
-        private bool SetupVstsProxySetting(IVstsAgentWebProxy vstsProxy, CommandSettings command) {
+        private bool SetupVstsProxySetting(IVstsAgentWebProxy vstsProxy, CommandSettings command)
+        {
             ArgUtil.NotNull(command, nameof(command));
-            
+
             bool saveProxySetting = false;
             string proxyUrl = command.GetProxyUrl();
             if (!string.IsNullOrEmpty(proxyUrl))
@@ -742,7 +744,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             return saveProxySetting;
         }
 
-        private bool SetupCertSettings(IAgentCertificateManager agentCertManager, CommandSettings command) {
+        private bool SetupCertSettings(IAgentCertificateManager agentCertManager, CommandSettings command)
+        {
             bool saveCertSetting = false;
             bool skipCertValidation = command.GetSkipCertificateValidation();
             string caCert = command.GetCACertificate();
@@ -792,7 +795,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             return saveCertSetting;
         }
 
-        private string GetAgentTypeFromCommand(CommandSettings command) {
+        private string GetAgentTypeFromCommand(CommandSettings command)
+        {
             string agentType = Constants.Agent.AgentConfigurationProvider.BuildReleasesAgentConfiguration;
 
             if (command.GetDeploymentOrMachineGroup())
@@ -811,7 +815,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             return agentType;
         }
 
-        private async Task<bool> checkIsHostedServer(IConfigurationProvider agentProvider, AgentSettings agentSettings, ICredentialProvider credProvider) {
+        private async Task<bool> checkIsHostedServer(IConfigurationProvider agentProvider, AgentSettings agentSettings, ICredentialProvider credProvider)
+        {
             bool isHostedServer = false;
             VssCredentials creds = credProvider.GetVssCredentials(HostContext);
 
@@ -820,7 +825,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 // Determine the service deployment type based on connection data. (Hosted/OnPremises)
                 await _serverUtil.DetermineDeploymentType(agentSettings.ServerUrl, creds, _locationServer);
             }
-            catch (VssUnauthorizedException) {
+            catch (VssUnauthorizedException)
+            {
                 // In case if GetConnectionData returned some auth problem need to check
                 // maybe connect will be successfull with CollectionName
                 // (as example PAT was generated for url/CollectionName)
