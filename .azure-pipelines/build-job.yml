@@ -116,10 +116,11 @@ jobs:
       env:
         ADO_ENABLE_LOGISSUE: true
 
-  - task: UseDotNet@2
-    inputs:
-      packageType: 'sdk'
-      version: '2.1.0'
+  - ${{ if or(eq(parameters.os, 'linux'), eq(parameters.os, 'osx')) }}:
+    - task: UseDotNet@2
+      inputs:
+        packageType: 'sdk'
+        version: '2.1.x'
 
   # Check if broken symlinks exist in the agent build
   - task: Bash@3.201.1
@@ -184,12 +185,6 @@ jobs:
         codeCoverageTool: 'cobertura'
         summaryFileLocation: _reports/**/Cobertura.xml
         pathToSources: src
-
-  - ${{ if eq(parameters.os, 'osx') }}:
-    - task: UseDotNet@2
-      inputs:
-        packageType: 'sdk'
-        version: '2.1.x'
 
   - ${{ if parameters.sign }}:
     # Signing steps
