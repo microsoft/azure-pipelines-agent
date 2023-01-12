@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.Framework.Common;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Common;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 {
@@ -98,12 +99,34 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             ArgUtil.NotNull(username, nameof(username));
             ArgUtil.NotNull(password, nameof(password));
 
-            if (PlatformUtil.RunningOnWindows)
+            int retryCount = 0;
+            int loginExitCode = 0;
+            int maxRetries = 3;
+
+            while (retryCount < maxRetries)
             {
-                // Wait for 17.07 to switch using stdin for docker registry password.
-                return await ExecuteDockerCommandAsync(context, "login", $"--username \"{username}\" --password \"{password.Replace("\"", "\\\"")}\" {server}", new List<string>() { password }, context.CancellationToken);
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    // Wait for 17.07 to switch using stdin for docker registry password.
+                    loginExitCode = await ExecuteDockerCommandAsync(context, "login", $"--username \"{username}\" --password \"{password.Replace("\"", "\\\"")}\" {server}", new List<string>() { password }, context.CancellationToken);
+                }
+                else
+                {
+                    loginExitCode = await ExecuteDockerCommandAsync(context, "login", $"--username \"{username}\" --password-stdin {server}", new List<string>() { password }, context.CancellationToken);
+                }
+
+                if (loginExitCode == 0)
+                {
+                    break;
+                }
+
+                var backOff = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+                context.Warning($"Docker login failed with exit code {loginExitCode}, back off {backOff.TotalSeconds} seconds before retry.");
+                await Task.Delay(backOff);
+                retryCount++;
             }
-            return await ExecuteDockerCommandAsync(context, "login", $"--username \"{username}\" --password-stdin {server}", new List<string>() { password }, context.CancellationToken);
+
+            return loginExitCode;
         }
 
         public async Task<int> DockerLogout(IExecutionContext context, string server)
