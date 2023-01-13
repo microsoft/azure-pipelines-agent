@@ -317,7 +317,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 ArgUtil.NotNullOrEmpty(username, nameof(username));
                 ArgUtil.NotNullOrEmpty(password, nameof(password));
 
-                int loginExitCode = await _dockerManger.DockerLogin(executionContext, registryServer, username, password);
+                bool dockerLoginRetry = AgentKnobs.DockerLoginRetry.GetValue(executionContext).AsBoolean();
+
+                int loginExitCode = await _dockerManger.DockerLogin(
+                    executionContext,
+                    registryServer,
+                    username,
+                    password,
+                    dockerLoginRetry);
 
                 if (loginExitCode != 0)
                 {

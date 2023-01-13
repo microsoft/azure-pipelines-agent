@@ -61,6 +61,15 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_AGENT_USE_HOST_GROUP_ID"),
             new BuiltInDefaultKnobSource("true"));
 
+        public const string DockerLoginRetryVariableName = "VSTSAGENT_DOCKER_LOGIN_RETRIES";
+
+        public static readonly Knob DockerLoginRetry = new Knob(
+            nameof(DockerLoginRetry),
+            "When enabled, the agent retries docker login if it failed",
+            new RuntimeKnobSource(DockerLoginRetryVariableName),
+            new EnvironmentKnobSource(DockerLoginRetryVariableName),
+            new BuiltInDefaultKnobSource("false"));
+
         // Directory structure
         public static readonly Knob AgentToolsDirectory = new Knob(
             nameof(AgentToolsDirectory),

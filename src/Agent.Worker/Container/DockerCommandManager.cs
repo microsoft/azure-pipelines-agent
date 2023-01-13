@@ -11,7 +11,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.Framework.Common;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Microsoft.VisualStudio.Services.Common;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 {
@@ -21,7 +20,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
         string DockerPath { get; }
         string DockerInstanceLabel { get; }
         Task<DockerVersion> DockerVersion(IExecutionContext context);
-        Task<int> DockerLogin(IExecutionContext context, string server, string username, string password);
+        Task<int> DockerLogin(IExecutionContext context, string server, string username, string password, bool dockerLoginRetry);
         Task<int> DockerLogout(IExecutionContext context, string server);
         Task<int> DockerPull(IExecutionContext context, string image);
         Task<string> DockerCreate(IExecutionContext context, ContainerInfo container);
@@ -92,16 +91,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             return new DockerVersion(serverVersion, clientVersion);
         }
 
-        public async Task<int> DockerLogin(IExecutionContext context, string server, string username, string password)
+        public async Task<int> DockerLogin(IExecutionContext context, string server, string username, string password, bool dockerLoginRetry)
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(server, nameof(server));
             ArgUtil.NotNull(username, nameof(username));
             ArgUtil.NotNull(password, nameof(password));
 
+            context.Output($"DockerLoginRetry variable value: {dockerLoginRetry}");
+
             int retryCount = 0;
             int loginExitCode = 0;
-            int maxRetries = 3;
+            const int maxRetries = 3;
+            const int delayInSeconds = 10;
 
             while (retryCount < maxRetries)
             {
@@ -115,14 +117,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                     loginExitCode = await ExecuteDockerCommandAsync(context, "login", $"--username \"{username}\" --password-stdin {server}", new List<string>() { password }, context.CancellationToken);
                 }
 
-                if (loginExitCode == 0)
+                if (loginExitCode == 0 || !dockerLoginRetry)
                 {
                     break;
                 }
 
-                var backOff = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
-                context.Warning($"Docker login failed with exit code {loginExitCode}, back off {backOff.TotalSeconds} seconds before retry.");
-                await Task.Delay(backOff);
+                context.Warning($"Docker login failed with exit code {loginExitCode}, back off {delayInSeconds} seconds before retry.");
+                await Task.Delay(delayInSeconds);
                 retryCount++;
             }
 
