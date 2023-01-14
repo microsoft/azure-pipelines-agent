@@ -517,8 +517,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 executionContext.Variables.Set(Constants.Variables.Agent.ContainerId, container.ContainerId);
             }
 
+            // reuse DockerLoginRetry for also retry docker start
+            bool dockerInitRetry = AgentKnobs.DockerLoginRetry.GetValue(executionContext).AsBoolean();
+
             // Start container
-            int startExitCode = await _dockerManger.DockerStart(executionContext, container.ContainerId);
+            int startExitCode = await _dockerManger.DockerStart(executionContext, container.ContainerId, dockerInitRetry);
             if (startExitCode != 0)
             {
                 throw new InvalidOperationException($"Docker start fail with exit code {startExitCode}");

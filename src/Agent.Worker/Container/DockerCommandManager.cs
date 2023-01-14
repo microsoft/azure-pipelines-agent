@@ -24,7 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
         Task<int> DockerLogout(IExecutionContext context, string server);
         Task<int> DockerPull(IExecutionContext context, string image);
         Task<string> DockerCreate(IExecutionContext context, ContainerInfo container);
-        Task<int> DockerStart(IExecutionContext context, string containerId);
+        Task<int> DockerStart(IExecutionContext context, string containerId, bool dockerInitRetry);
         Task<int> DockerLogs(IExecutionContext context, string containerId);
         Task<List<string>> DockerPS(IExecutionContext context, string options);
         Task<int> DockerRemove(IExecutionContext context, string containerId);
@@ -100,13 +100,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 
             context.Output($"DockerLoginRetry variable value: {dockerLoginRetry}");
 
-            int retryCount = 0;
-            int loginExitCode = 0;
-            const int maxRetries = 3;
-            const int delayInSeconds = 10;
-
-            while (retryCount < maxRetries)
+            var action = new Func<Task<int>>(async () =>
             {
+                int loginExitCode;
+
                 if (PlatformUtil.RunningOnWindows)
                 {
                     // Wait for 17.07 to switch using stdin for docker registry password.
@@ -117,15 +114,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                     loginExitCode = await ExecuteDockerCommandAsync(context, "login", $"--username \"{username}\" --password-stdin {server}", new List<string>() { password }, context.CancellationToken);
                 }
 
-                if (loginExitCode == 0 || !dockerLoginRetry)
-                {
-                    break;
-                }
+                return loginExitCode;
+            });
 
-                context.Warning($"Docker login failed with exit code {loginExitCode}, back off {delayInSeconds} seconds before retry.");
-                await Task.Delay(delayInSeconds);
-                retryCount++;
-            }
+            const string command = "Docker login";
+            int loginExitCode = await InvokeWithRetryIfNonZero(context, dockerLoginRetry, action, command);
 
             return loginExitCode;
         }
@@ -213,12 +206,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             return outputStrings.FirstOrDefault();
         }
 
-        public async Task<int> DockerStart(IExecutionContext context, string containerId)
+        public async Task<int> DockerStart(IExecutionContext context, string containerId, bool dockerInitRetry)
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(containerId, nameof(containerId));
 
-            return await ExecuteDockerCommandAsync(context, "start", containerId, context.CancellationToken);
+            context.Output($"DockerInitRetry variable value: {dockerInitRetry}");
+
+            var action = new Func<Task<int>>(async () =>
+            {
+                return await ExecuteDockerCommandAsync(context, "start", containerId, context.CancellationToken);
+            });
+
+            const string command = "Docker start";
+            int loginExitCode = await InvokeWithRetryIfNonZero(context, dockerInitRetry, action, command);
+
+            return loginExitCode;
         }
 
         public async Task<int> DockerRemove(IExecutionContext context, string containerId)
@@ -466,6 +469,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                             cancellationToken: CancellationToken.None);
 
             return output;
+        }
+
+        private static async Task<int> InvokeWithRetryIfNonZero(IExecutionContext context, bool retryIfNonZero, Func<Task<int>> action, string command)
+        {
+            int retryCount = 0;
+            int exitCode = 0;
+            const int maxRetries = 3;
+            const int delayInSeconds = 10;
+
+            while (retryCount < maxRetries)
+            {
+                exitCode = await action();
+
+                if (exitCode == 0 || !retryIfNonZero)
+                {
+                    break;
+                }
+
+                context.Warning($"{command} failed with exit code {exitCode}, back off {delayInSeconds} seconds before retry.");
+                await Task.Delay(delayInSeconds);
+                retryCount++;
+            }
+
+            return exitCode;
         }
     }
 }
