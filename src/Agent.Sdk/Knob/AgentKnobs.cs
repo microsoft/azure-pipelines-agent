@@ -65,7 +65,7 @@ namespace Agent.Sdk.Knob
 
         public static readonly Knob DockerLoginRetry = new Knob(
             nameof(DockerLoginRetry),
-            "When enabled, the agent retries docker login if it failed",
+            "When enabled, the agent retries docker initialization steps (login, start) if failed",
             new RuntimeKnobSource(DockerLoginRetryVariableName),
             new EnvironmentKnobSource(DockerLoginRetryVariableName),
             new BuiltInDefaultKnobSource("false"));
