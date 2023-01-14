@@ -476,7 +476,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             int retryCount = 0;
             int exitCode = 0;
             const int maxRetries = 3;
-            const int delayInSeconds = 10;
+            TimeSpan delayInSeconds = TimeSpan.FromSeconds(10);
 
             while (retryCount < maxRetries)
             {
