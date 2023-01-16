@@ -515,7 +515,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                                         serviceDisplayName,
                                         ServiceRights.AllAccess,
                                         SERVICE_WIN32_OWN_PROCESS,
-                                        ServiceBootFlag.AutoStart,
+                                        ServiceStartType.AutoStart,
                                         ServiceError.Normal,
                                         agentServiceExecutable,
                                         null,
@@ -1332,9 +1332,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Critical = 0x00000003
         }
 
-        public enum ServiceBootFlag
+        public enum ServiceStartType
         {
-            Start = 0x00000000,
+            BootStart = 0x00000000,
             SystemStart = 0x00000001,
             AutoStart = 0x00000002,
             DemandStart = 0x00000003,
@@ -1425,7 +1425,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             string lpDisplayName,
             ServiceRights dwDesiredAccess,
             int dwServiceType,
-            ServiceBootFlag dwStartType,
+            ServiceStartType dwStartType,
             ServiceError dwErrorControl,
             string lpBinaryPathName,
             string lpLoadOrderGroup,
