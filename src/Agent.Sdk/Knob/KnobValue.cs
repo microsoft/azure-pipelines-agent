@@ -26,6 +26,11 @@ namespace Agent.Sdk.Knob
             return StringUtil.ConvertToBoolean(_value);
         }
 
+        public bool AsBooleanStrict()
+        {
+            return StringUtil.ConvertToBooleanStrict(_value);
+        }
+
         public int AsInt()
         {
             return Int32.Parse(_value);
