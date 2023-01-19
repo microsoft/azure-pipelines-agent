@@ -61,13 +61,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_AGENT_USE_HOST_GROUP_ID"),
             new BuiltInDefaultKnobSource("true"));
 
-        public const string DockerLoginRetryVariableName = "VSTSAGENT_DOCKER_LOGIN_RETRIES";
+        public const string DockerActionRetriesVariableName = "VSTSAGENT_DOCKER_ACTION_RETRIES";
 
-        public static readonly Knob DockerLoginRetry = new Knob(
-            nameof(DockerLoginRetry),
-            "When enabled, the agent retries docker initialization steps (login, start) if failed",
-            new RuntimeKnobSource(DockerLoginRetryVariableName),
-            new EnvironmentKnobSource(DockerLoginRetryVariableName),
+        public static readonly Knob DockerActionRetries = new Knob(
+            nameof(DockerActionRetries),
+            "When enabled, the agent retries docker steps if failed",
+            new RuntimeKnobSource(DockerActionRetriesVariableName),
+            new EnvironmentKnobSource(DockerActionRetriesVariableName),
             new BuiltInDefaultKnobSource("false"));
 
         // Directory structure

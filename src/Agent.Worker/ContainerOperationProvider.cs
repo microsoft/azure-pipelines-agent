@@ -317,14 +317,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 ArgUtil.NotNullOrEmpty(username, nameof(username));
                 ArgUtil.NotNullOrEmpty(password, nameof(password));
 
-                bool dockerLoginRetry = AgentKnobs.DockerLoginRetry.GetValue(executionContext).AsBoolean();
-
                 int loginExitCode = await _dockerManger.DockerLogin(
                     executionContext,
                     registryServer,
                     username,
-                    password,
-                    dockerLoginRetry);
+                    password);
 
                 if (loginExitCode != 0)
                 {
@@ -346,27 +343,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
 
-                    // Pull down docker image with retry up to 3 times
-                    int retryCount = 0;
-                    int pullExitCode = 0;
-                    int maxRetries = 3;
+                    int pullExitCode = await _dockerManger.DockerPull(
+                        executionContext,
+                        container.ContainerImage);
 
-                    while (retryCount < maxRetries)
-                    {
-                        pullExitCode = await _dockerManger.DockerPull(executionContext, container.ContainerImage);
-
-                        if (pullExitCode == 0)
-                        {
-                            break;
-                        }
-
-                        var backOff = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
-                        executionContext.Warning($"Docker pull failed with exit code {pullExitCode}, back off {backOff.TotalSeconds} seconds before retry.");
-                        await Task.Delay(backOff);
-                        retryCount++;
-                    }
-
-                    if (retryCount == maxRetries && pullExitCode != 0)
+                    if (pullExitCode != 0)
                     {
                         throw new InvalidOperationException($"Docker pull failed with exit code {pullExitCode}");
                     }
@@ -517,11 +498,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 executionContext.Variables.Set(Constants.Variables.Agent.ContainerId, container.ContainerId);
             }
 
-            // reuse DockerLoginRetry for also retry docker start
-            bool dockerInitRetry = AgentKnobs.DockerLoginRetry.GetValue(executionContext).AsBoolean();
-
             // Start container
-            int startExitCode = await _dockerManger.DockerStart(executionContext, container.ContainerId, dockerInitRetry);
+            int startExitCode = await _dockerManger.DockerStart(executionContext, container.ContainerId);
             if (startExitCode != 0)
             {
                 throw new InvalidOperationException($"Docker start fail with exit code {startExitCode}");

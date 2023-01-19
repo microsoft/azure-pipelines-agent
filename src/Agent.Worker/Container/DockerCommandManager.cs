@@ -20,11 +20,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
         string DockerPath { get; }
         string DockerInstanceLabel { get; }
         Task<DockerVersion> DockerVersion(IExecutionContext context);
-        Task<int> DockerLogin(IExecutionContext context, string server, string username, string password, bool dockerLoginRetry);
+        Task<int> DockerLogin(IExecutionContext context, string server, string username, string password);
         Task<int> DockerLogout(IExecutionContext context, string server);
         Task<int> DockerPull(IExecutionContext context, string image);
         Task<string> DockerCreate(IExecutionContext context, ContainerInfo container);
-        Task<int> DockerStart(IExecutionContext context, string containerId, bool dockerInitRetry);
+        Task<int> DockerStart(IExecutionContext context, string containerId);
         Task<int> DockerLogs(IExecutionContext context, string containerId);
         Task<List<string>> DockerPS(IExecutionContext context, string options);
         Task<int> DockerRemove(IExecutionContext context, string containerId);
@@ -91,36 +91,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             return new DockerVersion(serverVersion, clientVersion);
         }
 
-        public async Task<int> DockerLogin(IExecutionContext context, string server, string username, string password, bool dockerLoginRetry)
+        public async Task<int> DockerLogin(IExecutionContext context, string server, string username, string password)
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(server, nameof(server));
             ArgUtil.NotNull(username, nameof(username));
             ArgUtil.NotNull(password, nameof(password));
 
-            context.Output($"DockerLoginRetry variable value: {dockerLoginRetry}");
-
-            var action = new Func<Task<int>>(async () =>
-            {
-                int loginExitCode;
-
-                if (PlatformUtil.RunningOnWindows)
-                {
-                    // Wait for 17.07 to switch using stdin for docker registry password.
-                    loginExitCode = await ExecuteDockerCommandAsync(context, "login", $"--username \"{username}\" --password \"{password.Replace("\"", "\\\"")}\" {server}", new List<string>() { password }, context.CancellationToken);
-                }
-                else
-                {
-                    loginExitCode = await ExecuteDockerCommandAsync(context, "login", $"--username \"{username}\" --password-stdin {server}", new List<string>() { password }, context.CancellationToken);
-                }
-
-                return loginExitCode;
-            });
+            var action = new Func<Task<int>>(async () => PlatformUtil.RunningOnWindows
+                // Wait for 17.07 to switch using stdin for docker registry password.
+                ? await ExecuteDockerCommandAsync(context, "login", $"--username \"{username}\" --password \"{password.Replace("\"", "\\\"")}\" {server}", new List<string>() { password }, context.CancellationToken)
+                : await ExecuteDockerCommandAsync(context, "login", $"--username \"{username}\" --password-stdin {server}", new List<string>() { password }, context.CancellationToken)
+            );
 
             const string command = "Docker login";
-            int loginExitCode = await InvokeWithRetryIfNonZero(context, dockerLoginRetry, action, command);
-
-            return loginExitCode;
+            return await ExecuteDockerCommandAsyncWithRetries(context, action, command);
         }
 
         public async Task<int> DockerLogout(IExecutionContext context, string server)
@@ -136,7 +121,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(image, nameof(image));
 
-            return await ExecuteDockerCommandAsync(context, "pull", image, context.CancellationToken);
+            var action = new Func<Task<int>>(async () => await ExecuteDockerCommandAsync(context, "pull", image, context.CancellationToken));
+            const string command = "Docker pull";
+            return await ExecuteDockerCommandAsyncWithRetries(context, action, command);
         }
 
         public async Task<string> DockerCreate(IExecutionContext context, ContainerInfo container)
@@ -206,22 +193,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             return outputStrings.FirstOrDefault();
         }
 
-        public async Task<int> DockerStart(IExecutionContext context, string containerId, bool dockerInitRetry)
+        public async Task<int> DockerStart(IExecutionContext context, string containerId)
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(containerId, nameof(containerId));
 
-            context.Output($"DockerInitRetry variable value: {dockerInitRetry}");
-
-            var action = new Func<Task<int>>(async () =>
-            {
-                return await ExecuteDockerCommandAsync(context, "start", containerId, context.CancellationToken);
-            });
-
+            var action = new Func<Task<int>>(async () => await ExecuteDockerCommandAsync(context, "start", containerId, context.CancellationToken));
             const string command = "Docker start";
-            int loginExitCode = await InvokeWithRetryIfNonZero(context, dockerInitRetry, action, command);
-
-            return loginExitCode;
+            return await ExecuteDockerCommandAsyncWithRetries(context, action, command);
         }
 
         public async Task<int> DockerRemove(IExecutionContext context, string containerId)
@@ -471,8 +450,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             return output;
         }
 
-        private static async Task<int> InvokeWithRetryIfNonZero(IExecutionContext context, bool retryIfNonZero, Func<Task<int>> action, string command)
+        private static async Task<int> ExecuteDockerCommandAsyncWithRetries(IExecutionContext context, Func<Task<int>> action, string command)
         {
+            bool dockerActionRetry = AgentKnobs.DockerActionRetries.GetValue(context).AsBoolean();
+            context.Output($"DockerActionRetry variable value: {dockerActionRetry}");
+
             int retryCount = 0;
             int exitCode = 0;
             const int maxRetries = 3;
@@ -482,7 +464,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             {
                 exitCode = await action();
 
-                if (exitCode == 0 || !retryIfNonZero)
+                if (exitCode == 0 || !dockerActionRetry)
                 {
                     break;
                 }
