@@ -57,7 +57,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
         public async Task<DockerVersion> DockerVersion(IExecutionContext context)
         {
             ArgUtil.NotNull(context, nameof(context));
-            string serverVersionStr = (await ExecuteDockerCommandAsync(context, "version", "--format '{{.Server.APIVersion}}'")).FirstOrDefault();
+            var action = new Func<Task<List<string>>>(async () => await ExecuteDockerCommandAsync(context, "version", "--format '{{.Server.APIVersion}}'"));
+            const string command = "Docker version";
+            string serverVersionStr = (await ExecuteDockerCommandAsyncWithRetries(context, action, command)).FirstOrDefault();
             ArgUtil.NotNullOrEmpty(serverVersionStr, "Docker.Server.Version");
             context.Output($"Docker daemon API version: {serverVersionStr}");
 
@@ -475,6 +477,44 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             }
 
             return exitCode;
+        }
+
+        private static async Task<List<string>> ExecuteDockerCommandAsyncWithRetries(IExecutionContext context, Func<Task<List<string>>> action, string command)
+        {
+            bool dockerActionRetries = AgentKnobs.DockerActionRetries.GetValue(context).AsBoolean();
+            context.Output($"DockerActionRetries variable value: {dockerActionRetries}");
+
+            int retryCount = 0;
+            List<string> output = new List<string>();
+            const int maxRetries = 3;
+            TimeSpan delayInSeconds = TimeSpan.FromSeconds(10);
+
+            while (retryCount <= maxRetries)
+            {
+                try
+                {
+                    output = await action();
+                }
+                catch (ProcessExitCodeException)
+                {
+                    if (!dockerActionRetries || retryCount == maxRetries)
+                    {
+                        throw;
+                    }
+
+                    context.Warning($"{command} failed, back off {delayInSeconds} seconds before retry.");
+                    await Task.Delay(delayInSeconds);
+                }
+
+                retryCount++;
+
+                if (output != null && output.Count != 0)
+                {
+                    break;
+                }
+            }
+
+            return output;
         }
     }
 }
