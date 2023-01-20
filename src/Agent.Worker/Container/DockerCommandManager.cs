@@ -452,8 +452,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 
         private static async Task<int> ExecuteDockerCommandAsyncWithRetries(IExecutionContext context, Func<Task<int>> action, string command)
         {
-            bool dockerActionRetry = AgentKnobs.DockerActionRetries.GetValue(context).AsBoolean();
-            context.Output($"DockerActionRetry variable value: {dockerActionRetry}");
+            bool dockerActionRetries = AgentKnobs.DockerActionRetries.GetValue(context).AsBoolean();
+            context.Output($"DockerActionRetries variable value: {dockerActionRetries}");
 
             int retryCount = 0;
             int exitCode = 0;
@@ -464,7 +464,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             {
                 exitCode = await action();
 
-                if (exitCode == 0 || !dockerActionRetry)
+                if (exitCode == 0 || !dockerActionRetries)
                 {
                     break;
                 }
