@@ -16,6 +16,14 @@ parameters:
   type: boolean
   default: false
   displayName: Build Stage Only
+- name: skipRhelRelease
+  type: boolean
+  default: true
+  displayName: Skip RHEL Release
+- name: releaseRhelOnly
+  type: boolean
+  default: false
+  displayName: Release RHEL Only
 
 - name: onlyGitHubRelease
   type: boolean
@@ -33,6 +41,8 @@ extends:
     test: ${{ not(parameters.skipTests) }}
     sign: true
     publishArtifacts: true
+    skipRhelRelease: ${{ parameters.skipRhelRelease }}
+    releaseRhelOnly: ${{ parameters.releaseRhelOnly }}
 
     preBuildStages:
     - ${{ if and(not(parameters.buildStageOnly), eq(variables['Build.SourceBranch'], 'refs/heads/master')) }}:
