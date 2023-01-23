@@ -145,7 +145,7 @@ jobs:
       - task: UseDotNet@2
         displayName: Install .NET Core 3.1 SDK
         inputs:
-          version: '3.1.22'
+          version: '3.1.32'
           packageType: runtime
           performMultiLevelLookup: true
     - script: ${{ variables.devCommand }} testl1 Debug ${{ parameters.os }}-${{ parameters.arch }}
