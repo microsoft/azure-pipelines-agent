@@ -129,14 +129,11 @@ jobs:
         displayName: Install .NET Core 3.1 SDK
         inputs:
           version: '3.1.x'
-          packageType: 'sdk'
+          packageType: 'runtime'
           performMultiLevelLookup: true
-      - task: UseDotNet@2
-        displayName: Install .NET Core 3.1 SDK
-        inputs:
-          version: '3.1.x'
-          packageType: runtime
-          performMultiLevelLookup: true
+          installationPath: 'C:\Program Files (x86)\dotnet'
+        env:
+          PROCESSOR_ARCHITECTURE: x86
     - script: ${{ variables.devCommand }} testl0 Debug ${{ parameters.os }}-${{ parameters.arch }}
       workingDirectory: src
       displayName: Unit tests
@@ -148,13 +145,6 @@ jobs:
 
   # Run l1 tests
   - ${{ if parameters.functionalTests }}:
-    - ${{ if and(eq(parameters.os, 'win'), eq(parameters.arch, 'x86')) }}:
-      - task: UseDotNet@2
-        displayName: Install .NET Core 3.1 SDK
-        inputs:
-          version: '3.1.22'
-          packageType: runtime
-          performMultiLevelLookup: true
     - script: ${{ variables.devCommand }} testl1 Debug ${{ parameters.os }}-${{ parameters.arch }}
       workingDirectory: src
       displayName: Functional tests
