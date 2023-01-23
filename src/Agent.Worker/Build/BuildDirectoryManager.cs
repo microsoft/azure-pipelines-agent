@@ -208,7 +208,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             if (repositories?.Count == 1 && repositories[0].Type == RepositoryTypes.Tfvc)
             {
-                return settings.IsHosted;
+                return settings.IsMSHosted;
             }
             else
             {

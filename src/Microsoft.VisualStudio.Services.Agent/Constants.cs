@@ -286,6 +286,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string Diagnostic = "agent.diagnostic";
                 public static readonly string HomeDirectory = "agent.homedirectory";
                 public static readonly string Id = "agent.id";
+                public static readonly string IsSelfHosted = "agent.isselfhosted";
                 public static readonly string GitUseSChannel = "agent.gituseschannel";
                 public static readonly string JobName = "agent.jobname";
                 public static readonly string JobStatus = "agent.jobstatus";
@@ -431,6 +432,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string PhaseAttempt = "system.phaseAttempt";
                 public static readonly string PhaseDisplayName = "system.phaseDisplayName";
                 public static readonly string PhaseName = "system.phaseName";
+                public static readonly string PlanId = "system.planId";
                 public static readonly string PreferGitFromPath = "system.prefergitfrompath";
                 public static readonly string PullRequestTargetBranchName = "system.pullrequest.targetbranch";
                 public static readonly string SelfManageGitCreds = "system.selfmanagegitcreds";
@@ -472,6 +474,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Agent.GitUseSChannel,
                 Agent.HomeDirectory,
                 Agent.Id,
+                Agent.IsSelfHosted,
                 Agent.JobName,
                 Agent.JobStatus,
                 Agent.MachineName,
@@ -571,6 +574,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 System.PhaseAttempt,
                 System.PhaseDisplayName,
                 System.PhaseName,
+                System.PlanId,
                 System.PreferGitFromPath,
                 System.PullRequestTargetBranchName,
                 System.SelfManageGitCreds,
