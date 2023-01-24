@@ -8,6 +8,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
     public class LoggedSecretMaskerL0 : IDisposable
     {
         SecretMasker _secretMasker;
+        private bool disposedValue;
 
         public LoggedSecretMaskerL0()
         {
@@ -124,10 +125,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             Assert.Equal("***2345", resultMessage);
         }
 
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposedValue)
+            {
+                if (disposing)
+                {
+                }
+
+                _secretMasker.Dispose();
+                _secretMasker= null;
+
+                disposedValue = true;
+            }
+        }
+
         public void Dispose()
         {
-            _secretMasker.Dispose();
-            _secretMasker = null;
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
         }
     }
 }
