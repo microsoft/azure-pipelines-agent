@@ -27,6 +27,9 @@ parameters:
   type: boolean
   displayName: macOS (x64)
   default: true
+- name: skipRhelRelease
+  type: boolean
+  default: true
 
 pr:
   branches:
@@ -42,6 +45,7 @@ extends:
     componentDetection: ${{ eq(variables['Build.Reason'], 'PullRequest') }}
     publishArtifacts: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
     buildAlternatePackage: false
+    skipRhelRelease: ${{ parameters.skipRhelRelease }}
     win_x64: ${{ parameters.win_x64 }}
     win_x86: ${{ parameters.win_x86 }}
     linux_x64: ${{ parameters.linux_x64 }}
