@@ -577,18 +577,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             var useNode10 = AgentKnobs.UseNode10.GetValue(ExecutionContext).AsString();
             var expectedExecutionHandler = (taskDefinition.Data.Execution?.All != null) ? string.Join(", ", taskDefinition.Data.Execution.All) : "";
+            var systemVersion = PlatformUtil.GetSystemVersion();
 
             Dictionary<string, string> telemetryData = new Dictionary<string, string>
             {
                 { "TaskName", Task.Reference.Name },
                 { "TaskId", Task.Reference.Id.ToString() },
                 { "Version", Task.Reference.Version },
-                { "OS", PlatformUtil.HostOS.ToString() },
+                { "OS", PlatformUtil.GetSystemId() ?? "" },
+                { "OSVersion", systemVersion?.Name?.ToString() ?? "" },
+                { "OSBuild", systemVersion?.Version?.ToString() ?? "" },
                 { "ExpectedExecutionHandler", expectedExecutionHandler },
                 { "RealExecutionHandler", handlerData.ToString() },
                 { "UseNode10", useNode10 },
                 { "JobId", ExecutionContext.Variables.System_JobId.ToString()},
-                { "PlanId", ExecutionContext.Variables.Get("system.planId")}
+                { "PlanId", ExecutionContext.Variables.Get(Constants.Variables.System.JobId)},
+                { "AgentName", ExecutionContext.Variables.Get(Constants.Variables.Agent.Name)},
+                { "MachineName", ExecutionContext.Variables.Get(Constants.Variables.Agent.MachineName)},
+                { "IsSelfHosted", ExecutionContext.Variables.Get(Constants.Variables.Agent.IsSelfHosted)}
             };
 
             var cmd = new Command("telemetry", "publish");
