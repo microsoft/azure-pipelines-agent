@@ -317,7 +317,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 ArgUtil.NotNullOrEmpty(username, nameof(username));
                 ArgUtil.NotNullOrEmpty(password, nameof(password));
 
-                int loginExitCode = await _dockerManger.DockerLogin(executionContext, registryServer, username, password);
+                int loginExitCode = await _dockerManger.DockerLogin(
+                    executionContext,
+                    registryServer,
+                    username,
+                    password);
+
                 if (loginExitCode != 0)
                 {
                     throw new InvalidOperationException($"Docker login fail with exit code {loginExitCode}");
@@ -338,29 +343,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
 
-                    // Pull down docker image with retry up to 3 times
-                    int retryCount = 0;
-                    int pullExitCode = 0;
-                    while (retryCount < 3)
-                    {
-                        pullExitCode = await _dockerManger.DockerPull(executionContext, container.ContainerImage);
-                        if (pullExitCode == 0)
-                        {
-                            break;
-                        }
-                        else
-                        {
-                            retryCount++;
-                            if (retryCount < 3)
-                            {
-                                var backOff = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
-                                executionContext.Warning($"Docker pull failed with exit code {pullExitCode}, back off {backOff.TotalSeconds} seconds before retry.");
-                                await Task.Delay(backOff);
-                            }
-                        }
-                    }
+                    int pullExitCode = await _dockerManger.DockerPull(
+                        executionContext,
+                        container.ContainerImage);
 
-                    if (retryCount == 3 && pullExitCode != 0)
+                    if (pullExitCode != 0)
                     {
                         throw new InvalidOperationException($"Docker pull failed with exit code {pullExitCode}");
                     }

@@ -179,6 +179,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 jobContext.SetVariable(Constants.Variables.Agent.HomeDirectory, HostContext.GetDirectory(WellKnownDirectory.Root), isFilePath: true);
                 jobContext.SetVariable(Constants.Variables.Agent.JobName, message.JobDisplayName);
                 jobContext.SetVariable(Constants.Variables.Agent.CloudId, settings.AgentCloudId);
+                jobContext.SetVariable(Constants.Variables.Agent.IsSelfHosted, settings.IsMSHosted ? "0" : "1");
                 jobContext.SetVariable(Constants.Variables.Agent.MachineName, Environment.MachineName);
                 jobContext.SetVariable(Constants.Variables.Agent.Name, settings.AgentName);
                 jobContext.SetVariable(Constants.Variables.Agent.OS, VarUtil.OS);
