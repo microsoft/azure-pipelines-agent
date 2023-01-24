@@ -209,7 +209,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         retryCount++;
                         if (retryCount < maxRetries)
                         {
-                            var backOff = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+                            TimeSpan backOff = BackoffTimerHelper.GetExponentialBackoff(retryCount, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(32), TimeSpan.FromSeconds(2));
                             executionContext.Warning($"Docker login failed with exit code {pullExitCode}, back off {backOff.TotalSeconds} seconds before retry.");
                             await Task.Delay(backOff);
                         }
