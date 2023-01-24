@@ -2,11 +2,6 @@
 // Licensed under the MIT License.
 
 using Microsoft.TeamFoundation.DistributedTask.Logging;
-using Microsoft.VisualStudio.Services.Agent.Worker;
-using Microsoft.VisualStudio.Services.Agent.Worker.Build;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests

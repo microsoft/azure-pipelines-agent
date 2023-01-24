@@ -5,14 +5,21 @@ using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
-    public class LoggedSecretMaskerL0
+    public class LoggedSecretMaskerL0 : IClassFixture<SecretMaskerFixture>
     {
+        private readonly SecretMaskerFixture _smFixture;
+
+        public LoggedSecretMaskerL0(SecretMaskerFixture fixture)
+        {
+            _smFixture = fixture;
+        }
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_MaskingSecrets()
         {
-            var lsm = new LoggedSecretMasker(new SecretMasker())
+            var lsm = new LoggedSecretMasker(_smFixture.SecretMasker)
             {
                 MinSecretLength = 0
             };
@@ -29,7 +36,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_ShortSecret_Removes_From_Dictionary()
         {
-            var lsm = new LoggedSecretMasker(new SecretMasker())
+            var lsm = new LoggedSecretMasker(_smFixture.SecretMasker)
             {
                 MinSecretLength = 0
             };
@@ -48,7 +55,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_ShortSecret_Removes_From_Dictionary_BoundaryValue()
         {
-            var lsm = new LoggedSecretMasker(new SecretMasker())
+            var lsm = new LoggedSecretMasker(_smFixture.SecretMasker)
             {
                 MinSecretLength = 3
             };
@@ -66,7 +73,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_Skipping_ShortSecrets()
         {
-            var lsm = new LoggedSecretMasker(new SecretMasker())
+            var lsm = new LoggedSecretMasker(_smFixture.SecretMasker)
             {
                 MinSecretLength = 3
             };
@@ -82,7 +89,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_Throws_Exception_If_Large_MinSecretLength_Specified()
         {
-            var lsm = new LoggedSecretMasker(new SecretMasker());
+            var lsm = new LoggedSecretMasker(_smFixture.SecretMasker);
 
             Assert.Throws<ArgumentException>(() => lsm.MinSecretLength = 5);
         }
@@ -92,7 +99,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_Sets_MinSecretLength_To_MaxValue()
         {
-            var lsm = new LoggedSecretMasker(new SecretMasker());
+            var lsm = new LoggedSecretMasker(_smFixture.SecretMasker);
 
             try { lsm.MinSecretLength = 5; }
             catch (ArgumentException) { }
@@ -105,7 +112,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_NegativeValue_Passed()
         {
-            var lsm = new LoggedSecretMasker(new SecretMasker())
+            var lsm = new LoggedSecretMasker(_smFixture.SecretMasker)
             {
                 MinSecretLength = -2
             };
