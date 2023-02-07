@@ -789,7 +789,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             Trace.Entering();
             ArgUtil.NotNull(executionContext, nameof(executionContext));
-            
+
             if (network != "host")
             {
                 int networkExitCode = await _dockerManger.DockerNetworkCreate(executionContext, network);

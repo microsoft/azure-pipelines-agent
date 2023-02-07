@@ -134,7 +134,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 }
 
                 _secretMasker.Dispose();
-                _secretMasker= null;
+                _secretMasker = null;
 
                 disposedValue = true;
             }

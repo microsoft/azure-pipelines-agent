@@ -111,11 +111,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                     catch (SocketException ex)
                     {
-                        using (var vssConnection = WorkerUtilities.GetVssConnection(context))
-                        {
-                            ExceptionsUtil.HandleSocketException(ex, vssConnection.Uri.ToString(), context.Error);
-                            context.CommandResult = TaskResult.Failed;
-                        }
+                        using var vssConnection = WorkerUtilities.GetVssConnection(context);
+
+                        ExceptionsUtil.HandleSocketException(ex, vssConnection.Uri.ToString(), context.Error);
+                        context.CommandResult = TaskResult.Failed;
                     }
                     catch (Exception ex)
                     {
