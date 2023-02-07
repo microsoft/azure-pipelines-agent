@@ -11,10 +11,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider
     public class AsyncLazy<T> : Lazy<Task<T>>
     {
         public AsyncLazy(Func<T> valueFactory) :
-            base(() => Task.Factory.StartNew(valueFactory)) { }
+            base(() => Task.Factory.StartNew(valueFactory))
+        { }
 
         public AsyncLazy(Func<Task<T>> taskFactory) :
-            base(() => Task.Factory.StartNew(() => taskFactory()).Unwrap()) { }
+            base(() => Task.Factory.StartNew(() => taskFactory()).Unwrap())
+        { }
 
         public TaskAwaiter<T> GetAwaiter() { return Value.GetAwaiter(); }
     }

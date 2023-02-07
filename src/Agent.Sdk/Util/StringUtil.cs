@@ -75,6 +75,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
+        /// <summary>
+        /// Convert String to boolean, valid true string: "1", "true", "$true", valid false string: "0", "false", "$false".
+        /// </summary>
+        /// <param name="value">Input value to convert.</param>
+        /// <returns>Boolean representing parsed value</returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="FormatException"></exception>
+        public static bool ConvertToBooleanStrict(string value)
+        {
+            if (value is null)
+            {
+                throw new ArgumentNullException("Passed value can not be null.");
+            }
+
+            switch (value.ToLowerInvariant())
+            {
+                case "1":
+                case "true":
+                case "$true":
+                    return true;
+
+                case "0":
+                case "false":
+                case "$false":
+                    return false;
+
+                default:
+                    throw new FormatException("Argument not matches boolean patterns.");
+            }
+        }
+
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1720: Identifiers should not contain type")]
         public static string ConvertToJson(object obj, Formatting formatting = Formatting.Indented)
         {
@@ -255,8 +286,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         /// <returns>String without vso commands that can be executed</returns>
         public static string DeactivateVsoCommands(string input)
         {
-            var vsoRegex = new Regex("##vso", RegexOptions.IgnoreCase);
+            if (string.IsNullOrEmpty(input))
+            {
+                return string.Empty;
+            }
 
+            var vsoRegex = new Regex("##vso", RegexOptions.IgnoreCase);
             return vsoRegex.Replace(input, "**vso");
         }
     }

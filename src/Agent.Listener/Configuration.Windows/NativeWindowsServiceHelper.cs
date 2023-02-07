@@ -452,7 +452,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             ServiceController service = ServiceController.GetServices().FirstOrDefault(x => x.ServiceName.Equals(serviceName, StringComparison.OrdinalIgnoreCase));
             return service != null;
         }
-        
+
         public void InstallService(string serviceName, string serviceDisplayName, string logonAccount, string logonPassword, bool setServiceSidTypeAsUnrestricted)
         {
             Trace.Entering();
@@ -515,7 +515,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                                         serviceDisplayName,
                                         ServiceRights.AllAccess,
                                         SERVICE_WIN32_OWN_PROCESS,
-                                        ServiceBootFlag.AutoStart,
+                                        ServiceStartType.AutoStart,
                                         ServiceError.Normal,
                                         agentServiceExecutable,
                                         null,
@@ -540,9 +540,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 failureActions.Add(new FailureAction(RecoverAction.Restart, 60000));
 
                 // Lock the Service Database
-                svcLock = LockServiceDatabase(scmHndl);
-                if (svcLock.ToInt64() <= 0)
+                int lockRetries = 10;
+                int retryTimeout = 5000;
+                while (true)
                 {
+                    svcLock = LockServiceDatabase(scmHndl);
+
+                    var svcLockIntCode = svcLock.ToInt64();
+                    if (svcLockIntCode > 0)
+                    {
+                        break;
+                    }
+
+                    _term.WriteLine(StringUtil.Loc("ServiceLockErrorRetry", svcLockIntCode, retryTimeout / 1000));
+
+                    lockRetries--;
+                    if (lockRetries > 0)
+                    {
+                        Thread.Sleep(retryTimeout);
+                        continue;
+                    }
+
                     throw new InvalidOperationException(StringUtil.Loc("FailedToLockServiceDB"));
                 }
 
@@ -911,7 +929,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             AddMemberToLocalGroup(accountName, groupName);
 
             // grant permssion for folders
-            foreach(var folder in folders)
+            foreach (var folder in folders)
             {
                 if (Directory.Exists(folder))
                 {
@@ -929,7 +947,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Trace.Info(StringUtil.Format("Calculated unique group name {0}", groupName));
 
             // remove the group from folders
-            foreach(var folder in folders)
+            foreach (var folder in folders)
             {
                 if (Directory.Exists(folder))
                 {
@@ -938,7 +956,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     {
                         RemoveGroupFromFolderSecuritySetting(folder, groupName);
                     }
-                    catch(Exception ex)
+                    catch (Exception ex)
                     {
                         Trace.Error(ex);
                     }
@@ -1314,9 +1332,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Critical = 0x00000003
         }
 
-        public enum ServiceBootFlag
+        public enum ServiceStartType
         {
-            Start = 0x00000000,
+            BootStart = 0x00000000,
             SystemStart = 0x00000001,
             AutoStart = 0x00000002,
             DemandStart = 0x00000003,
@@ -1407,7 +1425,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             string lpDisplayName,
             ServiceRights dwDesiredAccess,
             int dwServiceType,
-            ServiceBootFlag dwStartType,
+            ServiceStartType dwStartType,
             ServiceError dwErrorControl,
             string lpBinaryPathName,
             string lpLoadOrderGroup,

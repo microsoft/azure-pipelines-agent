@@ -34,7 +34,7 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
                 }
 
                 var resource = new ProcessResource { Type = scalar.Value };
-                resource.Name = ReadNonEmptyString(parser);;
+                resource.Name = ReadNonEmptyString(parser);
                 while (parser.Allow<MappingEnd>() == null)
                 {
                     string dataKey = ReadNonEmptyString(parser);

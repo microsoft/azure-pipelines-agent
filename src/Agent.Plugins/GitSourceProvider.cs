@@ -388,7 +388,7 @@ namespace Agent.Plugins.Repository
             foreach (var variable in executionContext.Variables)
             {
                 // Add the variable using the formatted name.
-                string formattedKey = (variable.Key ?? string.Empty).Replace('.', '_').Replace(' ', '_').ToUpperInvariant();
+                string formattedKey = VarUtil.ConvertToEnvVariableFormat(variable.Key);
                 gitEnv[formattedKey] = variable.Value?.Value ?? string.Empty;
             }
 
@@ -695,7 +695,7 @@ namespace Agent.Plugins.Repository
             if (await gitCommandManager.GitConfigExist(executionContext, targetPath, $"http.extraheader", existingExtraheaders))
             {
                 executionContext.Debug("Remove http.extraheader setting from git config.");
-                foreach(var configValue in existingExtraheaders)
+                foreach (var configValue in existingExtraheaders)
                 {
                     await RemoveGitConfig(executionContext, gitCommandManager, targetPath, $"http.extraheader", configValue);
                 }

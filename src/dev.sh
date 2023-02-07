@@ -20,7 +20,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/.helpers.sh"
 
 DOTNETSDK_ROOT="$SCRIPT_DIR/../_dotnetsdk"
-DOTNETSDK_VERSION="3.1.100"
+DOTNETSDK_VERSION="3.1.426"
 DOTNETSDK_INSTALLDIR="$DOTNETSDK_ROOT/$DOTNETSDK_VERSION"
 AGENT_VERSION=$(cat "$SCRIPT_DIR/agentversion" | head -n 1 | tr -d "\n\r")
 
@@ -75,43 +75,38 @@ function detect_platform_and_runtime_id ()
     fi
 }
 
-function cmd_build ()
-{
-    heading "Building"
-    TARGET="Build"
+function make_build (){
+    TARGET=$1
+
+    echo "MSBuild target = ${TARGET}"
+
     if  [[ "$ADO_ENABLE_LOGISSUE" == "true" ]]; then
 
-        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
+        dotnet msbuild -t:"${TARGET}" -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
          | sed -e "/\: warning /s/^/${DOTNET_WARNING_PREFIX} /;" \
          | sed -e "/\: error /s/^/${DOTNET_ERROR_PREFIX} /;" \
          || failed build
     else
-        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
+        dotnet msbuild -t:"${TARGET}" -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
          || failed build
     fi
 
-
     mkdir -p "${LAYOUT_DIR}/bin/en-US"
     grep --invert-match '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > "${LAYOUT_DIR}/bin/en-US/strings.json"
+}
 
+function cmd_build ()
+{
+    heading "Building"
+
+    make_build "Build"
 }
 
 function cmd_layout ()
 {
     heading "Creating layout"
-    TARGET="layout"
-    if  [[ "$ADO_ENABLE_LOGISSUE" == "true" ]]; then
-        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
-         | sed -e "/\: warning /s/^/${DOTNET_WARNING_PREFIX} /;" \
-         | sed -e "/\: error /s/^/${DOTNET_ERROR_PREFIX} /;" \
-         || failed build
-    else
-        dotnet msbuild -t:${TARGET} -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
-         || failed build
-    fi
 
-    mkdir -p "${LAYOUT_DIR}/bin/en-US"
-    grep --invert-match '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > "${LAYOUT_DIR}/bin/en-US/strings.json"
+    make_build "Layout"
 
     #change execution flag to allow running with sudo
     if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "darwin") ]]; then
@@ -195,7 +190,6 @@ function cmd_package ()
     heading "Packaging ${agent_pkg_name}"
 
     rm -Rf "${LAYOUT_DIR:?}/_diag"
-    find "${LAYOUT_DIR}/bin" -type f -name '*.pdb' -delete
 
     mkdir -p "$PACKAGE_DIR"
     rm -Rf "${PACKAGE_DIR:?}"/*
@@ -246,7 +240,7 @@ function cmd_report ()
 
     if [[ ("$CURRENT_PLATFORM" != "windows") ]]; then
         echo "Coverage reporting only available on Windows"
-        exit -1
+        exit 1
     fi
 
     mkdir -p "$REPORT_DIR"
@@ -303,8 +297,6 @@ LAYOUT_DIR="$SCRIPT_DIR/../_layout/$RUNTIME_ID"
 DOWNLOAD_DIR="$SCRIPT_DIR/../_downloads/$RUNTIME_ID/netcore2x"
 PACKAGE_DIR="$SCRIPT_DIR/../_package/$RUNTIME_ID"
 REPORT_DIR="$SCRIPT_DIR/../_reports/$RUNTIME_ID"
-INTEGRATION_DIR="$SCRIPT_DIR/../_layout/integrations"
-NODE="${LAYOUT_DIR}/externals/node10/bin/node"
 
 if [[ (! -d "${DOTNETSDK_INSTALLDIR}") || (! -e "${DOTNETSDK_INSTALLDIR}/.${DOTNETSDK_VERSION}") || (! -e "${DOTNETSDK_INSTALLDIR}/dotnet") ]]; then
 

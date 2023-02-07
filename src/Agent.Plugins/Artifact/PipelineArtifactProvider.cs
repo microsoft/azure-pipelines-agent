@@ -41,7 +41,8 @@ namespace Agent.Plugins
                 WellKnownDomainIds.DefaultDomainId,
                 cancellationToken);
 
-            using(clientTelemetry) {
+            using (clientTelemetry)
+            {
                 var manifestId = DedupIdentifier.Create(buildArtifact.Resource.Data);
                 var options = DownloadDedupManifestArtifactOptions.CreateWithManifestId(
                     manifestId,
@@ -82,7 +83,8 @@ namespace Agent.Plugins
                 WellKnownDomainIds.DefaultDomainId,
                 cancellationToken);
 
-            using(clientTelemetry) {
+            using (clientTelemetry)
+            {
                 var artifactNameAndManifestIds = buildArtifacts.ToDictionary(
                     keySelector: (a) => a.Name, // keys should be unique, if not something is really wrong
                     elementSelector: (a) => DedupIdentifier.Create(a.Resource.Data));

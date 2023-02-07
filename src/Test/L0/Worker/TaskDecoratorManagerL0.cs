@@ -21,7 +21,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             const String PreTargetTask = "__system_pretargettask_";
             var taskWithPreTarget = $"{PreTargetTask}TestTask";
             var taskWithPostTarget = $"{PostTargetTask}TestTask";
-            
+
             TaskDecoratorManager decoratorManager = new TaskDecoratorManager();
 
             Assert.True(decoratorManager.IsInjectedTaskForTarget(taskWithPostTarget, executionContext.Object));

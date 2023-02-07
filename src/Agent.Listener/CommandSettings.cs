@@ -83,7 +83,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
             // Store and remove any args passed via environment variables.
             var environment = environmentScope.GetEnvironmentVariables();
-            
+
             string envPrefix = "VSTS_AGENT_INPUT_";
             foreach (DictionaryEntry entry in environment)
             {
@@ -449,7 +449,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         {
             return GetArg(Run?.StartupType, Constants.Agent.CommandLine.Args.StartupType);
         }
-        
+
         public string GetProxyUrl()
         {
             return GetArg(Configure?.ProxyUrl, Constants.Agent.CommandLine.Args.ProxyUrl);
@@ -467,7 +467,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         public bool GetSkipCertificateValidation()
         {
-            return TestFlag(Configure?.SslSkipCertValidation , Constants.Agent.CommandLine.Flags.SslSkipCertValidation);
+            return TestFlag(Configure?.SslSkipCertValidation, Constants.Agent.CommandLine.Flags.SslSkipCertValidation);
         }
 
         public string GetCACertificate()
@@ -518,7 +518,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         public bool GetDeploymentOrMachineGroup()
         {
-            if (TestFlag(Configure?.DeploymentGroup, Constants.Agent.CommandLine.Flags.DeploymentGroup) || 
+            if (TestFlag(Configure?.DeploymentGroup, Constants.Agent.CommandLine.Flags.DeploymentGroup) ||
                 (Configure?.MachineGroup == true))
             {
                 return true;
@@ -802,7 +802,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         {
             if (Configure != null)
             {
-                _trace.Info(string.Concat(nameof(Configure)," ",ObjectAsJson(Configure)));
+                _trace.Info(string.Concat(nameof(Configure), " ", ObjectAsJson(Configure)));
             }
 
             if (Remove != null)

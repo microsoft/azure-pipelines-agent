@@ -423,10 +423,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 {
                     if (file.Success)
                     {
-                        var length = (long) file.Node.TransitiveContentBytes;
+                        var length = (long)file.Node.TransitiveContentBytes;
                         response = await retryHelper.Retry(async () => await _fileContainerHttpClient.CreateItemForArtifactUpload(_containerId, itemPath, _projectId,
                             file.DedupId.ValueString, length, token),
-                                                    (retryCounter) => (int) Math.Pow(retryCounter, 2) * 5,
+                                                    (retryCounter) => (int)Math.Pow(retryCounter, 2) * 5,
                                                     (exception) => true);
                         uploadResult.TotalFileSizeUploaded += length;
                     }

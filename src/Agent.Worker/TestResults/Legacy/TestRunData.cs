@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-﻿using Microsoft.TeamFoundation.TestManagement.WebApi;
+using Microsoft.TeamFoundation.TestManagement.WebApi;
 using System.Collections.Generic;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults

@@ -56,7 +56,7 @@ namespace Agent.Plugins.PipelineCache
                 // Check if the key exists.
                 PipelineCacheActionRecord cacheRecordGet = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
                         new PipelineCacheActionRecord(level, uri, type, PipelineArtifactConstants.RestoreCache, context));
-                PipelineCacheArtifact getResult = await pipelineCacheClient.GetPipelineCacheArtifactAsync(new [] {fingerprint}, cancellationToken, cacheRecordGet);
+                PipelineCacheArtifact getResult = await pipelineCacheClient.GetPipelineCacheArtifactAsync(new[] { fingerprint }, cancellationToken, cacheRecordGet);
                 // Send results to CustomerIntelligence
                 context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineCache, record: cacheRecordGet);
                 //If cache exists, return.
@@ -217,7 +217,7 @@ namespace Agent.Plugins.PipelineCache
                         context.Verbose($"Exact fingerprint: `{result.Fingerprint.ToString()}`");
 
                         bool foundExact = false;
-                        foreach(var fingerprint in fingerprints)
+                        foreach (var fingerprint in fingerprints)
                         {
                             context.Verbose($"This fingerprint: `{fingerprint.ToString()}`");
 
@@ -269,7 +269,7 @@ namespace Agent.Plugins.PipelineCache
         private async Task<string> GetUploadPathAsync(ContentFormat contentFormat, AgentTaskPluginExecutionContext context, string path, CancellationToken cancellationToken)
         {
             string uploadPath = path;
-            if(contentFormat == ContentFormat.SingleTar)
+            if (contentFormat == ContentFormat.SingleTar)
             {
                 uploadPath = await TarUtils.ArchiveFilesToTarAsync(context, path, cancellationToken);
             }
@@ -301,15 +301,15 @@ namespace Agent.Plugins.PipelineCache
                     continueOnCapturedContext: false);
 
                 Manifest manifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(manifestPath));
-                await TarUtils.DownloadAndExtractTarAsync (context, manifest, dedupManifestClient, targetDirectory, cancellationToken);
+                await TarUtils.DownloadAndExtractTarAsync(context, manifest, dedupManifestClient, targetDirectory, cancellationToken);
                 try
                 {
-                    if(File.Exists(manifestPath))
+                    if (File.Exists(manifestPath))
                     {
                         File.Delete(manifestPath);
                     }
                 }
-                catch {}
+                catch { }
             }
             else
             {

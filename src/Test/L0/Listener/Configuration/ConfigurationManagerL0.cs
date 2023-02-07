@@ -560,11 +560,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
                 Assert.True(s.EnvironmentVMResourceId.Equals(_expectedEnvironmentVMResourceId));
 
                 // Validate mock calls
-                _environmentsServer.Verify( x => x.ConnectAsync(It.IsAny<VssConnection>()), Times.Once);
-                _environmentsServer.Verify(x => x.AddEnvironmentVMAsync(It.IsAny<Guid>(), It.Is<int>(e => e == 54 ), It.Is<VirtualMachineResource>( v => v.Agent.Name == "environmentVMResourceName")), Times.Once);
-                _environmentsServer.Verify(x => x.GetEnvironmentVMsAsync(It.IsAny<Guid>(), It.Is<int>(e => e == 54), It.Is<string>( v => v == "environmentVMResourceName")), Times.Once);
-                _environmentsServer.Verify(x => x.GetEnvironmentsAsync(It.IsAny<string>(), It.Is<string>( e => e == "env1")), Times.Once);
-                _environmentsServer.Verify(x => x.GetEnvironmentPoolAsync(It.Is<Guid>( p => p == projectId ), It.Is<int>( e => e == 54)), Times.Once);
+                _environmentsServer.Verify(x => x.ConnectAsync(It.IsAny<VssConnection>()), Times.Once);
+                _environmentsServer.Verify(x => x.AddEnvironmentVMAsync(It.IsAny<Guid>(), It.Is<int>(e => e == 54), It.Is<VirtualMachineResource>(v => v.Agent.Name == "environmentVMResourceName")), Times.Once);
+                _environmentsServer.Verify(x => x.GetEnvironmentVMsAsync(It.IsAny<Guid>(), It.Is<int>(e => e == 54), It.Is<string>(v => v == "environmentVMResourceName")), Times.Once);
+                _environmentsServer.Verify(x => x.GetEnvironmentsAsync(It.IsAny<string>(), It.Is<string>(e => e == "env1")), Times.Once);
+                _environmentsServer.Verify(x => x.GetEnvironmentPoolAsync(It.Is<Guid>(p => p == projectId), It.Is<int>(e => e == 54)), Times.Once);
             }
         }
 
@@ -602,10 +602,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
 
         private List<EnvironmentInstance> GetEnvironments(string projectName, Guid projectId)
         {
-            var environmentJson = "{'id':54, 'project':{'id':'" + projectId + "','name':'" + projectName  +"'},'name':'env1'}";
+            var environmentJson = "{'id':54, 'project':{'id':'" + projectId + "','name':'" + projectName + "'},'name':'env1'}";
             var env = JsonConvert.DeserializeObject<EnvironmentInstance>(environmentJson);
 
-            return new List<EnvironmentInstance>{ env };
+            return new List<EnvironmentInstance> { env };
         }
 
         // Init the Agent Config Provider

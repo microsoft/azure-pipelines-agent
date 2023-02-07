@@ -60,12 +60,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             var lines = jobService.LogLines.GetValueOrDefault(record.Log.Id).ToList();
             if (lines.Count <= 0)
             {
-              lines = new List<string>();
-              // Fall back to blobstore
-              foreach (var blobId in jobService.IdToBlobMapping.GetValueOrDefault(record.Log.Id))
-              {
-                lines.AddRange(jobService.UploadedLogBlobs.GetValueOrDefault(blobId));
-              }
+                lines = new List<string>();
+                // Fall back to blobstore
+                foreach (var blobId in jobService.IdToBlobMapping.GetValueOrDefault(record.Log.Id))
+                {
+                    lines.AddRange(jobService.UploadedLogBlobs.GetValueOrDefault(blobId));
+                }
             }
             return lines;
         }
@@ -249,8 +249,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
             using (var cts = new CancellationTokenSource())
             {
-              cts.CancelAfter((int)JobTimeout.TotalMilliseconds);
-              return await RunWorker(_l1HostContext, message, cts.Token);
+                cts.CancelAfter((int)JobTimeout.TotalMilliseconds);
+                return await RunWorker(_l1HostContext, message, cts.Token);
             }
         }
 

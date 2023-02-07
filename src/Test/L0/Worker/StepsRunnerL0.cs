@@ -407,7 +407,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         {
             using (TestHostContext hc = CreateTestContext())
             {
-                var stepTarget = new Pipelines.StepTarget {
+                var stepTarget = new Pipelines.StepTarget
+                {
                     Target = "container"
                 };
                 var step = CreateStep(TaskResult.Succeeded, ExpressionManager.Succeeded);

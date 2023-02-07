@@ -15,9 +15,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
     public class TimelineRecordAttachmentTelemetryRecord : PipelineTelemetryRecord
     {
         public TimelineRecordAttachmentTelemetryRecord(
-            TelemetryInformationLevel level, 
-            Uri baseAddress, 
-            string eventNamePrefix, 
+            TelemetryInformationLevel level,
+            Uri baseAddress,
+            string eventNamePrefix,
             string eventNameSuffix,
             Guid planId,
             Guid jobId,

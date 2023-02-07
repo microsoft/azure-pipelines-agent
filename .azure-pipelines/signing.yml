@@ -16,7 +16,7 @@ steps:
         displayName: Remove signatures from the third party packages
         condition: ne(variables['DISABLE_SIGNATURE_REMOVAL'], 'true')
 
-      - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@1
+      - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@2
         inputs:
           ConnectedServiceName: VSTSAgentESRP
           FolderPath: '${{ parameters.layoutRoot }}/bin'
@@ -40,7 +40,7 @@ steps:
             ]
         displayName: Sign Agent Assemblies (Strong Name Signing)
 
-  - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@1
+  - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@2
     inputs:
       ConnectedServiceName: VSTSAgentESRP
       FolderPath: '${{ parameters.layoutRoot }}/bin'
@@ -90,7 +90,7 @@ steps:
         ]
     displayName: Sign Agent Assemblies (Authenticode Signing)
 
-  - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@1
+  - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@2
     inputs:
       ConnectedServiceName: VSTSAgentESRP
       FolderPath: '${{ parameters.layoutRoot }}'
@@ -140,7 +140,7 @@ steps:
         ]
     displayName: Sign PowerShell Scripts (Authenticode Signing)
 
-  - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@1
+  - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@2
     inputs:
       ConnectedServiceName: VSTSAgentESRP
       FolderPath: '${{ parameters.layoutRoot }}'

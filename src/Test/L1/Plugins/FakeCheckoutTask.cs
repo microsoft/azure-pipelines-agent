@@ -10,10 +10,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
     public class FakeCheckoutTask : CheckoutTask
     {
         public FakeCheckoutTask() : base(new FakeSourceProviderFactory())
-        {}
+        { }
 
         public FakeCheckoutTask(ISourceProviderFactory SourceProviderFactory) : base(new FakeSourceProviderFactory())
-        {}
+        { }
     }
 
     public sealed class FakeSourceProviderFactory : SourceProviderFactory

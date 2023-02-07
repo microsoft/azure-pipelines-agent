@@ -5,111 +5,145 @@ using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
-    public class LoggedSecretMaskerL0
+    public class LoggedSecretMaskerL0 : IDisposable
     {
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "SecretMasker")]
-        public void IsShortSecretRemovedFromDictionary()
+        SecretMasker _secretMasker;
+        private bool disposedValue;
+
+        public LoggedSecretMaskerL0()
         {
-            var testSecretMasker = new LoggedSecretMasker(new SecretMasker());
-            testSecretMasker.AddValue("1");
-
-            var input = "123";
-
-            Assert.Equal(
-               "***23",
-               testSecretMasker.MaskSecrets(input));
-
-            testSecretMasker.MinSecretLength = 4;
-
-            testSecretMasker.RemoveShortSecretsFromDictionary();
-
-            Assert.Equal(
-               input,
-               testSecretMasker.MaskSecrets(input));
+            _secretMasker = new SecretMasker();
         }
 
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "SecretMasker")]
-        public void IsShortSecretRemovedFromDictionaryOnBoundaryValue()
+        public void LoggedSecretMasker_MaskingSecrets()
         {
-            var testSecretMasker = new LoggedSecretMasker(new SecretMasker());
-            testSecretMasker.AddValue("123");
-            testSecretMasker.AddValue("456");
+            var lsm = new LoggedSecretMasker(_secretMasker)
+            {
+                MinSecretLength = 0
+            };
+            var inputMessage = "123";
 
-            var input = "123456";
+            lsm.AddValue("1");
+            var resultMessage = lsm.MaskSecrets(inputMessage);
 
-            Assert.Equal(
-               "***",
-               testSecretMasker.MaskSecrets(input));
-
-            testSecretMasker.MinSecretLength = 3;
-
-            testSecretMasker.RemoveShortSecretsFromDictionary();
-
-            Assert.Equal(
-               "***",
-               testSecretMasker.MaskSecrets(input));
+            Assert.Equal("***23", resultMessage);
         }
 
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "SecretMasker")]
-        public void IsShortSecretSkipped()
+        public void LoggedSecretMasker_ShortSecret_Removes_From_Dictionary()
         {
-            var testSecretMasker = new LoggedSecretMasker(new SecretMasker(3));
-            testSecretMasker.AddValue("1");
+            var lsm = new LoggedSecretMasker(_secretMasker)
+            {
+                MinSecretLength = 0
+            };
+            var inputMessage = "123";
 
-            Assert.Equal(
-               "123",
-               testSecretMasker.MaskSecrets(@"123"));
+            lsm.AddValue("1");
+            lsm.MinSecretLength = 4;
+            lsm.RemoveShortSecretsFromDictionary();
+            var resultMessage = lsm.MaskSecrets(inputMessage);
+
+            Assert.Equal(inputMessage, resultMessage);
         }
 
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "SecretMasker")]
-        public void IsBigMinSecretLengthValueRestricted()
+        public void LoggedSecretMasker_ShortSecret_Removes_From_Dictionary_BoundaryValue()
         {
-            var testSecretMasker = new LoggedSecretMasker(new SecretMasker());
+            var lsm = new LoggedSecretMasker(_secretMasker)
+            {
+                MinSecretLength = 3
+            };
+            var inputMessage = "123456";
 
-            Assert.Throws<ArgumentException>(() => testSecretMasker.MinSecretLength = 5);
+            lsm.AddValue("123");
+            lsm.RemoveShortSecretsFromDictionary();
+            var resultMessage = lsm.MaskSecrets(inputMessage);
+
+            Assert.Equal("***456", resultMessage);
         }
 
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "SecretMasker")]
-        public void IsBigMinSecretLengthValueSetToDefault()
+        public void LoggedSecretMasker_Skipping_ShortSecrets()
         {
-            var testSecretMasker = new LoggedSecretMasker(new SecretMasker());
+            var lsm = new LoggedSecretMasker(_secretMasker)
+            {
+                MinSecretLength = 3
+            };
 
-            try { testSecretMasker.MinSecretLength = 5; }
+            lsm.AddValue("1");
+            var resultMessage = lsm.MaskSecrets(@"123");
+
+            Assert.Equal("123", resultMessage);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "SecretMasker")]
+        public void LoggedSecretMasker_Throws_Exception_If_Large_MinSecretLength_Specified()
+        {
+            var lsm = new LoggedSecretMasker(_secretMasker);
+
+            Assert.Throws<ArgumentException>(() => lsm.MinSecretLength = 5);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "SecretMasker")]
+        public void LoggedSecretMasker_Sets_MinSecretLength_To_MaxValue()
+        {
+            var lsm = new LoggedSecretMasker(_secretMasker);
+
+            try { lsm.MinSecretLength = 5; }
             catch (ArgumentException) { }
 
-            testSecretMasker.AddValue("1");
-            testSecretMasker.AddValue("2345");
-
-            Assert.Equal(
-               "1***",
-               testSecretMasker.MaskSecrets(@"12345"));
+            Assert.Equal(4, lsm.MinSecretLength);
         }
 
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "SecretMasker")]
-        public void IsNegativeValuePassed()
+        public void LoggedSecretMasker_NegativeValue_Passed()
         {
-            var testSecretMasker = new LoggedSecretMasker(new SecretMasker());
+            var lsm = new LoggedSecretMasker(_secretMasker)
+            {
+                MinSecretLength = -2
+            };
+            var inputMessage = "12345";
 
-            testSecretMasker.MinSecretLength = -2;
+            lsm.AddValue("1");
+            var resultMessage = lsm.MaskSecrets(inputMessage);
 
-            testSecretMasker.AddValue("1");
-            testSecretMasker.AddValue("2345");
+            Assert.Equal("***2345", resultMessage);
+        }
 
-            Assert.Equal(
-               "***",
-               testSecretMasker.MaskSecrets(@"12345"));
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposedValue)
+            {
+                if (disposing)
+                {
+                }
+
+                _secretMasker.Dispose();
+                _secretMasker = null;
+
+                disposedValue = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
         }
     }
 }

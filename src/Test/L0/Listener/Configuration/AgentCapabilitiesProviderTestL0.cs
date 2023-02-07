@@ -25,7 +25,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             {
                 Mock<IConfigurationManager> configurationManager = new Mock<IConfigurationManager>();
                 hc.SetSingleton<IConfigurationManager>(configurationManager.Object);
-                
+
                 // Arrange
                 var provider = new AgentCapabilitiesProvider();
                 provider.Initialize(hc);

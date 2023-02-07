@@ -1,11 +1,11 @@
 <Project>
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-    <RuntimeFrameworkVersion>3.1.0</RuntimeFrameworkVersion>
+    <RuntimeFrameworkVersion>3.1.32</RuntimeFrameworkVersion>
     <RuntimeIdentifier>$(PackageRuntime)</RuntimeIdentifier>
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
     <AssetTargetFallback>portable-net45+win8</AssetTargetFallback>
-    <NoWarn>NU1701;NU1603;NU1605</NoWarn>
+    <NoWarn>NU1701;NU1603</NoWarn>
     <OutputType>OVERRIDE_ME</OutputType>
     <OSPlatform>OS_UNKNOWN</OSPlatform>
     <OSArchitecture>ARCH_UNKNOWN</OSArchitecture>

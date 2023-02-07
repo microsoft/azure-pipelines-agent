@@ -29,7 +29,7 @@ namespace Agent.Plugins.PipelineArtifact
             // Path
             // TODO: Translate targetPath from container to host (Ting)
             string targetPath = context.GetInput(ArtifactEventProperties.TargetPath, required: true);
-            
+
             this.tracer = context.CreateArtifactsTracer();
 
             await ProcessCommandInternalAsync(context, targetPath, token);
@@ -83,7 +83,8 @@ namespace Agent.Plugins.PipelineArtifact
             }
 
             string hostType = context.Variables.GetValueOrDefault("system.hosttype")?.Value;
-            if (!string.Equals(hostType, "Build", StringComparison.OrdinalIgnoreCase)) {
+            if (!string.Equals(hostType, "Build", StringComparison.OrdinalIgnoreCase))
+            {
                 throw new InvalidOperationException(
                     StringUtil.Loc("CannotUploadFromCurrentEnvironment", hostType ?? string.Empty));
             }

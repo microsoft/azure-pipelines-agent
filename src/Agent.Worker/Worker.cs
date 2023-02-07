@@ -22,7 +22,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     public sealed class Worker : AgentService, IWorker
     {
         private readonly TimeSpan _workerStartTimeout = TimeSpan.FromSeconds(30);
-        private static readonly char[] _quoteLikeChars = new char[] {'\'', '"'};
+        private static readonly char[] _quoteLikeChars = new char[] { '\'', '"' };
 
 
         public async Task<int> RunAsync(string pipeIn, string pipeOut)

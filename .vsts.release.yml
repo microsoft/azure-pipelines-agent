@@ -16,6 +16,14 @@ parameters:
   type: boolean
   default: false
   displayName: Build Stage Only
+- name: skipRhelRelease
+  type: boolean
+  default: true
+  displayName: Skip RHEL Release
+- name: releaseRhelOnly
+  type: boolean
+  default: false
+  displayName: Release RHEL Only
 
 - name: onlyGitHubRelease
   type: boolean
@@ -33,6 +41,8 @@ extends:
     test: ${{ not(parameters.skipTests) }}
     sign: true
     publishArtifacts: true
+    skipRhelRelease: ${{ parameters.skipRhelRelease }}
+    releaseRhelOnly: ${{ parameters.releaseRhelOnly }}
 
     preBuildStages:
     - ${{ if and(not(parameters.buildStageOnly), eq(variables['Build.SourceBranch'], 'refs/heads/master')) }}:
@@ -44,7 +54,7 @@ extends:
         ################################################################################
           displayName: Create Release Branch
           pool:
-            vmImage: ubuntu-18.04
+            vmImage: ubuntu-20.04
 
           steps:
           - checkout: self
@@ -90,34 +100,33 @@ extends:
             inputs:
               artifactName: agent
 
-          - ${{ if not(parameters.onlyGitHubRelease) }}:
-            # Upload agent packages to Azure blob storage and refresh Azure CDN
-            - powershell: |
-                Write-Host "Preloading Azure modules." # This is for better performance, to avoid module-autoloading.
-                Import-Module Azure, Az.Accounts, Az.Storage, Az.Cdn -ErrorAction Ignore -PassThru
-                $uploadFiles = New-Object System.Collections.ArrayList
-                $certificateThumbprint = (Get-ItemProperty -Path "$(ServicePrincipalReg)").ServicePrincipalCertThumbprint
-                $clientId = (Get-ItemProperty -Path "$(ServicePrincipalReg)").ServicePrincipalClientId
-                Write-Host "##vso[task.setsecret]$certificateThumbprint"
-                Write-Host "##vso[task.setsecret]$clientId"
-                Login-AzAccount -ServicePrincipal -CertificateThumbprint $certificateThumbprint -ApplicationId $clientId -TenantId $(TenantId)
-                Select-AzSubscription -SubscriptionId $(SubscriptionId)
-                $storage = Get-AzStorageAccount -ResourceGroupName vstsagentpackage -AccountName vstsagentpackage
-                $versionDir = "${{ parameters.version }}"
-                Get-ChildItem -LiteralPath "$(System.ArtifactsDirectory)/agent" | ForEach-Object {
-                  $target=$_
-                  Get-ChildItem -LiteralPath "$(System.ArtifactsDirectory)/agent/$target" -Include "*.zip","*.tar.gz" | ForEach-Object {
-                    $executable = $_
-                    Write-Host "Uploading $executable to BlobStorage vstsagentpackage/agent/$versionDir"
-                    Set-AzStorageBlobContent -Context $storage.Context -Container agent -File "$(System.ArtifactsDirectory)/agent/$target/$executable" -Blob "$versionDir/$executable" -Force
-                    $uploadFiles.Add("/agent/$versionDir/$executable")
-                  }
+          # Upload agent packages to Azure blob storage and refresh Azure CDN
+          - powershell: |
+              Write-Host "Preloading Azure modules." # This is for better performance, to avoid module-autoloading.
+              Import-Module Azure, Az.Accounts, Az.Storage, Az.Cdn -ErrorAction Ignore -PassThru
+              $uploadFiles = New-Object System.Collections.ArrayList
+              $certificateThumbprint = (Get-ItemProperty -Path "$(ServicePrincipalReg)").ServicePrincipalCertThumbprint
+              $clientId = (Get-ItemProperty -Path "$(ServicePrincipalReg)").ServicePrincipalClientId
+              Write-Host "##vso[task.setsecret]$certificateThumbprint"
+              Write-Host "##vso[task.setsecret]$clientId"
+              Login-AzAccount -ServicePrincipal -CertificateThumbprint $certificateThumbprint -ApplicationId $clientId -TenantId $(TenantId)
+              Select-AzSubscription -SubscriptionId $(SubscriptionId)
+              $storage = Get-AzStorageAccount -ResourceGroupName vstsagentpackage -AccountName vstsagentpackage
+              $versionDir = "${{ parameters.version }}"
+              Get-ChildItem -LiteralPath "$(System.ArtifactsDirectory)/agent" | ForEach-Object {
+                $target=$_
+                Get-ChildItem -LiteralPath "$(System.ArtifactsDirectory)/agent/$target" -Include "*.zip","*.tar.gz" | ForEach-Object {
+                  $executable = $_
+                  Write-Host "Uploading $executable to BlobStorage vstsagentpackage/agent/$versionDir"
+                  Set-AzStorageBlobContent -Context $storage.Context -Container agent -File "$(System.ArtifactsDirectory)/agent/$target/$executable" -Blob "$versionDir/$executable" -Force
+                  $uploadFiles.Add("/agent/$versionDir/$executable")
                 }
-                Write-Host "Purge Azure CDN Cache"
-                Unpublish-AzCdnEndpointContent -EndpointName vstsagentpackage -ProfileName vstsagentpackage -ResourceGroupName vstsagentpackage -PurgeContent $uploadFiles
-                Write-Host "Force Refresh Azure CDN Cache"
-                Publish-AzCdnEndpointContent -EndpointName vstsagentpackage -ProfileName vstsagentpackage -ResourceGroupName vstsagentpackage -LoadContent $uploadFiles
-              displayName: Upload to Azure Blob
+              }
+              Write-Host "Purge Azure CDN Cache"
+              Unpublish-AzCdnEndpointContent -EndpointName vstsagentpackage -ProfileName vstsagentpackage -ResourceGroupName vstsagentpackage -PurgeContent $uploadFiles
+              Write-Host "Force Refresh Azure CDN Cache"
+              Publish-AzCdnEndpointContent -EndpointName vstsagentpackage -ProfileName vstsagentpackage -ResourceGroupName vstsagentpackage -LoadContent $uploadFiles
+            displayName: Upload to Azure Blob
 
           # Download all agent hashes created in previous phases
           - task: DownloadBuildArtifacts@0
@@ -178,7 +187,7 @@ extends:
           ################################################################################
             displayName: Create PRs in AzureDevOps and ConfigChange
             pool:
-              vmImage: ubuntu-18.04
+              vmImage: ubuntu-20.04
 
             steps:
             - checkout: self

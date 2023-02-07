@@ -62,15 +62,15 @@ namespace Agent.Plugins.PipelineCache
             string path,
             CancellationToken token)
         {
-            string contentFormatValue  = context.Variables.GetValueOrDefault(ContentFormatVariableName)?.Value ?? string.Empty;
+            string contentFormatValue = context.Variables.GetValueOrDefault(ContentFormatVariableName)?.Value ?? string.Empty;
             string calculatedFingerPrint = context.TaskVariables.GetValueOrDefault(ResolvedFingerPrintVariableName)?.Value ?? string.Empty;
 
-            if(!string.IsNullOrWhiteSpace(calculatedFingerPrint) && !fingerprint.ToString().Equals(calculatedFingerPrint, StringComparison.Ordinal))
+            if (!string.IsNullOrWhiteSpace(calculatedFingerPrint) && !fingerprint.ToString().Equals(calculatedFingerPrint, StringComparison.Ordinal))
             {
-                context.Warning($"The given cache key has changed in its resolved value between restore and save steps;\n"+
-                                $"original key: {calculatedFingerPrint}\n"+
+                context.Warning($"The given cache key has changed in its resolved value between restore and save steps;\n" +
+                                $"original key: {calculatedFingerPrint}\n" +
                                 $"modified key: {fingerprint}\n");
-            } 
+            }
 
             ContentFormat contentFormat;
             if (string.IsNullOrWhiteSpace(contentFormatValue))
@@ -85,7 +85,7 @@ namespace Agent.Plugins.PipelineCache
             PipelineCacheServer server = new PipelineCacheServer(context);
             await server.UploadAsync(
                 context,
-                fingerprint, 
+                fingerprint,
                 path,
                 token,
                 contentFormat);
