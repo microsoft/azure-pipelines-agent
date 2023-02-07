@@ -29,7 +29,7 @@ parameters:
   default: true
 - name: macOS_arm64
   type: boolean
-  displayName: macOS (arm64)m
+  displayName: macOS (arm64)
   default: true
 - name: skipRhelRelease
   type: boolean
