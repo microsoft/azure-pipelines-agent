@@ -12,6 +12,7 @@ using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
 using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
+using BuildXL.Cache.ContentStore.Hashing;
 
 namespace Microsoft.VisualStudio.Services.Agent.Blob
 {
@@ -122,7 +123,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                 continueOnCapturedContext: false);
 
             var telemetry = new BlobStoreClientTelemetry(tracer, dedupStoreHttpClient.BaseAddress);
-            var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, maxParallelism); 
+            var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, new DedupStoreClientContext(maxParallelism), HashType.Dedup1024K); 
             return (new DedupManifestArtifactClient(telemetry, client, tracer), telemetry);
         }
 

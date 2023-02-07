@@ -82,7 +82,8 @@ namespace Agent.Plugins
                 {
                     { PipelineArtifactConstants.RootId, result.RootId.ValueString },
                     { PipelineArtifactConstants.ProofNodes, StringUtil.ConvertToJson(result.ProofNodes.ToArray()) },
-                    { PipelineArtifactConstants.ArtifactSize, result.ContentSize.ToString() }
+                    { PipelineArtifactConstants.ArtifactSize, result.ContentSize.ToString() },
+                    { "HashType", HashType.Dedup1024K.ToString() }
                 };
 
                 BuildArtifact buildArtifact = await AsyncHttpRetryHelper.InvokeAsync(
