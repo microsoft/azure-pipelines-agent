@@ -13,6 +13,7 @@ using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
 using BuildXL.Cache.ContentStore.Hashing;
+using Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts;
 
 namespace Microsoft.VisualStudio.Services.Agent.Blob
 {
@@ -35,6 +36,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             VssConnection connection,
             int maxParallelism,
             IDomainId domainId,
+            Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client client,
             CancellationToken cancellationToken);
 
         /// <summary>
@@ -82,9 +84,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             VssConnection connection,
             int maxParallelism,
             IDomainId domainId,
+            Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client client,
             CancellationToken cancellationToken)
         {
             const int maxRetries = 5;
+            var hashType = HashType.Dedup64K;
             var tracer = CreateArtifactsTracer(verbose, traceOutput);
             if (maxParallelism == 0)
             {
@@ -93,7 +97,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             traceOutput($"Max dedup parallelism: {maxParallelism}");
 
             IDedupStoreHttpClient dedupStoreHttpClient = await AsyncHttpRetryHelper.InvokeAsync(
-                () =>
+                async () =>
                 {
                     ArtifactHttpClientFactory factory = new ArtifactHttpClientFactory(
                         connection.Credentials,
@@ -101,19 +105,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                         tracer,
                         cancellationToken);
 
-                    IDedupStoreHttpClient client;
+                    IDedupStoreHttpClient dedupHttpclient;
                     // this is actually a hidden network call to the location service:
                     if (domainId == WellKnownDomainIds.DefaultDomainId)
                     {
-                        client = factory.CreateVssHttpClient<IDedupStoreHttpClient, DedupStoreHttpClient>(connection.GetClient<DedupStoreHttpClient>().BaseAddress);
+                        dedupHttpclient = factory.CreateVssHttpClient<IDedupStoreHttpClient, DedupStoreHttpClient>(connection.GetClient<DedupStoreHttpClient>().BaseAddress);
                     }
                     else
                     {
                         IDomainDedupStoreHttpClient domainClient = factory.CreateVssHttpClient<IDomainDedupStoreHttpClient, DomainDedupStoreHttpClient>(connection.GetClient<DomainDedupStoreHttpClient>().BaseAddress);
-                        client = new DomainHttpClientWrapper(domainId, domainClient);
+                        dedupHttpclient = new DomainHttpClientWrapper(domainId, domainClient);
                     }
 
-                    return Task.FromResult(client);
+                    if (client.Equals(BlobStore.WebApi.Contracts.Client.PipelineArtifact))
+                    {
+                        hashType = await GetClientHashTypeAsync(factory, connection, client, tracer, cancellationToken);
+                    }
+
+                    return await Task.FromResult(dedupHttpclient);
                 },
                 maxRetries: maxRetries,
                 tracer: tracer,
@@ -123,8 +132,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                 continueOnCapturedContext: false);
 
             var telemetry = new BlobStoreClientTelemetry(tracer, dedupStoreHttpClient.BaseAddress);
-            var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, new DedupStoreClientContext(maxParallelism), HashType.Dedup1024K); 
-            return (new DedupManifestArtifactClient(telemetry, client, tracer), telemetry);
+            var dedupClient = new DedupStoreClientWithDataport(dedupStoreHttpClient, new DedupStoreClientContext(maxParallelism), hashType); 
+            return (new DedupManifestArtifactClient(telemetry, dedupClient, tracer), telemetry);
         }
 
         public async Task<(DedupStoreClient client, BlobStoreClientTelemetryTfs telemetry)> CreateDedupClientAsync(
@@ -221,6 +230,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                     ? System.Diagnostics.SourceLevels.Verbose
                     : System.Diagnostics.SourceLevels.Information,
                 includeSeverityLevel: verbose);
+        }
+
+        private async Task<HashType> GetClientHashTypeAsync(
+            ArtifactHttpClientFactory factory,
+            VssConnection connection,
+            BlobStore.WebApi.Contracts.Client client,
+            IAppTraceSource tracer,
+            CancellationToken cancellationToken)
+        {
+            HashType hashType = HashType.Dedup64K;
+            try
+            {
+                var blobUri = connection.GetClient<ClientSettingsHttpClient>().BaseAddress;
+                var clientSettingsHttpClient = factory.CreateVssHttpClient<IClientSettingsHttpClient, ClientSettingsHttpClient>(blobUri);
+                ClientSettingsInfo clientSettings = await clientSettingsHttpClient.GetSettingsAsync(client, cancellationToken);
+                if (clientSettings != null && clientSettings.Properties.ContainsKey(ClientSettingsConstants.ChunkSize))
+                {
+                    HashTypeExtensions.Deserialize(clientSettings.Properties[ClientSettingsConstants.ChunkSize], out hashType);
+                }
+            }
+            catch (Exception exception)
+            {
+                tracer.Warn($"Error while retrieving hash type for {client}. Exception: {exception}");
+            }
+
+            return ChunkerHelper.IsHashTypeChunk(hashType) ? hashType : HashType.Dedup64K;
         }
     }
 }

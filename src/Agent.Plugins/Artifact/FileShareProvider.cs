@@ -62,6 +62,7 @@ namespace Agent.Plugins
                 connection,
                 this.factory.GetDedupStoreClientMaxParallelism(context),
                 WellKnownDomainIds.DefaultDomainId,
+                Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.FileShare,
                 cancellationToken);
 
             using (clientTelemetry)
@@ -113,6 +114,7 @@ namespace Agent.Plugins
                 connection,
                 this.factory.GetDedupStoreClientMaxParallelism(context),
                 WellKnownDomainIds.DefaultDomainId,
+                Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.FileShare,
                 cancellationToken);
 
             using (clientTelemetry)

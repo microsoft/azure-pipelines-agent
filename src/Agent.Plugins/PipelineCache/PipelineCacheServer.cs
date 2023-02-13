@@ -47,6 +47,7 @@ namespace Agent.Plugins.PipelineCache
                     connection,
                     DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
                     WellKnownDomainIds.DefaultDomainId,
+                    Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineCache,
                     cancellationToken);
 
             PipelineCacheClient pipelineCacheClient = await this.CreateClientWithRetryAsync(clientTelemetry, context, connection, cancellationToken);
@@ -159,6 +160,7 @@ namespace Agent.Plugins.PipelineCache
                     connection,
                     DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
                     WellKnownDomainIds.DefaultDomainId,
+                    Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineCache,
                     cancellationToken);
 
             PipelineCacheClient pipelineCacheClient = await this.CreateClientWithRetryAsync(clientTelemetry, context, connection, cancellationToken);
