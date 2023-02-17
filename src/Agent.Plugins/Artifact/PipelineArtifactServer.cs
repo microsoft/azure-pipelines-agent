@@ -43,6 +43,9 @@ namespace Agent.Plugins
         {
             VssConnection connection = context.VssConnection;
 
+            DedupManifestArtifactClientFactory.Initialize(
+                client: Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
+                hashType: null);
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
                 .CreateDedupManifestClientAsync(
                     context.IsSystemDebugTrue(),
@@ -50,7 +53,6 @@ namespace Agent.Plugins
                     connection,
                     DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
                     WellKnownDomainIds.DefaultDomainId,
-                    Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
                     cancellationToken);
 
             using (clientTelemetry)
@@ -84,7 +86,7 @@ namespace Agent.Plugins
                     { PipelineArtifactConstants.RootId, result.RootId.ValueString },
                     { PipelineArtifactConstants.ProofNodes, StringUtil.ConvertToJson(result.ProofNodes.ToArray()) },
                     { PipelineArtifactConstants.ArtifactSize, result.ContentSize.ToString() },
-                    { "HashType", HashType.Dedup1024K.ToString() }
+                    { PipelineArtifactConstants.HashType, dedupManifestClient.HashType.Serialize() }
                 };
 
                 BuildArtifact buildArtifact = await AsyncHttpRetryHelper.InvokeAsync(
@@ -150,10 +152,8 @@ namespace Agent.Plugins
                     Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
                     cancellationToken);
 
-            BuildServer buildServer = new BuildServer(connection);
+                BuildServer buildServer = new BuildServer(connection);
 
-            using (clientTelemetry)
-            {
                 // download all pipeline artifacts if artifact name is missing
                 if (downloadOptions == DownloadOptions.MultiDownload)
                 {
@@ -280,7 +280,6 @@ namespace Agent.Plugins
                 {
                     throw new InvalidOperationException($"Invalid {nameof(downloadOptions)}!");
                 }
-            }
         }
 
         // Download for version 2. This decision was made because version 1 is sealed and we didn't want to break any existing customers.
@@ -330,12 +329,16 @@ namespace Agent.Plugins
                 if (pipelineArtifacts.Any())
                 {
                     PipelineArtifactProvider provider = new PipelineArtifactProvider(context, connection, this.tracer);
-                    await provider.DownloadMultipleArtifactsAsync(downloadParameters, pipelineArtifacts, cancellationToken, context);
+                    HashTypeExtensions.Deserialize(buildArtifacts.First().Resource.Properties[PipelineArtifactConstants.HashType], out HashType hashType);
+                    await provider.DownloadMultipleArtifactsAsync(downloadParameters, pipelineArtifacts, cancellationToken, hashType, context);
                 }
 
                 if (fileShareArtifacts.Any())
                 {
-                    FileShareProvider provider = new FileShareProvider(context, connection, this.tracer);
+                    DedupManifestArtifactClientFactory.Initialize(
+                        client: Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.FileShare,
+                        hashType: null);
+                    FileShareProvider provider = new FileShareProvider(context, connection, this.tracer, DedupManifestArtifactClientFactory.Instance);
                     await provider.DownloadMultipleArtifactsAsync(downloadParameters, fileShareArtifacts, cancellationToken, context);
                 }
             }

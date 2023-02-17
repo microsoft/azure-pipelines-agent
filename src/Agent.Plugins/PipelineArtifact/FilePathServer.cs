@@ -12,6 +12,7 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
+using Microsoft.VisualStudio.Services.Agent.Blob;
 
 namespace Agent.Plugins.PipelineArtifact
 {
@@ -54,7 +55,10 @@ namespace Agent.Plugins.PipelineArtifact
 
             if (Directory.Exists(fileSharePath))
             {
-                FileShareProvider provider = new FileShareProvider(context, connection, context.CreateArtifactsTracer());
+                DedupManifestArtifactClientFactory.Initialize(
+                        client: Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.FileShare,
+                        hashType: null);
+                FileShareProvider provider = new FileShareProvider(context, connection, context.CreateArtifactsTracer(), DedupManifestArtifactClientFactory.Instance);
                 await provider.PublishArtifactAsync(targetPath, artifactPath, parallelCount, token);
                 context.Output(StringUtil.Loc("CopyFileComplete", artifactPath));
             }

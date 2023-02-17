@@ -36,7 +36,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             VssConnection connection,
             int maxParallelism,
             IDomainId domainId,
-            Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client client,
             CancellationToken cancellationToken);
 
         /// <summary>
@@ -71,12 +70,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
         // At 192x it was around 16 seconds and 256x was no faster.
         private const int DefaultDedupStoreClientMaxParallelism = 192;
 
-        public static readonly DedupManifestArtifactClientFactory Instance = new DedupManifestArtifactClientFactory();
+        public Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client? Client { get; }
 
-        private DedupManifestArtifactClientFactory()
+        public HashType? HashType { get; private set; }
+
+        private static DedupManifestArtifactClientFactory _instance;
+
+        public static DedupManifestArtifactClientFactory Instance = _instance ?? throw new InvalidOperationException($"Initialize the instance before using.");
+
+        public static void Initialize(Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client client, HashType? hashType)
         {
+            if (_instance != null)
+            {
+                throw new InvalidOperationException("The instance is already initialized.");
+            }
+
+            _instance = new DedupManifestArtifactClientFactory(client, hashType);
         }
 
+        private DedupManifestArtifactClientFactory(Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client client, HashType? hashType)
+        {
+            this.Client = client;
+            this.HashType = hashType;
+        }
 
         public async Task<(DedupManifestArtifactClient client, BlobStoreClientTelemetry telemetry)> CreateDedupManifestClientAsync(
             bool verbose,
@@ -84,11 +100,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             VssConnection connection,
             int maxParallelism,
             IDomainId domainId,
-            Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client client,
             CancellationToken cancellationToken)
         {
             const int maxRetries = 5;
-            var hashType = HashType.Dedup64K;
+            //var hashType = ChunkerHelper.DefaultChunkHashType;
             var tracer = CreateArtifactsTracer(verbose, traceOutput);
             if (maxParallelism == 0)
             {
@@ -117,9 +132,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                         dedupHttpclient = new DomainHttpClientWrapper(domainId, domainClient);
                     }
 
-                    if (client.Equals(BlobStore.WebApi.Contracts.Client.PipelineArtifact))
+                    if (this.Client != null && this.IsClientSupported())
                     {
-                        hashType = await GetClientHashTypeAsync(factory, connection, client, tracer, cancellationToken);
+                        this.HashType ??= await GetClientHashTypeAsync(factory, connection, this.Client.Value, tracer, cancellationToken);
                     }
 
                     return await Task.FromResult(dedupHttpclient);
@@ -131,8 +146,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                 cancellationToken: cancellationToken,
                 continueOnCapturedContext: false);
 
+            this.HashType ??= ChunkerHelper.DefaultChunkHashType;
             var telemetry = new BlobStoreClientTelemetry(tracer, dedupStoreHttpClient.BaseAddress);
-            var dedupClient = new DedupStoreClientWithDataport(dedupStoreHttpClient, new DedupStoreClientContext(maxParallelism), hashType); 
+            Console.WriteLine($"Hashtype: {this.HashType.Value}");
+            var dedupClient = new DedupStoreClientWithDataport(dedupStoreHttpClient, new DedupStoreClientContext(maxParallelism), this.HashType.Value); 
             return (new DedupManifestArtifactClient(telemetry, dedupClient, tracer), telemetry);
         }
 
@@ -239,7 +256,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             IAppTraceSource tracer,
             CancellationToken cancellationToken)
         {
-            HashType hashType = HashType.Dedup64K;
+            HashType hashType = ChunkerHelper.DefaultChunkHashType;
             try
             {
                 var blobUri = connection.GetClient<ClientSettingsHttpClient>().BaseAddress;
@@ -255,7 +272,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                 tracer.Warn($"Error while retrieving hash type for {client}. Exception: {exception}");
             }
 
-            return ChunkerHelper.IsHashTypeChunk(hashType) ? hashType : HashType.Dedup64K;
+            return ChunkerHelper.IsHashTypeChunk(hashType) ? hashType : ChunkerHelper.DefaultChunkHashType;
+        }
+
+        private bool IsClientSupported()
+        {
+            return this.Client.Value == Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact ||
+                this.Client.Value == Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineCache;
         }
     }
 }

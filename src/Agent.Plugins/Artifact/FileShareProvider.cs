@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using Agent.Plugins.PipelineArtifact.Telemetry;
 using Agent.Sdk;
+using BuildXL.Cache.ContentStore.Hashing;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Blob;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -36,11 +37,7 @@ namespace Agent.Plugins
         // Default stream buffer size set in the existing file share implementation https://github.com/microsoft/azure-pipelines-agent/blob/ffb3a9b3e2eb5a1f34a0f45d0f2b8639740d37d3/src/Agent.Worker/Release/Artifacts/FileShareArtifact.cs#L154
         private const int DefaultStreamBufferSize = 8192;
 
-        public FileShareProvider(AgentTaskPluginExecutionContext context, VssConnection connection, IAppTraceSource tracer) : this(context, connection, tracer, DedupManifestArtifactClientFactory.Instance)
-        {
-        }
-
-        internal FileShareProvider(AgentTaskPluginExecutionContext context, VssConnection connection, IAppTraceSource tracer, IDedupManifestArtifactClientFactory factory)
+        public FileShareProvider(AgentTaskPluginExecutionContext context, VssConnection connection, IAppTraceSource tracer, IDedupManifestArtifactClientFactory factory)
         {
             this.factory = factory;
             this.context = context;
@@ -48,12 +45,20 @@ namespace Agent.Plugins
             this.connection = connection;
         }
 
-        public async Task DownloadSingleArtifactAsync(ArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
+        public async Task DownloadSingleArtifactAsync(
+            ArtifactDownloadParameters downloadParameters,
+            BuildArtifact buildArtifact,
+            CancellationToken cancellationToken,
+            AgentTaskPluginExecutionContext context)
         {
             await DownloadMultipleArtifactsAsync(downloadParameters, new List<BuildArtifact> { buildArtifact }, cancellationToken, context);
         }
 
-        public async Task DownloadMultipleArtifactsAsync(ArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
+        public async Task DownloadMultipleArtifactsAsync(
+            ArtifactDownloadParameters downloadParameters,
+            IEnumerable<BuildArtifact> buildArtifacts,
+            CancellationToken cancellationToken,
+            AgentTaskPluginExecutionContext context)
         {
             context.Warning(StringUtil.Loc("DownloadArtifactWarning", "UNC"));
             var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(
@@ -62,7 +67,6 @@ namespace Agent.Plugins
                 connection,
                 this.factory.GetDedupStoreClientMaxParallelism(context),
                 WellKnownDomainIds.DefaultDomainId,
-                Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.FileShare,
                 cancellationToken);
 
             using (clientTelemetry)
@@ -114,7 +118,6 @@ namespace Agent.Plugins
                 connection,
                 this.factory.GetDedupStoreClientMaxParallelism(context),
                 WellKnownDomainIds.DefaultDomainId,
-                Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.FileShare,
                 cancellationToken);
 
             using (clientTelemetry)

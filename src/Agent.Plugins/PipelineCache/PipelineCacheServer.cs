@@ -40,6 +40,9 @@ namespace Agent.Plugins.PipelineCache
             ContentFormat contentFormat)
         {
             VssConnection connection = context.VssConnection;
+            DedupManifestArtifactClientFactory.Initialize(
+                client: Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineCache,
+                hashType: ChunkerHelper.DefaultChunkHashType);
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
                 .CreateDedupManifestClientAsync(
                     context.IsSystemDebugTrue(),
@@ -47,7 +50,7 @@ namespace Agent.Plugins.PipelineCache
                     connection,
                     DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
                     WellKnownDomainIds.DefaultDomainId,
-                    Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineCache,
+
                     cancellationToken);
 
             PipelineCacheClient pipelineCacheClient = await this.CreateClientWithRetryAsync(clientTelemetry, context, connection, cancellationToken);
@@ -153,6 +156,9 @@ namespace Agent.Plugins.PipelineCache
             CancellationToken cancellationToken)
         {
             VssConnection connection = context.VssConnection;
+            DedupManifestArtifactClientFactory.Initialize(
+                client: Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineCache,
+                hashType: ChunkerHelper.DefaultChunkHashType);
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
                 .CreateDedupManifestClientAsync(
                     context.IsSystemDebugTrue(),
@@ -160,7 +166,6 @@ namespace Agent.Plugins.PipelineCache
                     connection,
                     DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
                     WellKnownDomainIds.DefaultDomainId,
-                    Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineCache,
                     cancellationToken);
 
             PipelineCacheClient pipelineCacheClient = await this.CreateClientWithRetryAsync(clientTelemetry, context, connection, cancellationToken);

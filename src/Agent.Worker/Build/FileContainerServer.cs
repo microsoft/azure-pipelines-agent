@@ -338,6 +338,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             {
                 var verbose = String.Equals(context.GetVariableValueOrDefault("system.debug"), "true", StringComparison.InvariantCultureIgnoreCase);
                 int maxParallelism = context.GetHostContext().GetService<IConfigurationStore>().GetSettings().MaxDedupParallelism;
+                DedupManifestArtifactClientFactory.Initialize(
+                    client: BlobStore.WebApi.Contracts.Client.BuildArtifact,
+                    hashType: null);
                 (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
                     .CreateDedupClientAsync(verbose, (str) => context.Output(str), this._connection, maxParallelism, token);
 
