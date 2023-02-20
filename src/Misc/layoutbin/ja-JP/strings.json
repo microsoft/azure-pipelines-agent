@@ -578,6 +578,7 @@
   "ServiceConfigured": "サービス {0} が正常に構成されました",
   "ServiceDelayedStartOptionSet": "サービス {0} が正常に遅延自動開始に設定されました",
   "ServiceInstalled": "サービス {0} は正しくインストールされました。",
+  "ServiceLockErrorRetry": "Service DB lock failed with code {0}. Retrying after {1} seconds...",
   "ServiceRecoveryOptionSet": "サービス {0} の回復オプションが正常に設定されました",
   "ServiceSidTypeSet": "サービス {0} では、SID の型が正常に設定されました",
   "ServiceStartedSuccessfully": "サービス {0} が正常に開始しました。",
