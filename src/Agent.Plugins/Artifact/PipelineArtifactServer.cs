@@ -142,120 +142,75 @@ namespace Agent.Plugins
             CancellationToken cancellationToken)
         {
             VssConnection connection = context.VssConnection;
-            var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                .CreateDedupManifestClientAsync(
-                    context.IsSystemDebugTrue(),
-                    (str) => context.Output(str),
-                    connection,
-                    DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
-                    WellKnownDomainIds.DefaultDomainId,
-                    Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
-                    cancellationToken);
+            
+            BuildServer buildServer = new BuildServer(connection);
 
-                BuildServer buildServer = new BuildServer(connection);
-
-                // download all pipeline artifacts if artifact name is missing
-                if (downloadOptions == DownloadOptions.MultiDownload)
+            // download all pipeline artifacts if artifact name is missing
+            if (downloadOptions == DownloadOptions.MultiDownload)
+            {
+                List<BuildArtifact> artifacts;
+                if (downloadParameters.ProjectRetrievalOptions == BuildArtifactRetrievalOptions.RetrieveByProjectId)
                 {
-                    List<BuildArtifact> artifacts;
-                    if (downloadParameters.ProjectRetrievalOptions == BuildArtifactRetrievalOptions.RetrieveByProjectId)
+                    artifacts = await buildServer.GetArtifactsAsync(downloadParameters.ProjectId, downloadParameters.PipelineId, cancellationToken);
+                }
+                else if (downloadParameters.ProjectRetrievalOptions == BuildArtifactRetrievalOptions.RetrieveByProjectName)
+                {
+                    if (string.IsNullOrEmpty(downloadParameters.ProjectName))
                     {
-                        artifacts = await buildServer.GetArtifactsAsync(downloadParameters.ProjectId, downloadParameters.PipelineId, cancellationToken);
-                    }
-                    else if (downloadParameters.ProjectRetrievalOptions == BuildArtifactRetrievalOptions.RetrieveByProjectName)
-                    {
-                        if (string.IsNullOrEmpty(downloadParameters.ProjectName))
-                        {
-                            throw new InvalidOperationException("Project name can't be empty when trying to fetch build artifacts!");
-                        }
-                        else
-                        {
-                            artifacts = await buildServer.GetArtifactsWithProjectNameAsync(downloadParameters.ProjectName, downloadParameters.PipelineId, cancellationToken);
-                        }
+                        throw new InvalidOperationException("Project name can't be empty when trying to fetch build artifacts!");
                     }
                     else
                     {
-                        throw new InvalidOperationException($"Invalid {nameof(downloadParameters.ProjectRetrievalOptions)}!");
-                    }
-
-                    IEnumerable<BuildArtifact> pipelineArtifacts = artifacts.Where(a => string.Equals(a.Resource.Type, PipelineArtifactConstants.PipelineArtifact, StringComparison.OrdinalIgnoreCase));
-                    if (!pipelineArtifacts.Any())
-                    {
-                        throw new ArgumentException("Could not find any pipeline artifacts in the build.");
-                    }
-                    else
-                    {
-                        context.Output(StringUtil.Loc("DownloadingMultiplePipelineArtifacts", pipelineArtifacts.Count()));
-
-                        var artifactNameAndManifestIds = pipelineArtifacts.ToDictionary(
-                            keySelector: (a) => a.Name, // keys should be unique, if not something is really wrong
-                            elementSelector: (a) => DedupIdentifier.Create(a.Resource.Data));
-                        // 2) download to the target path
-                        var options = DownloadDedupManifestArtifactOptions.CreateWithMultiManifestIds(
-                            artifactNameAndManifestIds,
-                            downloadParameters.TargetDirectory,
-                            proxyUri: null,
-                            minimatchPatterns: downloadParameters.MinimatchFilters,
-                            minimatchFilterWithArtifactName: downloadParameters.MinimatchFilterWithArtifactName,
-                            customMinimatchOptions: downloadParameters.CustomMinimatchOptions);
-
-                        PipelineArtifactActionRecord downloadRecord = clientTelemetry.CreateRecord<PipelineArtifactActionRecord>((level, uri, type) =>
-                            new PipelineArtifactActionRecord(level, uri, type, nameof(DownloadAsync), context));
-                        await clientTelemetry.MeasureActionAsync(
-                            record: downloadRecord,
-                            actionAsync: async () =>
-                            {
-                                await AsyncHttpRetryHelper.InvokeVoidAsync(
-                                    async () =>
-                                    {
-                                        await dedupManifestClient.DownloadAsync(options, cancellationToken);
-                                    },
-                                    maxRetries: 3,
-                                    tracer: tracer,
-                                    canRetryDelegate: e => true,
-                                    context: nameof(DownloadAsync),
-                                    cancellationToken: cancellationToken,
-                                    continueOnCapturedContext: false);
-                            });
-
-                        // Send results to CustomerIntelligence
-                        context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: downloadRecord);
+                        artifacts = await buildServer.GetArtifactsWithProjectNameAsync(downloadParameters.ProjectName, downloadParameters.PipelineId, cancellationToken);
                     }
                 }
-                else if (downloadOptions == DownloadOptions.SingleDownload)
+                else
                 {
-                    // 1) get manifest id from artifact data
-                    BuildArtifact buildArtifact;
-                    if (downloadParameters.ProjectRetrievalOptions == BuildArtifactRetrievalOptions.RetrieveByProjectId)
+                    throw new InvalidOperationException($"Invalid {nameof(downloadParameters.ProjectRetrievalOptions)}!");
+                }
+
+                IEnumerable<BuildArtifact> pipelineArtifacts = artifacts.Where(a => string.Equals(a.Resource.Type, PipelineArtifactConstants.PipelineArtifact, StringComparison.OrdinalIgnoreCase));
+                if (!pipelineArtifacts.Any())
+                {
+                    throw new ArgumentException("Could not find any pipeline artifacts in the build.");
+                }
+                else
+                {
+                    var hashType = ChunkerHelper.DefaultChunkHashType;
+                    if (!HashTypeExtensions.Deserialize(pipelineArtifacts.First().Resource.Properties[PipelineArtifactConstants.HashType], out hashType))
                     {
-                        buildArtifact = await buildServer.GetArtifact(downloadParameters.ProjectId, downloadParameters.PipelineId, downloadParameters.ArtifactName, cancellationToken);
-                    }
-                    else if (downloadParameters.ProjectRetrievalOptions == BuildArtifactRetrievalOptions.RetrieveByProjectName)
-                    {
-                        if (string.IsNullOrEmpty(downloadParameters.ProjectName))
-                        {
-                            throw new InvalidOperationException("Project name can't be empty when trying to fetch build artifacts!");
-                        }
-                        else
-                        {
-                            buildArtifact = await buildServer.GetArtifactWithProjectNameAsync(downloadParameters.ProjectName, downloadParameters.PipelineId, downloadParameters.ArtifactName, cancellationToken);
-                        }
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException($"Invalid {nameof(downloadParameters.ProjectRetrievalOptions)}!");
+                        context.Output($"Failed to deserialize hashType for {pipelineArtifacts.First().Name}");
                     }
 
-                    var manifestId = DedupIdentifier.Create(buildArtifact.Resource.Data);
-                    var options = DownloadDedupManifestArtifactOptions.CreateWithManifestId(
-                        manifestId,
+                    DedupManifestArtifactClientFactory.Initialize(
+                        client: Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
+                        hashType: hashType);
+
+                    var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
+                        .CreateDedupManifestClientAsync(
+                        context.IsSystemDebugTrue(),
+                        (str) => context.Output(str),
+                        connection,
+                        DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
+                        WellKnownDomainIds.DefaultDomainId,
+                        cancellationToken);
+
+                    context.Output(StringUtil.Loc("DownloadingMultiplePipelineArtifacts", pipelineArtifacts.Count()));
+
+                    var artifactNameAndManifestIds = pipelineArtifacts.ToDictionary(
+                        keySelector: (a) => a.Name, // keys should be unique, if not something is really wrong
+                        elementSelector: (a) => DedupIdentifier.Create(a.Resource.Data));
+                    // 2) download to the target path
+                    var options = DownloadDedupManifestArtifactOptions.CreateWithMultiManifestIds(
+                        artifactNameAndManifestIds,
                         downloadParameters.TargetDirectory,
                         proxyUri: null,
                         minimatchPatterns: downloadParameters.MinimatchFilters,
+                        minimatchFilterWithArtifactName: downloadParameters.MinimatchFilterWithArtifactName,
                         customMinimatchOptions: downloadParameters.CustomMinimatchOptions);
 
                     PipelineArtifactActionRecord downloadRecord = clientTelemetry.CreateRecord<PipelineArtifactActionRecord>((level, uri, type) =>
-                            new PipelineArtifactActionRecord(level, uri, type, nameof(DownloadAsync), context));
+                        new PipelineArtifactActionRecord(level, uri, type, nameof(DownloadAsync), context));
                     await clientTelemetry.MeasureActionAsync(
                         record: downloadRecord,
                         actionAsync: async () =>
@@ -276,10 +231,84 @@ namespace Agent.Plugins
                     // Send results to CustomerIntelligence
                     context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: downloadRecord);
                 }
+            }
+            else if (downloadOptions == DownloadOptions.SingleDownload)
+            {
+                // 1) get manifest id from artifact data
+                BuildArtifact buildArtifact;
+                if (downloadParameters.ProjectRetrievalOptions == BuildArtifactRetrievalOptions.RetrieveByProjectId)
+                {
+                    buildArtifact = await buildServer.GetArtifact(downloadParameters.ProjectId, downloadParameters.PipelineId, downloadParameters.ArtifactName, cancellationToken);
+                }
+                else if (downloadParameters.ProjectRetrievalOptions == BuildArtifactRetrievalOptions.RetrieveByProjectName)
+                {
+                    if (string.IsNullOrEmpty(downloadParameters.ProjectName))
+                    {
+                        throw new InvalidOperationException("Project name can't be empty when trying to fetch build artifacts!");
+                    }
+                    else
+                    {
+                        buildArtifact = await buildServer.GetArtifactWithProjectNameAsync(downloadParameters.ProjectName, downloadParameters.PipelineId, downloadParameters.ArtifactName, cancellationToken);
+                    }
+                }
                 else
                 {
-                    throw new InvalidOperationException($"Invalid {nameof(downloadOptions)}!");
+                    throw new InvalidOperationException($"Invalid {nameof(downloadParameters.ProjectRetrievalOptions)}!");
                 }
+
+                var manifestId = DedupIdentifier.Create(buildArtifact.Resource.Data);
+                var options = DownloadDedupManifestArtifactOptions.CreateWithManifestId(
+                    manifestId,
+                    downloadParameters.TargetDirectory,
+                    proxyUri: null,
+                    minimatchPatterns: downloadParameters.MinimatchFilters,
+                    customMinimatchOptions: downloadParameters.CustomMinimatchOptions);
+
+                var hashType = ChunkerHelper.DefaultChunkHashType;
+                if (!HashTypeExtensions.Deserialize(buildArtifact.Resource.Properties[PipelineArtifactConstants.HashType], out hashType))
+                {
+                    context.Output($"Failed to deserialize hashType for {buildArtifact.Name}");
+                }
+
+                DedupManifestArtifactClientFactory.Initialize(
+                    client: Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
+                    hashType: hashType);
+
+                var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
+                        .CreateDedupManifestClientAsync(
+                        context.IsSystemDebugTrue(),
+                        (str) => context.Output(str),
+                        connection,
+                        DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
+                        WellKnownDomainIds.DefaultDomainId,
+                        cancellationToken);
+
+                PipelineArtifactActionRecord downloadRecord = clientTelemetry.CreateRecord<PipelineArtifactActionRecord>((level, uri, type) =>
+                            new PipelineArtifactActionRecord(level, uri, type, nameof(DownloadAsync), context));
+                await clientTelemetry.MeasureActionAsync(
+                    record: downloadRecord,
+                    actionAsync: async () =>
+                    {
+                        await AsyncHttpRetryHelper.InvokeVoidAsync(
+                            async () =>
+                            {
+                                await dedupManifestClient.DownloadAsync(options, cancellationToken);
+                            },
+                            maxRetries: 3,
+                            tracer: tracer,
+                            canRetryDelegate: e => true,
+                            context: nameof(DownloadAsync),
+                            cancellationToken: cancellationToken,
+                            continueOnCapturedContext: false);
+                    });
+
+                // Send results to CustomerIntelligence
+                context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: downloadRecord);
+            }
+            else
+            {
+                throw new InvalidOperationException($"Invalid {nameof(downloadOptions)}!");
+            }
         }
 
         // Download for version 2. This decision was made because version 1 is sealed and we didn't want to break any existing customers.
@@ -329,8 +358,7 @@ namespace Agent.Plugins
                 if (pipelineArtifacts.Any())
                 {
                     PipelineArtifactProvider provider = new PipelineArtifactProvider(context, connection, this.tracer);
-                    HashTypeExtensions.Deserialize(buildArtifacts.First().Resource.Properties[PipelineArtifactConstants.HashType], out HashType hashType);
-                    await provider.DownloadMultipleArtifactsAsync(downloadParameters, pipelineArtifacts, cancellationToken, hashType, context);
+                    await provider.DownloadMultipleArtifactsAsync(downloadParameters, pipelineArtifacts, cancellationToken, context);
                 }
 
                 if (fileShareArtifacts.Any())

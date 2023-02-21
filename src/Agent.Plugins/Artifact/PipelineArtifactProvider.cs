@@ -37,14 +37,22 @@ namespace Agent.Plugins
             CancellationToken cancellationToken,
             AgentTaskPluginExecutionContext context)
         {
+            var hashType = ChunkerHelper.DefaultChunkHashType;
+            if (!HashTypeExtensions.Deserialize(buildArtifact.Resource.Properties[PipelineArtifactConstants.HashType], out hashType))
+            {
+                this.context.Output($"Failed to deserialize hashType for {buildArtifact.Name}");
+            }
+
+            DedupManifestArtifactClientFactory.Initialize(
+                client: Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
+                hashType: hashType);
+
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClientAsync(
                 this.context.IsSystemDebugTrue(),
                 (str) => this.context.Output(str),
                 this.connection,
                 DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
                 WellKnownDomainIds.DefaultDomainId,
-                Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
-                hashType,
                 cancellationToken);
 
             using (clientTelemetry)
@@ -85,14 +93,21 @@ namespace Agent.Plugins
             CancellationToken cancellationToken,
             AgentTaskPluginExecutionContext context)
         {
+            var hashType = ChunkerHelper.DefaultChunkHashType;
+            if (!HashTypeExtensions.Deserialize(buildArtifacts.First().Resource.Properties[PipelineArtifactConstants.HashType], out hashType))
+            {
+                this.context.Output($"Failed to deserialize hashType for {buildArtifacts.First().Name}");
+            }
+
+            DedupManifestArtifactClientFactory.Initialize(
+                client: Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
+                hashType: hashType);
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClientAsync(
                 this.context.IsSystemDebugTrue(),
                 (str) => this.context.Output(str),
                 this.connection,
                 DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
                 WellKnownDomainIds.DefaultDomainId,
-                Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
-                hashType,
                 cancellationToken);
 
             using (clientTelemetry)
