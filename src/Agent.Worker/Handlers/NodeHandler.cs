@@ -241,6 +241,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 Trace.Info($"Found UseNode10 knob, use node10 for node tasks: {useNode10}");
                 nodeFolder = NodeHandler.node10Folder;
             }
+            if (nodeFolder == NodeHandler.nodeFolder && 
+                AgentKnobs.AgentDeprecatedNodeWarnings.GetValue(ExecutionContext).AsBoolean() == true)
+            {
+                ExecutionContext.Warning(StringUtil.Loc("DeprecatedRunner", Task.Name.ToString()));
+            }
 
             if (!nodeHandlerHelper.IsNodeFolderExist(nodeFolder, HostContext))
             {

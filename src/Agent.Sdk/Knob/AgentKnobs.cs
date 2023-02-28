@@ -395,6 +395,15 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource(ContinueAfterCancelProcessTreeKillAttemptVariableName),
             new BuiltInDefaultKnobSource("false"));
 
+        public const string VstsAgentNodeWarningsVariableName = "VSTSAGENT_ENABLE_NODE_WARNINGS";
+
+        public static readonly Knob AgentDeprecatedNodeWarnings = new Knob(
+            nameof(AgentDeprecatedNodeWarnings),
+            "If true shows warning on depricated node (6) tasks",
+            new RuntimeKnobSource(VstsAgentNodeWarningsVariableName),
+            new EnvironmentKnobSource(VstsAgentNodeWarningsVariableName),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob UseNode = new Knob(
             nameof(UseNode),
             "Forces the agent to use different version of Node if when configured runner is not available. Possible values: LTS - make agent use latest LTS version of Node; UPGRADE - make agent use next available version of Node",
