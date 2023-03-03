@@ -412,23 +412,23 @@ namespace Agent.Sdk.Knob
             new BuiltInDefaultKnobSource(string.Empty));
 
         public static readonly Knob PocStringKnob = new Knob(
-            nameof(PocStringKnob),
-            "Knobs POC string",
-            "defaultString",
+            name: nameof(PocStringKnob),
+            description: "Knobs POC string",
+            defaultValue: "defaultString",
             new RuntimeKnobSource("POC_STRING_KNOB")
         );
 
         public static readonly Knob PocIntKnob = new Knob(
-            nameof(PocIntKnob),
-            "Knobs POC int",
-            "1",
+            name: nameof(PocIntKnob),
+            description: "Knobs POC int",
+            defaultValue: "1",
             new RuntimeKnobSource("POC_INT_KNOB")
         );
 
         public static readonly Knob PocBoolKnob = new Knob(
-            nameof(PocBoolKnob),
-            "Knobs POC bool",
-            "true",
+            name: nameof(PocBoolKnob),
+            description: "Knobs POC bool",
+            defaultValue: "true",
             new RuntimeKnobSource("POC_BOOL_KNOB")
         );
     }
