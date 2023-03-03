@@ -11,6 +11,8 @@ namespace Agent.Sdk.Knob
         private readonly string _value;
         private readonly string _defaultValue = null;
 
+        public string DefaultValue => _defaultValue;
+
         public KnobValue(string value, IKnobSource source)
         {
             _value = value;
@@ -40,14 +42,14 @@ namespace Agent.Sdk.Knob
             {
                 return StringUtil.ConvertToBooleanStrict(_value);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 if (_defaultValue != null)
                 {
                     return StringUtil.ConvertToBoolean(_defaultValue);
                 }
 
-                throw ex;
+                throw;
             }
         }
 
@@ -57,14 +59,14 @@ namespace Agent.Sdk.Knob
             {
                 return Int32.Parse(_value);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 if (_defaultValue != null)
                 {
                     return int.Parse(_defaultValue);
                 }
 
-                throw ex;
+                throw;
             }
         }
     }

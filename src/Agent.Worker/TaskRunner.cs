@@ -118,6 +118,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 Trace.Info($"Handler data is of type {handlerData}");
 
+                var knob1 = AgentKnobs.PocStringKnob.GetValue(ExecutionContext);
+                ExecutionContext.Warning($"PocStringKnob default value = '{knob1.DefaultValue}'");
+                ExecutionContext.Warning($"PocStringKnob = '{knob1.AsString()}'");
+
+                var knob2 = AgentKnobs.PocIntKnob.GetValue(ExecutionContext);
+                ExecutionContext.Warning($"PocIntKnob default value = '{knob2.DefaultValue}'");
+                ExecutionContext.Warning($"PocIntKnob = '{knob2.AsInt()}'");
+
+                var knob3 = AgentKnobs.PocBoolKnob.GetValue(ExecutionContext);
+                ExecutionContext.Warning($"PocBoolKnob default value = '{knob3.DefaultValue}'");
+                ExecutionContext.Warning($"PocBoolKnob = '{knob3.AsBooleanStrict()}'");
+
                 PublishTelemetry(definition, handlerData);
 
                 Variables runtimeVariables = ExecutionContext.Variables;
