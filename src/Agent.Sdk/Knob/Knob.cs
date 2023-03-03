@@ -44,12 +44,25 @@ namespace Agent.Sdk.Knob
         public string Description { get; private set; }
         public virtual bool IsDeprecated => false;  // is going away at a future date
         public virtual bool IsExperimental => false; // may go away at a future date
+        public string DefaultValue { get; }
 
         public Knob(string name, string description, params IKnobSource[] sources)
         {
             Name = name;
             Description = description;
             Source = new CompositeKnobSource(sources);
+        }
+
+        public Knob(
+            string name,
+            string description,
+            string defaultValue,
+            params IKnobSource[] sources) : this(name, description, sources)
+        {
+            Name = name;
+            Description = description;
+            DefaultValue = defaultValue;
+            Source = new CompositeKnobSource(defaultValue, sources);
         }
 
         public Knob()

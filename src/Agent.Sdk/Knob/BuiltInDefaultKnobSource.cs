@@ -5,16 +5,18 @@ namespace Agent.Sdk.Knob
 {
     public class BuiltInDefaultKnobSource : IKnobSource
     {
-        private string _value;
+        private readonly string _defaultValue;
+
+        public string DefaultValue { get => _defaultValue; set { } }
 
         public BuiltInDefaultKnobSource(string value)
         {
-            _value = value;
+            _defaultValue = value;
         }
 
         public KnobValue GetValue(IKnobValueContext context)
         {
-            return new KnobValue(_value, this);
+            return new KnobValue(_defaultValue, this);
         }
 
         public string GetDisplayString()

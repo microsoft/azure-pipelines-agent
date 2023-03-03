@@ -9,11 +9,29 @@ namespace Agent.Sdk.Knob
 
     public class CompositeKnobSource : ICompositeKnobSource
     {
+        private readonly string _defaultValue = null;
         private IKnobSource[] _sources;
+
+        public string DefaultValue
+        {
+            get => _defaultValue;
+            set { }
+        }
 
         public CompositeKnobSource(params IKnobSource[] sources)
         {
             _sources = sources;
+        }
+
+        public CompositeKnobSource(string defaultValue, params IKnobSource[] sources)
+        {
+            _sources = sources;
+            _defaultValue = defaultValue;
+
+            foreach (var s in _sources)
+            {
+                s.DefaultValue = _defaultValue;
+            }
         }
 
         public KnobValue GetValue(IKnobValueContext context)

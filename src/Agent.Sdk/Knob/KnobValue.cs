@@ -8,11 +8,19 @@ namespace Agent.Sdk.Knob
     public class KnobValue
     {
         public IKnobSource Source { get; private set; }
-        private string _value;
+        private readonly string _value;
+        private readonly string _defaultValue = null;
 
         public KnobValue(string value, IKnobSource source)
         {
             _value = value;
+            Source = source;
+        }
+
+        public KnobValue(string value, string defaultValue, IKnobSource source)
+        {
+            _value = value;
+            _defaultValue = defaultValue;
             Source = source;
         }
 
@@ -28,12 +36,36 @@ namespace Agent.Sdk.Knob
 
         public bool AsBooleanStrict()
         {
-            return StringUtil.ConvertToBooleanStrict(_value);
+            try
+            {
+                return StringUtil.ConvertToBooleanStrict(_value);
+            }
+            catch (Exception ex)
+            {
+                if (_defaultValue != null)
+                {
+                    return StringUtil.ConvertToBoolean(_defaultValue);
+                }
+
+                throw ex;
+            }
         }
 
         public int AsInt()
         {
-            return Int32.Parse(_value);
+            try
+            {
+                return Int32.Parse(_value);
+            }
+            catch (Exception ex)
+            {
+                if (_defaultValue != null)
+                {
+                    return int.Parse(_defaultValue);
+                }
+
+                throw ex;
+            }
         }
     }
 }

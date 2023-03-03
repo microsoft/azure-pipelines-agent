@@ -8,9 +8,26 @@ namespace Agent.Sdk.Knob
     public class RuntimeKnobSource : IKnobSource
     {
         private string _runTimeVar;
+        private string _defaultValue = null;
+
+        public string DefaultValue
+        {
+            get => _defaultValue;
+            set
+            {
+                _defaultValue ??= value;
+            }
+        }
+
         public RuntimeKnobSource(string runTimeVar)
         {
             _runTimeVar = runTimeVar;
+        }
+
+        public RuntimeKnobSource(string runTimeVar, string defaultValue)
+        {
+            _runTimeVar = runTimeVar;
+            _defaultValue = defaultValue;
         }
 
         public KnobValue GetValue(IKnobValueContext context)
@@ -28,6 +45,11 @@ namespace Agent.Sdk.Knob
 
             if (!string.IsNullOrEmpty(value))
             {
+                if (_defaultValue != null)
+                {
+                    return new KnobValue(value, _defaultValue, this);
+                }
+
                 return new KnobValue(value, this);
             }
             return null;

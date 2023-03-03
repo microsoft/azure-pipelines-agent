@@ -8,6 +8,17 @@ namespace Agent.Sdk.Knob
     public class EnvironmentKnobSource : IEnvironmentKnobSource
     {
         private string _envVar;
+        private string _defaultValue = null;
+
+        public string DefaultValue
+        {
+            get => _defaultValue;
+            set
+            {
+                _defaultValue ??= value;
+            }
+        }
+
 
         public EnvironmentKnobSource(string envVar)
         {
@@ -21,8 +32,14 @@ namespace Agent.Sdk.Knob
             var value = scopedEnvironment.GetEnvironmentVariable(_envVar);
             if (!string.IsNullOrEmpty(value))
             {
+                if (_defaultValue != null)
+                {
+                    return new KnobValue(value, _defaultValue, this);
+                }
+
                 return new KnobValue(value, this);
             }
+
             return null;
         }
 
