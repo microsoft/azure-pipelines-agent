@@ -578,7 +578,6 @@
   "ServiceConfigured": "Configurazione del servizio {0} completata",
   "ServiceDelayedStartOptionSet": "Il servizio {0} è stato impostato per l'avvio automatico ritardato",
   "ServiceInstalled": "Installazione del servizio {0} completata",
-  "ServiceLockErrorRetry": "Service DB lock failed with code {0}. Retrying after {1} seconds...",
   "ServiceRecoveryOptionSet": "Il servizio {0} ha impostato correttamente l'opzione di ripristino",
   "ServiceSidTypeSet": "Il servizio {0} ha impostato correttamente il tipo di SID",
   "ServiceStartedSuccessfully": "Il servizio {0} è stato avviato.",

@@ -578,7 +578,6 @@
   "ServiceConfigured": "服务 {0} 已成功配置",
   "ServiceDelayedStartOptionSet": "服务 {0} 已成功设置为延迟自动启动",
   "ServiceInstalled": "已成功安装服务 {0}",
-  "ServiceLockErrorRetry": "Service DB lock failed with code {0}. Retrying after {1} seconds...",
   "ServiceRecoveryOptionSet": "服务 {0} 已成功设置恢复选项",
   "ServiceSidTypeSet": "服务 {0} 已成功设置 SID 类型",
   "ServiceStartedSuccessfully": "服务 {0} 已成功启动",
