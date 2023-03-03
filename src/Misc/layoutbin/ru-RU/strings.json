@@ -578,7 +578,6 @@
   "ServiceConfigured": "Служба {0} успешно настроена",
   "ServiceDelayedStartOptionSet": "Задержка автоматического запуска для службы {0} успешно установлена.",
   "ServiceInstalled": "Служба {0} успешно установлена",
-  "ServiceLockErrorRetry": "Service DB lock failed with code {0}. Retrying after {1} seconds...",
   "ServiceRecoveryOptionSet": "Служба {0} успешно установила параметр восстановления",
   "ServiceSidTypeSet": "Служба {0} успешно установила тип идентификатора безопасности",
   "ServiceStartedSuccessfully": "Служба {0} успешно запущена",
