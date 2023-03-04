@@ -21,10 +21,64 @@ function addHashesToReleaseNotes(releaseNotes) {
         // Inside package column, we have the package name inside the square brackets
         const packageName = packageColumn.substring(packageColumn.indexOf('[') + 1, packageColumn.indexOf(']'));
 
-        return line.replace('<HASH>', hashes[packageName]);
+        if (hashes[packageName])
+            return line.replace('<HASH>', hashes[packageName]);
+        else
+            return line;
     });
 
     return modifiedLines.join('\n');
+}
+
+/**
+ * 
+ * @param {*} releaseNotes Release notes template text content
+ * @returns Release notes where not filling in lines is removed
+ */
+function removeMissingBuild(releaseNotes) {
+    var buildNames = [];
+    var buildDescriptionIndexes = [];
+
+    const lines = releaseNotes.split('\n');
+    lines.forEach((line) => {
+        if (line.includes('<HASH>')) {
+            buildNames.push(line.substring(line.indexOf('|') + 1, line.indexOf('|', line.indexOf('|') + 1)).trim());
+        }
+    });
+
+    for (var i = 0; i < lines.length; i++) {
+        if (containBuildDescriptionHeader(lines[i], buildNames) !== -1) {
+            var endIndex = -1;
+            var numberOfOccurrences = 0;
+            buildDescriptionIndexes.push(i - 1); // add empty string before description index
+            buildDescriptionIndexes.push(i);
+            while (i < lines.length && endIndex === -1)
+            {
+                i++;
+                buildDescriptionIndexes.push(i);
+                if (lines[i].indexOf('```') !== -1) {
+                    numberOfOccurrences++;
+                    if (numberOfOccurrences === 2) {
+                        endIndex = i;
+                    }
+                }
+            }
+        }
+    }
+
+    return lines
+        .filter((line, idx) => line.indexOf('<HASH>') === -1 && buildDescriptionIndexes.indexOf(idx) === -1)
+        .join('\n');
+}
+
+/**
+ * 
+ * @param {*} line Line of release notes
+ * @param {*} buildNames List of build names
+ * @returns index of buildescription header
+ */
+function containBuildDescriptionHeader(line, buildNames) {
+    return buildNames.findIndex(bn => line.indexOf('## ' + bn) >= 0);
 }
 
 /**
@@ -51,8 +105,9 @@ function main() {
     const releaseNotes = fs.readFileSync(releaseNotesPath, 'utf-8');
 
     const releaseNotesWithAgentVersion = addAgentVersionToReleaseNotes(releaseNotes, agentVersion);
-    const filledReleaseNotes = addHashesToReleaseNotes(releaseNotesWithAgentVersion);
-    fs.writeFileSync(releaseNotesPath, filledReleaseNotes);
+    const filledReleaseNotes = addHashesToReleaseNotes(releaseNotesWithAgentVersion);    
+    const cleanedReleaseNotes = removeMissingBuild(filledReleaseNotes);
+    fs.writeFileSync(releaseNotesPath, cleanedReleaseNotes);
 }
 
 main();

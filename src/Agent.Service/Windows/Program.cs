@@ -24,11 +24,13 @@ namespace AgentService
                     return 1;
                 }
 
-                EventLog applicationLog = new EventLog("Application");
-                if (applicationLog.OverflowAction == OverflowAction.DoNotOverwrite)
+                using (EventLog applicationLog = new EventLog("Application"))
                 {
-                    Console.WriteLine("[WARNING] The retention policy for Application event log is set to \"Do not overwrite events\".");
-                    Console.WriteLine("[WARNING] Make sure manually clear logs as needed, otherwise AgentService will stop writing output to event log.");
+                    if (applicationLog.OverflowAction == OverflowAction.DoNotOverwrite)
+                    {
+                        Console.WriteLine("[WARNING] The retention policy for Application event log is set to \"Do not overwrite events\".");
+                        Console.WriteLine("[WARNING] Make sure manually clear logs as needed, otherwise AgentService will stop writing output to event log.");
+                    }
                 }
 
                 try
@@ -39,7 +41,7 @@ namespace AgentService
                 catch (Win32Exception ex)
                 {
                     Console.WriteLine("[ERROR] Unable to create '{0}' event source under 'Application' event log.", AgentService.EventSourceName);
-                    Console.WriteLine("[ERROR] {0}",ex.Message);
+                    Console.WriteLine("[ERROR] {0}", ex.Message);
                     Console.WriteLine("[ERROR] Error Code: {0}", ex.ErrorCode);
                     return 1;
                 }

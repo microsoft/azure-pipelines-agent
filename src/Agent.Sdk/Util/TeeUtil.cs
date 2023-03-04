@@ -31,7 +31,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             int providedDownloadRetryCount,
             Action<string> debug,
             CancellationToken cancellationToken
-        ) {
+        )
+        {
             this.agentHomeDirectory = agentHomeDirectory;
             this.agentTempDirectory = agentTempDirectory;
             this.downloadRetryCount = Math.Min(Math.Max(providedDownloadRetryCount, 3), 10);
@@ -40,7 +41,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         }
 
         // If TEE is not found in the working directory (externals/tee), tries to download and extract it with retries.
-        public async Task DownloadTeeIfAbsent() {
+        public async Task DownloadTeeIfAbsent()
+        {
             if (Directory.Exists(GetTeePath()))
             {
                 return;
@@ -70,7 +72,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         // Downloads TEE archive to the TEE temp directory.
         // Once downloaded, archive is extracted to the working TEE directory (externals/tee)
         // Sets required permissions for extracted files.
-        private async Task DownloadAndExtractTee() {
+        private async Task DownloadAndExtractTee()
+        {
             string tempDirectory = Path.Combine(agentTempDirectory, TeeTempDir);
             IOUtil.DeleteDirectory(tempDirectory, CancellationToken.None);
             Directory.CreateDirectory(tempDirectory);

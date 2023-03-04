@@ -63,7 +63,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 AssertContains<Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults.IResultReader>(
                     manager,
                     concreteType: typeof(Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults.JUnitResultReader));
-                AssertContains<Microsoft.VisualStudio.Services.Agent.Worker.Maintenance.IMaintenanceServiceProvider> (
+                AssertContains<Microsoft.VisualStudio.Services.Agent.Worker.Maintenance.IMaintenanceServiceProvider>(
                     manager,
                     concreteType: typeof(Microsoft.VisualStudio.Services.Agent.Worker.Build.WorkspaceMaintenanceProvider));
                 AssertContains<Microsoft.VisualStudio.Services.Agent.Worker.Maintenance.IMaintenanceServiceProvider>(

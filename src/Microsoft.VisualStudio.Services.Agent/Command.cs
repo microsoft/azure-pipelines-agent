@@ -59,7 +59,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
                 // Get the command name (area.event).
                 int spaceIndex = cmdInfo.IndexOf(' ');
-                string commandName = 
+                string commandName =
                     spaceIndex < 0
                     ? cmdInfo
                     : cmdInfo.Substring(0, spaceIndex);

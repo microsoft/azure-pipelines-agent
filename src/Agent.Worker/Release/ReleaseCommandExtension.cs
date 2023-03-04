@@ -10,7 +10,7 @@ using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 {
-    public sealed class ReleaseCommandExtension: BaseWorkerCommandExtension
+    public sealed class ReleaseCommandExtension : BaseWorkerCommandExtension
     {
         public ReleaseCommandExtension()
         {
@@ -19,7 +19,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
             InstallWorkerCommand(new ReleaseUpdateReleaseNameCommand());
         }
 
-        private class ReleaseUpdateReleaseNameCommand: IWorkerCommand
+        private class ReleaseUpdateReleaseNameCommand : IWorkerCommand
         {
             public string Name => "updatereleasename";
             public List<string> Aliases => null;

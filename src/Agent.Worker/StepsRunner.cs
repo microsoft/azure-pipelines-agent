@@ -314,7 +314,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // We need to drain the queues after a task just in case if
                 // there are a lot of items since it can cause some UI hangs.
                 await JobServerQueue.DrainQueues();
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                 Trace.Error($"Error has occurred while draining queues, it can cause some UI glitches but it doesn't affect a pipeline execution itself: {ex}");
                 step.ExecutionContext.Error(ex);
@@ -344,6 +345,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                                 killProcessOnCancel: false,
                                                 redirectStandardIn: null,
                                                 inheritConsoleHandler: true,
+                                                continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
                                                 cancellationToken: step.ExecutionContext.CancellationToken);
                         if (exitCode == 0)
                         {

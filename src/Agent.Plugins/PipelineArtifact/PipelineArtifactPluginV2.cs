@@ -68,7 +68,7 @@ namespace Agent.Plugins.PipelineArtifact
         static readonly string pipelineVersionToDownloadLatest = "latest";
         static readonly string pipelineVersionToDownloadSpecific = "specific";
         static readonly string pipelineVersionToDownloadLatestFromBranch = "latestFromBranch";
-        private const int MaxRetries = 3; 
+        private const int MaxRetries = 3;
 
         protected override async Task ProcessCommandInternalAsync(
             AgentTaskPluginExecutionContext context,
@@ -96,7 +96,7 @@ namespace Agent.Plugins.PipelineArtifact
             context.Debug($"TargetPath: {targetPath}");
 
             bool onPrem = !String.Equals(context.Variables.GetValueOrDefault(WellKnownDistributedTaskVariables.ServerType)?.Value, "Hosted", StringComparison.OrdinalIgnoreCase);
-            
+
             if (onPrem)
             {
                 throw new InvalidOperationException(StringUtil.Loc("OnPremIsNotSupported"));
@@ -148,7 +148,7 @@ namespace Agent.Plugins.PipelineArtifact
                 {
                     throw new ArgumentNullException(StringUtil.Loc("CannotBeNullOrEmpty"), "Project ID");
                 }
-                
+
                 Guid projectId = Guid.Parse(projectIdStr);
                 ArgUtil.NotEmpty(projectId, nameof(projectId));
                 context.Debug($"ProjectId: {projectId.ToString()}");
@@ -195,9 +195,9 @@ namespace Agent.Plugins.PipelineArtifact
                 {
                     throw new ArgumentNullException(StringUtil.Loc("CannotBeNullOrEmpty"), "Project Name");
                 }
-                Guid projectId; 
+                Guid projectId;
                 bool isProjGuid = Guid.TryParse(projectName, out projectId);
-                if (!isProjGuid) 
+                if (!isProjGuid)
                 {
                     projectId = await GetProjectIdAsync(context, projectName, token);
                 }
@@ -250,7 +250,7 @@ namespace Agent.Plugins.PipelineArtifact
                     else if (pipelineVersionToDownload == pipelineVersionToDownloadSpecific)
                     {
                         bool isPipelineIdNum = Int32.TryParse(userSpecifiedRunId, out pipelineId);
-                        if(!isPipelineIdNum)
+                        if (!isPipelineIdNum)
                         {
                             throw new ArgumentException(StringUtil.Loc("RunIDNotValid", userSpecifiedRunId));
                         }
@@ -328,7 +328,7 @@ namespace Agent.Plugins.PipelineArtifact
             string branchName = null,
             CancellationToken cancellationToken = default(CancellationToken))
         {
-            if(String.IsNullOrWhiteSpace(pipelineDefinition)) 
+            if (String.IsNullOrWhiteSpace(pipelineDefinition))
             {
                 throw new InvalidOperationException(StringUtil.Loc("CannotBeNullOrEmpty", "Pipeline Definition"));
             }
@@ -346,9 +346,9 @@ namespace Agent.Plugins.PipelineArtifact
                     context: "GetBuildDefinitionReferencesByName",
                     cancellationToken: cancellationToken,
                     continueOnCapturedContext: false);
-                
+
                 var definitionRef = definitionReferencesWithName.FirstOrDefault();
-                
+
                 if (definitionRef == null)
                 {
                     throw new ArgumentException(StringUtil.Loc("PipelineDoesNotExist", pipelineDefinition));
@@ -430,12 +430,12 @@ namespace Agent.Plugins.PipelineArtifact
 
             return result;
         }
-      
+
         private async Task<Guid> GetProjectIdAsync(AgentTaskPluginExecutionContext context, string projectName, CancellationToken cancellationToken)
         {
             VssConnection connection = context.VssConnection;
             var projectClient = connection.GetClient<ProjectHttpClient>();
-            
+
             try
             {
                 TeamProject project = await AsyncHttpRetryHelper.InvokeAsync(
@@ -453,7 +453,8 @@ namespace Agent.Plugins.PipelineArtifact
             }
         }
 
-        private void OutputBuildInfo(AgentTaskPluginExecutionContext context, int? pipelineId){
+        private void OutputBuildInfo(AgentTaskPluginExecutionContext context, int? pipelineId)
+        {
             context.Output(StringUtil.Loc("DownloadingFromBuild", pipelineId));
             // populate output variable 'BuildNumber' with buildId
             context.SetVariable("BuildNumber", pipelineId.ToString());

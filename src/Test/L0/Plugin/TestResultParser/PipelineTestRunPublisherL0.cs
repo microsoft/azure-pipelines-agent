@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,7 +20,7 @@ namespace Test.L0.Plugin.TestResultParser
     public class PipelineTestRunPublisherL0
     {
         private PipelineConfig _pipelineConfig;
-        public PipelineTestRunPublisherL0 ()
+        public PipelineTestRunPublisherL0()
         {
             this._pipelineConfig = new PipelineConfig()
             {

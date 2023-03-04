@@ -40,7 +40,7 @@ namespace Agent.Sdk.Knob
     public class Knob
     {
         public string Name { get; private set; }
-        public ICompositeKnobSource Source { get; private set;}
+        public ICompositeKnobSource Source { get; private set; }
         public string Description { get; private set; }
         public virtual bool IsDeprecated => false;  // is going away at a future date
         public virtual bool IsExperimental => false; // may go away at a future date
@@ -66,10 +66,10 @@ namespace Agent.Sdk.Knob
 
         public KnobValue GetValue<T>(IKnobValueContext context)
         {
-             ArgUtil.NotNull(context, nameof(context));
-             ArgUtil.NotNull(Source, nameof(Source));
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(Source, nameof(Source));
 
-             return Source.GetValue<T>(context);
+            return Source.GetValue<T>(context);
         }
 
         public static List<Knob> GetAllKnobsFor<T>()

@@ -42,14 +42,14 @@ namespace Agent.Sdk
             if (volume.EndsWith(readonlyToken, System.StringComparison.OrdinalIgnoreCase))
             {
                 ReadOnly = true;
-                volume = volume.Remove(volume.Length-readonlyToken.Length);
+                volume = volume.Remove(volume.Length - readonlyToken.Length);
             }
             // for completeness, in case someone explicitly added :rw in the volume mapping, we should strip it as well
             string readWriteToken = ":rw";
             if (volume.EndsWith(readWriteToken, System.StringComparison.OrdinalIgnoreCase))
             {
                 ReadOnly = false;
-                volume = volume.Remove(volume.Length-readWriteToken.Length);
+                volume = volume.Remove(volume.Length - readWriteToken.Length);
             }
 
             // if volume starts with a ":", this is the same as having only a single path

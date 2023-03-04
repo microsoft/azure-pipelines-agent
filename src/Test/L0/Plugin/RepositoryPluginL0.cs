@@ -425,7 +425,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                         hostContext.GetDirectory(WellKnownDirectory.Temp)
                     }
                 },
-                JobSettings = new Dictionary<string, string>() 
+                JobSettings = new Dictionary<string, string>()
                 {
                     // Set HasMultipleCheckouts to true if the number of repos is greater than 1
                     { WellKnownJobSettings.HasMultipleCheckouts, (repos.Count > 1).ToString() }

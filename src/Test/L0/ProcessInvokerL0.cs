@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk;
+using Agent.Sdk.Knob;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -42,7 +44,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        [Trait("SkipOn", "windows")]
         [Trait("SkipOn", "darwin")]
         public async Task TestCancel()
         {
@@ -55,7 +56,81 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 {
                     processInvoker.Initialize(hc);
                     Stopwatch watch = Stopwatch.StartNew();
-                    Task execTask = processInvoker.ExecuteAsync("", "bash", $"-c \"sleep {SecondsToRun}s\"", null, tokenSource.Token);
+                    Task execTask;
+                    if (TestUtil.IsWindows())
+                    {
+                        execTask = processInvoker.ExecuteAsync("", "cmd", $"/c \"ping 127.0.0.1 -n {SecondsToRun} > nul\"", null, tokenSource.Token);
+                    }
+                    else
+                    {
+                        execTask = processInvoker.ExecuteAsync("", "bash", $"-c \"sleep {SecondsToRun}s\"", null, tokenSource.Token);
+                    }
+
+                    await Task.Delay(500);
+                    tokenSource.Cancel();
+                    try
+                    {
+                        await execTask;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        trace.Info("Get expected OperationCanceledException.");
+                    }
+
+                    Assert.True(execTask.IsCompleted);
+                    Assert.True(!execTask.IsFaulted);
+                    Assert.True(execTask.IsCanceled);
+                    watch.Stop();
+                    long elapsedSeconds = watch.ElapsedMilliseconds / 1000;
+
+                    // if cancellation fails, then execution time is more than 15 seconds
+                    long expectedSeconds = (SecondsToRun * 3) / 4;
+
+                    Assert.True(elapsedSeconds <= expectedSeconds, $"cancellation failed, because task took too long to run. {elapsedSeconds}");
+                }
+            }
+        }
+
+        class ProcessInvokerWithOutKillingCancelledTask : ProcessInvoker
+        {
+            public ProcessInvokerWithOutKillingCancelledTask(ITraceWriter trace, bool disableWorkerCommands = false) : base(trace, disableWorkerCommands)
+            {
+            }
+
+            // override CancelAndKillProcessTree to avoid killing the cancelled task,
+            // so we can test that execution continues 
+            protected internal override Task CancelAndKillProcessTree(bool killProcessOnCancel)
+            {
+                return Task.CompletedTask;
+            }
+        }
+
+        //Run a process that normally takes 20sec to finish and cancel it.
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        [Trait("SkipOn", "darwin")]
+        public async Task TestCancelEnsureCompletedWhenTaskNotKilled()
+        {
+            const int SecondsToRun = 20;
+            using (TestHostContext hc = new TestHostContext(this))
+            using (var tokenSource = new CancellationTokenSource())
+            {
+                Tracing trace = hc.GetTrace();
+                using (var processInvoker = new ProcessInvokerWithOutKillingCancelledTask(trace, false))
+                {
+                    Stopwatch watch = Stopwatch.StartNew();
+                    Task execTask;
+
+                    const bool continueAfterCancelProcessTreeKillAttempt = true;
+                    if (TestUtil.IsWindows())
+                    {
+                        execTask = processInvoker.ExecuteAsync("", "cmd", $"/c \"ping 127.0.0.1 -n {SecondsToRun} > nul\"", null, false, null, false, null, false, false, false, continueAfterCancelProcessTreeKillAttempt, tokenSource.Token);
+                    }
+                    else
+                    {
+                        execTask = processInvoker.ExecuteAsync("", "bash", $"-c \"sleep {SecondsToRun}s\"", null, false, null, false, null, false, false, false, continueAfterCancelProcessTreeKillAttempt, tokenSource.Token);
+                    }
 
                     await Task.Delay(500);
                     tokenSource.Cancel();
@@ -95,7 +170,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 List<string> stdout = new List<string>();
                 redirectSTDIN.Enqueue("Single line of STDIN");
 
-                using (var cancellationTokenSource = new CancellationTokenSource() )
+                using (var cancellationTokenSource = new CancellationTokenSource())
                 using (var processInvoker = new ProcessInvokerWrapper())
                 {
                     processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
@@ -145,7 +220,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 Int32 exitCode = -1;
                 List<string> stdout = new List<string>();
                 redirectSTDIN.Enqueue("Single line of STDIN");
-                using (var cancellationTokenSource = new CancellationTokenSource() )
+                using (var cancellationTokenSource = new CancellationTokenSource())
                 using (var processInvoker = new ProcessInvokerWrapper())
                 {
                     processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
@@ -155,8 +230,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                     processInvoker.Initialize(hc);
                     var proc = (TestUtil.IsWindows())
-                        ? processInvoker.ExecuteAsync("", "cmd.exe", "/c more", null, false, null, false, redirectSTDIN, false, true, cancellationTokenSource.Token)
-                        : processInvoker.ExecuteAsync("", "bash", "-c \"read input; echo $input; read input; echo $input; read input; echo $input;\"", null, false, null, false, redirectSTDIN, false, true, cancellationTokenSource.Token);
+                        ? processInvoker.ExecuteAsync("", "cmd.exe", "/c more", null, false, null, false, redirectSTDIN, false, true, ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault, cancellationTokenSource.Token)
+                        : processInvoker.ExecuteAsync("", "bash", "-c \"read input; echo $input; read input; echo $input; read input; echo $input;\"", null, false, null, false, redirectSTDIN, false, true, ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault, cancellationTokenSource.Token);
 
                     redirectSTDIN.Enqueue("More line of STDIN");
                     redirectSTDIN.Enqueue("More line of STDIN");
@@ -211,6 +286,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                         {
                             var proc = await processInvoker.ExecuteAsync("", "bash", "-c \"cat /proc/$$/oom_score_adj\"", null, false, null, false, null, false, false,
                                                                 highPriorityProcess: false,
+                                                                continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
                                                                 cancellationToken: tokenSource.Token);
                             Assert.Equal(oomScoreAdj, 500);
                         }
@@ -250,9 +326,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                         try
                         {
                             var proc = await processInvoker.ExecuteAsync("", "bash", "-c \"cat /proc/$$/oom_score_adj\"",
-                                                                    new Dictionary<string, string> { {"PIPELINE_JOB_OOMSCOREADJ", "1234"} },
+                                                                    new Dictionary<string, string> { { "PIPELINE_JOB_OOMSCOREADJ", "1234" } },
                                                                     false, null, false, null, false, false,
                                                                     highPriorityProcess: false,
+                                                                    continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
                                                                     cancellationToken: tokenSource.Token);
                             Assert.Equal(oomScoreAdj, 1234);
                         }
@@ -295,6 +372,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                         {
                             var proc = await processInvoker.ExecuteAsync("", "bash", "-c \"cat /proc/$$/oom_score_adj\"", null, false, null, false, null, false, false,
                                                                 highPriorityProcess: true,
+                                                                continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
                                                                 cancellationToken: tokenSource.Token);
                             Assert.Equal(oomScoreAdj, 123);
                         }
@@ -328,7 +406,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     processInvoker.DisableWorkerCommands = true;
                     processInvoker.Initialize(hc);
                     exitCode = (TestUtil.IsWindows())
-                        ? await processInvoker.ExecuteAsync("", "powershell.exe",  $@"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command ""Write-Host '##vso somecommand'""", null, CancellationToken.None)
+                        ? await processInvoker.ExecuteAsync("", "powershell.exe", $@"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command ""Write-Host '##vso somecommand'""", null, CancellationToken.None)
                         : await processInvoker.ExecuteAsync("", "bash", "-c \"echo '##vso somecommand'\"", null, CancellationToken.None);
 
                     trace.Info("Exit Code: {0}", exitCode);
@@ -359,7 +437,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     };
                     processInvoker.Initialize(hc);
                     exitCode = (TestUtil.IsWindows())
-                        ? await processInvoker.ExecuteAsync("", "powershell.exe",  $@"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command ""Write-Host '##vso somecommand'""", null, CancellationToken.None)
+                        ? await processInvoker.ExecuteAsync("", "powershell.exe", $@"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command ""Write-Host '##vso somecommand'""", null, CancellationToken.None)
                         : await processInvoker.ExecuteAsync("", "bash", "-c \"echo '##vso somecommand'\"", null, CancellationToken.None);
 
                     trace.Info("Exit Code: {0}", exitCode);
