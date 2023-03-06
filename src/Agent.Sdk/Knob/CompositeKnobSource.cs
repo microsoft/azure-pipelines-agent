@@ -28,10 +28,6 @@ namespace Agent.Sdk.Knob
         public CompositeKnobSource(string defaultValue, params IKnobSource[] sources)
         {
             _sources = sources;
-            if (!_sources.Any(s => s is BuiltInDefaultKnobSource))
-            {
-                _sources.Append(new BuiltInDefaultKnobSource(defaultValue));
-            }
             foreach (var s in _sources)
             {
                 s.DefaultValue = defaultValue;
@@ -50,7 +46,8 @@ namespace Agent.Sdk.Knob
                     return value;
                 }
             }
-            return null;
+
+            return new KnobValue(_defaultValue, KnobSourceType.Default);
         }
 
         /// <summary>
