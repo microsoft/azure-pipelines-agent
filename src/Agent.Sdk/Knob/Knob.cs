@@ -11,12 +11,12 @@ namespace Agent.Sdk.Knob
     {
         public override bool IsDeprecated => true;
         public string DeprecationInfo;
-        public DeprecatedKnob(string name, string description, params IKnobSource[] sources) : base(name, description, sources)
+        public DeprecatedKnob(string name, string description, string defaultValue, params IKnobSource[] sources) : base(name, description, defaultValue, sources)
         {
             DeprecationInfo = "";
         }
 
-        public DeprecatedKnob(string name, string description, string deprecationInfo, params IKnobSource[] sources) : base(name, description, sources)
+        public DeprecatedKnob(string name, string description, string defaultValue, string deprecationInfo, params IKnobSource[] sources) : base(name, description, defaultValue, sources)
         {
             DeprecationInfo = deprecationInfo;
         }
@@ -25,14 +25,14 @@ namespace Agent.Sdk.Knob
     public class ExperimentalKnob : Knob
     {
         public override bool IsExperimental => true;
-        public ExperimentalKnob(string name, string description, params IKnobSource[] sources) : base(name, description, sources)
+        public ExperimentalKnob(string name, string description, string defaultValue, params IKnobSource[] sources) : base(name, description, defaultValue, sources)
         {
         }
     }
 
     public class SecretKnob : Knob
     {
-        public SecretKnob(string name, string description, params IKnobSource[] sources) : base(name, description, sources)
+        public SecretKnob(string name, string defaultValue, string description, params IKnobSource[] sources) : base(name, defaultValue, description, sources)
         {
         }
     }
@@ -46,23 +46,40 @@ namespace Agent.Sdk.Knob
         public virtual bool IsExperimental => false; // may go away at a future date
         public string DefaultValue { get; }
 
-        public Knob(string name, string description, params IKnobSource[] sources)
+        private Knob(string name, string description)
         {
             Name = name;
             Description = description;
-            Source = new CompositeKnobSource(sources);
         }
 
         public Knob(
             string name,
             string description,
             string defaultValue,
-            params IKnobSource[] sources) : this(name, description, sources)
+            params IKnobSource[] sources) : this(name, description)
         {
-            Name = name;
-            Description = description;
             DefaultValue = defaultValue;
-            Source = new CompositeKnobSource(defaultValue, sources);
+            Source = new CompositeKnobSource(DefaultValue, sources);
+        }
+
+        public Knob(
+            string name,
+            string description,
+            int defaultValue,
+            params IKnobSource[] sources) : this(name, description)
+        {
+            DefaultValue = defaultValue.ToString();
+            Source = new CompositeKnobSource(DefaultValue, sources);
+        }
+
+        public Knob(
+            string name,
+            string description,
+            bool defaultValue,
+            params IKnobSource[] sources) : this(name, description)
+        {
+            DefaultValue = defaultValue.ToString();
+            Source = new CompositeKnobSource(DefaultValue, sources);
         }
 
         public Knob()
