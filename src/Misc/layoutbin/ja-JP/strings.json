@@ -259,7 +259,7 @@
   "DeploymentPoolName": "配置プール名",
   "DeploymentPoolNotFound": "配置プールが見つかりません: '{0}'",
   "DeprecatedNode6": "このタスクでは Node 6 実行ハンドラーが使用されています。これは 2022 年 3 月 31 日に削除されます。タスクの開発者である場合は、Node 10 ハンドラーへの移行ガイドラインを検討してください - https://aka.ms/migrateTaskNode10 (Node 6 の非推奨化に関する警告を無効にする場合は、このページも確認してください)。ユーザーの場合は、移行を続行するために、このタスクの所有者に連絡してください。",
-  "DeprecatedRunner": "Task '{0}' is dependent on a task runner that is end-of-life and will be removed in the future. Authors should review Node upgrade guidance: https://aka.ms/node-runner-guidance.",
+  "DeprecatedRunner": "タスク '{0}' は、有効期限が切れたタスク ランナーに依存しており、今後削除される予定です。作成者は Node のアップグレード ガイダンスを確認する必要があります: https://aka.ms/node-runner-guidance。",
   "DirectoryHierarchyUnauthorized": "'{0}' および階層上の各ディレクトリには、ディレクトリ コンテンツを読み取るためのアクセス許可が必要です。{1}",
   "DirectoryIsEmptyForArtifact": "ディレクトリ '{0}' が空です。ビルド成果物 '{1}' には何も追加されません。",
   "DirectoryNotFound": "ディレクトリが見つかりません: '{0}'",

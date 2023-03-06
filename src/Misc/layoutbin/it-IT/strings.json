@@ -259,7 +259,7 @@
   "DeploymentPoolName": "Nome del pool di distribuzione",
   "DeploymentPoolNotFound": "Il pool di distribuzione non è stato trovato: '{0}'",
   "DeprecatedNode6": "Questa attività usa il gestore di esecuzione Node 6, che verrà rimosso il 31 marzo 2022. È consigliabile agli sviluppatore dell'attività di prendere in considerazione le linee guida di migrazione per il gestore Node 10 - https://aka.ms/migrateTaskNode10 (controllare questa pagina anche se si vogliono disabilitare gli avvisi di deprecazione di Node 6). Gli utenti possono contattare i proprietari di questa attività per procedere con la migrazione.",
-  "DeprecatedRunner": "Task '{0}' is dependent on a task runner that is end-of-life and will be removed in the future. Authors should review Node upgrade guidance: https://aka.ms/node-runner-guidance.",
+  "DeprecatedRunner": "Il task '{0}' dipende da un uno strumento di esecuzione attività a fine vita che verrà rimosso in futuro. Gli autori dovrebbero rivedere le linee guida sugli aggiornamenti dei nodi: https://aka.ms/node-runner-guidance.",
   "DirectoryHierarchyUnauthorized": "L'autorizzazione di lettura dei contenuti della directory è necessaria per '{0}' e ogni directory all'interno della gerarchia. {1}",
   "DirectoryIsEmptyForArtifact": "La directory '{0}' è vuota. Non verrà aggiunto alcun elemento all'artefatto della compilazione '{1}'.",
   "DirectoryNotFound": "Directory non trovata: '{0}'",

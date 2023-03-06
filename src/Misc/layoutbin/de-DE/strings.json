@@ -259,7 +259,7 @@
   "DeploymentPoolName": "Name des Bereitstellungspools",
   "DeploymentPoolNotFound": "Bereitstellungspool nicht gefunden: \"{0}\"",
   "DeprecatedNode6": "Dieser Task verwendet den Node 6-Ausführungshandler, der am 31. März 2022 entfernt wird. Wenn Sie der Entwickler der Aufgabe sind, beachten Sie die Migrationsrichtlinie zum Knoten 10-Handler: https://aka.ms/migrateTaskNode10 (überprüfen Sie diese Seite auch, wenn Sie Warnungen zu veralteten Knoten 6 deaktivieren möchten). Wenn Sie der Benutzer sind, können Sie sich an die Besitzer dieser Aufgabe wenden, um mit der Migration fortzufahren.",
-  "DeprecatedRunner": "Task '{0}' is dependent on a task runner that is end-of-life and will be removed in the future. Authors should review Node upgrade guidance: https://aka.ms/node-runner-guidance.",
+  "DeprecatedRunner": "Die Aufgabe „{0}“ ist von einer Aufgabenausführung abhängig, die das Ende der Lebensdauer erreicht hat und in Zukunft entfernt wird. Autoren finden weitere Informationen im Leitfaden zum Knotenupgrade: https://aka.ms/node-runner-guidance.",
   "DirectoryHierarchyUnauthorized": "Die Berechtigung zum Lesen der Verzeichnisinhalte ist für \"{0}\" und jedes Verzeichnis in der Hierarchie erforderlich. {1}",
   "DirectoryIsEmptyForArtifact": "Das Verzeichnis \"{0}\" ist leer. Dem Buildartefakt \"{1}\" wird nichts hinzugefügt.",
   "DirectoryNotFound": "Verzeichnis nicht gefunden: \"{0}\"",
