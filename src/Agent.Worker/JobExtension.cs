@@ -130,7 +130,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     foreach (var knob in Knob.GetAllKnobsFor<AgentKnobs>())
                     {
                         var value = knob.GetValue(jobContext);
-                        if (value.Source.GetType() != typeof(BuiltInDefaultKnobSource))
+                        if (value.Source == KnobSourceType.Default)
                         {
                             var tag = "";
                             if (knob.IsDeprecated)
@@ -146,7 +146,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             {
                                 HostContext.SecretMasker.AddValue(stringValue, $"JobExtension_InitializeJob_{knob.Name}");
                             }
-                            var outputLine = $"   Knob: {knob.Name} = {stringValue} Source: {value.Source.GetDisplayString()} {tag}";
+                            var outputLine = $"   Knob: {knob.Name} = {stringValue} Source type: {value.Source.GetType()} {tag}";
 
                             if (knob.IsDeprecated)
                             {

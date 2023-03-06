@@ -34,10 +34,10 @@ namespace Agent.Sdk.Knob
             {
                 if (_defaultValue != null)
                 {
-                    return new KnobValue(value, _defaultValue, this);
+                    return new KnobValue(value, _defaultValue, KnobSourceType.Environment);
                 }
 
-                return new KnobValue(value, this);
+                return new KnobValue(value, KnobSourceType.Environment);
             }
 
             return null;

@@ -16,7 +16,7 @@ namespace Agent.Sdk.Knob
 
         public KnobValue GetValue(IKnobValueContext context)
         {
-            return new KnobValue(_defaultValue, this);
+            return new KnobValue(_defaultValue, KnobSourceType.Default);
         }
 
         public string GetDisplayString()
