@@ -1,7 +1,5 @@
 ﻿using Microsoft.VisualStudio.Services.ServiceEndpoints.WebApi;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Microsoft.VisualStudio.Services.Agent.Util
 {

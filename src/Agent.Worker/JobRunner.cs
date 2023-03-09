@@ -93,6 +93,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             IExecutionContext jobContext = null;
             CancellationTokenRegistration? agentShutdownRegistration = null;
+            VssConnection taskConnection = null;
+            VssConnection legacyTaskConnection = null;
+
             try
             {
                 // Create the job execution context.
@@ -125,13 +128,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
 
                         if (!string.IsNullOrWhiteSpace(notSupportNet6Message))
-                        {
+                        {                            
+                            if(!AgentKnobs.AcknowledgeNoUpdates.GetValue(jobContext).AsBoolean())
+                            {
+                                jobContext.Error(StringUtil.Loc("FailAgentOnUnsupportedOs"));
+                                return await CompleteJobAsync(jobServer, jobContext, message, TaskResult.Failed);
+                            }
+
                             jobContext.AddIssue(new Issue() { Type = IssueType.Warning, Message = notSupportNet6Message });
                         }
                     }
                     catch (Exception ex)
                     {
                         Trace.Error($"Error has occurred while checking if system supports .NET 6: {ex}");
+                        return await CompleteJobAsync(jobServer, jobContext, message, TaskResult.Failed);
+
                     }
                 }
 
@@ -179,6 +190,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 jobContext.SetVariable(Constants.Variables.Agent.HomeDirectory, HostContext.GetDirectory(WellKnownDirectory.Root), isFilePath: true);
                 jobContext.SetVariable(Constants.Variables.Agent.JobName, message.JobDisplayName);
                 jobContext.SetVariable(Constants.Variables.Agent.CloudId, settings.AgentCloudId);
+                jobContext.SetVariable(Constants.Variables.Agent.IsSelfHosted, settings.IsMSHosted ? "0" : "1");
                 jobContext.SetVariable(Constants.Variables.Agent.MachineName, Environment.MachineName);
                 jobContext.SetVariable(Constants.Variables.Agent.Name, settings.AgentName);
                 jobContext.SetVariable(Constants.Variables.Agent.OS, VarUtil.OS);
@@ -194,6 +206,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 jobContext.SetVariable(Constants.Variables.Agent.WorkFolder, HostContext.GetDirectory(WellKnownDirectory.Work), isFilePath: true);
                 jobContext.SetVariable(Constants.Variables.System.WorkFolder, HostContext.GetDirectory(WellKnownDirectory.Work), isFilePath: true);
+
+                try
+                {
+                    jobContext.SetVariable(Constants.Variables.System.IsAzureVM, PlatformUtil.DetectAzureVM() ? "1" : "0");
+                    jobContext.SetVariable(Constants.Variables.System.IsDockerContainer, PlatformUtil.DetectDockerContainer() ? "1" : "0");
+                }
+                catch (Exception ex)
+                {
+                    // Error with telemetry shouldn't affect job run
+                    Trace.Info($"Couldn't retrieve telemetry information");
+                    Trace.Info(ex);
+                }
 
                 string toolsDirectory = HostContext.GetDirectory(WellKnownDirectory.Tools);
                 Directory.CreateDirectory(toolsDirectory);
@@ -225,7 +249,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 if (taskServerUri != null)
                 {
                     Trace.Info($"Creating task server with {taskServerUri}");
-                    await taskServer.ConnectAsync(VssUtil.CreateConnection(taskServerUri, taskServerCredential, trace: Trace));
+
+                    taskConnection = VssUtil.CreateConnection(taskServerUri, taskServerCredential, Trace);
+                    await taskServer.ConnectAsync(taskConnection);
                 }
 
                 // for back compat TFS 2015 RTM/QU1, we may need to switch the task server url to agent config url
@@ -236,8 +262,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         Trace.Info($"Can't determine task download url from JobMessage or the endpoint doesn't exist.");
                         var configStore = HostContext.GetService<IConfigurationStore>();
                         taskServerUri = new Uri(configStore.GetSettings().ServerUrl);
+
                         Trace.Info($"Recreate task server with configuration server url: {taskServerUri}");
-                        await taskServer.ConnectAsync(VssUtil.CreateConnection(taskServerUri, taskServerCredential, trace: Trace));
+                        legacyTaskConnection = VssUtil.CreateConnection(taskServerUri, taskServerCredential, trace: Trace);
+                        await taskServer.ConnectAsync(legacyTaskConnection);
                     }
                 }
 
@@ -379,6 +407,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     agentShutdownRegistration.Value.Dispose();
                     agentShutdownRegistration = null;
                 }
+
+                legacyTaskConnection?.Dispose();
+                taskConnection?.Dispose();
+                jobConnection?.Dispose();
 
                 await ShutdownQueue(throwOnFailure: false);
             }

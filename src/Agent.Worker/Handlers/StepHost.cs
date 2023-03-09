@@ -211,7 +211,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     outputEncoding = Encoding.UTF8;
                 }
 
-                var redirectStandardIn = new InputQueue<string>();
+                using var redirectStandardIn = new InputQueue<string>();
                 var payloadJson = JsonUtility.ToString(payload);
                 redirectStandardIn.Enqueue(payloadJson);
                 HostContext.GetTrace(nameof(ContainerStepHost)).Info($"Payload: {payloadJson}");
