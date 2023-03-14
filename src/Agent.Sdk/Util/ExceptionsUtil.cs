@@ -2,10 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
-using System.Collections.Generic;
 using System.Net.Sockets;
-using System.Text;
-using Microsoft.VisualStudio.Services.Agent;
 using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Agent.Sdk.Util

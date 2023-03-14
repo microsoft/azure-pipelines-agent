@@ -124,6 +124,15 @@ jobs:
 
   # Run l0 tests
   - ${{ if parameters.unitTests }}:
+    - ${{ if and(eq(parameters.os, 'win'), eq(parameters.arch, 'x86')) }}:
+      - task: UseDotNet@2
+        displayName: Install .NET Core 3.1 SDK
+        inputs:
+          version: '3.1.x'
+          packageType: 'runtime'
+          installationPath: 'C:\Program Files (x86)\dotnet'
+        env:
+          PROCESSOR_ARCHITECTURE: x86
     - script: ${{ variables.devCommand }} testl0 Debug ${{ parameters.os }}-${{ parameters.arch }}
       workingDirectory: src
       displayName: Unit tests
@@ -139,9 +148,10 @@ jobs:
       - task: UseDotNet@2
         displayName: Install .NET Core 3.1 SDK
         inputs:
-          version: '3.1.22'
+          version: '3.1.x'
           packageType: runtime
           performMultiLevelLookup: true
+          installationPath: 'C:\Program Files (x86)\dotnet'
     - script: ${{ variables.devCommand }} testl1 Debug ${{ parameters.os }}-${{ parameters.arch }}
       workingDirectory: src
       displayName: Functional tests
@@ -184,7 +194,7 @@ jobs:
     - task: UseDotNet@2
       inputs:
         packageType: 'sdk'
-        version: '2.1.x'
+        version: '6.0.x'
 
   - ${{ if parameters.sign }}:
     # Signing steps
