@@ -478,20 +478,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Repositories = message.Resources.Repositories;
 
             // JobSettings
-            var checkouts = message.Steps?.Where(x => Pipelines.PipelineConstants.IsCheckoutTask(x)).ToList();
+            var checkouts = message.Steps?.Where(x => Pipelines.PipelineConstants.IsCheckoutTask(x)).Cast<Pipelines.TaskStep>().ToList();
             JobSettings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             JobSettings[WellKnownJobSettings.HasMultipleCheckouts] = Boolean.FalseString;
             if (checkouts != null && checkouts.Count > 0)
             {
                 JobSettings[WellKnownJobSettings.HasMultipleCheckouts] = checkouts.Count > 1 ? Boolean.TrueString : Boolean.FalseString;
-                var firstCheckout = checkouts.First() as Pipelines.TaskStep;
+                var firstCheckout = checkouts.First();
                 if (firstCheckout != null && Repositories != null && firstCheckout.Inputs.TryGetValue(Pipelines.PipelineConstants.CheckoutTaskInputs.Repository, out string repoAlias))
                 {
                     JobSettings[WellKnownJobSettings.FirstRepositoryCheckedOut] = repoAlias;
-                    var repo = Repositories.Find(r => String.Equals(r.Alias, repoAlias, StringComparison.OrdinalIgnoreCase));
-                    if (repo != null)
+
+                    // Mark either the self repository as the primary repository if it was checked out,
+                    // or otherwise mark the first checked out repository as the primary repository.
+                    var selfCheckout = checkouts.FirstOrDefault(c => c.Inputs.TryGetValue(Pipelines.PipelineConstants.CheckoutTaskInputs.Repository, out string repoSelfAlias) &&
+                                                                        RepositoryUtil.IsPrimaryRepositoryName(repoSelfAlias));
+                    var firstCheckoutRepo = Repositories.FirstOrDefault(r => String.Equals(r.Alias, repoAlias, StringComparison.OrdinalIgnoreCase));
+                    var selfRepo = Repositories.FirstOrDefault(r => RepositoryUtil.IsPrimaryRepositoryName(r.Alias));
+
+                    if (selfRepo != null && selfCheckout != null)
                     {
-                        repo.Properties.Set<bool>(RepositoryUtil.IsPrimaryRepository, true);
+                        // if there's a self repo and we have a checkout step for it, use this one as primary repo
+                        selfRepo.Properties.Set<bool>(RepositoryUtil.IsPrimaryRepository, true);
+                    }
+                    else if (firstCheckoutRepo != null)
+                    {
+                        firstCheckoutRepo.Properties.Set<bool>(RepositoryUtil.IsPrimaryRepository, true);
                     }
                 }
             }

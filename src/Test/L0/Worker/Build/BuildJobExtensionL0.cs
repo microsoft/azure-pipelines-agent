@@ -67,7 +67,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void CheckMultiRepoWithoutPathInput()
+        public void CheckMultiRepoSelfIsFirstCheckoutWithoutPathInput()
         {
             using (TestHostContext tc = Setup(createWorkDirectory: false, checkOutConfig: CheckoutConfigType.MultiCheckoutDefaultPath))
             {
@@ -81,7 +81,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void CheckMultiRepoWithPathInputToCustomPath()
+        public void CheckMultiRepoSelfIsFirstCheckoutWithPathInputToCustomPath()
         {
             using (TestHostContext tc = Setup(createWorkDirectory: false, checkOutConfig: CheckoutConfigType.MultiCheckoutCustomPath, pathToSelfRepo: "s/CustomApplicationFolder"))
             {
@@ -95,9 +95,51 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void CheckMultiRepoWithPathInputToDefaultPath()
+        public void CheckMultiRepoSelfIsFirstCheckoutWithPathInputToDefaultPath()
         {
             using (TestHostContext tc = Setup(createWorkDirectory: false, checkOutConfig: CheckoutConfigType.MultiCheckoutCustomPath, pathToSelfRepo: "s/App"))
+            {
+                buildJobExtension.InitializeJobExtension(_ec.Object, steps, _workspaceOptions);
+                var repoLocalPath = _ec.Object.Variables.Get(Constants.Variables.Build.RepoLocalPath);
+                Assert.NotNull(repoLocalPath);
+                Assert.Equal(Path.Combine(stubWorkFolder, $"1{directorySeparator}s"), repoLocalPath);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void CheckMultiRepoSelfIsSecondCheckoutWithoutPathInput()
+        {
+            using (TestHostContext tc = Setup(createWorkDirectory: false, checkOutConfig: CheckoutConfigType.MultiCheckoutDefaultPath, selfRepoIsFirstCheckout: false))
+            {
+                buildJobExtension.InitializeJobExtension(_ec.Object, steps, _workspaceOptions);
+                var repoLocalPath = _ec.Object.Variables.Get(Constants.Variables.Build.RepoLocalPath);
+                Assert.NotNull(repoLocalPath);
+                Assert.Equal(Path.Combine(stubWorkFolder, $"1{directorySeparator}s"), repoLocalPath);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void CheckMultiRepoSelfIsSecondCheckoutWithPathInputToCustomPath()
+        {
+            using (TestHostContext tc = Setup(createWorkDirectory: false, checkOutConfig: CheckoutConfigType.MultiCheckoutCustomPath, pathToSelfRepo: "s/CustomApplicationFolder", selfRepoIsFirstCheckout: false))
+            {
+                buildJobExtension.InitializeJobExtension(_ec.Object, steps, _workspaceOptions);
+                var repoLocalPath = _ec.Object.Variables.Get(Constants.Variables.Build.RepoLocalPath);
+                Assert.NotNull(repoLocalPath);
+                Assert.Equal(Path.Combine(stubWorkFolder, $"1{directorySeparator}s{directorySeparator}App"), repoLocalPath);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void CheckMultiRepoSelfIsSecondCheckoutWithPathInputToDefaultPath()
+        {
+            using (TestHostContext tc = Setup(createWorkDirectory: false, checkOutConfig: CheckoutConfigType.MultiCheckoutCustomPath, pathToSelfRepo: "s/App", selfRepoIsFirstCheckout: false))
             {
                 buildJobExtension.InitializeJobExtension(_ec.Object, steps, _workspaceOptions);
                 var repoLocalPath = _ec.Object.Variables.Get(Constants.Variables.Build.RepoLocalPath);
@@ -109,7 +151,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
         private TestHostContext Setup([CallerMemberName] string name = "",
             bool createWorkDirectory = true,
             CheckoutConfigType checkOutConfig = CheckoutConfigType.SingleCheckoutDefaultPath,
-            string pathToSelfRepo = "")
+            string pathToSelfRepo = "",
+            bool selfRepoIsFirstCheckout = true)
         {
             bool isMulticheckoutScenario = checkOutConfig == CheckoutConfigType.MultiCheckoutCustomPath || checkOutConfig == CheckoutConfigType.MultiCheckoutDefaultPath;
             bool isCustomPathScenario = checkOutConfig == CheckoutConfigType.SingleCheckoutCustomPath || checkOutConfig == CheckoutConfigType.MultiCheckoutCustomPath;
@@ -145,7 +188,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             {
                 selfCheckoutTask.Inputs.Add("path", pathToSelfRepo);
             }
-            steps.Add(selfCheckoutTask);
+
+            if(selfRepoIsFirstCheckout)
+            {
+                steps.Add(selfCheckoutTask);
+            }
 
             // Setup second checkout only for multicheckout jobs
             if (isMulticheckoutScenario)
@@ -164,6 +211,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 steps.Add(anotherCheckoutTask);
             }
 
+            if (!selfRepoIsFirstCheckout)
+            {
+                steps.Add(selfCheckoutTask);
+            }
+
             hc.SetSingleton(_buildDirectoryManager.Object);
             hc.SetSingleton(_extensionManager.Object);
             hc.SetSingleton(_configurationStore.Object);
@@ -179,6 +231,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
 
             jobSettings = new Dictionary<string, string>();
             jobSettings.Add(WellKnownJobSettings.HasMultipleCheckouts, isMulticheckoutScenario.ToString());
+            jobSettings.Add(WellKnownJobSettings.FirstRepositoryCheckedOut, selfRepoIsFirstCheckout ? "self" : "BuildRepo");
             _ec.Setup(x => x.JobSettings).Returns(jobSettings);
 
             _ec.Setup(x =>
@@ -221,6 +274,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 Name = Name,
             };
             repo.Properties.Set<string>(Pipelines.RepositoryPropertyNames.Path, Path.Combine(workFolder, "1", relativePath));
+            if(alias == "self")
+            {
+                repo.Properties.Set<bool>(Agent.Util.RepositoryUtil.IsPrimaryRepository, true);
+            }
 
             return repo;
         }
