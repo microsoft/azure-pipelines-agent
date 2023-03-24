@@ -120,28 +120,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             if (!await PlatformUtil.IsNet6Supported())
                             {
                                 notSupportNet6Message = $"The operating system the agent is running on is \"{systemId}\" ({systemVersion}), which will not be supported by the .NET 6 based v3 agent. Please upgrade the operating system of this host to ensure compatibility with the v3 agent. See https://aka.ms/azdo-pipeline-agent-version";
+                                if (AgentKnobs.AgentFailOnIncompatibleOS.GetValue(jobContext).AsBoolean() &&
+                                    !AgentKnobs.AcknowledgeNoUpdates.GetValue(jobContext).AsBoolean())
+                                {
+                                    jobContext.Error(StringUtil.Loc("FailAgentOnUnsupportedOs"));
+                                    return await CompleteJobAsync(jobServer, jobContext, message, TaskResult.Failed);
+                                }
                             }
                         }
                         else
                         {
                             notSupportNet6Message = $"The operating system the agent is running on is \"{systemId}\" ({systemVersion}), which has not been tested with the .NET 6 based v3 agent. The v2 agent wil not automatically upgrade to the v3 agent. You can manually download the .NET 6 based v3 agent from https://github.com/microsoft/azure-pipelines-agent/releases. See https://aka.ms/azdo-pipeline-agent-version";
                         }
-
+ 
                         if (!string.IsNullOrWhiteSpace(notSupportNet6Message))
                         {                            
-                            if(!AgentKnobs.AcknowledgeNoUpdates.GetValue(jobContext).AsBoolean())
-                            {
-                                jobContext.Error(StringUtil.Loc("FailAgentOnUnsupportedOs"));
-                                return await CompleteJobAsync(jobServer, jobContext, message, TaskResult.Failed);
-                            }
+                            
 
                             jobContext.AddIssue(new Issue() { Type = IssueType.Warning, Message = notSupportNet6Message });
                         }
                     }
                     catch (Exception ex)
                     {
+                        jobContext.Warning($"Error has occurred while checking if system supports .NET 6: {ex.Message}");
                         Trace.Error($"Error has occurred while checking if system supports .NET 6: {ex}");
-                        return await CompleteJobAsync(jobServer, jobContext, message, TaskResult.Failed);
 
                     }
                 }

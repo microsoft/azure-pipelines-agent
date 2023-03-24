@@ -290,6 +290,13 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AGENT_ACKNOWLEDGE_NO_UPDATES"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob AgentFailOnIncompatibleOS = new Knob(
+            nameof(AgentFailOnIncompatibleOS),
+            "Allow agent to fail pipelines on incampatible OS",
+            new EnvironmentKnobSource("AGENT_FAIL_ON_INCOMPATIBLE_OS"),
+            new RuntimeKnobSource("AGENT_FAIL_ON_INCOMPATIBLE_OS"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob PermissionsCheckFailsafe = new Knob(
             nameof(PermissionsCheckFailsafe),
             "Maximum depth of file permitted in directory hierarchy when checking permissions. Check to avoid accidentally entering infinite loops.",
@@ -423,6 +430,12 @@ namespace Agent.Sdk.Knob
             "Forces the agent to disable draining queues after each task",
             new RuntimeKnobSource("AGENT_DISABLE_DRAIN_QUEUES_AFTER_TASK"),
             new EnvironmentKnobSource("AGENT_DISABLE_DRAIN_QUEUES_AFTER_TASK"),
+            new BuiltInDefaultKnobSource("false"));
+            
+        public static readonly Knob EnableFetchingNet6List = new Knob(
+            nameof(EnableFetchingNet6List),
+            "Forces the agent to fetch list of .NET 6 supporting systems from server",
+            new EnvironmentKnobSource("AGENT_ENABLE_FETCHING_NET6_LIST"),
             new BuiltInDefaultKnobSource("false"));
     }
 }

@@ -530,25 +530,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Prepend Path
             PrependPath = new List<string>();
 
+            var minSecretLen = AgentKnobs.MaskedSecretMinLength.GetValue(this).AsInt();
+            HostContext.SecretMasker.MinSecretLength = minSecretLen;
+
+            if (HostContext.SecretMasker.MinSecretLength < minSecretLen)
+            {
+                warnings.Add(StringUtil.Loc("MinSecretsLengtLimitWarning", HostContext.SecretMasker.MinSecretLength));
+            }
+
+            HostContext.SecretMasker.RemoveShortSecretsFromDictionary();
+
             // Docker (JobContainer)
             string imageName = Variables.Get("_PREVIEW_VSTS_DOCKER_IMAGE");
             if (string.IsNullOrEmpty(imageName))
             {
                 imageName = Environment.GetEnvironmentVariable("_PREVIEW_VSTS_DOCKER_IMAGE");
             }
-
-            var minSecretLen = AgentKnobs.MaskedSecretMinLength.GetValue(this).AsInt();
-
-            try
-            {
-                this.HostContext.SecretMasker.MinSecretLength = minSecretLen;
-            }
-            catch (ArgumentException ex)
-            {
-                warnings.Add(ex.Message);
-            }
-
-            this.HostContext.SecretMasker.RemoveShortSecretsFromDictionary();
 
             Containers = new List<ContainerInfo>();
             _defaultStepTarget = null;
