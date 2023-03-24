@@ -88,24 +88,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "SecretMasker")]
-        public void LoggedSecretMasker_Throws_Exception_If_Large_MinSecretLength_Specified()
-        {
-            var lsm = new LoggedSecretMasker(_secretMasker);
-
-            Assert.Throws<ArgumentException>(() => lsm.MinSecretLength = 5);
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_Sets_MinSecretLength_To_MaxValue()
         {
             var lsm = new LoggedSecretMasker(_secretMasker);
+            var expectedMinSecretsLengthValue = lsm.MinSecretLengthLimit;
 
-            try { lsm.MinSecretLength = 5; }
-            catch (ArgumentException) { }
+            lsm.MinSecretLength = 5;
 
-            Assert.Equal(4, lsm.MinSecretLength);
+            Assert.Equal(expectedMinSecretsLengthValue, lsm.MinSecretLength);
         }
 
         [Fact]
