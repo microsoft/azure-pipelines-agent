@@ -23,6 +23,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         private volatile int _errorCount;
         private bool _foundDelimiter;
         private bool _modifyEnvironment;
+        private bool _secureArguments;
+        private string _generatedScriptPath;
 
         public ProcessHandlerData Data { get; set; }
 
@@ -113,6 +115,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             _modifyEnvironment = StringUtil.ConvertToBoolean(Data.ModifyEnvironment);
             ExecutionContext.Debug($"Modify environment: '{_modifyEnvironment}'");
 
+            _secureArguments = StringUtil.ConvertToBoolean(Data.SecureArguments);
+            ExecutionContext.Debug($"Secure arguments: '{_secureArguments}'");
+
             // Resolve cmd.exe.
             string cmdExe = System.Environment.GetEnvironmentVariable("ComSpec");
             if (string.IsNullOrEmpty(cmdExe))
@@ -120,17 +125,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 cmdExe = "cmd.exe";
             }
 
+            if (_secureArguments)
+            {
+                GenerateScriptFile(cmdExe, command, arguments);
+            }
+
             // Format the input to be invoked from cmd.exe to enable built-in shell commands. For example, RMDIR.
-            string cmdExeArgs;
-            if (_modifyEnvironment)
-            {
-                // Format the command so the environment variables can be captured.
-                cmdExeArgs = $"/c \"{command} {arguments} && echo {OutputDelimiter} && set \"";
-            }
-            else
-            {
-                cmdExeArgs = $"/c \"{command} {arguments}\"";
-            }
+            var cmdExeArgs = _secureArguments
+                ? $"/v:ON /c \"{_generatedScriptPath}"
+                : $"/c \"{command} {arguments}";
+
+            cmdExeArgs += _modifyEnvironment
+                ? " && echo {OutputDelimiter} && set \""
+                : "\"";
 
             // Invoke the process.
             ExecutionContext.Debug($"{cmdExe} {cmdExeArgs}");
@@ -179,6 +186,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     throw new Exception(StringUtil.Loc("ProcessCompletedWithExitCode0", exitCode));
                 }
             }
+        }
+
+        private void GenerateScriptFile(string cmdExe, string command, string arguments)
+        {
+            string inputArgsEnvVarName = VarUtil.ConvertToEnvVariableFormat("AGENT_PH_ARGS_" + Guid.NewGuid().ToString()[..10]);
+            System.Environment.SetEnvironmentVariable(inputArgsEnvVarName, arguments);
+
+            var agentTemp = ExecutionContext.GetVariableValueOrDefault(Constants.Variables.Agent.TempDirectory);
+            _generatedScriptPath = Path.Combine(agentTemp, "processHandlerScript.cmd");
+
+            using (var writer = new StreamWriter(_generatedScriptPath))
+            {
+                writer.WriteLine($"{cmdExe} /c {command} \"!{inputArgsEnvVarName}!\"");
+            }
+
+            ExecutionContext.Debug($"Generated script file: {_generatedScriptPath}");
         }
 
         private void FlushErrorData()
