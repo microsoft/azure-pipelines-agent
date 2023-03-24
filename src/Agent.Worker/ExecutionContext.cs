@@ -493,8 +493,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     // or otherwise mark the first checked out repository as the primary repository.
                     var selfCheckout = checkouts.FirstOrDefault(c => c.Inputs.TryGetValue(Pipelines.PipelineConstants.CheckoutTaskInputs.Repository, out string repoSelfAlias) &&
                                                                         RepositoryUtil.IsPrimaryRepositoryName(repoSelfAlias));
-                    var firstCheckoutRepo = Repositories.Find(r => String.Equals(r.Alias, repoAlias, StringComparison.OrdinalIgnoreCase));
-                    var selfRepo = Repositories.Find(r => RepositoryUtil.IsPrimaryRepositoryName(r.Alias));
+                    var firstCheckoutRepo = Repositories.FirstOrDefault(r => String.Equals(r.Alias, repoAlias, StringComparison.OrdinalIgnoreCase));
+                    var selfRepo = Repositories.FirstOrDefault(r => RepositoryUtil.IsPrimaryRepositoryName(r.Alias));
 
                     if (selfRepo != null && selfCheckout != null)
                     {
