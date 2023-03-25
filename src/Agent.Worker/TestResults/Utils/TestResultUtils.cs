@@ -1,15 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk.Knob;
 using System;
-using Microsoft.TeamFoundation.TestClient.PublishTestResults;
-using Microsoft.TeamFoundation.TestManagement.WebApi;
-using Microsoft.VisualStudio.Services.WebApi;
-using Microsoft.TeamFoundation.Core.WebApi;
-using System.Linq;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 
@@ -19,6 +12,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
     {
         public static void StoreTestRunSummaryInEnvVar(IExecutionContext executionContext, TestRunSummary testRunSummary, string testRunner, string name, string description = "")
         {
+            if (AgentKnobs.DisableTestsMetadata.GetValue(executionContext).AsBoolean())
+            {
+                return;
+            }
+
             try
             {
                 string metadata = GetEvidenceStoreMetadata(executionContext, testRunSummary, testRunner, name, description);
