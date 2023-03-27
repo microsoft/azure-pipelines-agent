@@ -132,7 +132,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             // Format the input to be invoked from cmd.exe to enable built-in shell commands. For example, RMDIR.
             var cmdExeArgs = _secureArguments
-                ? $"/v:ON /c \"{_generatedScriptPath}"
+                ? $"/c \"{_generatedScriptPath}"
                 : $"/c \"{command} {arguments}";
 
             cmdExeArgs += _modifyEnvironment
@@ -198,7 +198,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             using (var writer = new StreamWriter(_generatedScriptPath))
             {
-                writer.WriteLine($"{cmdExe} /c {command} \"!{inputArgsEnvVarName}!\"");
+                writer.WriteLine($"{cmdExe} /v:ON /c {command} \"!{inputArgsEnvVarName}!\"");
             }
 
             ExecutionContext.Debug($"Generated script file: {_generatedScriptPath}");
