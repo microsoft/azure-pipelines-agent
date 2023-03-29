@@ -103,9 +103,6 @@ jobs:
       parameters:
         branch: ${{ parameters.branch }}
 
-  # Nuget Authenticate Task.
-  - task: NuGetAuthenticate@0
-
   # 1ES images used on the ARM pool doesn't contain unzip tool, so we need to install it before starting the build
   - ${{ if eq(parameters.arch, 'arm64') }}:
     - script: sudo apt-get update && sudo apt-get -y install unzip
