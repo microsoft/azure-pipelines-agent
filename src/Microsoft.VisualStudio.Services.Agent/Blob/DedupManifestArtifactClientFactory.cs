@@ -76,10 +76,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
 
         private static DedupManifestArtifactClientFactory _instance;
 
-        public static DedupManifestArtifactClientFactory Instance = _instance ?? throw new InvalidOperationException($"Initialize the instance before using.");
+        public static DedupManifestArtifactClientFactory Instance => _instance ?? throw new InvalidOperationException($"Initialize the instance before using.");
 
         public static void Initialize(Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client client, HashType? hashType)
         {
+            //System.Diagnostics.Debugger.Launch();
             if (_instance != null)
             {
                 throw new InvalidOperationException("The instance is already initialized.");
