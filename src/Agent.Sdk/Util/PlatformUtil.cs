@@ -322,13 +322,20 @@ namespace Agent.Sdk
             if ((!supportOSfileExists || File.GetLastWriteTimeUtc(supportOSfilePath) < DateTime.UtcNow.AddHours(-1))
                 && AgentKnobs.EnableFetchingNet6List.GetValue(_knobContext).AsBoolean())
             {
-                HttpResponseMessage response = await httpClient.GetAsync(serverFileUrl);
-                if (!response.IsSuccessStatusCode)
+
+                using (var handler = HostContext.CreateHttpClientHandler())
+                using (var httpClient = new HttpClient(handler))
                 {
-                    throw new Exception($"Getting file \"net6.json\" from server failed. Status code: {response.StatusCode}");
-                }
-                supportOSfileContent = await response.Content.ReadAsStringAsync();
-                await File.WriteAllTextAsync(supportOSfilePath, supportOSfileContent);
+                    httpClient.Timeout = TimeSpan.FromSeconds(5);
+
+                    HttpResponseMessage response = await httpClient.GetAsync(serverFileUrl);
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        throw new Exception($"Getting file \"net6.json\" from server failed. Status code: {response.StatusCode}");
+                    }
+                    supportOSfileContent = await response.Content.ReadAsStringAsync();
+                    await File.WriteAllTextAsync(supportOSfilePath, supportOSfileContent);
+				}
             }
             else
             {
