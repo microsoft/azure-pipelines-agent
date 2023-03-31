@@ -8,10 +8,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.8" Condition="$(CodeAnalysis)=='true'" />
     <PackageReference Include="Microsoft.Win32.Registry" Version="4.7.0" />
-    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="4.7.0" />
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="4.4.0" />
     <PackageReference Include="System.Text.Encoding.CodePages" Version="4.4.0" />
-    <PackageReference Include="System.Security.Cryptography.Cng" Version="4.5.0" />
     <PackageReference Include="vss-api-netcore" Version="$(VssApiVersion)" />
   </ItemGroup>
 </Project>
