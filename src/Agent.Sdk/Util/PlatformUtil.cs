@@ -4,6 +4,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -15,6 +16,8 @@ using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.Win32;
 using Newtonsoft.Json;
+using System.ServiceProcess;
+using Agent.Sdk.Util;
 
 namespace Agent.Sdk
 {
@@ -314,8 +317,10 @@ namespace Agent.Sdk
             string serverFileUrl = "https://raw.githubusercontent.com/microsoft/azure-pipelines-agent/master/src/Agent.Listener/net6.json";
             string supportOSfilePath = Path.Combine(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "net6.json");
             string supportOSfileContent;
+            bool supportOSfileExists = File.Exists(supportOSfilePath);
 
-            if (!File.Exists(supportOSfilePath) || File.GetLastWriteTimeUtc(supportOSfilePath) < DateTime.UtcNow.AddHours(-1))
+            if ((!supportOSfileExists || File.GetLastWriteTimeUtc(supportOSfilePath) < DateTime.UtcNow.AddHours(-1))
+                && AgentKnobs.EnableFetchingNet6List.GetValue(_knobContext).AsBoolean())
             {
                 HttpResponseMessage response = await httpClient.GetAsync(serverFileUrl);
                 if (!response.IsSuccessStatusCode)
@@ -330,6 +335,11 @@ namespace Agent.Sdk
                 if (net6SupportedSystems != null)
                 {
                     return net6SupportedSystems;
+                }
+
+                if (!supportOSfileExists)
+                {
+                    throw new FileNotFoundException("File with list of systems supporting .NET 6 is absent", supportOSfilePath);
                 }
 
                 supportOSfileContent = await File.ReadAllTextAsync(supportOSfilePath);
@@ -354,6 +364,59 @@ namespace Agent.Sdk
             string systemId = PlatformUtil.GetSystemId();
 
             return net6SupportedSystems.Any((s) => s.Equals(systemId));
+        }
+        public static bool DetectDockerContainer()
+        {
+            bool isDockerContainer = false;
+
+            try
+            {
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    // For Windows we check Container Execution Agent Service (cexecsvc) existence
+                    var serviceName = "cexecsvc";
+                    ServiceController[] scServices = ServiceController.GetServices();
+                    if (scServices.Any(x => String.Equals(x.ServiceName, serviceName, StringComparison.OrdinalIgnoreCase) && x.Status == ServiceControllerStatus.Running))
+                    {
+                        isDockerContainer = true;
+                    }
+                }
+                else
+                {
+                    // In Unix in control group v1, we can identify if a process is running in a Docker
+                    var initProcessCgroup = File.ReadLines("/proc/1/cgroup");
+                    if (initProcessCgroup.Any(x => x.IndexOf(":/docker/", StringComparison.OrdinalIgnoreCase) >= 0))
+                    {
+                        isDockerContainer = true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Logging exception will be handled by JobRunner
+                throw;
+            }
+            return isDockerContainer;
+        }
+
+        public static bool DetectAzureVM()
+        {
+            bool isAzureVM = false;
+
+            try
+            {
+                // Metadata information endpoint can be used to check whether we're in Azure VM
+                // Additional info: https://learn.microsoft.com/en-us/azure/virtual-machines/windows/instance-metadata-service?tabs=linux
+                using var metadataProvider = new AzureInstanceMetadataProvider();
+                if (metadataProvider.HasMetadata())
+                    isAzureVM = true;
+            }
+            catch (Exception ex)
+            {
+                // Logging exception will be handled by JobRunner
+                throw;
+            }
+            return isAzureVM;
         }
     }
 

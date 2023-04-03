@@ -425,6 +425,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string DefinitionName = "system.definitionName";
                 public static readonly string EnableAccessToken = "system.enableAccessToken";
                 public static readonly string HostType = "system.hosttype";
+                public static readonly string IsAzureVM = "system.isazurevm";
+                public static readonly string IsDockerContainer = "system.isdockercontainer";
                 public static readonly string JobAttempt = "system.jobAttempt";
                 public static readonly string JobDisplayName = "system.jobDisplayName";
                 public static readonly string JobId = "system.jobId";
@@ -567,6 +569,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                 System.DefinitionName,
                 System.EnableAccessToken,
                 System.HostType,
+                System.IsAzureVM,
+                System.IsDockerContainer,                
                 System.JobAttempt,
                 System.JobDisplayName,
                 System.JobId,

@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.Expressions;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.CircuitBreaker;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -309,16 +310,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             step.ExecutionContext.Section(StringUtil.Loc("StepFinishing", step.DisplayName));
             step.ExecutionContext.Complete();
 
-            try
+            if (!AgentKnobs.DisableDrainQueuesAfterTask.GetValue(step.ExecutionContext).AsBoolean())
             {
-                // We need to drain the queues after a task just in case if
-                // there are a lot of items since it can cause some UI hangs.
-                await JobServerQueue.DrainQueues();
-            }
-            catch (Exception ex)
-            {
-                Trace.Error($"Error has occurred while draining queues, it can cause some UI glitches but it doesn't affect a pipeline execution itself: {ex}");
-                step.ExecutionContext.Error(ex);
+                try
+                {
+                    // We need to drain the queues after a task just in case if
+                    // there are a lot of items since it can cause some UI hangs.
+                    await JobServerQueue.DrainQueues();
+                }
+                catch (Exception ex)
+                {
+                    Trace.Error($"Error has occurred while draining queues, it can cause some UI glitches but it doesn't affect a pipeline execution itself: {ex}");
+                    step.ExecutionContext.Error(ex);
+                }
             }
         }
 
