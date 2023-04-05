@@ -70,8 +70,9 @@ namespace Agent.Sdk.Util
             AddRegex(pattern);
         }
 
-        // We don't allow to skip secrets longer than 4 characters.
-        public int MinSecretLengthLimit => 4;
+        // We don't allow to skip secrets longer than 5 characters.
+        // Note: the secret that will be ignored is of length n-1.
+        public static int MinSecretLengthLimit => 6;
 
         public int MinSecretLength
         {

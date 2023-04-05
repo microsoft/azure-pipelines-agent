@@ -8,7 +8,7 @@ namespace Agent.Sdk.Util
     /// </summary>
     public interface ILoggedSecretMasker : ISecretMasker
     {
-        int MinSecretLengthLimit { get; }
+        static int MinSecretLengthLimit { get; }
 
         void AddRegex(String pattern, string origin);
         void AddValue(String value, string origin);
