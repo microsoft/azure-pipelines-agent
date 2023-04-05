@@ -10,7 +10,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.Expressions;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
-using Microsoft.VisualStudio.Services.CircuitBreaker;
 using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
@@ -35,10 +34,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
     public sealed class StepsRunner : AgentService, IStepsRunner
     {
-        private IJobServerQueue _jobServerQueue;
-
-        private IJobServerQueue JobServerQueue => _jobServerQueue ??= HostContext.GetService<IJobServerQueue>();
-
         // StepsRunner should never throw exception to caller
         public async Task RunAsync(IExecutionContext jobContext, IList<IStep> steps)
         {
@@ -309,21 +304,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Complete the step context.
             step.ExecutionContext.Section(StringUtil.Loc("StepFinishing", step.DisplayName));
             step.ExecutionContext.Complete();
-
-            if (!AgentKnobs.DisableDrainQueuesAfterTask.GetValue(step.ExecutionContext).AsBoolean())
-            {
-                try
-                {
-                    // We need to drain the queues after a task just in case if
-                    // there are a lot of items since it can cause some UI hangs.
-                    await JobServerQueue.DrainQueues();
-                }
-                catch (Exception ex)
-                {
-                    Trace.Error($"Error has occurred while draining queues, it can cause some UI glitches but it doesn't affect a pipeline execution itself: {ex}");
-                    step.ExecutionContext.Error(ex);
-                }
-            }
         }
 
         private async Task SwitchToUtf8Codepage(IStep step)

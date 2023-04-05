@@ -295,6 +295,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 this.Warning(StringUtil.Loc("TotalThrottlingDelay", TimeSpan.FromMilliseconds(_totalThrottlingDelayInMilliseconds).TotalSeconds));
             }
 
+            if (!AgentKnobs.DisableDrainQueuesAfterTask.GetValue(this).AsBoolean())
+            {
+                _jobServerQueue.ForceDrainWebConsoleQueue = true;
+                _jobServerQueue.ForceDrainTimelineQueue = true;
+            }
+
             _record.CurrentOperation = currentOperation ?? _record.CurrentOperation;
             _record.ResultCode = resultCode ?? _record.ResultCode;
             _record.FinishTime = DateTime.UtcNow;
