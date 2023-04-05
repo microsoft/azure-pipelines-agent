@@ -322,6 +322,7 @@ namespace Agent.Sdk
             if ((!supportOSfileExists || File.GetLastWriteTimeUtc(supportOSfilePath) < DateTime.UtcNow.AddHours(-1))
                 && AgentKnobs.EnableFetchingNet6List.GetValue(_knobContext).AsBoolean())
             {
+                httpClient.Timeout = TimeSpan.FromSeconds(5)
                 HttpResponseMessage response = await httpClient.GetAsync(serverFileUrl);
                 if (!response.IsSuccessStatusCode)
                 {
