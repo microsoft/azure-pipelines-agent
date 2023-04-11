@@ -146,6 +146,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     Trace.Info($"Run initial step from extension {this.GetType().Name}.");
                     InitializeJobExtension(context, message?.Steps, message?.Workspace);
 
+                    if (AgentKnobs.ForceCreateTasksDirectory.GetValue(context).AsBoolean())
+                    {
+                        var tasksDir = HostContext.GetDirectory(WellKnownDirectory.Tasks);
+                        try
+                        {
+                            Trace.Info($"Pre-creating {tasksDir} directory");
+                            Directory.CreateDirectory(tasksDir);
+                            IOUtil.ValidateExecutePermission(tasksDir);
+                        }
+                        catch (Exception ex)
+                        {
+                            Trace.Error(ex);
+                            context.Error(ex);
+                        }
+                    }
+
                     // Download tasks if not already in the cache
                     Trace.Info("Downloading task definitions.");
                     var taskManager = HostContext.GetService<ITaskManager>();
@@ -639,7 +655,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
-    public class UnsupportedOsException : Exception {
+    public class UnsupportedOsException : Exception
+    {
         public UnsupportedOsException(string message) : base(message) { }
     }
 }
