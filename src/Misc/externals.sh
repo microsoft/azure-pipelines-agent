@@ -10,7 +10,7 @@ CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
 NODE_URL=https://nodejs.org/dist
 NODE_VERSION="6.17.1"
 NODE10_VERSION="10.24.1"
-NODE16_VERSION="16.17.1"
+NODE16_VERSION="16.20.0"
 MINGIT_VERSION="2.39.1"
 LFS_VERSION="3.3.0"
 
