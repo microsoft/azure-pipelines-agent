@@ -1,8 +1,5 @@
 using Microsoft.TeamFoundation.DistributedTask.Logging;
 using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Text.RegularExpressions;
 
 namespace Agent.Sdk.Util
 {
@@ -71,6 +68,35 @@ namespace Agent.Sdk.Util
             }
 
             AddRegex(pattern);
+        }
+
+        // We don't allow to skip secrets longer than 5 characters.
+        // Note: the secret that will be ignored is of length n-1.
+        public static int MinSecretLengthLimit => 6;
+
+        public int MinSecretLength
+        {
+            get
+            {
+                return _secretMasker.MinSecretLength;
+            }
+            set
+            {
+                if (value > MinSecretLengthLimit)
+                {
+                    _secretMasker.MinSecretLength = MinSecretLengthLimit;
+                }
+                else
+                {
+                    _secretMasker.MinSecretLength = value;
+                }
+            }
+        }
+
+        public void RemoveShortSecretsFromDictionary()
+        {
+            this._trace?.Info("Removing short secrets from masking dictionary");
+            _secretMasker.RemoveShortSecretsFromDictionary();
         }
 
         public void AddValueEncoder(ValueEncoder encoder)

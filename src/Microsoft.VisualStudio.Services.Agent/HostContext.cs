@@ -68,7 +68,8 @@ namespace Microsoft.VisualStudio.Services.Agent
         private static int[] _vssHttpCredentialEventIds = new int[] { 11, 13, 14, 15, 16, 17, 18, 20, 21, 22, 27, 29 };
         private readonly ConcurrentDictionary<Type, object> _serviceInstances = new ConcurrentDictionary<Type, object>();
         protected readonly ConcurrentDictionary<Type, Type> ServiceTypes = new ConcurrentDictionary<Type, Type>();
-        private readonly ILoggedSecretMasker _secretMasker = new LoggedSecretMasker(new SecretMasker());
+        SecretMasker _basicSecretMasker = new SecretMasker();
+        private readonly ILoggedSecretMasker _secretMasker;
         private readonly ProductInfoHeaderValue _userAgent = new ProductInfoHeaderValue($"VstsAgentCore-{BuildConstants.AgentPackage.PackageName}", BuildConstants.AgentPackage.Version);
         private CancellationTokenSource _agentShutdownTokenSource = new CancellationTokenSource();
         private object _perfLock = new object();
@@ -89,9 +90,11 @@ namespace Microsoft.VisualStudio.Services.Agent
         public ProductInfoHeaderValue UserAgent => _userAgent;
         public HostContext(HostType hostType, string logFile = null)
         {
+            _secretMasker = new LoggedSecretMasker(_basicSecretMasker);
 
             // Validate args.
-            if (hostType == HostType.Undefined) {
+            if (hostType == HostType.Undefined)
+            {
                 throw new ArgumentException(message: $"HostType cannot be {HostType.Undefined}");
             }
             _hostType = hostType;
@@ -285,10 +288,10 @@ namespace Microsoft.VisualStudio.Services.Agent
             {
                 return diagFolder;
             }
-           
+
             return Path.Combine(
                 new DirectoryInfo(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location)).Parent.FullName,
-                Constants.Path.DiagDirectory);          
+                Constants.Path.DiagDirectory);
         }
 
         public string GetConfigFile(WellKnownConfigFile configFile)
@@ -489,7 +492,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             CultureInfo.DefaultThreadCurrentUICulture = new CultureInfo(name);
         }
 
-
         public void ShutdownAgent(ShutdownReason reason)
         {
             ArgUtil.NotNull(reason, nameof(reason));
@@ -593,6 +595,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                 _trace = null;
                 _httpTrace?.Dispose();
                 _httpTrace = null;
+                _basicSecretMasker?.Dispose();
+                _basicSecretMasker = null;
 
                 _agentShutdownTokenSource?.Dispose();
                 _agentShutdownTokenSource = null;

@@ -114,7 +114,7 @@ namespace Test.L0.Worker.Release
 
         private TestHostContext Initialize([CallerMemberName] string name = "", bool createWorkDirectory = true)
         {
-            var hostContext =  new TestHostContext(this, name);
+            var hostContext = new TestHostContext(this, name);
             this.stubWorkFolder = hostContext.GetDirectory(WellKnownDirectory.Work);
             if (createWorkDirectory)
             {

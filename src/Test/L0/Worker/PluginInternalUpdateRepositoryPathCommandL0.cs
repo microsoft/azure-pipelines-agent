@@ -184,13 +184,13 @@ namespace Test.L0.Worker
             var directoryManager = new Mock<Microsoft.VisualStudio.Services.Agent.Worker.Build.IBuildDirectoryManager>();
             directoryManager.Setup(x => x.GetRelativeRepositoryPath(It.IsAny<string>(), It.IsAny<string>()))
                 .Returns<string, string>((bd, path) => GetLastPathPart(path));
-            
+
             hc.SetSingleton(directoryManager.Object);
         }
 
         private string GetLastPathPart(string path)
         {
-            return path?.Substring(path.LastIndexOfAny(new char[] { '/', '\\' } ) + 1);
+            return path?.Substring(path.LastIndexOfAny(new char[] { '/', '\\' }) + 1);
         }
 
         private RepositoryResource _selfRepo;

@@ -363,9 +363,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             bool gitUseSecureParameterPassing = AgentKnobs.GitUseSecureParameterPassing.GetValue(executionContext).AsBoolean();
 
+            Dictionary<string, string> gitEnv = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            // Git-lfs will try to pull down asset if any of the local/user/system setting exist.
+            // If customer didn't enable `LFS` in their pipeline definition, we will use ENV to disable LFS fetch/checkout.
+            if (!gitLfsSupport)
+            {
+                gitEnv["GIT_LFS_SKIP_SMUDGE"] = "1";
+                executionContext.Debug("GIT_LFS_SKIP_SMUDGE variable set to 1");
+            }
+
             // Initialize git command manager
             _gitCommandManager = HostContext.GetService<IGitCommandManager>();
-            await _gitCommandManager.LoadGitExecutionInfo(executionContext, useBuiltInGit: !preferGitFromPath);
+            await _gitCommandManager.LoadGitExecutionInfo(executionContext, useBuiltInGit: !preferGitFromPath, gitEnv);
 
             // Make sure the build machine met all requirements for the git repository
             // For now, the requirement we have are:
@@ -555,6 +565,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 // If any git commands exit with non-zero return code or any exception happened during git.exe invoke, fall back to delete the repo folder.
                 if (clean)
                 {
+                    await RunGitStatusIfSystemDebug(executionContext, targetPath);
+
                     Boolean softCleanSucceed = true;
 
                     // git clean -ffdx
@@ -632,6 +644,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     throw new InvalidOperationException($"Unable to use git.exe add remote 'origin', 'git remote add' failed with exit code: {exitCode_addremote}");
                 }
             }
+
+            await RunGitStatusIfSystemDebug(executionContext, targetPath);
 
             cancellationToken.ThrowIfCancellationRequested();
             executionContext.Progress(0, "Starting fetch...");
@@ -1085,6 +1099,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     IOUtil.DeleteFile(_clientCertPrivateKeyAskPassFile);
                 }
             }
+
+            await RunGitStatusIfSystemDebug(executionContext, targetPath);
+        }
+
+        private async Task RunGitStatusIfSystemDebug(IExecutionContext executionContext, string targetPath)
+        {
+            if (executionContext.WriteDebug)
+            {
+                var exitCode_gitStatus = await _gitCommandManager.GitStatus(executionContext, targetPath);
+
+                if (exitCode_gitStatus != 0)
+                {
+                    executionContext.Warning($"git status failed with exit code: {exitCode_gitStatus}");
+                }
+            }
         }
 
         public async Task PostJobCleanupAsync(IExecutionContext executionContext, ServiceEndpoint endpoint)
@@ -1175,7 +1204,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 if (lfsVersion is null)
                 {
                     executionContext.Debug("Machine does not have git-lfs installed. Skipping git lfs prune");
-                } else
+                }
+                else
                 {
                     int exitCode_lFSPrune = await _gitCommandManager.GitLFSPrune(executionContext, repositoryPath);
                     if (exitCode_lFSPrune != 0)

@@ -42,7 +42,7 @@ namespace Agent.Plugins.PipelineArtifact.Telemetry
             }
         }
     }
- 
+
     public sealed class FileSharePublishResult
     {
         public int ExitCode { get; private set; }

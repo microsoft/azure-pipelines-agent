@@ -26,7 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 .Setup(x => x.EnsureGitVersion(It.IsAny<Version>(), It.IsAny<bool>()))
                 .Returns(true);
             _gitCommandManager
-                .Setup(x => x.LoadGitExecutionInfo(It.IsAny<IExecutionContext>(), It.IsAny<bool>()))
+                .Setup(x => x.LoadGitExecutionInfo(It.IsAny<IExecutionContext>(), It.IsAny<bool>(), null))
                 .Returns(Task.CompletedTask);
             _gitCommandManager
                 .Setup(x => x.GitInit(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
@@ -83,8 +83,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 .Setup(x => x.Variables)
                 .Returns(new Variables(tc, copy: new Dictionary<string, VariableValue>(), warnings: out warnings));
             executionContext
-                .Setup(x => x.Write(It.IsAny<string>(), It.IsAny<string>()))
-                .Callback((string tag, string message) =>
+                .Setup(x => x.Write(It.IsAny<string>(), It.IsAny<string>(), true))
+                .Callback((string tag, string message, bool canMaskSecrets) =>
                 {
                     trace.Info($"{tag}{message}");
                 });

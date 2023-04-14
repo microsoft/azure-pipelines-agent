@@ -388,7 +388,7 @@ namespace Agent.Plugins.Repository
             foreach (var variable in executionContext.Variables)
             {
                 // Add the variable using the formatted name.
-                string formattedKey = (variable.Key ?? string.Empty).Replace('.', '_').Replace(' ', '_').ToUpperInvariant();
+                string formattedKey = VarUtil.ConvertToEnvVariableFormat(variable.Key);
                 gitEnv[formattedKey] = variable.Value?.Value ?? string.Empty;
             }
 
@@ -592,6 +592,8 @@ namespace Agent.Plugins.Repository
                 // If any git commands exit with non-zero return code or any exception happened during git.exe invoke, fall back to delete the repo folder.
                 if (clean)
                 {
+                    await RunGitStatusIfSystemDebug(executionContext, gitCommandManager, targetPath);
+
                     Boolean softCleanSucceed = true;
 
                     // git clean -ffdx
@@ -670,6 +672,8 @@ namespace Agent.Plugins.Repository
                 }
             }
 
+            await RunGitStatusIfSystemDebug(executionContext, gitCommandManager, targetPath);
+
             cancellationToken.ThrowIfCancellationRequested();
             executionContext.Progress(0, "Starting fetch...");
 
@@ -691,7 +695,7 @@ namespace Agent.Plugins.Repository
             if (await gitCommandManager.GitConfigExist(executionContext, targetPath, $"http.extraheader", existingExtraheaders))
             {
                 executionContext.Debug("Remove http.extraheader setting from git config.");
-                foreach(var configValue in existingExtraheaders)
+                foreach (var configValue in existingExtraheaders)
                 {
                     await RemoveGitConfig(executionContext, gitCommandManager, targetPath, $"http.extraheader", configValue);
                 }
@@ -1248,6 +1252,8 @@ namespace Agent.Plugins.Repository
             {
                 executionContext.SetTaskVariable("clientCertAskPass", clientCertPrivateKeyAskPassFile);
             }
+
+            await RunGitStatusIfSystemDebug(executionContext, gitCommandManager, targetPath);
         }
 
         public async Task PostJobCleanupAsync(AgentTaskPluginExecutionContext executionContext, Pipelines.RepositoryResource repository)
@@ -1333,6 +1339,19 @@ namespace Agent.Plugins.Repository
             {
                 context.Debug($"The remote.origin.url of the repository under root folder '{repositoryPath}' doesn't matches source repository url.");
                 return false;
+            }
+        }
+
+        private async Task RunGitStatusIfSystemDebug(AgentTaskPluginExecutionContext executionContext, GitCliManager gitCommandManager, string targetPath)
+        {
+            if (executionContext.IsSystemDebugTrue())
+            {
+                var exitCode_gitStatus = await gitCommandManager.GitStatus(executionContext, targetPath);
+
+                if (exitCode_gitStatus != 0)
+                {
+                    executionContext.Warning($"git status failed with exit code: {exitCode_gitStatus}");
+                }
             }
         }
 

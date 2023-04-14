@@ -6,7 +6,7 @@ using System.Collections.Generic;
 
 namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipelines.Yaml.Contracts
 {
-    internal sealed class DeploymentTarget: IPhaseTarget
+    internal sealed class DeploymentTarget : IPhaseTarget
     {
         internal String ContinueOnError { get; set; }
 

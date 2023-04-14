@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.Expressions;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -328,6 +329,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                                 killProcessOnCancel: false,
                                                 redirectStandardIn: null,
                                                 inheritConsoleHandler: true,
+                                                continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
                                                 cancellationToken: step.ExecutionContext.CancellationToken);
                         if (exitCode == 0)
                         {

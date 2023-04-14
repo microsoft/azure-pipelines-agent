@@ -51,7 +51,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         public bool EnableServiceSidTypeUnrestricted { get; set; }
 
         [IgnoreDataMember]
-        public bool IsHosted => AgentCloudId != null;
+        public bool IsMSHosted => AgentCloudId != null;
 
         [DataMember(EmitDefaultValue = false)]
         public string Fingerprint

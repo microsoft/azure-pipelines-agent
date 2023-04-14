@@ -5,10 +5,9 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Agent.Sdk.Knob
 {
-
     public class KnobValue
     {
-        public IKnobSource Source { get;  private set;}
+        public IKnobSource Source { get; private set; }
         private string _value;
 
         public KnobValue(string value, IKnobSource source)
@@ -27,10 +26,14 @@ namespace Agent.Sdk.Knob
             return StringUtil.ConvertToBoolean(_value);
         }
 
+        public bool AsBooleanStrict()
+        {
+            return StringUtil.ConvertToBooleanStrict(_value);
+        }
+
         public int AsInt()
         {
             return Int32.Parse(_value);
         }
     }
-
 }

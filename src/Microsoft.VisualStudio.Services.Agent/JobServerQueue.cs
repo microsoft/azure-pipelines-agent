@@ -18,6 +18,8 @@ namespace Microsoft.VisualStudio.Services.Agent
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1711: Identifiers should not have incorrect suffix")]
     public interface IJobServerQueue : IAgentService, IThrottlingReporter
     {
+        bool ForceDrainWebConsoleQueue { get; set; }
+        bool ForceDrainTimelineQueue { get; set; }
         event EventHandler<ThrottlingEventArgs> JobServerQueueThrottling;
         Task ShutdownAsync();
         void Start(Pipelines.AgentJobRequestMessage jobRequest);
@@ -76,7 +78,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         // In this way, customer still can get instance live console output on job start,
         // at the same time we can cut the load to server after the build run for more than 60s
         private int _webConsoleLineAggressiveDequeueCount = 0;
-        private int _webConsoleLineUpdateRate = (int) _delayForWebConsoleLineDequeueDefault.TotalMilliseconds;
+        private int _webConsoleLineUpdateRate = (int)_delayForWebConsoleLineDequeueDefault.TotalMilliseconds;
         private const int _webConsoleLineAggressiveDequeueLimit = 2 * 15;
         private bool _webConsoleLineAggressiveDequeue = true;
         private TaskCompletionSource<object> _webConsoleLinesDequeueNow = new TaskCompletionSource<object>();
@@ -84,6 +86,9 @@ namespace Microsoft.VisualStudio.Services.Agent
         private bool _writeToBlobStoreLogs = false;
         private bool _writeToBlobStoreAttachments = false;
         private bool _debugMode = false;
+
+        public bool ForceDrainWebConsoleQueue { get; set; }
+        public bool ForceDrainTimelineQueue { get; set; }
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -125,7 +130,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             {
                 if (!Int32.TryParse(postLinesSpeed.Value, out _webConsoleLineUpdateRate))
                 {
-                    _webConsoleLineUpdateRate = (int) _delayForWebConsoleLineDequeueDefault.TotalMilliseconds;
+                    _webConsoleLineUpdateRate = (int)_delayForWebConsoleLineDequeueDefault.TotalMilliseconds;
                 }
             }
 
@@ -181,7 +186,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             Trace.Info("File upload queue drained.");
 
             // ProcessTimelinesUpdateQueueAsync() will throw exception during shutdown
-            // if there is any timeline records that failed to update contains output variabls.
+            // if there is any timeline records that failed to update contains output variables.
             Trace.Verbose("Draining timeline update queue.");
             await ProcessTimelinesUpdateQueueAsync(runOnce: true);
             Trace.Info("Timeline update queue drained.");
@@ -242,6 +247,12 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             while (!_jobCompletionSource.Task.IsCompleted || runOnce)
             {
+                bool shouldDrain = ForceDrainWebConsoleQueue;
+                if (ForceDrainWebConsoleQueue)
+                {
+                    ForceDrainWebConsoleQueue = false;
+                }
+
                 if (_webConsoleLineAggressiveDequeue && ++_webConsoleLineAggressiveDequeueCount > _webConsoleLineAggressiveDequeueLimit)
                 {
                     Trace.Info("Stop aggressive process web console line queue.");
@@ -273,7 +284,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     // process at most about 500 lines of web console line during regular timer dequeue task.
                     // Send the first line of output to the customer right away
                     // It might take a while to reach 500 line outputs, which would cause delays before customers see the first line
-                    if ((!runOnce && linesCounter > 500) || _firstConsoleOutputs)
+                    if ((!runOnce && !shouldDrain && linesCounter > 500) || _firstConsoleOutputs)
                     {
                         break;
                     }
@@ -308,7 +319,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                         // We batch and produce 500 lines of web console output every 500ms
                         // If customer's task produce massive of outputs, then the last queue drain run might take forever.
                         // So we will only upload the last 200 lines of each step from all buffered web console lines.
-                        if (runOnce && batchedLines.Count > 2)
+                        if ((runOnce || shouldDrain) && batchedLines.Count > 2)
                         {
                             Trace.Info($"Skip {batchedLines.Count - 2} batches web console lines for last run");
                             batchedLines = batchedLines.TakeLast(2).ToList();
@@ -424,6 +435,8 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             while (!_jobCompletionSource.Task.IsCompleted || runOnce)
             {
+                bool shouldDrain = ForceDrainTimelineQueue;
+
                 List<PendingTimelineRecord> pendingUpdates = new List<PendingTimelineRecord>();
                 foreach (var timeline in _allTimelines)
                 {
@@ -436,7 +449,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                         {
                             records.Add(record);
                             // process at most 25 timeline records update for each timeline.
-                            if (!runOnce && records.Count > 25)
+                            if (!runOnce && !shouldDrain && records.Count > 25)
                             {
                                 break;
                             }
@@ -508,7 +521,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     }
                 }
 
-                if (runOnce)
+                if (runOnce || shouldDrain)
                 {
                     // continue process timeline records update,
                     // we might have more records need update,
@@ -529,14 +542,19 @@ namespace Microsoft.VisualStudio.Services.Agent
                         }
                         else
                         {
-                            break;
+                            if (ForceDrainTimelineQueue)
+                            {
+                                ForceDrainTimelineQueue = false;
+                            }
+                            if (runOnce)
+                            {
+                                break;
+                            }
                         }
                     }
                 }
-                else
-                {
-                    await Task.Delay(_delayForTimelineUpdateDequeue);
-                }
+
+                await Task.Delay(_delayForTimelineUpdateDequeue);
             }
         }
 
@@ -676,9 +694,9 @@ namespace Microsoft.VisualStudio.Services.Agent
                     {
                         try
                         {
-                            var (dedupId, length) = await _jobServer.UploadAttachmentToBlobStore(_debugMode, file.Path,  _planId, _jobTimelineRecordId, default(CancellationToken));
+                            var (dedupId, length) = await _jobServer.UploadAttachmentToBlobStore(_debugMode, file.Path, _planId, _jobTimelineRecordId, default(CancellationToken));
                             // Notify TFS
-                            await _jobServer.AssosciateAttachmentAsync(_scopeIdentifier, _hubName, _planId, file.TimelineId, file.TimelineRecordId, file.Type, file.Name, dedupId, (long) length, default(CancellationToken));
+                            await _jobServer.AssosciateAttachmentAsync(_scopeIdentifier, _hubName, _planId, file.TimelineId, file.TimelineRecordId, file.Type, file.Name, dedupId, (long)length, default(CancellationToken));
                         }
                         catch
                         {

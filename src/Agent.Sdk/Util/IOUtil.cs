@@ -521,7 +521,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             if (platform == PlatformUtil.OS.Windows)
             {
                 var paths = path.TrimEnd('\\', '/')
-                                .Split(new char[] {'\\','/'}, StringSplitOptions.RemoveEmptyEntries);
+                                .Split(new char[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
                 Array.Resize(ref paths, paths.Length - 1);
                 return string.Join('\\', paths);
             }

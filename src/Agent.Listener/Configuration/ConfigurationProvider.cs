@@ -19,6 +19,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
     {
         string ConfigurationProviderType { get; }
 
+        bool IsCollectionPossible { get; }
+
         void GetServerUrl(AgentSettings agentSettings, CommandSettings command);
 
         void GetCollectionName(AgentSettings agentSettings, CommandSettings command, bool isHosted);
@@ -48,6 +50,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public string ConfigurationProviderType
             => Constants.Agent.AgentConfigurationProvider.BuildReleasesAgentConfiguration;
+
+        public bool IsCollectionPossible
+            => false;
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -135,6 +140,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public Type ExtensionType => typeof(IConfigurationProvider);
         public string ConfigurationProviderType
             => Constants.Agent.AgentConfigurationProvider.DeploymentAgentConfiguration;
+        public bool IsCollectionPossible
+            => true;
         protected ITerminal _term;
         protected string _projectName = string.Empty;
         private IDeploymentGroupServer _deploymentGroupServer = null;
@@ -475,7 +482,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             virtualMachine = await _environmentsServer.AddEnvironmentVMAsync(new Guid(agentSettings.ProjectId), agentSettings.EnvironmentId, virtualMachine);
             Trace.Info("Environment virtual machine resource with name: '{0}', id: '{1}' has been added successfully.", virtualMachine.Name, virtualMachine.Id);
 
-            var pool =  await _environmentsServer.GetEnvironmentPoolAsync(new Guid(agentSettings.ProjectId), agentSettings.EnvironmentId);
+            var pool = await _environmentsServer.GetEnvironmentPoolAsync(new Guid(agentSettings.ProjectId), agentSettings.EnvironmentId);
             Trace.Info("environment pool id: '{0}'", pool.Id);
             agentSettings.PoolId = pool.Id;
             agentSettings.AgentName = virtualMachine.Name;
@@ -549,7 +556,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Trace.Info("Replacing environment virtual machine resource with id: '{0}'", vmResource.Id);
             vmResource = await _environmentsServer.ReplaceEnvironmentVMAsync(new Guid(agentSettings.ProjectId), agentSettings.EnvironmentId, vmResource);
             Trace.Info("environment virtual machine resource with id: '{0}' has been replaced successfully", vmResource.Id);
-            var pool =  await _environmentsServer.GetEnvironmentPoolAsync(new Guid(agentSettings.ProjectId), agentSettings.EnvironmentId);
+            var pool = await _environmentsServer.GetEnvironmentPoolAsync(new Guid(agentSettings.ProjectId), agentSettings.EnvironmentId);
 
             agentSettings.AgentName = vmResource.Name;
             agentSettings.EnvironmentVMResourceId = vmResource.Id;

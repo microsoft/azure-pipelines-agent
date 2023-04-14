@@ -140,7 +140,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     }
                     catch (FormatException e)
                     {
-                        Trace.Error("Invalid socket ip address {0}. Job Notification will be disabled",splitAddress[0]);
+                        Trace.Error("Invalid socket ip address {0}. Job Notification will be disabled", splitAddress[0]);
                         Trace.Error(e);
                         return;
                     }
@@ -169,7 +169,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         private void StartMonitor(Guid jobId, string accessToken, Uri serverUri, Guid planId, string identifier, string definitionId, string planType)
         {
-            if(String.IsNullOrEmpty(accessToken))
+            if (String.IsNullOrEmpty(accessToken))
             {
                 Trace.Info("No access token could be retrieved to start the monitor.");
                 return;

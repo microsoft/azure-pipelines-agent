@@ -51,7 +51,7 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
                     await _telemetry.PublishCumulativeTelemetryAsync();
                     return false; // disable the plugin
                 }
-                
+
                 await _inputDataParser.InitializeAsync(_clientFactory, _pipelineConfig, _logger, _telemetry);
                 _telemetry.AddOrUpdate(TelemetryConstants.PluginInitialized, true);
             }

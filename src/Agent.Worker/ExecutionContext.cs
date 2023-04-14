@@ -37,7 +37,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         List<ServiceEndpoint> Endpoints { get; }
         List<SecureFile> SecureFiles { get; }
         List<Pipelines.RepositoryResource> Repositories { get; }
-        Dictionary<string,string> JobSettings { get; }
+        Dictionary<string, string> JobSettings { get; }
 
         PlanFeatures Features { get; }
         Variables Variables { get; }
@@ -56,7 +56,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         // logging
         bool WriteDebug { get; }
-        long Write(string tag, string message);
+        long Write(string tag, string message, bool canMaskSecrets = true);
         void QueueAttachFile(string type, string name, string filePath);
         ITraceWriter GetTraceWriter();
 
@@ -299,6 +299,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 this.Warning(StringUtil.Loc("TotalThrottlingDelay", TimeSpan.FromMilliseconds(_totalThrottlingDelayInMilliseconds).TotalSeconds));
             }
 
+            if (!AgentKnobs.DisableDrainQueuesAfterTask.GetValue(this).AsBoolean())
+            {
+                _jobServerQueue.ForceDrainWebConsoleQueue = true;
+                _jobServerQueue.ForceDrainTimelineQueue = true;
+            }
+
             _record.CurrentOperation = currentOperation ?? _record.CurrentOperation;
             _record.ResultCode = resultCode ?? _record.ResultCode;
             _record.FinishTime = DateTime.UtcNow;
@@ -522,6 +528,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Prepend Path
             PrependPath = new List<string>();
 
+            var minSecretLen = AgentKnobs.MaskedSecretMinLength.GetValue(this).AsInt();
+            HostContext.SecretMasker.MinSecretLength = minSecretLen;
+
+            if (HostContext.SecretMasker.MinSecretLength < minSecretLen)
+            {
+                warnings.Add(StringUtil.Loc("MinSecretsLengtLimitWarning", HostContext.SecretMasker.MinSecretLength));
+            }
+
+            HostContext.SecretMasker.RemoveShortSecretsFromDictionary();
+
             // Docker (JobContainer)
             string imageName = Variables.Get("_PREVIEW_VSTS_DOCKER_IMAGE");
             if (string.IsNullOrEmpty(imageName))
@@ -673,9 +689,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // Do not add a format string overload. In general, execution context messages are user facing and
         // therefore should be localized. Use the Loc methods from the StringUtil class. The exception to
         // the rule is command messages - which should be crafted using strongly typed wrapper methods.
-        public long Write(string tag, string message)
+        public long Write(string tag, string inputMessage, bool canMaskSecrets = true)
         {
-            string msg = HostContext.SecretMasker.MaskSecrets($"{tag}{message}");
+            string message = canMaskSecrets ? HostContext.SecretMasker.MaskSecrets($"{tag}{inputMessage}") : inputMessage;
+
             long totalLines;
             lock (_loggerLock)
             {
@@ -683,11 +700,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 if (_disableLogUploads)
                 {
-                    _buildLogsWriter.WriteLine(msg);
+                    _buildLogsWriter.WriteLine(message);
                 }
                 else
                 {
-                    _logger.Write(msg);
+                    _logger.Write(message);
                 }
             }
 
@@ -699,11 +716,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     lock (parentContext._loggerLock)
                     {
-                        parentContext._logger.Write(msg);
+                        parentContext._logger.Write(message);
                     }
                 }
 
-                _jobServerQueue.QueueWebConsoleLine(_record.Id, msg, totalLines);
+                _jobServerQueue.QueueWebConsoleLine(_record.Id, message, totalLines);
             }
 
             // write to plugin daemon,
@@ -714,7 +731,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     _logPlugin = HostContext.GetService<IAgentLogPlugin>();
                 }
 
-                _logPlugin.Write(_record.Id, msg);
+                _logPlugin.Write(_record.Id, message);
             }
 
             return totalLines;
@@ -912,10 +929,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
 
         // Do not add a format string overload. See comment on ExecutionContext.Write().
-        public static void Output(this IExecutionContext context, string message)
+        public static void Output(this IExecutionContext context, string message, bool canMaskSecrets = true)
         {
             ArgUtil.NotNull(context, nameof(context));
-            context.Write(null, message);
+            context.Write(null, message, canMaskSecrets);
         }
 
         // Do not add a format string overload. See comment on ExecutionContext.Write().
