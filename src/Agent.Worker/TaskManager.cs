@@ -381,6 +381,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private NodeHandlerData _node;
         private Node10HandlerData _node10;
         private Node16HandlerData _node16;
+        private Node20HandlerData _node20;
         private PowerShellHandlerData _powerShell;
         private PowerShell3HandlerData _powerShell3;
         private PowerShellExeHandlerData _powerShellExe;
@@ -446,6 +447,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             set
             {
                 _node16 = value;
+                Add(value);
+            }
+        }
+        
+        public Node20HandlerData Node20
+        {
+            get
+            {
+                return _node20;
+            }
+
+            set
+            {
+                _node20 = value;
                 Add(value);
             }
         }
@@ -624,21 +639,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
     public sealed class NodeHandlerData : BaseNodeHandlerData
     {
-        public override int Priority => 3;
+        public override int Priority => 4;
     }
 
     public sealed class Node10HandlerData : BaseNodeHandlerData
     {
-        public override int Priority => 2;
+        public override int Priority => 3;
     }
     public sealed class Node16HandlerData : BaseNodeHandlerData
+    {
+        public override int Priority => 2;
+    }
+    
+    public sealed class Node20HandlerData : BaseNodeHandlerData
     {
         public override int Priority => 1;
     }
 
     public sealed class PowerShell3HandlerData : HandlerData
     {
-        public override int Priority => 4;
+        public override int Priority => 5;
     }
 
     public sealed class PowerShellHandlerData : HandlerData
@@ -656,7 +676,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 5;
+        public override int Priority => 6;
 
         public string WorkingDirectory
         {
@@ -687,7 +707,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 6;
+        public override int Priority => 7;
 
         public string WorkingDirectory
         {
@@ -744,7 +764,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 6;
+        public override int Priority => 7;
 
         public string ScriptType
         {
@@ -801,7 +821,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 7;
+        public override int Priority => 8;
 
         public string WorkingDirectory
         {
