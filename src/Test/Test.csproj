@@ -8,6 +8,10 @@
     <ProjectReference Include="..\Agent.Sdk\Agent.Sdk.csproj" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="azuredevops-testresultparser" Version="1.0.2" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.4.0" />

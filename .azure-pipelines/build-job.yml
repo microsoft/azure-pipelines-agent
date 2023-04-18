@@ -108,8 +108,6 @@ jobs:
     - script: sudo apt-get update && sudo apt-get -y install unzip
       displayName: Install unzip
 
-  - task: NuGetAuthenticate@0
-
   # Build agent layout
   - script: ${{ variables.devCommand }} layout Release ${{ parameters.os }}-${{ parameters.arch }}
     workingDirectory: src

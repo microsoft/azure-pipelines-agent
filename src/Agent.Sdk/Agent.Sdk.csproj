@@ -3,6 +3,7 @@
 
   <PropertyGroup>
     <OutputType>Library</OutputType>
+    <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
   </PropertyGroup>
 
   <ItemGroup>
