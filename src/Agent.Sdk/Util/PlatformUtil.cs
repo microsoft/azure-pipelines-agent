@@ -4,6 +4,8 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -16,7 +18,6 @@ using Microsoft.Win32;
 using Newtonsoft.Json;
 using System.ServiceProcess;
 using Agent.Sdk.Util;
-using System.Net.Http;
 
 namespace Agent.Sdk
 {

@@ -172,6 +172,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTSAGENT_DUMP_JOB_EVENT_LOGS"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob DisableTestsMetadata = new Knob(
+            nameof(DisableTestsMetadata),
+            "If true, publishing tests metadata to evidence store will be disabled.",
+            new RuntimeKnobSource("AZP_AGENT_DISABLE_TESTS_METADATA"),
+            new EnvironmentKnobSource("AZP_AGENT_DISABLE_TESTS_METADATA"),
+            new BuiltInDefaultKnobSource("false"));
+
         // Diag logging
         public static readonly Knob AgentDiagLogPath = new Knob(
             nameof(AgentDiagLogPath),
