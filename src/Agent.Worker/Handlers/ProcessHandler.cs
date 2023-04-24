@@ -1,9 +1,11 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Worker.Handlers.Helpers;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -191,7 +193,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         private void GenerateScriptFile(string cmdExe, string command, string arguments)
         {
             string inputArgsEnvVarName = VarUtil.ConvertToEnvVariableFormat("AGENT_PH_ARGS_" + Guid.NewGuid().ToString()[..10]);
-            System.Environment.SetEnvironmentVariable(inputArgsEnvVarName, arguments);
+
+            var (processedArgs, telemetry) = ProcessHandlerHelper.ProcessInputArguments(arguments);
+
+            ExecutionContext.Debug(string.Join(System.Environment.NewLine, telemetry.ToDictionary().Select(a => $"{a.Key}: {a.Value}")));
+
+            System.Environment.SetEnvironmentVariable(inputArgsEnvVarName, processedArgs);
 
             var agentTemp = ExecutionContext.GetVariableValueOrDefault(Constants.Variables.Agent.TempDirectory);
             _generatedScriptPath = Path.Combine(agentTemp, "processHandlerScript.cmd");
