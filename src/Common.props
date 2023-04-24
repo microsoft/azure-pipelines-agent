@@ -10,7 +10,7 @@
     <OSPlatform>OS_UNKNOWN</OSPlatform>
     <OSArchitecture>ARCH_UNKNOWN</OSArchitecture>
     <DebugConstant></DebugConstant>
-    <VssApiVersion>0.5.181-private</VssApiVersion>
+    <VssApiVersion>0.5.183-private</VssApiVersion>
     <CodeAnalysis>$(CodeAnalysis)</CodeAnalysis>
   </PropertyGroup>
 

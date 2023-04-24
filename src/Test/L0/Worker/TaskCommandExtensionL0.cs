@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Moq;
@@ -200,6 +201,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
             _ec.Setup(x => x.Endpoints).Returns(new List<ServiceEndpoint> { _endpoint });
             _ec.Setup(x => x.GetHostContext()).Returns(_hc);
+            _ec.Setup(x => x.GetScopedEnvironment()).Returns(new SystemEnvironment());
 
             return _hc;
         }
