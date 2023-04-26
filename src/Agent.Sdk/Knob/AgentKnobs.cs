@@ -451,5 +451,12 @@ namespace Agent.Sdk.Knob
             "Forces the agent to fetch list of .NET 6 supporting systems from server",
             new EnvironmentKnobSource("AGENT_ENABLE_FETCHING_NET6_LIST"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob ForceCreateTasksDirectory = new Knob(
+            nameof(ForceCreateTasksDirectory),
+            "Forces the agent to create _tasks folder for tasks.",
+            new RuntimeKnobSource("AGENT_FORCE_CREATE_TASKS_DIRECTORY"),
+            new EnvironmentKnobSource("AGENT_FORCE_CREATE_TASKS_DIRECTORY"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }
