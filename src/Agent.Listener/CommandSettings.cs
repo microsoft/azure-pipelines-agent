@@ -205,6 +205,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 description: StringUtil.Loc("LaunchBrowser"),
                 defaultValue: true);
         }
+
+        public string GetSpClientId()
+        {
+            return GetArgOrPrompt(
+                argValue: GetConfigureOrRemoveBase()?.SpClientId,
+                name: Constants.Agent.CommandLine.Args.SpClientId,
+                description: StringUtil.Loc("SpClientId"),
+                defaultValue: string.Empty,
+                validator: Validators.NonEmptyValidator);
+        }
+
+        public string GetSpClientSecret()
+        {
+            return GetArgOrPrompt(
+                argValue: GetConfigureOrRemoveBase()?.SpClientSecret,
+                name: Constants.Agent.CommandLine.Args.SpClientSecret,
+                description: StringUtil.Loc("SpClientSecret"),
+                defaultValue: string.Empty,
+                validator: Validators.NonEmptyValidator);
+        }
+
+        public string GetSpTenantId()
+        {
+            return GetArgOrPrompt(
+                argValue: GetConfigureOrRemoveBase()?.SpTenantId,
+                name: Constants.Agent.CommandLine.Args.SpTenantId,
+                description: StringUtil.Loc("SpTenantId"),
+                defaultValue: string.Empty,
+                validator: Validators.NonEmptyValidator);
+        }
+
         /// <summary>
         /// Returns EnableServiceSidTypeUnrestricted flag or prompts user to set it up
         /// </summary>
