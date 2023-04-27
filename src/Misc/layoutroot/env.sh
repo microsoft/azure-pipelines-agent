@@ -1,13 +1,13 @@
 #!/bin/bash
 
 varCheckList=(
-    'LANG' 
-    'JAVA_HOME' 
-    'ANT_HOME' 
-    'M2_HOME' 
-    'ANDROID_HOME' 
-    'GRADLE_HOME' 
-    'NVM_BIN' 
+    'LANG'
+    'JAVA_HOME'
+    'ANT_HOME'
+    'M2_HOME'
+    'ANDROID_HOME'
+    'GRADLE_HOME'
+    'NVM_BIN'
     'NVM_PATH'
     'VSTS_HTTP_PROXY'
     'VSTS_HTTP_PROXY_USERNAME'
@@ -34,7 +34,7 @@ function writeVar()
         if [ ! -z "${!checkVar}" ]; then
             echo "${checkVar}=${!checkVar}">>.env
         fi
-    fi 
+    fi
 }
 
 echo $PATH>.path

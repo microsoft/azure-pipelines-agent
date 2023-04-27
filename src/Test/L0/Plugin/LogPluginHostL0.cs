@@ -159,7 +159,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.LogPluginHost
             }
         }
 
-        public class TestPluginException : IAgentLogPlugin
+        public class PluginExceptionTest : IAgentLogPlugin
         {
             public string FriendlyName => "TestException";
 
@@ -413,7 +413,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.LogPluginHost
                 AgentLogPluginHostContext hostContext = CreateTestLogPluginHostContext();
                 hostContext.Variables["throw_initialize"] = "1";
 
-                List<IAgentLogPlugin> plugins = new List<IAgentLogPlugin>() { new TestPlugin1(), new TestPluginException() };
+                List<IAgentLogPlugin> plugins = new List<IAgentLogPlugin>() { new TestPlugin1(), new PluginExceptionTest() };
 
                 TestTrace trace = new TestTrace(tc);
                 AgentLogPluginHost logPluginHost = new AgentLogPluginHost(hostContext, plugins, trace);
@@ -447,7 +447,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.LogPluginHost
                 AgentLogPluginHostContext hostContext = CreateTestLogPluginHostContext();
                 hostContext.Variables["throw_process"] = "1";
 
-                List<IAgentLogPlugin> plugins = new List<IAgentLogPlugin>() { new TestPlugin1(), new TestPluginException() };
+                List<IAgentLogPlugin> plugins = new List<IAgentLogPlugin>() { new TestPlugin1(), new PluginExceptionTest() };
 
                 TestTrace trace = new TestTrace(tc);
                 AgentLogPluginHost logPluginHost = new AgentLogPluginHost(hostContext, plugins, trace);

@@ -13,6 +13,7 @@ namespace Test.L0.Plugin.TestResultParser
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA5394:Do not use insecure randomness")]
         public void ListShouldBeBatchedAsPerRequestedSize()
         {
             const int listSize = 2500;
@@ -29,6 +30,7 @@ namespace Test.L0.Plugin.TestResultParser
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA5394: Do not use insecure randomness")]
         public void ListShouldBeBatchedIfSizeIsLessThanBatch()
         {
             const int listSize = 50;
