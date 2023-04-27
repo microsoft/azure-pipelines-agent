@@ -11,6 +11,7 @@ using System;
 using Newtonsoft.Json.Linq;
 using System.Text.RegularExpressions;
 using System.Linq;
+using System.Threading;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
@@ -214,6 +215,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         public string GetNodeLocation()
         {
+            bool useNode16 = AgentKnobs.UseNode16.GetValue(ExecutionContext).AsBoolean();
             bool useNode10 = AgentKnobs.UseNode10.GetValue(ExecutionContext).AsBoolean();
             bool taskHasNode10Data = Data is Node10HandlerData;
             bool taskHasNode16Data = Data is Node16HandlerData;
@@ -234,6 +236,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             {
                 Trace.Info($"Task.json has node10 handler data: {taskHasNode10Data}");
                 nodeFolder = NodeHandler.node10Folder;
+            }
+
+            if (useNode16)
+            {
+                Trace.Info($"Found UseNode16 knob, using node16 for node tasks {useNode16}");
+                nodeFolder = NodeHandler.node16Folder;
             }
 
             if (useNode10)

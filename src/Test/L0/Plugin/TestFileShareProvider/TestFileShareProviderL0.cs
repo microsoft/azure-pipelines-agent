@@ -163,6 +163,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA5394:Do not use insecure randomness")]
         private byte[] GenerateRandomData()
         {
             byte[] data = new byte[1024];
@@ -173,9 +174,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
         private byte[] ComputeHash(string filePath)
         {
-            using (var md5 = MD5.Create())
+            using (SHA256 sha256Hash = SHA256.Create())
             {
-                return md5.ComputeHash(File.ReadAllBytes(filePath));
+                return sha256Hash.ComputeHash(File.ReadAllBytes(filePath));
             }
         }
     }
