@@ -149,7 +149,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
 
             this.HashType ??= ChunkerHelper.DefaultChunkHashType;
             var telemetry = new BlobStoreClientTelemetry(tracer, dedupStoreHttpClient.BaseAddress);
-            Console.WriteLine($"Hashtype: {this.HashType.Value}");
+            traceOutput($"Hashtype: {this.HashType.Value}");
+
+            if (this.HashType == BuildXL.Cache.ContentStore.Hashing.HashType.Dedup1024K)
+            {
+                dedupStoreHttpClient.RecommendedChunkCountPerCall = 10; // This is to workaround IIS limit - https://learn.microsoft.com/en-us/iis/configuration/system.webserver/security/requestfiltering/requestlimits/
+            }
+
             var dedupClient = new DedupStoreClientWithDataport(dedupStoreHttpClient, new DedupStoreClientContext(maxParallelism), this.HashType.Value); 
             return (new DedupManifestArtifactClient(telemetry, dedupClient, tracer), telemetry);
         }
