@@ -120,9 +120,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             var enableSecureArguments = AgentKnobs.ProcessHandlerSecureArguments.GetValue(ExecutionContext).AsBoolean();
             ExecutionContext.Debug($"Enable secure arguments: '{enableSecureArguments}'");
 
-            var enableTelemetry = AgentKnobs.ProcessHandlerTelemetry.GetValue(ExecutionContext).AsBoolean();
-            ExecutionContext.Debug($"Enable telemetry: '{enableSecureArguments}'");
-
             // Resolve cmd.exe.
             string cmdExe = System.Environment.GetEnvironmentVariable("ComSpec");
             if (string.IsNullOrEmpty(cmdExe))
@@ -200,6 +197,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             var (processedArgs, telemetry) = ProcessHandlerHelper.ProcessInputArguments(arguments);
 
             ExecutionContext.Debug(string.Join(System.Environment.NewLine, telemetry.ToDictionary().Select(a => $"{a.Key}: {a.Value}")));
+
+            var enableTelemetry = AgentKnobs.ProcessHandlerTelemetry.GetValue(ExecutionContext).AsBoolean();
+            ExecutionContext.Debug($"Enable telemetry: '{enableTelemetry}'");
+            if (enableTelemetry)
+            {
+                PublishTelemetry(telemetry.ToStringsDictionary());
+            }
 
             System.Environment.SetEnvironmentVariable(inputArgsEnvVarName, processedArgs);
 

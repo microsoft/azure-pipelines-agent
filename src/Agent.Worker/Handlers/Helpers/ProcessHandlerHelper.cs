@@ -152,5 +152,16 @@ namespace Agent.Worker.Handlers.Helpers
                 ["notClosedBraceSyntaxPosition"] = NotClosedEnvSyntaxPosition
             };
         }
+
+        public Dictionary<string, string> ToStringsDictionary()
+        {
+            var dict = ToDictionary();
+            var result = new Dictionary<string, string>();
+            foreach (var key in dict.Keys)
+            {
+                result.Add(key, dict[key].ToString());
+            }
+            return result;
+        }
     };
 }
