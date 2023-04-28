@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk.Knob;
 using Agent.Worker.Handlers.Helpers;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
@@ -25,7 +26,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         private volatile int _errorCount;
         private bool _foundDelimiter;
         private bool _modifyEnvironment;
-        private bool _secureArguments;
         private string _generatedScriptPath;
 
         public ProcessHandlerData Data { get; set; }
@@ -117,8 +117,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             _modifyEnvironment = StringUtil.ConvertToBoolean(Data.ModifyEnvironment);
             ExecutionContext.Debug($"Modify environment: '{_modifyEnvironment}'");
 
-            _secureArguments = StringUtil.ConvertToBoolean(Data.SecureArguments);
-            ExecutionContext.Debug($"Secure arguments: '{_secureArguments}'");
+            var enableSecureArguments = AgentKnobs.ProcessHandlerSecureArguments.GetValue(ExecutionContext).AsBoolean();
+            ExecutionContext.Debug($"Enable secure arguments: '{enableSecureArguments}'");
+
+            var enableTelemetry = AgentKnobs.ProcessHandlerTelemetry.GetValue(ExecutionContext).AsBoolean();
+            ExecutionContext.Debug($"Enable telemetry: '{enableSecureArguments}'");
 
             // Resolve cmd.exe.
             string cmdExe = System.Environment.GetEnvironmentVariable("ComSpec");
@@ -127,13 +130,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 cmdExe = "cmd.exe";
             }
 
-            if (_secureArguments)
+            if (enableSecureArguments)
             {
                 GenerateScriptFile(cmdExe, command, arguments);
             }
 
             // Format the input to be invoked from cmd.exe to enable built-in shell commands. For example, RMDIR.
-            var cmdExeArgs = _secureArguments
+            var cmdExeArgs = enableSecureArguments
                 ? $"/c \"{_generatedScriptPath}"
                 : $"/c \"{command} {arguments}";
 

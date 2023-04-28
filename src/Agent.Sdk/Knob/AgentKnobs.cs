@@ -410,5 +410,19 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AGENT_USE_NODE"),
             new EnvironmentKnobSource("AGENT_USE_NODE"),
             new BuiltInDefaultKnobSource(string.Empty));
+
+        public static readonly Knob ProcessHandlerSecureArguments = new Knob(
+            nameof(ProcessHandlerSecureArguments),
+            "",
+            new RuntimeKnobSource("AGENT_PH_ENABLE_SECURE_ARGUMENTS"),
+            new EnvironmentKnobSource("AGENT_PH_ENABLE_SECURE_ARGUMENTS"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob ProcessHandlerTelemetry = new Knob(
+            nameof(ProcessHandlerTelemetry),
+            "",
+            new RuntimeKnobSource("AGENT_PH_ENABLE_TELEMETRY"),
+            new EnvironmentKnobSource("AGENT_PH_ENABLE_TELEMETRY"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }
