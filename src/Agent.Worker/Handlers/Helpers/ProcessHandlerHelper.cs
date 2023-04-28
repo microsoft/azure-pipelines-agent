@@ -6,13 +6,12 @@ namespace Agent.Worker.Handlers.Helpers
 {
     public static class ProcessHandlerHelper
     {
-        private static string CmdEnvPrefix { get; } = "%";
-        private static string CmdEnvPostfix { get; } = "%";
-
         public static (string, CmdTelemetry) ProcessInputArguments(string inputArgs)
         {
-            char quote = '"';
-            char escapingSymbol = '^';
+            const char quote = '"';
+            const char escapingSymbol = '^';
+            const string envPrefix = "%";
+            const string envPostfix = "%";
 
             string result = inputArgs;
             int startIndex = 0;
@@ -20,7 +19,7 @@ namespace Agent.Worker.Handlers.Helpers
 
             while (true)
             {
-                int prefixIndex = result.IndexOf(CmdEnvPrefix, startIndex);
+                int prefixIndex = result.IndexOf(envPrefix, startIndex);
                 if (prefixIndex < 0)
                 {
                     break;
@@ -61,7 +60,7 @@ namespace Agent.Worker.Handlers.Helpers
                     continue;
                 }
 
-                int envStartIndex = prefixIndex + CmdEnvPrefix.Length;
+                int envStartIndex = prefixIndex + envPrefix.Length;
                 int envEndIndex = FindEnclosingIndex(result, prefixIndex);
                 if (envEndIndex == 0)
                 {
@@ -75,9 +74,9 @@ namespace Agent.Worker.Handlers.Helpers
 
                 if (envName.StartsWith(escapingSymbol))
                 {
-                    var sanitizedEnvName = CmdEnvPrefix + envName[1..] + CmdEnvPostfix;
+                    var sanitizedEnvName = envPrefix + envName[1..] + envPostfix;
 
-                    result = result[..prefixIndex] + sanitizedEnvName + result[(envEndIndex + CmdEnvPostfix.Length)..];
+                    result = result[..prefixIndex] + sanitizedEnvName + result[(envEndIndex + envPostfix.Length)..];
                     startIndex = prefixIndex + sanitizedEnvName.Length;
 
                     telemetry.VariablesStartsFromES++;
@@ -95,7 +94,7 @@ namespace Agent.Worker.Handlers.Helpers
                 }
 
                 var envValue = System.Environment.GetEnvironmentVariable(envName) ?? "";
-                var tail = result[(envEndIndex + CmdEnvPostfix.Length)..];
+                var tail = result[(envEndIndex + envPostfix.Length)..];
 
                 result = head + envValue + tail;
                 startIndex = prefixIndex + envValue.Length;
