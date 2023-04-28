@@ -40,6 +40,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             set => _jobServerQueue = value;
         }
+
         public async Task<TaskResult> RunAsync(Pipelines.AgentJobRequestMessage message, CancellationToken jobRequestCancellationToken)
         {
             // Validate parameters.
@@ -83,9 +84,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             VssConnection jobConnection = VssUtil.CreateConnection(
                 jobServerUrl,
                 jobServerCredential,
-                trace: Trace,
+                Trace,
                 new DelegatingHandler[] { new ThrottlingReportHandler(_jobServerQueue) }
-                );
+            );
             await jobServer.ConnectAsync(jobConnection);
 
             _jobServerQueue.Start(message);

@@ -26,7 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         public async Task AddAsync(string localPath)
         {
             ArgUtil.NotNullOrEmpty(localPath, nameof(localPath));
-            await RunPorcelainCommandAsync(FormatFlags.OmitCollectionUrl, "add", localPath);
+            await RunPorcelainCommandAsync(FormatTags.OmitCollectionUrl, "add", localPath);
         }
 
         public void CleanupProxySetting()
@@ -36,13 +36,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public async Task EulaAsync()
         {
-            await RunCommandAsync(FormatFlags.All, "eula", "-accept");
+            await RunCommandAsync(FormatTags.All, "eula", "-accept");
         }
 
         public async Task GetAsync(string localPath)
         {
             ArgUtil.NotNullOrEmpty(localPath, nameof(localPath));
-            await RunCommandAsync(FormatFlags.OmitCollectionUrl, "get", $"-version:{SourceVersion}", "-recursive", "-overwrite", localPath);
+            await RunCommandAsync(FormatTags.OmitCollectionUrl, "get", $"-version:{SourceVersion}", "-recursive", "-overwrite", localPath);
         }
 
         public string ResolvePath(string serverPath)
@@ -131,11 +131,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // TODO: Remove parameter move after last-saved-checkin-metadata problem is fixed properly.
             if (move)
             {
-                await RunPorcelainCommandAsync(FormatFlags.OmitCollectionUrl, "shelve", $"-workspace:{WorkspaceName}", "-move", "-replace", "-recursive", $"-comment:@{commentFile}", shelveset);
+                await RunPorcelainCommandAsync(FormatTags.OmitCollectionUrl, "shelve", $"-workspace:{WorkspaceName}", "-move", "-replace", "-recursive", $"-comment:@{commentFile}", shelveset);
                 return;
             }
 
-            await RunPorcelainCommandAsync(FormatFlags.OmitCollectionUrl, "shelve", $"-workspace:{WorkspaceName}", "-saved", "-replace", "-recursive", $"-comment:@{commentFile}", shelveset);
+            await RunPorcelainCommandAsync(FormatTags.OmitCollectionUrl, "shelve", $"-workspace:{WorkspaceName}", "-saved", "-replace", "-recursive", $"-comment:@{commentFile}", shelveset);
         }
 
         public async Task<ITfsVCShelveset> ShelvesetsAsync(string shelveset)
@@ -162,7 +162,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         public async Task<ITfsVCStatus> StatusAsync(string localPath)
         {
             ArgUtil.NotNullOrEmpty(localPath, nameof(localPath));
-            string output = await RunPorcelainCommandAsync(FormatFlags.OmitCollectionUrl, "status", "-recursive", "-nodetect", "-format:xml", localPath);
+            string output = await RunPorcelainCommandAsync(FormatTags.OmitCollectionUrl, "status", "-recursive", "-nodetect", "-format:xml", localPath);
             string xml = ExtractXml(output);
             var serializer = new XmlSerializer(typeof(TeeStatus));
             using (var reader = new StringReader(xml ?? string.Empty))
@@ -226,7 +226,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         public async Task UndoAsync(string localPath)
         {
             ArgUtil.NotNullOrEmpty(localPath, nameof(localPath));
-            await RunCommandAsync(FormatFlags.OmitCollectionUrl, "undo", "-recursive", localPath);
+            await RunCommandAsync(FormatTags.OmitCollectionUrl, "undo", "-recursive", localPath);
         }
 
         public async Task UnshelveAsync(string shelveset)
@@ -278,7 +278,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             args.Add("-format:xml");
 
             // Run the command.
-            TfsVCPorcelainCommandResult result = await TryRunPorcelainCommandAsync(FormatFlags.None, false, args.ToArray());
+            TfsVCPorcelainCommandResult result = await TryRunPorcelainCommandAsync(FormatTags.None, false, args.ToArray());
             ArgUtil.NotNull(result, nameof(result));
             if (result.Exception != null)
             {
