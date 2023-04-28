@@ -71,22 +71,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
         // At 192x it was around 16 seconds and 256x was no faster.
         private const int DefaultDedupStoreClientMaxParallelism = 192;
 
-        //public Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client? Client { get; }
-
         private HashType? HashType { get; set; }
 
         public static readonly DedupManifestArtifactClientFactory Instance = new DedupManifestArtifactClientFactory();
-
-        /*public static void Initialize(Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client client, HashType? hashType)
-        {
-            //System.Diagnostics.Debugger.Launch();
-            if (_instance != null)
-            {
-                throw new InvalidOperationException("The instance is already initialized.");
-            }
-
-            _instance = new DedupManifestArtifactClientFactory(client, hashType);
-        }*/
 
         private DedupManifestArtifactClientFactory()
         {
