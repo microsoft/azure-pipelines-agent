@@ -25,6 +25,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             VssConnection connection,
             int maxParallelism,
             IDomainId domainId,
+            BlobStore.WebApi.Contracts.Client client,
             CancellationToken cancellationToken)
         {
             telemetrySender = new TestTelemetrySender();
