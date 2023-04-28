@@ -155,9 +155,6 @@ namespace Agent.Plugins
             {
                 try
                 {
-                    DedupManifestArtifactClientFactory.Initialize(
-                        client: Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.BuildArtifact,
-                        hashType: null);
                     (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupClientAsync(
                         false, (str) => this.tracer.Info(str), this.connection, DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context), cancellationToken);
                 }

@@ -55,9 +55,6 @@ namespace Agent.Plugins.PipelineArtifact
 
             if (Directory.Exists(fileSharePath))
             {
-                DedupManifestArtifactClientFactory.Initialize(
-                        client: Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.FileShare,
-                        hashType: null);
                 FileShareProvider provider = new FileShareProvider(context, connection, context.CreateArtifactsTracer(), DedupManifestArtifactClientFactory.Instance);
                 await provider.PublishArtifactAsync(targetPath, artifactPath, parallelCount, token);
                 context.Output(StringUtil.Loc("CopyFileComplete", artifactPath));

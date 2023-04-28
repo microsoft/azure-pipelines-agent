@@ -42,10 +42,6 @@ namespace Agent.Plugins
             CancellationToken cancellationToken)
         {
             VssConnection connection = context.VssConnection;
-
-            DedupManifestArtifactClientFactory.Initialize(
-                client: Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
-                hashType: null);
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
                 .CreateDedupManifestClientAsync(
                     context.IsSystemDebugTrue(),
@@ -53,6 +49,7 @@ namespace Agent.Plugins
                     connection,
                     DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
                     WellKnownDomainIds.DefaultDomainId,
+                    Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
                     cancellationToken);
 
             using (clientTelemetry)
@@ -176,16 +173,6 @@ namespace Agent.Plugins
                 }
                 else
                 {
-                    var hashType = ChunkerHelper.DefaultChunkHashType;
-                    if (!HashTypeExtensions.Deserialize(pipelineArtifacts.First().Resource.Properties[PipelineArtifactConstants.HashType], out hashType))
-                    {
-                        context.Output($"Failed to deserialize hashType for {pipelineArtifacts.First().Name}");
-                    }
-
-                    DedupManifestArtifactClientFactory.Initialize(
-                        client: Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
-                        hashType: hashType);
-
                     var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
                         .CreateDedupManifestClientAsync(
                         context.IsSystemDebugTrue(),
@@ -193,6 +180,7 @@ namespace Agent.Plugins
                         connection,
                         DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
                         WellKnownDomainIds.DefaultDomainId,
+                        Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
                         cancellationToken);
 
                     context.Output(StringUtil.Loc("DownloadingMultiplePipelineArtifacts", pipelineArtifacts.Count()));
@@ -264,16 +252,6 @@ namespace Agent.Plugins
                     minimatchPatterns: downloadParameters.MinimatchFilters,
                     customMinimatchOptions: downloadParameters.CustomMinimatchOptions);
 
-                var hashType = ChunkerHelper.DefaultChunkHashType;
-                if (!HashTypeExtensions.Deserialize(buildArtifact.Resource.Properties[PipelineArtifactConstants.HashType], out hashType))
-                {
-                    context.Output($"Failed to deserialize hashType for {buildArtifact.Name}");
-                }
-
-                DedupManifestArtifactClientFactory.Initialize(
-                    client: Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
-                    hashType: hashType);
-
                 var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
                         .CreateDedupManifestClientAsync(
                         context.IsSystemDebugTrue(),
@@ -281,6 +259,7 @@ namespace Agent.Plugins
                         connection,
                         DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
                         WellKnownDomainIds.DefaultDomainId,
+                        Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
                         cancellationToken);
 
                 PipelineArtifactActionRecord downloadRecord = clientTelemetry.CreateRecord<PipelineArtifactActionRecord>((level, uri, type) =>
@@ -363,9 +342,6 @@ namespace Agent.Plugins
 
                 if (fileShareArtifacts.Any())
                 {
-                    DedupManifestArtifactClientFactory.Initialize(
-                        client: Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.FileShare,
-                        hashType: null);
                     FileShareProvider provider = new FileShareProvider(context, connection, this.tracer, DedupManifestArtifactClientFactory.Instance);
                     await provider.DownloadMultipleArtifactsAsync(downloadParameters, fileShareArtifacts, cancellationToken, context);
                 }

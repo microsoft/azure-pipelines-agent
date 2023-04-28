@@ -43,9 +43,6 @@ namespace Agent.Plugins
             {
                 if (fileShareProvider is null)
                 {
-                    DedupManifestArtifactClientFactory.Initialize(
-                        client: Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.FileShare,
-                        hashType: null);
                     fileShareProvider = new FileShareProvider(this._context, this._connection, this._tracer, DedupManifestArtifactClientFactory.Instance);
                 }
                 return fileShareProvider;
