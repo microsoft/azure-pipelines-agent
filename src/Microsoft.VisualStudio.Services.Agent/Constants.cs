@@ -105,8 +105,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public const string UserName = "username";
                     public const string WindowsLogonAccount = "windowslogonaccount";
                     public const string Work = "work";
-                    public const string SpClientId = "sp-clientid";
-                    public const string SpTenantId = "sp-tenantid";
+                    public const string ClientId = "clientid";
+                    public const string TenantId = "tenantid";
 
                     // Secret args. Must be added to the "Secrets" getter as well.
                     public const string Password = "password";
@@ -114,7 +114,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public const string SslClientCertPassword = "sslclientcertpassword";
                     public const string Token = "token";
                     public const string WindowsLogonPassword = "windowslogonpassword";
-                    public const string SpClientSecret = "sp-clientsecret";
+                    public const string ClientSecret = "clientsecret";
 
                     public static string[] Secrets => new[]
                     {
@@ -123,7 +123,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                         SslClientCertPassword,
                         Token,
                         WindowsLogonPassword,
-                        SpClientSecret,
+                        ClientSecret,
                     };
                 }
 

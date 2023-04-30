@@ -206,32 +206,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 defaultValue: true);
         }
 
-        public string GetSpClientId()
+        public string GetClientId()
         {
             return GetArgOrPrompt(
-                argValue: GetConfigureOrRemoveBase()?.SpClientId,
-                name: Constants.Agent.CommandLine.Args.SpClientId,
-                description: StringUtil.Loc("SpClientId"),
+                argValue: GetConfigureOrRemoveBase()?.ClientId,
+                name: Constants.Agent.CommandLine.Args.ClientId,
+                description: StringUtil.Loc("ClientId"),
                 defaultValue: string.Empty,
                 validator: Validators.NonEmptyValidator);
         }
 
-        public string GetSpClientSecret()
+        public string GetClientSecret()
         {
             return GetArgOrPrompt(
-                argValue: GetConfigureOrRemoveBase()?.SpClientSecret,
-                name: Constants.Agent.CommandLine.Args.SpClientSecret,
-                description: StringUtil.Loc("SpClientSecret"),
+                argValue: GetConfigureOrRemoveBase()?.ClientSecret,
+                name: Constants.Agent.CommandLine.Args.ClientSecret,
+                description: StringUtil.Loc("ClientSecret"),
                 defaultValue: string.Empty,
                 validator: Validators.NonEmptyValidator);
         }
 
-        public string GetSpTenantId()
+        public string GetTenantId()
         {
             return GetArgOrPrompt(
-                argValue: GetConfigureOrRemoveBase()?.SpTenantId,
-                name: Constants.Agent.CommandLine.Args.SpTenantId,
-                description: StringUtil.Loc("SpTenantId"),
+                argValue: GetConfigureOrRemoveBase()?.TenantId,
+                name: Constants.Agent.CommandLine.Args.TenantId,
+                description: StringUtil.Loc("TenantId"),
                 defaultValue: string.Empty,
                 validator: Validators.NonEmptyValidator);
         }

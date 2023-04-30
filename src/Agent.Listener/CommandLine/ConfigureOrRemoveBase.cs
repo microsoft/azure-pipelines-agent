@@ -23,13 +23,13 @@ namespace Agent.Listener.CommandLine
         [Option(Constants.Agent.CommandLine.Args.UserName)]
         public string UserName { get; set; }
 
-        [Option(Constants.Agent.CommandLine.Args.SpClientId)]
-        public string SpClientId { get; set; }
+        [Option(Constants.Agent.CommandLine.Args.ClientId)]
+        public string ClientId { get; set; }
 
-        [Option(Constants.Agent.CommandLine.Args.SpTenantId)]
-        public string SpTenantId { get; set; }
+        [Option(Constants.Agent.CommandLine.Args.TenantId)]
+        public string TenantId { get; set; }
 
-        [Option(Constants.Agent.CommandLine.Args.SpClientSecret)]
-        public string SpClientSecret { get; set; }
+        [Option(Constants.Agent.CommandLine.Args.ClientSecret)]
+        public string ClientSecret { get; set; }
     }
 }

@@ -326,15 +326,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Tracing trace = context.GetTrace(nameof(ServicePrincipalCredential));
             trace.Info(nameof(GetVssCredentials));
 
-            CredentialData.Data.TryGetValue(Constants.Agent.CommandLine.Args.SpTenantId, out string tenantId);
+            CredentialData.Data.TryGetValue(Constants.Agent.CommandLine.Args.TenantId, out string tenantId);
             ArgUtil.NotNullOrEmpty(tenantId, nameof(tenantId));
             trace.Info("tenant id retrieved: {0} chars", tenantId.Length);
 
-            CredentialData.Data.TryGetValue(Constants.Agent.CommandLine.Args.SpClientId, out string clientId);
+            CredentialData.Data.TryGetValue(Constants.Agent.CommandLine.Args.ClientId, out string clientId);
             ArgUtil.NotNullOrEmpty(clientId, nameof(clientId));
             trace.Info("client id retrieved: {0} chars", clientId.Length);
 
-            CredentialData.Data.TryGetValue(Constants.Agent.CommandLine.Args.SpClientSecret, out string clientSecret);
+            CredentialData.Data.TryGetValue(Constants.Agent.CommandLine.Args.ClientSecret, out string clientSecret);
             ArgUtil.NotNullOrEmpty(clientSecret, nameof(clientSecret));
             trace.Info("client secret retrieved: {0} chars", clientSecret.Length);
 
@@ -357,9 +357,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Tracing trace = context.GetTrace(nameof(ServicePrincipalCredential));
             trace.Info(nameof(EnsureCredential));
             ArgUtil.NotNull(command, nameof(command));
-            CredentialData.Data[Constants.Agent.CommandLine.Args.SpClientId] = command.GetSpClientId();
-            CredentialData.Data[Constants.Agent.CommandLine.Args.SpTenantId] = command.GetSpTenantId();
-            CredentialData.Data[Constants.Agent.CommandLine.Args.SpClientSecret] = command.GetSpClientSecret();
+            CredentialData.Data[Constants.Agent.CommandLine.Args.ClientId] = command.GetClientId();
+            CredentialData.Data[Constants.Agent.CommandLine.Args.TenantId] = command.GetTenantId();
+            CredentialData.Data[Constants.Agent.CommandLine.Args.ClientSecret] = command.GetClientSecret();
         }
     }
 }
