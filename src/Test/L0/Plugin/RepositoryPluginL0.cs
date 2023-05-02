@@ -15,6 +15,7 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Moq;
 using Newtonsoft.Json.Linq;
 using Xunit;
+using static Microsoft.VisualStudio.Services.Agent.Tests.LogPluginHost.LogPluginHostL0;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
@@ -264,6 +265,52 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                 File.Copy(tc.TraceFileName, temp);
                 Assert.True(File.ReadAllText(temp).Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]{actualPath}"));
             }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public void RepositoryPlugin_HandleProxyConfig()
+        {
+            using TestHostContext tc = new TestHostContext(this);
+            TestTrace trace = new TestTrace(tc);
+            var proxyUrl = "http://example.com:80";
+            var proxyUser = "proxy_user";
+            var proxyPassword = "proxy_password";
+
+            AgentTaskPluginExecutionContext hostContext = new AgentTaskPluginExecutionContext()
+            {
+                Endpoints = new List<ServiceEndpoint>(),
+                Inputs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                   
+                },
+                Repositories = new List<Pipelines.RepositoryResource>(),
+                Variables = new Dictionary<string, VariableValue>(StringComparer.OrdinalIgnoreCase)
+                {
+                    { AgentWebProxySettings.AgentProxyUrlKey, proxyUrl },
+                    { AgentWebProxySettings.AgentProxyUsernameKey, proxyUser },
+                    { AgentWebProxySettings.AgentProxyPasswordKey, proxyPassword },
+
+                }
+            };
+            var systemConnection = new ServiceEndpoint()
+            {
+                Name = WellKnownServiceEndpointNames.SystemVssConnection,
+                Id = Guid.NewGuid(),
+                Url = new Uri("https://dev.azure.com/test"),
+                Authorization = new EndpointAuthorization()
+                {
+                    Scheme = EndpointAuthorizationSchemes.OAuth,
+                    Parameters = { { EndpointAuthorizationParameters.AccessToken, "Test" } }
+                }
+            };
+
+            hostContext.Endpoints.Add(systemConnection);
+            Assert.NotNull(hostContext.VssConnection);
+            Assert.Equal(hostContext.WebProxySettings.ProxyAddress, proxyUrl);
+            Assert.Equal(hostContext.WebProxySettings.ProxyUsername, proxyUser);
+            Assert.Equal(hostContext.WebProxySettings.ProxyPassword, proxyPassword);
         }
 
         [Fact]
