@@ -317,8 +317,10 @@ namespace Agent.Sdk
             string serverFileUrl = "https://raw.githubusercontent.com/microsoft/azure-pipelines-agent/master/src/Agent.Listener/net6.json";
             string supportOSfilePath = Path.Combine(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "net6.json");
             string supportOSfileContent;
+            bool supportOSfileExists = File.Exists(supportOSfilePath);
 
-            if (!File.Exists(supportOSfilePath) || File.GetLastWriteTimeUtc(supportOSfilePath) < DateTime.UtcNow.AddHours(-1))
+            if ((!supportOSfileExists || File.GetLastWriteTimeUtc(supportOSfilePath) < DateTime.UtcNow.AddHours(-1))
+                && AgentKnobs.EnableFetchingNet6List.GetValue(_knobContext).AsBoolean())
             {
                 HttpResponseMessage response = await httpClient.GetAsync(serverFileUrl);
                 if (!response.IsSuccessStatusCode)
@@ -333,6 +335,11 @@ namespace Agent.Sdk
                 if (net6SupportedSystems != null)
                 {
                     return net6SupportedSystems;
+                }
+
+                if (!supportOSfileExists)
+                {
+                    throw new FileNotFoundException("File with list of systems supporting .NET 6 is absent", supportOSfilePath);
                 }
 
                 supportOSfileContent = await File.ReadAllTextAsync(supportOSfilePath);
@@ -384,7 +391,7 @@ namespace Agent.Sdk
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // Logging exception will be handled by JobRunner
                 throw;
@@ -404,7 +411,7 @@ namespace Agent.Sdk
                 if (metadataProvider.HasMetadata())
                     isAzureVM = true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // Logging exception will be handled by JobRunner
                 throw;

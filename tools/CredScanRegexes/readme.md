@@ -9,7 +9,7 @@ We have secured permission to ship a small subset of CredScan -- its set of batt
 This tool extracts the regexes from CredScan's knowledge base and outputs them in a format suitable for shipping with the agent.
 
 Requirements:
-- .NET Core 3.1 or higher
+- .NET 6.0 or higher
 - The [Azure Artifacts credential provider](https://github.com/Microsoft/artifacts-credprovider)
 - Access to the "msazure" org's [CredScanSDK feed](https://msazure.visualstudio.com/One/_packaging?_a=feed&feed=CredScanSDK)
 

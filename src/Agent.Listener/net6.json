@@ -48,6 +48,14 @@
     ]
   },
   {
+    "id": "mariner",
+    "versions": [
+      {
+        "name": "1.0+"
+      }
+    ]
+  },
+  {
     "id": "opensuse-leap",
     "versions": [
       {

@@ -58,15 +58,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         {
             var lsm = new LoggedSecretMasker(_secretMasker)
             {
-                MinSecretLength = 3
+                MinSecretLength = LoggedSecretMasker.MinSecretLengthLimit
             };
-            var inputMessage = "123456";
+            var inputMessage = "1234567";
 
-            lsm.AddValue("123");
-            lsm.RemoveShortSecretsFromDictionary();
+            lsm.AddValue("12345");
             var resultMessage = lsm.MaskSecrets(inputMessage);
 
-            Assert.Equal("***456", resultMessage);
+            Assert.Equal("1234567", resultMessage);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "SecretMasker")]
+        public void LoggedSecretMasker_ShortSecret_Removes_From_Dictionary_BoundaryValue2()
+        {
+            var lsm = new LoggedSecretMasker(_secretMasker)
+            {
+                MinSecretLength = LoggedSecretMasker.MinSecretLengthLimit
+            };
+            var inputMessage = "1234567";
+
+            lsm.AddValue("123456");
+            var resultMessage = lsm.MaskSecrets(inputMessage);
+
+            Assert.Equal("***7", resultMessage);
         }
 
         [Fact]
@@ -88,24 +104,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "SecretMasker")]
-        public void LoggedSecretMasker_Throws_Exception_If_Large_MinSecretLength_Specified()
-        {
-            var lsm = new LoggedSecretMasker(_secretMasker);
-
-            Assert.Throws<ArgumentException>(() => lsm.MinSecretLength = 5);
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_Sets_MinSecretLength_To_MaxValue()
         {
             var lsm = new LoggedSecretMasker(_secretMasker);
+            var expectedMinSecretsLengthValue = LoggedSecretMasker.MinSecretLengthLimit;
 
-            try { lsm.MinSecretLength = 5; }
-            catch (ArgumentException) { }
+            lsm.MinSecretLength = LoggedSecretMasker.MinSecretLengthLimit + 1;
 
-            Assert.Equal(4, lsm.MinSecretLength);
+            Assert.Equal(expectedMinSecretsLengthValue, lsm.MinSecretLength);
         }
 
         [Fact]

@@ -55,7 +55,7 @@ namespace Agent.Sdk.Util
                 throw new ObjectDisposedException(nameof(AzureInstanceMetadataProvider));
             }
 
-            HttpRequestMessage request = BuildRequest($"{_azureMetadataEndpoint}/{category}", parameters);
+            using HttpRequestMessage request = BuildRequest($"{_azureMetadataEndpoint}/{category}", parameters);
             HttpResponseMessage response = _client.SendAsync(request).Result;
 
             if (!response.IsSuccessStatusCode)

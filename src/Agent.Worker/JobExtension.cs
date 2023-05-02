@@ -72,6 +72,52 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     context.Start();
                     context.Section(StringUtil.Loc("StepStarting", StringUtil.Loc("InitializeJob")));
 
+                    // Check if a system supports .NET 6
+                    PackageVersion agentVersion = new PackageVersion(BuildConstants.AgentPackage.Version);
+                    if (agentVersion.Major < 3)
+                    {
+                        try
+                        {
+                            Trace.Verbose("Checking if your system supports .NET 6");
+
+                            string systemId = PlatformUtil.GetSystemId();
+                            SystemVersion systemVersion = PlatformUtil.GetSystemVersion();
+                            string notSupportNet6Message = null;
+
+                            if (await PlatformUtil.DoesSystemPersistsInNet6Whitelist())
+                            {
+                                // Check version of the system
+                                if (!await PlatformUtil.IsNet6Supported())
+                                {
+                                    notSupportNet6Message = $"The operating system the agent is running on is \"{systemId}\" ({systemVersion}), which will not be supported by the .NET 6 based v3 agent. Please upgrade the operating system of this host to ensure compatibility with the v3 agent. See https://aka.ms/azdo-pipeline-agent-version";
+                                    if (AgentKnobs.AgentFailOnIncompatibleOS.GetValue(jobContext).AsBoolean() &&
+                                        !AgentKnobs.AcknowledgeNoUpdates.GetValue(jobContext).AsBoolean())
+                                    {
+                                        throw new UnsupportedOsException(StringUtil.Loc("FailAgentOnUnsupportedOs"));
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                notSupportNet6Message = $"The operating system the agent is running on is \"{systemId}\" ({systemVersion}), which has not been tested with the .NET 6 based v3 agent. The v2 agent wil not automatically upgrade to the v3 agent. You can manually download the .NET 6 based v3 agent from https://github.com/microsoft/azure-pipelines-agent/releases. See https://aka.ms/azdo-pipeline-agent-version";
+                            }
+
+                            if (!string.IsNullOrWhiteSpace(notSupportNet6Message))
+                            {
+                                context.Warning(notSupportNet6Message);
+                            }
+                        }
+                        catch (UnsupportedOsException)
+                        {
+                            throw;
+                        }
+                        catch (Exception ex)
+                        {
+                            Trace.Error($"Error has occurred while checking if system supports .NET 6: {ex}");
+                            context.Warning(ex.Message);
+                        }
+                    }
+
                     // Set agent version variable.
                     context.SetVariable(Constants.Variables.Agent.Version, BuildConstants.AgentPackage.Version);
                     context.Output(StringUtil.Loc("AgentNameLog", context.Variables.Get(Constants.Variables.Agent.Name)));
@@ -99,6 +145,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     // Give job extension a chance to initialize
                     Trace.Info($"Run initial step from extension {this.GetType().Name}.");
                     InitializeJobExtension(context, message?.Steps, message?.Workspace);
+
+                    if (AgentKnobs.ForceCreateTasksDirectory.GetValue(context).AsBoolean())
+                    {
+                        var tasksDir = HostContext.GetDirectory(WellKnownDirectory.Tasks);
+                        try
+                        {
+                            Trace.Info($"Pre-creating {tasksDir} directory");
+                            Directory.CreateDirectory(tasksDir);
+                            IOUtil.ValidateExecutePermission(tasksDir);
+                        }
+                        catch (Exception ex)
+                        {
+                            Trace.Error(ex);
+                            context.Error(ex);
+                        }
+                    }
 
                     // Download tasks if not already in the cache
                     Trace.Info("Downloading task definitions.");
@@ -591,5 +653,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Trace.Error(ex);
             }
         }
+    }
+
+    public class UnsupportedOsException : Exception
+    {
+        public UnsupportedOsException(string message) : base(message) { }
     }
 }

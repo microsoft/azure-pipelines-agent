@@ -36,6 +36,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
     }
 
+    public static class TaskCommandHelper
+    {
+        public static void AddSecret(IExecutionContext context, string value, string origin)
+        {
+            if (!string.IsNullOrEmpty(value))
+            {
+                context.GetHostContext().SecretMasker.AddValue(value, origin);
+
+                // if DECODE_PERCENTS = false then we need to add decoded value as a secret as well to prevent its exposion in logs
+                var unescapePercents = AgentKnobs.DecodePercents.GetValue(context).AsBoolean();
+                if (!unescapePercents)
+                {
+                    context.GetHostContext().SecretMasker.AddValue(CommandStringConvertor.Unescape(value, true), origin);
+                }
+            }
+        }
+    }
+
     [CommandRestriction(AllowedInRestrictedMode = true)]
     public sealed class TaskDetailCommand : IWorkerCommand
     {
@@ -536,11 +554,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(command, nameof(command));
 
-            var data = command.Data;
-            if (!string.IsNullOrEmpty(data))
-            {
-                context.GetHostContext().SecretMasker.AddValue(data, WellKnownSecretAliases.TaskSetSecretCommand);
-            }
+            TaskCommandHelper.AddSecret(context, command.Data, WellKnownSecretAliases.TaskSetSecretCommand);
         }
     }
 
@@ -611,7 +625,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 var unescapePercents = AgentKnobs.DecodePercents.GetValue(context).AsBoolean();
                 var commandEscapeData = CommandStringConvertor.Escape(command.Data, unescapePercents);
-                context.GetHostContext().SecretMasker.AddValue(commandEscapeData, WellKnownSecretAliases.TaskSetVariableCommand);
+                TaskCommandHelper.AddSecret(context, commandEscapeData, WellKnownSecretAliases.TaskSetVariableCommand);
             }
 
             var checker = context.GetHostContext().GetService<ITaskRestrictionsChecker>();
@@ -727,7 +741,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Mask auth parameter data upfront to avoid accidental secret exposure by invalid endpoint/key/data
             if (String.Equals(field, "authParameter", StringComparison.OrdinalIgnoreCase))
             {
-                context.GetHostContext().SecretMasker.AddValue(data, WellKnownSecretAliases.TaskSetEndpointCommandAuthParameter);
+                TaskCommandHelper.AddSecret(context, data, WellKnownSecretAliases.TaskSetEndpointCommandAuthParameter);
             }
 
             String endpointIdInput;

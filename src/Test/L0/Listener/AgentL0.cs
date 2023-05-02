@@ -66,6 +66,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
         //process 2 new job messages, and one cancel message
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope")]
         public async void TestRunAsync()
         {
             using (var hc = new TestHostContext(this))
@@ -703,6 +704,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
         //process 1 job message and one metadata message
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope")]
         public async void TestMetadataUpdate()
         {
             using (var hc = new TestHostContext(this))

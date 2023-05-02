@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
@@ -262,8 +263,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 var buildLogsJobFolder = Path.Combine(_buildLogsFolderPath, _mainTimelineId.ToString());
                 Directory.CreateDirectory(buildLogsJobFolder);
+                string pattern = new string(Path.GetInvalidFileNameChars()) + new string(Path.GetInvalidPathChars());
+                Regex regex = new Regex(string.Format("[{0}]", Regex.Escape(pattern)));
+                var recordName = regex.Replace(_record.Name, string.Empty);
 
-                _buildLogsFile = Path.Combine(buildLogsJobFolder, $"{_record.Name}-{_record.Id.ToString()}.log");
+                _buildLogsFile = Path.Combine(buildLogsJobFolder, $"{recordName}-{_record.Id.ToString()}.log");
                 _buildLogsData = new FileStream(_buildLogsFile, FileMode.CreateNew);
                 _buildLogsWriter = new StreamWriter(_buildLogsData, System.Text.Encoding.UTF8);
 
@@ -293,6 +297,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             if (_totalThrottlingDelayInMilliseconds > 0)
             {
                 this.Warning(StringUtil.Loc("TotalThrottlingDelay", TimeSpan.FromMilliseconds(_totalThrottlingDelayInMilliseconds).TotalSeconds));
+            }
+
+            if (!AgentKnobs.DisableDrainQueuesAfterTask.GetValue(this).AsBoolean())
+            {
+                _jobServerQueue.ForceDrainWebConsoleQueue = true;
+                _jobServerQueue.ForceDrainTimelineQueue = true;
             }
 
             _record.CurrentOperation = currentOperation ?? _record.CurrentOperation;
@@ -518,25 +528,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Prepend Path
             PrependPath = new List<string>();
 
+            var minSecretLen = AgentKnobs.MaskedSecretMinLength.GetValue(this).AsInt();
+            HostContext.SecretMasker.MinSecretLength = minSecretLen;
+
+            if (HostContext.SecretMasker.MinSecretLength < minSecretLen)
+            {
+                warnings.Add(StringUtil.Loc("MinSecretsLengtLimitWarning", HostContext.SecretMasker.MinSecretLength));
+            }
+
+            HostContext.SecretMasker.RemoveShortSecretsFromDictionary();
+
             // Docker (JobContainer)
             string imageName = Variables.Get("_PREVIEW_VSTS_DOCKER_IMAGE");
             if (string.IsNullOrEmpty(imageName))
             {
                 imageName = Environment.GetEnvironmentVariable("_PREVIEW_VSTS_DOCKER_IMAGE");
             }
-
-            var minSecretLen = AgentKnobs.MaskedSecretMinLength.GetValue(this).AsInt();
-
-            try
-            {
-                this.HostContext.SecretMasker.MinSecretLength = minSecretLen;
-            }
-            catch (ArgumentException ex)
-            {
-                warnings.Add(ex.Message);
-            }
-
-            this.HostContext.SecretMasker.RemoveShortSecretsFromDictionary();
 
             Containers = new List<ContainerInfo>();
             _defaultStepTarget = null;

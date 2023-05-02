@@ -10,9 +10,9 @@ CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
 NODE_URL=https://nodejs.org/dist
 NODE_VERSION="6.17.1"
 NODE10_VERSION="10.24.1"
-NODE16_VERSION="16.17.1"
+NODE16_VERSION="16.20.0"
 MINGIT_VERSION="2.39.1"
-LFS_VERSION="2.13.3"
+LFS_VERSION="3.3.0"
 
 get_abs_path() {
   # exploits the fact that pwd will print abs path when no args
@@ -190,13 +190,22 @@ if [[ "$PACKAGERUNTIME" == "osx-x64" ]]; then
     acquireExternalTool "$NODE_URL/v${NODE16_VERSION}/node-v${NODE16_VERSION}-darwin-x64.tar.gz" node16 fix_nested_dir
 fi
 
+
+if [[ "$PACKAGERUNTIME" == "osx-arm64" ]]; then
+    if [[ "$INCLUDE_NODE6" == "true" ]]; then
+        acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-darwin-x64.tar.gz" node fix_nested_dir
+    fi
+    acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-darwin-x64.tar.gz" node10 fix_nested_dir
+    acquireExternalTool "$NODE_URL/v${NODE16_VERSION}/node-v${NODE16_VERSION}-darwin-arm64.tar.gz" node16 fix_nested_dir
+fi
+
 # Download the external tools common across OSX and Linux PACKAGERUNTIMEs.
-if [[ "$PACKAGERUNTIME" == "linux-x64" || "$PACKAGERUNTIME" == "linux-arm" || "$PACKAGERUNTIME" == "linux-arm64" || "$PACKAGERUNTIME" == "osx-x64" || "$PACKAGERUNTIME" == "rhel.6-x64" ]]; then
+if [[ "$PACKAGERUNTIME" == "linux-x64" || "$PACKAGERUNTIME" == "linux-arm" || "$PACKAGERUNTIME" == "linux-arm64" || "$PACKAGERUNTIME" == "osx-x64" || "$PACKAGERUNTIME" == "osx-arm64" || "$PACKAGERUNTIME" == "rhel.7.2-x64" ]]; then
     acquireExternalTool "$CONTAINER_URL/vso-task-lib/0.5.5/vso-task-lib.tar.gz" vso-task-lib
 fi
 
 # Download the external tools common across Linux PACKAGERUNTIMEs (excluding OSX).
-if [[ "$PACKAGERUNTIME" == "linux-x64" || "$PACKAGERUNTIME" == "rhel.6-x64" ]]; then
+if [[ "$PACKAGERUNTIME" == "linux-x64" || "$PACKAGERUNTIME" == "rhel.7.2-x64" ]]; then
     if [[ "$INCLUDE_NODE6" == "true" ]]; then
         acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz" node fix_nested_dir
     fi
@@ -235,6 +244,13 @@ if [[ "$PACKAGERUNTIME" != "win-x64" && "$PACKAGERUNTIME" != "win-x86" ]]; then
     rm "$LAYOUT_DIR/externals/node16/bin/npm"
     rm "$LAYOUT_DIR/externals/node16/bin/npx"
     rm "$LAYOUT_DIR/externals/node16/bin/corepack"
+fi
+
+if [[ "$PACKAGERUNTIME" != "win-x64" && "$PACKAGERUNTIME" != "win-x86" ]]; then
+    rm -rf "$LAYOUT_DIR/externals/node/lib/node_modules/npm"
+    rm "$LAYOUT_DIR/externals/node/bin/npm"
+    rm -rf "$LAYOUT_DIR/externals/node10/lib/node_modules/npm"
+    rm "$LAYOUT_DIR/externals/node10/bin/npm"
 fi
 
 if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
