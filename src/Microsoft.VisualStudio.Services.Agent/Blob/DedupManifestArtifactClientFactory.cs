@@ -73,7 +73,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
 
         private HashType? HashType { get; set; }
 
-        public static readonly DedupManifestArtifactClientFactory Instance = new DedupManifestArtifactClientFactory();
+        public static readonly DedupManifestArtifactClientFactory Instance = new();
 
         private DedupManifestArtifactClientFactory()
         {
@@ -119,7 +119,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
 
                     this.HashType ??= await GetClientHashTypeAsync(factory, connection, client, tracer, cancellationToken);
 
-                    return await Task.FromResult(dedupHttpclient);
+                    return dedupHttpclient;
                 },
                 maxRetries: maxRetries,
                 tracer: tracer,
@@ -236,7 +236,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                 includeSeverityLevel: verbose);
         }
 
-        private async Task<HashType> GetClientHashTypeAsync(
+        private static async Task<HashType> GetClientHashTypeAsync(
             ArtifactHttpClientFactory factory,
             VssConnection connection,
             BlobStore.WebApi.Contracts.Client client,

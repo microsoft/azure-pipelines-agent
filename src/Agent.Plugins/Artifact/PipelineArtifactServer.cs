@@ -139,9 +139,19 @@ namespace Agent.Plugins
             CancellationToken cancellationToken)
         {
             VssConnection connection = context.VssConnection;
-            
-            BuildServer buildServer = new BuildServer(connection);
+            var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
+                        .CreateDedupManifestClientAsync(
+                        context.IsSystemDebugTrue(),
+                        (str) => context.Output(str),
+                        connection,
+                        DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
+                        WellKnownDomainIds.DefaultDomainId,
+                        Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
+                        cancellationToken);
 
+            BuildServer buildServer = new(connection);
+
+            using (clientTelemetry)
             // download all pipeline artifacts if artifact name is missing
             if (downloadOptions == DownloadOptions.MultiDownload)
             {
@@ -173,16 +183,6 @@ namespace Agent.Plugins
                 }
                 else
                 {
-                    var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                        .CreateDedupManifestClientAsync(
-                        context.IsSystemDebugTrue(),
-                        (str) => context.Output(str),
-                        connection,
-                        DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
-                        WellKnownDomainIds.DefaultDomainId,
-                        Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
-                        cancellationToken);
-
                     context.Output(StringUtil.Loc("DownloadingMultiplePipelineArtifacts", pipelineArtifacts.Count()));
 
                     var artifactNameAndManifestIds = pipelineArtifacts.ToDictionary(
@@ -251,16 +251,6 @@ namespace Agent.Plugins
                     proxyUri: null,
                     minimatchPatterns: downloadParameters.MinimatchFilters,
                     customMinimatchOptions: downloadParameters.CustomMinimatchOptions);
-
-                var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                        .CreateDedupManifestClientAsync(
-                        context.IsSystemDebugTrue(),
-                        (str) => context.Output(str),
-                        connection,
-                        DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
-                        WellKnownDomainIds.DefaultDomainId,
-                        Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
-                        cancellationToken);
 
                 PipelineArtifactActionRecord downloadRecord = clientTelemetry.CreateRecord<PipelineArtifactActionRecord>((level, uri, type) =>
                             new PipelineArtifactActionRecord(level, uri, type, nameof(DownloadAsync), context));

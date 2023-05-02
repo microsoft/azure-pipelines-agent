@@ -41,11 +41,7 @@ namespace Agent.Plugins
             }
             else if (PipelineArtifactConstants.FileShareArtifact.Equals(artifactType, StringComparison.CurrentCultureIgnoreCase))
             {
-                if (fileShareProvider is null)
-                {
-                    fileShareProvider = new FileShareProvider(this._context, this._connection, this._tracer, DedupManifestArtifactClientFactory.Instance);
-                }
-                return fileShareProvider;
+                return fileShareProvider ??= new FileShareProvider(this._context, this._connection, this._tracer, DedupManifestArtifactClientFactory.Instance);
             }
             else
             {
