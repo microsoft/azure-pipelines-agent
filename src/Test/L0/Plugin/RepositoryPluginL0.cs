@@ -15,7 +15,6 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Moq;
 using Newtonsoft.Json.Linq;
 using Xunit;
-using static Microsoft.VisualStudio.Services.Agent.Tests.LogPluginHost.LogPluginHostL0;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
@@ -273,7 +272,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
         public void RepositoryPlugin_HandleProxyConfig()
         {
             using TestHostContext tc = new TestHostContext(this);
-            TestTrace trace = new TestTrace(tc);
             var proxyUrl = "http://example.com:80";
             var proxyUser = "proxy_user";
             var proxyPassword = "proxy_password";
