@@ -11,10 +11,10 @@ namespace Agent.Sdk
 {
     public class AgentWebProxySettings
     {
-        public static string AgentProxyUrlKey = "agent.proxyurl";
-        public static string AgentProxyUsernameKey = "agent.proxyusername";
-        public static string AgentProxyPasswordKey = "agent.proxypassword";
-        public static string AgentProxyBypassListKey = "agent.proxybypasslist";
+        public static string AgentProxyUrlKey = "Agent.ProxyUrl".ToLowerCase();
+        public static string AgentProxyUsernameKey = "Agent.ProxyUsername".ToLowerCase();
+        public static string AgentProxyPasswordKey = "Agent.ProxyPassword".ToLowerCase();
+        public static string AgentProxyBypassListKey = "Agent.ProxyBypassList".ToLowerCase();
         public string ProxyAddress { get; set; }
         public string ProxyUsername { get; set; }
         public string ProxyPassword { get; set; }
