@@ -815,19 +815,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 SetInput(nameof(WorkingDirectory), value);
             }
         }
-
-        public string SecureArguments
-        {
-            get
-            {
-                return GetInput(nameof(SecureArguments));
-            }
-
-            set
-            {
-                SetInput(nameof(SecureArguments), value);
-            }
-        }
     }
 
     public sealed class AgentPluginHandlerData : HandlerData
