@@ -192,7 +192,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         private void GenerateScriptFile(string cmdExe, string command, string arguments)
         {
-            string inputArgsEnvVarName = VarUtil.ConvertToEnvVariableFormat("AGENT_PH_ARGS_" + Guid.NewGuid().ToString()[..8]);
+            var scriptId = Guid.NewGuid().ToString();
+            string inputArgsEnvVarName = VarUtil.ConvertToEnvVariableFormat("AGENT_PH_ARGS_" + scriptId[..8]);
 
             var (processedArgs, telemetry) = ProcessHandlerHelper.ProcessInputArguments(arguments);
 
@@ -208,7 +209,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             System.Environment.SetEnvironmentVariable(inputArgsEnvVarName, processedArgs);
 
             var agentTemp = ExecutionContext.GetVariableValueOrDefault(Constants.Variables.Agent.TempDirectory);
-            _generatedScriptPath = Path.Combine(agentTemp, "processHandlerScript.cmd");
+            _generatedScriptPath = Path.Combine(agentTemp, $"processHandlerScript_{scriptId}.cmd");
 
             using (var writer = new StreamWriter(_generatedScriptPath))
             {
