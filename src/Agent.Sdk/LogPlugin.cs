@@ -146,6 +146,7 @@ namespace Agent.Sdk
         public List<Pipelines.RepositoryResource> Repositories { get; set; }
         public Dictionary<string, VariableValue> Variables { get; set; }
         public Dictionary<string, Pipelines.TaskStepDefinitionReference> Steps { get; set; }
+        public AgentWebProxySettings WebProxySettings { get; private set; }
 
         [JsonIgnore]
         public VssConnection VssConnection
@@ -187,12 +188,12 @@ namespace Agent.Sdk
                 }
             }
 
-            var proxySetting = GetProxyConfiguration();
-            if (proxySetting != null)
+            WebProxySettings = GetProxyConfiguration();
+            if (WebProxySettings != null)
             {
-                if (!string.IsNullOrEmpty(proxySetting.ProxyAddress))
+                if (!string.IsNullOrEmpty(WebProxySettings.ProxyAddress))
                 {
-                    VssHttpMessageHandler.DefaultWebProxy = new AgentWebProxy(proxySetting.ProxyAddress, proxySetting.ProxyUsername, proxySetting.ProxyPassword, proxySetting.ProxyBypassList);
+                    VssHttpMessageHandler.DefaultWebProxy = new AgentWebProxy(WebProxySettings.ProxyAddress, WebProxySettings.ProxyUsername, WebProxySettings.ProxyPassword, WebProxySettings.ProxyBypassList);
                 }
             }
 
@@ -241,12 +242,12 @@ namespace Agent.Sdk
 
         private AgentWebProxySettings GetProxyConfiguration()
         {
-            string proxyUrl = this.Variables.GetValueOrDefault("Agent.ProxyUrl")?.Value;
+            string proxyUrl = this.Variables.GetValueOrDefault(AgentWebProxySettings.AgentProxyUrlKey)?.Value;
             if (!string.IsNullOrEmpty(proxyUrl))
             {
-                string proxyUsername = this.Variables.GetValueOrDefault("Agent.ProxyUsername")?.Value;
-                string proxyPassword = this.Variables.GetValueOrDefault("Agent.ProxyPassword")?.Value;
-                List<string> proxyBypassHosts = StringUtil.ConvertFromJson<List<string>>(this.Variables.GetValueOrDefault("Agent.ProxyBypassList")?.Value ?? "[]");
+                string proxyUsername = this.Variables.GetValueOrDefault(AgentWebProxySettings.AgentProxyUsernameKey)?.Value;
+                string proxyPassword = this.Variables.GetValueOrDefault(AgentWebProxySettings.AgentProxyPasswordKey)?.Value;
+                List<string> proxyBypassHosts = StringUtil.ConvertFromJson<List<string>>(this.Variables.GetValueOrDefault(AgentWebProxySettings.AgentProxyBypassListKey)?.Value ?? "[]");
                 return new AgentWebProxySettings()
                 {
                     ProxyAddress = proxyUrl,
@@ -274,6 +275,11 @@ namespace Agent.Sdk
         private IAgentLogPluginTrace _trace;
         private int _shortCircuitThreshold;
         private int _shortCircuitMonitorFrequency;
+
+        public Dictionary<string, IAgentLogPluginContext> PluginContexts
+        {
+            get => _pluginContexts;
+        }
 
         public AgentLogPluginHost(
             AgentLogPluginHostContext hostContext,
