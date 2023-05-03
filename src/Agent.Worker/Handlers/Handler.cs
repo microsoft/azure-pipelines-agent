@@ -298,8 +298,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
         }
 
-        protected void PublishTelemetry(
-            Dictionary<string, string> telemetryData,
+        protected void PublishTelemetry<T>(
+            Dictionary<string, T> telemetryData,
             string feature = "TaskHandler"
         )
         {

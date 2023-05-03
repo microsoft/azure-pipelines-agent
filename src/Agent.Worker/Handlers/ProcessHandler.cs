@@ -203,7 +203,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             ExecutionContext.Debug($"Enable telemetry: '{enableTelemetry}'");
             if (enableTelemetry)
             {
-                PublishTelemetry(telemetry.ToStringsDictionary(), "ProcessHandler");
+                PublishTelemetry(telemetry.ToDictionary(), "ProcessHandler");
             }
 
             System.Environment.SetEnvironmentVariable(inputArgsEnvVarName, processedArgs);
