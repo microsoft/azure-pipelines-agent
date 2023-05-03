@@ -298,7 +298,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
         }
 
-        protected void PublishTelemetry(Dictionary<string, string> telemetryData)
+        protected void PublishTelemetry(
+            Dictionary<string, string> telemetryData,
+            string feature = "TaskHandler"
+        )
         {
             ArgUtil.NotNull(Task, nameof(Task));
 
@@ -307,7 +310,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 Data = JsonConvert.SerializeObject(telemetryData, Formatting.None)
             };
             cmd.Properties.Add("area", "PipelinesTasks");
-            cmd.Properties.Add("feature", "ExecutionHandler");
+            cmd.Properties.Add("feature", feature);
 
             var publishTelemetryCmd = new TelemetryCommandExtension();
             publishTelemetryCmd.Initialize(HostContext);
