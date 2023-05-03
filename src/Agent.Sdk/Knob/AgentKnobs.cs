@@ -441,14 +441,14 @@ namespace Agent.Sdk.Knob
 
         public static readonly Knob ProcessHandlerSecureArguments = new Knob(
             nameof(ProcessHandlerSecureArguments),
-            "",
+            "Enables passing arguments for process handler secure way",
             new RuntimeKnobSource("AGENT_PH_ENABLE_SECURE_ARGUMENTS"),
             new EnvironmentKnobSource("AGENT_PH_ENABLE_SECURE_ARGUMENTS"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob ProcessHandlerTelemetry = new Knob(
             nameof(ProcessHandlerTelemetry),
-            "",
+            "Enables publishing telemetry about processing of arguments for Process Handler",
             new RuntimeKnobSource("AGENT_PH_ENABLE_TELEMETRY"),
             new EnvironmentKnobSource("AGENT_PH_ENABLE_TELEMETRY"),
             new BuiltInDefaultKnobSource("false"));
