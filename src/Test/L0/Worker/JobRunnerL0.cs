@@ -35,6 +35,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         private Mock<IPagingLogger> _logger;
         private Mock<ITempDirectoryManager> _temp;
         private Mock<IDiagnosticLogManager> _diagnosticLogManager;
+        private Mock<IAsyncCommandContext> _asyncCommandContext;
 
         private TestHostContext CreateTestContext([CallerMemberName] String testName = "")
         {
@@ -53,6 +54,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             _logger = new Mock<IPagingLogger>();
             _temp = new Mock<ITempDirectoryManager>();
             _diagnosticLogManager = new Mock<IDiagnosticLogManager>();
+            _asyncCommandContext = new Mock<IAsyncCommandContext>();
 
             var expressionManager = new ExpressionManager();
             expressionManager.Initialize(hc);
@@ -118,6 +120,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             hc.SetSingleton(_diagnosticLogManager.Object);
             hc.EnqueueInstance<IExecutionContext>(_jobEc);
             hc.EnqueueInstance<IPagingLogger>(_logger.Object);
+            hc.SetSingleton(_asyncCommandContext.Object);
             return hc;
         }
 
@@ -137,6 +140,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             _logger = new Mock<IPagingLogger>();
             _temp = new Mock<ITempDirectoryManager>();
             _diagnosticLogManager = new Mock<IDiagnosticLogManager>();
+            _asyncCommandContext = new Mock<IAsyncCommandContext>();
+
 
             var expressionManager = new ExpressionManager();
             expressionManager.Initialize(hc);
@@ -202,6 +207,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             hc.SetSingleton(_diagnosticLogManager.Object);
             hc.EnqueueInstance<IExecutionContext>(_jobEc);
             hc.EnqueueInstance<IPagingLogger>(_logger.Object);
+            hc.SetSingleton(_asyncCommandContext.Object);
             return hc;
         }
 

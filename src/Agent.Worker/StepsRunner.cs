@@ -1,16 +1,18 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Agent.Sdk;
-using Microsoft.TeamFoundation.DistributedTask.WebApi;
-using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+
+using Agent.Sdk;
+
 using Microsoft.TeamFoundation.DistributedTask.Expressions;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Util;
+
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
-using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -50,6 +52,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             CancellationTokenRegistration? jobCancelRegister = null;
             int stepIndex = 0;
             jobContext.Variables.Agent_JobStatus = jobContext.Result ?? TaskResult.Succeeded;
+            // Wait till all async commands finish.
+            foreach (var command in jobContext.AsyncCommands ?? new List<IAsyncCommandContext>())
+            {
+                try
+                {
+                    // wait async command to finish.
+                    await command.WaitAsync();
+                }
+
+                catch (Exception ex)
+                {
+                    // Log the error
+                    Trace.Info($"Caught exception from async command {command.Name}: {ex}");
+                }
+            }
             foreach (IStep step in steps)
             {
                 Trace.Info($"Processing step: DisplayName='{step.DisplayName}', ContinueOnError={step.ContinueOnError}, Enabled={step.Enabled}");
