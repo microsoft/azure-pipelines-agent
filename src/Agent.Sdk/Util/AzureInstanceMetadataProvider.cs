@@ -16,6 +16,7 @@ namespace Agent.Sdk.Util
         public AzureInstanceMetadataProvider()
         {
             _client = new HttpClient();
+            _client.Timeout = TimeSpan.FromSeconds(5);
         }
 
         public void Dispose()
