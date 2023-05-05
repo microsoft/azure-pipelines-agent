@@ -9,6 +9,17 @@ namespace Test.L0.Worker.Handlers
     public sealed class ProcessHandlerHelperL0
     {
         [Fact]
+        public void EmptyLineTest()
+        {
+            string argsLine = "";
+            string expectedArgs = "";
+
+            var (actualArgs, _) = ProcessHandlerHelper.ProcessInputArguments(argsLine);
+
+            Assert.Equal(expectedArgs, actualArgs);
+        }
+
+        [Fact]
         public void BasicTest()
         {
             string argsLine = "%VAR1% 2";
@@ -33,44 +44,17 @@ namespace Test.L0.Worker.Handlers
             Assert.Equal(expectedArgs, actualArgs);
         }
 
-        [Fact]
-        public void TestWithCloseVars()
+        [Theory]
+        [InlineData("%VAR1% %VAR2%%VAR3%", "1 23")]
+        [InlineData("%VAR1% %VAR2%_%VAR3%", "1 2_3")]
+        [InlineData("%VAR1%%VAR2%%VAR3%", "123")]
+        public void TestWithCloseVars(string inputArgs, string expectedArgs)
         {
-            string argsLine = "%VAR1% %VAR2%%VAR3%";
-            string expectedArgs = "value1 value2value3";
-            Environment.SetEnvironmentVariable("VAR1", "value1");
-            Environment.SetEnvironmentVariable("VAR2", "value2");
-            Environment.SetEnvironmentVariable("VAR3", "value3");
-
-            var (actualArgs, _) = ProcessHandlerHelper.ProcessInputArguments(argsLine);
-
-            Assert.Equal(expectedArgs, actualArgs);
-        }
-
-        [Fact]
-        public void TestWithCloseVars2()
-        {
-            string argsLine = "%VAR1% %VAR2%_%VAR3%";
-            string expectedArgs = "value1 value2_value3";
-            Environment.SetEnvironmentVariable("VAR1", "value1");
-            Environment.SetEnvironmentVariable("VAR2", "value2");
-            Environment.SetEnvironmentVariable("VAR3", "value3");
-
-            var (actualArgs, _) = ProcessHandlerHelper.ProcessInputArguments(argsLine);
-
-            Assert.Equal(expectedArgs, actualArgs);
-        }
-
-        [Fact]
-        public void TestWithCloseVars3()
-        {
-            string argsLine = "%VAR1%%VAR2%%VAR3%";
-            string expectedArgs = "123";
             Environment.SetEnvironmentVariable("VAR1", "1");
             Environment.SetEnvironmentVariable("VAR2", "2");
             Environment.SetEnvironmentVariable("VAR3", "3");
 
-            var (actualArgs, _) = ProcessHandlerHelper.ProcessInputArguments(argsLine);
+            var (actualArgs, _) = ProcessHandlerHelper.ProcessInputArguments(inputArgs);
 
             Assert.Equal(expectedArgs, actualArgs);
         }
