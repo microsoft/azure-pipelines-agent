@@ -1617,6 +1617,10 @@ do
             echo "       $script_name -h|-?|--help"
             echo ""
             echo "$script_name is a simple command line interface for obtaining dotnet cli."
+            echo "    Note that the intended use of this script is for Continuous Integration (CI) scenarios, where:"
+            echo "    - The SDK needs to be installed without user interaction and without admin rights."
+            echo "    - The SDK installation doesn't need to persist across multiple CI runs."
+            echo "    To set up a development environment or to run apps, use installers rather than this script. Visit https://dotnet.microsoft.com/download to get the installer."
             echo ""
             echo "Options:"
             echo "  -c,--channel <CHANNEL>         Download from the channel specified, Defaults to \`$channel\`."
@@ -1694,10 +1698,10 @@ do
     shift
 done
 
-say "Note that the intended use of this script is for Continuous Integration (CI) scenarios, where:"
-say "- The SDK needs to be installed without user interaction and without admin rights."
-say "- The SDK installation doesn't need to persist across multiple CI runs."
-say "To set up a development environment or to run apps, use installers rather than this script. Visit https://dotnet.microsoft.com/download to get the installer.\n"
+say_verbose "Note that the intended use of this script is for Continuous Integration (CI) scenarios, where:"
+say_verbose "- The SDK needs to be installed without user interaction and without admin rights."
+say_verbose "- The SDK installation doesn't need to persist across multiple CI runs."
+say_verbose "To set up a development environment or to run apps, use installers rather than this script. Visit https://dotnet.microsoft.com/download to get the installer.\n"
 
 if [ "$internal" = true ] && [ -z "$(echo $feed_credential)" ]; then
     message="Provide credentials via --feed-credential parameter."
