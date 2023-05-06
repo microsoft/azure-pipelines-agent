@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Xunit;
 using System.Threading;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 {

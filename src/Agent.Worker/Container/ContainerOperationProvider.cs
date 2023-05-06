@@ -17,13 +17,12 @@ using Azure.Core;
 using Azure.Identity;
 using Microsoft.TeamFoundation.Work.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.Win32;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace Microsoft.VisualStudio.Services.Agent.Worker
+namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 {
     [ServiceLocator(Default = typeof(ContainerOperationProvider))]
     public interface IContainerOperationProvider : IAgentService

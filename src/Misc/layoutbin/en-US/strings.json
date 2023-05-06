@@ -668,6 +668,7 @@
   "UserShutdownAgent": "The agent has received a shutdown signal. This can happen when the agent service is stopped, or a manually started agent is canceled.",
   "Variable0ContainsCyclicalReference": "Unable to expand variable '{0}'. A cyclical reference was detected.",
   "Variable0ExceedsMaxDepth1": "Unable to expand variable '{0}'. The max expansion depth ({1}) was exceeded.",
+  "VariableVulnerableToExecWarn": "The variable '{0}' may be potentially vulnerable for execution of commands by abusers. Please, use the equal environment variable '{1}' instead. Related documentation: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables?view=azure-devops&tabs=yaml%2Cbatch#access-variables-through-the-environment",
   "VMResourceWithSameNameAlreadyExistInEnvironment": "Environment with id '{0}' already contains a virtual machine resource with name '{1}'.",
   "VSTSHostNonZeroReturn": "LegacyVSTSPowerShellHost.exe completed with return code: {0}.",
   "WaitForServiceToStop": "Waiting for service to stop...",

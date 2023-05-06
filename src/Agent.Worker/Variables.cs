@@ -10,7 +10,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using BuildWebApi = Microsoft.TeamFoundation.Build.WebApi;
-using Microsoft.TeamFoundation.DistributedTask.Logging;
 using Newtonsoft.Json.Linq;
 using Agent.Sdk.Util;
 
@@ -79,7 +78,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public Variables(IHostContext hostContext, IDictionary<string, VariableValue> copy, out List<string> warnings)
+        public Variables(
+            IHostContext hostContext,
+            IDictionary<string,
+            VariableValue> copy,
+            out List<string> warnings,
+            // TODO: Remove this logic when we will decide to disable it for everyone.
+            bool canExpandVulnerableVariables = true)
         {
             ArgUtil.NotNull(hostContext, nameof(hostContext));
 
@@ -113,7 +118,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             // Recursively expand the variables.
-            RecalculateExpanded(out warnings);
+            if (canExpandVulnerableVariables)
+            {
+                RecalculateExpanded(out warnings);
+            }
+            else
+            {
+                RecalculateExpanded(out warnings, Constants.Variables.VariablesVulnerableToExecution);
+            }
         }
 
         // DO NOT add file path variable to here.
@@ -260,22 +272,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             "RequestedFor"
         };
 
-        public static readonly List<string> VariablesVulnerableToExecution = new List<string>
+        public void ExpandValues(IDictionary<string, string> target, WellKnownScriptShell shell = WellKnownScriptShell.Unknown)
         {
-            Constants.Variables.Build.SourceVersionMessage,
-            Constants.Variables.Build.DefinitionName,
-            Constants.Variables.System.SourceVersionMessage,
-            Constants.Variables.System.DefinitionName,
-            Constants.Variables.System.JobDisplayName,
-            Constants.Variables.System.PhaseDisplayName,
-            Constants.Variables.System.StageDisplayName,
-            Constants.Variables.Release.ReleaseDefinitionName,
-            Constants.Variables.Release.ReleaseEnvironmentName,
-            Constants.Variables.Agent.MachineName,
-            Constants.Variables.Agent.Name,
-        };
+            ExpandValues(target, out _, shell);
+        }
 
-        public void ExpandValues(IDictionary<string, string> target)
+        public void ExpandValues(
+            IDictionary<string, string> target,
+            out List<string> warnings,
+            WellKnownScriptShell shell = WellKnownScriptShell.Unknown
+        )
         {
             ArgUtil.NotNull(target, nameof(target));
             _trace.Entering();
@@ -286,7 +292,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 source[variable.Name] = value;
             }
 
-            VarUtil.ExpandValues(_hostContext, source, target);
+            VarUtil.ExpandValues(_hostContext, source, target, out warnings, shell);
         }
 
         public string ExpandValue(string name, string value)
@@ -469,8 +475,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return false;
         }
 
-        public void RecalculateExpanded(out List<string> warnings)
+        public void RecalculateExpanded(out List<string> warnings, List<string> variablesToIgnore = null)
         {
+            variablesToIgnore ??= new List<string>(0);
             // TODO: A performance improvement could be made by short-circuiting if the non-expanded values are not dirty. It's unclear whether it would make a significant difference.
 
             // Take a lock to prevent the variables from changing while expansion is being processed.
@@ -487,6 +494,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Process each variable in the dictionary.
                 foreach (string name in _nonexpanded.Keys)
                 {
+                    if (variablesToIgnore.Contains(name, StringComparer.OrdinalIgnoreCase))
+                    {
+                        _trace.Verbose($"Skipping expansion for variable: '{name}'");
+                        continue;
+                    }
+
                     bool secret = _nonexpanded[name].Secret;
                     bool readOnly = _nonexpanded[name].ReadOnly;
                     _trace.Verbose($"Processing expansion for variable: '{name}'");

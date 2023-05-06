@@ -41,6 +41,14 @@ namespace Microsoft.VisualStudio.Services.Agent
         TaskExceptionList // We need to remove this config file - once Node 6 handler is dropped
     }
 
+    public enum WellKnownScriptShell
+    {
+        Unknown,
+        Bash,
+        Cmd,
+        PowerShell
+    }
+
     public static class Constants
     {
         /// <summary>Name of environment variable holding the path.</summary>
@@ -271,6 +279,26 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             public static readonly string MacroPrefix = "$(";
             public static readonly string MacroSuffix = ")";
+
+            /// <summary>
+            /// These variables potentially may be used to execute scripts without the knowledge of the owner of the pipelines.
+            /// We want to prevent this by not expanding them and replacing these variables in user scripts with environment variables.
+            /// Note that the replacement will only take place for inline scripts.
+            /// </summary>
+            public static readonly List<string> VariablesVulnerableToExecution = new List<string>
+            {
+                Agent.MachineName,
+                Agent.Name,
+                Build.DefinitionName,
+                Build.SourceVersionMessage,
+                Release.ReleaseDefinitionName,
+                Release.ReleaseEnvironmentName,
+                System.DefinitionName,
+                System.JobDisplayName,
+                System.PhaseDisplayName,
+                System.SourceVersionMessage,
+                System.StageDisplayName
+            };
 
             public static class Agent
             {
@@ -594,6 +622,16 @@ namespace Microsoft.VisualStudio.Services.Agent
                 // Task variables
                 Task.DisplayName,
                 Task.SkipTranslatorForCheckout
+            };
+        }
+
+        public static class ScriptShells
+        {
+            public static Dictionary<WellKnownScriptShell, EnvVariableParts> EnvVariablePartsPerShell = new Dictionary<WellKnownScriptShell, EnvVariableParts>
+            {
+                [WellKnownScriptShell.PowerShell] = new EnvVariableParts("$env:", ""),
+                [WellKnownScriptShell.Bash] = new EnvVariableParts("$", ""),
+                [WellKnownScriptShell.Cmd] = new EnvVariableParts("%", "%")
             };
         }
     }

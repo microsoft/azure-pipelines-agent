@@ -85,8 +85,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 // Variable expansion.
                 step.ExecutionContext.SetStepTarget(step.Target);
+
                 List<string> expansionWarnings;
-                step.ExecutionContext.Variables.RecalculateExpanded(out expansionWarnings);
+                var canExpandVulnerableVariables = AgentKnobs.ExpandVulnerableVariables.GetValue(jobContext).AsBooleanStrict();
+                if (canExpandVulnerableVariables)
+                {
+                    step.ExecutionContext.Variables.RecalculateExpanded(out expansionWarnings);
+                }
+                else
+                {
+                    step.ExecutionContext.Variables.RecalculateExpanded(out expansionWarnings, Constants.Variables.VariablesVulnerableToExecution);
+                }
                 expansionWarnings?.ForEach(x => step.ExecutionContext.Warning(x));
 
                 var expressionManager = HostContext.GetService<IExpressionManager>();

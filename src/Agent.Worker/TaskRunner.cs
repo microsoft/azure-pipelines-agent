@@ -118,8 +118,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 Trace.Info($"Handler data is of type {handlerData}");
 
-                PublishTelemetry(definition, handlerData);
-
                 Variables runtimeVariables = ExecutionContext.Variables;
                 IStepHost stepHost = HostContext.CreateService<IDefaultStepHost>();
                 var stepTarget = ExecutionContext.StepTarget();
@@ -219,7 +217,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 // Expand the inputs.
                 Trace.Verbose("Expanding inputs.");
-                runtimeVariables.ExpandValues(target: inputs);
+
+                var taskShell = PipelineTasksUtil.GetShellByTaskName(Task.Reference.Name, stepTarget);
+
+                runtimeVariables.ExpandValues(
+                    target: inputs,
+                    out var runtimeVarExpWarnings,
+                    taskShell);
+
+                var canIgnoreWarnings = AgentKnobs.IgnoreScriptVariablesWarnings.GetValue(ExecutionContext).AsBooleanStrict();
+                if (!canIgnoreWarnings)
+                {
+                    runtimeVarExpWarnings?.ForEach(warning => ExecutionContext.Warning(warning));
+                }
+
+                var telemetryData = InitTelemetryData(definition, handlerData);
+
+                telemetryData.Add("RuntimeVariableExpandingWarnings", runtimeVarExpWarnings.Count.ToString());
+
+                PublishTelemetry(telemetryData);
 
                 // We need to verify inputs of the tasks that were injected by decorators, to check if they contain secrets,
                 // for security reasons execution of tasks in this case should be skipped.
@@ -569,19 +585,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ExecutionContext.Output("==============================================================================", false);
         }
 
-        private void PublishTelemetry(Definition taskDefinition, HandlerData handlerData)
+        private Dictionary<string, string> InitTelemetryData(Definition taskDefinition, HandlerData handlerData)
         {
             ArgUtil.NotNull(Task, nameof(Task));
             ArgUtil.NotNull(Task.Reference, nameof(Task.Reference));
-            ArgUtil.NotNull(taskDefinition.Data, nameof(taskDefinition.Data));
 
-            try
-            {
-                var useNode10 = AgentKnobs.UseNode10.GetValue(ExecutionContext).AsString();
-                var expectedExecutionHandler = (taskDefinition.Data.Execution?.All != null) ? string.Join(", ", taskDefinition.Data.Execution.All) : "";
-                var systemVersion = PlatformUtil.GetSystemVersion();
+            var useNode10 = AgentKnobs.UseNode10.GetValue(ExecutionContext).AsString();
+            var expectedExecutionHandler = (taskDefinition.Data.Execution?.All != null) ? string.Join(", ", taskDefinition.Data.Execution.All) : "";
+            var systemVersion = PlatformUtil.GetSystemVersion();
 
-                Dictionary<string, string> telemetryData = new Dictionary<string, string>
+            var telemetryData = new Dictionary<string, string>
                 {
                     { "TaskName", Task.Reference.Name },
                     { "TaskId", Task.Reference.Id.ToString() },
@@ -592,7 +605,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     { "ExpectedExecutionHandler", expectedExecutionHandler },
                     { "RealExecutionHandler", handlerData.ToString() },
                     { "UseNode10", useNode10 },
-                    { "JobId", ExecutionContext.Variables.System_JobId.ToString()},
+                    { "JobId", ExecutionContext.Variables.System_JobId?.ToString() ?? ""},
                     { "PlanId", ExecutionContext.Variables.Get(Constants.Variables.System.JobId)},
                     { "AgentName", ExecutionContext.Variables.Get(Constants.Variables.Agent.Name)},
                     { "MachineName", ExecutionContext.Variables.Get(Constants.Variables.Agent.MachineName)},
@@ -601,20 +614,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     { "IsDockerContainer", ExecutionContext.Variables.Get(Constants.Variables.System.IsDockerContainer)}
                 };
 
-                var cmd = new Command("telemetry", "publish");
-                cmd.Data = JsonConvert.SerializeObject(telemetryData, Formatting.None);
-                cmd.Properties.Add("area", "PipelinesTasks");
-                cmd.Properties.Add("feature", "ExecutionHandler");
+            return telemetryData;
+        }
 
-                var publishTelemetryCmd = new TelemetryCommandExtension();
-                publishTelemetryCmd.Initialize(HostContext);
-                publishTelemetryCmd.ProcessCommand(ExecutionContext, cmd);
-            }
-            catch (NullReferenceException ex)
-            {
-                ExecutionContext.Debug($"ExecutionHandler telemetry wasn't published, because one of the variables is null");
-                ExecutionContext.Debug(ex.ToString());
-            }
+        private void PublishTelemetry(Dictionary<string, string> telemetryData)
+        {
+            ArgUtil.NotNull(Task, nameof(Task));
+
+            var cmd = new Command("telemetry", "publish");
+            cmd.Data = JsonConvert.SerializeObject(telemetryData, Formatting.None);
+            cmd.Properties.Add("area", "PipelinesTasks");
+            cmd.Properties.Add("feature", "ExecutionHandler");
+
+            var publishTelemetryCmd = new TelemetryCommandExtension();
+            publishTelemetryCmd.Initialize(HostContext);
+            publishTelemetryCmd.ProcessCommand(ExecutionContext, cmd);
         }
     }
 }

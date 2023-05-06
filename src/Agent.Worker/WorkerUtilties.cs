@@ -105,7 +105,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             var deactivatedVariables = new Dictionary<string, VariableValue>(message.Variables, StringComparer.OrdinalIgnoreCase);
 
-            foreach (var variableName in Variables.VariablesVulnerableToExecution)
+            foreach (var variableName in Constants.Variables.VariablesVulnerableToExecution)
             {
                 if (deactivatedVariables.TryGetValue(variableName, out var variable))
                 {

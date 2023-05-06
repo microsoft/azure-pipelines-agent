@@ -9,6 +9,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using Microsoft.VisualStudio.Services.WebApi;
 using Newtonsoft.Json.Linq;
+using System.Text.RegularExpressions;
 
 namespace Microsoft.VisualStudio.Services.Agent.Util
 {
@@ -107,6 +108,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             // Copy the environment variables into a dictionary that uses the correct comparer.
             var source = new Dictionary<string, string>(EnvironmentVariableKeyComparer);
             IDictionary environment = Environment.GetEnvironmentVariables();
+
             foreach (DictionaryEntry entry in environment)
             {
                 string key = entry.Key as string ?? string.Empty;
@@ -140,13 +142,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             return target.Map(mapFuncs);
         }
 
-        public static void ExpandValues(IHostContext context, IDictionary<string, string> source, IDictionary<string, string> target)
+        public static void ExpandValues(
+            IHostContext context,
+            IDictionary<string, string> source,
+            IDictionary<string, string> target,
+            WellKnownScriptShell shell = WellKnownScriptShell.Unknown
+        )
+        {
+            ExpandValues(context, source, target, out _, shell);
+        }
+
+        public static void ExpandValues(
+            IHostContext context,
+            IDictionary<string, string> source,
+            IDictionary<string, string> target,
+            out List<string> warnings,
+            WellKnownScriptShell shell = WellKnownScriptShell.Unknown
+        )
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(source, nameof(source));
             Tracing trace = context.GetTrace(nameof(VarUtil));
             trace.Entering();
-            target = target ?? new Dictionary<string, string>();
+            target ??= new Dictionary<string, string>();
+            warnings = new List<string>();
 
             // This algorithm does not perform recursive replacement.
 
@@ -169,13 +188,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                         startIndex: prefixIndex + Constants.Variables.MacroPrefix.Length,
                         length: suffixIndex - prefixIndex - Constants.Variables.MacroPrefix.Length);
                     trace.Verbose($"Found macro candidate: '{variableKey}'");
-                    string variableValue;
-                    if (!string.IsNullOrEmpty(variableKey) &&
-                        TryGetValue(trace, source, variableKey, out variableValue))
+
+                    var isVariableKeyPresent = !string.IsNullOrEmpty(variableKey);
+
+                    if (isVariableKeyPresent &&
+                        shell != WellKnownScriptShell.Unknown &&
+                        shell != WellKnownScriptShell.Cmd &&
+                        Constants.ScriptShells.EnvVariablePartsPerShell.TryGetValue(shell, out var shellEnvVariableParts) &&
+                        Constants.Variables.VariablesVulnerableToExecution.Contains(variableKey, StringComparer.OrdinalIgnoreCase)
+                    )
+                    {
+                        var envVariableName = ConvertToEnvVariableFormat(variableKey);
+                        var shellEnvVariable = shellEnvVariableParts.Prefix + envVariableName + shellEnvVariableParts.Suffix;
+
+                        var warningMessage = StringUtil.Loc("VariableVulnerableToExecWarn", variableKey, shellEnvVariable);
+                        warnings.Add(warningMessage);
+                    }
+                    if (isVariableKeyPresent &&
+                        TryGetValue(trace, source, variableKey, out string variableValue))
                     {
                         // A matching variable was found.
                         // Update the target value.
                         trace.Verbose("Macro found.");
+
                         targetValue = string.Concat(
                             targetValue.Substring(0, prefixIndex),
                             variableValue ?? string.Empty,

@@ -296,7 +296,7 @@ namespace Agent.Sdk.Knob
             "Disable agent downgrades. Upgrades will still be allowed.",
             new EnvironmentKnobSource("AZP_AGENT_DOWNGRADE_DISABLED"),
             new BuiltInDefaultKnobSource("false"));
-        
+
         public static readonly Knob AcknowledgeNoUpdates = new Knob(
             nameof(AcknowledgeNoUpdates),
             "Opt-in to continue using agent without updates on unsopperted OS",
@@ -439,13 +439,29 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_USE_NODE"),
             new BuiltInDefaultKnobSource(string.Empty));
 
+        public static readonly Knob IgnoreScriptVariablesWarnings = new ExperimentalKnob(
+            nameof(IgnoreScriptVariablesWarnings),
+            "Allows to ignore warnings about variables vulnerable to execution in script tasks.",
+            new RuntimeKnobSource("AZP_IGNORE_VULNERABLE_SCRIPT_VARIABLE_WARNINGS"),
+            new EnvironmentKnobSource("AZP_IGNORE_VULNERABLE_SCRIPT_VARIABLE_WARNINGS"),
+            new BuiltInDefaultKnobSource("true")
+        );
+
+        public static readonly Knob ExpandVulnerableVariables = new ExperimentalKnob(
+            nameof(ExpandVulnerableVariables),
+            "Allows to expand vulnerable pipeline variables.",
+            new RuntimeKnobSource("AZP_EXPAND_VULNERABLE_VARIABLES"),
+            new EnvironmentKnobSource("AZP_EXPAND_VULNERABLE_VARIABLES"),
+            new BuiltInDefaultKnobSource("true")
+        );
+
         public static readonly Knob DisableDrainQueuesAfterTask = new Knob(
             nameof(DisableDrainQueuesAfterTask),
             "Forces the agent to disable draining queues after each task",
             new RuntimeKnobSource("AGENT_DISABLE_DRAIN_QUEUES_AFTER_TASK"),
             new EnvironmentKnobSource("AGENT_DISABLE_DRAIN_QUEUES_AFTER_TASK"),
             new BuiltInDefaultKnobSource("false"));
-            
+
         public static readonly Knob EnableFetchingNet6List = new Knob(
             nameof(EnableFetchingNet6List),
             "Forces the agent to fetch list of .NET 6 supporting systems from server",

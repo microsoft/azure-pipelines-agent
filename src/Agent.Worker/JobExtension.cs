@@ -13,6 +13,7 @@ using System.Linq;
 using System.Diagnostics;
 using Agent.Sdk;
 using Agent.Sdk.Knob;
+using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {

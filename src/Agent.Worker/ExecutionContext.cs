@@ -506,10 +506,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
             }
 
+            bool canExpandVulnerableVariables = GetExpandVulnerableVariablesValue(message);
             // Variables (constructor performs initial recursive expansion)
-            List<string> warnings;
-            Variables = new Variables(HostContext, message.Variables, out warnings);
-            Variables.StringTranslator = TranslatePathForStepTarget;
+            Variables = new Variables(HostContext, message.Variables, out List<string> warnings, canExpandVulnerableVariables)
+            {
+                StringTranslator = TranslatePathForStepTarget
+            };
 
             if (Variables.GetBoolean("agent.useWorkspaceId") == true)
             {
@@ -673,6 +675,34 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Hook up JobServerQueueThrottling event, we will log warning on server tarpit.
             _jobServerQueue.JobServerQueueThrottling += JobServerQueueThrottling_EventReceived;
+        }
+
+        // TODO: Remove this logic when we will decide to keep it for everyone.
+        private bool GetExpandVulnerableVariablesValue(Pipelines.AgentJobRequestMessage message)
+        {
+            bool canExpandVulnerableVariables;
+
+            message.Variables.TryGetValue("AZP_EXPAND_VULNERABLE_VARIABLES", out var expandVulnerableVariablesRuntimeVariable);
+
+            if (expandVulnerableVariablesRuntimeVariable == null)
+            {
+                var knobValue = AgentKnobs.ExpandVulnerableVariables.GetValue<EnvironmentKnobSource>(this) ??
+                                AgentKnobs.ExpandVulnerableVariables.GetValue<BuiltInDefaultKnobSource>(this);
+
+                canExpandVulnerableVariables = knobValue.AsBooleanStrict();
+            }
+            else
+            {
+                if (!bool.TryParse(expandVulnerableVariablesRuntimeVariable.Value, out canExpandVulnerableVariables))
+                {
+                    var knobValue = AgentKnobs.ExpandVulnerableVariables.GetValue<EnvironmentKnobSource>(this) ??
+                                    AgentKnobs.ExpandVulnerableVariables.GetValue<BuiltInDefaultKnobSource>(this);
+
+                    canExpandVulnerableVariables = knobValue.AsBooleanStrict();
+                }
+            }
+
+            return canExpandVulnerableVariables;
         }
 
         private string GetWorkspaceIdentifier(Pipelines.AgentJobRequestMessage message)
