@@ -57,4 +57,4 @@ Use the following pipeline task sample to install the latest version of Node 6 r
       runnerVersion: 6
 ```
 
-Please, check more details in [NodeTaskRunnerInstaller task]() documentation [TODO: FIX LINK].
+Please, check more details in [NodeTaskRunnerInstaller task](https://learn.microsoft.com/azure/devops/pipelines/tasks/reference/node-task-runner-installer-v0) documentation.
