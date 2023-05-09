@@ -1,9 +1,12 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk.Knob;
+using Agent.Worker.Handlers.Helpers;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -23,6 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         private volatile int _errorCount;
         private bool _foundDelimiter;
         private bool _modifyEnvironment;
+        private string _generatedScriptPath;
 
         public ProcessHandlerData Data { get; set; }
 
@@ -113,6 +117,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             _modifyEnvironment = StringUtil.ConvertToBoolean(Data.ModifyEnvironment);
             ExecutionContext.Debug($"Modify environment: '{_modifyEnvironment}'");
 
+            var enableSecureArguments = AgentKnobs.ProcessHandlerSecureArguments.GetValue(ExecutionContext).AsBoolean();
+            ExecutionContext.Debug($"Enable secure arguments: '{enableSecureArguments}'");
+
             // Resolve cmd.exe.
             string cmdExe = System.Environment.GetEnvironmentVariable("ComSpec");
             if (string.IsNullOrEmpty(cmdExe))
@@ -120,17 +127,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 cmdExe = "cmd.exe";
             }
 
+            if (enableSecureArguments)
+            {
+                GenerateScriptFile(cmdExe, command, arguments);
+            }
+
             // Format the input to be invoked from cmd.exe to enable built-in shell commands. For example, RMDIR.
-            string cmdExeArgs;
-            if (_modifyEnvironment)
-            {
-                // Format the command so the environment variables can be captured.
-                cmdExeArgs = $"/c \"{command} {arguments} && echo {OutputDelimiter} && set \"";
-            }
-            else
-            {
-                cmdExeArgs = $"/c \"{command} {arguments}\"";
-            }
+            var cmdExeArgs = enableSecureArguments
+                ? $"/c \"{_generatedScriptPath}"
+                : $"/c \"{command} {arguments}";
+
+            cmdExeArgs += _modifyEnvironment
+                ? " && echo {OutputDelimiter} && set \""
+                : "\"";
 
             // Invoke the process.
             ExecutionContext.Debug($"{cmdExe} {cmdExeArgs}");
@@ -179,6 +188,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     throw new Exception(StringUtil.Loc("ProcessCompletedWithExitCode0", exitCode));
                 }
             }
+        }
+
+        private void GenerateScriptFile(string cmdExe, string command, string arguments)
+        {
+            var scriptId = Guid.NewGuid().ToString();
+            string inputArgsEnvVarName = VarUtil.ConvertToEnvVariableFormat("AGENT_PH_ARGS_" + scriptId[..8]);
+
+            var (processedArgs, telemetry) = ProcessHandlerHelper.ProcessInputArguments(arguments);
+
+            ExecutionContext.Debug(string.Join(System.Environment.NewLine, telemetry.ToDictionary().Select(a => $"{a.Key}: {a.Value}")));
+
+            var enableTelemetry = AgentKnobs.ProcessHandlerTelemetry.GetValue(ExecutionContext).AsBoolean();
+            ExecutionContext.Debug($"Enable telemetry: '{enableTelemetry}'");
+            if (enableTelemetry)
+            {
+                PublishTelemetry(telemetry.ToDictionary(), "ProcessHandler");
+            }
+
+            System.Environment.SetEnvironmentVariable(inputArgsEnvVarName, processedArgs);
+
+            var agentTemp = ExecutionContext.GetVariableValueOrDefault(Constants.Variables.Agent.TempDirectory);
+            _generatedScriptPath = Path.Combine(agentTemp, $"processHandlerScript_{scriptId}.cmd");
+
+            using (var writer = new StreamWriter(_generatedScriptPath))
+            {
+                writer.WriteLine($"{cmdExe} /v:ON /c \"{command} !{inputArgsEnvVarName}!\"");
+            }
+
+            ExecutionContext.Debug($"Generated script file: {_generatedScriptPath}");
         }
 
         private void FlushErrorData()
