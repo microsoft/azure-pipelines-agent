@@ -234,7 +234,7 @@ namespace Agent.Plugins
                 projectId,
                 isShallow: false,
                 includeBlobMetadata: true,
-                containerIdAndRoot.Item2
+                $"{containerIdAndRoot.Item2}{Path.DirectorySeparatorChar}"
             );
 
             Options customMinimatchOptions;
