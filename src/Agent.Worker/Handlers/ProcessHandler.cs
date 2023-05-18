@@ -197,7 +197,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             var (processedArgs, telemetry) = ProcessHandlerHelper.ProcessInputArguments(arguments);
 
-            ExecutionContext.Debug(JsonConvert.SerializeObject(telemetry.ToDictionary(), Formatting.None));
+            ExecutionContext.Debug($"Agent PH telemetry: {JsonConvert.SerializeObject(telemetry.ToDictionary(), Formatting.None)}");
 
             var enableTelemetry = AgentKnobs.ProcessHandlerTelemetry.GetValue(ExecutionContext).AsBoolean();
             ExecutionContext.Debug($"Enable telemetry: '{enableTelemetry}'");
