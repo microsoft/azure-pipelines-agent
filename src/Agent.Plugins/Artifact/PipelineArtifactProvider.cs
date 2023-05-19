@@ -44,6 +44,7 @@ namespace Agent.Plugins
                 DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
                 WellKnownDomainIds.DefaultDomainId,
                 Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
+                context,
                 cancellationToken);
 
             using (clientTelemetry)
@@ -91,6 +92,7 @@ namespace Agent.Plugins
                 DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
                 WellKnownDomainIds.DefaultDomainId,
                 Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
+                context,
                 cancellationToken);
 
             using (clientTelemetry)

@@ -14,6 +14,7 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
 using BuildXL.Cache.ContentStore.Hashing;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Blob
 {
@@ -37,6 +38,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             int maxParallelism,
             IDomainId domainId,
             BlobStore.WebApi.Contracts.Client client,
+            AgentTaskPluginExecutionContext context,
             CancellationToken cancellationToken);
 
         /// <summary>
@@ -86,6 +88,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             int maxParallelism,
             IDomainId domainId,
             BlobStore.WebApi.Contracts.Client client,
+            AgentTaskPluginExecutionContext context,
             CancellationToken cancellationToken)
         {
             const int maxRetries = 5;
@@ -117,7 +120,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                         dedupHttpclient = new DomainHttpClientWrapper(domainId, domainClient);
                     }
 
-                    this.HashType ??= await GetClientHashTypeAsync(factory, connection, client, tracer, cancellationToken);
+                    this.HashType ??= await GetClientHashTypeAsync(factory, connection, client, tracer, context, cancellationToken);
 
                     return dedupHttpclient;
                 },
@@ -241,22 +244,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             VssConnection connection,
             BlobStore.WebApi.Contracts.Client client,
             IAppTraceSource tracer,
+            AgentTaskPluginExecutionContext context,
             CancellationToken cancellationToken)
         {
             HashType hashType = ChunkerHelper.DefaultChunkHashType;
-            try
+
+            if (AgentKnobs.AgentEnablePipelineArtifactLargeChunkSize.GetValue(context).AsBoolean())
             {
-                var blobUri = connection.GetClient<ClientSettingsHttpClient>().BaseAddress;
-                var clientSettingsHttpClient = factory.CreateVssHttpClient<IClientSettingsHttpClient, ClientSettingsHttpClient>(blobUri);
-                ClientSettingsInfo clientSettings = await clientSettingsHttpClient.GetSettingsAsync(client, cancellationToken);
-                if (clientSettings != null && clientSettings.Properties.ContainsKey(ClientSettingsConstants.ChunkSize))
+                try
                 {
-                    HashTypeExtensions.Deserialize(clientSettings.Properties[ClientSettingsConstants.ChunkSize], out hashType);
+                    var blobUri = connection.GetClient<ClientSettingsHttpClient>().BaseAddress;
+                    var clientSettingsHttpClient = factory.CreateVssHttpClient<IClientSettingsHttpClient, ClientSettingsHttpClient>(blobUri);
+                    ClientSettingsInfo clientSettings = await clientSettingsHttpClient.GetSettingsAsync(client, cancellationToken);
+                    if (clientSettings != null && clientSettings.Properties.ContainsKey(ClientSettingsConstants.ChunkSize))
+                    {
+                        HashTypeExtensions.Deserialize(clientSettings.Properties[ClientSettingsConstants.ChunkSize], out hashType);
+                    }
                 }
-            }
-            catch (Exception exception)
-            {
-                tracer.Warn($"Error while retrieving hash type for {client}. Exception: {exception}");
+                catch (Exception exception)
+                {
+                    tracer.Warn($"Error while retrieving hash type for {client}. Exception: {exception}");
+                }
             }
 
             return ChunkerHelper.IsHashTypeChunk(hashType) ? hashType : ChunkerHelper.DefaultChunkHashType;

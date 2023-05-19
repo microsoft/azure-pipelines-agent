@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using Agent.Plugins.PipelineArtifact.Telemetry;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using BuildXL.Cache.ContentStore.Hashing;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Blob;
@@ -68,6 +69,7 @@ namespace Agent.Plugins
                 this.factory.GetDedupStoreClientMaxParallelism(context),
                 WellKnownDomainIds.DefaultDomainId,
                 Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.FileShare,
+                context,
                 cancellationToken);
 
             using (clientTelemetry)
@@ -120,6 +122,7 @@ namespace Agent.Plugins
                 this.factory.GetDedupStoreClientMaxParallelism(context),
                 WellKnownDomainIds.DefaultDomainId,
                 Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.FileShare,
+                context,
                 cancellationToken);
 
             using (clientTelemetry)
