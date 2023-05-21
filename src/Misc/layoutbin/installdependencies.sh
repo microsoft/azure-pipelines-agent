@@ -69,7 +69,7 @@ then
         command -v apt
         if [ $? -eq 0 ]
         then
-            apt update && apt install -y libkrb5-3 zlib1g debsums && (apt install -y liblttng-ust0 || apt install -y liblttng-ust1)
+            apt update && apt install -y libkrb5-3 zlib1g debsums && (apt install -y liblttng-ust1 || apt install -y liblttng-ust0)
             if [ $? -ne 0 ]
             then
                 echo "'apt' failed with exit code '$?'"
@@ -80,7 +80,7 @@ then
             # debian 10 uses libssl1.1
             # debian 9 uses libssl1.0.2
             # other debian linux use libssl1.0.0            
-            apt install -y libssl1.1 || apt install -y libssl1.0.2 || apt install -y libssl1.0.0 || \
+            apt install -y libssl3 || apt install -y libssl1.1 || apt install -y libssl1.0.2 || apt install -y libssl1.0.0 || \
                     (wget http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2.17_amd64.deb \
                     && dpkg -i libssl1.1_1.1.1f-1ubuntu2.17_amd64.deb)
             if [ $? -ne 0 ]
@@ -102,7 +102,7 @@ then
             command -v apt-get
             if [ $? -eq 0 ]
             then
-                    apt-get update && apt-get install -y libkrb5-3 zlib1g debsums && (apt-get install -y liblttng-ust0 || apt-get install -y liblttng-ust1)
+                    apt-get update && apt-get install -y libkrb5-3 zlib1g debsums && (apt-get install -y liblttng-ust1 || apt-get install -y liblttng-ust0)
                 if [ $? -ne 0 ]
                 then
                     echo "'apt-get' failed with exit code '$?'"
@@ -113,7 +113,7 @@ then
                 # debian 10 uses libssl1.1
                 # debian 9 uses libssl1.0.2
                 # other debian linux use libssl1.0.0
-                apt-get install -y libssl1.1 || apt-get install -y libssl1.0.2 || apt-get install -y libssl1.0.0 || \
+                apt-get install -y libssl3 || apt-get install -y libssl1.1 || apt-get install -y libssl1.0.2 || apt-get install -y libssl1.0.0 || \
                    (wget http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2.17_amd64.deb \
                    && dpkg -i libssl1.1_1.1.1f-1ubuntu2.17_amd64.deb)
                 if [ $? -ne 0 ]
