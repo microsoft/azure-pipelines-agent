@@ -4,9 +4,9 @@
 using Agent.Sdk.Knob;
 using Agent.Worker.Handlers.Helpers;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Newtonsoft.Json;
 using System;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -137,8 +137,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 ? $"/c \"{_generatedScriptPath}"
                 : $"/c \"{command} {arguments}";
 
-            cmdExeArgs += _modifyEnvironment
-                ? " && echo {OutputDelimiter} && set \""
+            cmdExeArgs += _modifyEnvironment && !enableSecureArguments
+                ? $" && echo {OutputDelimiter} && set \""
                 : "\"";
 
             // Invoke the process.
@@ -197,7 +197,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             var (processedArgs, telemetry) = ProcessHandlerHelper.ProcessInputArguments(arguments);
 
-            ExecutionContext.Debug(string.Join(System.Environment.NewLine, telemetry.ToDictionary().Select(a => $"{a.Key}: {a.Value}")));
+            ExecutionContext.Debug($"Agent PH telemetry: {JsonConvert.SerializeObject(telemetry.ToDictionary(), Formatting.None)}");
 
             var enableTelemetry = AgentKnobs.ProcessHandlerTelemetry.GetValue(ExecutionContext).AsBoolean();
             ExecutionContext.Debug($"Enable telemetry: '{enableTelemetry}'");
@@ -211,9 +211,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             var agentTemp = ExecutionContext.GetVariableValueOrDefault(Constants.Variables.Agent.TempDirectory);
             _generatedScriptPath = Path.Combine(agentTemp, $"processHandlerScript_{scriptId}.cmd");
 
+            var scriptArgs = $"/v:ON /c \"{command} !{inputArgsEnvVarName}!";
+
+            scriptArgs += _modifyEnvironment
+            ? $" && echo {OutputDelimiter} && set \""
+            : "\"";
+
             using (var writer = new StreamWriter(_generatedScriptPath))
             {
-                writer.WriteLine($"{cmdExe} /v:ON /c \"{command} !{inputArgsEnvVarName}!\"");
+                writer.WriteLine($"{cmdExe} {scriptArgs}");
             }
 
             ExecutionContext.Debug($"Generated script file: {_generatedScriptPath}");
