@@ -298,6 +298,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
         }
 
+        protected void RemovePSModulePathFromEnvironment()
+        {
+            if (PlatformUtil.RunningOnWindows && WindowsProcessUtil.AgentIsRunningInPowerShell())
+            {
+                AddEnvironmentVariable("PSModulePath", "");
+                Trace.Info("PSModulePath removed from environment since agent is running on Windows and in PowerShell.");
+            }
+        }
+
         protected void PublishTelemetry<T>(
             Dictionary<string, T> telemetryData,
             string feature = "TaskHandler"
