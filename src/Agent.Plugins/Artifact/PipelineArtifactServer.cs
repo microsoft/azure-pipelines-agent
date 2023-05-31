@@ -155,52 +155,108 @@ namespace Agent.Plugins
 
             using (clientTelemetry)
             // download all pipeline artifacts if artifact name is missing
-            if (downloadOptions == DownloadOptions.MultiDownload)
             {
-                List<BuildArtifact> artifacts;
-                if (downloadParameters.ProjectRetrievalOptions == BuildArtifactRetrievalOptions.RetrieveByProjectId)
+                if (downloadOptions == DownloadOptions.MultiDownload)
                 {
-                    artifacts = await buildServer.GetArtifactsAsync(downloadParameters.ProjectId, downloadParameters.PipelineId, cancellationToken);
-                }
-                else if (downloadParameters.ProjectRetrievalOptions == BuildArtifactRetrievalOptions.RetrieveByProjectName)
-                {
-                    if (string.IsNullOrEmpty(downloadParameters.ProjectName))
+                    List<BuildArtifact> artifacts;
+                    if (downloadParameters.ProjectRetrievalOptions == BuildArtifactRetrievalOptions.RetrieveByProjectId)
                     {
-                        throw new InvalidOperationException("Project name can't be empty when trying to fetch build artifacts!");
+                        artifacts = await buildServer.GetArtifactsAsync(downloadParameters.ProjectId, downloadParameters.PipelineId, cancellationToken);
+                    }
+                    else if (downloadParameters.ProjectRetrievalOptions == BuildArtifactRetrievalOptions.RetrieveByProjectName)
+                    {
+                        if (string.IsNullOrEmpty(downloadParameters.ProjectName))
+                        {
+                            throw new InvalidOperationException("Project name can't be empty when trying to fetch build artifacts!");
+                        }
+                        else
+                        {
+                            artifacts = await buildServer.GetArtifactsWithProjectNameAsync(downloadParameters.ProjectName, downloadParameters.PipelineId, cancellationToken);
+                        }
                     }
                     else
                     {
-                        artifacts = await buildServer.GetArtifactsWithProjectNameAsync(downloadParameters.ProjectName, downloadParameters.PipelineId, cancellationToken);
+                        throw new InvalidOperationException($"Invalid {nameof(downloadParameters.ProjectRetrievalOptions)}!");
+                    }
+
+                    IEnumerable<BuildArtifact> pipelineArtifacts = artifacts.Where(a => string.Equals(a.Resource.Type, PipelineArtifactConstants.PipelineArtifact, StringComparison.OrdinalIgnoreCase));
+                    if (!pipelineArtifacts.Any())
+                    {
+                        throw new ArgumentException("Could not find any pipeline artifacts in the build.");
+                    }
+                    else
+                    {
+                        context.Output(StringUtil.Loc("DownloadingMultiplePipelineArtifacts", pipelineArtifacts.Count()));
+
+                        var artifactNameAndManifestIds = pipelineArtifacts.ToDictionary(
+                            keySelector: (a) => a.Name, // keys should be unique, if not something is really wrong
+                            elementSelector: (a) => DedupIdentifier.Create(a.Resource.Data));
+                        // 2) download to the target path
+                        var options = DownloadDedupManifestArtifactOptions.CreateWithMultiManifestIds(
+                            artifactNameAndManifestIds,
+                            downloadParameters.TargetDirectory,
+                            proxyUri: null,
+                            minimatchPatterns: downloadParameters.MinimatchFilters,
+                            minimatchFilterWithArtifactName: downloadParameters.MinimatchFilterWithArtifactName,
+                            customMinimatchOptions: downloadParameters.CustomMinimatchOptions);
+
+                        PipelineArtifactActionRecord downloadRecord = clientTelemetry.CreateRecord<PipelineArtifactActionRecord>((level, uri, type) =>
+                            new PipelineArtifactActionRecord(level, uri, type, nameof(DownloadAsync), context));
+                        await clientTelemetry.MeasureActionAsync(
+                            record: downloadRecord,
+                            actionAsync: async () =>
+                            {
+                                await AsyncHttpRetryHelper.InvokeVoidAsync(
+                                    async () =>
+                                    {
+                                        await dedupManifestClient.DownloadAsync(options, cancellationToken);
+                                    },
+                                    maxRetries: 3,
+                                    tracer: tracer,
+                                    canRetryDelegate: e => true,
+                                    context: nameof(DownloadAsync),
+                                    cancellationToken: cancellationToken,
+                                    continueOnCapturedContext: false);
+                            });
+
+                        // Send results to CustomerIntelligence
+                        context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: downloadRecord);
                     }
                 }
-                else
+                else if (downloadOptions == DownloadOptions.SingleDownload)
                 {
-                    throw new InvalidOperationException($"Invalid {nameof(downloadParameters.ProjectRetrievalOptions)}!");
-                }
+                    // 1) get manifest id from artifact data
+                    BuildArtifact buildArtifact;
+                    if (downloadParameters.ProjectRetrievalOptions == BuildArtifactRetrievalOptions.RetrieveByProjectId)
+                    {
+                        buildArtifact = await buildServer.GetArtifact(downloadParameters.ProjectId, downloadParameters.PipelineId, downloadParameters.ArtifactName, cancellationToken);
+                    }
+                    else if (downloadParameters.ProjectRetrievalOptions == BuildArtifactRetrievalOptions.RetrieveByProjectName)
+                    {
+                        if (string.IsNullOrEmpty(downloadParameters.ProjectName))
+                        {
+                            throw new InvalidOperationException("Project name can't be empty when trying to fetch build artifacts!");
+                        }
+                        else
+                        {
+                            buildArtifact = await buildServer.GetArtifactWithProjectNameAsync(downloadParameters.ProjectName, downloadParameters.PipelineId, downloadParameters.ArtifactName, cancellationToken);
+                        }
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException($"Invalid {nameof(downloadParameters.ProjectRetrievalOptions)}!");
+                    }
 
-                IEnumerable<BuildArtifact> pipelineArtifacts = artifacts.Where(a => string.Equals(a.Resource.Type, PipelineArtifactConstants.PipelineArtifact, StringComparison.OrdinalIgnoreCase));
-                if (!pipelineArtifacts.Any())
-                {
-                    throw new ArgumentException("Could not find any pipeline artifacts in the build.");
-                }
-                else
-                {
-                    context.Output(StringUtil.Loc("DownloadingMultiplePipelineArtifacts", pipelineArtifacts.Count()));
-
-                    var artifactNameAndManifestIds = pipelineArtifacts.ToDictionary(
-                        keySelector: (a) => a.Name, // keys should be unique, if not something is really wrong
-                        elementSelector: (a) => DedupIdentifier.Create(a.Resource.Data));
-                    // 2) download to the target path
-                    var options = DownloadDedupManifestArtifactOptions.CreateWithMultiManifestIds(
-                        artifactNameAndManifestIds,
+                    var manifestId = DedupIdentifier.Create(buildArtifact.Resource.Data);
+                    var options = DownloadDedupManifestArtifactOptions.CreateWithManifestId(
+                        manifestId,
                         downloadParameters.TargetDirectory,
                         proxyUri: null,
                         minimatchPatterns: downloadParameters.MinimatchFilters,
-                        minimatchFilterWithArtifactName: downloadParameters.MinimatchFilterWithArtifactName,
                         customMinimatchOptions: downloadParameters.CustomMinimatchOptions);
 
                     PipelineArtifactActionRecord downloadRecord = clientTelemetry.CreateRecord<PipelineArtifactActionRecord>((level, uri, type) =>
-                        new PipelineArtifactActionRecord(level, uri, type, nameof(DownloadAsync), context));
+                                new PipelineArtifactActionRecord(level, uri, type, nameof(DownloadAsync), context));
                     await clientTelemetry.MeasureActionAsync(
                         record: downloadRecord,
                         actionAsync: async () =>
@@ -221,64 +277,10 @@ namespace Agent.Plugins
                     // Send results to CustomerIntelligence
                     context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: downloadRecord);
                 }
-            }
-            else if (downloadOptions == DownloadOptions.SingleDownload)
-            {
-                // 1) get manifest id from artifact data
-                BuildArtifact buildArtifact;
-                if (downloadParameters.ProjectRetrievalOptions == BuildArtifactRetrievalOptions.RetrieveByProjectId)
-                {
-                    buildArtifact = await buildServer.GetArtifact(downloadParameters.ProjectId, downloadParameters.PipelineId, downloadParameters.ArtifactName, cancellationToken);
-                }
-                else if (downloadParameters.ProjectRetrievalOptions == BuildArtifactRetrievalOptions.RetrieveByProjectName)
-                {
-                    if (string.IsNullOrEmpty(downloadParameters.ProjectName))
-                    {
-                        throw new InvalidOperationException("Project name can't be empty when trying to fetch build artifacts!");
-                    }
-                    else
-                    {
-                        buildArtifact = await buildServer.GetArtifactWithProjectNameAsync(downloadParameters.ProjectName, downloadParameters.PipelineId, downloadParameters.ArtifactName, cancellationToken);
-                    }
-                }
                 else
                 {
-                    throw new InvalidOperationException($"Invalid {nameof(downloadParameters.ProjectRetrievalOptions)}!");
+                    throw new InvalidOperationException($"Invalid {nameof(downloadOptions)}!");
                 }
-
-                var manifestId = DedupIdentifier.Create(buildArtifact.Resource.Data);
-                var options = DownloadDedupManifestArtifactOptions.CreateWithManifestId(
-                    manifestId,
-                    downloadParameters.TargetDirectory,
-                    proxyUri: null,
-                    minimatchPatterns: downloadParameters.MinimatchFilters,
-                    customMinimatchOptions: downloadParameters.CustomMinimatchOptions);
-
-                PipelineArtifactActionRecord downloadRecord = clientTelemetry.CreateRecord<PipelineArtifactActionRecord>((level, uri, type) =>
-                            new PipelineArtifactActionRecord(level, uri, type, nameof(DownloadAsync), context));
-                await clientTelemetry.MeasureActionAsync(
-                    record: downloadRecord,
-                    actionAsync: async () =>
-                    {
-                        await AsyncHttpRetryHelper.InvokeVoidAsync(
-                            async () =>
-                            {
-                                await dedupManifestClient.DownloadAsync(options, cancellationToken);
-                            },
-                            maxRetries: 3,
-                            tracer: tracer,
-                            canRetryDelegate: e => true,
-                            context: nameof(DownloadAsync),
-                            cancellationToken: cancellationToken,
-                            continueOnCapturedContext: false);
-                    });
-
-                // Send results to CustomerIntelligence
-                context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: downloadRecord);
-            }
-            else
-            {
-                throw new InvalidOperationException($"Invalid {nameof(downloadOptions)}!");
             }
         }
 
