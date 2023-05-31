@@ -12,7 +12,7 @@ using System.IO;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
-  public sealed class MacOSAgentCredentialStore : AgentService, IAgentCredentialStore
+    public sealed class MacOSAgentCredentialStore : AgentService, IAgentCredentialStore
     {
         // Keychain requires a password, but this is not intended to add security
         private const string _osxAgentCredStoreKeyChainPassword = "A1DC2A63B3D14817A64619FDDBC92264";

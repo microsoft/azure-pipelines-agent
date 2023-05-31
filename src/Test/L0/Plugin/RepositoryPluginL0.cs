@@ -269,6 +269,51 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
+        public void RepositoryPlugin_HandleProxyConfig()
+        {
+            using TestHostContext tc = new TestHostContext(this);
+            var proxyUrl = "http://example.com:80";
+            var proxyUser = "proxy_user";
+            var proxyPassword = "proxy_password";
+
+            AgentTaskPluginExecutionContext hostContext = new AgentTaskPluginExecutionContext()
+            {
+                Endpoints = new List<ServiceEndpoint>(),
+                Inputs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                   
+                },
+                Repositories = new List<Pipelines.RepositoryResource>(),
+                Variables = new Dictionary<string, VariableValue>(StringComparer.OrdinalIgnoreCase)
+                {
+                    { AgentWebProxySettings.AgentProxyUrlKey, proxyUrl },
+                    { AgentWebProxySettings.AgentProxyUsernameKey, proxyUser },
+                    { AgentWebProxySettings.AgentProxyPasswordKey, proxyPassword },
+
+                }
+            };
+            var systemConnection = new ServiceEndpoint()
+            {
+                Name = WellKnownServiceEndpointNames.SystemVssConnection,
+                Id = Guid.NewGuid(),
+                Url = new Uri("https://dev.azure.com/test"),
+                Authorization = new EndpointAuthorization()
+                {
+                    Scheme = EndpointAuthorizationSchemes.OAuth,
+                    Parameters = { { EndpointAuthorizationParameters.AccessToken, "Test" } }
+                }
+            };
+
+            hostContext.Endpoints.Add(systemConnection);
+            Assert.NotNull(hostContext.VssConnection);
+            Assert.Equal(hostContext.WebProxySettings.ProxyAddress, proxyUrl);
+            Assert.Equal(hostContext.WebProxySettings.ProxyUsername, proxyUser);
+            Assert.Equal(hostContext.WebProxySettings.ProxyPassword, proxyPassword);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
         public async Task RepositoryPlugin_NoPathInputMoveBackToDefault()
         {
             using (TestHostContext tc = new TestHostContext(this))
@@ -425,7 +470,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                         hostContext.GetDirectory(WellKnownDirectory.Temp)
                     }
                 },
-                JobSettings = new Dictionary<string, string>() 
+                JobSettings = new Dictionary<string, string>()
                 {
                     // Set HasMultipleCheckouts to true if the number of repos is greater than 1
                     { WellKnownJobSettings.HasMultipleCheckouts, (repos.Count > 1).ToString() }

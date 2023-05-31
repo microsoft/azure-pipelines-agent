@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Microsoft.VisualStudio.Services.Agent.Capabilities
 {
-    
+
     public sealed class UserCapabilitiesProvider : AgentService, ICapabilitiesProvider
     {
         public Type ExtensionType => typeof(ICapabilitiesProvider);
@@ -21,7 +21,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
 
             // Location of the .capabilities file
             var capbabilitiesFile = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), ".capabilities");
-            if (File.Exists(capbabilitiesFile)) {
+            if (File.Exists(capbabilitiesFile))
+            {
                 // Load the file content, and parse it like the .env file.
                 Trace.Info($"Reading capabilities from '{capbabilitiesFile}'");
                 var fileContents = File.ReadAllLines(capbabilitiesFile);
@@ -31,11 +32,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
                     {
                         string name = line.Substring(0, line.IndexOf('='));
                         string value = line.Substring(line.IndexOf('=') + 1);
-                        
+
                         Trace.Info($"Adding '{name}': '{value}'");
                         capabilities.Add(new Capability(name, value));
                     }
-                }                
+                }
             }
 
             return Task.FromResult(capabilities);

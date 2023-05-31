@@ -16,6 +16,14 @@ parameters:
   type: boolean
   default: false
   displayName: Build Stage Only
+- name: skipRhelRelease
+  type: boolean
+  default: true
+  displayName: Skip RHEL Release
+- name: releaseRhelOnly
+  type: boolean
+  default: false
+  displayName: Release RHEL Only
 
 - name: onlyGitHubRelease
   type: boolean
@@ -33,6 +41,8 @@ extends:
     test: ${{ not(parameters.skipTests) }}
     sign: true
     publishArtifacts: true
+    skipRhelRelease: ${{ parameters.skipRhelRelease }}
+    releaseRhelOnly: ${{ parameters.releaseRhelOnly }}
 
     preBuildStages:
     - ${{ if and(not(parameters.buildStageOnly), eq(variables['Build.SourceBranch'], 'refs/heads/master')) }}:
@@ -44,7 +54,7 @@ extends:
         ################################################################################
           displayName: Create Release Branch
           pool:
-            vmImage: ubuntu-18.04
+            vmImage: ubuntu-20.04
 
           steps:
           - checkout: self
@@ -177,7 +187,7 @@ extends:
           ################################################################################
             displayName: Create PRs in AzureDevOps and ConfigChange
             pool:
-              vmImage: ubuntu-18.04
+              vmImage: ubuntu-20.04
 
             steps:
             - checkout: self

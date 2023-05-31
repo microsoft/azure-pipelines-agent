@@ -85,7 +85,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEng
                         break;
                     }
 
-                    string message = StringUtil.Loc("RMContainerItemRequestTimedOut", (int) watch.Elapsed.TotalSeconds, backoff.TotalSeconds, request.Method, request.RequestUri);
+                    string message = StringUtil.Loc("RMContainerItemRequestTimedOut", (int)watch.Elapsed.TotalSeconds, backoff.TotalSeconds, request.Method, request.RequestUri);
                     _logger.Warning(message);
 
                     attempt++;

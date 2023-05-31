@@ -41,13 +41,6 @@ namespace Microsoft.VisualStudio.Services.Agent
         TaskExceptionList // We need to remove this config file - once Node 6 handler is dropped
     }
 
-    public enum WellKnownScriptShell
-    {
-        Bash,
-        Cmd,
-        PowerShell
-    }
-
     public static class Constants
     {
         /// <summary>Name of environment variable holding the path.</summary>
@@ -279,26 +272,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static readonly string MacroPrefix = "$(";
             public static readonly string MacroSuffix = ")";
 
-            /// <summary>
-            /// These variables potentially may be used to execute scripts without the knowledge of the owner of the pipelines.
-            /// We want to prevent this by not expanding them and replacing these variables in user scripts with environment variables.
-            /// Note that the replacement will only take place for inline scripts.
-            /// </summary>
-            public static readonly List<string> VariablesVulnerableToExecution = new List<string>
-            {
-                Agent.MachineName,
-                Agent.Name,
-                Build.DefinitionName,
-                Build.SourceVersionMessage,
-                Release.ReleaseDefinitionName,
-                Release.ReleaseEnvironmentName,
-                System.DefinitionName,
-                System.JobDisplayName,
-                System.PhaseDisplayName,
-                System.SourceVersionMessage,
-                System.StageDisplayName
-            };
-
             public static class Agent
             {
                 //
@@ -313,6 +286,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string Diagnostic = "agent.diagnostic";
                 public static readonly string HomeDirectory = "agent.homedirectory";
                 public static readonly string Id = "agent.id";
+                public static readonly string IsSelfHosted = "agent.isselfhosted";
                 public static readonly string GitUseSChannel = "agent.gituseschannel";
                 public static readonly string JobName = "agent.jobname";
                 public static readonly string JobStatus = "agent.jobstatus";
@@ -451,6 +425,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string DefinitionName = "system.definitionName";
                 public static readonly string EnableAccessToken = "system.enableAccessToken";
                 public static readonly string HostType = "system.hosttype";
+                public static readonly string IsAzureVM = "system.isazurevm";
+                public static readonly string IsDockerContainer = "system.isdockercontainer";
                 public static readonly string JobAttempt = "system.jobAttempt";
                 public static readonly string JobDisplayName = "system.jobDisplayName";
                 public static readonly string JobId = "system.jobId";
@@ -458,6 +434,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string PhaseAttempt = "system.phaseAttempt";
                 public static readonly string PhaseDisplayName = "system.phaseDisplayName";
                 public static readonly string PhaseName = "system.phaseName";
+                public static readonly string PlanId = "system.planId";
                 public static readonly string PreferGitFromPath = "system.prefergitfrompath";
                 public static readonly string PullRequestTargetBranchName = "system.pullrequest.targetbranch";
                 public static readonly string SelfManageGitCreds = "system.selfmanagegitcreds";
@@ -487,13 +464,6 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string SkipTranslatorForCheckout = "task.skipTranslatorForCheckout";
             }
 
-            public static readonly Dictionary<string, WellKnownScriptShell> ScriptShellsPerTasks = new Dictionary<string, WellKnownScriptShell>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["PowerShell"] = WellKnownScriptShell.PowerShell,
-                ["Bash"] = WellKnownScriptShell.Bash,
-                ["CmdLine"] = WellKnownScriptShell.Cmd
-            };
-
             public static List<string> ReadOnlyVariables = new List<string>(){
                 // Agent variables
                 Agent.AcceptTeeEula,
@@ -506,6 +476,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Agent.GitUseSChannel,
                 Agent.HomeDirectory,
                 Agent.Id,
+                Agent.IsSelfHosted,
                 Agent.JobName,
                 Agent.JobStatus,
                 Agent.MachineName,
@@ -598,6 +569,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                 System.DefinitionName,
                 System.EnableAccessToken,
                 System.HostType,
+                System.IsAzureVM,
+                System.IsDockerContainer,                
                 System.JobAttempt,
                 System.JobDisplayName,
                 System.JobId,
@@ -605,6 +578,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 System.PhaseAttempt,
                 System.PhaseDisplayName,
                 System.PhaseName,
+                System.PlanId,
                 System.PreferGitFromPath,
                 System.PullRequestTargetBranchName,
                 System.SelfManageGitCreds,
@@ -620,16 +594,6 @@ namespace Microsoft.VisualStudio.Services.Agent
                 // Task variables
                 Task.DisplayName,
                 Task.SkipTranslatorForCheckout
-            };
-        }
-
-        public static class ScriptShells
-        {
-            public static Dictionary<WellKnownScriptShell, EnvVariableParts> EnvVariablePartsPerShell = new Dictionary<WellKnownScriptShell, EnvVariableParts>
-            {
-                [WellKnownScriptShell.PowerShell] = new EnvVariableParts { Prefix = "$env:", Suffix = "" },
-                [WellKnownScriptShell.Bash] = new EnvVariableParts { Prefix = "$", Suffix = "" },
-                [WellKnownScriptShell.Cmd] = new EnvVariableParts { Prefix = "%", Suffix = "" }
             };
         }
     }

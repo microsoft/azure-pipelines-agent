@@ -93,7 +93,8 @@ namespace Agent.Plugins.Repository
         }
 
         protected TeeUtil teeUtil;
-        protected void initializeTeeUtil(AgentTaskPluginExecutionContext executionContext, CancellationToken cancellationToken) {
+        protected void initializeTeeUtil(AgentTaskPluginExecutionContext executionContext, CancellationToken cancellationToken)
+        {
             teeUtil = new TeeUtil(
                 executionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value,
                 executionContext.Variables.GetValueOrDefault("Agent.TempDirectory")?.Value,

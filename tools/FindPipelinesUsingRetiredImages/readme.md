@@ -1,8 +1,6 @@
 # Finding Pipelines Targeting Retired Images
   
-Azure Pipelines will remove Windows Server 2016 with Visual Studio 2017(`vs2017-win2016`), macOS Mojave 10.14 (`macOS-10.14`) from our hosted pools.
-
-The scripts in this directory are intended to help customers identify Pipelines that depend on these retired images. Customers can then navigate to and update those Pipelines.
+The scripts in this directory are intended to help customers identify Pipelines that depend on deprecated images. Customers can then navigate to and update those Pipelines.
 
 ## QueryJobHistoryForRetiredImages.ps1
 usage:

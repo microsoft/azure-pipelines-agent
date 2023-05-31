@@ -349,7 +349,7 @@ namespace Agent.Plugins
                                 using (var targetFileStream = new FileStream(destinationPath, FileMode.Create))
                                 using (var uncompressStream = new GZipStream(targetFileStream, CompressionMode.Decompress))
                                 {
-                                    await dedupClient.DownloadToStreamAsync(dedupIdentifier, uncompressStream, null, EdgeCache.Allowed, (size) => {}, (size) => {}, cancellationToken);
+                                    await dedupClient.DownloadToStreamAsync(dedupIdentifier, uncompressStream, null, EdgeCache.Allowed, (size) => { }, (size) => { }, cancellationToken);
                                 }
                             }
                             else
@@ -418,9 +418,12 @@ namespace Agent.Plugins
                 }
             }
 
-            if (tarsFoundCount == 0) {
+            if (tarsFoundCount == 0)
+            {
                 context.Warning(StringUtil.Loc("TarsNotFound"));
-            } else {
+            }
+            else
+            {
                 tracer.Info(StringUtil.Loc("TarsFound", tarsFoundCount));
 
                 string targetDirectory = Path.Combine(rootPath, "extracted_tars");
@@ -454,7 +457,8 @@ namespace Agent.Plugins
         }
 
         // Recursively moves sourcePath directory to targetPath
-        private void MoveDirectory(string sourcePath, string targetPath) {
+        private void MoveDirectory(string sourcePath, string targetPath)
+        {
             var sourceDirectoryInfo = new DirectoryInfo(sourcePath);
             foreach (FileInfo file in sourceDirectoryInfo.GetFiles("*", SearchOption.TopDirectoryOnly))
             {

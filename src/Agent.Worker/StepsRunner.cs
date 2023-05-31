@@ -1,16 +1,18 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Agent.Sdk;
-using Microsoft.TeamFoundation.DistributedTask.WebApi;
-using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+
+using Agent.Sdk;
+
 using Microsoft.TeamFoundation.DistributedTask.Expressions;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Util;
+
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
-using Microsoft.VisualStudio.Services.CircuitBreaker;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -34,10 +36,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
     public sealed class StepsRunner : AgentService, IStepsRunner
     {
-        private IJobServerQueue _jobServerQueue;
-
-        private IJobServerQueue JobServerQueue => _jobServerQueue ??= HostContext.GetService<IJobServerQueue>();
-
         // StepsRunner should never throw exception to caller
         public async Task RunAsync(IExecutionContext jobContext, IList<IStep> steps)
         {
@@ -54,6 +52,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             CancellationTokenRegistration? jobCancelRegister = null;
             int stepIndex = 0;
             jobContext.Variables.Agent_JobStatus = jobContext.Result ?? TaskResult.Succeeded;
+            // Wait till all async commands finish.
+            foreach (var command in jobContext.AsyncCommands ?? new List<IAsyncCommandContext>())
+            {
+                try
+                {
+                    // wait async command to finish.
+                    await command.WaitAsync();
+                }
+
+                catch (Exception ex)
+                {
+                    // Log the error
+                    Trace.Info($"Caught exception from async command {command.Name}: {ex}");
+                }
+            }
             foreach (IStep step in steps)
             {
                 Trace.Info($"Processing step: DisplayName='{step.DisplayName}', ContinueOnError={step.ContinueOnError}, Enabled={step.Enabled}");
@@ -308,17 +321,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Complete the step context.
             step.ExecutionContext.Section(StringUtil.Loc("StepFinishing", step.DisplayName));
             step.ExecutionContext.Complete();
-
-            try
-            {
-                // We need to drain the queues after a task just in case if
-                // there are a lot of items since it can cause some UI hangs.
-                await JobServerQueue.DrainQueues();
-            } catch (Exception ex)
-            {
-                Trace.Error($"Error has occurred while draining queues, it can cause some UI glitches but it doesn't affect a pipeline execution itself: {ex}");
-                step.ExecutionContext.Error(ex);
-            }
         }
 
         private async Task SwitchToUtf8Codepage(IStep step)
@@ -344,7 +346,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                                 killProcessOnCancel: false,
                                                 redirectStandardIn: null,
                                                 inheritConsoleHandler: true,
-                                                continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,                                                
+                                                continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
                                                 cancellationToken: step.ExecutionContext.CancellationToken);
                         if (exitCode == 0)
                         {

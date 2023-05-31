@@ -13,6 +13,7 @@ using System.Threading;
 using System.Collections.ObjectModel;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Agent.Sdk;
+using Microsoft.TeamFoundation.TestManagement.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.LogPluginHost
 {
@@ -159,7 +160,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.LogPluginHost
             }
         }
 
-        public class TestPluginException : IAgentLogPlugin
+        public class PluginExceptionTest : IAgentLogPlugin
         {
             public string FriendlyName => "TestException";
 
@@ -298,7 +299,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.LogPluginHost
                 logPluginHost.Finish();
                 await task;
 
-                foreach (var fragment in new string[] { "Test1: 0", "Test1: 999", "Test1: Done", "Test2: 0", "Test2: 999", "Test2: Done"})
+                foreach (var fragment in new string[] { "Test1: 0", "Test1: 999", "Test1: Done", "Test2: 0", "Test2: 999", "Test2: Done" })
                 {
                     Assert.True(trace.Outputs.Contains(fragment), $"Found '{fragment}' in: {trace.Outputs}");
                 }
@@ -406,14 +407,58 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.LogPluginHost
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
+        public void LogPluginHost_HandleProxyConfig()
+        {
+            using TestHostContext tc = new TestHostContext(this);
+            TestTrace trace = new TestTrace(tc);
+            var proxyUrl = "http://example.com:80";
+            var proxyUser = "proxy_user";
+            var proxyPassword = "proxy_password";
+
+            AgentLogPluginHostContext hostContext = new AgentLogPluginHostContext()
+            {
+                Endpoints = new List<ServiceEndpoint>(),
+                PluginAssemblies = new List<string>(),
+                Repositories = new List<Pipelines.RepositoryResource>(),
+                Variables = new Dictionary<string, VariableValue>()
+                {
+                    { AgentWebProxySettings.AgentProxyUrlKey, proxyUrl },
+                    { AgentWebProxySettings.AgentProxyUsernameKey, proxyUser },
+                    { AgentWebProxySettings.AgentProxyPasswordKey, proxyPassword },
+                },
+                Steps = new Dictionary<string, Pipelines.TaskStepDefinitionReference>()
+            };
+            var systemConnection = new ServiceEndpoint()
+            {
+                Name = WellKnownServiceEndpointNames.SystemVssConnection,
+                Id = Guid.NewGuid(),
+                Url = new Uri("https://dev.azure.com/test"),
+                Authorization = new EndpointAuthorization()
+                {
+                    Scheme = EndpointAuthorizationSchemes.OAuth,
+                    Parameters = { { EndpointAuthorizationParameters.AccessToken, "Test" } }
+                }
+            };
+
+            hostContext.Endpoints.Add(systemConnection);
+            Assert.NotNull(hostContext.VssConnection);
+            Assert.Equal(hostContext.WebProxySettings.ProxyAddress, proxyUrl);
+            Assert.Equal(hostContext.WebProxySettings.ProxyUsername, proxyUser);
+            Assert.Equal(hostContext.WebProxySettings.ProxyPassword, proxyPassword);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
         public async Task LogPluginHost_HandleInitialExceptions()
         {
             using (TestHostContext tc = new TestHostContext(this))
             {
                 AgentLogPluginHostContext hostContext = CreateTestLogPluginHostContext();
+
                 hostContext.Variables["throw_initialize"] = "1";
 
-                List<IAgentLogPlugin> plugins = new List<IAgentLogPlugin>() { new TestPlugin1(), new TestPluginException() };
+                List<IAgentLogPlugin> plugins = new List<IAgentLogPlugin>() { new TestPlugin1(), new PluginExceptionTest() };
 
                 TestTrace trace = new TestTrace(tc);
                 AgentLogPluginHost logPluginHost = new AgentLogPluginHost(hostContext, plugins, trace);
@@ -447,7 +492,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.LogPluginHost
                 AgentLogPluginHostContext hostContext = CreateTestLogPluginHostContext();
                 hostContext.Variables["throw_process"] = "1";
 
-                List<IAgentLogPlugin> plugins = new List<IAgentLogPlugin>() { new TestPlugin1(), new TestPluginException() };
+                List<IAgentLogPlugin> plugins = new List<IAgentLogPlugin>() { new TestPlugin1(), new PluginExceptionTest() };
 
                 TestTrace trace = new TestTrace(tc);
                 AgentLogPluginHost logPluginHost = new AgentLogPluginHost(hostContext, plugins, trace);

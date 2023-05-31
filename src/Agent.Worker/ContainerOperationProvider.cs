@@ -42,7 +42,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             base.Initialize(hostContext);
             _dockerManger = HostContext.GetService<IDockerCommandManager>();
-            _containerNetwork = $"vsts_network_{Guid.NewGuid().ToString("N")}";
+            _containerNetwork = $"vsts_network_{Guid.NewGuid():N}";
+        }
+
+        private string GetContainerNetwork(IExecutionContext executionContext)
+        {
+            var useHostNetwork = AgentKnobs.DockerNetworkCreateDriver.GetValue(executionContext).AsString() == "host";
+            return useHostNetwork ? "host" : _containerNetwork;
         }
 
         public async Task StartContainersAsync(IExecutionContext executionContext, object data)
@@ -110,8 +116,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Create local docker network for this job to avoid port conflict when multiple agents run on same machine.
             // All containers within a job join the same network
-            await CreateContainerNetworkAsync(executionContext, _containerNetwork);
-            containers.ForEach(container => container.ContainerNetwork = _containerNetwork);
+            var containerNetwork = GetContainerNetwork(executionContext);
+            await CreateContainerNetworkAsync(executionContext, containerNetwork);
+            containers.ForEach(container => container.ContainerNetwork = containerNetwork);
 
             foreach (var container in containers)
             {
@@ -120,7 +127,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Build JSON to expose docker container name mapping to env
             var containerMapping = new JObject();
-            foreach (var container in containers) {
+            foreach (var container in containers)
+            {
                 var containerInfo = new JObject();
                 containerInfo["id"] = container.ContainerId;
                 containerMapping[container.ContainerName] = containerInfo;
@@ -146,7 +154,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 await StopContainerAsync(executionContext, container);
             }
             // Remove the container network
-            await RemoveContainerNetworkAsync(executionContext, _containerNetwork);
+            var containerNetwork = GetContainerNetwork(executionContext);
+            await RemoveContainerNetworkAsync(executionContext, containerNetwork);
         }
 
         private async Task<string> GetMSIAccessToken(IExecutionContext executionContext)
@@ -308,7 +317,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 ArgUtil.NotNullOrEmpty(username, nameof(username));
                 ArgUtil.NotNullOrEmpty(password, nameof(password));
 
-                int loginExitCode = await _dockerManger.DockerLogin(executionContext, registryServer, username, password);
+                int loginExitCode = await _dockerManger.DockerLogin(
+                    executionContext,
+                    registryServer,
+                    username,
+                    password);
+
                 if (loginExitCode != 0)
                 {
                     throw new InvalidOperationException($"Docker login fail with exit code {loginExitCode}");
@@ -329,29 +343,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
 
-                    // Pull down docker image with retry up to 3 times
-                    int retryCount = 0;
-                    int pullExitCode = 0;
-                    while (retryCount < 3)
-                    {
-                        pullExitCode = await _dockerManger.DockerPull(executionContext, container.ContainerImage);
-                        if (pullExitCode == 0)
-                        {
-                            break;
-                        }
-                        else
-                        {
-                            retryCount++;
-                            if (retryCount < 3)
-                            {
-                                var backOff = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
-                                executionContext.Warning($"Docker pull failed with exit code {pullExitCode}, back off {backOff.TotalSeconds} seconds before retry.");
-                                await Task.Delay(backOff);
-                            }
-                        }
-                    }
+                    int pullExitCode = await _dockerManger.DockerPull(
+                        executionContext,
+                        container.ContainerImage);
 
-                    if (retryCount == 3 && pullExitCode != 0)
+                    if (pullExitCode != 0)
                     {
                         throw new InvalidOperationException($"Docker pull failed with exit code {pullExitCode}");
                     }
@@ -447,7 +443,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Tools)));
 
             bool externalReadOnly = container.ImageOS != PlatformUtil.OS.Windows || container.isReadOnlyVolume(Constants.DefaultContainerMounts.Externals); // This code was refactored to use PlatformUtils. The previous implementation did not have the externals directory mounted read-only for Windows.
-                                                                    // That seems wrong, but to prevent any potential backwards compatibility issues, we are keeping the same logic
+                                                                                                                                                            // That seems wrong, but to prevent any potential backwards compatibility issues, we are keeping the same logic
             container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Externals), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Externals)), externalReadOnly));
 
             if (container.ImageOS != PlatformUtil.OS.Windows)
@@ -669,10 +665,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             // check all potential groups that might match the GID.
                             foreach (string groupOutput in groupsOutput)
                             {
-                                if(!string.IsNullOrEmpty(groupOutput))
+                                if (!string.IsNullOrEmpty(groupOutput))
                                 {
                                     var groupSegments = groupOutput.Split(':');
-                                    if( groupSegments.Length != 4 )
+                                    if (groupSegments.Length != 4)
                                     {
                                         Trace.Warning($"Unexpected output from /etc/group: '{groupOutput}'");
                                     }
@@ -682,7 +678,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                         var groupName = groupSegments[0];
                                         var groupId = groupSegments[2];
 
-                                        if(string.Equals(dockerSockGroupId, groupId))
+                                        if (string.Equals(dockerSockGroupId, groupId))
                                         {
                                             existingGroupName = groupName;
                                             break;
@@ -692,7 +688,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             }
                         }
 
-                        if(string.IsNullOrEmpty(existingGroupName))
+                        if (string.IsNullOrEmpty(existingGroupName))
                         {
                             // create a new group with same gid
                             existingGroupName = "azure_pipelines_docker";
@@ -793,11 +789,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             Trace.Entering();
             ArgUtil.NotNull(executionContext, nameof(executionContext));
-            int networkExitCode = await _dockerManger.DockerNetworkCreate(executionContext, network);
-            if (networkExitCode != 0)
+
+            if (network != "host")
             {
-                throw new InvalidOperationException($"Docker network create failed with exit code {networkExitCode}");
+                int networkExitCode = await _dockerManger.DockerNetworkCreate(executionContext, network);
+                if (networkExitCode != 0)
+                {
+                    throw new InvalidOperationException($"Docker network create failed with exit code {networkExitCode}");
+                }
             }
+            else
+            {
+                Trace.Info("Skipping creation of a new docker network. Reusing the host network.");
+            }
+
             // Expose docker network to env
             executionContext.Variables.Set(Constants.Variables.Agent.ContainerNetwork, network);
         }
@@ -808,13 +813,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNull(network, nameof(network));
 
-            executionContext.Output($"Remove container network: {network}");
-
-            int removeExitCode = await _dockerManger.DockerNetworkRemove(executionContext, network);
-            if (removeExitCode != 0)
+            if (network != "host")
             {
-                executionContext.Warning($"Docker network rm failed with exit code {removeExitCode}");
+                executionContext.Output($"Remove container network: {network}");
+
+                int removeExitCode = await _dockerManger.DockerNetworkRemove(executionContext, network);
+                if (removeExitCode != 0)
+                {
+                    executionContext.Warning($"Docker network rm failed with exit code {removeExitCode}");
+                }
             }
+
             // Remove docker network from env
             executionContext.Variables.Set(Constants.Variables.Agent.ContainerNetwork, null);
         }

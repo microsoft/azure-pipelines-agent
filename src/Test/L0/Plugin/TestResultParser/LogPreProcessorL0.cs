@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-﻿using Agent.Plugins.Log.TestResultParser.Plugin;
+using Agent.Plugins.Log.TestResultParser.Plugin;
 using Xunit;
 
 namespace Test.L0.Plugin.TestResultParser

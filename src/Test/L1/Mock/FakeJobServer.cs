@@ -88,7 +88,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
         public Task<Timeline> CreateTimelineAsync(Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, CancellationToken cancellationToken)
         {
-            var timeline = new Timeline {
+            var timeline = new Timeline
+            {
                 Id = timelineId
             };
             Timelines.Add(timelineId, timeline);
@@ -140,8 +141,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         {
             UploadedAttachmentBlobFiles.Add(itemPath);
             var chunk = await ChunkerHelper.CreateFromFileAsync(FileSystem.Instance, itemPath, cancellationToken, false);
-            var rootNode = new DedupNode(new []{ chunk});
-            var dedupId = rootNode.GetDedupIdentifier(HashType.Dedup64K);
+            var rootNode = new DedupNode(new[] { chunk });
+            var dedupId = rootNode.GetDedupIdentifier();
 
             return (dedupId, rootNode.TransitiveContentBytes);
         }

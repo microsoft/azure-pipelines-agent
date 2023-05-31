@@ -13,11 +13,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
     public class BuildArtifactActionRecord : PipelineTelemetryRecord
     {
         public BuildArtifactActionRecord(
-            TelemetryInformationLevel level, 
-            Uri baseAddress, 
-            string eventNamePrefix, 
-            string eventNameSuffix, 
-            IKnobValueContext context, 
+            TelemetryInformationLevel level,
+            Uri baseAddress,
+            string eventNamePrefix,
+            string eventNameSuffix,
+            IKnobValueContext context,
             uint attemptNumber = 1)
             : base(level, baseAddress, eventNamePrefix, eventNameSuffix, context, attemptNumber)
         {

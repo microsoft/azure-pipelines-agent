@@ -22,11 +22,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             using (var tokenSource = new CancellationTokenSource())
             {
                 var capFile = Path.Combine(hc.GetDirectory(WellKnownDirectory.Root), ".capabilities");
-                try {
+                try
+                {
                     File.WriteAllText(capFile, "User.Capability=My Value");
                     Mock<IConfigurationManager> configurationManager = new Mock<IConfigurationManager>();
                     hc.SetSingleton<IConfigurationManager>(configurationManager.Object);
-                    
+
                     // Arrange
                     var provider = new UserCapabilitiesProvider();
                     provider.Initialize(hc);
@@ -41,7 +42,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     Assert.NotNull(myCapability);
                     Assert.Equal("My Value", myCapability.Value);
                     Assert.Equal(1, capabilities.Count);
-                } finally {
+                }
+                finally
+                {
                     File.Delete(capFile);
                 }
             }
@@ -56,7 +59,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             {
                 Mock<IConfigurationManager> configurationManager = new Mock<IConfigurationManager>();
                 hc.SetSingleton<IConfigurationManager>(configurationManager.Object);
-                
+
                 // Arrange
                 var provider = new UserCapabilitiesProvider();
                 provider.Initialize(hc);

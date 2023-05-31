@@ -22,7 +22,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     public sealed class Worker : AgentService, IWorker
     {
         private readonly TimeSpan _workerStartTimeout = TimeSpan.FromSeconds(30);
-        private static readonly char[] _quoteLikeChars = new char[] {'\'', '"'};
+        private static readonly char[] _quoteLikeChars = new char[] { '\'', '"' };
 
 
         public async Task<int> RunAsync(string pipeIn, string pipeOut)
@@ -138,6 +138,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     HostContext.SecretMasker.AddValue(secret.Trim(quoteChar), WellKnownSecretAliases.UserSuppliedSecret);
                 }
             }
+
+            // Here we add a trimmed secret value to the dictionary in case of a possible leak through external tools.
+            var trimChars = new char[] { '\r', '\n', ' ' };
+            HostContext.SecretMasker.AddValue(secret.Trim(trimChars), WellKnownSecretAliases.UserSuppliedSecret);
         }
 
         private void InitializeSecretMasker(Pipelines.AgentJobRequestMessage message)

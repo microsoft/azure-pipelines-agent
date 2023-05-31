@@ -16,7 +16,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
     {
         private CustomerIntelligenceTelemetrySender sender;
 
-        public BlobStoreClientTelemetryTfs(IAppTraceSource tracer, Uri baseAddress, VssConnection connection) 
+        public BlobStoreClientTelemetryTfs(IAppTraceSource tracer, Uri baseAddress, VssConnection connection)
             : this(tracer, baseAddress, new CustomerIntelligenceTelemetrySender(connection))
         {
         }
@@ -28,7 +28,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             this.sender = sender as CustomerIntelligenceTelemetrySender;
         }
 
-        private BlobStoreClientTelemetryTfs(IAppTraceSource tracer, Uri baseAddress, CustomerIntelligenceTelemetrySender sender) 
+        private BlobStoreClientTelemetryTfs(IAppTraceSource tracer, Uri baseAddress, CustomerIntelligenceTelemetrySender sender)
             : base(tracer, baseAddress, sender)
         {
             this.sender = sender;

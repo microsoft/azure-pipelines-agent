@@ -13,7 +13,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
         public string RootFolder => Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "/TestRuns/" + WorkingDirectoryName;
 
-        public List<SetupInfo> SetupInfo => new List<SetupInfo>();
+        public List<SetupInfo> setupInfo => new List<SetupInfo>();
 
         private AgentSettings _agentSettings;
 
@@ -44,7 +44,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
         public IEnumerable<SetupInfo> GetSetupInfo()
         {
-            return SetupInfo;
+            return setupInfo;
         }
 
         public AgentSettings GetSettings()

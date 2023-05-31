@@ -19,7 +19,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
     {
         public void DeleteValue(RegistryHive hive, string subKeyName, string name)
         {
-            using(RegistryKey key = OpenRegistryKey(hive, subKeyName, true))
+            using (RegistryKey key = OpenRegistryKey(hive, subKeyName, true))
             {
                 if (key != null)
                 {
@@ -30,9 +30,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public string GetValue(RegistryHive hive, string subKeyName, string name)
         {
-            using(RegistryKey key = OpenRegistryKey(hive, subKeyName, false))
+            using (RegistryKey key = OpenRegistryKey(hive, subKeyName, false))
             {
-                if(key == null)
+                if (key == null)
                 {
                     return null;
                 }
@@ -44,7 +44,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public void SetValue(RegistryHive hive, string subKeyName, string name, string value)
         {
-            using(RegistryKey key = OpenRegistryKey(hive, subKeyName, true))
+            using (RegistryKey key = OpenRegistryKey(hive, subKeyName, true))
             {
                 if (key == null)
                 {
@@ -64,7 +64,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public bool SubKeyExists(RegistryHive hive, string subKeyName)
         {
-            using(RegistryKey key = OpenRegistryKey(hive, subKeyName, false))
+            using (RegistryKey key = OpenRegistryKey(hive, subKeyName, false))
             {
                 return key != null;
             }
@@ -75,10 +75,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             RegistryKey key = null;
             switch (hive)
             {
-                case RegistryHive.CurrentUser :
+                case RegistryHive.CurrentUser:
                     key = Registry.CurrentUser.OpenSubKey(subKeyName, writable);
                     break;
-                case RegistryHive.Users :
+                case RegistryHive.Users:
                     key = Registry.Users.OpenSubKey(subKeyName, writable);
                     break;
                 case RegistryHive.LocalMachine:
@@ -93,10 +93,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             RegistryKey key = null;
             switch (hive)
             {
-                case RegistryHive.CurrentUser :
+                case RegistryHive.CurrentUser:
                     key = Registry.CurrentUser.CreateSubKey(subKeyName, writable);
                     break;
-                case RegistryHive.Users :
+                case RegistryHive.Users:
                     key = Registry.Users.CreateSubKey(subKeyName, writable);
                     break;
                 case RegistryHive.LocalMachine:

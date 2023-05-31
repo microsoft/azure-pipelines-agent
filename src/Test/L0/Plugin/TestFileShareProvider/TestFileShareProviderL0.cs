@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -32,7 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "Plugin")]
         public async Task TestPublishArtifactAsync()
         {
-            if(!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 // Robocopy only works in Windows and since agent is using Xunit, Assert.Inconclusive doesn't exist. 
                 return;
@@ -41,9 +41,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             byte[] sourceContent = GenerateRandomData();
             TestFile sourceFile = new TestFile(sourceContent);
 
-            sourceFile.PlaceItem( Path.Combine(Directory.GetCurrentDirectory(), Path.Combine(TestSourceFolder, "test1.txt")));
+            sourceFile.PlaceItem(Path.Combine(Directory.GetCurrentDirectory(), Path.Combine(TestSourceFolder, "test1.txt")));
 
-            using(var hostContext = new TestHostContext(this))
+            using (var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 context.Variables.Add("system.hosttype", "build");
@@ -56,7 +56,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 var sourceFiles = Directory.GetFiles(sourcePath);
                 var destFiles = Directory.GetFiles(destPath);
                 Assert.Equal(sourceFiles.Length, destFiles.Length);
-                foreach(var file in sourceFiles)
+                foreach (var file in sourceFiles)
                 {
                     string destFile = destFiles.FirstOrDefault(f => Path.GetFileName(f).Equals(Path.GetFileName(file)));
                     Assert.True(StructuralComparisons.StructuralEqualityComparer.Equals(ComputeHash(file), ComputeHash(destFile)));
@@ -75,30 +75,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             TestFile sourceFile1 = new TestFile(sourceContent1);
             TestFile sourceFile2 = new TestFile(sourceContent2);
 
-            sourceFile1.PlaceItem( Path.Combine(Directory.GetCurrentDirectory(), Path.Combine(TestDownloadSourceFolder, "drop/test2.txt")));
-            sourceFile2.PlaceItem( Path.Combine(Directory.GetCurrentDirectory(), Path.Combine(TestDownloadSourceFolder, "drop/test3.txt")));
+            sourceFile1.PlaceItem(Path.Combine(Directory.GetCurrentDirectory(), Path.Combine(TestDownloadSourceFolder, "drop/test2.txt")));
+            sourceFile2.PlaceItem(Path.Combine(Directory.GetCurrentDirectory(), Path.Combine(TestDownloadSourceFolder, "drop/test3.txt")));
 
-            using(var hostContext = new TestHostContext(this))
+            using (var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 var provider = new FileShareProvider(context, null, context.CreateArtifactsTracer(), new MockDedupManifestArtifactClientFactory());
-                
+
                 string sourcePath = Path.Combine(Directory.GetCurrentDirectory(), TestDownloadSourceFolder);
                 string destPath = Path.Combine(Directory.GetCurrentDirectory(), TestDestFolder);
                 ArtifactDownloadParameters downloadParameters = new ArtifactDownloadParameters();
                 downloadParameters.TargetDirectory = destPath;
-                downloadParameters.MinimatchFilters = new string[] {"**"};
+                downloadParameters.MinimatchFilters = new string[] { "**" };
                 BuildArtifact buildArtifact = new BuildArtifact();
                 buildArtifact.Name = "drop";
                 buildArtifact.Resource = new ArtifactResource();
                 buildArtifact.Resource.Data = sourcePath;
-                
+
                 await provider.DownloadMultipleArtifactsAsync(downloadParameters, new List<BuildArtifact> { buildArtifact }, CancellationToken.None, context);
                 var sourceFiles = Directory.GetFiles(sourcePath);
                 var destFiles = Directory.GetFiles(destPath);
 
                 Assert.Equal(sourceFiles.Length, destFiles.Length);
-                foreach(var file in sourceFiles)
+                foreach (var file in sourceFiles)
                 {
                     string destFile = destFiles.FirstOrDefault(f => Path.GetFileName(f).Equals(Path.GetFileName(file)));
                     Assert.True(StructuralComparisons.StructuralEqualityComparer.Equals(ComputeHash(file), ComputeHash(destFile)));
@@ -117,29 +117,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             TestFile sourceFile1 = new TestFile(sourceContent1);
             TestFile sourceFile2 = new TestFile(sourceContent2);
 
-            sourceFile1.PlaceItem( Path.Combine(Directory.GetCurrentDirectory(), Path.Combine(TestDownloadSourceFolder, "drop/test2.txt")));
-            sourceFile2.PlaceItem( Path.Combine(Directory.GetCurrentDirectory(), Path.Combine(TestDownloadSourceFolder, "drop/test3.txt")));
+            sourceFile1.PlaceItem(Path.Combine(Directory.GetCurrentDirectory(), Path.Combine(TestDownloadSourceFolder, "drop/test2.txt")));
+            sourceFile2.PlaceItem(Path.Combine(Directory.GetCurrentDirectory(), Path.Combine(TestDownloadSourceFolder, "drop/test3.txt")));
 
-            using(var hostContext = new TestHostContext(this))
+            using (var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 var provider = new FileShareProvider(context, null, context.CreateArtifactsTracer(), new MockDedupManifestArtifactClientFactory());
-                
+
                 string sourcePath = Path.Combine(Directory.GetCurrentDirectory(), TestDownloadSourceFolder);
                 string destPath = Path.Combine(Directory.GetCurrentDirectory(), TestDestFolder);
                 ArtifactDownloadParameters downloadParameters = new ArtifactDownloadParameters();
                 downloadParameters.TargetDirectory = destPath;
-                downloadParameters.MinimatchFilters = new string[] {"drop/test2.txt"};
+                downloadParameters.MinimatchFilters = new string[] { "drop/test2.txt" };
                 BuildArtifact buildArtifact = new BuildArtifact();
                 buildArtifact.Name = "drop";
                 buildArtifact.Resource = new ArtifactResource();
                 buildArtifact.Resource.Data = sourcePath;
-                
-                await provider.DownloadMultipleArtifactsAsync(downloadParameters, new List<BuildArtifact> {buildArtifact}, CancellationToken.None, context);
+
+                await provider.DownloadMultipleArtifactsAsync(downloadParameters, new List<BuildArtifact> { buildArtifact }, CancellationToken.None, context);
                 var sourceFiles = Directory.GetFiles(sourcePath);
                 var destFiles = Directory.GetFiles(Path.Combine(destPath, buildArtifact.Name));
                 Assert.Equal(1, destFiles.Length);
-                foreach(var file in sourceFiles)
+                foreach (var file in sourceFiles)
                 {
                     string destFile = destFiles.FirstOrDefault(f => Path.GetFileName(f).Equals(Path.GetFileName(file)));
                     Assert.True(StructuralComparisons.StructuralEqualityComparer.Equals(ComputeHash(file), ComputeHash(destFile)));
@@ -163,6 +163,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA5394:Do not use insecure randomness")]
         private byte[] GenerateRandomData()
         {
             byte[] data = new byte[1024];
@@ -173,9 +174,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
         private byte[] ComputeHash(string filePath)
         {
-            using (var md5 = MD5.Create())
+            using (SHA256 sha256Hash = SHA256.Create())
             {
-                return md5.ComputeHash(File.ReadAllBytes(filePath));
+                return sha256Hash.ComputeHash(File.ReadAllBytes(filePath));
             }
         }
     }
@@ -184,7 +185,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
     {
         public byte[] Content { get; protected set; }
         protected internal TestFile(byte[] content)
-        {     
+        {
             this.Content = content;
         }
 

@@ -13,6 +13,8 @@ using System.IO;
 using Microsoft.VisualStudio.Services.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Agent.Sdk.Knob;
+using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
+using Newtonsoft.Json;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
@@ -36,7 +38,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         // On Windows, the maximum supported size of a environment variable value is 32k.
         // You can set environment variables greater then 32K, but Node won't be able to read them.
         private const int _windowsEnvironmentVariableMaximumSize = 32766;
-        
+
         protected bool _continueAfterCancelProcessTreeKillAttempt;
 
         protected IWorkerCommandManager CommandManager { get; private set; }
@@ -294,6 +296,34 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 string newPath = PathUtil.PrependPath(prepend, originalPath);
                 AddEnvironmentVariable(Constants.PathVariable, newPath);
             }
+        }
+
+        protected void RemovePSModulePathFromEnvironment()
+        {
+            if (PlatformUtil.RunningOnWindows && WindowsProcessUtil.AgentIsRunningInPowerShell())
+            {
+                AddEnvironmentVariable("PSModulePath", "");
+                Trace.Info("PSModulePath removed from environment since agent is running on Windows and in PowerShell.");
+            }
+        }
+
+        protected void PublishTelemetry<T>(
+            Dictionary<string, T> telemetryData,
+            string feature = "TaskHandler"
+        )
+        {
+            ArgUtil.NotNull(Task, nameof(Task));
+
+            var cmd = new Command("telemetry", "publish")
+            {
+                Data = JsonConvert.SerializeObject(telemetryData, Formatting.None)
+            };
+            cmd.Properties.Add("area", "PipelinesTasks");
+            cmd.Properties.Add("feature", feature);
+
+            var publishTelemetryCmd = new TelemetryCommandExtension();
+            publishTelemetryCmd.Initialize(HostContext);
+            publishTelemetryCmd.ProcessCommand(ExecutionContext, cmd);
         }
     }
 }

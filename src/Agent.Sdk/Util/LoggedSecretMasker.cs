@@ -1,8 +1,5 @@
 using Microsoft.TeamFoundation.DistributedTask.Logging;
 using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Text.RegularExpressions;
 
 namespace Agent.Sdk.Util
 {
@@ -13,9 +10,6 @@ namespace Agent.Sdk.Util
     {
         private ISecretMasker _secretMasker;
         private ITraceWriter _trace;
-
-        // We don't allow to skip secrets longer than 4 characters.
-        private readonly short _maxMinSecretLength = 4;
 
         private void Trace(string msg)
         {
@@ -76,6 +70,10 @@ namespace Agent.Sdk.Util
             AddRegex(pattern);
         }
 
+        // We don't allow to skip secrets longer than 5 characters.
+        // Note: the secret that will be ignored is of length n-1.
+        public static int MinSecretLengthLimit => 6;
+
         public int MinSecretLength
         {
             get
@@ -84,14 +82,14 @@ namespace Agent.Sdk.Util
             }
             set
             {
-                if (value > _maxMinSecretLength)
+                if (value > MinSecretLengthLimit)
                 {
-                    _secretMasker.MinSecretLength = _maxMinSecretLength;
-
-                    throw new ArgumentException($"Not allowed minimum secret length. Set max value: {_maxMinSecretLength}");
+                    _secretMasker.MinSecretLength = MinSecretLengthLimit;
                 }
-
-                _secretMasker.MinSecretLength = value;
+                else
+                {
+                    _secretMasker.MinSecretLength = value;
+                }
             }
         }
 

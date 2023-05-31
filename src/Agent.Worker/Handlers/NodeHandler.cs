@@ -11,6 +11,7 @@ using System;
 using Newtonsoft.Json.Linq;
 using System.Text.RegularExpressions;
 using System.Linq;
+using System.Threading;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
@@ -214,6 +215,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         public string GetNodeLocation()
         {
+            bool useNode16 = AgentKnobs.UseNode16.GetValue(ExecutionContext).AsBoolean();
             bool useNode10 = AgentKnobs.UseNode10.GetValue(ExecutionContext).AsBoolean();
             bool taskHasNode10Data = Data is Node10HandlerData;
             bool taskHasNode16Data = Data is Node16HandlerData;
@@ -236,10 +238,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 nodeFolder = NodeHandler.node10Folder;
             }
 
+            if (useNode16)
+            {
+                Trace.Info($"Found UseNode16 knob, using node16 for node tasks {useNode16}");
+                nodeFolder = NodeHandler.node16Folder;
+            }
+
             if (useNode10)
             {
                 Trace.Info($"Found UseNode10 knob, use node10 for node tasks: {useNode10}");
                 nodeFolder = NodeHandler.node10Folder;
+            }
+            if (nodeFolder == NodeHandler.nodeFolder && 
+                AgentKnobs.AgentDeprecatedNodeWarnings.GetValue(ExecutionContext).AsBoolean() == true)
+            {
+                ExecutionContext.Warning(StringUtil.Loc("DeprecatedRunner", Task.Name.ToString()));
             }
 
             if (!nodeHandlerHelper.IsNodeFolderExist(nodeFolder, HostContext))
@@ -249,7 +262,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 if (!String.IsNullOrWhiteSpace(useNodeKnob) && filteredPossibleNodeFolders.Length > 0)
                 {
                     Trace.Info($"Found UseNode knob with value \"{useNodeKnob}\", will try to find appropriate Node Runner");
-                    
+
                     switch (useNodeKnob.ToUpper())
                     {
                         case NodeHandler.useNodeKnobLtsKey:

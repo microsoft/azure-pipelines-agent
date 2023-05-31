@@ -1,15 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk.Knob;
 using System;
-using Microsoft.TeamFoundation.TestClient.PublishTestResults;
-using Microsoft.TeamFoundation.TestManagement.WebApi;
-using Microsoft.VisualStudio.Services.WebApi;
-using Microsoft.TeamFoundation.Core.WebApi;
-using System.Linq;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 
@@ -17,8 +10,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
 {
     internal static class TestResultUtils
     {
-        public static void StoreTestRunSummaryInEnvVar(IExecutionContext executionContext, TestRunSummary testRunSummary, string testRunner, string name, string description="")
+        public static void StoreTestRunSummaryInEnvVar(IExecutionContext executionContext, TestRunSummary testRunSummary, string testRunner, string name, string description = "")
         {
+            if (AgentKnobs.DisableTestsMetadata.GetValue(executionContext).AsBoolean())
+            {
+                return;
+            }
+
             try
             {
                 string metadata = GetEvidenceStoreMetadata(executionContext, testRunSummary, testRunner, name, description);
@@ -55,7 +53,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
                 string pipelinesUrl = GetPipelinesUrl(executionContext);
                 if (!string.IsNullOrEmpty(pipelinesUrl))
                 {
-                    var relatedUrls = new[] { new RelatedUrl() { Label="pipeline-url", Url=pipelinesUrl} };
+                    var relatedUrls = new[] { new RelatedUrl() { Label = "pipeline-url", Url = pipelinesUrl } };
                     testMetadata.RelatedUrls = relatedUrls;
                     testAttestation.RelatedUrls = relatedUrls;
                 }
@@ -81,7 +79,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
 
         private static string[] GetResourceUris(IExecutionContext executionContext)
         {
-            string[] resourceUris = {};
+            string[] resourceUris = { };
             try
             {
                 var resourceUrisEnvVar = executionContext.GetVariableValueOrDefault("RESOURCE_URIS");
@@ -105,14 +103,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
             try
             {
                 string hostType = executionContext.Variables.System_HostType.ToString();
-                if (string.IsNullOrEmpty(hostType)) 
+                if (string.IsNullOrEmpty(hostType))
                 {
                     return string.Empty;
                 }
 
                 bool isBuild = string.Equals(hostType, "build", StringComparison.OrdinalIgnoreCase);
                 string pipeLineId = isBuild ? executionContext.Variables.Build_BuildId.Value.ToString() : executionContext.Variables.Release_ReleaseId;
-                if(string.IsNullOrEmpty(pipeLineId))
+                if (string.IsNullOrEmpty(pipeLineId))
                 {
                     return string.Empty;
                 }
@@ -120,15 +118,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
                 string baseUri = executionContext.Variables.System_TFCollectionUrl;
                 string project = executionContext.Variables.System_TeamProject;
 
-                if(string.IsNullOrEmpty(baseUri) || string.IsNullOrEmpty(project))
+                if (string.IsNullOrEmpty(baseUri) || string.IsNullOrEmpty(project))
                 {
                     return string.Empty;
                 }
 
                 string pipelineUri;
-                if(isBuild)
+                if (isBuild)
                 {
-                    pipelineUri =  $"{baseUri.TrimEnd('/')}/{project}/_build/results?buildId={pipeLineId}";
+                    pipelineUri = $"{baseUri.TrimEnd('/')}/{project}/_build/results?buildId={pipeLineId}";
                 }
                 else
                 {
@@ -175,7 +173,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
             this.TestId = testId;
             this.TestTool = testTool;
             this.TestResultAttestation = testRunSummary;
-            this.TestPassPercentage = (testRunSummary.Total > 0 && testRunSummary.Total - testRunSummary.Skipped > 0 ? ((double)testRunSummary.Passed/(testRunSummary.Total-testRunSummary.Skipped)) * 100 : 0).ToString();
+            this.TestPassPercentage = (testRunSummary.Total > 0 && testRunSummary.Total - testRunSummary.Skipped > 0 ? ((double)testRunSummary.Passed / (testRunSummary.Total - testRunSummary.Skipped)) * 100 : 0).ToString();
             // Will populate this in separate PR. As it required change in logic at client side.
             this.TestDurationSeconds = 0.0;
         }

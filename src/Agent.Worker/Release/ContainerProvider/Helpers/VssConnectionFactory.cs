@@ -26,9 +26,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider
         private static readonly TimeSpan _minTimeout = TimeSpan.FromMinutes(5);
 
         public static async Task<VssConnection> GetVssConnectionAsync(
-            Uri uri, 
-            string accessToken, 
-            DelegatingHandler retryOnTimeoutMessageHandler = null, 
+            Uri uri,
+            string accessToken,
+            DelegatingHandler retryOnTimeoutMessageHandler = null,
             ITraceWriter trace = null)
         {
             VssConnection connection;

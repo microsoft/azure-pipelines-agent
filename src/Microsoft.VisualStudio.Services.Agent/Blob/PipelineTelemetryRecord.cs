@@ -21,11 +21,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
         public DedupDownloadStatistics DownloadStatistics { get; private set; }
 
         public PipelineTelemetryRecord(
-            TelemetryInformationLevel level, 
-            Uri baseAddress, 
-            string eventNamePrefix, 
-            string eventNameSuffix, 
-            IKnobValueContext context, 
+            TelemetryInformationLevel level,
+            Uri baseAddress,
+            string eventNamePrefix,
+            string eventNameSuffix,
+            IKnobValueContext context,
             uint attemptNumber = 1)
             : base(level, baseAddress, eventNamePrefix, eventNameSuffix, attemptNumber)
         {
@@ -35,10 +35,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
         }
 
         public PipelineTelemetryRecord(
-            TelemetryInformationLevel level, 
-            Uri baseAddress, 
-            string eventNamePrefix, 
-            string eventNameSuffix, 
+            TelemetryInformationLevel level,
+            Uri baseAddress,
+            string eventNamePrefix,
+            string eventNameSuffix,
             Guid planId,
             Guid jobId,
             Guid taskInstanceId,

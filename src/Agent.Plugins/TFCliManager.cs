@@ -47,7 +47,7 @@ namespace Agent.Plugins.Repository
         public async Task AddAsync(string localPath)
         {
             ArgUtil.NotNullOrEmpty(localPath, nameof(localPath));
-            await RunPorcelainCommandAsync(FormatFlags.OmitCollectionUrl, "vc", "add", localPath);
+            await RunPorcelainCommandAsync(FormatTags.OmitCollectionUrl, "vc", "add", localPath);
         }
 
         public void CleanupProxySetting()
@@ -66,13 +66,13 @@ namespace Agent.Plugins.Repository
         public async Task GetAsync(string localPath, bool quiet = false)
         {
             ArgUtil.NotNullOrEmpty(localPath, nameof(localPath));
-            await RunCommandAsync(FormatFlags.OmitCollectionUrl, quiet, RetriesOnFailure, "vc", "get", $"/version:{SourceVersion}", "/recursive", "/overwrite", localPath);
+            await RunCommandAsync(FormatTags.OmitCollectionUrl, quiet, RetriesOnFailure, "vc", "get", $"/version:{SourceVersion}", "/recursive", "/overwrite", localPath);
         }
 
         public string ResolvePath(string serverPath)
         {
             ArgUtil.NotNullOrEmpty(serverPath, nameof(serverPath));
-            string localPath = RunPorcelainCommandAsync(FormatFlags.OmitCollectionUrl, "vc", "resolvePath", serverPath).GetAwaiter().GetResult();
+            string localPath = RunPorcelainCommandAsync(FormatTags.OmitCollectionUrl, "vc", "resolvePath", serverPath).GetAwaiter().GetResult();
             return localPath?.Trim() ?? string.Empty;
         }
 
@@ -84,7 +84,7 @@ namespace Agent.Plugins.Repository
         //
         // The current approach taken is: allow the exception to bubble. The TfsVCSourceProvider
         // will catch the exception, log it as a warning, throw away the workspace, and re-clone.
-        public async Task ScorchAsync() => await RunCommandAsync(FormatFlags.OmitCollectionUrl, "vc", "scorch", SourcesDirectory, "/recursive", "/diff", "/unmapped");
+        public async Task ScorchAsync() => await RunCommandAsync(FormatTags.OmitCollectionUrl, "vc", "scorch", SourcesDirectory, "/recursive", "/diff", "/unmapped");
 
         public void SetupProxy(string proxyUrl, string proxyUsername, string proxyPassword)
         {
@@ -173,11 +173,11 @@ namespace Agent.Plugins.Repository
             // TODO: Remove parameter "move" after last-saved-checkin-metadata problem is fixed properly.
             if (move)
             {
-                await RunPorcelainCommandAsync(FormatFlags.OmitCollectionUrl, "vc", "shelve", "/move", "/replace", "/recursive", $"/comment:@{commentFile}", shelveset, SourcesDirectory);
+                await RunPorcelainCommandAsync(FormatTags.OmitCollectionUrl, "vc", "shelve", "/move", "/replace", "/recursive", $"/comment:@{commentFile}", shelveset, SourcesDirectory);
                 return;
             }
 
-            await RunPorcelainCommandAsync(FormatFlags.OmitCollectionUrl, "vc", "shelve", "/saved", "/replace", "/recursive", $"/comment:@{commentFile}", shelveset, SourcesDirectory);
+            await RunPorcelainCommandAsync(FormatTags.OmitCollectionUrl, "vc", "shelve", "/saved", "/replace", "/recursive", $"/comment:@{commentFile}", shelveset, SourcesDirectory);
         }
 
         public async Task<ITfsVCShelveset> ShelvesetsAsync(string shelveset)
@@ -241,13 +241,13 @@ namespace Agent.Plugins.Repository
         public async Task UndoAsync(string localPath)
         {
             ArgUtil.NotNullOrEmpty(localPath, nameof(localPath));
-            await RunCommandAsync(FormatFlags.OmitCollectionUrl, "vc", "undo", "/recursive", localPath);
+            await RunCommandAsync(FormatTags.OmitCollectionUrl, "vc", "undo", "/recursive", localPath);
         }
 
         public async Task UnshelveAsync(string shelveset, bool failOnNonZeroExitCode = true)
         {
             ArgUtil.NotNullOrEmpty(shelveset, nameof(shelveset));
-            await RunCommandAsync(FormatFlags.OmitCollectionUrl, false, failOnNonZeroExitCode, "vc", "unshelve", shelveset);
+            await RunCommandAsync(FormatTags.OmitCollectionUrl, false, failOnNonZeroExitCode, "vc", "unshelve", shelveset);
         }
 
         public async Task WorkfoldCloakAsync(string serverPath)

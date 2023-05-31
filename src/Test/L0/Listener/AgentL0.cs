@@ -66,6 +66,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
         //process 2 new job messages, and one cancel message
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope")]
         public async void TestRunAsync()
         {
             using (var hc = new TestHostContext(this))
@@ -581,7 +582,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [InlineData("--version")]
         [InlineData("--commit")]
         [InlineData("--bad-argument", Constants.Agent.ReturnCode.TerminatedError)]
-        public async void TestInfoArgumentsCLI(string arg, int expected=Constants.Agent.ReturnCode.Success)
+        public async void TestInfoArgumentsCLI(string arg, int expected = Constants.Agent.ReturnCode.Success)
         {
             using (var hc = new TestHostContext(this))
             {
@@ -651,7 +652,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [InlineData("configure", true)] //TODO: this passes. If already configured, probably should error out asked to configure again
         [InlineData("remove", false)] //TODO: this passes. If already not configured, probably should error out
         [InlineData("remove", true)]
-        public async void TestConfigureCLI(string arg, bool IsConfigured, int expected=Constants.Agent.ReturnCode.Success)
+        public async void TestConfigureCLI(string arg, bool IsConfigured, int expected = Constants.Agent.ReturnCode.Success)
         {
             using (var hc = new TestHostContext(this))
             {
@@ -703,6 +704,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
         //process 1 job message and one metadata message
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope")]
         public async void TestMetadataUpdate()
         {
             using (var hc = new TestHostContext(this))
@@ -733,9 +735,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 var metadataMessage = new TaskAgentMessage()
                 {
                     Body = JsonUtility.ToString(new JobMetadataMessage()
-                        {
-                            PostLinesFrequencyMillis = 500
-                        }),
+                    {
+                        PostLinesFrequencyMillis = 500
+                    }),
                     MessageId = 4235,
                     MessageType = JobEventTypes.JobMetadataUpdate
                 };

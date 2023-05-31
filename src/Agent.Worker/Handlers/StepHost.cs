@@ -109,7 +109,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             StringComparison sc = (PlatformUtil.RunningOnWindows)
                                 ? StringComparison.OrdinalIgnoreCase
                                 : StringComparison.Ordinal;
-            if (Container.MountVolumes.Exists(x => {
+            if (Container.MountVolumes.Exists(x =>
+            {
                 if (!string.IsNullOrEmpty(x.SourceVolumePath))
                 {
                     return path.StartsWith(x.SourceVolumePath, sc);
@@ -210,7 +211,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     outputEncoding = Encoding.UTF8;
                 }
 
-                var redirectStandardIn = new InputQueue<string>();
+                using var redirectStandardIn = new InputQueue<string>();
                 var payloadJson = JsonUtility.ToString(payload);
                 redirectStandardIn.Enqueue(payloadJson);
                 HostContext.GetTrace(nameof(ContainerStepHost)).Info($"Payload: {payloadJson}");

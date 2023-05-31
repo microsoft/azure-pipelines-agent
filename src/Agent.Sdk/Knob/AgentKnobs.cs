@@ -48,7 +48,7 @@ namespace Agent.Sdk.Knob
             new BuiltInDefaultKnobSource(string.Empty));
 
         public static readonly Knob DockerAdditionalNetworkOptions = new Knob(
-            nameof(DockerNetworkCreateDriver),
+            nameof(DockerAdditionalNetworkOptions),
             "Allow to specify additional command line options to 'docker network' command when creating network for new containers",
             new RuntimeKnobSource("agent.DockerAdditionalNetworkOptions"),
             new EnvironmentKnobSource("AZP_AGENT_DOCKER_ADDITIONAL_NETWORK_OPTIONS"),
@@ -60,6 +60,15 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("agent.UseHostGroupId"),
             new EnvironmentKnobSource("AZP_AGENT_USE_HOST_GROUP_ID"),
             new BuiltInDefaultKnobSource("true"));
+
+        public const string DockerActionRetriesVariableName = "VSTSAGENT_DOCKER_ACTION_RETRIES";
+
+        public static readonly Knob DockerActionRetries = new Knob(
+            nameof(DockerActionRetries),
+            "When enabled, the agent retries docker steps if failed",
+            new RuntimeKnobSource(DockerActionRetriesVariableName),
+            new EnvironmentKnobSource(DockerActionRetriesVariableName),
+            new BuiltInDefaultKnobSource("false"));
 
         // Directory structure
         public static readonly Knob AgentToolsDirectory = new Knob(
@@ -136,6 +145,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_USE_NODE10"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob UseNode16 = new Knob(
+            nameof(UseNode16),
+            "Forces the agent to use Node 16 handler for all Node-based tasks",
+            new RuntimeKnobSource("AGENT_USE_NODE16"),
+            new EnvironmentKnobSource("AGENT_USE_NODE16"),
+            new BuiltInDefaultKnobSource("false"));
+
         // Agent logging
         public static readonly Knob AgentPerflog = new Knob(
             nameof(AgentPerflog),
@@ -154,6 +170,13 @@ namespace Agent.Sdk.Knob
             "If true, dump event viewer logs",
             new RuntimeKnobSource("VSTSAGENT_DUMP_JOB_EVENT_LOGS"),
             new EnvironmentKnobSource("VSTSAGENT_DUMP_JOB_EVENT_LOGS"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob DisableTestsMetadata = new Knob(
+            nameof(DisableTestsMetadata),
+            "If true, publishing tests metadata to evidence store will be disabled.",
+            new RuntimeKnobSource("AZP_AGENT_DISABLE_TESTS_METADATA"),
+            new EnvironmentKnobSource("AZP_AGENT_DISABLE_TESTS_METADATA"),
             new BuiltInDefaultKnobSource("false"));
 
         // Diag logging
@@ -274,6 +297,20 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_AGENT_DOWNGRADE_DISABLED"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob AcknowledgeNoUpdates = new Knob(
+            nameof(AcknowledgeNoUpdates),
+            "Opt-in to continue using agent without updates on unsopperted OS",
+            new EnvironmentKnobSource("AGENT_ACKNOWLEDGE_NO_UPDATES"),
+            new RuntimeKnobSource("AGENT_ACKNOWLEDGE_NO_UPDATES"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob AgentFailOnIncompatibleOS = new Knob(
+            nameof(AgentFailOnIncompatibleOS),
+            "Allow agent to fail pipelines on incampatible OS",
+            new EnvironmentKnobSource("AGENT_FAIL_ON_INCOMPATIBLE_OS"),
+            new RuntimeKnobSource("AGENT_FAIL_ON_INCOMPATIBLE_OS"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob PermissionsCheckFailsafe = new Knob(
             nameof(PermissionsCheckFailsafe),
             "Maximum depth of file permitted in directory hierarchy when checking permissions. Check to avoid accidentally entering infinite loops.",
@@ -386,11 +423,54 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource(ContinueAfterCancelProcessTreeKillAttemptVariableName),
             new BuiltInDefaultKnobSource("false"));
 
+        public const string VstsAgentNodeWarningsVariableName = "VSTSAGENT_ENABLE_NODE_WARNINGS";
+
+        public static readonly Knob AgentDeprecatedNodeWarnings = new Knob(
+            nameof(AgentDeprecatedNodeWarnings),
+            "If true shows warning on depricated node (6) tasks",
+            new RuntimeKnobSource(VstsAgentNodeWarningsVariableName),
+            new EnvironmentKnobSource(VstsAgentNodeWarningsVariableName),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob UseNode = new Knob(
             nameof(UseNode),
             "Forces the agent to use different version of Node if when configured runner is not available. Possible values: LTS - make agent use latest LTS version of Node; UPGRADE - make agent use next available version of Node",
             new RuntimeKnobSource("AGENT_USE_NODE"),
             new EnvironmentKnobSource("AGENT_USE_NODE"),
             new BuiltInDefaultKnobSource(string.Empty));
+
+        public static readonly Knob ProcessHandlerSecureArguments = new Knob(
+            nameof(ProcessHandlerSecureArguments),
+            "Enables passing arguments for process handler secure way",
+            new RuntimeKnobSource("AGENT_PH_ENABLE_SECURE_ARGUMENTS"),
+            new EnvironmentKnobSource("AGENT_PH_ENABLE_SECURE_ARGUMENTS"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob ProcessHandlerTelemetry = new Knob(
+            nameof(ProcessHandlerTelemetry),
+            "Enables publishing telemetry about processing of arguments for Process Handler",
+            new RuntimeKnobSource("AGENT_PH_ENABLE_TELEMETRY"),
+            new EnvironmentKnobSource("AGENT_PH_ENABLE_TELEMETRY"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob DisableDrainQueuesAfterTask = new Knob(
+            nameof(DisableDrainQueuesAfterTask),
+            "Forces the agent to disable draining queues after each task",
+            new RuntimeKnobSource("AGENT_DISABLE_DRAIN_QUEUES_AFTER_TASK"),
+            new EnvironmentKnobSource("AGENT_DISABLE_DRAIN_QUEUES_AFTER_TASK"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob EnableFetchingNet6List = new Knob(
+            nameof(EnableFetchingNet6List),
+            "Forces the agent to fetch list of .NET 6 supporting systems from server",
+            new EnvironmentKnobSource("AGENT_ENABLE_FETCHING_NET6_LIST"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob ForceCreateTasksDirectory = new Knob(
+            nameof(ForceCreateTasksDirectory),
+            "Forces the agent to create _tasks folder for tasks.",
+            new RuntimeKnobSource("AGENT_FORCE_CREATE_TASKS_DIRECTORY"),
+            new EnvironmentKnobSource("AGENT_FORCE_CREATE_TASKS_DIRECTORY"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }

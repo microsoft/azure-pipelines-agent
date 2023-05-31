@@ -10,6 +10,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using BuildWebApi = Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.TeamFoundation.DistributedTask.Logging;
 using Newtonsoft.Json.Linq;
 using Agent.Sdk.Util;
 
@@ -259,7 +260,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             "RequestedFor"
         };
 
-        public void ExpandValues(IDictionary<string, string> target, string taskName = null)
+        public static readonly List<string> VariablesVulnerableToExecution = new List<string>
+        {
+            Constants.Variables.Build.SourceVersionMessage,
+            Constants.Variables.Build.DefinitionName,
+            Constants.Variables.System.SourceVersionMessage,
+            Constants.Variables.System.DefinitionName,
+            Constants.Variables.System.JobDisplayName,
+            Constants.Variables.System.PhaseDisplayName,
+            Constants.Variables.System.StageDisplayName,
+            Constants.Variables.Release.ReleaseDefinitionName,
+            Constants.Variables.Release.ReleaseEnvironmentName,
+            Constants.Variables.Agent.MachineName,
+            Constants.Variables.Agent.Name,
+        };
+
+        public void ExpandValues(IDictionary<string, string> target)
         {
             ArgUtil.NotNull(target, nameof(target));
             _trace.Entering();
@@ -270,7 +286,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 source[variable.Name] = value;
             }
 
-            VarUtil.ExpandValues(_hostContext, source, target, taskName);
+            VarUtil.ExpandValues(_hostContext, source, target);
         }
 
         public string ExpandValue(string name, string value)
@@ -382,7 +398,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             lock (_setLock)
             {
                 Variable dummy;
-                _expanded.Remove(name, out dummy);
+                 _expanded.Remove(name, out dummy);
                 _nonexpanded.Remove(name, out dummy);
                 _trace.Verbose($"Unset '{name}'");
             }
@@ -431,8 +447,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public bool IsReadOnly(string name)
         {
             Variable existingVariable = null;
-            if (!_expanded.TryGetValue(name, out existingVariable))
-            {
+            if (!_expanded.TryGetValue(name, out existingVariable)) {
                 _nonexpanded.TryGetValue(name, out existingVariable);
             }
 
@@ -472,12 +487,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Process each variable in the dictionary.
                 foreach (string name in _nonexpanded.Keys)
                 {
-                    if (Constants.Variables.VariablesVulnerableToExecution.Contains(name, StringComparer.OrdinalIgnoreCase))
-                    {
-                        _trace.Verbose($"Skipping expansion for variable: '{name}'");
-                        continue;
-                    }
-
                     bool secret = _nonexpanded[name].Secret;
                     bool readOnly = _nonexpanded[name].ReadOnly;
                     _trace.Verbose($"Processing expansion for variable: '{name}'");

@@ -9,11 +9,10 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using Microsoft.VisualStudio.Services.WebApi;
 using Newtonsoft.Json.Linq;
-using System.Text.RegularExpressions;
 
 namespace Microsoft.VisualStudio.Services.Agent.Util
 {
-    public static class VarUtil
+  public static class VarUtil
     {
         public static StringComparer EnvironmentVariableKeyComparer
         {
@@ -108,7 +107,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             // Copy the environment variables into a dictionary that uses the correct comparer.
             var source = new Dictionary<string, string>(EnvironmentVariableKeyComparer);
             IDictionary environment = Environment.GetEnvironmentVariables();
-
             foreach (DictionaryEntry entry in environment)
             {
                 string key = entry.Key as string ?? string.Empty;
@@ -142,18 +140,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             return target.Map(mapFuncs);
         }
 
-        public static void ExpandValues(
-            IHostContext context,
-            IDictionary<string, string> source,
-            IDictionary<string, string> target,
-            string taskName = null
-            )
+        public static void ExpandValues(IHostContext context, IDictionary<string, string> source, IDictionary<string, string> target)
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(source, nameof(source));
             Tracing trace = context.GetTrace(nameof(VarUtil));
             trace.Entering();
-            target ??= new Dictionary<string, string>();
+            target = target ?? new Dictionary<string, string>();
 
             // This algorithm does not perform recursive replacement.
 
@@ -176,51 +169,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                         startIndex: prefixIndex + Constants.Variables.MacroPrefix.Length,
                         length: suffixIndex - prefixIndex - Constants.Variables.MacroPrefix.Length);
                     trace.Verbose($"Found macro candidate: '{variableKey}'");
-
-                    var isVariableKeyPresent = !string.IsNullOrEmpty(variableKey);
-                    WellKnownScriptShell shellName;
-
-                    if (isVariableKeyPresent &&
-                        !string.IsNullOrEmpty(taskName) &&
-                        Constants.Variables.ScriptShellsPerTasks.TryGetValue(taskName, out shellName) &&
-                        shellName != WellKnownScriptShell.Cmd &&
-                        Constants.Variables.VariablesVulnerableToExecution.Contains(variableKey, StringComparer.OrdinalIgnoreCase))
-                    {
-                        trace.Verbose($"Found a macro with vulnerable variables. Replacing with env variables for the {shellName} shell.");
-
-                        var envVariableParts = Constants.ScriptShells.EnvVariablePartsPerShell[shellName];
-                        var envVariableName = ConvertToEnvVariableFormat(variableKey);
-                        var envVariable = envVariableParts.Prefix + envVariableName + envVariableParts.Suffix;
-
-                        targetValue =
-                            targetValue[..prefixIndex]
-                            + envVariable
-                            + targetValue[(suffixIndex + Constants.Variables.MacroSuffix.Length)..];
-
-                        startIndex = prefixIndex + envVariable.Length;
-                    }
-                    else if (isVariableKeyPresent &&
-                        TryGetValue(trace, source, variableKey, out string variableValue))
+                    string variableValue;
+                    if (!string.IsNullOrEmpty(variableKey) &&
+                        TryGetValue(trace, source, variableKey, out variableValue))
                     {
                         // A matching variable was found.
                         // Update the target value.
                         trace.Verbose("Macro found.");
-
-                        if (!string.IsNullOrEmpty(taskName) &&
-                            Constants.Variables.ScriptShellsPerTasks.TryGetValue(taskName, out shellName) &&
-                            shellName == WellKnownScriptShell.Cmd)
-                        {
-                            trace.Verbose("CMD shell found. Custom macro processing.");
-
-                            // When matching "&", "|", "<" and ">" cmd commands adds "^" before them.
-                            var cmdCommandsRegex = new Regex(@"[&|\||<|>]");
-                            variableValue = cmdCommandsRegex.Replace(variableValue, "^$&");
-                        }
-
                         targetValue = string.Concat(
-                            targetValue[..prefixIndex],
-                            variableValue,
-                            targetValue[(suffixIndex + Constants.Variables.MacroSuffix.Length)..]);
+                            targetValue.Substring(0, prefixIndex),
+                            variableValue ?? string.Empty,
+                            targetValue.Substring(suffixIndex + Constants.Variables.MacroSuffix.Length));
 
                         // Bump the start index to prevent recursive replacement.
                         startIndex = prefixIndex + (variableValue ?? string.Empty).Length;

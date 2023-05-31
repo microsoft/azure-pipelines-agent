@@ -77,6 +77,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     {
                         logonPassword = command.GetWindowsLogonPassword(logonAccount);
                     }
+
                     catch (ArgumentException exception)
                     {
                         Trace.Warning($"LogonAccount {logonAccount} is not managed service account, although you did not specify WindowsLogonPassword - maybe you wanted to use managed service account? Please see https://aka.ms/gmsa for guidelines to set up sMSA/gMSA account. ");
@@ -144,11 +145,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _windowsServiceHelper.CreateVstsAgentRegistryKey();
 
             Trace.Info("Configuration was successful, trying to start the service");
-            if(!command.GetPreventServiceStart())
+            if (!command.GetPreventServiceStart())
             {
                 _windowsServiceHelper.StartService(serviceName);
             }
-            
+
         }
 
         public void UnconfigureService()

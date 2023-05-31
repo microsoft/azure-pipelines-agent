@@ -25,7 +25,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             {
                 Mock<IConfigurationManager> configurationManager = new Mock<IConfigurationManager>();
                 hc.SetSingleton<IConfigurationManager>(configurationManager.Object);
-                
+
                 // Arrange
                 var provider = new AgentCapabilitiesProvider();
                 provider.Initialize(hc);
@@ -51,17 +51,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             using (var tokenSource = new CancellationTokenSource())
             {
                 hc.StartupType = StartupType.AutoStartup;
-                await VerifyInteractiveSessionCapability(hc, tokenSource.Token, true);
+                await VerifyInteractiveSessionCapability(hc, true, tokenSource.Token);
 
                 hc.StartupType = StartupType.Service;
-                await VerifyInteractiveSessionCapability(hc, tokenSource.Token, false);
+                await VerifyInteractiveSessionCapability(hc, false, tokenSource.Token);
 
                 hc.StartupType = StartupType.Manual;
-                await VerifyInteractiveSessionCapability(hc, tokenSource.Token, true);
+                await VerifyInteractiveSessionCapability(hc, true, tokenSource.Token);
             }
         }
 
-        private async Task VerifyInteractiveSessionCapability(IHostContext hc, CancellationToken token, bool expectedValue)
+        private async Task VerifyInteractiveSessionCapability(IHostContext hc, bool expectedValue, CancellationToken token)
         {
             // Arrange
             var provider = new AgentCapabilitiesProvider();

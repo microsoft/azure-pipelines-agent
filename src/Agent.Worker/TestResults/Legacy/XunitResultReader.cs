@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-﻿using Microsoft.TeamFoundation.TestManagement.WebApi;
+using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.WebApi;
 using System;
@@ -87,7 +87,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
 
                     var startDate = DateTime.Now;
                     var startTime = TimeSpan.Zero;
-                    if (DateTime.TryParse(runDate, DateTimeFormatInfo.InvariantInfo, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out startDate) && 
+                    if (DateTime.TryParse(runDate, DateTimeFormatInfo.InvariantInfo, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out startDate) &&
                         TimeSpan.TryParse(runTime, CultureInfo.InvariantCulture, out startTime))
                     {
                         dateTimeParseError = false;
@@ -98,7 +98,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                         minStartTime = assemblyRunStartTimeStamp;
                     }
                 }
-                else 
+                else
                 {
                     assemblyRunDateTimeAttributesNotPresent = true;
                 }
@@ -253,7 +253,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
             }
 
             //if minimum start time is not available then set it to present time
-            minStartTime = minStartTime == DateTime.MaxValue ? DateTime.UtcNow : minStartTime ;
+            minStartTime = minStartTime == DateTime.MaxValue ? DateTime.UtcNow : minStartTime;
 
             //if start time cannot be obtained even for one assembly then fallback duration to sum of assembly run time
             //if assembly run time cannot be obtained even for one assembly then fallback duration to total test run

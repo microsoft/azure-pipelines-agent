@@ -20,7 +20,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/.helpers.sh"
 
 DOTNETSDK_ROOT="$SCRIPT_DIR/../_dotnetsdk"
-DOTNETSDK_VERSION="3.1.100"
+DOTNETSDK_VERSION="6.0.405"
 DOTNETSDK_INSTALLDIR="$DOTNETSDK_ROOT/$DOTNETSDK_VERSION"
 AGENT_VERSION=$(cat "$SCRIPT_DIR/agentversion" | head -n 1 | tr -d "\n\r")
 
@@ -68,10 +68,19 @@ function detect_platform_and_runtime_id ()
             if [[ $redhatRelease == "CentOS release 6."* || $redhatRelease == "Red Hat Enterprise Linux Server release 6."* ]]; then
                 DETECTED_RUNTIME_ID='rhel.6-x64'
             fi
+            if [[ $redhatRelease == "CentOS release 7."* || $redhatRelease == "Red Hat Enterprise Linux Server release 7."* ]]; then
+                DETECTED_RUNTIME_ID='rhel.7.2-x64'
+            fi
         fi
 
     elif [[ "$CURRENT_PLATFORM" == 'darwin' ]]; then
         DETECTED_RUNTIME_ID='osx-x64'
+         if command -v uname > /dev/null; then
+            local CPU_NAME=$(uname -m)
+            case $CPU_NAME in
+                arm64) DETECTED_RUNTIME_ID="osx-arm64";;
+            esac
+        fi
     fi
 }
 
@@ -285,7 +294,7 @@ else
     RUNTIME_ID=$DETECTED_RUNTIME_ID
 fi
 
-_VALID_RIDS='linux-x64:linux-arm:linux-arm64:rhel.6-x64:osx-x64:win-x64:win-x86'
+_VALID_RIDS='linux-x64:linux-arm:linux-arm64:rhel.6-x64:rhel.7.2-x64:osx-x64:win-x64:win-x86:osx-arm64'
 if [[ ":$_VALID_RIDS:" != *:$RUNTIME_ID:* ]]; then
     failed "must specify a valid target runtime ID (one of: $_VALID_RIDS)"
 fi

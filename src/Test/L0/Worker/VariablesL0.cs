@@ -518,39 +518,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void ExpandValues_SkipSpecificVariablesExpansion()
-        {
-            using TestHostContext hc = new TestHostContext(this);
-
-            var variableDictionary = new Dictionary<string, VariableValue>
-            {
-                ["variable1"] = "some variable 1 value",
-                [Constants.Variables.System.DefinitionName] = "... $(variable1) ...",
-                [Constants.Variables.Build.DefinitionName] = $"... $({Constants.Variables.System.DefinitionName}) ...",
-                [Constants.Variables.Build.SourceVersionMessage] = $"... $({Constants.Variables.Build.SourceVersionMessage}) ...",
-            };
-            var variables = new Variables(hc, variableDictionary, out var warnings);
-
-            // Arrange: Setup the target dictionary.
-            var targetDictionary = new Dictionary<string, string>
-            {
-                ["somekey1"] = $"before $({Constants.Variables.System.DefinitionName}) after",
-                ["somekey2"] = $"before $({Constants.Variables.Build.DefinitionName}) after",
-                ["somekey3"] = $"before $({Constants.Variables.Build.SourceVersionMessage}) after",
-            };
-
-            // Act.
-            variables.ExpandValues(target: targetDictionary);
-
-            // Variables from EnvVariablesMap should not be expanded
-            Assert.Equal($"before ... $(variable1) ... after", targetDictionary["somekey1"]);
-            Assert.Equal($"before ... $({Constants.Variables.System.DefinitionName}) ... after", targetDictionary["somekey2"]);
-            Assert.Equal($"before ... $({Constants.Variables.Build.SourceVersionMessage}) ... after", targetDictionary["somekey3"]);
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Worker")]
         public void Get_ReturnsNullIfNotFound()
         {
             using (TestHostContext hc = new TestHostContext(this))
@@ -686,7 +653,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                         return str.Replace("/path/to", "/another/path");
                     }
                     return str;
-                }; ;
+                };
 
                 Assert.Equal(0, warnings.Count);
 

@@ -46,7 +46,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             return testDataDir;
         }
 
-        public static string WriteAllTextToTempFile(string content, string extension=null)
+        public static string WriteAllTextToTempFile(string content, string extension = null)
         {
             string file = Path.GetTempFileName();
             if (!string.IsNullOrEmpty(extension))

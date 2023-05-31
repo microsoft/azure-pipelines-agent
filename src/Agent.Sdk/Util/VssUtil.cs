@@ -24,7 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         private const string _testUri = "https://microsoft.com/";
         private static bool? _isCustomServerCertificateValidationSupported;
 
-        
+
 
         public static void InitializeVssClientSettings(ProductInfoHeaderValue additionalUserAgent, IWebProxy proxy, IVssClientCertificateManager clientCert)
         {
@@ -54,7 +54,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "connection")]
         public static VssConnection CreateConnection(
-            Uri serverUri, 
+            Uri serverUri,
             VssCredentials credentials,
             ITraceWriter trace,
             IEnumerable<DelegatingHandler> additionalDelegatingHandler = null,

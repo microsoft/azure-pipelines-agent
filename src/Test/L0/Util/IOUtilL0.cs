@@ -778,7 +778,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                 Assert.True(string.Equals(relativePath, string.Empty, StringComparison.OrdinalIgnoreCase), $"RelativePath does not expected: {relativePath}");
             }
         }
-        
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
@@ -890,7 +890,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                 Assert.True(string.Equals(resolvePath, @"/", StringComparison.OrdinalIgnoreCase), $"RelativePath does not expected: {resolvePath}");
             }
         }
-        
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
@@ -986,21 +986,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1814:Prefer jagged arrays over multidimensional")]
         public void GetDirectoryName_LinuxStyle()
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
                 Tracing trace = hc.GetTrace();
-                string[,] testcases = new string [,] {
+                string[,] testcases = new string[,] {
                     {"/foo/bar", "/foo"},
                     {"/foo", "/"},
                     {"/foo\\ bar/blah", "/foo\\ bar"}
                 };
 
-                for (int i=0; i<testcases.GetLength(0); i++)
+                for (int i = 0; i < testcases.GetLength(0); i++)
                 {
-                    var path = IOUtil.GetDirectoryName(testcases[i,0], PlatformUtil.OS.Linux);
-                    var expected = testcases[i,1];
+                    var path = IOUtil.GetDirectoryName(testcases[i, 0], PlatformUtil.OS.Linux);
+                    var expected = testcases[i, 1];
                     Assert.Equal(expected, path);
                 }
             }
@@ -1009,20 +1010,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1814:Prefer jagged arrays over multidimensional")]
         public void GetDirectoryName_WindowsStyle()
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
                 Tracing trace = hc.GetTrace();
-                string[,] testcases = new string [,] {
+                string[,] testcases = new string[,] {
                     {"c:\\foo\\bar", "c:\\foo"},
                     {"c:/foo/bar", "c:\\foo"}
                 };
 
-                for (int i=0; i<testcases.GetLength(0); i++)
+                for (int i = 0; i < testcases.GetLength(0); i++)
                 {
-                    var path = IOUtil.GetDirectoryName(testcases[i,0], PlatformUtil.OS.Windows);
-                    var expected = testcases[i,1];
+                    var path = IOUtil.GetDirectoryName(testcases[i, 0], PlatformUtil.OS.Windows);
+                    var expected = testcases[i, 1];
                     Assert.Equal(expected, path);
                 }
             }

@@ -159,19 +159,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                     }
                     catch (SocketException ex)
                     {
-                        context.AddIssue(new Issue { Type = IssueType.Error, Message = $"SocketException occurred. { ex.Message }." +
-                            $"Verify whether you have (network) access to { jenkinsDetails.Url }. URLs the agent need communicate with - { BlobStoreWarningInfoProvider.GetAllowListLinkForCurrentPlatform() }."});
+                        context.AddIssue(new Issue
+                        {
+                            Type = IssueType.Error,
+                            Message = $"SocketException occurred. {ex.Message}." +
+                            $"Verify whether you have (network) access to {jenkinsDetails.Url}. URLs the agent need communicate with - {BlobStoreWarningInfoProvider.GetAllowListLinkForCurrentPlatform()}."
+                        });
                         return;
                     }
                     catch (Exception ex)
                     {
-                        context.AddIssue(new Issue { Type=IssueType.Warning, Message = StringUtil.Loc("DownloadingJenkinsCommitsFailedWithException", jenkinsDetails.Alias, ex.ToString()) });
+                        context.AddIssue(new Issue { Type = IssueType.Warning, Message = StringUtil.Loc("DownloadingJenkinsCommitsFailedWithException", jenkinsDetails.Alias, ex.ToString()) });
                         return;
                     }
                 }
                 else
                 {
-                    context.AddIssue(new Issue { Type=IssueType.Warning, Message = StringUtil.Loc("JenkinsCommitsInvalidEndJobId", jenkinsDetails.EndCommitArtifactVersion, jenkinsDetails.Alias) });
+                    context.AddIssue(new Issue { Type = IssueType.Warning, Message = StringUtil.Loc("JenkinsCommitsInvalidEndJobId", jenkinsDetails.EndCommitArtifactVersion, jenkinsDetails.Alias) });
                     return;
                 }
             }
@@ -191,8 +195,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             IOUtil.DeleteFile(commitsFilePath);
             if (commits.Any())
             {
-                using(StreamWriter sw = File.CreateText(commitsFilePath))
-                using(JsonTextWriter jw = new JsonTextWriter(sw))
+                using (StreamWriter sw = File.CreateText(commitsFilePath))
+                using (JsonTextWriter jw = new JsonTextWriter(sw))
                 {
                     jw.Formatting = Formatting.Indented;
                     jw.WriteStartArray();
@@ -366,7 +370,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                 executionContext.Debug($"repo query result from Jenkins api {repoResult.ToString()}");
 
                 var repoKindResult = ParseToken(repoResult.ToString(), "$.changeSet.kind");
-                if (repoKindResult != null && repoKindResult.Any()) {
+                if (repoKindResult != null && repoKindResult.Any())
+                {
                     string repoKind = repoKindResult.First().ToString();
                     executionContext.Debug($"Parsed repo result {repoKind}");
 

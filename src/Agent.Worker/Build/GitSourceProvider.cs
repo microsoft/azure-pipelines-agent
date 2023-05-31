@@ -1204,7 +1204,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 if (lfsVersion is null)
                 {
                     executionContext.Debug("Machine does not have git-lfs installed. Skipping git lfs prune");
-                } else
+                }
+                else
                 {
                     int exitCode_lFSPrune = await _gitCommandManager.GitLFSPrune(executionContext, repositoryPath);
                     if (exitCode_lFSPrune != 0)
