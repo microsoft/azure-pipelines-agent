@@ -40,6 +40,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             // Update the env dictionary.
             AddVariablesToEnvironment(excludeNames: true, excludeSecrets: true);
             AddPrependPathToEnvironment();
+            RemovePSModulePathFromEnvironment();
 
             // Add the access token to the environment variables, if the access token is set.
             if (!string.IsNullOrEmpty(AccessToken))
