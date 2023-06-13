@@ -391,7 +391,7 @@ namespace Agent.Sdk
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 // Logging exception will be handled by JobRunner
                 throw;
@@ -411,7 +411,7 @@ namespace Agent.Sdk
                 if (metadataProvider.HasMetadata())
                     isAzureVM = true;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 // Logging exception will be handled by JobRunner
                 throw;

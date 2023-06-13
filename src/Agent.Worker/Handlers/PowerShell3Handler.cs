@@ -33,6 +33,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             AddVariablesToEnvironment();
             AddTaskVariablesToEnvironment();
             AddPrependPathToEnvironment();
+            RemovePSModulePathFromEnvironment();
 
             // Resolve the target script.
             ArgUtil.NotNullOrEmpty(Data.Target, nameof(Data.Target));

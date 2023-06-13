@@ -21,6 +21,7 @@
     <PackageReference Include="Microsoft.Win32.Registry" Version="4.7.0" />
     <PackageReference Include="System.IO.FileSystem.AccessControl" Version="6.0.0-preview.5.21301.5" />
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="4.4.0" />
+    <PackageReference Include="Microsoft.IdentityModel.Clients.ActiveDirectory" Version="5.2.9" />
     <PackageReference Include="vss-api-netcore" Version="$(VssApiVersion)" />
   </ItemGroup>
 
