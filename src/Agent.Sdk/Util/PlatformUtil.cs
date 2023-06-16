@@ -216,7 +216,9 @@ namespace Agent.Sdk
                 }
             }
 
-            return null;
+            var runtimeIdentifier = RuntimeInformation.RuntimeIdentifier;
+            var id = runtimeIdentifier.Substring(0, runtimeIdentifier.IndexOfAny(new char[] { '.', '-' }));
+            return string.IsNullOrEmpty(id) ? runtimeIdentifier : id;
         }
 
         private static string GetLinuxName()
