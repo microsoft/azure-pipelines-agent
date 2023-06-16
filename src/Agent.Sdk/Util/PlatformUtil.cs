@@ -240,7 +240,8 @@ namespace Agent.Sdk
                 }
             }
 
-            return null;
+            var version = Environment.OSVersion.Version;
+            return version.ToString(3);
         }
 
         private static string GetOSxName()
