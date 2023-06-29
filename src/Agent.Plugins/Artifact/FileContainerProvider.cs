@@ -51,7 +51,11 @@ namespace Agent.Plugins
             this.connection = connection;
         }
 
-        public async Task DownloadSingleArtifactAsync(ArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
+        public async Task DownloadSingleArtifactAsync(
+            ArtifactDownloadParameters downloadParameters,
+            BuildArtifact buildArtifact,
+            CancellationToken cancellationToken,
+            AgentTaskPluginExecutionContext context)
         {
             IEnumerable<FileContainerItem> items = await GetArtifactItems(downloadParameters, buildArtifact);
             await this.DownloadFileContainerAsync(items, downloadParameters, buildArtifact, downloadParameters.TargetDirectory, context, cancellationToken);
@@ -66,7 +70,11 @@ namespace Agent.Plugins
             }
         }
 
-        public async Task DownloadMultipleArtifactsAsync(ArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
+        public async Task DownloadMultipleArtifactsAsync(
+            ArtifactDownloadParameters downloadParameters,
+            IEnumerable<BuildArtifact> buildArtifacts,
+            CancellationToken cancellationToken,
+            AgentTaskPluginExecutionContext context)
         {
             var allFileArtifactPaths = new List<string>();
 

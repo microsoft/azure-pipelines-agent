@@ -311,6 +311,13 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AGENT_FAIL_ON_INCOMPATIBLE_OS"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob AgentEnablePipelineArtifactLargeChunkSize = new Knob(
+            nameof(AgentEnablePipelineArtifactLargeChunkSize),
+            "Enables large chunk size for pipeline artifacts.",
+            new EnvironmentKnobSource("AGENT_ENABLE_PIPELINEARTIFACT_LARGE_CHUNK_SIZE"),
+            new RuntimeKnobSource("AGENT_ENABLE_PIPELINEARTIFACT_LARGE_CHUNK_SIZE"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob PermissionsCheckFailsafe = new Knob(
             nameof(PermissionsCheckFailsafe),
             "Maximum depth of file permitted in directory hierarchy when checking permissions. Check to avoid accidentally entering infinite loops.",
