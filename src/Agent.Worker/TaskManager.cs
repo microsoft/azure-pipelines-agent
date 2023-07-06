@@ -381,6 +381,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private NodeHandlerData _node;
         private Node10HandlerData _node10;
         private Node16HandlerData _node16;
+        private Node20HandlerData _node20;
         private PowerShellHandlerData _powerShell;
         private PowerShell3HandlerData _powerShell3;
         private PowerShellExeHandlerData _powerShellExe;
@@ -446,6 +447,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             set
             {
                 _node16 = value;
+                Add(value);
+            }
+        }
+
+        public Node20HandlerData Node20
+        {
+            get
+            {
+                return _node20;
+            }
+
+            set
+            {
+                _node20 = value;
                 Add(value);
             }
         }

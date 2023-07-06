@@ -56,6 +56,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Theory]
         [InlineData("node10")]
         [InlineData("node16")]
+        [InlineData("node20")]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
         public void UseNewNodeForNewNodeHandler(string nodeVersion)
@@ -69,7 +70,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 nodeHandler.Initialize(thc);
                 nodeHandler.ExecutionContext = CreateTestExecutionContext(thc);
-                nodeHandler.Data = nodeVersion == "node16" ? (BaseNodeHandlerData)new Node16HandlerData() : (BaseNodeHandlerData)new Node10HandlerData();
+                if (nodeVersion == "node10") {
+                    nodeHandler.Data = (BaseNodeHandlerData)new Node10HandlerData();
+                } else if (nodeVersion == "node16") {
+                    nodeHandler.Data = (BaseNodeHandlerData)new Node16HandlerData();
+                } else if (nodeVersion == "node20") {
+                    nodeHandler.Data = (BaseNodeHandlerData)new Node20HandlerData();
+                }
 
                 string actualLocation = nodeHandler.GetNodeLocation();
                 // We should fall back to node10 for node16 tasks, since RHEL 6 is not capable with Node16.

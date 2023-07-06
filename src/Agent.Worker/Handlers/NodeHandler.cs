@@ -56,10 +56,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         private const string nodeFolder = "node";
         private const string node10Folder = "node10";
         private const string node16Folder = "node16";
-        private const string nodeLTS = node16Folder;
+        private const string node20Folder = "node20";
+        private const string nodeLTS = node20Folder;
         private const string useNodeKnobLtsKey = "LTS";
         private const string useNodeKnobUpgradeKey = "UPGRADE";
-        private string[] possibleNodeFolders = { nodeFolder, node10Folder, node16Folder };
+        private string[] possibleNodeFolders = { nodeFolder, node10Folder, node16Folder, node20Folder };
         private static Regex _vstsTaskLibVersionNeedsFix = new Regex("^[0-2]\\.[0-9]+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static string[] _extensionsNode6 ={
             "if (process.versions.node && process.versions.node.match(/^5\\./)) {",
@@ -215,10 +216,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         public string GetNodeLocation()
         {
-            bool useNode16 = AgentKnobs.UseNode16.GetValue(ExecutionContext).AsBoolean();
             bool useNode10 = AgentKnobs.UseNode10.GetValue(ExecutionContext).AsBoolean();
+            bool useNode16 = AgentKnobs.UseNode16.GetValue(ExecutionContext).AsBoolean();
+            bool useNode20 = AgentKnobs.UseNode20.GetValue(ExecutionContext).AsBoolean();
             bool taskHasNode10Data = Data is Node10HandlerData;
             bool taskHasNode16Data = Data is Node16HandlerData;
+            bool taskHasNode20Data = Data is Node20HandlerData;
             string useNodeKnob = AgentKnobs.UseNode.GetValue(ExecutionContext).AsString();
 
             string nodeFolder = NodeHandler.nodeFolder;
@@ -226,6 +229,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             {
                 Trace.Info($"Detected RedHat 6, using node 10 as execution handler, instead node16");
                 nodeFolder = NodeHandler.node10Folder;
+            }
+            else if (taskHasNode20Data)
+            {
+                Trace.Info($"Task.json has node20 handler data: {taskHasNode20Data}");
+                nodeFolder = NodeHandler.node20Folder;
             }
             else if (taskHasNode16Data)
             {
@@ -236,6 +244,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             {
                 Trace.Info($"Task.json has node10 handler data: {taskHasNode10Data}");
                 nodeFolder = NodeHandler.node10Folder;
+            }
+
+            if (useNode20)
+            {
+                Trace.Info($"Found UseNode20 knob, using node20 for node tasks {useNode20}");
+                nodeFolder = NodeHandler.node20Folder;
             }
 
             if (useNode16)
