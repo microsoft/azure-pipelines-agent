@@ -639,14 +639,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
     public sealed class NodeHandlerData : BaseNodeHandlerData
     {
-        public override int Priority => 3;
+        public override int Priority => 4;
     }
 
     public sealed class Node10HandlerData : BaseNodeHandlerData
     {
-        public override int Priority => 2;
+        public override int Priority => 3;
     }
     public sealed class Node16HandlerData : BaseNodeHandlerData
+    {
+        public override int Priority => 2;
+    }
+    public sealed class Node20HandlerData : BaseNodeHandlerData
     {
         public override int Priority => 1;
     }
