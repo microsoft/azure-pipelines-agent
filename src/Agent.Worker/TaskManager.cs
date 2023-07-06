@@ -657,7 +657,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
     public sealed class PowerShell3HandlerData : HandlerData
     {
-        public override int Priority => 4;
+        public override int Priority => 5;
     }
 
     public sealed class PowerShellHandlerData : HandlerData
@@ -675,7 +675,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 5;
+        public override int Priority => 6;
 
         public string WorkingDirectory
         {
@@ -706,7 +706,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 6;
+        public override int Priority => 7;
 
         public string WorkingDirectory
         {
@@ -763,7 +763,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 6;
+        public override int Priority => 7;
 
         public string ScriptType
         {
@@ -820,7 +820,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 7;
+        public override int Priority => 8;
 
         public string WorkingDirectory
         {

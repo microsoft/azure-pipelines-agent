@@ -513,12 +513,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     if (TestUtil.IsWindows())
                     {
                         // Process handler should only be deserialized on Windows.
-                        Assert.Equal(4, definition.Data.Execution.All.Count);
+                        Assert.Equal(5, definition.Data.Execution.All.Count);
                     }
                     else
                     {
                         // Only the Node handlers should be deserialized on non-Windows.
-                        Assert.Equal(3, definition.Data.Execution.All.Count);
+                        Assert.Equal(4, definition.Data.Execution.All.Count);
                     }
 
                     // Node handler should always be deserialized.
