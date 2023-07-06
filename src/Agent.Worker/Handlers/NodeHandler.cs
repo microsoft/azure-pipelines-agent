@@ -18,7 +18,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
     [ServiceLocator(Default = typeof(NodeHandler))]
     public interface INodeHandler : IHandler
     {
-        // Data can be of these three types: NodeHandlerData, Node10HandlerData, Node16HandlerData and Node20HandlerData
+        // Data can be of these four types: NodeHandlerData, Node10HandlerData, Node16HandlerData and Node20HandlerData
         BaseNodeHandlerData Data { get; set; }
     }
 

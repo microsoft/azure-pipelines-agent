@@ -538,14 +538,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
                     // Node20 handler should always be deserialized.
                     Assert.NotNull(definition.Data.Execution.Node20); // execution.Node20
-                    Assert.Equal(definition.Data.Execution.Node20, definition.Data.Execution.All[2]);
+                    Assert.Equal(definition.Data.Execution.Node20, definition.Data.Execution.All[3]);
                     Assert.Equal("Some Node20 target", definition.Data.Execution.Node20.Target);
 
                     if (TestUtil.IsWindows())
                     {
                         // Process handler should only be deserialized on Windows.
                         Assert.NotNull(definition.Data.Execution.Process); // execution.Process
-                        Assert.Equal(definition.Data.Execution.Process, definition.Data.Execution.All[3]);
+                        Assert.Equal(definition.Data.Execution.Process, definition.Data.Execution.All[4]);
                         Assert.Equal("Some process argument format", definition.Data.Execution.Process.ArgumentFormat);
                         Assert.NotNull(definition.Data.Execution.Process.Platforms);
                         Assert.Equal(1, definition.Data.Execution.Process.Platforms.Length);

@@ -70,13 +70,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 nodeHandler.Initialize(thc);
                 nodeHandler.ExecutionContext = CreateTestExecutionContext(thc);
-                if (nodeVersion == "node10") {
-                    nodeHandler.Data = (BaseNodeHandlerData)new Node10HandlerData();
-                } else if (nodeVersion == "node16") {
-                    nodeHandler.Data = (BaseNodeHandlerData)new Node16HandlerData();
-                } else if (nodeVersion == "node20") {
-                    nodeHandler.Data = (BaseNodeHandlerData)new Node20HandlerData();
-                }
+                nodeHandler.Data = nodeVersion switch
+                {
+                    "node10" => new Node10HandlerData(),
+                    "node16" => new Node16HandlerData(),
+                    "node20" => new Node20HandlerData(),
+                    _ => throw new Exception("Invalid node version"),
+                };
 
                 string actualLocation = nodeHandler.GetNodeLocation();
                 // We should fall back to node10 for node16 tasks, since RHEL 6 is not capable with Node16.
@@ -203,7 +203,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 mockedNodeHandlerHelper
                     .Setup(x => x.GetFilteredPossibleNodeFolders(It.IsAny<string>(), It.IsAny<string[]>()))
-                    .Returns(new string[] { "node16" });
+                    .Returns(new string[] { "node20" });
 
                 var variables = new Dictionary<string, VariableValue>();
 
@@ -217,7 +217,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 string actualLocation = nodeHandler.GetNodeLocation();
                 string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
-                    "node16",
+                    "node20",
                     "bin",
                     $"node{IOUtil.ExeExtension}");
                 Assert.Equal(expectedLocation, actualLocation);
