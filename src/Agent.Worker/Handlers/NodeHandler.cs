@@ -57,7 +57,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         private const string node10Folder = "node10";
         private const string node16Folder = "node16";
         private const string node20Folder = "node20";
-        private const string nodeLTS = node20Folder;
+        private const string nodeLTS = node16Folder;
         private const string useNodeKnobLtsKey = "LTS";
         private const string useNodeKnobUpgradeKey = "UPGRADE";
         private string[] possibleNodeFolders = { nodeFolder, node10Folder, node16Folder, node20Folder };

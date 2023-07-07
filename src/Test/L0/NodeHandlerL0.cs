@@ -203,7 +203,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 mockedNodeHandlerHelper
                     .Setup(x => x.GetFilteredPossibleNodeFolders(It.IsAny<string>(), It.IsAny<string[]>()))
-                    .Returns(new string[] { "node20" });
+                    .Returns(new string[] { "node16" });
 
                 var variables = new Dictionary<string, VariableValue>();
 
@@ -217,7 +217,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 string actualLocation = nodeHandler.GetNodeLocation();
                 string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
-                    "node20",
+                    "node16",
                     "bin",
                     $"node{IOUtil.ExeExtension}");
                 Assert.Equal(expectedLocation, actualLocation);
