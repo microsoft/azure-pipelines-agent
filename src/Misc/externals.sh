@@ -11,7 +11,6 @@ NODE_URL=https://nodejs.org/dist
 NODE_VERSION="6.17.1"
 NODE10_VERSION="10.24.1"
 NODE16_VERSION="16.20.0"
-NODE20_VERSION="20.3.1"
 MINGIT_VERSION="2.39.1"
 LFS_VERSION="3.3.0"
 
@@ -161,8 +160,6 @@ if [[ "$PACKAGERUNTIME" == "win-x64" ]]; then
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x64/node.lib" node10/bin
     acquireExternalTool "$NODE_URL/v${NODE16_VERSION}/win-x64/node.exe" node16/bin
     acquireExternalTool "$NODE_URL/v${NODE16_VERSION}/win-x64/node.lib" node16/bin
-    acquireExternalTool "$NODE_URL/v${NODE20_VERSION}/win-x64/node.exe" node20/bin
-    acquireExternalTool "$NODE_URL/v${NODE20_VERSION}/win-x64/node.lib" node20/bin
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v3.4.4/nuget.exe" nuget
 fi
 
@@ -181,8 +178,6 @@ if [[ "$PACKAGERUNTIME" == "win-x86" ]]; then
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/win-x86/node.lib" node10/bin
     acquireExternalTool "$NODE_URL/v${NODE16_VERSION}/win-x86/node.exe" node16/bin
     acquireExternalTool "$NODE_URL/v${NODE16_VERSION}/win-x86/node.lib" node16/bin
-    acquireExternalTool "$NODE_URL/v${NODE20_VERSION}/win-x86/node.exe" node20/bin
-    acquireExternalTool "$NODE_URL/v${NODE20_VERSION}/win-x86/node.lib" node20/bin
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v3.4.4/nuget.exe" nuget
 fi
 
@@ -193,7 +188,6 @@ if [[ "$PACKAGERUNTIME" == "osx-x64" ]]; then
     fi
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-darwin-x64.tar.gz" node10 fix_nested_dir
     acquireExternalTool "$NODE_URL/v${NODE16_VERSION}/node-v${NODE16_VERSION}-darwin-x64.tar.gz" node16 fix_nested_dir
-    acquireExternalTool "$NODE_URL/v${NODE20_VERSION}/node-v${NODE20_VERSION}-darwin-x64.tar.gz" node20 fix_nested_dir
 fi
 
 
@@ -203,7 +197,6 @@ if [[ "$PACKAGERUNTIME" == "osx-arm64" ]]; then
     fi
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-darwin-x64.tar.gz" node10 fix_nested_dir
     acquireExternalTool "$NODE_URL/v${NODE16_VERSION}/node-v${NODE16_VERSION}-darwin-arm64.tar.gz" node16 fix_nested_dir
-    acquireExternalTool "$NODE_URL/v${NODE20_VERSION}/node-v${NODE20_VERSION}-darwin-arm64.tar.gz" node20 fix_nested_dir
 fi
 
 # Download the external tools common across OSX and Linux PACKAGERUNTIMEs.
@@ -218,7 +211,6 @@ if [[ "$PACKAGERUNTIME" == "linux-x64" || "$PACKAGERUNTIME" == "rhel.7.2-x64" ]]
     fi
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-linux-x64.tar.gz" node10 fix_nested_dir
     acquireExternalTool "$NODE_URL/v${NODE16_VERSION}/node-v${NODE16_VERSION}-linux-x64.tar.gz" node16 fix_nested_dir
-    acquireExternalTool "$NODE_URL/v${NODE20_VERSION}/node-v${NODE20_VERSION}-linux-x64.tar.gz" node20 fix_nested_dir
 fi
 
 if [[ "$PACKAGERUNTIME" == "linux-arm" ]]; then
@@ -227,7 +219,6 @@ if [[ "$PACKAGERUNTIME" == "linux-arm" ]]; then
     fi
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-linux-armv7l.tar.gz" node10 fix_nested_dir
     acquireExternalTool "$NODE_URL/v${NODE16_VERSION}/node-v${NODE16_VERSION}-linux-armv7l.tar.gz" node16 fix_nested_dir
-    acquireExternalTool "$NODE_URL/v${NODE20_VERSION}/node-v${NODE20_VERSION}-linux-armv7l.tar.gz" node20 fix_nested_dir
 fi
 
 if [[ "$PACKAGERUNTIME" == "linux-arm64" ]]; then
@@ -236,7 +227,6 @@ if [[ "$PACKAGERUNTIME" == "linux-arm64" ]]; then
     fi
     acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-linux-arm64.tar.gz" node10 fix_nested_dir
     acquireExternalTool "$NODE_URL/v${NODE16_VERSION}/node-v${NODE16_VERSION}-linux-arm64.tar.gz" node16 fix_nested_dir
-    acquireExternalTool "$NODE_URL/v${NODE20_VERSION}/node-v${NODE20_VERSION}-linux-arm64.tar.gz" node20 fix_nested_dir
 fi
 
 if [[ "$PACKAGERUNTIME" != "win-x64" && "$PACKAGERUNTIME" != "win-x86" ]]; then
@@ -254,11 +244,6 @@ if [[ "$PACKAGERUNTIME" != "win-x64" && "$PACKAGERUNTIME" != "win-x86" ]]; then
     rm "$LAYOUT_DIR/externals/node16/bin/npm"
     rm "$LAYOUT_DIR/externals/node16/bin/npx"
     rm "$LAYOUT_DIR/externals/node16/bin/corepack"
-
-    rm -rf "$LAYOUT_DIR/externals/node20/lib"
-    rm "$LAYOUT_DIR/externals/node20/bin/npm"
-    rm "$LAYOUT_DIR/externals/node20/bin/npx"
-    rm "$LAYOUT_DIR/externals/node20/bin/corepack"
 fi
 
 if [[ "$PACKAGERUNTIME" != "win-x64" && "$PACKAGERUNTIME" != "win-x86" ]]; then
