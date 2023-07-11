@@ -26,7 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
 
 
-        public static void InitializeVssClientSettings(ProductInfoHeaderValue additionalUserAgent, IWebProxy proxy, IVssClientCertificateManager clientCert)
+        public static void InitializeVssClientSettings(ProductInfoHeaderValue additionalUserAgent, IWebProxy proxy, IVssClientCertificateManager clientCert, bool SkipServerCertificateValidation)
         {
             var headerValues = new List<ProductInfoHeaderValue>();
             headerValues.Add(additionalUserAgent);
@@ -49,6 +49,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
 
             VssHttpMessageHandler.DefaultWebProxy = proxy;
+
+            if (SkipServerCertificateValidation)
+            {
+                VssClientHttpRequestSettings.Default.ServerCertificateValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+            }
         }
 
 
@@ -57,6 +62,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             Uri serverUri,
             VssCredentials credentials,
             ITraceWriter trace,
+            bool skipServerCertificateValidation = false,
             IEnumerable<DelegatingHandler> additionalDelegatingHandler = null,
             TimeSpan? timeout = null)
         {
@@ -82,7 +88,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             // Setting `ServerCertificateCustomValidation` to able to capture SSL data for diagnostic
             if (trace != null && IsCustomServerCertificateValidationSupported(trace))
             {
-                SslUtil sslUtil = new SslUtil(trace);
+                SslUtil sslUtil = new SslUtil(trace, skipServerCertificateValidation);
                 settings.ServerCertificateValidationCallback = sslUtil.RequestStatusCustomValidation;
             }
 

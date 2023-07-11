@@ -206,9 +206,11 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             Trace.Info($"Establish connection with {timeout.TotalSeconds} seconds timeout.");
             int attemptCount = 5;
+            var agentCertManager = HostContext.GetService<IAgentCertificateManager>();
+
             while (attemptCount-- > 0)
             {
-                var connection = VssUtil.CreateConnection(serverUrl, credentials, timeout: timeout, trace: Trace);
+                var connection = VssUtil.CreateConnection(serverUrl, credentials, timeout: timeout, trace: Trace, skipServerCertificateValidation: agentCertManager.SkipServerCertificateValidation);
                 try
                 {
                     await connection.ConnectAsync();
