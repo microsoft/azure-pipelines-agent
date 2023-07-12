@@ -15,6 +15,7 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Microsoft.VisualStudio.Services.Common;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -325,13 +326,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     jobDispatcher = HostContext.CreateService<IJobDispatcher>();
                     TaskAgentMessage previuosMessage = null;
 
+                    Task<TaskAgentMessage> getNextMessage = null;
                     while (!HostContext.AgentShutdownToken.IsCancellationRequested)
                     {
                         TaskAgentMessage message = null;
                         bool skipMessageDeletion = false;
                         try
                         {
-                            Task<TaskAgentMessage> getNextMessage = _listener.GetNextMessageAsync(messageQueueLoopTokenSource.Token);
+                            if(getNextMessage == null || (getNextMessage.Status != TaskStatus.Running && 
+                                getNextMessage.Status != TaskStatus.WaitingForChildrenToComplete && 
+                                getNextMessage.Status != TaskStatus.WaitingForActivation && 
+                                getNextMessage.Status != TaskStatus.WaitingToRun))
+                            {
+                                getNextMessage = _listener.GetNextMessageAsync(messageQueueLoopTokenSource.Token);
+                            }
                             if (autoUpdateInProgress)
                             {
                                 Trace.Verbose("Auto update task running at backend, waiting for getNextMessage or selfUpdateTask to finish.");
