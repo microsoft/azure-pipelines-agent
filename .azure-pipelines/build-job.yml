@@ -86,7 +86,7 @@ jobs:
     layoutRoot: '_layout/${{ parameters.os }}-${{ parameters.arch }}'
     DisableCFSDetector: true
     DisableDockerDetector: true
-    NugetSecurityAnalysisWarningLevel: "none"
+    nugetMultiFeedWarnLevel: none
     ${{ if eq(parameters.os, 'rhel.6') }}:
       AGENT_USE_NODE10: true
 

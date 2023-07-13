@@ -34,6 +34,10 @@ parameters:
 - name: skipRhelRelease
   type: boolean
   default: true
+- name: testProxyAgent
+  type: boolean
+  default: false
+  displayName: Test Proxy Agent
 
 pr:
   branches:
@@ -50,6 +54,7 @@ extends:
     publishArtifacts: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
     buildAlternatePackage: false
     skipRhelRelease: ${{ parameters.skipRhelRelease }}
+    testProxyAgent: ${{ parameters.testProxyAgent }}
     win_x64: ${{ parameters.win_x64 }}
     win_x86: ${{ parameters.win_x86 }}
     linux_x64: ${{ parameters.linux_x64 }}
