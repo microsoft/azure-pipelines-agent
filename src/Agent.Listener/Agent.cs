@@ -16,6 +16,7 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Microsoft.VisualStudio.Services.Common;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -324,6 +325,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     Task<bool> selfUpdateTask = null;
                     bool runOnceJobReceived = false;
                     jobDispatcher = HostContext.CreateService<IJobDispatcher>();
+
+                    // check if parallel polling should be prevented
+                    bool preventParallelPolling = AgentKnobs.PreventParallelPolling.GetValue(UtilKnobValueContext.Instance()).AsBoolean();
                     TaskAgentMessage previuosMessage = null;
 
                     Task<TaskAgentMessage> getNextMessage = null;
@@ -333,10 +337,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         bool skipMessageDeletion = false;
                         try
                         {
-                            if(getNextMessage == null || (getNextMessage.Status != TaskStatus.Running && 
-                                getNextMessage.Status != TaskStatus.WaitingForChildrenToComplete && 
-                                getNextMessage.Status != TaskStatus.WaitingForActivation && 
-                                getNextMessage.Status != TaskStatus.WaitingToRun))
+                            // if preventing of parallel polling is enabled then check if a getNextMessage thread is already running
+                            // and do not start a new getNextMessage thread if that is the case
+                            if(!preventParallelPolling || 
+                                (getNextMessage == null || (getNextMessage.Status != TaskStatus.Running && 
+                                    getNextMessage.Status != TaskStatus.WaitingForChildrenToComplete && 
+                                    getNextMessage.Status != TaskStatus.WaitingForActivation && 
+                                    getNextMessage.Status != TaskStatus.WaitingToRun)))
                             {
                                 getNextMessage = _listener.GetNextMessageAsync(messageQueueLoopTokenSource.Token);
                             }
