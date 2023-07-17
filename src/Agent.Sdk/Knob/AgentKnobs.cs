@@ -152,6 +152,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_USE_NODE16"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob UseNode20 = new Knob(
+            nameof(UseNode20),
+            "Forces the agent to use Node 20 handler for all Node-based tasks",
+            new RuntimeKnobSource("AGENT_USE_NODE20"),
+            new EnvironmentKnobSource("AGENT_USE_NODE20"),
+            new BuiltInDefaultKnobSource("false"));
+
         // Agent logging
         public static readonly Knob AgentPerflog = new Knob(
             nameof(AgentPerflog),

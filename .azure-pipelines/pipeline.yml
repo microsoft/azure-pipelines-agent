@@ -83,34 +83,22 @@ stages:
         vmImage: ubuntu-latest
       variables:
         DisableDockerDetector: true
-        NugetSecurityAnalysisWarningLevel: none
+        nugetMultiFeedWarnLevel: none
       steps:
       - bash: |
           cd ./.azure-pipelines/scripts/
           npm install axios minimist
 
-          source="$(Build.SourceBranch)"
-          prefix="refs/heads/"
-
-          if [[ "${source}" == "${prefix}"* ]]; then
-              branch="${source#"${prefix}"}"
-
-              if [[ "${branch}" == "master" ]]; then
-                  branch="${{ parameters.branch }}"
-              fi
-
-              echo "Canary \"branch\" parameter: \"${branch}\""
-          else
-              echo "##vso[task.logissue type=error]This test is supported only if the build source branch name is specified directly"
-
-              exit 1
-          fi
+          releaseBranch="${{ parameters.branch }}"
+          sourceBranch="$(Build.SourceBranch)"
+          branch="${releaseBranch:-"${sourceBranch}"}"
+          echo "Canary \"branch\" parameter: \"${branch}\""
 
           node ./run-and-verify.js \
               --projectUrl "$(CANARY_PROJECT_URL)" \
               --pipelineId "$(CANARY_PIPELINE_ID)" \
               --token "$(CANARY_PAT)" \
-              --templateParameters "{ \"branch\": \"${branch}\" }"
+              --templateParameters "{ \"branch\": \"${branch}\", \"template_timeout\": 2 }"
         displayName: Test Proxy Agent
 
   # Windows (x64)

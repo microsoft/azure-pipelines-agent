@@ -36,7 +36,10 @@ parameters:
   displayName: Test Proxy Agent
 
 variables:
-  releaseBranch: releases/${{ parameters.version }}
+  ${{ if parameters.buildStageOnly }}:
+    releaseBranch: ''
+  ${{ else }}:
+    releaseBranch: releases/${{ parameters.version }}
 
 extends:
   template: .azure-pipelines/pipeline.yml
