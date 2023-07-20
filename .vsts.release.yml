@@ -30,8 +30,16 @@ parameters:
   default: false
   displayName: Release only for GitHub
 
+- name: testProxyAgent
+  type: boolean
+  default: true
+  displayName: Test Proxy Agent
+
 variables:
-  releaseBranch: releases/${{ parameters.version }}
+  ${{ if parameters.buildStageOnly }}:
+    releaseBranch: ''
+  ${{ else }}:
+    releaseBranch: releases/${{ parameters.version }}
 
 extends:
   template: .azure-pipelines/pipeline.yml
@@ -43,6 +51,7 @@ extends:
     publishArtifacts: true
     skipRhelRelease: ${{ parameters.skipRhelRelease }}
     releaseRhelOnly: ${{ parameters.releaseRhelOnly }}
+    testProxyAgent: ${{ parameters.testProxyAgent }}
 
     preBuildStages:
     - ${{ if and(not(parameters.buildStageOnly), eq(variables['Build.SourceBranch'], 'refs/heads/master')) }}:

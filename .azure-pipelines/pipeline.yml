@@ -29,6 +29,9 @@ parameters:
 - name: releaseRhelOnly
   type: boolean
   default: false
+- name: testProxyAgent
+  type: boolean
+  default: false
 
 # Targets
 - name: win_x64
@@ -72,6 +75,31 @@ stages:
 - stage: build
   displayName: Build
   jobs:
+  # Test Proxy Agent
+  - ${{ if parameters.testProxyAgent }}:
+    - job: test_proxy_agent
+      displayName: Test Proxy Agent
+      pool:
+        vmImage: ubuntu-latest
+      variables:
+        DisableDockerDetector: true
+        nugetMultiFeedWarnLevel: none
+      steps:
+      - bash: |
+          cd ./.azure-pipelines/scripts/
+          npm install axios minimist
+
+          releaseBranch="${{ parameters.branch }}"
+          sourceBranch="$(Build.SourceBranch)"
+          branch="${releaseBranch:-"${sourceBranch}"}"
+          echo "Canary \"branch\" parameter: \"${branch}\""
+
+          node ./run-and-verify.js \
+              --projectUrl "$(CANARY_PROJECT_URL)" \
+              --pipelineId "$(CANARY_PIPELINE_ID)" \
+              --token "$(CANARY_PAT)" \
+              --templateParameters "{ \"branch\": \"${branch}\", \"template_timeout\": 2 }"
+        displayName: Test Proxy Agent
 
   # Windows (x64)
   - ${{ if and(parameters.win_x64, not(parameters.releaseRhelOnly)) }}:
