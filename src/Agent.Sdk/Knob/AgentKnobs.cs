@@ -456,15 +456,20 @@ namespace Agent.Sdk.Knob
         public static readonly Knob ProcessHandlerSecureArguments = new Knob(
             nameof(ProcessHandlerSecureArguments),
             "Enables passing arguments for process handler secure way",
-            new RuntimeKnobSource("AGENT_PH_ENABLE_SECURE_ARGUMENTS"),
-            new EnvironmentKnobSource("AGENT_PH_ENABLE_SECURE_ARGUMENTS"),
+            new RuntimeKnobSource("AZP_75787_ENABLE_NEW_LOGIC"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob ProcessHandlerSecureArgumentsAudit = new Knob(
+            nameof(ProcessHandlerSecureArguments),
+            "Enables logging of passing arguments for process handler secure way",
+            new RuntimeKnobSource("AZP_75787_ENABLE_NEW_LOGIC_LOG"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob ProcessHandlerTelemetry = new Knob(
             nameof(ProcessHandlerTelemetry),
             "Enables publishing telemetry about processing of arguments for Process Handler",
-            new RuntimeKnobSource("AGENT_PH_ENABLE_TELEMETRY"),
-            new EnvironmentKnobSource("AGENT_PH_ENABLE_TELEMETRY"),
+            new RuntimeKnobSource("AZP_75787_ENABLE_COLLECT"),
+            new EnvironmentKnobSource("AZP_75787_ENABLE_COLLECT"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob DisableDrainQueuesAfterTask = new Knob(
