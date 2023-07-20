@@ -141,7 +141,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             var enableFileArgs = disableInlineExecution && enableSecureArguments;
 
-            if (disableInlineExecution && (enableSecureArgumentsAudit || enableSecureArguments) || enableTelemetry)
+            if ((disableInlineExecution && (enableSecureArgumentsAudit || enableSecureArguments)) || enableTelemetry)
             {
                 var (processedArgs, telemetry) = ProcessHandlerHelper.ProcessInputArguments(arguments);
 
