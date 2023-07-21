@@ -152,6 +152,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_USE_NODE16"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob UseNode20 = new Knob(
+            nameof(UseNode20),
+            "Forces the agent to use Node 20 handler for all Node-based tasks",
+            new RuntimeKnobSource("AGENT_USE_NODE20"),
+            new EnvironmentKnobSource("AGENT_USE_NODE20"),
+            new BuiltInDefaultKnobSource("false"));
+
         // Agent logging
         public static readonly Knob AgentPerflog = new Knob(
             nameof(AgentPerflog),
@@ -484,6 +491,13 @@ namespace Agent.Sdk.Knob
             "Forces the agent to create _tasks folder for tasks.",
             new RuntimeKnobSource("AGENT_FORCE_CREATE_TASKS_DIRECTORY"),
             new EnvironmentKnobSource("AGENT_FORCE_CREATE_TASKS_DIRECTORY"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob CleanupPSModules = new Knob(
+            nameof(CleanupPSModules),
+            "Removes the PSModulePath environment variable if the agent is running in PowerShell.",
+            new RuntimeKnobSource("AZP_AGENT_CLEANUP_PSMODULES_IN_POWERSHELL"),
+            new EnvironmentKnobSource("AZP_AGENT_CLEANUP_PSMODULES_IN_POWERSHELL"),
             new BuiltInDefaultKnobSource("false"));
     }
 }
