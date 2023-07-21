@@ -63,8 +63,8 @@ namespace Agent.Plugins.Log.TestResultParser.Plugin
                 _broadcast.Complete();
                 Task.WaitAll(_subscribers.Values.Select(x => x.Completion).ToArray());
 
-                using (var timer = new SimpleTimer("TestRunManagerFinalize", _logger, 
-                    new TelemetryDataWrapper(_telemetry, TelemetryConstants.TestRunManagerEventArea, TelemetryConstants.FinalizeAsync), 
+                using (var timer = new SimpleTimer("TestRunManagerFinalize", _logger,
+                    new TelemetryDataWrapper(_telemetry, TelemetryConstants.TestRunManagerEventArea, TelemetryConstants.FinalizeAsync),
                     TimeSpan.FromMilliseconds(Int32.MaxValue)))
                 {
                     await _testRunManager.FinalizeAsync();

@@ -33,6 +33,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             AddVariablesToEnvironment();
             AddTaskVariablesToEnvironment();
             AddPrependPathToEnvironment();
+            RemovePSModulePathFromEnvironment();
 
             // Resolve the target script.
             ArgUtil.NotNullOrEmpty(Data.Target, nameof(Data.Target));
@@ -77,6 +78,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                             outputEncoding: null,
                                             killProcessOnCancel: false,
                                             inheritConsoleHandler: !ExecutionContext.Variables.Retain_Default_Encoding,
+                                            continueAfterCancelProcessTreeKillAttempt: _continueAfterCancelProcessTreeKillAttempt,
                                             cancellationToken: ExecutionContext.CancellationToken);
             }
             finally

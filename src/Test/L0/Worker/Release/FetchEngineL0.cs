@@ -91,79 +91,79 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
             }
         }
 
-/*
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Worker")]
-        public async Task ShouldHonorRetryLimit()
-        {
-            int fetchCount = 0;
-            var stubContainerProvider = new StubContainerProvider(
-                new List<ContainerItem>
+        /*
+                [Fact]
+                [Trait("Level", "L0")]
+                [Trait("Category", "Worker")]
+                public async Task ShouldHonorRetryLimit()
                 {
-                    DummyConatinerItem1
-                },
-                (item1, c) =>
+                    int fetchCount = 0;
+                    var stubContainerProvider = new StubContainerProvider(
+                        new List<ContainerItem>
+                        {
+                            DummyConatinerItem1
+                        },
+                        (item1, c) =>
+                        {
+                            fetchCount++;
+                            if (fetchCount == 1)
+                            {
+                                throw new FileNotFoundException();
+                            }
+                            return mockItemContent;
+                        });
+                    containerFetchEngineTestOptions.RetryLimit = 2;
+                    var fetchEngine = GetFetchEngine(stubContainerProvider, CancellationToken.None);
+
+                    Task fetchAsync = fetchEngine.FetchAsync(CancellationToken.None);
+                    await fetchAsync;
+
+                    Assert.Equal(containerFetchEngineTestOptions.RetryLimit, fetchCount);
+                }
+
+                [Fact]
+                [Trait("Level", "L0")]
+                [Trait("Category", "Worker")]
+                public async Task ShouldCancelAllDownloadsOnException()
                 {
-                    fetchCount++;
-                    if (fetchCount == 1)
+                    bool isTaskCancelled = false;
+                    var stubContainerProvider = new StubContainerProvider(
+                        new List<ContainerItem>
+                        {
+                            DummyConatinerItem1,
+                            DummyConatinerItem2
+                        },
+                        (item1, c) =>
+                        {
+                            Thread.Sleep(300);
+                            if (((ContainerItem)item1).ContainerId == 1)
+                            {
+                                throw new FileNotFoundException();
+                            }
+                            while (!c.IsCancellationRequested)
+                            {
+                            }
+
+                            isTaskCancelled = c.IsCancellationRequested;
+                            return mockItemContent;
+                        });
+                    containerFetchEngineTestOptions.RetryLimit = 0;
+                    containerFetchEngineTestOptions.ParallelDownloadLimit = 2;
+                    var fetchEngine = GetFetchEngine(stubContainerProvider, CancellationToken.None);
+
+                    Task fetchAsync = fetchEngine.FetchAsync(CancellationToken.None);
+                    try
                     {
-                        throw new FileNotFoundException();
+                        await fetchAsync;
                     }
-                    return mockItemContent;
-                });
-            containerFetchEngineTestOptions.RetryLimit = 2;
-            var fetchEngine = GetFetchEngine(stubContainerProvider, CancellationToken.None);
-
-            Task fetchAsync = fetchEngine.FetchAsync(CancellationToken.None);
-            await fetchAsync;
-
-            Assert.Equal(containerFetchEngineTestOptions.RetryLimit, fetchCount);
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Worker")]
-        public async Task ShouldCancelAllDownloadsOnException()
-        {
-            bool isTaskCancelled = false;
-            var stubContainerProvider = new StubContainerProvider(
-                new List<ContainerItem>
-                {
-                    DummyConatinerItem1,
-                    DummyConatinerItem2
-                },
-                (item1, c) =>
-                {
-                    Thread.Sleep(300);
-                    if (((ContainerItem)item1).ContainerId == 1)
+                    catch
                     {
-                        throw new FileNotFoundException();
-                    }
-                    while (!c.IsCancellationRequested)
-                    {
+                        // ignored
                     }
 
-                    isTaskCancelled = c.IsCancellationRequested;
-                    return mockItemContent;
-                });
-            containerFetchEngineTestOptions.RetryLimit = 0;
-            containerFetchEngineTestOptions.ParallelDownloadLimit = 2;
-            var fetchEngine = GetFetchEngine(stubContainerProvider, CancellationToken.None);
-
-            Task fetchAsync = fetchEngine.FetchAsync(CancellationToken.None);
-            try
-            {
-                await fetchAsync;
-            }
-            catch
-            {
-                // ignored
-            }
-
-            Assert.Equal(isTaskCancelled, true);
-        }
-*/
+                    Assert.Equal(isTaskCancelled, true);
+                }
+        */
 
         [Fact]
         [Trait("Level", "L0")]

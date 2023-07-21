@@ -22,7 +22,7 @@ namespace Agent.Plugins
             ArgUtil.NotNull(context, nameof(context));
             bool verbose = context.IsSystemDebugTrue();
             return new CallbackAppTraceSource(
-                (str, level) => 
+                (str, level) =>
                 {
                     if (level == System.Diagnostics.SourceLevels.Warning)
                     {

@@ -51,7 +51,11 @@ namespace Agent.Plugins
             this.connection = connection;
         }
 
-        public async Task DownloadSingleArtifactAsync(ArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
+        public async Task DownloadSingleArtifactAsync(
+            ArtifactDownloadParameters downloadParameters,
+            BuildArtifact buildArtifact,
+            CancellationToken cancellationToken,
+            AgentTaskPluginExecutionContext context)
         {
             IEnumerable<FileContainerItem> items = await GetArtifactItems(downloadParameters, buildArtifact);
             await this.DownloadFileContainerAsync(items, downloadParameters, buildArtifact, downloadParameters.TargetDirectory, context, cancellationToken);
@@ -66,7 +70,11 @@ namespace Agent.Plugins
             }
         }
 
-        public async Task DownloadMultipleArtifactsAsync(ArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
+        public async Task DownloadMultipleArtifactsAsync(
+            ArtifactDownloadParameters downloadParameters,
+            IEnumerable<BuildArtifact> buildArtifacts,
+            CancellationToken cancellationToken,
+            AgentTaskPluginExecutionContext context)
         {
             var allFileArtifactPaths = new List<string>();
 
@@ -349,7 +357,7 @@ namespace Agent.Plugins
                                 using (var targetFileStream = new FileStream(destinationPath, FileMode.Create))
                                 using (var uncompressStream = new GZipStream(targetFileStream, CompressionMode.Decompress))
                                 {
-                                    await dedupClient.DownloadToStreamAsync(dedupIdentifier, uncompressStream, null, EdgeCache.Allowed, (size) => {}, (size) => {}, cancellationToken);
+                                    await dedupClient.DownloadToStreamAsync(dedupIdentifier, uncompressStream, null, EdgeCache.Allowed, (size) => { }, (size) => { }, cancellationToken);
                                 }
                             }
                             else
@@ -418,9 +426,12 @@ namespace Agent.Plugins
                 }
             }
 
-            if (tarsFoundCount == 0) {
+            if (tarsFoundCount == 0)
+            {
                 context.Warning(StringUtil.Loc("TarsNotFound"));
-            } else {
+            }
+            else
+            {
                 tracer.Info(StringUtil.Loc("TarsFound", tarsFoundCount));
 
                 string targetDirectory = Path.Combine(rootPath, "extracted_tars");
@@ -454,7 +465,8 @@ namespace Agent.Plugins
         }
 
         // Recursively moves sourcePath directory to targetPath
-        private void MoveDirectory(string sourcePath, string targetPath) {
+        private void MoveDirectory(string sourcePath, string targetPath)
+        {
             var sourceDirectoryInfo = new DirectoryInfo(sourcePath);
             foreach (FileInfo file in sourceDirectoryInfo.GetFiles("*", SearchOption.TopDirectoryOnly))
             {

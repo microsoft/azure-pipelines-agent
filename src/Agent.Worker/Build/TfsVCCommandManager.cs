@@ -9,6 +9,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Text;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using System.IO;
+using Agent.Sdk.Knob;
+using BuildXL.Cache.ContentStore.Interfaces.Results;
+using System.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -102,10 +106,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         protected Task RunCommandAsync(params string[] args)
         {
-            return RunCommandAsync(FormatFlags.None, args);
+            return RunCommandAsync(FormatTags.None, args);
         }
 
-        protected async Task RunCommandAsync(FormatFlags formatFlags, params string[] args)
+        protected async Task RunCommandAsync(FormatTags formatFlags, params string[] args)
         {
             // Validation.
             ArgUtil.NotNull(args, nameof(args));
@@ -130,6 +134,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     }
                 };
                 string arguments = FormatArguments(formatFlags, args);
+                bool useSecureParameterPassing = AgentKnobs.TfVCUseSecureParameterPassing.GetValue(ExecutionContext).AsBoolean();
+                string temporaryFileWithCommand = "";
+                if (useSecureParameterPassing)
+                {
+                    temporaryFileWithCommand = WriteCommandToFile(arguments);
+                    arguments = $"@{temporaryFileWithCommand}";
+                    ExecutionContext.Debug($"{AgentKnobs.TfVCUseSecureParameterPassing.Name} is enabled, passing command via file");
+                }
                 ExecutionContext.Command($@"tf {arguments}");
                 await processInvoker.ExecuteAsync(
                     workingDirectory: SourcesDirectory,
@@ -139,25 +151,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     requireExitCodeZero: true,
                     outputEncoding: OutputEncoding,
                     cancellationToken: CancellationToken);
+
+                if (useSecureParameterPassing)
+                {
+                    File.Delete(Path.Combine(this.SourcesDirectory, temporaryFileWithCommand));
+                }
             }
         }
 
         protected Task<string> RunPorcelainCommandAsync(params string[] args)
         {
-            return RunPorcelainCommandAsync(FormatFlags.None, args);
+            return RunPorcelainCommandAsync(FormatTags.None, args);
         }
 
         protected Task<string> RunPorcelainCommandAsync(bool ignoreStderr, params string[] args)
         {
-            return RunPorcelainCommandAsync(FormatFlags.None, ignoreStderr, args);
+            return RunPorcelainCommandAsync(FormatTags.None, ignoreStderr, args);
         }
 
-        protected Task<string> RunPorcelainCommandAsync(FormatFlags formatFlags, params string[] args)
+        protected Task<string> RunPorcelainCommandAsync(FormatTags formatFlags, params string[] args)
         {
             return RunPorcelainCommandAsync(formatFlags, false, args);
         }
 
-        protected async Task<string> RunPorcelainCommandAsync(FormatFlags formatFlags, bool ignoreStderr, params string[] args)
+        protected async Task<string> RunPorcelainCommandAsync(FormatTags formatFlags, bool ignoreStderr, params string[] args)
         {
             // Run the command.
             TfsVCPorcelainCommandResult result = await TryRunPorcelainCommandAsync(formatFlags, ignoreStderr, args);
@@ -174,7 +191,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return string.Join(Environment.NewLine, result.Output ?? new List<string>());
         }
 
-        protected async Task<TfsVCPorcelainCommandResult> TryRunPorcelainCommandAsync(FormatFlags formatFlags, bool ignoreStderr, params string[] args)
+        private string WriteCommandToFile(string command)
+        {
+            Guid guid = Guid.NewGuid();
+            string temporaryName = $"tfs_cmd_{guid}.txt";
+            using StreamWriter sw = new StreamWriter(Path.Combine(this.SourcesDirectory, temporaryName));
+            sw.WriteLine(command);
+            return temporaryName;
+        }
+
+        protected async Task<TfsVCPorcelainCommandResult> TryRunPorcelainCommandAsync(FormatTags formatFlags, bool ignoreStderr, params string[] args)
         {
             // Validation.
             ArgUtil.NotNull(args, nameof(args));
@@ -208,8 +234,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         }
                     }
                 };
-                string arguments = FormatArguments(formatFlags, args);
+                string formattedArguments = FormatArguments(formatFlags, args);
+                string arguments = "";
+                string cmdFileName = "";
+                bool useSecretParameterPassing = AgentKnobs.TfVCUseSecureParameterPassing.GetValue(ExecutionContext).AsBoolean();
                 ExecutionContext.Debug($@"tf {arguments}");
+                if (useSecretParameterPassing)
+                {
+                    cmdFileName = WriteCommandToFile(formattedArguments);
+                    arguments = $"@{cmdFileName}";
+                }
+                else
+                {
+                    arguments = formattedArguments;
+                }
                 // TODO: Test whether the output encoding needs to be specified on a non-Latin OS.
                 try
                 {
@@ -227,11 +265,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     result.Exception = ex;
                 }
 
+                if (useSecretParameterPassing)
+                {
+                    CleanupTfsVCOutput(ref result, formattedArguments);
+                    File.Delete(Path.Combine(this.SourcesDirectory, cmdFileName));
+                }
+
                 return result;
             }
         }
 
-        private string FormatArguments(FormatFlags formatFlags, params string[] args)
+        private void CleanupTfsVCOutput(ref TfsVCPorcelainCommandResult command, string executedCommand)
+        {
+            // tf.exe removes double quotes from the output, we also replace it in the input command to correctly find the extra output
+            List<string> stringsToRemove = command
+                .Output
+                .Where(item => item.Contains(executedCommand.Replace("\"", "")))
+                .ToList();
+            command.Output.RemoveAll(item => stringsToRemove.Contains(item));
+        }
+
+        private string FormatArguments(FormatTags formatFlags, params string[] args)
         {
             // Validation.
             ArgUtil.NotNull(args, nameof(args));
@@ -258,7 +312,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
 
             // Add the common parameters.
-            if (!formatFlags.HasFlag(FormatFlags.OmitCollectionUrl))
+            if (!formatFlags.HasFlag(FormatTags.OmitCollectionUrl))
             {
                 if (Features.HasFlag(TfsVCFeatures.EscapedUrl))
                 {
@@ -285,7 +339,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 }
             }
 
-            if (!formatFlags.HasFlag(FormatFlags.OmitLogin))
+            if (!formatFlags.HasFlag(FormatTags.OmitLogin))
             {
                 if (Features.HasFlag(TfsVCFeatures.LoginType))
                 {
@@ -298,7 +352,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 }
             }
 
-            if (!formatFlags.HasFlag(FormatFlags.OmitNoPrompt))
+            if (!formatFlags.HasFlag(FormatTags.OmitNoPrompt))
             {
                 formattedArgs.Add($"{Switch}noprompt");
             }
@@ -320,7 +374,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         }
 
         [Flags]
-        protected enum FormatFlags
+        protected enum FormatTags
         {
             None = 0,
             OmitCollectionUrl = 1,

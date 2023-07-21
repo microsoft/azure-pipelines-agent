@@ -30,17 +30,37 @@ const connection = new azdev.WebApi('https://dev.azure.com/mseng', authHandler);
  */
 function createIntegrationFiles(newRelease)
 {
+    const xmlFilePath = path.join(INTEGRATION_DIR, 'InstallAgentPackage.xml')
     fs.mkdirSync(INTEGRATION_DIR, { recursive: true });
     util.fillAgentParameters(
         path.join(__dirname, '..', 'src', 'Misc', 'InstallAgentPackage.template.xml'),
-        path.join(INTEGRATION_DIR, 'InstallAgentPackage.xml'),
+        xmlFilePath,
         newRelease
     );
+    clearEmptyHashValueLine(xmlFilePath);
+    clearEmptyXmlNodes(xmlFilePath);
+
+    const publishScriptFilePath = path.join(INTEGRATION_DIR, 'Publish.ps1')
     util.fillAgentParameters(
         path.join(__dirname, '..', 'src', 'Misc', 'Publish.template.ps1'),
-        path.join(INTEGRATION_DIR, 'Publish.ps1'),
+        publishScriptFilePath,
         newRelease
     );
+    clearEmptyHashValueLine(publishScriptFilePath);
+}
+
+function clearEmptyXmlNodes(filePath) {
+    var xmlFile = fs.readFileSync(filePath, 'utf-8');
+    while (xmlFile.length != (xmlFile = xmlFile.replace(/\s*<[\w\s="]+>\n*\s*<\/[\w\s="]+>/g, "")).length) {
+    }
+    fs.writeFileSync(filePath, xmlFile);
+}
+
+function clearEmptyHashValueLine(filePath) {
+    const text = fs.readFileSync(filePath, 'utf-8');
+    const lines = text.split('\n');
+    const modifiedLines = lines.filter((line) => !line.includes('<HASH_VALUE>'));
+    fs.writeFileSync(filePath, modifiedLines.join('\n').replace(/\n\r(\n\r)+/g, '\n\r'));
 }
 
 function commitAndPush(directory, release, branch)
@@ -149,11 +169,16 @@ async function createConfigChangePR(repoPath, agentVersion) {
 /**
  * Queries whatsprintis.it for current sprint version
  * 
+ * @throws An error will be thrown if the response does not contain a sprint version as a three-digit numeric value
  * @returns current sprint version
  */
 async function getCurrentSprint() {
     const response = await got.get('https://whatsprintis.it/?json', { responseType: 'json' });
-    return response.body.sprint;
+    const sprint = response.body.sprint;
+    if (!/^\d\d\d$/.test(sprint)) {
+        throw new Error(`Sprint must be a three-digit number; received: ${sprint}`);
+    }
+    return sprint;
 }
 
 async function main()

@@ -349,7 +349,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[] { "configure","--unattended" });
+                var command = new CommandSettings(hc, args: new string[] { "configure", "--unattended" });
 
                 // Act.
                 bool actual = command.Unattended();
@@ -511,7 +511,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             using (TestHostContext hc = CreateTestContext())
             {
                 // Arrange.
-                var command = new CommandSettings(hc, args: new string[] { "configure"});
+                var command = new CommandSettings(hc, args: new string[] { "configure" });
                 _promptManager
                     .Setup(x => x.ReadValue(
                         Constants.Agent.CommandLine.Args.Auth, // argName
@@ -1069,7 +1069,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 // Validate if --machinegroupname parameter is working
                 Assert.Equal("Test-MachineGroupName", actual);
-                
+
                 // Validate Read Value should not get invoked.
                 _promptManager.Verify(x =>
                     x.ReadValue(It.IsAny<string>(), It.IsAny<string>(),
@@ -1134,11 +1134,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 // Validate if --machinegrouptags parameter is working fine
                 Assert.Equal("Test-MachineGrouptag1,Test-MachineGrouptag2", actual);
-                
+
                 // Validate Read Value should not get invoked.
                 _promptManager.Verify(x =>
                     x.ReadValue(It.IsAny<string>(), It.IsAny<string>(),
-                        It.IsAny<bool>(),It.IsAny<string>(), It.IsAny<Func<string,bool>>(),It.IsAny<bool>()), Times.Never);
+                        It.IsAny<bool>(), It.IsAny<string>(), It.IsAny<Func<string, bool>>(), It.IsAny<bool>()), Times.Never);
             }
         }
 
@@ -1153,7 +1153,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 var command = new CommandSettings(hc, args: new string[] { "badcommand" });
 
                 // Assert.
-                Assert.True(command.ParseErrors.Count() > 0);
+                Assert.True(command.ParseErrors.Any());
             }
         }
 
@@ -1168,7 +1168,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 var command = new CommandSettings(hc, args: new string[] { "--badflag" });
 
                 // Assert.
-                Assert.True(command.ParseErrors.Count() > 0);
+                Assert.True(command.ParseErrors.Any());
             }
         }
 
@@ -1183,7 +1183,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 var command = new CommandSettings(hc, args: new string[] { "--badargname", "bad arg value" });
 
                 // Assert.
-                Assert.True(command.ParseErrors.Count() > 0);
+                Assert.True(command.ParseErrors.Any());
             }
         }
 

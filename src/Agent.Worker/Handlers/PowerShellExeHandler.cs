@@ -40,11 +40,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             // Update the env dictionary.
             AddVariablesToEnvironment(excludeNames: true, excludeSecrets: true);
             AddPrependPathToEnvironment();
+            RemovePSModulePathFromEnvironment();
 
             // Add the access token to the environment variables, if the access token is set.
             if (!string.IsNullOrEmpty(AccessToken))
             {
-                string formattedKey = Constants.Variables.System.AccessToken.Replace('.', '_').Replace(' ', '_').ToUpperInvariant();
+                string formattedKey = VarUtil.ConvertToEnvVariableFormat(Constants.Variables.System.AccessToken);
                 AddEnvironmentVariable(formattedKey, AccessToken);
             }
 
@@ -150,6 +151,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                                      killProcessOnCancel: false,
                                                                      redirectStandardIn: null,
                                                                      inheritConsoleHandler: !ExecutionContext.Variables.Retain_Default_Encoding,
+                                                                     continueAfterCancelProcessTreeKillAttempt: _continueAfterCancelProcessTreeKillAttempt,
                                                                      cancellationToken: ExecutionContext.CancellationToken);
                     FlushErrorData();
 

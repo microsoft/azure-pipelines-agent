@@ -187,12 +187,12 @@ namespace Agent.Sdk
 
         private AgentWebProxySettings GetProxyConfiguration()
         {
-            string proxyUrl = this.Variables.GetValueOrDefault("Agent.ProxyUrl")?.Value;
+            string proxyUrl = this.Variables.GetValueOrDefault(AgentWebProxySettings.AgentProxyUrlKey)?.Value;
             if (!string.IsNullOrEmpty(proxyUrl))
             {
-                string proxyUsername = this.Variables.GetValueOrDefault("Agent.ProxyUsername")?.Value;
-                string proxyPassword = this.Variables.GetValueOrDefault("Agent.ProxyPassword")?.Value;
-                List<string> proxyBypassHosts = StringUtil.ConvertFromJson<List<string>>(this.Variables.GetValueOrDefault("Agent.ProxyBypassList")?.Value ?? "[]");
+                string proxyUsername = this.Variables.GetValueOrDefault(AgentWebProxySettings.AgentProxyUsernameKey)?.Value;
+                string proxyPassword = this.Variables.GetValueOrDefault(AgentWebProxySettings.AgentProxyPasswordKey)?.Value;
+                List<string> proxyBypassHosts = StringUtil.ConvertFromJson<List<string>>(this.Variables.GetValueOrDefault(AgentWebProxySettings.AgentProxyBypassListKey)?.Value ?? "[]");
                 return new AgentWebProxySettings()
                 {
                     ProxyAddress = proxyUrl,

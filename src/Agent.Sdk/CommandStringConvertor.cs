@@ -37,7 +37,7 @@ namespace Agent.Sdk
             }
 
             string unescaped = escaped;
-            
+
             foreach (EscapeMapping mapping in _specialSymbolsMapping)
             {
                 unescaped = unescaped.Replace(mapping.Replacement, mapping.Token);

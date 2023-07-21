@@ -12,6 +12,7 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
+using Microsoft.VisualStudio.Services.Agent.Blob;
 
 namespace Agent.Plugins.PipelineArtifact
 {
@@ -54,7 +55,7 @@ namespace Agent.Plugins.PipelineArtifact
 
             if (Directory.Exists(fileSharePath))
             {
-                FileShareProvider provider = new FileShareProvider(context, connection, context.CreateArtifactsTracer());
+                FileShareProvider provider = new FileShareProvider(context, connection, context.CreateArtifactsTracer(), DedupManifestArtifactClientFactory.Instance);
                 await provider.PublishArtifactAsync(targetPath, artifactPath, parallelCount, token);
                 context.Output(StringUtil.Loc("CopyFileComplete", artifactPath));
             }
@@ -74,20 +75,20 @@ namespace Agent.Plugins.PipelineArtifact
         private int GetParallelCount(AgentTaskPluginExecutionContext context, string parallelCount)
         {
             var result = 8;
-            if(int.TryParse(parallelCount, out result))
+            if (int.TryParse(parallelCount, out result))
             {
-                if(result < 1) 
+                if (result < 1)
                 {
                     context.Output(StringUtil.Loc("UnexpectedParallelCount"));
                     result = 1;
                 }
-                else if(result > 128)
+                else if (result > 128)
                 {
                     context.Output(StringUtil.Loc("UnexpectedParallelCount"));
                     result = 128;
                 }
             }
-            else 
+            else
             {
                 throw new ArgumentException(StringUtil.Loc("ParallelCountNotANumber"));
             }

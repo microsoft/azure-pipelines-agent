@@ -9,6 +9,7 @@ using System;
 using System.Linq;
 using System.Net.Sockets;
 using System.Collections.Generic;
+using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -111,9 +112,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                     catch (SocketException ex)
                     {
-                        #pragma warning disable CA2000 // Dispose objects before losing scope
-                        ExceptionsUtil.HandleSocketException(ex, WorkerUtilities.GetVssConnection(context).Uri.ToString(), context.Error);
-                        #pragma warning restore CA2000 // Dispose objects before losing scope
+                        using var vssConnection = WorkerUtilities.GetVssConnection(context);
+
+                        ExceptionsUtil.HandleSocketException(ex, vssConnection.Uri.ToString(), context.Error);
                         context.CommandResult = TaskResult.Failed;
                     }
                     catch (Exception ex)
@@ -128,7 +129,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         if (!(string.Equals(command.Area, "task", StringComparison.OrdinalIgnoreCase) &&
                               string.Equals(command.Event, "debug", StringComparison.OrdinalIgnoreCase)))
                         {
-                            context.Debug($"Processed: {input}");
+                            context.Debug($"Processed: {CommandStringConvertor.Unescape(input, unescapePercents)}");
                         }
                     }
                 }
@@ -166,7 +167,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         void Execute(IExecutionContext context, Command command);
     }
 
-    public abstract class BaseWorkerCommandExtension: AgentService, IWorkerCommandExtension
+    public abstract class BaseWorkerCommandExtension : AgentService, IWorkerCommandExtension
     {
 
         public string CommandArea { get; protected set; }

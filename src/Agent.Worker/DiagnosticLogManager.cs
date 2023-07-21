@@ -169,7 +169,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 try
                 {
-                    string eventLogsFile = $"{HostContext.GetDiagDirectory()}/EventViewer-{ jobStartTimeUtc.ToString("yyyyMMdd-HHmmss") }.csv";
+                    string eventLogsFile = $"{HostContext.GetDiagDirectory()}/EventViewer-{jobStartTimeUtc.ToString("yyyyMMdd-HHmmss")}.csv";
                     await DumpCurrentJobEventLogs(executionContext, eventLogsFile, jobStartTimeUtc);
 
                     string destination = Path.Combine(supportFilesFolder, Path.GetFileName(eventLogsFile));
@@ -183,13 +183,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             bool dumpPackagesVerificationResult = AgentKnobs.DumpPackagesVerificationResult.GetValue(executionContext).AsBoolean();
-            if (dumpPackagesVerificationResult && PlatformUtil.RunningOnLinux && !PlatformUtil.RunningOnRHEL6) {
+            if (dumpPackagesVerificationResult && PlatformUtil.RunningOnLinux && !PlatformUtil.RunningOnRHEL6)
+            {
                 executionContext.Debug("Dumping info about invalid MD5 sums of installed packages.");
 
                 var debsums = WhichUtil.Which("debsums");
-                if (debsums == null) {
+                if (debsums == null)
+                {
                     executionContext.Debug("Debsums is not installed on the system. Skipping broken packages check.");
-                } else {
+                }
+                else
+                {
                     try
                     {
                         string packageVerificationResults = await GetPackageVerificationResult(debsums);
@@ -197,7 +201,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             .Split("\n")
                             .Where((line) => !String.IsNullOrEmpty(line) && !line.EndsWith("OK"));
 
-                        string brokenPackagesLogsPath = $"{HostContext.GetDiagDirectory()}/BrokenPackages-{ jobStartTimeUtc.ToString("yyyyMMdd-HHmmss") }.log";
+                        string brokenPackagesLogsPath = $"{HostContext.GetDiagDirectory()}/BrokenPackages-{jobStartTimeUtc.ToString("yyyyMMdd-HHmmss")}.log";
                         File.AppendAllLines(brokenPackagesLogsPath, brokenPackagesInfo);
 
                         string destination = Path.Combine(supportFilesFolder, Path.GetFileName(brokenPackagesLogsPath));
@@ -209,7 +213,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         executionContext.Debug($"Error message: {ex}");
                     }
                 }
-            } else {
+            }
+            else
+            {
                 executionContext.Debug("The platform is not based on Debian - skipping debsums check.");
             }
 
@@ -583,7 +589,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             string scriptFile = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), "powershell", "Get-LocalGroupMembership.ps1").Replace("'", "''");
             ArgUtil.File(scriptFile, nameof(scriptFile));
-            string arguments = $@"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "". '{scriptFile}'""";
+            string arguments = $@"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -Command "". '{scriptFile}'""";
 
             try
             {

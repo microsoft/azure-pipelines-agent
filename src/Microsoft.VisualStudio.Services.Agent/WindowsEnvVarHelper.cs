@@ -101,7 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         }
 
         // Reference: https://github.com/gapotchenko/Gapotchenko.FX/blob/master/Source/Gapotchenko.FX.Diagnostics.Process/ProcessEnvironment.cs
-        static Dictionary<String,String> _EnvToDictionary(byte[] env)
+        static Dictionary<String, String> _EnvToDictionary(byte[] env)
         {
             var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 

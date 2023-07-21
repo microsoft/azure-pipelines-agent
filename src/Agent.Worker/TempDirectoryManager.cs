@@ -65,7 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 else
                 {
                     jobContext.Debug($"SET TMPDIR={_tempDirectory}");
-                    jobContext.SetVariable("TMPDIR", _tempDirectory, isFilePath:true);
+                    jobContext.SetVariable("TMPDIR", _tempDirectory, isFilePath: true);
                 }
             }
         }

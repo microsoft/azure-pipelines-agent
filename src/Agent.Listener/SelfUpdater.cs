@@ -9,6 +9,7 @@ using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
+using Newtonsoft.Json;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -146,6 +147,47 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             PackageVersion serverVersion = new PackageVersion(_targetPackage.Version);
             Trace.Info($"Current running agent version is {BuildConstants.AgentPackage.Version}");
             PackageVersion agentVersion = new PackageVersion(BuildConstants.AgentPackage.Version);
+
+            if (serverVersion.Major == 2 && agentVersion.Major == 3)
+            {
+                Trace.Info("We don't downgrade agent from 3.* to 2.*, skipping update");
+                return false;
+            }
+
+            //Checking if current system support .NET 6 agent
+            if (agentVersion.Major == 2 && serverVersion.Major == 3)
+            {
+                Trace.Verbose("Checking if your system supports .NET 6");
+
+                try
+                {
+                    string systemId = PlatformUtil.GetSystemId();
+                    SystemVersion systemVersion = PlatformUtil.GetSystemVersion();
+
+                    Trace.Verbose($"The system you are running on: \"{systemId}\" ({systemVersion})");
+
+                    if (await PlatformUtil.DoesSystemPersistsInNet6Whitelist())
+                    {
+                        // Check version of the system
+                        if (!await PlatformUtil.IsNet6Supported())
+                        {
+                            Trace.Warning($"The operating system the agent is running on is \"{systemId}\" ({systemVersion}), which will not be supported by the .NET 6 based v3 agent. Please upgrade the operating system of this host to ensure compatibility with the v3 agent. See https://aka.ms/azdo-pipeline-agent-version");
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        Trace.Warning($"The operating system the agent is running on is \"{systemId}\" ({systemVersion}), which has not been tested with the .NET 6 based v3 agent. The v2 agent wil not automatically upgrade to the v3 agent. You can manually download the .NET 6 based v3 agent from https://github.com/microsoft/azure-pipelines-agent/releases. See https://aka.ms/azdo-pipeline-agent-version");
+                        return false;
+                    }
+
+                    Trace.Verbose("The system persists in the list of systems supporting .NET 6");
+                }
+                catch (Exception ex)
+                {
+                    Trace.Error($"Error has occurred while checking if system supports .NET 6: {ex}");
+                }
+            }
 
             if (serverVersion.CompareTo(agentVersion) > 0)
             {

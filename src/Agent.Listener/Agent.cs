@@ -15,6 +15,10 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Microsoft.TeamFoundation.TestClient.PublishTestResults.Telemetry;
+using Microsoft.VisualStudio.Services.Agent.Listener.Telemetry;
+using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -227,6 +231,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         }
                     }
                 }
+
+                //Publish inital telemetry data
+                var telemetryPublisher = HostContext.GetService<IAgenetListenerTelemetryPublisher>();
+
+                try
+                {
+                    var systemVersion = PlatformUtil.GetSystemVersion();
+
+                    Dictionary<string, string> telemetryData = new Dictionary<string, string>
+                    {
+                        { "OS", PlatformUtil.GetSystemId() ?? "" },
+                        { "OSVersion", systemVersion?.Name?.ToString() ?? "" },
+                        { "OSBuild", systemVersion?.Version?.ToString() ?? "" },
+                        { "configuredAsService", $"{configuredAsService}"},
+                        { "startupType", startupTypeAsString }
+                    };
+                    var cmd = new Command("telemetry", "publish");
+                    cmd.Data = JsonConvert.SerializeObject(telemetryData);
+                    cmd.Properties.Add("area", "PipelinesTasks");
+                    cmd.Properties.Add("feature", "AgentListener");
+                    await telemetryPublisher.PublishEvent(HostContext, cmd);
+                }
+
+                catch (Exception ex)
+                {
+                    Trace.Warning($"Unable to publish telemetry data. {ex}");
+                }
+
+
                 // Run the agent interactively or as service
                 return await RunAsync(settings, command.GetRunOnce());
             }
@@ -323,6 +356,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     Task<bool> selfUpdateTask = null;
                     bool runOnceJobReceived = false;
                     jobDispatcher = HostContext.CreateService<IJobDispatcher>();
+                    TaskAgentMessage previuosMessage = null;
 
                     while (!HostContext.AgentShutdownToken.IsCancellationRequested)
                     {
@@ -338,7 +372,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                 if (completeTask == selfUpdateTask)
                                 {
                                     autoUpdateInProgress = false;
-                                    if (await selfUpdateTask)
+
+                                    bool agentUpdated = false;
+                                    try
+                                    {
+                                        agentUpdated = await selfUpdateTask;
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Trace.Info($"Ignore agent update exception. {ex}");
+                                    }
+
+                                    if (agentUpdated)
                                     {
                                         Trace.Info("Auto update task finished at backend, an agent update is ready to apply exit the current agent instance.");
                                         Trace.Info("Stop message queue looping.");
@@ -365,6 +410,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                     {
                                         Trace.Info("Auto update task finished at backend, there is no available agent update needs to apply, continue message queue looping.");
                                     }
+
+                                    message = previuosMessage;// if agent wasn't updated it's needed to process the previous message
+                                    previuosMessage = null;
                                 }
                             }
 
@@ -390,7 +438,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                 }
                             }
 
-                            message = await getNextMessage; //get next message
+                            message ??= await getNextMessage; //get next message
                             HostContext.WritePerfCounter($"MessageReceived_{message.MessageType}");
                             if (string.Equals(message.MessageType, AgentRefreshMessage.MessageType, StringComparison.OrdinalIgnoreCase))
                             {
@@ -417,6 +465,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             else if (string.Equals(message.MessageType, JobRequestMessageTypes.AgentJobRequest, StringComparison.OrdinalIgnoreCase) ||
                                     string.Equals(message.MessageType, JobRequestMessageTypes.PipelineAgentJobRequest, StringComparison.OrdinalIgnoreCase))
                             {
+                                if (autoUpdateInProgress)
+                                {
+                                    previuosMessage = message;
+                                }
+
                                 if (autoUpdateInProgress || runOnceJobReceived)
                                 {
                                     skipMessageDeletion = true;

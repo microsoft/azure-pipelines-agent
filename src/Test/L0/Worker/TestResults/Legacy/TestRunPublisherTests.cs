@@ -89,7 +89,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
                             int j = 1;
                             foreach (TestCaseResult resultCreateModel in _resultCreateModels)
                             {
-                                List <TestSubResult> SubResults = null;
+                                List<TestSubResult> SubResults = null;
                                 if (resultCreateModel.SubResults != null)
                                 {
                                     SubResults = new List<TestSubResult>();
@@ -156,7 +156,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
                         {
                             if (_subResultsLevelAttachments.ContainsKey(testCaseResultId))
                             {
-                                if(_subResultsLevelAttachments[testCaseResultId].ContainsKey(testSubResultId))
+                                if (_subResultsLevelAttachments[testCaseResultId].ContainsKey(testSubResultId))
                                 {
                                     _subResultsLevelAttachments[testCaseResultId][testSubResultId].Add(reqModel);
                                 }
@@ -248,7 +248,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             _testRunData = _publisher.ReadResultsFromFile(_testRunContext, "filepath");
             _publisher.StartTestRunAsync(_testRunData);
             var result = new TestCaseResultData();
-            result.TestCaseSubResultData = new List<TestCaseSubResultData> { new TestCaseSubResultData()};
+            result.TestCaseSubResultData = new List<TestCaseSubResultData> { new TestCaseSubResultData() };
             var testRun = new TestRun { Id = 1 };
             result.TestCaseSubResultData[0].AttachmentData = new AttachmentData();
             result.TestCaseSubResultData[0].AttachmentData.AttachmentsFilePathList = new string[] { "attachment.txt" };
@@ -460,7 +460,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             ResetValues();
             _publisher.StartTestRunAsync(new TestRunData()).Wait();
             List<TestCaseResultData> testCaseResultData = new List<TestCaseResultData>();
-            for (int i = 0; i < batchSize + 1; i++) {
+            for (int i = 0; i < batchSize + 1; i++)
+            {
                 testCaseResultData.Add(new TestCaseResultData());
                 testCaseResultData[i].AttachmentData = new AttachmentData();
             }

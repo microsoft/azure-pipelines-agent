@@ -19,14 +19,25 @@ parameters:
   type: boolean
   displayName: Linux (ARM64)
   default: false
-- name: rhel6_x64
+- name: rhel7_x64
   type: boolean
-  displayName: RHEL 6 (x64)
-  default: true
+  displayName: RHEL 7 (x64)
+  default: false
 - name: macOS_x64
   type: boolean
   displayName: macOS (x64)
   default: true
+- name: macOS_arm64
+  type: boolean
+  displayName: macOS (arm64)
+  default: true
+- name: skipRhelRelease
+  type: boolean
+  default: true
+- name: testProxyAgent
+  type: boolean
+  default: true
+  displayName: Test Proxy Agent
 
 pr:
   branches:
@@ -42,10 +53,13 @@ extends:
     componentDetection: ${{ eq(variables['Build.Reason'], 'PullRequest') }}
     publishArtifacts: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
     buildAlternatePackage: false
+    skipRhelRelease: ${{ parameters.skipRhelRelease }}
+    testProxyAgent: ${{ parameters.testProxyAgent }}
     win_x64: ${{ parameters.win_x64 }}
     win_x86: ${{ parameters.win_x86 }}
     linux_x64: ${{ parameters.linux_x64 }}
     linux_arm: ${{ parameters.linux_arm }}
     linux_arm64: ${{ parameters.linux_arm64 }}
-    rhel6_x64: ${{ parameters.rhel6_x64 }}
+    rhel7_x64: ${{ parameters.rhel7_x64 }}
     macOS_x64: ${{ parameters.macOS_x64 }}
+    macOS_arm64: ${{ parameters.macOS_arm64 }}

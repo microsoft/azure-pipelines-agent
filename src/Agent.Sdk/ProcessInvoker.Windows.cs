@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace Microsoft.VisualStudio.Services.Agent.Util
 {
-    public sealed partial class ProcessInvoker : IDisposable
+    public partial class ProcessInvoker : IDisposable
     {
         private async Task<bool> SendCtrlSignal(ConsoleCtrlEvent signal, TimeSpan timeout)
         {
@@ -134,7 +134,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             Trace.Verbose($"Start killing process tree of process '{pid.Value}'.");
             Stack<ProcessTerminationInfo> processesNeedtoKill = new Stack<ProcessTerminationInfo>();
             processesNeedtoKill.Push(new ProcessTerminationInfo(pid.Value, false));
-            while (processesNeedtoKill.Count() > 0)
+            while (processesNeedtoKill.Any())
             {
                 ProcessTerminationInfo procInfo = processesNeedtoKill.Pop();
                 List<int> childProcessesIds = new List<int>();

@@ -25,6 +25,7 @@ parameters:
   - linux
   - osx
   - rhel.6
+  - rhel.7.2
 
 - name: arch
   type: string
@@ -83,6 +84,11 @@ jobs:
     ${{ if ne(parameters.os, 'win') }}:
       devCommand: ./dev.sh
     layoutRoot: '_layout/${{ parameters.os }}-${{ parameters.arch }}'
+    DisableCFSDetector: true
+    DisableDockerDetector: true
+    nugetMultiFeedWarnLevel: none
+    ${{ if eq(parameters.os, 'rhel.6') }}:
+      AGENT_USE_NODE10: true
 
   steps:
 
@@ -102,7 +108,7 @@ jobs:
         branch: ${{ parameters.branch }}
 
   # 1ES images used on the ARM pool doesn't contain unzip tool, so we need to install it before starting the build
-  - ${{ if eq(parameters.arch, 'arm64') }}:
+  - ${{ if and(eq(parameters.arch, 'arm64'), ne(parameters.os, 'osx')) }}:
     - script: sudo apt-get update && sudo apt-get -y install unzip
       displayName: Install unzip
 
@@ -110,12 +116,28 @@ jobs:
   - script: ${{ variables.devCommand }} layout Release ${{ parameters.os }}-${{ parameters.arch }}
     workingDirectory: src
     displayName: Build & Layout Release
+    retryCountOnTaskFailure: 5
     ${{ if parameters.enableADOLogIssue }}:
       env:
         ADO_ENABLE_LOGISSUE: true
 
+  # Check if broken symlinks exist in the agent build
+  - task: Bash@3.201.1
+    inputs:
+      filePath: src/Misc/check-symlinks.sh
+    displayName: Check symlinks
+
   # Run l0 tests
   - ${{ if parameters.unitTests }}:
+    - ${{ if and(eq(parameters.os, 'win'), eq(parameters.arch, 'x86')) }}:
+      - task: UseDotNet@2
+        displayName: Install .NET Core 6 Runtime
+        inputs:
+          version: '6.0.x'
+          packageType: 'runtime'
+          installationPath: 'C:\Program Files (x86)\dotnet'
+        env:
+          PROCESSOR_ARCHITECTURE: x86
     - script: ${{ variables.devCommand }} testl0 Debug ${{ parameters.os }}-${{ parameters.arch }}
       workingDirectory: src
       displayName: Unit tests
@@ -129,11 +151,11 @@ jobs:
   - ${{ if parameters.functionalTests }}:
     - ${{ if and(eq(parameters.os, 'win'), eq(parameters.arch, 'x86')) }}:
       - task: UseDotNet@2
-        displayName: Install .NET Core 3.1 SDK
+        displayName: Install .NET Core 6 SDK
         inputs:
-          version: '3.1.22'
-          packageType: runtime
-          performMultiLevelLookup: true
+         version: '6.0.405'
+         packageType: sdk
+         performMultiLevelLookup: true
     - script: ${{ variables.devCommand }} testl1 Debug ${{ parameters.os }}-${{ parameters.arch }}
       workingDirectory: src
       displayName: Functional tests
@@ -149,7 +171,7 @@ jobs:
       condition: always()
 
     # Upload test log
-    - task: PublishBuildArtifacts@1
+    - task: PublishBuildArtifacts@1.200.0
       displayName: Publish Test logs
       inputs:
         pathToPublish: src/Test/TestLogs
@@ -176,7 +198,7 @@ jobs:
     - task: UseDotNet@2
       inputs:
         packageType: 'sdk'
-        version: '2.1.x'
+        version: '6.0.x'
 
   - ${{ if parameters.sign }}:
     # Signing steps
@@ -205,7 +227,7 @@ jobs:
       displayName: Hash Package
 
     # Upload agent package zip as build artifact
-    - task: PublishBuildArtifacts@1
+    - task: PublishBuildArtifacts@1.200.0
       displayName: Publish Artifact
       inputs:
         pathToPublish: _package
@@ -213,7 +235,7 @@ jobs:
         artifactType: container
 
     # Publish agent package hash too
-    - task: PublishBuildArtifacts@1
+    - task: PublishBuildArtifacts@1.200.0
       displayName: Publish Artifact
       inputs:
         pathToPublish: _package_hash

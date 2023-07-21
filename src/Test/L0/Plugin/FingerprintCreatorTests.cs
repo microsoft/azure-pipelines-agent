@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -26,6 +26,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         private static readonly string path1;
         private static readonly string path2;
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA5394:Do not use insecure randomness")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1810:Initialize all static fields")]
         static FingerprintCreatorTests()
         {
             var r = new Random(0);
@@ -53,14 +55,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         [Trait("Category", "Plugin")]
         public void Fingerprint_ReservedFails()
         {
-            using(var hostContext = new TestHostContext(this))
+            using (var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 Assert.Throws<ArgumentException>(
-                    () => FingerprintCreator.EvaluateKeyToFingerprint(context, directory, new [] {"*"})
+                    () => FingerprintCreator.EvaluateKeyToFingerprint(context, directory, new[] { "*" })
                 );
                 Assert.Throws<ArgumentException>(
-                    () => FingerprintCreator.EvaluateKeyToFingerprint(context, directory, new [] {"**"})
+                    () => FingerprintCreator.EvaluateKeyToFingerprint(context, directory, new[] { "**" })
                 );
             }
         }
@@ -70,7 +72,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         [Trait("Category", "Plugin")]
         public void Fingerprint_ExcludeExactMatches()
         {
-            using(var hostContext = new TestHostContext(this))
+            using (var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 var segments = new[]
@@ -88,7 +90,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         [Trait("Category", "Plugin")]
         public void Fingerprint_ExcludeExactMisses()
         {
-            using(var hostContext = new TestHostContext(this))
+            using (var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 var segments = new[]
@@ -109,7 +111,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         [Trait("Category", "Plugin")]
         public void Fingerprint_FileAbsolute()
         {
-            using(var hostContext = new TestHostContext(this))
+            using (var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 var segments = new[]
@@ -137,7 +139,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
             string relPath1 = Path.GetFileName(path1);
             string relPath2 = Path.GetFileName(path2);
 
-            using(var hostContext = new TestHostContext(this))
+            using (var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 context.SetVariable(
@@ -167,7 +169,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         [Trait("Category", "Plugin")]
         public void Fingerprint_Str()
         {
-            using(var hostContext = new TestHostContext(this))
+            using (var hostContext = new TestHostContext(this))
             {
                 var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
                 var segments = new[]
@@ -192,7 +194,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 "gems\n$(Agent.OS)\n$(Build.SourcesDirectory)/my.gemspec",
                 string.Empty);
             Assert.True(isOldFormat);
-            Assert.Equal(new [] {"gems", "$(Agent.OS)", "$(Build.SourcesDirectory)/my.gemspec"}, keySegments);
+            Assert.Equal(new[] { "gems", "$(Agent.OS)", "$(Build.SourcesDirectory)/my.gemspec" }, keySegments);
             Assert.Equal(0, restoreKeys.Count());
         }
 
@@ -206,7 +208,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 "$(Agent.OS)",
                 string.Empty);
             Assert.False(isOldFormat);
-            Assert.Equal(new [] {"$(Agent.OS)"}, keySegments);
+            Assert.Equal(new[] { "$(Agent.OS)" }, keySegments);
             Assert.Equal(0, restoreKeys.Count());
         }
 
@@ -220,8 +222,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
                 "$(Agent.OS) | Gemfile.lock | **/*.gemspec,!./junk/**",
                 "$(Agent.OS) | Gemfile.lock\n$(Agent.OS)");
             Assert.False(isOldFormat);
-            Assert.Equal(new [] {"$(Agent.OS)","Gemfile.lock","**/*.gemspec,!./junk/**"}, keySegments);
-            Assert.Equal(new [] {new []{ "$(Agent.OS)","Gemfile.lock"}, new[] {"$(Agent.OS)"}}, restoreKeys);
+            Assert.Equal(new[] { "$(Agent.OS)", "Gemfile.lock", "**/*.gemspec,!./junk/**" }, keySegments);
+            Assert.Equal(new[] { new[] { "$(Agent.OS)", "Gemfile.lock" }, new[] { "$(Agent.OS)" } }, restoreKeys);
         }
     }
 }

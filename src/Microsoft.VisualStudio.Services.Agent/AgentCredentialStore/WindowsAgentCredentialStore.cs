@@ -13,19 +13,19 @@ using System.Security.Cryptography;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
-  // Windows credential store is per user.
-  // This is a limitation for user configure the agent run as windows service, when user's current login account is different with the service run as account.
-  // Ex: I login the box as domain\admin, configure the agent as windows service and run as domian\buildserver
-  // domain\buildserver won't read the stored credential from domain\admin's windows credential store.
-  // To workaround this limitation.
-  // Anytime we try to save a credential:
-  //   1. store it into current user's windows credential store 
-  //   2. use DP-API do a machine level encrypt and store the encrypted content on disk.
-  // At the first time we try to read the credential:
-  //   1. read from current user's windows credential store, delete the DP-API encrypted backup content on disk if the windows credential store read succeed.
-  //   2. if credential not found in current user's windows credential store, read from the DP-API encrypted backup content on disk, 
-  //      write the credential back the current user's windows credential store and delete the backup on disk.
-  public sealed class WindowsAgentCredentialStore : AgentService, IAgentCredentialStore
+    // Windows credential store is per user.
+    // This is a limitation for user configure the agent run as windows service, when user's current login account is different with the service run as account.
+    // Ex: I login the box as domain\admin, configure the agent as windows service and run as domian\buildserver
+    // domain\buildserver won't read the stored credential from domain\admin's windows credential store.
+    // To workaround this limitation.
+    // Anytime we try to save a credential:
+    //   1. store it into current user's windows credential store 
+    //   2. use DP-API do a machine level encrypt and store the encrypted content on disk.
+    // At the first time we try to read the credential:
+    //   1. read from current user's windows credential store, delete the DP-API encrypted backup content on disk if the windows credential store read succeed.
+    //   2. if credential not found in current user's windows credential store, read from the DP-API encrypted backup content on disk, 
+    //      write the credential back the current user's windows credential store and delete the backup on disk.
+    public sealed class WindowsAgentCredentialStore : AgentService, IAgentCredentialStore
     {
         private string _credStoreFile;
         private Dictionary<string, string> _credStore;

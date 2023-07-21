@@ -22,7 +22,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Diagnostics
                         terminal.WriteLine($"  File system: {d.DriveFormat}");
                         terminal.WriteLine(string.Format("  Available space to current user:{0, 15:N0} KB", d.AvailableFreeSpace / c_kb));
                         terminal.WriteLine(string.Format("  Total available space:          {0, 15:N0} KB", d.TotalFreeSpace / c_kb));
-                        terminal.WriteLine(string.Format("  Total size of drive:            {0, 15:N0} KB", d.TotalSize/ c_kb));
+                        terminal.WriteLine(string.Format("  Total size of drive:            {0, 15:N0} KB", d.TotalSize / c_kb));
                     }
                     else
                     {
@@ -30,11 +30,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Diagnostics
                     }
                 }
             }
-            catch(IOException ex)
+            catch (IOException ex)
             {
                 terminal.WriteError(ex);
             }
-            catch(System.UnauthorizedAccessException ex)
+            catch (System.UnauthorizedAccessException ex)
             {
                 terminal.WriteError(ex);
             }

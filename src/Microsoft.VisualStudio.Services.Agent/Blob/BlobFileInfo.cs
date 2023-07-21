@@ -9,12 +9,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
     {
         public DedupNode Node { get; set; }
         public string Path { get; set; }
-        public DedupIdentifier DedupId 
+        public DedupIdentifier DedupId
         {
-            get 
+            get
             {
-                return Node.GetDedupIdentifier(HashType.Dedup64K);
-            } 
+                return Node.GetDedupIdentifier();
+            }
         }
         public bool Success { get; set; }
     }

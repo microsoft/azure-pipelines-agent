@@ -444,6 +444,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                 inheritConsoleHandler: false,
                                 keepStandardInOpen: false,
                                 highPriorityProcess: true,
+                                continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
                                 cancellationToken: workerProcessCancelTokenSource.Token);
                         }
                     );

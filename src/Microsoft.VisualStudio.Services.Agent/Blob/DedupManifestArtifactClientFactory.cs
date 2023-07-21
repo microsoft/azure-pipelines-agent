@@ -11,6 +11,10 @@ using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
 using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.VisualStudio.Services.BlobStore.Common;
+using BuildXL.Cache.ContentStore.Hashing;
+using Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Blob
 {
@@ -32,6 +36,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             Action<string> traceOutput,
             VssConnection connection,
             int maxParallelism,
+            IDomainId domainId,
+            BlobStore.WebApi.Contracts.Client client,
+            AgentTaskPluginExecutionContext context,
             CancellationToken cancellationToken);
 
         /// <summary>
@@ -66,18 +73,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
         // At 192x it was around 16 seconds and 256x was no faster.
         private const int DefaultDedupStoreClientMaxParallelism = 192;
 
-        public static readonly DedupManifestArtifactClientFactory Instance = new DedupManifestArtifactClientFactory();
+        private HashType? HashType { get; set; }
+
+        public static readonly DedupManifestArtifactClientFactory Instance = new();
 
         private DedupManifestArtifactClientFactory()
         {
         }
-
 
         public async Task<(DedupManifestArtifactClient client, BlobStoreClientTelemetry telemetry)> CreateDedupManifestClientAsync(
             bool verbose,
             Action<string> traceOutput,
             VssConnection connection,
             int maxParallelism,
+            IDomainId domainId,
+            BlobStore.WebApi.Contracts.Client client,
+            AgentTaskPluginExecutionContext context,
             CancellationToken cancellationToken)
         {
             const int maxRetries = 5;
@@ -88,8 +99,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             }
             traceOutput($"Max dedup parallelism: {maxParallelism}");
 
-            var dedupStoreHttpClient = await AsyncHttpRetryHelper.InvokeAsync(
-                () =>
+            IDedupStoreHttpClient dedupStoreHttpClient = await AsyncHttpRetryHelper.InvokeAsync(
+                async () =>
                 {
                     ArtifactHttpClientFactory factory = new ArtifactHttpClientFactory(
                         connection.Credentials,
@@ -97,9 +108,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                         tracer,
                         cancellationToken);
 
+                    IDedupStoreHttpClient dedupHttpclient;
                     // this is actually a hidden network call to the location service:
-                     return Task.FromResult(factory.CreateVssHttpClient<IDedupStoreHttpClient, DedupStoreHttpClient>(connection.GetClient<DedupStoreHttpClient>().BaseAddress));
+                    if (domainId == WellKnownDomainIds.DefaultDomainId)
+                    {
+                        dedupHttpclient = factory.CreateVssHttpClient<IDedupStoreHttpClient, DedupStoreHttpClient>(connection.GetClient<DedupStoreHttpClient>().BaseAddress);
+                    }
+                    else
+                    {
+                        IDomainDedupStoreHttpClient domainClient = factory.CreateVssHttpClient<IDomainDedupStoreHttpClient, DomainDedupStoreHttpClient>(connection.GetClient<DomainDedupStoreHttpClient>().BaseAddress);
+                        dedupHttpclient = new DomainHttpClientWrapper(domainId, domainClient);
+                    }
 
+                    this.HashType ??= await GetClientHashTypeAsync(factory, connection, client, tracer, context, cancellationToken);
+
+                    return dedupHttpclient;
                 },
                 maxRetries: maxRetries,
                 tracer: tracer,
@@ -109,8 +132,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                 continueOnCapturedContext: false);
 
             var telemetry = new BlobStoreClientTelemetry(tracer, dedupStoreHttpClient.BaseAddress);
-            var client = new DedupStoreClientWithDataport(dedupStoreHttpClient, maxParallelism); 
-            return (new DedupManifestArtifactClient(telemetry, client, tracer), telemetry);
+            traceOutput($"Hashtype: {this.HashType.Value}");
+
+            if (this.HashType == BuildXL.Cache.ContentStore.Hashing.HashType.Dedup1024K)
+            {
+                dedupStoreHttpClient.RecommendedChunkCountPerCall = 10; // This is to workaround IIS limit - https://learn.microsoft.com/en-us/iis/configuration/system.webserver/security/requestfiltering/requestlimits/
+            }
+
+            var dedupClient = new DedupStoreClientWithDataport(dedupStoreHttpClient, new DedupStoreClientContext(maxParallelism), this.HashType.Value); 
+            return (new DedupManifestArtifactClient(telemetry, dedupClient, tracer), telemetry);
         }
 
         public async Task<(DedupStoreClient client, BlobStoreClientTelemetryTfs telemetry)> CreateDedupClientAsync(
@@ -137,7 +167,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                         cancellationToken);
 
                     // this is actually a hidden network call to the location service:
-                     return Task.FromResult(factory.CreateVssHttpClient<IDedupStoreHttpClient, DedupStoreHttpClient>(connection.GetClient<DedupStoreHttpClient>().BaseAddress));
+                    return Task.FromResult(factory.CreateVssHttpClient<IDedupStoreHttpClient, DedupStoreHttpClient>(connection.GetClient<DedupStoreHttpClient>().BaseAddress));
                 },
                 maxRetries: maxRetries,
                 tracer: tracer,
@@ -147,12 +177,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                 continueOnCapturedContext: false);
 
             var telemetry = new BlobStoreClientTelemetryTfs(tracer, dedupStoreHttpClient.BaseAddress, connection);
-            var client = new DedupStoreClient(dedupStoreHttpClient, maxParallelism); 
+            var client = new DedupStoreClient(dedupStoreHttpClient, maxParallelism);
             return (client, telemetry);
         }
 
         public int GetDedupStoreClientMaxParallelism(AgentTaskPluginExecutionContext context)
         {
+            ConfigureEnvironmentVariables(context);
+
             int parallelism = DefaultDedupStoreClientMaxParallelism;
 
             if (context.Variables.TryGetValue("AZURE_PIPELINES_DEDUP_PARALLELISM", out VariableValue v))
@@ -175,6 +207,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             return parallelism;
         }
 
+        private static readonly string[] EnvironmentVariables = new[] { "VSO_DEDUP_REDIRECT_TIMEOUT_IN_SEC" };
+
+        private static void ConfigureEnvironmentVariables(AgentTaskPluginExecutionContext context)
+        {
+            foreach (string varName in EnvironmentVariables)
+            {
+                if (context.Variables.TryGetValue(varName, out VariableValue v))
+                {
+                    if (v.Value.Equals(Environment.GetEnvironmentVariable(varName), StringComparison.Ordinal))
+                    {
+                        context.Output($"{varName} is already set to `{v.Value}`.");
+                    }
+                    else
+                    {
+                        Environment.SetEnvironmentVariable(varName, v.Value);
+                        context.Output($"Set {varName} to `{v.Value}`.");
+                    }
+                }
+            }
+        }
 
 
         public static IAppTraceSource CreateArtifactsTracer(bool verbose, Action<string> traceOutput)
@@ -185,6 +237,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                     ? System.Diagnostics.SourceLevels.Verbose
                     : System.Diagnostics.SourceLevels.Information,
                 includeSeverityLevel: verbose);
+        }
+
+        private static async Task<HashType> GetClientHashTypeAsync(
+            ArtifactHttpClientFactory factory,
+            VssConnection connection,
+            BlobStore.WebApi.Contracts.Client client,
+            IAppTraceSource tracer,
+            AgentTaskPluginExecutionContext context,
+            CancellationToken cancellationToken)
+        {
+            HashType hashType = ChunkerHelper.DefaultChunkHashType;
+
+            if (AgentKnobs.AgentEnablePipelineArtifactLargeChunkSize.GetValue(context).AsBoolean())
+            {
+                try
+                {
+                    var blobUri = connection.GetClient<ClientSettingsHttpClient>().BaseAddress;
+                    var clientSettingsHttpClient = factory.CreateVssHttpClient<IClientSettingsHttpClient, ClientSettingsHttpClient>(blobUri);
+                    ClientSettingsInfo clientSettings = await clientSettingsHttpClient.GetSettingsAsync(client, cancellationToken);
+                    if (clientSettings != null && clientSettings.Properties.ContainsKey(ClientSettingsConstants.ChunkSize))
+                    {
+                        HashTypeExtensions.Deserialize(clientSettings.Properties[ClientSettingsConstants.ChunkSize], out hashType);
+                    }
+                }
+                catch (Exception exception)
+                {
+                    tracer.Warn($"Error while retrieving hash type for {client}. Exception: {exception}");
+                }
+            }
+
+            return ChunkerHelper.IsHashTypeChunk(hashType) ? hashType : ChunkerHelper.DefaultChunkHashType;
         }
     }
 }

@@ -31,26 +31,27 @@ namespace Agent.Plugins.PipelineCache
         public abstract String Stage { get; }
         public const string ResolvedFingerPrintVariableName = "RESTORE_STEP_RESOLVED_FINGERPRINT";
 
-        internal static (bool isOldFormat, string[] keySegments,IEnumerable<string[]> restoreKeys) ParseIntoSegments(string salt, string key, string restoreKeysBlock)
+        internal static (bool isOldFormat, string[] keySegments, IEnumerable<string[]> restoreKeys) ParseIntoSegments(string salt, string key, string restoreKeysBlock)
         {
-            Func<string,string[]> splitAcrossPipes = (s) => {
-                var segments = s.Split(new [] {'|'},StringSplitOptions.RemoveEmptyEntries).Select(segment => segment.Trim());
-                if(!string.IsNullOrWhiteSpace(salt))
+            Func<string, string[]> splitAcrossPipes = (s) =>
+            {
+                var segments = s.Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries).Select(segment => segment.Trim());
+                if (!string.IsNullOrWhiteSpace(salt))
                 {
-                    segments = (new [] { $"{SaltVariableName}={salt}"}).Concat(segments);
+                    segments = (new[] { $"{SaltVariableName}={salt}" }).Concat(segments);
                 }
                 return segments.ToArray();
             };
 
-            Func<string,string[]> splitAcrossNewlines = (s) => 
+            Func<string, string[]> splitAcrossNewlines = (s) =>
                 s.Replace("\r\n", "\n") //normalize newlines
-                 .Split(new [] {'\n'}, StringSplitOptions.RemoveEmptyEntries)
+                 .Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries)
                  .Select(line => line.Trim())
                  .ToArray();
-            
+
             string[] keySegments;
             bool isOldFormat = key.Contains('\n');
-            
+
             IEnumerable<string[]> restoreKeys;
             bool hasRestoreKeys = !string.IsNullOrWhiteSpace(restoreKeysBlock);
 
@@ -58,7 +59,7 @@ namespace Agent.Plugins.PipelineCache
             {
                 throw new ArgumentException(OldKeyFormatMessage);
             }
-            
+
             if (isOldFormat)
             {
                 keySegments = splitAcrossNewlines(key);
@@ -67,7 +68,7 @@ namespace Agent.Plugins.PipelineCache
             {
                 keySegments = splitAcrossPipes(key);
             }
-            
+
 
             if (hasRestoreKeys)
             {
@@ -80,7 +81,7 @@ namespace Agent.Plugins.PipelineCache
 
             return (isOldFormat, keySegments, restoreKeys);
         }
-        
+
         public async virtual Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
             ArgUtil.NotNull(context, nameof(context));
@@ -105,11 +106,12 @@ namespace Agent.Plugins.PipelineCache
             Fingerprint keyFp = FingerprintCreator.EvaluateKeyToFingerprint(context, workspaceRoot, keySegments);
             context.Output($"Resolved to: {keyFp}");
 
-            Func<Fingerprint[]> restoreKeysGenerator = () => 
-                restoreKeys.Select(restoreKey => {
+            Func<Fingerprint[]> restoreKeysGenerator = () =>
+                restoreKeys.Select(restoreKey =>
+                {
                     context.Output("Resolving restore key:");
                     Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, workspaceRoot, restoreKey);
-                    f.Segments = f.Segments.Concat(new [] { Fingerprint.Wildcard} ).ToArray();
+                    f.Segments = f.Segments.Concat(new[] { Fingerprint.Wildcard }).ToArray();
                     context.Output($"Resolved to: {f}");
                     return f;
                 }).ToArray();

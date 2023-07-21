@@ -374,7 +374,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
-        public bool IsWellKnownIdentity(String accountName)
+        public bool IsWellKnownIdentity(string accountName)
         {
             var ntaccount = new NTAccount(accountName);
             var sid = (SecurityIdentifier)ntaccount.Translate(typeof(SecurityIdentifier));
@@ -452,7 +452,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             ServiceController service = ServiceController.GetServices().FirstOrDefault(x => x.ServiceName.Equals(serviceName, StringComparison.OrdinalIgnoreCase));
             return service != null;
         }
-        
+
         public void InstallService(string serviceName, string serviceDisplayName, string logonAccount, string logonPassword, bool setServiceSidTypeAsUnrestricted)
         {
             Trace.Entering();
@@ -461,10 +461,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 var isManagedServiceAccount = IsManagedServiceAccount(logonAccount);
                 Trace.Info($"Account '{logonAccount}' is managed service account: {isManagedServiceAccount}.");
+
+                // If the account name specified by the lpServiceStartName parameter is the name of a managed service account or virtual account name,
+                // the lpPassword parameter must be NULL. More info: https://learn.microsoft.com/en-us/windows/win32/api/winsvc/nf-winsvc-createservicea
+                if (isManagedServiceAccount)
+                {
+                    logonPassword = null;
+                }
             }
-            catch (Win32Exception e)
+            catch (Win32Exception exception)
             {
-                Trace.Info($"Fail to check account '{logonAccount}' is managed service account or not due to error: {e.Message}");
+                Trace.Info($"Fail to check account '{logonAccount}' is managed service account or not due to error: {exception.Message}");
             }
 
             string agentServiceExecutable = "\"" + Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), WindowsServiceControlManager.WindowsServiceControllerName) + "\"";
@@ -508,7 +515,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                                         serviceDisplayName,
                                         ServiceRights.AllAccess,
                                         SERVICE_WIN32_OWN_PROCESS,
-                                        ServiceBootFlag.AutoStart,
+                                        ServiceStartType.AutoStart,
                                         ServiceError.Normal,
                                         agentServiceExecutable,
                                         null,
@@ -533,9 +540,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 failureActions.Add(new FailureAction(RecoverAction.Restart, 60000));
 
                 // Lock the Service Database
-                svcLock = LockServiceDatabase(scmHndl);
-                if (svcLock.ToInt64() <= 0)
+                int lockRetries = 10;
+                int retryTimeout = 5000;
+                while (true)
                 {
+                    svcLock = LockServiceDatabase(scmHndl);
+
+                    var svcLockIntCode = svcLock.ToInt64();
+                    if (svcLockIntCode > 0)
+                    {
+                        break;
+                    }
+
+                    _term.WriteLine(StringUtil.Loc("ServiceLockErrorRetry", svcLockIntCode, retryTimeout / 1000));
+
+                    lockRetries--;
+                    if (lockRetries > 0)
+                    {
+                        Thread.Sleep(retryTimeout);
+                        continue;
+                    }
+
                     throw new InvalidOperationException(StringUtil.Loc("FailedToLockServiceDB"));
                 }
 
@@ -904,7 +929,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             AddMemberToLocalGroup(accountName, groupName);
 
             // grant permssion for folders
-            foreach(var folder in folders)
+            foreach (var folder in folders)
             {
                 if (Directory.Exists(folder))
                 {
@@ -922,7 +947,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Trace.Info(StringUtil.Format("Calculated unique group name {0}", groupName));
 
             // remove the group from folders
-            foreach(var folder in folders)
+            foreach (var folder in folders)
             {
                 if (Directory.Exists(folder))
                 {
@@ -931,7 +956,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     {
                         RemoveGroupFromFolderSecuritySetting(folder, groupName);
                     }
-                    catch(Exception ex)
+                    catch (Exception ex)
                     {
                         Trace.Error(ex);
                     }
@@ -947,21 +972,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         /// </summary>
         /// <param name="accountName">account name</param>
         /// <returns>Returns true if account is managed service.</returns>
-        /// <exception cref="Win32Exception">Throws this exception if there is some error during check.</exception>
-        public bool IsManagedServiceAccount(String accountName)
+        public bool IsManagedServiceAccount(string accountName)
         {
-            bool isServiceAccount;
             accountName = SanitizeManagedServiceAccountName(accountName);
-            var result = this.CheckNetIsServiceAccount(null, accountName, out isServiceAccount);
-            if (result == 0)
+            var returnCode = this.CheckNetIsServiceAccount(null, accountName, out bool isServiceAccount);
+
+            if (returnCode != ReturnCode.S_OK)
             {
-                return isServiceAccount;
+                Trace.Warning($"NetIsServiceAccount return code is {returnCode}");
             }
-            else
-            {
-                var lastErrorCode = (int)GetLastError();
-                throw new Win32Exception(lastErrorCode);
-            }
+
+            return isServiceAccount;
         }
 
         /// <summary>
@@ -1032,14 +1053,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         {
             // remove the last '$' for MSA
             ArgUtil.NotNullOrEmpty(accountName, nameof(accountName));
-            if (accountName[accountName.Length - 1].Equals('$'))
-            {
-                return accountName.Remove(accountName.Length - 1);
-            }
-            else
-            {
-                return accountName;
-            }
+            return accountName.TrimEnd('$');
         }
 
         // Helper class not to repeat whenever we deal with LSA* api
@@ -1318,9 +1332,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Critical = 0x00000003
         }
 
-        public enum ServiceBootFlag
+        public enum ServiceStartType
         {
-            Start = 0x00000000,
+            BootStart = 0x00000000,
             SystemStart = 0x00000001,
             AutoStart = 0x00000002,
             DemandStart = 0x00000003,
@@ -1411,7 +1425,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             string lpDisplayName,
             ServiceRights dwDesiredAccess,
             int dwServiceType,
-            ServiceBootFlag dwStartType,
+            ServiceStartType dwStartType,
             ServiceError dwErrorControl,
             string lpBinaryPathName,
             string lpLoadOrderGroup,

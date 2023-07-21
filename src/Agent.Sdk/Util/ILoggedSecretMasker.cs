@@ -1,8 +1,5 @@
 using Microsoft.TeamFoundation.DistributedTask.Logging;
 using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Text.RegularExpressions;
 
 namespace Agent.Sdk.Util
 {
@@ -11,6 +8,8 @@ namespace Agent.Sdk.Util
     /// </summary>
     public interface ILoggedSecretMasker : ISecretMasker
     {
+        static int MinSecretLengthLimit { get; }
+
         void AddRegex(String pattern, string origin);
         void AddValue(String value, string origin);
         void AddValueEncoder(ValueEncoder encoder, string origin);

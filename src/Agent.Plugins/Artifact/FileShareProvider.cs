@@ -12,6 +12,8 @@ using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using Agent.Plugins.PipelineArtifact.Telemetry;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
+using BuildXL.Cache.ContentStore.Hashing;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Blob;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -25,7 +27,7 @@ using Minimatch;
 
 namespace Agent.Plugins
 {
-    internal class FileShareProvider: IArtifactProvider
+    internal class FileShareProvider : IArtifactProvider
     {
         private readonly AgentTaskPluginExecutionContext context;
         private readonly IAppTraceSource tracer;
@@ -36,11 +38,7 @@ namespace Agent.Plugins
         // Default stream buffer size set in the existing file share implementation https://github.com/microsoft/azure-pipelines-agent/blob/ffb3a9b3e2eb5a1f34a0f45d0f2b8639740d37d3/src/Agent.Worker/Release/Artifacts/FileShareArtifact.cs#L154
         private const int DefaultStreamBufferSize = 8192;
 
-        public FileShareProvider(AgentTaskPluginExecutionContext context, VssConnection connection, IAppTraceSource tracer) : this(context, connection, tracer, DedupManifestArtifactClientFactory.Instance)
-        {
-        }
-
-        internal FileShareProvider(AgentTaskPluginExecutionContext context, VssConnection connection, IAppTraceSource tracer, IDedupManifestArtifactClientFactory factory)
+        public FileShareProvider(AgentTaskPluginExecutionContext context, VssConnection connection, IAppTraceSource tracer, IDedupManifestArtifactClientFactory factory)
         {
             this.factory = factory;
             this.context = context;
@@ -48,15 +46,32 @@ namespace Agent.Plugins
             this.connection = connection;
         }
 
-        public async Task DownloadSingleArtifactAsync(ArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context) 
+        public async Task DownloadSingleArtifactAsync(
+            ArtifactDownloadParameters downloadParameters,
+            BuildArtifact buildArtifact,
+            CancellationToken cancellationToken,
+            AgentTaskPluginExecutionContext context)
         {
             await DownloadMultipleArtifactsAsync(downloadParameters, new List<BuildArtifact> { buildArtifact }, cancellationToken, context);
         }
 
-        public async Task DownloadMultipleArtifactsAsync(ArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context) 
+        public async Task DownloadMultipleArtifactsAsync(
+            ArtifactDownloadParameters downloadParameters,
+            IEnumerable<BuildArtifact> buildArtifacts,
+            CancellationToken cancellationToken,
+            AgentTaskPluginExecutionContext context)
         {
             context.Warning(StringUtil.Loc("DownloadArtifactWarning", "UNC"));
-            var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, this.factory.GetDedupStoreClientMaxParallelism(context), cancellationToken);
+            var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(
+                context.IsSystemDebugTrue(),
+                (str) => context.Output(str),
+                connection,
+                this.factory.GetDedupStoreClientMaxParallelism(context),
+                WellKnownDomainIds.DefaultDomainId,
+                Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.FileShare,
+                context,
+                cancellationToken);
+
             using (clientTelemetry)
             {
                 FileShareActionRecord downloadRecord = clientTelemetry.CreateRecord<FileShareActionRecord>((level, uri, type) =>
@@ -90,7 +105,7 @@ namespace Agent.Plugins
                 totalFileCount += record.FileCount;
                 records.Add(record);
             }
-            
+
             return new FileShareDownloadResult(records, totalFileCount, totalContentSize);
         }
 
@@ -98,9 +113,18 @@ namespace Agent.Plugins
             string sourcePath,
             string destPath,
             int parallelCount,
-            CancellationToken cancellationToken) 
+            CancellationToken cancellationToken)
         {
-            var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(context.IsSystemDebugTrue(), (str) => context.Output(str), connection, this.factory.GetDedupStoreClientMaxParallelism(context), cancellationToken);
+            var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(
+                context.IsSystemDebugTrue(),
+                (str) => context.Output(str),
+                connection,
+                this.factory.GetDedupStoreClientMaxParallelism(context),
+                WellKnownDomainIds.DefaultDomainId,
+                Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.FileShare,
+                context,
+                cancellationToken);
+
             using (clientTelemetry)
             {
                 FileShareActionRecord publishRecord = clientTelemetry.CreateRecord<FileShareActionRecord>((level, uri, type) =>
@@ -173,7 +197,7 @@ namespace Agent.Plugins
                     throw new Exception(StringUtil.Loc("RobocopyBasedPublishArtifactTaskFailed", exitCode));
                 }
 
-                return new FileSharePublishResult (exitCode);
+                return new FileSharePublishResult(exitCode);
             }
         }
 
@@ -250,7 +274,7 @@ namespace Agent.Plugins
             var actionBlock = NonSwallowingActionBlock.Create<FileInfo>(
                action: async file =>
                 {
-                    if (minimatchFuncs == null || minimatchFuncs.Any(match => match(file.FullName))) 
+                    if (minimatchFuncs == null || minimatchFuncs.Any(match => match(file.FullName)))
                     {
                         string tempPath = Path.Combine(destPath, Path.GetRelativePath(sourcePath, file.FullName));
                         context.Output(StringUtil.Loc("CopyFileToDestination", file, tempPath));
@@ -268,8 +292,8 @@ namespace Agent.Plugins
                     }
                 },
                 dataflowBlockOptions: parallelism);
-                
-                await actionBlock.SendAllAndCompleteAsync(filteredFiles, actionBlock, cancellationToken);
+
+            await actionBlock.SendAllAndCompleteAsync(filteredFiles, actionBlock, cancellationToken);
 
             watch.Stop();
 

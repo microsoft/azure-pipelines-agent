@@ -22,6 +22,10 @@ namespace Microsoft.VisualStudio.Services.Agent
         string ProxyPassword { get; }
         List<string> ProxyBypassList { get; }
         IWebProxy WebProxy { get; }
+        void SetupProxy(string proxyAddress, string proxyUsername, string proxyPassword);
+        void SaveProxySetting();
+        void LoadProxyBypassList();
+        void DeleteProxySetting();
     }
 
     public class VstsAgentWebProxy : AgentService, IVstsAgentWebProxy
@@ -140,7 +144,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             var proxyBypassEnv = AgentKnobs.NoProxy.GetValue(HostContext).AsString();
 
-            foreach (string bypass in proxyBypassEnv.Split(new [] {',', ';'}).Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim()))
+            foreach (string bypass in proxyBypassEnv.Split(new[] { ',', ';' }).Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim()))
             {
                 var saveRegexString = ProcessProxyByPassFromEnv(bypass);
 

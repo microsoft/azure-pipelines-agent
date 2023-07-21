@@ -125,6 +125,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             handler.Inputs = inputs;
             handler.SecureFiles = secureFiles;
             handler.TaskDirectory = taskDirectory;
+
+            handler.AfterExecutionContextInitialized();
             return handler;
         }
 

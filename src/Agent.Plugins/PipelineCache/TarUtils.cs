@@ -31,7 +31,7 @@ namespace Agent.Plugins.PipelineCache
             string inputPath,
             CancellationToken cancellationToken)
         {
-            if(File.Exists(inputPath))
+            if (File.Exists(inputPath))
             {
                 throw new DirectoryNotFoundException($"Please specify path to a directory, File path is not allowed. {inputPath} is a file.");
             }
@@ -75,14 +75,15 @@ namespace Agent.Plugins.PipelineCache
             ValidateTarManifest(manifest);
 
             Directory.CreateDirectory(targetDirectory);
-            
-            DedupIdentifier dedupId = DedupIdentifier.Create(manifest.Items.Single(i => i.Path.EndsWith(archive, StringComparison.OrdinalIgnoreCase)).Blob.Id);          
+
+            DedupIdentifier dedupId = DedupIdentifier.Create(manifest.Items.Single(i => i.Path.EndsWith(archive, StringComparison.OrdinalIgnoreCase)).Blob.Id);
 
             ProcessStartInfo processStartInfo = GetExtractStartProcessInfo(context, targetDirectory);
 
             Func<Process, CancellationToken, Task> downloadTaskFunc =
                 (process, ct) =>
-                Task.Run(async () => {
+                Task.Run(async () =>
+                {
                     try
                     {
                         await dedupManifestClient.DownloadToStreamAsync(dedupId, process.StandardInput.BaseStream, proxyUri: null, cancellationToken: ct);
@@ -94,7 +95,7 @@ namespace Agent.Plugins.PipelineCache
                         {
                             process.Kill();
                         }
-                        catch {}
+                        catch { }
                         ExceptionDispatchInfo.Capture(e).Throw();
                     }
                 });
@@ -178,17 +179,17 @@ namespace Agent.Plugins.PipelineCache
             {
                 processArguments = "-h " + processArguments;
             }
-            
+
             ProcessStartInfo processStartInfo = new ProcessStartInfo();
             CreateProcessStartInfo(processStartInfo, processFileName, processArguments, processWorkingDirectory: Path.GetTempPath()); // We want to create the archiveFile in temp folder, and hence starting the tar process from TEMP to avoid absolute paths in tar cmd line.
             return processStartInfo;
         }
 
         private static string GetTar(AgentTaskPluginExecutionContext context)
-        {   
+        {
             // check if the user specified the tar executable to use:
             string location = Environment.GetEnvironmentVariable(TarLocationEnvironmentVariableName);
-            return String.IsNullOrWhiteSpace(location) ? "tar"  : location;
+            return String.IsNullOrWhiteSpace(location) ? "tar" : location;
         }
 
         private static ProcessStartInfo GetExtractStartProcessInfo(AgentTaskPluginExecutionContext context, string targetDirectory)
@@ -235,7 +236,7 @@ namespace Agent.Plugins.PipelineCache
                     File.Delete(fileName);
                 }
             }
-            catch {}        
+            catch { }
         }
 
         private static string CreateArchiveFileName()

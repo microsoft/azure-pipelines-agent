@@ -66,7 +66,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 TestDataProvider testDataProvider = ParseTestResultsFile(runContext, testResultFiles);
                 var publishTasks = new List<Task>();
 
-                if (testDataProvider != null){
+                if (testDataProvider != null)
+                {
                     var testRunData = testDataProvider.GetTestRunData();
                     //publishing run level attachment
                     Task<IList<TestRun>> publishtestRunDataTask = Task.Run(() => _testRunPublisher.PublishTestRunDataAsync(runContext, _projectName, testRunData, publishOptions, cancellationToken));
@@ -84,9 +85,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     _calculateTestRunSummary = _featureFlagService.GetFeatureFlagState(TestResultsConstants.CalculateTestRunSummaryFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
 
                     var isTestRunOutcomeFailed = GetTestRunOutcome(_executionContext, testRunData, out TestRunSummary testRunSummary);
-                    
+
                     // Storing testrun summary in environment variable, which will be read by PublishPipelineMetadataTask and publish to evidence store.
-                    if(_calculateTestRunSummary)
+                    if (_calculateTestRunSummary)
                     {
                         TestResultUtils.StoreTestRunSummaryInEnvVar(_executionContext, testRunSummary, _testRunner, "PublishTestResults");
                     }
@@ -111,7 +112,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
             catch (Exception ex)
             {
-                _executionContext.Warning("Failed to publish test run data: "+ ex.ToString());
+                _executionContext.Warning("Failed to publish test run data: " + ex.ToString());
             }
             return false;
         }
@@ -135,7 +136,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 {
                     testRunSummary.Total += 1;
                     Enum.TryParse(testCaseResult.Outcome, out TestOutcome outcome);
-                    switch(outcome)
+                    switch (outcome)
                     {
                         case TestOutcome.Failed:
                         case TestOutcome.Aborted:
@@ -151,7 +152,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                         default: break;
                     }
 
-                    if(!_calculateTestRunSummary && anyFailedTests)
+                    if (!_calculateTestRunSummary && anyFailedTests)
                     {
                         return anyFailedTests;
                     }

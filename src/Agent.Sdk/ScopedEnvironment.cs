@@ -34,14 +34,14 @@ namespace Agent.Sdk
 
     public class LocalEnvironment : IScopedEnvironment
     {
-        private Dictionary<string,string> _delegate = null;
+        private Dictionary<string, string> _delegate = null;
 
         public LocalEnvironment() : this(null)
         {
 
         }
-        
-        public LocalEnvironment(Dictionary<string,string> data)
+
+        public LocalEnvironment(Dictionary<string, string> data)
         {
             _delegate = data;
             if (_delegate == null)
@@ -56,7 +56,7 @@ namespace Agent.Sdk
             // is used in foreach statements that modify the environment. This 
             // is allowed from Environment class since the methods are not typed to a
             // a single object.
-            return new Dictionary<string,string>(_delegate);
+            return new Dictionary<string, string>(_delegate);
         }
 
         public void SetEnvironmentVariable(string key, string value)

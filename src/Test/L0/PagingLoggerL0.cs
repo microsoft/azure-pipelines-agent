@@ -46,7 +46,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             {
                 //Arrange
                 using (var hc = new TestHostContext(this))
-                using ( var pagingLogger = new PagingLogger())
+                using (var pagingLogger = new PagingLogger())
                 {
                     hc.SetSingleton<IJobServerQueue>(_jobServerQueue.Object);
                     pagingLogger.Initialize(hc);
@@ -107,7 +107,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             {
                 //Arrange
                 using (var hc = new TestHostContext(this))
-                using ( var pagingLogger = new PagingLogger())
+                using (var pagingLogger = new PagingLogger())
                 {
                     hc.SetSingleton<IJobServerQueue>(_jobServerQueue.Object);
                     pagingLogger.Initialize(hc);
