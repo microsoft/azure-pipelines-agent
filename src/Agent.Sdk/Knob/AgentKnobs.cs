@@ -152,6 +152,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_USE_NODE16"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob UseNode20 = new Knob(
+            nameof(UseNode20),
+            "Forces the agent to use Node 20 handler for all Node-based tasks",
+            new RuntimeKnobSource("AGENT_USE_NODE20"),
+            new EnvironmentKnobSource("AGENT_USE_NODE20"),
+            new BuiltInDefaultKnobSource("false"));
+
         // Agent logging
         public static readonly Knob AgentPerflog = new Knob(
             nameof(AgentPerflog),
@@ -311,6 +318,13 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AGENT_FAIL_ON_INCOMPATIBLE_OS"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob AgentEnablePipelineArtifactLargeChunkSize = new Knob(
+            nameof(AgentEnablePipelineArtifactLargeChunkSize),
+            "Enables large chunk size for pipeline artifacts.",
+            new EnvironmentKnobSource("AGENT_ENABLE_PIPELINEARTIFACT_LARGE_CHUNK_SIZE"),
+            new RuntimeKnobSource("AGENT_ENABLE_PIPELINEARTIFACT_LARGE_CHUNK_SIZE"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob PermissionsCheckFailsafe = new Knob(
             nameof(PermissionsCheckFailsafe),
             "Maximum depth of file permitted in directory hierarchy when checking permissions. Check to avoid accidentally entering infinite loops.",
@@ -442,15 +456,20 @@ namespace Agent.Sdk.Knob
         public static readonly Knob ProcessHandlerSecureArguments = new Knob(
             nameof(ProcessHandlerSecureArguments),
             "Enables passing arguments for process handler secure way",
-            new RuntimeKnobSource("AGENT_PH_ENABLE_SECURE_ARGUMENTS"),
-            new EnvironmentKnobSource("AGENT_PH_ENABLE_SECURE_ARGUMENTS"),
+            new RuntimeKnobSource("AZP_75787_ENABLE_NEW_LOGIC"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob ProcessHandlerSecureArgumentsAudit = new Knob(
+            nameof(ProcessHandlerSecureArguments),
+            "Enables logging of passing arguments for process handler secure way",
+            new RuntimeKnobSource("AZP_75787_ENABLE_NEW_LOGIC_LOG"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob ProcessHandlerTelemetry = new Knob(
             nameof(ProcessHandlerTelemetry),
             "Enables publishing telemetry about processing of arguments for Process Handler",
-            new RuntimeKnobSource("AGENT_PH_ENABLE_TELEMETRY"),
-            new EnvironmentKnobSource("AGENT_PH_ENABLE_TELEMETRY"),
+            new RuntimeKnobSource("AZP_75787_ENABLE_COLLECT"),
+            new EnvironmentKnobSource("AZP_75787_ENABLE_COLLECT"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob DisableDrainQueuesAfterTask = new Knob(
@@ -471,6 +490,13 @@ namespace Agent.Sdk.Knob
             "Forces the agent to create _tasks folder for tasks.",
             new RuntimeKnobSource("AGENT_FORCE_CREATE_TASKS_DIRECTORY"),
             new EnvironmentKnobSource("AGENT_FORCE_CREATE_TASKS_DIRECTORY"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob CleanupPSModules = new Knob(
+            nameof(CleanupPSModules),
+            "Removes the PSModulePath environment variable if the agent is running in PowerShell.",
+            new RuntimeKnobSource("AZP_AGENT_CLEANUP_PSMODULES_IN_POWERSHELL"),
+            new EnvironmentKnobSource("AZP_AGENT_CLEANUP_PSMODULES_IN_POWERSHELL"),
             new BuiltInDefaultKnobSource("false"));
     }
 }

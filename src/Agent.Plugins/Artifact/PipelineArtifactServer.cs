@@ -42,7 +42,6 @@ namespace Agent.Plugins
             CancellationToken cancellationToken)
         {
             VssConnection connection = context.VssConnection;
-
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
                 .CreateDedupManifestClientAsync(
                     context.IsSystemDebugTrue(),
@@ -50,6 +49,8 @@ namespace Agent.Plugins
                     connection,
                     DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
                     WellKnownDomainIds.DefaultDomainId,
+                    Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
+                    context,
                     cancellationToken);
 
             using (clientTelemetry)
@@ -82,7 +83,8 @@ namespace Agent.Plugins
                 {
                     { PipelineArtifactConstants.RootId, result.RootId.ValueString },
                     { PipelineArtifactConstants.ProofNodes, StringUtil.ConvertToJson(result.ProofNodes.ToArray()) },
-                    { PipelineArtifactConstants.ArtifactSize, result.ContentSize.ToString() }
+                    { PipelineArtifactConstants.ArtifactSize, result.ContentSize.ToString() },
+                    { PipelineArtifactConstants.HashType, dedupManifestClient.HashType.Serialize() }
                 };
 
                 BuildArtifact buildArtifact = await AsyncHttpRetryHelper.InvokeAsync(
@@ -139,19 +141,21 @@ namespace Agent.Plugins
         {
             VssConnection connection = context.VssConnection;
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                .CreateDedupManifestClientAsync(
-                    context.IsSystemDebugTrue(),
-                    (str) => context.Output(str),
-                    connection,
-                    DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
-                    WellKnownDomainIds.DefaultDomainId,
-                    cancellationToken);
+                        .CreateDedupManifestClientAsync(
+                        context.IsSystemDebugTrue(),
+                        (str) => context.Output(str),
+                        connection,
+                        DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
+                        WellKnownDomainIds.DefaultDomainId,
+                        Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
+                        context,
+                        cancellationToken);
 
-            BuildServer buildServer = new BuildServer(connection);
+            BuildServer buildServer = new(connection);
 
             using (clientTelemetry)
+            // download all pipeline artifacts if artifact name is missing
             {
-                // download all pipeline artifacts if artifact name is missing
                 if (downloadOptions == DownloadOptions.MultiDownload)
                 {
                     List<BuildArtifact> artifacts;
@@ -252,7 +256,7 @@ namespace Agent.Plugins
                         customMinimatchOptions: downloadParameters.CustomMinimatchOptions);
 
                     PipelineArtifactActionRecord downloadRecord = clientTelemetry.CreateRecord<PipelineArtifactActionRecord>((level, uri, type) =>
-                            new PipelineArtifactActionRecord(level, uri, type, nameof(DownloadAsync), context));
+                                new PipelineArtifactActionRecord(level, uri, type, nameof(DownloadAsync), context));
                     await clientTelemetry.MeasureActionAsync(
                         record: downloadRecord,
                         actionAsync: async () =>
@@ -332,7 +336,7 @@ namespace Agent.Plugins
 
                 if (fileShareArtifacts.Any())
                 {
-                    FileShareProvider provider = new FileShareProvider(context, connection, this.tracer);
+                    FileShareProvider provider = new FileShareProvider(context, connection, this.tracer, DedupManifestArtifactClientFactory.Instance);
                     await provider.DownloadMultipleArtifactsAsync(downloadParameters, fileShareArtifacts, cancellationToken, context);
                 }
             }
