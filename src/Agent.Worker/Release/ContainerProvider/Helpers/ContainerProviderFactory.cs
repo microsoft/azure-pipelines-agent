@@ -40,7 +40,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider
                 executionLogger);
         }
 
-        public IContainerProvider GetContainerProvider(string containerType)
+        public IContainerProvider GetContainerProvider(string containerType, bool skipServerCertificateValidation = false)
         {
             switch (containerType)
             {
@@ -54,7 +54,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider
                         this._buildArtifactDetails.AccessToken,
                         this._retryOnTimeoutMessageHandler,
                         this._executionContext,
-                        includeDownloadTickets: true);
+                        includeDownloadTickets: true,
+                        skipServerCertificateValidation);
 
                     return fileContainerItemCache;
 

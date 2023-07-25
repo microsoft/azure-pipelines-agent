@@ -99,6 +99,7 @@ namespace Agent.Sdk
             }
 
             var certSetting = GetCertConfiguration();
+            bool skipServerCertificateValidation = false;
             if (certSetting != null)
             {
                 if (!string.IsNullOrEmpty(certSetting.ClientCertificateArchiveFile))
@@ -108,6 +109,7 @@ namespace Agent.Sdk
 
                 if (certSetting.SkipServerCertificateValidation)
                 {
+                    skipServerCertificateValidation = true;
                     VssClientHttpRequestSettings.Default.ServerCertificateValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
                 }
             }
@@ -127,7 +129,7 @@ namespace Agent.Sdk
 
             VssCredentials credentials = VssUtil.GetVssCredential(systemConnection);
             ArgUtil.NotNull(credentials, nameof(credentials));
-            return VssUtil.CreateConnection(systemConnection.Url, credentials, trace: _trace);
+            return VssUtil.CreateConnection(systemConnection.Url, credentials, trace: _trace, skipServerCertificateValidation);
         }
 
         public string GetInput(string name, bool required = false)

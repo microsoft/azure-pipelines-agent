@@ -54,6 +54,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             DateTime jobStartTimeUtc = DateTime.UtcNow;
 
             ServiceEndpoint systemConnection = message.Resources.Endpoints.Single(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
+            bool skipServerCertificateValidation = HostContext.GetService<IAgentCertificateManager>().SkipServerCertificateValidation;
 
             // System.AccessToken
             if (message.Variables.ContainsKey(Constants.Variables.System.EnableAccessToken) &&
@@ -85,6 +86,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 jobServerUrl,
                 jobServerCredential,
                 Trace,
+                skipServerCertificateValidation,
                 new DelegatingHandler[] { new ThrottlingReportHandler(_jobServerQueue) }
             );
             await jobServer.ConnectAsync(jobConnection);
@@ -205,7 +207,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     Trace.Info($"Creating task server with {taskServerUri}");
 
-                    taskConnection = VssUtil.CreateConnection(taskServerUri, taskServerCredential, Trace);
+                    taskConnection = VssUtil.CreateConnection(taskServerUri, taskServerCredential, Trace, skipServerCertificateValidation);
                     await taskServer.ConnectAsync(taskConnection);
                 }
 
@@ -219,7 +221,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         taskServerUri = new Uri(configStore.GetSettings().ServerUrl);
 
                         Trace.Info($"Recreate task server with configuration server url: {taskServerUri}");
-                        legacyTaskConnection = VssUtil.CreateConnection(taskServerUri, taskServerCredential, trace: Trace);
+                        legacyTaskConnection = VssUtil.CreateConnection(taskServerUri, taskServerCredential, trace: Trace, skipServerCertificateValidation);
                         await taskServer.ConnectAsync(legacyTaskConnection);
                     }
                 }
