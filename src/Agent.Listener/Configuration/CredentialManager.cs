@@ -4,6 +4,8 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.VisualStudio.Services.Common;
+using Microsoft.VisualStudio.Services.Agent.Listener.Telemetry;
+using Newtonsoft.Json;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
@@ -59,6 +61,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             credProv.CredentialData = credData;
 
             VssCredentials creds = credProv.GetVssCredentials(HostContext);
+
+            try
+            {
+                var telemetryData = new Dictionary<string, string>
+                {
+                    { "AuthentificationType", credData.Scheme },
+                };
+
+                var cmd = new Command("telemetry", "publish");
+                cmd.Data = JsonConvert.SerializeObject(telemetryData);
+                cmd.Properties.Add("area", "PipelinesTasks");
+                cmd.Properties.Add("feature", "AgentCredentialManager");
+
+                var telemetryPublisher = HostContext.GetService<IAgenetListenerTelemetryPublisher>();
+                telemetryPublisher.PublishEvent(HostContext, cmd).GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                Trace.Warning($"Unable to publish credential type telemetry data. {ex}");
+            }
 
             return creds;
         }
