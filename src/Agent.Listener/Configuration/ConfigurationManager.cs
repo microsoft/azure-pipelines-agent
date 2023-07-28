@@ -154,14 +154,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 Trace.Info("cred retrieved");
                 try
                 {
-                    isHostedServer = await checkIsHostedServer(agentProvider, agentSettings, credProvider);
+                    bool skipCertValidation = command.GetSkipCertificateValidation();
+                    isHostedServer = await checkIsHostedServer(agentProvider, agentSettings, credProvider, skipCertValidation);
 
                     // Get the collection name for deployment group
                     agentProvider.GetCollectionName(agentSettings, command, isHostedServer);
 
                     // Validate can connect.
                     creds = credProvider.GetVssCredentials(HostContext);
-                    await agentProvider.TestConnectionAsync(agentSettings, creds, isHostedServer);
+                    await agentProvider.TestConnectionAsync(agentSettings, creds, isHostedServer, skipCertValidation);
                     Trace.Info("Test Connection complete.");
                     break;
                 }
@@ -517,13 +518,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                    : Constants.Agent.AgentConfigurationProvider.BuildReleasesAgentConfiguration;
 
                     var extensionManager = HostContext.GetService<IExtensionManager>();
+                    var agentCertManager = HostContext.GetService<IAgentCertificateManager>();
                     IConfigurationProvider agentProvider = (extensionManager.GetExtensions<IConfigurationProvider>()).FirstOrDefault(x => x.ConfigurationProviderType == agentType);
                     ArgUtil.NotNull(agentProvider, agentType);
 
-                    bool isHostedServer = await checkIsHostedServer(agentProvider, settings, credProvider);
+                    bool isHostedServer = await checkIsHostedServer(agentProvider, settings, credProvider, agentCertManager.SkipServerCertificateValidation);
                     VssCredentials creds = credProvider.GetVssCredentials(HostContext);
-
-                    await agentProvider.TestConnectionAsync(settings, creds, isHostedServer);
+                    
+                    await agentProvider.TestConnectionAsync(settings, creds, isHostedServer, agentCertManager.SkipServerCertificateValidation);
 
                     TaskAgent agent = await agentProvider.GetAgentAsync(settings);
                     if (agent == null)
@@ -815,7 +817,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             return agentType;
         }
 
-        private async Task<bool> checkIsHostedServer(IConfigurationProvider agentProvider, AgentSettings agentSettings, ICredentialProvider credProvider)
+        private async Task<bool> checkIsHostedServer(IConfigurationProvider agentProvider, AgentSettings agentSettings, ICredentialProvider credProvider, bool skipServerCertificateValidation)
         {
             bool isHostedServer = false;
             VssCredentials creds = credProvider.GetVssCredentials(HostContext);
@@ -823,7 +825,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             try
             {
                 // Determine the service deployment type based on connection data. (Hosted/OnPremises)
-                await _serverUtil.DetermineDeploymentType(agentSettings.ServerUrl, creds, _locationServer);
+                await _serverUtil.DetermineDeploymentType(agentSettings.ServerUrl, creds, _locationServer, skipServerCertificateValidation);
             }
             catch (VssUnauthorizedException)
             {
