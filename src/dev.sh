@@ -21,6 +21,7 @@ source "$SCRIPT_DIR/.helpers.sh"
 
 DOTNETSDK_ROOT="$SCRIPT_DIR/../_dotnetsdk"
 DOTNETSDK_VERSION="6.0.405"
+
 DOTNETSDK_INSTALLDIR="$DOTNETSDK_ROOT/$DOTNETSDK_VERSION"
 AGENT_VERSION=$(cat "$SCRIPT_DIR/agentversion" | head -n 1 | tr -d "\n\r")
 
@@ -87,7 +88,7 @@ function detect_platform_and_runtime_id ()
 
 function escape-s390x()
 {
-   echo $( [[ $1 = "linux-s390x" ]] && echo "" || echo $1 )
+   $( [[ $1 = "linux-s390x" ]] && echo "" || echo $1 )
 }
 
 
@@ -103,7 +104,7 @@ function make_build (){
          | sed -e "/\: error /s/^/${DOTNET_ERROR_PREFIX} /;" \
          || failed build
     else
-        dotnet msbuild -t:"${TARGET}" -p:PackageRuntime="$(escape-s390x $RUNTIME_ID)}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
+        dotnet msbuild -t:"${TARGET}" -p:PackageRuntime="$(escape-s390x $RUNTIME_ID)" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
          || failed build
     fi
 
@@ -315,10 +316,11 @@ PACKAGE_DIR="$SCRIPT_DIR/../_package/$RUNTIME_ID"
 REPORT_DIR="$SCRIPT_DIR/../_reports/$RUNTIME_ID"
 
 if [[ "$RUNTIME_ID" == "linux-s390x"  ]]; then
-    if [[ ! -e "${DOTNETSDK_INSTALLDIR}/dotnet.dll" ]]; then
+    if ! which dotnet > /dev/null ; then
         echo "No dotnet installation detected. In s390x architecture environment you have to install dotnet with packet manager before launching this script"
         exit 1
     fi
+    DOTNETSDK_INSTALLDIR=$(which dotnet | xargs dirname)
 elif [[ (! -d "${DOTNETSDK_INSTALLDIR}") || (! -e "${DOTNETSDK_INSTALLDIR}/.${DOTNETSDK_VERSION}") || (! -e "${DOTNETSDK_INSTALLDIR}/dotnet") ]]; then
 
     # Download dotnet SDK to ../_dotnetsdk directory

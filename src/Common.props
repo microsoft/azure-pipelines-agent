@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <TargetFramework>net6</TargetFramework>
-    <RuntimeFrameworkVersion>6.0.13</RuntimeFrameworkVersion>
+   <!-- <RuntimeFrameworkVersion>6.0.13</RuntimeFrameworkVersion> -->
     <RuntimeIdentifier>$(PackageRuntime)</RuntimeIdentifier>
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
     <AssetTargetFallback>portable-net45+win8</AssetTargetFallback>
@@ -30,6 +30,7 @@
     <OSPlatform>OS_LINUX</OSPlatform>
   </PropertyGroup>
 
+
   <PropertyGroup Condition="'$(OSPlatform)' == 'OS_WINDOWS' AND '$(PROCESSOR_ARCHITECTURE)' == 'AMD64'">
     <OSArchitecture>X64</OSArchitecture>
   </PropertyGroup>
@@ -53,6 +54,10 @@
   <PropertyGroup Condition="'$(OSPlatform)' == 'OS_LINUX' AND '$(PackageRuntime)' == 'linux-arm64'">
     <OSArchitecture>ARM64</OSArchitecture>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(OSPlatform)' == 'OS_LINUX' AND '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'S390x'">
+    <OSArchitecture>S390X</OSArchitecture>
+  </PropertyGroup>
+
 
   <PropertyGroup>
     <CodeAnalysisRuleSet>..\rules.ruleset</CodeAnalysisRuleSet>
