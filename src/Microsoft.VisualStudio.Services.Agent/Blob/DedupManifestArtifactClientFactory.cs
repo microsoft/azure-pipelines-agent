@@ -31,6 +31,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
         /// use the system default. </param>
         /// <param name="cancellationToken">Cancellation token used for both creating clients and verifying client conneciton.</param>
         /// <returns>Tuple of the client and the telemtery client</returns>
+        (DedupManifestArtifactClient client, BlobStoreClientTelemetry telemetry) CreateDedupManifestClient(
+            bool verbose,
+            Action<string> traceOutput,
+            VssConnection connection,
+            int maxParallelism,
+            IDomainId domainId,
+            ClientSettingsInfo clientSettings,
+            AgentTaskPluginExecutionContext context,
+            CancellationToken cancellationToken);
+        
+        /// <summary>
+        /// Creates a DedupManifestArtifactClient client and retrieves any client settings from the server
+        /// </summary>
         Task<(DedupManifestArtifactClient client, BlobStoreClientTelemetry telemetry)> CreateDedupManifestClientAsync(
             bool verbose,
             Action<string> traceOutput,
@@ -68,6 +81,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
 
     public class DedupManifestArtifactClientFactory : IDedupManifestArtifactClientFactory
     {
+        // NOTE: this should be set to ClientSettingsConstants.DefaultDomainId when the latest update from Azure Devops is added.
+        private static string DefaultDomainIdKey = "DefaultDomainId";
+
         // Old default for hosted agents was 16*2 cores = 32. 
         // In my tests of a node_modules folder, this 32x parallelism was consistently around 47 seconds.
         // At 192x it was around 16 seconds and 256x was no faster.
@@ -80,7 +96,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
         private DedupManifestArtifactClientFactory()
         {
         }
-
+        /// <summary>
+        /// Creates a DedupManifestArtifactClient client and retrieves any client settings from the server
+        /// </summary>
         public async Task<(DedupManifestArtifactClient client, BlobStoreClientTelemetry telemetry)> CreateDedupManifestClientAsync(
             bool verbose,
             Action<string> traceOutput,
@@ -88,6 +106,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             int maxParallelism,
             IDomainId domainId,
             BlobStore.WebApi.Contracts.Client client,
+            AgentTaskPluginExecutionContext context,
+            CancellationToken cancellationToken)
+        {
+            var clientSettings = await DedupManifestArtifactClientFactory.GetClientSettingsAsync(
+                connection,
+                client,
+                CreateArtifactsTracer(verbose, traceOutput),
+                cancellationToken);
+            
+            return CreateDedupManifestClient(
+                    context.IsSystemDebugTrue(),
+                    (str) => context.Output(str),
+                    connection,
+                    DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
+                    domainId,
+                    clientSettings,
+                    context,
+                    cancellationToken);            
+        }
+
+        public (DedupManifestArtifactClient client, BlobStoreClientTelemetry telemetry) CreateDedupManifestClient(
+            bool verbose,
+            Action<string> traceOutput,
+            VssConnection connection,
+            int maxParallelism,
+            IDomainId domainId,
+            ClientSettingsInfo clientSettings,
             AgentTaskPluginExecutionContext context,
             CancellationToken cancellationToken)
         {
@@ -99,14 +144,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             }
             traceOutput($"Max dedup parallelism: {maxParallelism}");
 
-            IDedupStoreHttpClient dedupStoreHttpClient = await AsyncHttpRetryHelper.InvokeAsync(
-                async () =>
+            ArtifactHttpClientFactory factory = new ArtifactHttpClientFactory(
+                connection.Credentials,
+                connection.Settings.SendTimeout,
+                tracer,
+                cancellationToken);
+            var helper = new HttpRetryHelper(maxRetries,e => true);
+
+            IDedupStoreHttpClient dedupStoreHttpClient = helper.Invoke(
+                () =>
                 {
-                    ArtifactHttpClientFactory factory = new ArtifactHttpClientFactory(
-                        connection.Credentials,
-                        connection.Settings.SendTimeout,
-                        tracer,
-                        cancellationToken);
+                    // since our call below is hidden, check if we are cancelled and throw if we are...
+                    cancellationToken.ThrowIfCancellationRequested();                    
 
                     IDedupStoreHttpClient dedupHttpclient;
                     // this is actually a hidden network call to the location service:
@@ -120,19 +169,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                         dedupHttpclient = new DomainHttpClientWrapper(domainId, domainClient);
                     }
 
-                    this.HashType ??= await GetClientHashTypeAsync(factory, connection, client, tracer, context, cancellationToken);
-
                     return dedupHttpclient;
-                },
-                maxRetries: maxRetries,
-                tracer: tracer,
-                canRetryDelegate: e => true,
-                context: nameof(CreateDedupManifestClientAsync),
-                cancellationToken: cancellationToken,
-                continueOnCapturedContext: false);
+                });
 
             var telemetry = new BlobStoreClientTelemetry(tracer, dedupStoreHttpClient.BaseAddress);
             traceOutput($"Hashtype: {this.HashType.Value}");
+            
+            this.HashType = GetClientHashType(clientSettings, context, tracer);
 
             if (this.HashType == BuildXL.Cache.ContentStore.Hashing.HashType.Dedup1024K)
             {
@@ -239,35 +282,66 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                 includeSeverityLevel: verbose);
         }
 
-        private static async Task<HashType> GetClientHashTypeAsync(
-            ArtifactHttpClientFactory factory,
+        /// <summary>
+        /// Get the client settings for the given client.
+        /// </summary>
+        /// <notes> This should  only be called once per client type.  This is intended to fail fast so it has no retries.</notes>
+        public static async Task<ClientSettingsInfo> GetClientSettingsAsync(
             VssConnection connection,
             BlobStore.WebApi.Contracts.Client client,
             IAppTraceSource tracer,
-            AgentTaskPluginExecutionContext context,
             CancellationToken cancellationToken)
+        {
+            try
+            {
+                ArtifactHttpClientFactory factory = new ArtifactHttpClientFactory(
+                    connection.Credentials,
+                    connection.Settings.SendTimeout,
+                    tracer,
+                    cancellationToken);
+
+                var blobUri = connection.GetClient<ClientSettingsHttpClient>().BaseAddress;
+                var clientSettingsHttpClient = factory.CreateVssHttpClient<IClientSettingsHttpClient, ClientSettingsHttpClient>(blobUri);
+                return await clientSettingsHttpClient.GetSettingsAsync(client, cancellationToken);                
+            }
+            catch (Exception exception)
+            {
+                // Use info cause we don't want to fail builds with warnings as errors...
+                tracer.Info($"Error while retrieving client Settings for {client}. Exception: {exception}.  Falling back to defaults.");
+            }
+            return null;
+        }
+
+        public static IDomainId GetDefaultDomainId(ClientSettingsInfo clientSettings, IAppTraceSource tracer)
+        {
+            IDomainId domainId = WellKnownDomainIds.DefaultDomainId;
+            if (clientSettings != null && clientSettings.Properties.ContainsKey(DefaultDomainIdKey))
+            {
+                try {
+                    domainId = DomainIdFactory.Create(clientSettings.Properties[DefaultDomainIdKey]);
+                }
+                catch (Exception exception)
+                {
+                    tracer.Info($"Error converting the domain id '{clientSettings.Properties[DefaultDomainIdKey]}': {exception.Message}.  Falling back to default.");
+                }
+            }
+ 
+            return domainId;
+        }
+
+        private static HashType GetClientHashType(ClientSettingsInfo clientSettings, AgentTaskPluginExecutionContext context, IAppTraceSource tracer)
         {
             HashType hashType = ChunkerHelper.DefaultChunkHashType;
 
             if (AgentKnobs.AgentEnablePipelineArtifactLargeChunkSize.GetValue(context).AsBoolean())
             {
-                try
+                if (clientSettings != null && clientSettings.Properties.ContainsKey(ClientSettingsConstants.ChunkSize))
                 {
-                    var blobUri = connection.GetClient<ClientSettingsHttpClient>().BaseAddress;
-                    var clientSettingsHttpClient = factory.CreateVssHttpClient<IClientSettingsHttpClient, ClientSettingsHttpClient>(blobUri);
-                    ClientSettingsInfo clientSettings = await clientSettingsHttpClient.GetSettingsAsync(client, cancellationToken);
-                    if (clientSettings != null && clientSettings.Properties.ContainsKey(ClientSettingsConstants.ChunkSize))
-                    {
-                        HashTypeExtensions.Deserialize(clientSettings.Properties[ClientSettingsConstants.ChunkSize], out hashType);
-                    }
-                }
-                catch (Exception exception)
-                {
-                    tracer.Warn($"Error while retrieving hash type for {client}. Exception: {exception}");
+                    HashTypeExtensions.Deserialize(clientSettings.Properties[ClientSettingsConstants.ChunkSize], out hashType);
                 }
             }
 
             return ChunkerHelper.IsHashTypeChunk(hashType) ? hashType : ChunkerHelper.DefaultChunkHashType;
         }
-    }
+   }
 }
