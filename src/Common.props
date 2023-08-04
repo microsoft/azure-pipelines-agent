@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <TargetFramework>net6</TargetFramework>
-   <!-- <RuntimeFrameworkVersion>6.0.13</RuntimeFrameworkVersion> -->
+   <!-- <RuntimeFrameworkVersion>6.0.13</RuntimeFrameworkVersion> row commented as it can prevents builds when is istalled a framework with a different minor version -->
     <RuntimeIdentifier>$(PackageRuntime)</RuntimeIdentifier>
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
     <AssetTargetFallback>portable-net45+win8</AssetTargetFallback>
