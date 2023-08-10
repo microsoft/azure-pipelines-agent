@@ -59,6 +59,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                         return "ARM";
                     case Architecture.Arm64:
                         return "ARM64";
+                    case Architecture.S390x:
+                        return "S390X";
                     default:
                         throw new NotSupportedException(); // Should never reach here.
                 }

@@ -207,7 +207,7 @@ if [[ "$PACKAGERUNTIME" == "osx-arm64" ]]; then
 fi
 
 # Download the external tools common across OSX and Linux PACKAGERUNTIMEs.
-if [[ "$PACKAGERUNTIME" == "linux-x64" || "$PACKAGERUNTIME" == "linux-arm" || "$PACKAGERUNTIME" == "linux-arm64" || "$PACKAGERUNTIME" == "osx-x64" || "$PACKAGERUNTIME" == "osx-arm64" || "$PACKAGERUNTIME" == "rhel.7.2-x64" ]]; then
+if [[ "$PACKAGERUNTIME" == "linux-x64" || "$PACKAGERUNTIME" == "linux-arm" || "$PACKAGERUNTIME" == "linux-arm64" || "$PACKAGERUNTIME" == "osx-x64" || "$PACKAGERUNTIME" == "osx-arm64" || "$PACKAGERUNTIME" == "rhel.7.2-x64" || "$PACKAGERUNTIME" == "linux-s390x" ]]; then
     acquireExternalTool "$CONTAINER_URL/vso-task-lib/0.5.5/vso-task-lib.tar.gz" vso-task-lib
 fi
 
@@ -238,6 +238,16 @@ if [[ "$PACKAGERUNTIME" == "linux-arm64" ]]; then
     acquireExternalTool "$NODE_URL/v${NODE16_VERSION}/node-v${NODE16_VERSION}-linux-arm64.tar.gz" node16 fix_nested_dir
     acquireExternalTool "$NODE_URL/v${NODE20_VERSION}/node-v${NODE20_VERSION}-linux-arm64.tar.gz" node20 fix_nested_dir
 fi
+
+# Added for s390x arch
+if [[ "$PACKAGERUNTIME" == "linux-s390x" ]]; then
+    if [[ "$INCLUDE_NODE6" == "true" ]]; then
+        acquireExternalTool "$NODE_URL/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-s390x.tar.gz" node fix_nested_dir
+    fi
+    acquireExternalTool "$NODE_URL/v${NODE10_VERSION}/node-v${NODE10_VERSION}-linux-s390x.tar.gz" node10 fix_nested_dir
+    acquireExternalTool "$NODE_URL/v${NODE16_VERSION}/node-v${NODE16_VERSION}-linux-s390x.tar.gz" node16 fix_nested_dir
+fi
+
 
 if [[ "$PACKAGERUNTIME" != "win-x64" && "$PACKAGERUNTIME" != "win-x86" ]]; then
     # remove `npm`, `npx`, `corepack`, and related `node_modules` from the `externals/node*` agent directory
