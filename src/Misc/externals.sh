@@ -278,6 +278,6 @@ if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
     # we may need to fix this in the Agent
     if [[ "$PACKAGERUNTIME" == "win-x64" || "$PACKAGERUNTIME" == "win-x86" ]]; then
         # signed service tree task
-        acquireExternalTool "$CONTAINER_URL/l1Tasks/5515f72c-5faa-4121-8a46-8f42a8f42132.zip" "Tasks" false dont_uncompress
+        acquireExternalTool "$CONTAINER_URL/l1Tasks/d9bafed4-0b18-4f58-0001-86655b4d2ce9.zip" "Tasks" false dont_uncompress
     fi
 fi
