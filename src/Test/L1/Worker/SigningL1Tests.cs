@@ -230,23 +230,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             {
                 Reference = new TaskStepDefinitionReference
                 {
-                    Id = Guid.Parse("5515f72c-5faa-4121-8a46-8f42a8f42132"),
-                    Name = "servicetree-link-build-task-signed",
-                    Version = "1.52.1"
+                    Id = Guid.Parse("d9bafed4-0b18-4f58-0001-86655b4d2ce9"),
+                    Name = "CmdLine",
+                    Version = "2.212.0"
                 },
-                Name = "servicetree-link-build-task-signed",
-                DisplayName = "ServiceTree Integration - SIGNED",
+                Name = "CmdLine",
+                DisplayName = "Command line - SIGNED",
                 Id = Guid.NewGuid()
             };
 
             // These inputs let the task itself succeed.
-            step.Inputs.Add("Service", "23ddace0-0682-541f-bfa9-6cbc76d9c051");
-            step.Inputs.Add("ServiceTreeLinkNotRequiredIds", "2"); // Set to system.definitionId
-            step.Inputs.Add("ServiceTreeGateway", "Foo");
+            step.Inputs.Add("script", "echo Hey!");
 
             return step;
         }
 
-        private static string _fingerprint = "3F9001EA83C560D712C24CF213C3D312CB3BFF51EE89435D3430BD06B5D0EECE";
+        private static string _fingerprint = "AA12DA22A49BCE7D5C1AE64CC1F3D892F150DA76140F210ABD2CBFFCA2C18A27";
     }
 }

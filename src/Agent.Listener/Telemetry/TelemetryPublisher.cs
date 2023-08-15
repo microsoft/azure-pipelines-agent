@@ -27,86 +27,74 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Telemetry
         public string Name => "publish";
         public List<string> Aliases => null;
 
-
         public async Task PublishEvent(IHostContext context, Command command)
         {
-
-            if (_ciService == null)
+            try
             {
-                var credMgr = context.GetService<ICredentialManager>();
-                VssCredentials creds = credMgr.LoadCredentials();
-
-                ArgUtil.NotNull(creds, nameof(creds));
-
-                var configManager = context.GetService<IConfigurationManager>();
-                AgentSettings settings = configManager.LoadSettings();
-
-
-                using var vssConnection = VssUtil.CreateConnection(new Uri(settings.ServerUrl), creds, Trace);
-                try
+                if (_ciService == null)
                 {
+                    var credMgr = context.GetService<ICredentialManager>();
+                    VssCredentials creds = credMgr.LoadCredentials();
+
+                    ArgUtil.NotNull(creds, nameof(creds));
+
+                    var configManager = context.GetService<IConfigurationManager>();
+                    AgentSettings settings = configManager.LoadSettings();
+
+                    using var vssConnection = VssUtil.CreateConnection(new Uri(settings.ServerUrl), creds, Trace);
+
                     _ciService = context.GetService<ICustomerIntelligenceServer>();
                     _ciService.Initialize(vssConnection);
                 }
 
+                ArgUtil.NotNull(context, nameof(context));
+                ArgUtil.NotNull(command, nameof(command));
+
+                Dictionary<string, string> eventProperties = command.Properties;
+                if (!eventProperties.TryGetValue(WellKnownEventTrackProperties.Area, out string area) || string.IsNullOrEmpty(area))
+                {
+                    throw new ArgumentException(StringUtil.Loc("ArgumentNeeded", "Area"));
+                }
+
+                if (!eventProperties.TryGetValue(WellKnownEventTrackProperties.Feature, out string feature) || string.IsNullOrEmpty(feature))
+                {
+                    throw new ArgumentException(StringUtil.Loc("ArgumentNeeded", "Feature"));
+                }
+
+                string data = command.Data;
+                if (string.IsNullOrEmpty(data))
+                {
+                    throw new ArgumentException(StringUtil.Loc("ArgumentNeeded", "EventTrackerData"));
+                }
+
+                CustomerIntelligenceEvent ciEvent;
+                try
+                {
+                    var ciProperties = JsonConvert.DeserializeObject<Dictionary<string, object>>(data);
+                    ciEvent = new CustomerIntelligenceEvent()
+                    {
+                        Area = area,
+                        Feature = feature,
+                        Properties = ciProperties
+                    };
+                }
                 catch (Exception ex)
                 {
-                    Trace.Warning(StringUtil.Loc("TelemetryCommandFailed", ex.Message));
-                    return;
+                    throw new ArgumentException(StringUtil.Loc("TelemetryCommandDataError", data, ex.Message));
                 }
-            }
 
-            ArgUtil.NotNull(context, nameof(context));
-            ArgUtil.NotNull(command, nameof(command));
-
-            Dictionary<string, string> eventProperties = command.Properties;
-            string data = command.Data;
-            string area;
-            if (!eventProperties.TryGetValue(WellKnownEventTrackProperties.Area, out area) || string.IsNullOrEmpty(area))
-            {
-                throw new ArgumentException(StringUtil.Loc("ArgumentNeeded", "Area"));
+                await PublishEventsAsync(context, ciEvent);
             }
-
-            string feature;
-            if (!eventProperties.TryGetValue(WellKnownEventTrackProperties.Feature, out feature) || string.IsNullOrEmpty(feature))
-            {
-                throw new ArgumentException(StringUtil.Loc("ArgumentNeeded", "Feature"));
-            }
-
-            if (string.IsNullOrEmpty(data))
-            {
-                throw new ArgumentException(StringUtil.Loc("ArgumentNeeded", "EventTrackerData"));
-            }
-
-            CustomerIntelligenceEvent ciEvent;
-            try
-            {
-                var ciProperties = JsonConvert.DeserializeObject<Dictionary<string, object>>(data);
-                ciEvent = new CustomerIntelligenceEvent()
-                {
-                    Area = area,
-                    Feature = feature,
-                    Properties = ciProperties
-                };
-            }
+            // We never want to break pipelines in case of telemetry failure.
             catch (Exception ex)
             {
-                throw new ArgumentException(StringUtil.Loc("TelemetryCommandDataError", data, ex.Message));
+                Trace.Warning("Telemetry command failed: {0}", ex.ToString());
             }
-
-            await PublishEventsAsync(context, ciEvent);
         }
 
         private async Task PublishEventsAsync(IHostContext context, CustomerIntelligenceEvent ciEvent)
         {
-            try
-            {
-                await _ciService.PublishEventsAsync(new CustomerIntelligenceEvent[] { ciEvent });
-            }
-            catch (Exception ex)
-            {
-                Trace.Warning(StringUtil.Loc("TelemetryCommandFailed", ex.Message));
-            }
+            await _ciService.PublishEventsAsync(new CustomerIntelligenceEvent[] { ciEvent });
         }
     }
     internal static class WellKnownEventTrackProperties
