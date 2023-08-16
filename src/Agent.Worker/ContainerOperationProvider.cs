@@ -606,20 +606,61 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         useHostGroupId = true;
                     }
 
-                    if (string.IsNullOrEmpty(containerUserName)) // Create a new user with same UID as on the host
+                    bool isAlpine = false;
+                    try
                     {
-                        string userNameSuffix = "_azpcontainer";
+                        await DockerExec(executionContext, container.ContainerId, "useradd");
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        Trace.Info($"Failed to execute 'useradd' command. Assuming Alpine-based image.");
+                        isAlpine = true;
+                    }
+
+                    // List of commands
+                    Func<string, string> addGroup;
+                    Func<string, string, string> addGroupWithId;
+                    Func<string, string, string> addUserWithId;
+                    Func<string, string, string, string> addUserWithIdAndGroup;
+                    Func<string, string, string> addUserToGroup;
+
+                    if (isAlpine)
+                    {
+                        addGroup = (groupName) => $"addgroup {groupName}";
+                        addGroupWithId = (groupName, groupId) => $"addgroup -g {groupId} {groupName}";
+                        addUserWithId = (userName, userId) => $"adduser -D -u {userId} {userName}";
+                        addUserWithIdAndGroup = (userName, userId, groupName) => $"adduser -D -G {groupName} -u {userId} {userName}";
+                        addUserToGroup = (userName, groupName) => $"addgroup {userName} {groupName}";
+                    }
+                    else
+                    {
+                        addGroup = (groupName) => $"groupadd {groupName}";
+                        addGroupWithId = (groupName, groupId) => $"groupadd -g {groupId} {groupName}";
+                        addUserWithId = (userName, userId) => $"useradd -m -u {userId} {userName}";
+                        addUserWithIdAndGroup = (userName, userId, groupName) => $"useradd -m -g {groupName} -u {userId} {userName}";
+                        addUserToGroup = (userName, groupName) => $"usermod -a -G {groupName} {userName}";
+                    }
+
+                    if (string.IsNullOrEmpty(containerUserName))
+                    {
+                        string nameSuffix = "_azpcontainer";
+
                         // Linux allows for a 32-character username
-                        containerUserName = KeepAllowedLength(container.CurrentUserName, 32, userNameSuffix);
-                        string fallback = $"useradd -m -u {container.CurrentUserId} {containerUserName}";
-                        if (useHostGroupId) // Create a new user with the same UID and the same GID as on the host
+                        containerUserName = KeepAllowedLength(container.CurrentUserName, 32, nameSuffix);
+
+                        // Create a new user with same UID as on the host
+                        string fallback = addUserWithId(containerUserName, container.CurrentUserId);
+
+                        if (useHostGroupId)
                         {
                             try
                             {
                                 // Linux allows for a 32-character groupname
-                                string containerGroupName = KeepAllowedLength(container.CurrentGroupName, 32, userNameSuffix);
-                                await DockerExec(executionContext, container.ContainerId, $"groupadd -g {container.CurrentGroupId} {containerGroupName}");
-                                await DockerExec(executionContext, container.ContainerId, $"useradd -m -g {container.CurrentGroupId} -u {container.CurrentUserId} {containerUserName}");
+                                string containerGroupName = KeepAllowedLength(container.CurrentGroupName, 32, nameSuffix);
+
+                                // Create a new user with the same UID and the same GID as on the host
+                                await DockerExec(executionContext, container.ContainerId, addGroupWithId(containerGroupName, container.CurrentGroupId));
+                                await DockerExec(executionContext, container.ContainerId, addUserWithIdAndGroup(containerUserName, container.CurrentUserId, containerGroupName));
                             }
                             catch (Exception ex) when (ex is InvalidOperationException)
                             {
@@ -635,12 +676,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     executionContext.Output(StringUtil.Loc("GrantContainerUserSUDOPrivilege", containerUserName));
 
-                    // Create a new group for giving sudo permission
                     string sudoGroupName = "azure_pipelines_sudo";
-                    await DockerExec(executionContext, container.ContainerId, $"groupadd {sudoGroupName}");
+
+                    // Create a new group for giving sudo permission
+                    await DockerExec(executionContext, container.ContainerId, addGroup(sudoGroupName));
 
                     // Add the new created user to the new created sudo group.
-                    await DockerExec(executionContext, container.ContainerId, $"usermod -a -G {sudoGroupName} {containerUserName}");
+                    await DockerExec(executionContext, container.ContainerId, addUserToGroup(containerUserName, sudoGroupName));
 
                     // Allow the new sudo group run any sudo command without providing password.
                     await DockerExec(executionContext, container.ContainerId, $"su -c \"echo '%{sudoGroupName} ALL=(ALL:ALL) NOPASSWD:ALL' >> /etc/sudoers\"");
@@ -692,10 +734,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         {
                             // create a new group with same gid
                             existingGroupName = "azure_pipelines_docker";
-                            await DockerExec(executionContext, container.ContainerId, $"groupadd -g {dockerSockGroupId} {existingGroupName}");
+                            await DockerExec(executionContext, container.ContainerId, addGroupWithId(existingGroupName, dockerSockGroupId));
                         }
                         // Add the new created user to the docker socket group.
-                        await DockerExec(executionContext, container.ContainerId, $"usermod -a -G {existingGroupName} {containerUserName}");
+                        await DockerExec(executionContext, container.ContainerId, addUserToGroup(containerUserName, existingGroupName));
 
                         // if path to node is just 'node', with no path, let's make sure it is actually there
                         if (string.Equals(container.CustomNodePath, "node", StringComparison.OrdinalIgnoreCase))

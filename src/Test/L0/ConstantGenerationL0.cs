@@ -20,7 +20,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 "linux-x64",
                 "linux-arm",
                 "linux-arm64",
-                "rhel.6-x64",
+                "linux-musl-x64",
                 "rhel.7.2-x64",
                 "osx-x64",
                 "osx-arm64"

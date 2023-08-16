@@ -49,6 +49,9 @@ parameters:
 - name: linux_arm64
   type: boolean
   default: true
+- name: alpine_x64
+  type: boolean
+  default: false
 - name: rhel7_x64
   type: boolean
   default: true
@@ -61,12 +64,10 @@ parameters:
 
 resources:
   containers:
-  - container: dotnetcore_arm
-    image: azpagentinfra/arm:latest
-  - container: dotnetcore_centos6
-    image: azpagentinfra/centos6:latest
-  - container: dotnetcore_centos7
+  - container: centos7
     image: azpagentinfra/centos7:latest
+  - container: alpine
+    image: azpagentinfra/alpine:latest
 
 stages:
 
@@ -98,7 +99,7 @@ stages:
               --projectUrl "$(CANARY_PROJECT_URL)" \
               --pipelineId "$(CANARY_PIPELINE_ID)" \
               --token "$(CANARY_PAT)" \
-              --templateParameters "{ \"branch\": \"${branch}\", \"template_timeout\": 2 }"
+              --templateParameters "{ \"branch\": \"${branch}\", \"template_timeout\": 3 }"
         displayName: Test Proxy Agent
 
   # Windows (x64)
@@ -164,7 +165,7 @@ stages:
         jobName: build_linux_arm
         displayName: Linux (ARM)
         pool:
-          vmImage: "ubuntu-20.04"
+          vmImage: ubuntu-20.04
         timeoutInMinutes: 75
         os: linux
         arch: arm
@@ -196,6 +197,25 @@ stages:
         publishArtifacts: ${{ parameters.publishArtifacts }}
         buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
 
+  # Alpine (x64)
+  - ${{ if parameters.alpine_x64 }}:
+    - template: build-jobs.yml
+      parameters:
+        jobName: build_alpine_x64
+        displayName: Alpine (x64)
+        pool:
+          vmImage: ubuntu-latest
+        container: alpine
+        os: linux-musl
+        arch: x64
+        branch: ${{ parameters.branch }}
+        componentDetection: false
+        unitTests: ${{ parameters.test }}
+        functionalTests: ${{ parameters.test }}
+        sign: false
+        publishArtifacts: ${{ parameters.publishArtifacts }}
+        buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
+
   # RHEL7 (x64)
   - ${{ if parameters.rhel7_x64 }}:
     - template: build-jobs.yml
@@ -204,7 +224,7 @@ stages:
         displayName: RHEL7 (x64)
         pool:
           vmImage: ubuntu-20.04
-        container: dotnetcore_centos7
+        container: centos7
         os: linux
         arch: x64
         branch: ${{ parameters.branch }}
