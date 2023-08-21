@@ -43,9 +43,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 nodeHandler.ExecutionContext = CreateTestExecutionContext(thc);
                 nodeHandler.Data = new NodeHandlerData();
 
+                string nodeVersion = "node"; // version 6
+                if (PlatformUtil.RunningOnAlpine)
+                {
+                    nodeVersion = "node10"; // version 6 does not exist on Alpine
+                }
+
                 string actualLocation = nodeHandler.GetNodeLocation();
                 string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
-                    "node",
+                    nodeVersion,
                     "bin",
                     $"node{IOUtil.ExeExtension}");
                 Assert.Equal(expectedLocation, actualLocation);
@@ -79,11 +85,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 };
 
                 string actualLocation = nodeHandler.GetNodeLocation();
-                // We should fall back to node10 for node16 tasks, since RHEL 6 is not capable with Node16.
-                if (PlatformUtil.RunningOnRHEL6 && nodeVersion == "node16")
-                {
-                    nodeVersion = "node10";
-                }
                 string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
                     nodeVersion,
                     "bin",

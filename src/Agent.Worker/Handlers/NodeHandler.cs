@@ -225,12 +225,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             string useNodeKnob = AgentKnobs.UseNode.GetValue(ExecutionContext).AsString();
 
             string nodeFolder = NodeHandler.nodeFolder;
-            if (PlatformUtil.RunningOnRHEL6 && taskHasNode16Data)
-            {
-                Trace.Info($"Detected RedHat 6, using node 10 as execution handler, instead node16");
-                nodeFolder = NodeHandler.node10Folder;
-            }
-            else if (taskHasNode20Data)
+
+            if (taskHasNode20Data)
             {
                 Trace.Info($"Task.json has node20 handler data: {taskHasNode20Data}");
                 nodeFolder = NodeHandler.node20Folder;
@@ -243,6 +239,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             else if (taskHasNode10Data)
             {
                 Trace.Info($"Task.json has node10 handler data: {taskHasNode10Data}");
+                nodeFolder = NodeHandler.node10Folder;
+            }
+            else if (PlatformUtil.RunningOnAlpine)
+            {
+                Trace.Info($"Detected Alpine, using node10 instead of node (6)");
                 nodeFolder = NodeHandler.node10Folder;
             }
 
