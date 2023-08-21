@@ -27,25 +27,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Telemetry
         public string Name => "publish";
         public List<string> Aliases => null;
 
+
         public async Task PublishEvent(IHostContext context, Command command)
         {
             try
             {
-                if (_ciService == null)
-                {
-                    var credMgr = context.GetService<ICredentialManager>();
-                    VssCredentials creds = credMgr.LoadCredentials();
-
-                    ArgUtil.NotNull(creds, nameof(creds));
-
-                    var configManager = context.GetService<IConfigurationManager>();
-                    AgentSettings settings = configManager.LoadSettings();
-
-                    using var vssConnection = VssUtil.CreateConnection(new Uri(settings.ServerUrl), creds, Trace);
-
-                    _ciService = context.GetService<ICustomerIntelligenceServer>();
-                    _ciService.Initialize(vssConnection);
-                }
+                _ciService = context.GetService<ICustomerIntelligenceServer>();
 
                 ArgUtil.NotNull(context, nameof(context));
                 ArgUtil.NotNull(command, nameof(command));
@@ -83,7 +70,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Telemetry
                     throw new ArgumentException(StringUtil.Loc("TelemetryCommandDataError", data, ex.Message));
                 }
 
+                var credMgr = context.GetService<ICredentialManager>();
+                VssCredentials creds = credMgr.LoadCredentials();
+
+                ArgUtil.NotNull(creds, nameof(creds));
+
+                var configManager = context.GetService<IConfigurationManager>();
+                AgentSettings settings = configManager.LoadSettings();
+
+                using var vsConnection = VssUtil.CreateConnection(new Uri(settings.ServerUrl), creds, Trace);
+                _ciService.Initialize(vsConnection);
                 await PublishEventsAsync(context, ciEvent);
+
             }
             // We never want to break pipelines in case of telemetry failure.
             catch (Exception ex)
