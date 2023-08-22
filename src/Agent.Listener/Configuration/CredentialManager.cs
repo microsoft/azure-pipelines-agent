@@ -4,6 +4,8 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.VisualStudio.Services.Common;
+using Microsoft.VisualStudio.Services.Agent.Listener.Telemetry;
+using Newtonsoft.Json;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
@@ -17,7 +19,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
     public class CredentialManager : AgentService, ICredentialManager
     {
-        public static readonly Dictionary<string, Type> CredentialTypes = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase)
+        public static readonly Dictionary<string, Type> CredentialTypes = new(StringComparer.OrdinalIgnoreCase)
         {
             { Constants.Configuration.AAD, typeof(AadDeviceCodeAccessToken)},
             { Constants.Configuration.PAT, typeof(PersonalAccessToken)},
@@ -26,6 +28,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             { Constants.Configuration.Integrated, typeof(IntegratedCredential)},
             { Constants.Configuration.OAuth, typeof(OAuthCredential)},
             { Constants.Configuration.ServiceIdentity, typeof(ServiceIdentityCredential)},
+            { Constants.Configuration.ServicePrincipal, typeof(ServicePrincipalCredential)},
         };
 
         public ICredentialProvider GetCredentialProvider(string credType)
