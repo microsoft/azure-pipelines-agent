@@ -11,8 +11,9 @@
 node_modules
 **/node_modules
 _downloads
-_layout
+_hashes
 _l1
+_layout
 _package
 _package_hash
 _reports
