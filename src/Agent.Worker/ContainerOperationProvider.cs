@@ -606,15 +606,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         useHostGroupId = true;
                     }
 
-                    bool isAlpine = false;
-                    try
+                    bool isAlpineBasedImage = false;
+                    string detectAlpineMessage = "Alpine-based image detected.";
+                    string detectAlpineCommand = $"bash -c \"if [[ -e '/etc/alpine-release' ]]; then echo '{detectAlpineMessage}'; fi\"";
+                    List<string> detectAlpineOutput = await DockerExec(executionContext, container.ContainerId, detectAlpineCommand);
+                    if (detectAlpineOutput.Contains(detectAlpineMessage))
                     {
-                        await DockerExec(executionContext, container.ContainerId, "useradd");
-                    }
-                    catch (InvalidOperationException)
-                    {
-                        Trace.Info($"Failed to execute 'useradd' command. Assuming Alpine-based image.");
-                        isAlpine = true;
+                        Trace.Info(detectAlpineMessage);
+                        isAlpineBasedImage = true;
                     }
 
                     // List of commands
@@ -624,7 +623,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     Func<string, string, string, string> addUserWithIdAndGroup;
                     Func<string, string, string> addUserToGroup;
 
-                    if (isAlpine)
+                    if (isAlpineBasedImage)
                     {
                         addGroup = (groupName) => $"addgroup {groupName}";
                         addGroupWithId = (groupName, groupId) => $"addgroup -g {groupId} {groupName}";
