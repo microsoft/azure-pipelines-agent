@@ -601,6 +601,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                 var messageType = MessageType.CancelRequest;
                                 if (HostContext.AgentShutdownToken.IsCancellationRequested)
                                 {
+                                    resultOnAbandonOrCancel = TaskResult.Failed;
                                     switch (HostContext.AgentShutdownReason)
                                     {
                                         case ShutdownReason.UserCancelled:

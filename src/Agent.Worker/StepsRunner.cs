@@ -94,6 +94,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             ConditionResult conditionReTestResult;
                             if (HostContext.AgentShutdownToken.IsCancellationRequested)
                             {
+                                jobContext.Result = TaskResult.Failed;
                                 step.ExecutionContext.Debug($"Skip Re-evaluate condition on agent shutdown.");
                                 conditionReTestResult = false;
                             }
@@ -136,6 +137,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     ConditionResult conditionResult;
                     if (HostContext.AgentShutdownToken.IsCancellationRequested)
                     {
+                        jobContext.Result = TaskResult.Failed;
                         step.ExecutionContext.Debug($"Skip evaluate condition on agent shutdown.");
                         conditionResult = false;
                     }
@@ -229,6 +231,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     Trace.Error($"Caught timeout exception from step: {ex.Message}");
                     step.ExecutionContext.Error(StringUtil.Loc("StepTimedOut"));
+                    step.ExecutionContext.Result = TaskResult.Failed;
+                }
+                else if (HostContext.AgentShutdownToken.IsCancellationRequested)
+                {
+                    Trace.Error($"Caught Agent Shutdown exception from step: {ex.Message}");
+                    step.ExecutionContext.Error(ex);
                     step.ExecutionContext.Result = TaskResult.Failed;
                 }
                 else
