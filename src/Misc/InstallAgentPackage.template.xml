@@ -64,14 +64,14 @@
         <AddTaskPackageData packageType="pipelines-agent" platform="win-x86" hashValue="<HASH_VALUE>" version="<AGENT_VERSION>" downloadUrl="https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/pipelines-agent-win-x86-<AGENT_VERSION>.zip" infoUrl="https://go.microsoft.com/fwlink/?LinkId=798199" filename="pipelines-agent-win-x86-<AGENT_VERSION>.zip" />
       </StepData>
     </ServicingStep>
-    <ServicingStep name="Add x64 Redhat 6 agent package" stepPerformer="DistributedTask" stepType="AddTaskPackage">
+    <ServicingStep name="Add arm64 osx agent package" stepPerformer="DistributedTask" stepType="AddTaskPackage">
       <StepData>
-        <AddTaskPackageData packageType="agent" platform="rhel.6-x64" hashValue="<HASH_VALUE>" version="<AGENT_VERSION>" downloadUrl="https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-rhel.6-x64-<AGENT_VERSION>.tar.gz" infoUrl="https://go.microsoft.com/fwlink/?LinkId=798199" filename="vsts-agent-rhel.6-x64-<AGENT_VERSION>.tar.gz" />
+        <AddTaskPackageData packageType="agent" platform="osx-arm64" hashValue="<HASH_VALUE>" version="<AGENT_VERSION>" downloadUrl="https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-osx-arm64-<AGENT_VERSION>.tar.gz" infoUrl="https://go.microsoft.com/fwlink/?LinkId=798199" filename="vsts-agent-osx-arm64-<AGENT_VERSION>.tar.gz" />
       </StepData>
     </ServicingStep>
-    <ServicingStep name="Add x64 Redhat 6 alternate agent package" stepPerformer="DistributedTask" stepType="AddTaskPackage">
+    <ServicingStep name="Add arm64 osx alternate agent package" stepPerformer="DistributedTask" stepType="AddTaskPackage">
       <StepData>
-        <AddTaskPackageData packageType="pipelines-agent" platform="rhel.6-x64" hashValue="<HASH_VALUE>" version="<AGENT_VERSION>" downloadUrl="https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/pipelines-agent-rhel.6-x64-<AGENT_VERSION>.tar.gz" infoUrl="https://go.microsoft.com/fwlink/?LinkId=798199" filename="pipelines-agent-rhel.6-x64-<AGENT_VERSION>.tar.gz" />
+        <AddTaskPackageData packageType="pipelines-agent" platform="osx-arm64" hashValue="<HASH_VALUE>" version="<AGENT_VERSION>" downloadUrl="https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/pipelines-agent-osx-arm64-<AGENT_VERSION>.tar.gz" infoUrl="https://go.microsoft.com/fwlink/?LinkId=798199" filename="pipelines-agent-osx-arm64-<AGENT_VERSION>.tar.gz" />
       </StepData>
     </ServicingStep>
   </Steps>

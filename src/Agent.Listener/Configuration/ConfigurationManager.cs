@@ -20,6 +20,8 @@ using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Security.Principal;
+using Newtonsoft.Json;
+using Microsoft.VisualStudio.Services.Agent.Listener.Telemetry;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
@@ -438,6 +440,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 var serviceControlManager = HostContext.GetService<IMacOSServiceControlManager>();
                 serviceControlManager.GenerateScripts(agentSettings);
             }
+
+            try
+            {
+                var telemetryData = new Dictionary<string, string>
+                {
+                    { "AuthenticationType", credProvider.CredentialData.Scheme },
+                };
+
+                var cmd = new Command("telemetry", "publish")
+                {
+                    Data = JsonConvert.SerializeObject(telemetryData)
+                };
+                cmd.Properties.Add("area", "PipelinesTasks");
+                cmd.Properties.Add("feature", "AgentCredentialManager");
+
+                var telemetryPublisher = HostContext.GetService<IAgenetListenerTelemetryPublisher>();
+
+                await telemetryPublisher.PublishEvent(HostContext, cmd);
+            }
+            catch (Exception ex)
+            {
+                Trace.Warning($"Unable to publish credential type telemetry data. Exception: {ex}");
+            }
         }
 
         public async Task UnconfigureAsync(CommandSettings command)
@@ -524,7 +549,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                     bool isHostedServer = await checkIsHostedServer(agentProvider, settings, credProvider, agentCertManager.SkipServerCertificateValidation);
                     VssCredentials creds = credProvider.GetVssCredentials(HostContext);
-                    
+
                     await agentProvider.TestConnectionAsync(settings, creds, isHostedServer, agentCertManager.SkipServerCertificateValidation);
 
                     TaskAgent agent = await agentProvider.GetAgentAsync(settings);

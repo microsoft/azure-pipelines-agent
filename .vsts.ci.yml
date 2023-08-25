@@ -19,6 +19,10 @@ parameters:
   type: boolean
   displayName: Linux (ARM64)
   default: false
+- name: alpine_x64
+  type: boolean
+  displayName: Alpine (x64)
+  default: false
 - name: rhel7_x64
   type: boolean
   displayName: RHEL 7 (x64)
@@ -60,6 +64,7 @@ extends:
     linux_x64: ${{ parameters.linux_x64 }}
     linux_arm: ${{ parameters.linux_arm }}
     linux_arm64: ${{ parameters.linux_arm64 }}
+    alpine_x64: ${{ parameters.alpine_x64 }}
     rhel7_x64: ${{ parameters.rhel7_x64 }}
     macOS_x64: ${{ parameters.macOS_x64 }}
     macOS_arm64: ${{ parameters.macOS_arm64 }}

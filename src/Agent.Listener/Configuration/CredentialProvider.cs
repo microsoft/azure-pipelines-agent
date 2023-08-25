@@ -14,6 +14,9 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Client;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
+using Azure.Identity;
+using System.Threading;
+using Azure.Core;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
@@ -310,6 +313,53 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             ArgUtil.NotNull(command, nameof(command));
             CredentialData.Data[Constants.Agent.CommandLine.Args.UserName] = command.GetUserName();
             CredentialData.Data[Constants.Agent.CommandLine.Args.Password] = command.GetPassword();
+        }
+    }
+
+    public sealed class ServicePrincipalCredential : CredentialProvider
+    {
+        public ServicePrincipalCredential() : base(Constants.Configuration.ServicePrincipal) { }
+
+        public override VssCredentials GetVssCredentials(IHostContext context)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+            Tracing trace = context.GetTrace(nameof(ServicePrincipalCredential));
+            trace.Info(nameof(GetVssCredentials));
+
+            CredentialData.Data.TryGetValue(Constants.Agent.CommandLine.Args.TenantId, out string tenantId);
+            ArgUtil.NotNullOrEmpty(tenantId, nameof(tenantId));
+            trace.Info("tenant id retrieved: {0} chars", tenantId.Length);
+
+            CredentialData.Data.TryGetValue(Constants.Agent.CommandLine.Args.ClientId, out string clientId);
+            ArgUtil.NotNullOrEmpty(clientId, nameof(clientId));
+            trace.Info("client id retrieved: {0} chars", clientId.Length);
+
+            CredentialData.Data.TryGetValue(Constants.Agent.CommandLine.Args.ClientSecret, out string clientSecret);
+            ArgUtil.NotNullOrEmpty(clientSecret, nameof(clientSecret));
+            trace.Info("client secret retrieved: {0} chars", clientSecret.Length);
+
+            var credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+
+            var tokenRequestContext = new TokenRequestContext(VssAadSettings.DefaultScopes);
+            var accessToken = credential.GetTokenAsync(tokenRequestContext, CancellationToken.None).GetAwaiter().GetResult();
+
+            var vssAadToken = new VssAadToken("Bearer", accessToken.Token);
+            var vssAadCredentials = new VssAadCredential(vssAadToken);
+
+            var creds = new VssCredentials(vssAadCredentials);
+            trace.Info("cred created");
+
+            return creds;
+        }
+        public override void EnsureCredential(IHostContext context, CommandSettings command, string serverUrl)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+            Tracing trace = context.GetTrace(nameof(ServicePrincipalCredential));
+            trace.Info(nameof(EnsureCredential));
+            ArgUtil.NotNull(command, nameof(command));
+            CredentialData.Data[Constants.Agent.CommandLine.Args.ClientId] = command.GetClientId();
+            CredentialData.Data[Constants.Agent.CommandLine.Args.TenantId] = command.GetTenantId();
+            CredentialData.Data[Constants.Agent.CommandLine.Args.ClientSecret] = command.GetClientSecret();
         }
     }
 }
