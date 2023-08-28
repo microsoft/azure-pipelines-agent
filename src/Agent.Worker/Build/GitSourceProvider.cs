@@ -100,7 +100,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             // add base64 encoding auth header into secretMasker.
             HostContext.SecretMasker.AddValue(base64encodedAuthHeader, WellKnownSecretAliases.GitSourceProviderAuthHeader);
-            return $"basic {base64encodedAuthHeader}";
+            return $"Basic {base64encodedAuthHeader}";
         }
     }
 
@@ -205,7 +205,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             // tfsgit use bearer auth header with JWToken from systemconnection.
             ArgUtil.NotNullOrEmpty(password, nameof(password));
-            return $"bearer {password}";
+            return $"Bearer {password}";
         }
     }
 

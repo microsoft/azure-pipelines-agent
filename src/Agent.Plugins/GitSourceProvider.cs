@@ -223,7 +223,7 @@ namespace Agent.Plugins.Repository
             {
                 // tfsgit use bearer auth header with JWToken from systemconnection.
                 ArgUtil.NotNullOrEmpty(password, nameof(password));
-                return $"bearer {password}";
+                return $"Bearer {password}";
             }
             else
             {
@@ -233,7 +233,7 @@ namespace Agent.Plugins.Repository
 
                 // add base64 encoding auth header into secretMasker.
                 executionContext.SetSecret(base64encodedAuthHeader);
-                return $"basic {base64encodedAuthHeader}";
+                return $"Basic {base64encodedAuthHeader}";
             }
         }
 
