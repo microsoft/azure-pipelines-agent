@@ -290,6 +290,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         // if the step already canceled, don't set it to failed.
                         step.ExecutionContext.CommandResult = TaskResultUtil.MergeTaskResults(step.ExecutionContext.CommandResult, TaskResult.Failed);
                     }
+                    else if (HostContext.AgentShutdownToken.IsCancellationRequested)
+                    {
+                        Trace.Error($"Caught Agent shutdown exception from async command {command.Name}: {ex}");
+                        step.ExecutionContext.Error(ex);
+
+                        // if the step already canceled, don't set it to failed.
+                        step.ExecutionContext.CommandResult = TaskResultUtil.MergeTaskResults(step.ExecutionContext.CommandResult, TaskResult.Failed);
+                    }
                     else
                     {
                         // log and save the OperationCanceledException, set step result to canceled if the current result is not failed.
