@@ -13,6 +13,7 @@ using Xunit;
 using Microsoft.VisualStudio.Services.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Agent.Listener.Telemetry;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
 {
@@ -29,6 +30,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         private Mock<IVstsAgentWebProxy> _proxy;
         private Mock<IAgentCertificateManager> _cert;
         private Mock<ISelfUpdater> _updater;
+        private Mock<IAgenetListenerTelemetryPublisher> _listenerTelemetryPublisher;
 
         public AgentL0()
         {
@@ -43,6 +45,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             _proxy = new Mock<IVstsAgentWebProxy>();
             _cert = new Mock<IAgentCertificateManager>();
             _updater = new Mock<ISelfUpdater>();
+            _listenerTelemetryPublisher = new Mock<IAgenetListenerTelemetryPublisher>();
         }
 
         private AgentJobRequestMessage CreateJobRequestMessage(string jobName)
@@ -66,6 +69,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
         //process 2 new job messages, and one cancel message
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope")]
         public async void TestRunAsync()
         {
             using (var hc = new TestHostContext(this))
@@ -80,6 +84,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 hc.SetSingleton<IVstsAgentWebProxy>(_proxy.Object);
                 hc.SetSingleton<IAgentCertificateManager>(_cert.Object);
                 hc.SetSingleton<IConfigurationStore>(_configStore.Object);
+                hc.SetSingleton<IAgenetListenerTelemetryPublisher>(_listenerTelemetryPublisher.Object);
+
                 agent.Initialize(hc);
                 var settings = new AgentSettings
                 {
@@ -192,7 +198,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 hc.SetSingleton<IVstsAgentWebProxy>(_proxy.Object);
                 hc.SetSingleton<IAgentCertificateManager>(_cert.Object);
                 hc.SetSingleton<IConfigurationStore>(_configStore.Object);
-
+                hc.SetSingleton<IAgenetListenerTelemetryPublisher>(_listenerTelemetryPublisher.Object);
                 var command = new CommandSettings(hc, args);
 
                 _configurationManager.Setup(x => x.IsConfigured()).Returns(true);
@@ -226,6 +232,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 hc.SetSingleton<IVstsAgentWebProxy>(_proxy.Object);
                 hc.SetSingleton<IAgentCertificateManager>(_cert.Object);
                 hc.SetSingleton<IConfigurationStore>(_configStore.Object);
+                hc.SetSingleton<IAgenetListenerTelemetryPublisher>(_listenerTelemetryPublisher.Object);
 
                 var command = new CommandSettings(hc, new[] { "run" });
 
@@ -262,6 +269,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 hc.SetSingleton<IVstsAgentWebProxy>(_proxy.Object);
                 hc.SetSingleton<IAgentCertificateManager>(_cert.Object);
                 hc.SetSingleton<IConfigurationStore>(_configStore.Object);
+                hc.SetSingleton<IAgenetListenerTelemetryPublisher>(_listenerTelemetryPublisher.Object);
 
                 var command = new CommandSettings(hc, new string[] { });
 
@@ -300,6 +308,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 hc.SetSingleton<IVstsAgentWebProxy>(_proxy.Object);
                 hc.SetSingleton<IAgentCertificateManager>(_cert.Object);
                 hc.SetSingleton<IConfigurationStore>(_configStore.Object);
+                hc.SetSingleton<IAgenetListenerTelemetryPublisher>(_listenerTelemetryPublisher.Object);
+
                 agent.Initialize(hc);
                 var settings = new AgentSettings
                 {
@@ -396,6 +406,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 hc.SetSingleton<IVstsAgentWebProxy>(_proxy.Object);
                 hc.SetSingleton<IAgentCertificateManager>(_cert.Object);
                 hc.SetSingleton<IConfigurationStore>(_configStore.Object);
+                hc.SetSingleton<IAgenetListenerTelemetryPublisher>(_listenerTelemetryPublisher.Object);
+
                 agent.Initialize(hc);
                 var settings = new AgentSettings
                 {
@@ -500,6 +512,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 hc.SetSingleton<IAgentCertificateManager>(_cert.Object);
                 hc.SetSingleton<IConfigurationStore>(_configStore.Object);
                 hc.SetSingleton<ISelfUpdater>(_updater.Object);
+                hc.SetSingleton<IAgenetListenerTelemetryPublisher>(_listenerTelemetryPublisher.Object);
 
                 agent.Initialize(hc);
                 var settings = new AgentSettings
@@ -591,6 +604,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 hc.SetSingleton<IVstsAgentWebProxy>(_proxy.Object);
                 hc.SetSingleton<IAgentCertificateManager>(_cert.Object);
                 hc.SetSingleton<IConfigurationStore>(_configStore.Object);
+                hc.SetSingleton<IAgenetListenerTelemetryPublisher>(_listenerTelemetryPublisher.Object);
 
                 var command = new CommandSettings(hc, new[] { arg });
 
@@ -703,6 +717,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
         //process 1 job message and one metadata message
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope")]
         public async void TestMetadataUpdate()
         {
             using (var hc = new TestHostContext(this))
@@ -717,6 +732,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 hc.SetSingleton<IVstsAgentWebProxy>(_proxy.Object);
                 hc.SetSingleton<IAgentCertificateManager>(_cert.Object);
                 hc.SetSingleton<IConfigurationStore>(_configStore.Object);
+                hc.SetSingleton<IAgenetListenerTelemetryPublisher>(_listenerTelemetryPublisher.Object);
+
                 agent.Initialize(hc);
                 var settings = new AgentSettings
                 {

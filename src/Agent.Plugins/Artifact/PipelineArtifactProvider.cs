@@ -31,7 +31,11 @@ namespace Agent.Plugins
             this.connection = connection;
         }
 
-        public async Task DownloadSingleArtifactAsync(ArtifactDownloadParameters downloadParameters, BuildArtifact buildArtifact, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
+        public async Task DownloadSingleArtifactAsync(
+            ArtifactDownloadParameters downloadParameters,
+            BuildArtifact buildArtifact,
+            CancellationToken cancellationToken,
+            AgentTaskPluginExecutionContext context)
         {
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClientAsync(
                 this.context.IsSystemDebugTrue(),
@@ -39,6 +43,8 @@ namespace Agent.Plugins
                 this.connection,
                 DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
                 WellKnownDomainIds.DefaultDomainId,
+                Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
+                context,
                 cancellationToken);
 
             using (clientTelemetry)
@@ -73,7 +79,11 @@ namespace Agent.Plugins
             }
         }
 
-        public async Task DownloadMultipleArtifactsAsync(ArtifactDownloadParameters downloadParameters, IEnumerable<BuildArtifact> buildArtifacts, CancellationToken cancellationToken, AgentTaskPluginExecutionContext context)
+        public async Task DownloadMultipleArtifactsAsync(
+            ArtifactDownloadParameters downloadParameters,
+            IEnumerable<BuildArtifact> buildArtifacts,
+            CancellationToken cancellationToken,
+            AgentTaskPluginExecutionContext context)
         {
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClientAsync(
                 this.context.IsSystemDebugTrue(),
@@ -81,6 +91,8 @@ namespace Agent.Plugins
                 this.connection,
                 DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
                 WellKnownDomainIds.DefaultDomainId,
+                Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
+                context,
                 cancellationToken);
 
             using (clientTelemetry)

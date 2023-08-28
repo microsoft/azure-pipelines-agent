@@ -17,16 +17,6 @@ varCheckList=(
     'AGENT_TOOLSDIRECTORY'
     )
 
-# Allows the caller to specify additional vars on the commandline, for example:
-# ./env.sh DOTNET_SYSTEM_GLOBALIZATION_INVARIANT DOTNET_ROOT
-for arg in "$@"
-do
-    if [[ ! " ${varCheckList[@]} " =~ " ${arg} " ]]; then
-        varCheckList+=($arg)
-    fi
-done
-
-
 envContents=""
 
 if [ -f ".env" ]; then

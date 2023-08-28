@@ -986,6 +986,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1814:Prefer jagged arrays over multidimensional")]
         public void GetDirectoryName_LinuxStyle()
         {
             using (TestHostContext hc = new TestHostContext(this))
@@ -1009,6 +1010,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1814:Prefer jagged arrays over multidimensional")]
         public void GetDirectoryName_WindowsStyle()
         {
             using (TestHostContext hc = new TestHostContext(this))

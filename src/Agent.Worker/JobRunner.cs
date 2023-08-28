@@ -40,6 +40,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             set => _jobServerQueue = value;
         }
+
         public async Task<TaskResult> RunAsync(Pipelines.AgentJobRequestMessage message, CancellationToken jobRequestCancellationToken)
         {
             // Validate parameters.
@@ -53,6 +54,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             DateTime jobStartTimeUtc = DateTime.UtcNow;
 
             ServiceEndpoint systemConnection = message.Resources.Endpoints.Single(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
+            bool skipServerCertificateValidation = HostContext.GetService<IAgentCertificateManager>().SkipServerCertificateValidation;
 
             // System.AccessToken
             if (message.Variables.ContainsKey(Constants.Variables.System.EnableAccessToken) &&
@@ -83,9 +85,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             VssConnection jobConnection = VssUtil.CreateConnection(
                 jobServerUrl,
                 jobServerCredential,
-                trace: Trace,
+                Trace,
+                skipServerCertificateValidation,
                 new DelegatingHandler[] { new ThrottlingReportHandler(_jobServerQueue) }
-                );
+            );
             await jobServer.ConnectAsync(jobConnection);
 
             _jobServerQueue.Start(message);
@@ -93,47 +96,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             IExecutionContext jobContext = null;
             CancellationTokenRegistration? agentShutdownRegistration = null;
+            VssConnection taskConnection = null;
+            VssConnection legacyTaskConnection = null;
+
             try
             {
                 // Create the job execution context.
                 jobContext = HostContext.CreateService<IExecutionContext>();
                 jobContext.InitializeJob(message, jobRequestCancellationToken);
-
-                // Check if a system supports .NET 6
-                PackageVersion agentVersion = new PackageVersion(BuildConstants.AgentPackage.Version);
-                if (agentVersion.Major < 3)
-                {
-                    try
-                    {
-                        Trace.Verbose("Checking if your system supports .NET 6");
-
-                        string systemId = PlatformUtil.GetSystemId();
-                        SystemVersion systemVersion = PlatformUtil.GetSystemVersion();
-                        string notSupportNet6Message = null;
-
-                        if (await PlatformUtil.DoesSystemPersistsInNet6Whitelist())
-                        {
-                            // Check version of the system
-                            if (!await PlatformUtil.IsNet6Supported())
-                            {
-                                notSupportNet6Message = $"The operating system the agent is running on is \"{systemId}\" ({systemVersion}), which will not be supported by the .NET 6 based v3 agent. Please upgrade the operating system of this host to ensure compatibility with the v3 agent. See https://aka.ms/azdo-pipeline-agent-version";
-                            }
-                        }
-                        else
-                        {
-                            notSupportNet6Message = $"The operating system the agent is running on is \"{systemId}\" ({systemVersion}), which has not been tested with the .NET 6 based v3 agent. The v2 agent wil not automatically upgrade to the v3 agent. You can manually download the .NET 6 based v3 agent from https://github.com/microsoft/azure-pipelines-agent/releases. See https://aka.ms/azdo-pipeline-agent-version";
-                        }
-
-                        if (!string.IsNullOrWhiteSpace(notSupportNet6Message))
-                        {
-                            jobContext.AddIssue(new Issue() { Type = IssueType.Warning, Message = notSupportNet6Message });
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Trace.Error($"Error has occurred while checking if system supports .NET 6: {ex}");
-                    }
-                }
 
                 Trace.Info("Starting the job execution context.");
                 jobContext.Start();
@@ -179,6 +149,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 jobContext.SetVariable(Constants.Variables.Agent.HomeDirectory, HostContext.GetDirectory(WellKnownDirectory.Root), isFilePath: true);
                 jobContext.SetVariable(Constants.Variables.Agent.JobName, message.JobDisplayName);
                 jobContext.SetVariable(Constants.Variables.Agent.CloudId, settings.AgentCloudId);
+                jobContext.SetVariable(Constants.Variables.Agent.IsSelfHosted, settings.IsMSHosted ? "0" : "1");
                 jobContext.SetVariable(Constants.Variables.Agent.MachineName, Environment.MachineName);
                 jobContext.SetVariable(Constants.Variables.Agent.Name, settings.AgentName);
                 jobContext.SetVariable(Constants.Variables.Agent.OS, VarUtil.OS);
@@ -194,6 +165,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 jobContext.SetVariable(Constants.Variables.Agent.WorkFolder, HostContext.GetDirectory(WellKnownDirectory.Work), isFilePath: true);
                 jobContext.SetVariable(Constants.Variables.System.WorkFolder, HostContext.GetDirectory(WellKnownDirectory.Work), isFilePath: true);
+
+                var azureVmCheckCommand = jobContext.GetHostContext().GetService<IAsyncCommandContext>();
+                azureVmCheckCommand.InitializeCommandContext(jobContext,"GetAzureVMMetada");
+                azureVmCheckCommand.Task = Task.Run(() => jobContext.SetVariable(Constants.Variables.System.IsAzureVM, PlatformUtil.DetectAzureVM() ? "1" : "0"));
+                jobContext.AsyncCommands.Add(azureVmCheckCommand);
+
+                var dockerDetectCommand = jobContext.GetHostContext().GetService<IAsyncCommandContext>();
+                dockerDetectCommand.InitializeCommandContext(jobContext,"DetectDockerContainer");
+                dockerDetectCommand.Task = Task.Run(() => jobContext.SetVariable(Constants.Variables.System.IsDockerContainer, PlatformUtil.DetectDockerContainer() ? "1" : "0"));
+                jobContext.AsyncCommands.Add(dockerDetectCommand);
 
                 string toolsDirectory = HostContext.GetDirectory(WellKnownDirectory.Tools);
                 Directory.CreateDirectory(toolsDirectory);
@@ -225,7 +206,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 if (taskServerUri != null)
                 {
                     Trace.Info($"Creating task server with {taskServerUri}");
-                    await taskServer.ConnectAsync(VssUtil.CreateConnection(taskServerUri, taskServerCredential, trace: Trace));
+
+                    taskConnection = VssUtil.CreateConnection(taskServerUri, taskServerCredential, Trace, skipServerCertificateValidation);
+                    await taskServer.ConnectAsync(taskConnection);
                 }
 
                 // for back compat TFS 2015 RTM/QU1, we may need to switch the task server url to agent config url
@@ -236,8 +219,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         Trace.Info($"Can't determine task download url from JobMessage or the endpoint doesn't exist.");
                         var configStore = HostContext.GetService<IConfigurationStore>();
                         taskServerUri = new Uri(configStore.GetSettings().ServerUrl);
+
                         Trace.Info($"Recreate task server with configuration server url: {taskServerUri}");
-                        await taskServer.ConnectAsync(VssUtil.CreateConnection(taskServerUri, taskServerCredential, trace: Trace));
+                        legacyTaskConnection = VssUtil.CreateConnection(taskServerUri, taskServerCredential, trace: Trace, skipServerCertificateValidation);
+                        await taskServer.ConnectAsync(legacyTaskConnection);
                     }
                 }
 
@@ -379,6 +364,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     agentShutdownRegistration.Value.Dispose();
                     agentShutdownRegistration = null;
                 }
+
+                legacyTaskConnection?.Dispose();
+                taskConnection?.Dispose();
+                jobConnection?.Dispose();
 
                 await ShutdownQueue(throwOnFailure: false);
             }

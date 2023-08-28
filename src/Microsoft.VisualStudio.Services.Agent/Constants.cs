@@ -105,6 +105,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public const string UserName = "username";
                     public const string WindowsLogonAccount = "windowslogonaccount";
                     public const string Work = "work";
+                    public const string ClientId = "clientid";
+                    public const string TenantId = "tenantid";
 
                     // Secret args. Must be added to the "Secrets" getter as well.
                     public const string Password = "password";
@@ -112,6 +114,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public const string SslClientCertPassword = "sslclientcertpassword";
                     public const string Token = "token";
                     public const string WindowsLogonPassword = "windowslogonpassword";
+                    public const string ClientSecret = "clientsecret";
+
                     public static string[] Secrets => new[]
                     {
                         Password,
@@ -119,6 +123,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                         SslClientCertPassword,
                         Token,
                         WindowsLogonPassword,
+                        ClientSecret,
                     };
                 }
 
@@ -209,6 +214,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static readonly string Integrated = "Integrated";
             public static readonly string OAuth = "OAuth";
             public static readonly string ServiceIdentity = "ServiceIdentity";
+            public static readonly string ServicePrincipal = "SP";
         }
 
         public static class EndpointData
@@ -286,6 +292,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string Diagnostic = "agent.diagnostic";
                 public static readonly string HomeDirectory = "agent.homedirectory";
                 public static readonly string Id = "agent.id";
+                public static readonly string IsSelfHosted = "agent.isselfhosted";
                 public static readonly string GitUseSChannel = "agent.gituseschannel";
                 public static readonly string JobName = "agent.jobname";
                 public static readonly string JobStatus = "agent.jobstatus";
@@ -424,6 +431,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string DefinitionName = "system.definitionName";
                 public static readonly string EnableAccessToken = "system.enableAccessToken";
                 public static readonly string HostType = "system.hosttype";
+                public static readonly string IsAzureVM = "system.isazurevm";
+                public static readonly string IsDockerContainer = "system.isdockercontainer";
                 public static readonly string JobAttempt = "system.jobAttempt";
                 public static readonly string JobDisplayName = "system.jobDisplayName";
                 public static readonly string JobId = "system.jobId";
@@ -431,6 +440,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string PhaseAttempt = "system.phaseAttempt";
                 public static readonly string PhaseDisplayName = "system.phaseDisplayName";
                 public static readonly string PhaseName = "system.phaseName";
+                public static readonly string PlanId = "system.planId";
                 public static readonly string PreferGitFromPath = "system.prefergitfrompath";
                 public static readonly string PullRequestTargetBranchName = "system.pullrequest.targetbranch";
                 public static readonly string SelfManageGitCreds = "system.selfmanagegitcreds";
@@ -472,6 +482,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Agent.GitUseSChannel,
                 Agent.HomeDirectory,
                 Agent.Id,
+                Agent.IsSelfHosted,
                 Agent.JobName,
                 Agent.JobStatus,
                 Agent.MachineName,
@@ -564,6 +575,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                 System.DefinitionName,
                 System.EnableAccessToken,
                 System.HostType,
+                System.IsAzureVM,
+                System.IsDockerContainer,
                 System.JobAttempt,
                 System.JobDisplayName,
                 System.JobId,
@@ -571,6 +584,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 System.PhaseAttempt,
                 System.PhaseDisplayName,
                 System.PhaseName,
+                System.PlanId,
                 System.PreferGitFromPath,
                 System.PullRequestTargetBranchName,
                 System.SelfManageGitCreds,

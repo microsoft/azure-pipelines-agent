@@ -134,6 +134,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public string Agent_ProxyUrl => Get(Constants.Variables.Agent.ProxyUrl);
 
+        public bool? Agent_SslSkipCertValidation => GetBoolean(Constants.Variables.Agent.SslSkipCertValidation);
+
         public string Agent_ProxyUsername => Get(Constants.Variables.Agent.ProxyUsername);
 
         public string Agent_ProxyPassword => Get(Constants.Variables.Agent.ProxyPassword);
@@ -398,7 +400,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             lock (_setLock)
             {
                 Variable dummy;
-                _expanded.Remove(name, out dummy);
+                 _expanded.Remove(name, out dummy);
                 _nonexpanded.Remove(name, out dummy);
                 _trace.Verbose($"Unset '{name}'");
             }
@@ -447,8 +449,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public bool IsReadOnly(string name)
         {
             Variable existingVariable = null;
-            if (!_expanded.TryGetValue(name, out existingVariable))
-            {
+            if (!_expanded.TryGetValue(name, out existingVariable)) {
                 _nonexpanded.TryGetValue(name, out existingVariable);
             }
 

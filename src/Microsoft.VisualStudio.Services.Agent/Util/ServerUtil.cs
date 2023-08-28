@@ -76,21 +76,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         /// <summary>
         /// Determine server deployment type based on connection data (Hosted/OnPremises) if it has not been determined yet.
         /// </summary>
-        public async Task DetermineDeploymentType(string serverUrl, VssCredentials credentials, ILocationServer locationServer)
+        public async Task DetermineDeploymentType(string serverUrl, VssCredentials credentials, ILocationServer locationServer, bool skipServerCertificateValidation = false)
         {
             // Check if deployment type has not been determined yet
             if (_deploymentType == DeploymentFlags.None)
             {
                 // Determine the service deployment type based on connection data. (Hosted/OnPremises)
-                var connectionData = await GetConnectionData(serverUrl, credentials, locationServer);
+                var connectionData = await GetConnectionData(serverUrl, credentials, locationServer, skipServerCertificateValidation);
                 _deploymentType = connectionData.DeploymentType;
             }
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "locationServer")]
-        private async Task<Location.ConnectionData> GetConnectionData(string serverUrl, VssCredentials credentials, ILocationServer locationServer)
+        private async Task<Location.ConnectionData> GetConnectionData(string serverUrl, VssCredentials credentials, ILocationServer locationServer, bool skipServerCertificateValidation)
         {
-            VssConnection connection = VssUtil.CreateConnection(new Uri(serverUrl), credentials, trace: _trace);
+            VssConnection connection = VssUtil.CreateConnection(new Uri(serverUrl), credentials, trace: _trace, skipServerCertificateValidation);
             await locationServer.ConnectAsync(connection);
             return await locationServer.GetConnectionDataAsync();
         }

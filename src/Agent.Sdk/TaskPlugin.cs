@@ -62,6 +62,7 @@ namespace Agent.Sdk
         public Dictionary<string, string> Inputs { get; set; }
         public ContainerInfo Container { get; set; }
         public Dictionary<string, string> JobSettings { get; set; }
+        public AgentWebProxySettings WebProxySettings { get; private set; }
 
         [JsonIgnore]
         public VssConnection VssConnection
@@ -98,6 +99,7 @@ namespace Agent.Sdk
             }
 
             var certSetting = GetCertConfiguration();
+            bool skipServerCertificateValidation = false;
             if (certSetting != null)
             {
                 if (!string.IsNullOrEmpty(certSetting.ClientCertificateArchiveFile))
@@ -107,16 +109,17 @@ namespace Agent.Sdk
 
                 if (certSetting.SkipServerCertificateValidation)
                 {
+                    skipServerCertificateValidation = true;
                     VssClientHttpRequestSettings.Default.ServerCertificateValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
                 }
             }
 
-            var proxySetting = GetProxyConfiguration();
-            if (proxySetting != null)
+            WebProxySettings = GetProxyConfiguration();
+            if (WebProxySettings != null)
             {
-                if (!string.IsNullOrEmpty(proxySetting.ProxyAddress))
+                if (!string.IsNullOrEmpty(WebProxySettings.ProxyAddress))
                 {
-                    VssHttpMessageHandler.DefaultWebProxy = new AgentWebProxy(proxySetting.ProxyAddress, proxySetting.ProxyUsername, proxySetting.ProxyPassword, proxySetting.ProxyBypassList);
+                    VssHttpMessageHandler.DefaultWebProxy = new AgentWebProxy(WebProxySettings.ProxyAddress, WebProxySettings.ProxyUsername, WebProxySettings.ProxyPassword, WebProxySettings.ProxyBypassList);
                 }
             }
 
@@ -126,7 +129,7 @@ namespace Agent.Sdk
 
             VssCredentials credentials = VssUtil.GetVssCredential(systemConnection);
             ArgUtil.NotNull(credentials, nameof(credentials));
-            return VssUtil.CreateConnection(systemConnection.Url, credentials, trace: _trace);
+            return VssUtil.CreateConnection(systemConnection.Url, credentials, trace: _trace, skipServerCertificateValidation);
         }
 
         public string GetInput(string name, bool required = false)
@@ -319,12 +322,12 @@ namespace Agent.Sdk
 
         public AgentWebProxySettings GetProxyConfiguration()
         {
-            string proxyUrl = this.Variables.GetValueOrDefault("Agent.ProxyUrl")?.Value;
+            string proxyUrl = this.Variables.GetValueOrDefault(AgentWebProxySettings.AgentProxyUrlKey)?.Value;
             if (!string.IsNullOrEmpty(proxyUrl))
             {
-                string proxyUsername = this.Variables.GetValueOrDefault("Agent.ProxyUsername")?.Value;
-                string proxyPassword = this.Variables.GetValueOrDefault("Agent.ProxyPassword")?.Value;
-                List<string> proxyBypassHosts = StringUtil.ConvertFromJson<List<string>>(this.Variables.GetValueOrDefault("Agent.ProxyBypassList")?.Value ?? "[]");
+                string proxyUsername = this.Variables.GetValueOrDefault(AgentWebProxySettings.AgentProxyUsernameKey)?.Value;
+                string proxyPassword = this.Variables.GetValueOrDefault(AgentWebProxySettings.AgentProxyPasswordKey)?.Value;
+                List<string> proxyBypassHosts = StringUtil.ConvertFromJson<List<string>>(this.Variables.GetValueOrDefault(AgentWebProxySettings.AgentProxyBypassListKey)?.Value ?? "[]");
                 return new AgentWebProxySettings()
                 {
                     ProxyAddress = proxyUrl,

@@ -1,0 +1,22 @@
+name: Feature request
+description: Use this template to submit a feature request
+title: "[enhancement]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to raise a question
+  - type: markdown
+    attributes:
+      value: |
+        ## Having issue with Tasks?
+        Log an issue at [Azure-Pipelines-Tasks](https://github.com/Microsoft/azure-pipelines-tasks). It contains all of the in-box tasks we ship with Azure-Pipelines/VSTS/TFS. If you're having issues with tasks in Build/Release jobs (e.g. unreasonable task failure) please log an issue there.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Describe your feature request here
+      placeholder: Put your question here.
+      description: Please try to provide as much details as possible
+    validations:
+      required: true
