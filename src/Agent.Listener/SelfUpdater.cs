@@ -390,7 +390,7 @@ You can skip checksum validation for the agent package by setting the environmen
 
                     if (string.IsNullOrEmpty(tar))
                     {
-                        throw new NotSupportedException($"tar -xzf");
+                        throw new NotSupportedException($"tar -xozf");
                     }
 
                     // tar -xzf
@@ -412,10 +412,10 @@ You can skip checksum validation for the agent package by setting the environmen
                             }
                         });
 
-                        int exitCode = await processInvoker.ExecuteAsync(latestAgentDirectory, tar, $"-xzf \"{archiveFile}\"", null, token);
+                        int exitCode = await processInvoker.ExecuteAsync(latestAgentDirectory, tar, $"-xozf \"{archiveFile}\"", null, token);
                         if (exitCode != 0)
                         {
-                            throw new NotSupportedException($"Can't use 'tar -xzf' extract archive file: {archiveFile}. return code: {exitCode}.");
+                            throw new NotSupportedException($"Can't use 'tar -xozf' extract archive file: {archiveFile}. return code: {exitCode}.");
                         }
                     }
                 }
