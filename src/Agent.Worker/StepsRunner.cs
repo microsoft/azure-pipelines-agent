@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 
 using Microsoft.TeamFoundation.DistributedTask.Expressions;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
@@ -107,7 +108,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             ConditionResult conditionReTestResult;
                             if (HostContext.AgentShutdownToken.IsCancellationRequested)
                             {
-                                jobContext.Result = TaskResult.Failed;
+                                if (AgentKnobs.FailJobWhenAgentDies.GetValue(HostContext).AsBoolean())
+                                {
+                                    jobContext.Result = TaskResult.Failed;
+                                }
                                 step.ExecutionContext.Debug($"Skip Re-evaluate condition on agent shutdown.");
                                 conditionReTestResult = false;
                             }
@@ -150,7 +154,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     ConditionResult conditionResult;
                     if (HostContext.AgentShutdownToken.IsCancellationRequested)
                     {
-                        jobContext.Result = TaskResult.Failed;
+                        if (AgentKnobs.FailJobWhenAgentDies.GetValue(HostContext).AsBoolean())
+                        {
+                            jobContext.Result = TaskResult.Failed;
+                        }
                         step.ExecutionContext.Debug($"Skip evaluate condition on agent shutdown.");
                         conditionResult = false;
                     }
@@ -248,7 +255,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     step.ExecutionContext.Error(StringUtil.Loc("StepTimedOut"));
                     step.ExecutionContext.Result = TaskResult.Failed;
                 }
-                else if (HostContext.AgentShutdownToken.IsCancellationRequested)
+                else if (AgentKnobs.FailJobWhenAgentDies.GetValue(HostContext).AsBoolean() &&
+                        HostContext.AgentShutdownToken.IsCancellationRequested)
                 {
                     Trace.Error($"Caught Agent Shutdown exception from step: {ex.Message}");
                     step.ExecutionContext.Error(ex);
@@ -290,7 +298,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         // if the step already canceled, don't set it to failed.
                         step.ExecutionContext.CommandResult = TaskResultUtil.MergeTaskResults(step.ExecutionContext.CommandResult, TaskResult.Failed);
                     }
-                    else if (HostContext.AgentShutdownToken.IsCancellationRequested)
+                    else if (AgentKnobs.FailJobWhenAgentDies.GetValue(HostContext).AsBoolean() &&
+                            HostContext.AgentShutdownToken.IsCancellationRequested)
                     {
                         Trace.Error($"Caught Agent shutdown exception from async command {command.Name}: {ex}");
                         step.ExecutionContext.Error(ex);

@@ -498,5 +498,11 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AZP_AGENT_CLEANUP_PSMODULES_IN_POWERSHELL"),
             new EnvironmentKnobSource("AZP_AGENT_CLEANUP_PSMODULES_IN_POWERSHELL"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob FailJobWhenAgentDies = new Knob(
+            nameof(FailJobWhenAgentDies),
+            "Mark the Job as Failed instead of Canceled when the Agent dies due to User Cancellation or Shutdown",
+            new EnvironmentKnobSource("FAIL_JOB_WHEN_AGENT_DIES"),
+            new BuiltInDefaultKnobSource("true"));
     }
 }

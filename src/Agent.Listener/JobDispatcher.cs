@@ -602,7 +602,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                 var messageType = MessageType.CancelRequest;
                                 if (HostContext.AgentShutdownToken.IsCancellationRequested)
                                 {
-                                    resultOnAbandonOrCancel = TaskResult.Failed;
+                                    if (AgentKnobs.FailJobWhenAgentDies.GetValue(HostContext).AsBoolean())
+                                    {
+                                        resultOnAbandonOrCancel = TaskResult.Failed;
+                                    }
                                     switch (HostContext.AgentShutdownReason)
                                     {
                                         case ShutdownReason.UserCancelled:
