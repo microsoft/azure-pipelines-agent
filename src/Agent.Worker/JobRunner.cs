@@ -286,9 +286,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     // set the job to canceled
                     // don't log error issue to job ExecutionContext, since server owns the job level issue
-                    Trace.Error($"Job is canceled during initialize.");
-                    Trace.Error($"Caught exception: {ex}");
-                    return await CompleteJobAsync(jobServer, jobContext, message, TaskResult.Canceled);
+                    if (AgentKnobs.FailJobWhenAgentDies.GetValue(HostContext).AsBoolean() &&
+                        HostContext.AgentShutdownToken.IsCancellationRequested)
+                    {
+                        Trace.Error($"Job is canceled during initialize.");
+                        Trace.Error($"Caught exception: {ex}");
+                        return await CompleteJobAsync(jobServer, jobContext, message, TaskResult.Failed);
+                    }
+                    else
+                    {
+                        Trace.Error($"Job is canceled during initialize.");
+                        Trace.Error($"Caught exception: {ex}");
+                        return await CompleteJobAsync(jobServer, jobContext, message, TaskResult.Canceled);
+                    }
                 }
                 catch (Exception ex)
                 {
