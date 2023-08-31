@@ -17,6 +17,8 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using System.Linq;
 using Microsoft.VisualStudio.Services.Common;
 using System.Diagnostics;
+using Newtonsoft.Json;
+using Microsoft.VisualStudio.Services.Agent.Listener.Telemetry;
 
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
@@ -605,6 +607,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                     if (AgentKnobs.FailJobWhenAgentDies.GetValue(HostContext).AsBoolean())
                                     {
                                         resultOnAbandonOrCancel = TaskResult.Failed;
+                                    }
+                                    try
+                                    {
+                                        var telemetryData = new Dictionary<string, string>
+                                        {
+                                            { "JobId", message.JobId.ToString()},
+                                            { "JobResult", resultOnAbandonOrCancel.ToString() },
+                                        };
+                                        var cmd = new Command("telemetry", "publish")
+                                        {
+                                            Data = JsonConvert.SerializeObject(telemetryData)
+                                        };
+                                        cmd.Properties.Add("area", "PipelinesTasks");
+                                        cmd.Properties.Add("feature", "AgentShutdown");
+
+                                        var telemetryPublisher = HostContext.GetService<IAgenetListenerTelemetryPublisher>();
+
+                                        await telemetryPublisher.PublishEvent(HostContext, cmd);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Trace.Warning($"Unable to publish agent shutdown telemetry data. Exception: {ex}");
                                     }
                                     switch (HostContext.AgentShutdownReason)
                                     {
