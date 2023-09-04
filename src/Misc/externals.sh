@@ -198,7 +198,6 @@ else
         case $PACKAGERUNTIME in
             "linux-musl-x64") ARCH="linux-x64-musl";;
             "linux-x64") ARCH="linux-x64";;
-            "rhel.7.2-x64") ARCH="linux-x64";;
             "linux-arm") ARCH="linux-armv7l";;
             "linux-arm64") ARCH="linux-arm64";;
             "osx-x64") ARCH="darwin-x64";;

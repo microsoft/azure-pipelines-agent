@@ -24,7 +24,6 @@ parameters:
   - win
   - linux
   - linux-musl
-  - rhel.7.2
   - osx
 
 - name: arch

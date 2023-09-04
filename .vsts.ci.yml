@@ -1,4 +1,10 @@
 parameters:
+- name: testProxyAgent
+  type: boolean
+  displayName: Test Proxy Agent
+  default: true
+
+# Targets
 - name: win_x64
   type: boolean
   displayName: Windows (x64)
@@ -23,25 +29,14 @@ parameters:
   type: boolean
   displayName: Alpine (x64)
   default: true
-- name: rhel7_x64
-  type: boolean
-  displayName: RHEL 7 (x64)
-  default: false
 - name: macOS_x64
   type: boolean
   displayName: macOS (x64)
   default: true
 - name: macOS_arm64
   type: boolean
-  displayName: macOS (arm64)
+  displayName: macOS (ARM64)
   default: true
-- name: skipRhelRelease
-  type: boolean
-  default: true
-- name: testProxyAgent
-  type: boolean
-  default: true
-  displayName: Test Proxy Agent
 
 pr:
   branches:
@@ -57,7 +52,6 @@ extends:
     componentDetection: ${{ eq(variables['Build.Reason'], 'PullRequest') }}
     publishArtifacts: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
     buildAlternatePackage: false
-    skipRhelRelease: ${{ parameters.skipRhelRelease }}
     testProxyAgent: ${{ parameters.testProxyAgent }}
     win_x64: ${{ parameters.win_x64 }}
     win_x86: ${{ parameters.win_x86 }}
@@ -65,6 +59,5 @@ extends:
     linux_arm: ${{ parameters.linux_arm }}
     linux_arm64: ${{ parameters.linux_arm64 }}
     alpine_x64: ${{ parameters.alpine_x64 }}
-    rhel7_x64: ${{ parameters.rhel7_x64 }}
     macOS_x64: ${{ parameters.macOS_x64 }}
     macOS_arm64: ${{ parameters.macOS_arm64 }}

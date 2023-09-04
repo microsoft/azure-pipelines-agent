@@ -65,11 +65,9 @@ function detect_platform_and_runtime_id ()
         fi
 
         if [ -e /etc/redhat-release ]; then
-            local redhatRelease=$(</etc/redhat-release)
-            if [[ $redhatRelease == *"release 7."* ]]; then
-                DETECTED_RUNTIME_ID='rhel.7.2-x64'
-            else
-                echo "RHEL supported only for version 7"
+            redhatRelease=$(grep -oE "[0-9]+" /etc/redhat-release | awk "NR==1")
+            if [[ "${redhatRelease}" -lt 7 ]]; then
+                echo "RHEL supported for version 7 and higher."
                 exit 1
             fi
         fi
@@ -299,7 +297,7 @@ else
     RUNTIME_ID=$DETECTED_RUNTIME_ID
 fi
 
-_VALID_RIDS='linux-x64:linux-arm:linux-arm64:linux-musl-x64:rhel.7.2-x64:osx-x64:win-x64:win-x86:osx-arm64'
+_VALID_RIDS='linux-x64:linux-arm:linux-arm64:linux-musl-x64:osx-x64:osx-arm64:win-x64:win-x86'
 if [[ ":$_VALID_RIDS:" != *:$RUNTIME_ID:* ]]; then
     failed "must specify a valid target runtime ID (one of: $_VALID_RIDS)"
 fi
