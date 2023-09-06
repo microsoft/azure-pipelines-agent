@@ -93,7 +93,15 @@ namespace Agent.Worker.Handlers.Helpers
                     telemetry.VariablesWithESInside++;
                 }
 
-                var envValue = System.Environment.GetEnvironmentVariable(envName) ?? "";
+                var envValue = Environment.GetEnvironmentVariable(envName);
+                // In case we don't have such variable, we just leave it as is
+                if (string.IsNullOrEmpty(envValue))
+                {
+                    telemetry.NotExistingEnv++;
+                    startIndex = envEndIndex;
+                    continue;
+                }
+
                 var tail = result[(envEndIndex + envPostfix.Length)..];
 
                 result = head + envValue + tail;
@@ -134,6 +142,7 @@ namespace Agent.Worker.Handlers.Helpers
         public int VariablesWithESInside { get; set; } = 0;
         public int QuotesNotEnclosed { get; set; } = 0;
         public int NotClosedEnvSyntaxPosition { get; set; } = 0;
+        public int NotExistingEnv { get; set; } = 0;
 
         public Dictionary<string, int> ToDictionary()
         {
@@ -149,7 +158,8 @@ namespace Agent.Worker.Handlers.Helpers
                 ["bracedVariables"] = BracedVariables,
                 ["bariablesWithESInside"] = VariablesWithESInside,
                 ["quotesNotEnclosed"] = QuotesNotEnclosed,
-                ["notClosedBraceSyntaxPosition"] = NotClosedEnvSyntaxPosition
+                ["notClosedBraceSyntaxPosition"] = NotClosedEnvSyntaxPosition,
+                ["notExistingEnv"] = NotExistingEnv
             };
         }
 

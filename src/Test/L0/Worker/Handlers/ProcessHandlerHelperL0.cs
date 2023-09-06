@@ -68,7 +68,20 @@ namespace Test.L0.Worker.Handlers
             Environment.SetEnvironmentVariable("VAR2", "2");
             Environment.SetEnvironmentVariable("NESTED", "nested");
 
-            var (actualArgs, _) = ProcessHandlerHelper.ProcessInputArguments(argsLine);
+            var (actualArgs, _) = ProcessHandlerHelper.ExpandArguments(argsLine);
+
+            Assert.Equal(expectedArgs, actualArgs);
+        }
+
+        [Fact]
+        public void SkipsInvalidEnv()
+        {
+            string argsLine = "%VAR1% 2";
+            Environment.SetEnvironmentVariable("VAR1", null);
+
+            string expectedArgs = "%VAR1% 2";
+
+            var (actualArgs, _) = ProcessHandlerHelper.ExpandArguments(argsLine);
 
             Assert.Equal(expectedArgs, actualArgs);
         }
