@@ -23,9 +23,8 @@ parameters:
   values:
   - win
   - linux
+  - linux-musl
   - osx
-  - rhel.6
-  - rhel.7.2
 
 - name: arch
   type: string
@@ -87,8 +86,6 @@ jobs:
     DisableCFSDetector: true
     DisableDockerDetector: true
     nugetMultiFeedWarnLevel: none
-    ${{ if eq(parameters.os, 'rhel.6') }}:
-      AGENT_USE_NODE10: true
 
   steps:
 
