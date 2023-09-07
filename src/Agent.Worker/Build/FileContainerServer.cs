@@ -232,7 +232,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 token.ThrowIfCancellationRequested();
                 try
                 {
-                    string itemPath = (_containerPath.TrimEnd('/') + "/" + fileToUpload.Remove(0, _sourceParentDirectory.Length + 1)).Replace('\\', '/');
+                    string fileName = fileToUpload.Replace(_sourceParentDirectory, string.Empty).Replace("\\", string.Empty).Replace("/", string.Empty);
+                    string itemPath = _containerPath.TrimEnd('/') + "/" + fileName;
                     uploadTimer.Restart();
                     bool catchExceptionDuringUpload = false;
                     HttpResponseMessage response = null;
