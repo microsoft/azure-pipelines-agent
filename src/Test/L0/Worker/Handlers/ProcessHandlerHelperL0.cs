@@ -1,7 +1,5 @@
-﻿using Agent.Worker.Handlers.Helpers;
-using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System;
+using Agent.Worker.Handlers.Helpers;
 using Xunit;
 
 namespace Test.L0.Worker.Handlers
@@ -14,7 +12,7 @@ namespace Test.L0.Worker.Handlers
             string argsLine = "";
             string expectedArgs = "";
 
-            var (actualArgs, _) = ProcessHandlerHelper.ProcessInputArguments(argsLine);
+            var (actualArgs, _) = ProcessHandlerHelper.ExpandCmdEnv(argsLine);
 
             Assert.Equal(expectedArgs, actualArgs);
         }
@@ -26,7 +24,7 @@ namespace Test.L0.Worker.Handlers
             string expectedArgs = "value1 2";
             Environment.SetEnvironmentVariable("VAR1", "value1");
 
-            var (actualArgs, _) = ProcessHandlerHelper.ProcessInputArguments(argsLine);
+            var (actualArgs, _) = ProcessHandlerHelper.ExpandCmdEnv(argsLine);
 
             Assert.Equal(expectedArgs, actualArgs);
         }
@@ -39,7 +37,7 @@ namespace Test.L0.Worker.Handlers
             Environment.SetEnvironmentVariable("VAR1", "value1");
             Environment.SetEnvironmentVariable("VAR2", "value2");
 
-            var (actualArgs, _) = ProcessHandlerHelper.ProcessInputArguments(argsLine);
+            var (actualArgs, _) = ProcessHandlerHelper.ExpandCmdEnv(argsLine);
 
             Assert.Equal(expectedArgs, actualArgs);
         }
@@ -54,7 +52,7 @@ namespace Test.L0.Worker.Handlers
             Environment.SetEnvironmentVariable("VAR2", "2");
             Environment.SetEnvironmentVariable("VAR3", "3");
 
-            var (actualArgs, _) = ProcessHandlerHelper.ProcessInputArguments(inputArgs);
+            var (actualArgs, _) = ProcessHandlerHelper.ExpandCmdEnv(inputArgs);
 
             Assert.Equal(expectedArgs, actualArgs);
         }
@@ -68,7 +66,7 @@ namespace Test.L0.Worker.Handlers
             Environment.SetEnvironmentVariable("VAR2", "2");
             Environment.SetEnvironmentVariable("NESTED", "nested");
 
-            var (actualArgs, _) = ProcessHandlerHelper.ExpandArguments(argsLine);
+            var (actualArgs, _) = ProcessHandlerHelper.ExpandCmdEnv(argsLine);
 
             Assert.Equal(expectedArgs, actualArgs);
         }
@@ -81,7 +79,7 @@ namespace Test.L0.Worker.Handlers
 
             string expectedArgs = "%VAR1% 2";
 
-            var (actualArgs, _) = ProcessHandlerHelper.ExpandArguments(argsLine);
+            var (actualArgs, _) = ProcessHandlerHelper.ExpandCmdEnv(argsLine);
 
             Assert.Equal(expectedArgs, actualArgs);
         }

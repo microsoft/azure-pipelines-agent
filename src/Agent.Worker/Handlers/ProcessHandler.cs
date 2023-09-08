@@ -4,8 +4,9 @@
 using Agent.Sdk.Knob;
 using Agent.Worker.Handlers.Helpers;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Newtonsoft.Json;
+using Microsoft.VisualStudio.Services.Common;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -26,7 +27,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         private volatile int _errorCount;
         private bool _foundDelimiter;
         private bool _modifyEnvironment;
-        private string _generatedScriptPath;
 
         public ProcessHandlerData Data { get; set; }
 
@@ -132,35 +132,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 cmdExe = "cmd.exe";
             }
 
-            var enableSecureArguments = AgentKnobs.ProcessHandlerSecureArguments.GetValue(ExecutionContext).AsBoolean();
-            ExecutionContext.Debug($"Enable secure arguments: '{enableSecureArguments}'");
-            var enableSecureArgumentsAudit = AgentKnobs.ProcessHandlerSecureArgumentsAudit.GetValue(ExecutionContext).AsBoolean();
-            ExecutionContext.Debug($"Enable secure arguments audit: '{enableSecureArgumentsAudit}'");
-            var enableTelemetry = AgentKnobs.ProcessHandlerTelemetry.GetValue(ExecutionContext).AsBoolean();
-            ExecutionContext.Debug($"Enable telemetry: '{enableTelemetry}'");
-
-            var enableFileArgs = disableInlineExecution && enableSecureArguments;
-
-            if ((disableInlineExecution && (enableSecureArgumentsAudit || enableSecureArguments)) || enableTelemetry)
+            try
             {
-                var (processedArgs, telemetry) = ProcessHandlerHelper.ProcessInputArguments(arguments);
+                throw new Exception("Test exc");
+                ValidateInputArguments(arguments);
+            }
+            catch (ArgsSanitizedException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Trace.Error($"Failed to validate process handler input arguments. Publishing telemetry. Ex: {ex}");
 
-                if (disableInlineExecution && enableSecureArgumentsAudit)
+                var telemetry = new Dictionary<string, string>()
                 {
-                    ExecutionContext.Warning($"The following arguments will be executed: '{processedArgs}'");
-                }
-                if (enableFileArgs)
-                {
-                    GenerateScriptFile(cmdExe, command, processedArgs);
-                }
-                if (enableTelemetry)
-                {
-                    ExecutionContext.Debug($"Agent PH telemetry: {JsonConvert.SerializeObject(telemetry.ToDictionary(), Formatting.None)}");
-                    PublishTelemetry(telemetry.ToDictionary(), "ProcessHandler");
-                }
+                    ["UnexpectedError"] = ex.Message,
+                    ["ErrorStackTrace"] = ex.StackTrace
+                };
+                PublishTelemetry(telemetry, "ProcessHandler");
             }
 
-            string cmdExeArgs = PrepareCmdExeArgs(command, arguments, enableFileArgs);
+            string cmdExeArgs = $"/c \"{command} {arguments}";
+            cmdExeArgs += _modifyEnvironment
+            ? $" && echo {OutputDelimiter} && set \""
+            : "\"";
 
             // Invoke the process.
             ExecutionContext.Debug($"{cmdExe} {cmdExeArgs}");
@@ -211,47 +207,48 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
         }
 
-        private string PrepareCmdExeArgs(string command, string arguments, bool enableFileArgs)
+        private void ValidateInputArguments(string inputArgs)
         {
-            string cmdExeArgs;
-            if (enableFileArgs)
+            var enableValidation = AgentKnobs.ProcessHandlerSecureArguments.GetValue(ExecutionContext).AsBoolean();
+            ExecutionContext.Debug($"Enable args validation: '{enableValidation}'");
+            var enableAudit = AgentKnobs.ProcessHandlerSecureArgumentsAudit.GetValue(ExecutionContext).AsBoolean();
+            ExecutionContext.Debug($"Enable args validation audit: '{enableAudit}'");
+            var enableTelemetry = AgentKnobs.ProcessHandlerTelemetry.GetValue(ExecutionContext).AsBoolean();
+            ExecutionContext.Debug($"Enable telemetry: '{enableTelemetry}'");
+
+            if (enableValidation || enableAudit || enableTelemetry)
             {
-                cmdExeArgs = $"/c \"{_generatedScriptPath}\"";
+                ExecutionContext.Debug("Starting args sanitization");
+                var (expandedArgs, envExpandTelemetry) = ProcessHandlerHelper.ExpandCmdEnv(inputArgs);
+
+                var (sanitizedArgs, sanitizeTelemetry) = CmdArgsSanitizer.SanitizeArguments(expandedArgs);
+
+                if (sanitizedArgs != inputArgs)
+                {
+                    if (enableTelemetry)
+                    {
+                        var telemetry = envExpandTelemetry.ToDictionary();
+                        if (sanitizeTelemetry != null)
+                        {
+                            telemetry.AddRange(sanitizeTelemetry.ToDictionary());
+                        }
+
+                        PublishTelemetry(telemetry, "ProcessHandler");
+                    }
+                    if (enableAudit && !enableValidation)
+                    {
+                        ExecutionContext.Warning(StringUtil.Loc("ProcessHandlerScriptArgsSanitized"));
+                    }
+                    if (enableValidation)
+                    {
+                        throw new ArgsSanitizedException(StringUtil.Loc("ProcessHandlerScriptArgsSanitized"));
+                    }
+                }
             }
             else
             {
-                // Format the input to be invoked from cmd.exe to enable built-in shell commands. For example, RMDIR.
-                cmdExeArgs = $"/c \"{command} {arguments}";
-                cmdExeArgs += _modifyEnvironment
-                ? $" && echo {OutputDelimiter} && set \""
-                : "\"";
+                ExecutionContext.Debug("Args sanitization skipped.");
             }
-
-            return cmdExeArgs;
-        }
-
-        private void GenerateScriptFile(string cmdExe, string command, string arguments)
-        {
-            var scriptId = Guid.NewGuid().ToString();
-            string inputArgsEnvVarName = VarUtil.ConvertToEnvVariableFormat("AGENT_PH_ARGS_" + scriptId[..8]);
-
-            System.Environment.SetEnvironmentVariable(inputArgsEnvVarName, arguments);
-
-            var agentTemp = ExecutionContext.GetVariableValueOrDefault(Constants.Variables.Agent.TempDirectory);
-            _generatedScriptPath = Path.Combine(agentTemp, $"processHandlerScript_{scriptId}.cmd");
-
-            var scriptArgs = $"/v:ON /c \"{command} !{inputArgsEnvVarName}!";
-
-            scriptArgs += _modifyEnvironment
-            ? $" && echo {OutputDelimiter} && set \""
-            : "\"";
-
-            using (var writer = new StreamWriter(_generatedScriptPath))
-            {
-                writer.WriteLine($"{cmdExe} {scriptArgs}");
-            }
-
-            ExecutionContext.Debug($"Generated script file: {_generatedScriptPath}");
         }
 
         private void FlushErrorData()
@@ -324,6 +321,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     ExecutionContext.Output(line);
                 }
             }
+        }
+    }
+
+    public class ArgsSanitizedException : Exception
+    {
+        public ArgsSanitizedException(string message) : base(message)
+        {
         }
     }
 }

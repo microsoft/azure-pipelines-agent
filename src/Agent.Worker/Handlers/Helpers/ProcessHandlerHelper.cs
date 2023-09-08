@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace Agent.Worker.Handlers.Helpers
 {
     public static class ProcessHandlerHelper
     {
-        public static (string, CmdTelemetry) ProcessInputArguments(string inputArgs)
+        public static (string, CmdTelemetry) ExpandCmdEnv(string inputArgs)
         {
             const char quote = '"';
             const char escapingSymbol = '^';
@@ -85,7 +84,7 @@ namespace Agent.Worker.Handlers.Helpers
                 }
 
                 var head = result[..prefixIndex];
-                if (envName.Contains(escapingSymbol))
+                if (envName.Contains(escapingSymbol, StringComparison.Ordinal))
                 {
                     head += envName.Split(escapingSymbol)[1];
                     envName = envName.Split(escapingSymbol)[0];
@@ -144,9 +143,9 @@ namespace Agent.Worker.Handlers.Helpers
         public int NotClosedEnvSyntaxPosition { get; set; } = 0;
         public int NotExistingEnv { get; set; } = 0;
 
-        public Dictionary<string, int> ToDictionary()
+        public Dictionary<string, object> ToDictionary()
         {
-            return new Dictionary<string, int>
+            return new Dictionary<string, object>
             {
                 ["foundPrefixes"] = FoundPrefixes,
                 ["quottedBlocks"] = QuottedBlocks,
@@ -161,17 +160,6 @@ namespace Agent.Worker.Handlers.Helpers
                 ["notClosedBraceSyntaxPosition"] = NotClosedEnvSyntaxPosition,
                 ["notExistingEnv"] = NotExistingEnv
             };
-        }
-
-        public Dictionary<string, string> ToStringsDictionary()
-        {
-            var dict = ToDictionary();
-            var result = new Dictionary<string, string>();
-            foreach (var key in dict.Keys)
-            {
-                result.Add(key, dict[key].ToString());
-            }
-            return result;
         }
     };
 }
