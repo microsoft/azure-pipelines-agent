@@ -134,7 +134,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             try
             {
-                throw new Exception("Test exc");
                 ValidateInputArguments(arguments);
             }
             catch (ArgsSanitizedException)
