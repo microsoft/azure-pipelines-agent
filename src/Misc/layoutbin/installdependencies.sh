@@ -102,7 +102,7 @@ then
             command -v apt-get
             if [ $? -eq 0 ]
             then
-                    apt-get update && apt-get install -y libkrb5-3 zlib1g debsums && (apt-get install -y liblttng-ust1 || apt-get install -y liblttng-ust0)
+                apt-get update && apt-get install -y libkrb5-3 zlib1g debsums && (apt-get install -y liblttng-ust1 || apt-get install -y liblttng-ust0)
                 if [ $? -ne 0 ]
                 then
                     echo "'apt-get' failed with exit code '$?'"
@@ -136,6 +136,22 @@ then
                 print_errormessage
                 exit 1
             fi
+        fi
+    elif [ -e /etc/alpine-release ]
+    then
+        echo "The current OS is Alpine based"
+        echo "--------Alpine Version--------"
+        cat /etc/alpine-release
+        echo "------------------------------"
+
+        command -v apk
+        if [ $? -eq 0 ]
+        then
+            apk add icu-libs
+        else
+            echo "Can not find 'apk'"
+            print_errormessage
+            exit 1
         fi
     elif [ -e /etc/redhat-release ]
     then
