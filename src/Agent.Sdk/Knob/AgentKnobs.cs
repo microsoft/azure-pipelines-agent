@@ -498,5 +498,12 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AZP_AGENT_CLEANUP_PSMODULES_IN_POWERSHELL"),
             new EnvironmentKnobSource("AZP_AGENT_CLEANUP_PSMODULES_IN_POWERSHELL"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob IgnoreVSTSTaskLib = new Knob(
+            nameof(IgnoreVSTSTaskLib),
+            "Ignores the VSTSTaskLib folder when copying tasks.",
+            new RuntimeKnobSource("AZP_AGENT_IGNORE_VSTSTASKLIB"),
+            new EnvironmentKnobSource("AZP_AGENT_IGNORE_VSTSTASKLIB"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }
