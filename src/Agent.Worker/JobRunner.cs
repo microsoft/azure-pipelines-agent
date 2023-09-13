@@ -286,7 +286,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     // set the job to canceled
                     // don't log error issue to job ExecutionContext, since server owns the job level issue
-                    if (AgentKnobs.FailJobWhenAgentDies.GetValue(HostContext).AsBoolean() &&
+                    if (AgentKnobs.FailJobWhenAgentDies.GetValue(jobContext).AsBoolean() &&
                         HostContext.AgentShutdownToken.IsCancellationRequested)
                     {
                         Trace.Error($"Job is canceled during initialize.");

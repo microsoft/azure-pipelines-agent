@@ -502,7 +502,8 @@ namespace Agent.Sdk.Knob
         public static readonly Knob FailJobWhenAgentDies = new Knob(
             nameof(FailJobWhenAgentDies),
             "Mark the Job as Failed instead of Canceled when the Agent dies due to User Cancellation or Shutdown",
+            new RuntimeKnobSource("FAIL_JOB_WHEN_AGENT_DIES"),
             new EnvironmentKnobSource("FAIL_JOB_WHEN_AGENT_DIES"),
-            new BuiltInDefaultKnobSource("true"));
+            new BuiltInDefaultKnobSource("false"));
     }
 }

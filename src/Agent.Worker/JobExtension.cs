@@ -473,7 +473,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 catch (OperationCanceledException ex) when (jobContext.CancellationToken.IsCancellationRequested)
                 {
                     // Log the exception and cancel the JobExtension Initialization.
-                    if (AgentKnobs.FailJobWhenAgentDies.GetValue(HostContext).AsBoolean() &&
+                    if (AgentKnobs.FailJobWhenAgentDies.GetValue(jobContext).AsBoolean() &&
                         HostContext.AgentShutdownToken.IsCancellationRequested)
                     {
                         Trace.Error($"Caught Agent Shutdown exception from JobExtension Initialization: {ex.Message}");

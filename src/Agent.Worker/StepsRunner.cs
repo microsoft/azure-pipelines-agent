@@ -108,7 +108,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             ConditionResult conditionReTestResult;
                             if (HostContext.AgentShutdownToken.IsCancellationRequested)
                             {
-                                if (AgentKnobs.FailJobWhenAgentDies.GetValue(HostContext).AsBoolean())
+                                if (AgentKnobs.FailJobWhenAgentDies.GetValue(jobContext).AsBoolean())
                                 {
                                     jobContext.Result = TaskResult.Failed;
                                 }
@@ -154,7 +154,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     ConditionResult conditionResult;
                     if (HostContext.AgentShutdownToken.IsCancellationRequested)
                     {
-                        if (AgentKnobs.FailJobWhenAgentDies.GetValue(HostContext).AsBoolean())
+                        if (AgentKnobs.FailJobWhenAgentDies.GetValue(jobContext).AsBoolean())
                         {
                             jobContext.Result = TaskResult.Failed;
                         }
@@ -255,7 +255,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     step.ExecutionContext.Error(StringUtil.Loc("StepTimedOut"));
                     step.ExecutionContext.Result = TaskResult.Failed;
                 }
-                else if (AgentKnobs.FailJobWhenAgentDies.GetValue(HostContext).AsBoolean() &&
+                else if (AgentKnobs.FailJobWhenAgentDies.GetValue(step.ExecutionContext).AsBoolean() &&
                         HostContext.AgentShutdownToken.IsCancellationRequested)
                 {
                     Trace.Error($"Caught Agent Shutdown exception from step: {ex.Message}");
@@ -298,7 +298,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         // if the step already canceled, don't set it to failed.
                         step.ExecutionContext.CommandResult = TaskResultUtil.MergeTaskResults(step.ExecutionContext.CommandResult, TaskResult.Failed);
                     }
-                    else if (AgentKnobs.FailJobWhenAgentDies.GetValue(HostContext).AsBoolean() &&
+                    else if (AgentKnobs.FailJobWhenAgentDies.GetValue(step.ExecutionContext).AsBoolean() &&
                             HostContext.AgentShutdownToken.IsCancellationRequested)
                     {
                         Trace.Error($"Caught Agent shutdown exception from async command {command.Name}: {ex}");
