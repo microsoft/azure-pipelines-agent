@@ -29,9 +29,9 @@ namespace Agent.Plugins.Repository
             }
         }
 
-        // When output is redirected, TF.exe writes output using the current system code page
-        // (i.e. CP_ACP or code page 0). E.g. code page 1252 on an en-US box.
-        protected override Encoding OutputEncoding => StringUtil.GetSystemEncoding();
+        // We ship a special version of TF.exe which uses UTF-8 instead of default encoding to support all the Unicode characters
+        // to comply with GB18030. Mainstream TF.exe uses default system encoding for redirected output.
+        protected override Encoding OutputEncoding => Encoding.UTF8;
 
         protected override string Switch => "/";
 
