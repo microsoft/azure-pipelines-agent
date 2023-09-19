@@ -417,7 +417,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             while (associateQueue.TryDequeue(out var file))
             {
                 uploadTimer.Restart();
-                string itemPath = (_containerPath.TrimEnd('/') + "/" + file.Path.Remove(0, _sourceParentDirectory.Length + 1)).Replace('\\', '/');
+                string fileName = file.Path.Replace(_sourceParentDirectory, string.Empty).Replace("\\", string.Empty).Replace("/", string.Empty);
+                string itemPath = (_containerPath.TrimEnd('/') + "/" + fileName).Replace("\\", "/");
                 bool catchExceptionDuringUpload = false;
                 HttpResponseMessage response = null;
                 try
