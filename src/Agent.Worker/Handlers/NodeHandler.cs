@@ -102,7 +102,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             ArgUtil.NotNull(Inputs, nameof(Inputs));
             ArgUtil.Directory(TaskDirectory, nameof(TaskDirectory));
 
-            if (!PlatformUtil.RunningOnWindows)
+            if (!PlatformUtil.RunningOnWindows && !AgentKnobs.IgnoreVSTSTaskLib.GetValue(ExecutionContext).AsBoolean())
             {
                 // Ensure compat vso-task-lib exist at the root of _work folder
                 // This will make vsts-agent work against 2015 RTM/QU1 TFS, since tasks in those version doesn't package with task lib
@@ -148,8 +148,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             // as long as vsts-task-lib be loaded into memory, it will overwrite the implementation node 6.x has,
             // so any script that use the second parameter (length) will encounter unexpected result.
             // to avoid customer hit this error, we will modify the file (extensions.js) under vsts-task-lib module folder when customer choose to use Node 6.x
-            Trace.Info("Inspect node_modules folder, make sure vsts-task-lib doesn't overwrite String.startsWith/endsWith.");
-            FixVstsTaskLibModule();
+            if (!AgentKnobs.IgnoreVSTSTaskLib.GetValue(ExecutionContext).AsBoolean())
+            {
+                Trace.Info("Inspect node_modules folder, make sure vsts-task-lib doesn't overwrite String.startsWith/endsWith.");
+                FixVstsTaskLibModule();
+            } else
+            {
+                Trace.Info("AZP_AGENT_IGNORE_VSTSTASKLIB enabled, ignoring fix");
+            }
+            
 
             StepHost.OutputDataReceived += OnDataReceived;
             StepHost.ErrorDataReceived += OnDataReceived;
