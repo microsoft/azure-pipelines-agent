@@ -233,7 +233,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 try
                 {
                     string fileName = fileToUpload.Replace(_sourceParentDirectory, string.Empty).Replace("\\", string.Empty).Replace("/", string.Empty);
-                    string itemPath = _containerPath.TrimEnd('/') + "/" + fileName;
+                    string itemPath = (_containerPath.TrimEnd('/') + "/" + fileName).Replace("\\", "/");
                     uploadTimer.Restart();
                     bool catchExceptionDuringUpload = false;
                     HttpResponseMessage response = null;
