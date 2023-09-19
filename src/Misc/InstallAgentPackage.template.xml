@@ -44,6 +44,11 @@
         <AddTaskPackageData packageType="pipelines-agent" platform="linux-arm64" hashValue="<HASH_VALUE>" version="<AGENT_VERSION>" downloadUrl="https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/pipelines-agent-linux-arm64-<AGENT_VERSION>.tar.gz" infoUrl="https://go.microsoft.com/fwlink/?LinkId=798199" filename="pipelines-agent-linux-arm64-<AGENT_VERSION>.tar.gz" />
       </StepData>
     </ServicingStep>
+    <ServicingStep name="Add Linux musl x64 agent package" stepPerformer="DistributedTask" stepType="AddTaskPackage">
+      <StepData>
+        <AddTaskPackageData packageType="agent" platform="linux-musl-x64" hashValue="<HASH_VALUE>" version="<AGENT_VERSION>" downloadUrl="https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-linux-x64-<AGENT_VERSION>.tar.gz" infoUrl="https://go.microsoft.com/fwlink/?LinkId=798199" filename="vsts-agent-linux-musl-x64-<AGENT_VERSION>.tar.gz" />
+      </StepData>
+    </ServicingStep>
     <ServicingStep name="Add x64 Windows agent package" stepPerformer="DistributedTask" stepType="AddTaskPackage">
       <StepData>
         <AddTaskPackageData packageType="agent" platform="win-x64" hashValue="<HASH_VALUE>" version="<AGENT_VERSION>" downloadUrl="https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-win-x64-<AGENT_VERSION>.zip" infoUrl="https://go.microsoft.com/fwlink/?LinkId=798199" filename="vsts-agent-win-x64-<AGENT_VERSION>.zip" />

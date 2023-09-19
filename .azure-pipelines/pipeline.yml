@@ -23,12 +23,6 @@ parameters:
 - name: branch
   type: string
   default: ''
-- name: skipRhelRelease
-  type: boolean
-  default: true
-- name: releaseRhelOnly
-  type: boolean
-  default: false
 - name: testProxyAgent
   type: boolean
   default: false
@@ -51,9 +45,6 @@ parameters:
   default: true
 - name: alpine_x64
   type: boolean
-  default: false
-- name: rhel7_x64
-  type: boolean
   default: true
 - name: macOS_x64
   type: boolean
@@ -64,8 +55,6 @@ parameters:
 
 resources:
   containers:
-  - container: centos7
-    image: azpagentinfra/centos7:latest
   - container: alpine
     image: azpagentinfra/alpine:latest
 
@@ -85,6 +74,7 @@ stages:
       variables:
         DisableDockerDetector: true
         nugetMultiFeedWarnLevel: none
+      timeoutInMinutes: 300
       steps:
       - bash: |
           cd ./.azure-pipelines/scripts/
@@ -103,7 +93,7 @@ stages:
         displayName: Test Proxy Agent
 
   # Windows (x64)
-  - ${{ if and(parameters.win_x64, not(parameters.releaseRhelOnly)) }}:
+  - ${{ if parameters.win_x64 }}:
     - template: build-jobs.yml
       parameters:
         jobName: build_windows_x64
@@ -123,7 +113,7 @@ stages:
         buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
 
   # Windows (x86)
-  - ${{ if and(parameters.win_x86, not(parameters.releaseRhelOnly)) }}:
+  - ${{ if parameters.win_x86 }}:
     - template: build-jobs.yml
       parameters:
         jobName: build_windows_x86
@@ -141,7 +131,7 @@ stages:
         buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
 
   # Linux (x64)
-  - ${{ if and(parameters.linux_x64, not(parameters.releaseRhelOnly)) }}:
+  - ${{ if parameters.linux_x64 }}:
     - template: build-jobs.yml
       parameters:
         jobName: build_linux_x64
@@ -159,7 +149,7 @@ stages:
         buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
 
   # Linux (ARM)
-  - ${{ if and(parameters.linux_arm, not(parameters.releaseRhelOnly)) }}:
+  - ${{ if parameters.linux_arm }}:
     - template: build-jobs.yml
       parameters:
         jobName: build_linux_arm
@@ -178,7 +168,7 @@ stages:
         buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
 
   # Linux (ARM64)
-  - ${{ if and(parameters.linux_arm64, not(parameters.releaseRhelOnly)) }}:
+  - ${{ if parameters.linux_arm64 }}:
     - template: build-jobs.yml
       parameters:
         jobName: build_linux_arm64
@@ -214,29 +204,10 @@ stages:
         functionalTests: ${{ parameters.test }}
         sign: false
         publishArtifacts: ${{ parameters.publishArtifacts }}
-        buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
+        buildAlternatePackage: false
 
-  # RHEL7 (x64)
-  - ${{ if parameters.rhel7_x64 }}:
-    - template: build-jobs.yml
-      parameters:
-        jobName: build_rhel7_x64
-        displayName: RHEL7 (x64)
-        pool:
-          vmImage: ubuntu-20.04
-        container: centos7
-        os: linux
-        arch: x64
-        branch: ${{ parameters.branch }}
-        componentDetection: false
-        unitTests: ${{ parameters.test }}
-        functionalTests: ${{ parameters.test }}
-        sign: false
-        publishArtifacts: ${{ parameters.publishArtifacts }}
-        buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
-
-  # macOS x64
-  - ${{ if and(parameters.macOS_x64, not(parameters.releaseRhelOnly)) }}:
+  # macOS (x64)
+  - ${{ if parameters.macOS_x64 }}:
     - template: build-jobs.yml
       parameters:
         jobName: build_osx
@@ -253,12 +224,12 @@ stages:
         publishArtifacts: ${{ parameters.publishArtifacts }}
         buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
 
-  # macOS arm64
+  # macOS (ARM64)
   - ${{ if parameters.macOS_arm64 }}:
     - template: build-jobs.yml
       parameters:
         jobName: build_osx_arm64
-        displayName: macOS (arm64)
+        displayName: macOS (ARM64)
         pool:
           vmImage: macOS-12
         os: osx

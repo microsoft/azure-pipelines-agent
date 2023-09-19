@@ -16,7 +16,7 @@ fi
 
 NODE_VERSION="6.17.1"
 NODE10_VERSION="10.24.1"
-NODE16_VERSION="16.20.0"
+NODE16_VERSION="16.20.2"
 NODE20_VERSION="20.3.1"
 MINGIT_VERSION="2.41.0"
 LFS_VERSION="3.3.0"
@@ -198,7 +198,6 @@ else
         case $PACKAGERUNTIME in
             "linux-musl-x64") ARCH="linux-x64-musl";;
             "linux-x64") ARCH="linux-x64";;
-            "rhel.7.2-x64") ARCH="linux-x64";;
             "linux-arm") ARCH="linux-armv7l";;
             "linux-arm64") ARCH="linux-arm64";;
             "osx-x64") ARCH="darwin-x64";;

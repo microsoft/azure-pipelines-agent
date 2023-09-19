@@ -1,4 +1,4 @@
-# Docker Images For Building Agent
+# Docker Images for the Agent CI/CD Pipeline
 
 ## Docker Hub
 
@@ -7,13 +7,11 @@ In order to publish these images, you need to be a member of the organization `a
 ## How to Build
 
 ```bash
-docker build --tag azpagentinfra/alpine:latest ./images/alpine/
-docker build --tag azpagentinfra/centos7:latest ./images/centos7/
+docker build --tag "azpagentinfra/alpine:latest" ./images/alpine/
 ```
 
-## How to Publish
+## How to Push
 
 ```bash
-docker push azpagentinfra/alpine:latest
-docker push azpagentinfra/centos7:latest
+docker push "azpagentinfra/alpine:latest"
 ```
