@@ -1,7 +1,10 @@
-﻿using Microsoft.VisualStudio.Services.Agent.Util;
+﻿// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Agent.Worker.Handlers.Helpers
 {

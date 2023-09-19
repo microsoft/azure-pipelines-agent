@@ -1,6 +1,9 @@
-﻿using System;
-using Agent.Worker.Handlers.Helpers;
+﻿// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System;
 using Xunit;
+using Agent.Worker.Handlers.Helpers;
 
 namespace Test.L0.Worker.Handlers
 {
