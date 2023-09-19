@@ -144,10 +144,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             {
                 Trace.Error($"Failed to validate process handler input arguments. Publishing telemetry. Ex: {ex}");
 
-                var telemetry = new Dictionary<string, string>()
+                var telemetry = new
                 {
-                    ["UnexpectedError"] = ex.Message,
-                    ["ErrorStackTrace"] = ex.StackTrace
+                    UnexpectedError = ex.Message,
+                    ErrorStackTrace = ex.StackTrace
                 };
                 PublishTelemetry(telemetry, "ProcessHandler");
             }
