@@ -1,15 +1,18 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Agent.Sdk;
-using Agent.Sdk.Util;
 using System;
-using System.Diagnostics;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Sockets;
-using Microsoft.IdentityModel.Clients.ActiveDirectory;
+using System.Threading.Tasks;
+
+using Agent.Sdk;
+using Agent.Sdk.Util;
+
+using Microsoft.Identity.Client;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Client;
 using Microsoft.VisualStudio.Services.Common;
@@ -45,10 +48,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
     public sealed class AadDeviceCodeAccessToken : CredentialProvider
     {
-        private string _azureDevOpsClientId = "97877f11-0fc6-4aee-b1ff-febb0519dd00";
+        private IPublicClientApplication _app = null;
 
-        public override Boolean RequireInteractive => true;
+        private readonly string _clientId = "97877f11-0fc6-4aee-b1ff-febb0519dd00";
 
+        private readonly string _userImpersonationScope = "499b84ac-1321-427f-aa17-267ca6975798/.default";
         public AadDeviceCodeAccessToken() : base(Constants.Configuration.AAD) { }
 
         public override VssCredentials GetVssCredentials(IHostContext context)
@@ -56,7 +60,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             ArgUtil.NotNull(context, nameof(context));
             Tracing trace = context.GetTrace(nameof(AadDeviceCodeAccessToken));
             trace.Info(nameof(GetVssCredentials));
-            ArgUtil.NotNull(CredentialData, nameof(CredentialData));
 
             CredentialData.Data.TryGetValue(Constants.Agent.CommandLine.Args.Url, out string serverUrl);
             ArgUtil.NotNullOrEmpty(serverUrl, nameof(serverUrl));
@@ -67,72 +70,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 throw new NotSupportedException($"This Azure DevOps organization '{serverUrl}' is not backed by Azure Active Directory.");
             }
 
-            LoggerCallbackHandler.LogCallback = ((LogLevel level, string message, bool containsPii) =>
-            {
-                switch (level)
-                {
-                    case LogLevel.Information:
-                        trace.Info(message);
-                        break;
-                    case LogLevel.Error:
-                        trace.Error(message);
-                        break;
-                    case LogLevel.Warning:
-                        trace.Warning(message);
-                        break;
-                    default:
-                        trace.Verbose(message);
-                        break;
-                }
-            });
+            if (_app == null)
+                _app = PublicClientApplicationBuilder.Create(_clientId).Build();
 
-            LoggerCallbackHandler.UseDefaultLogging = false;
-            AuthenticationContext ctx = new AuthenticationContext(tenantAuthorityUrl.AbsoluteUri);
-            var queryParameters = $"redirect_uri={Uri.EscapeDataString(new Uri(serverUrl).GetLeftPart(UriPartial.Authority))}";
-            if (PlatformUtil.RunningOnMacOS)
-            {
-                throw new Exception("AAD isn't supported for MacOS");
-            }
-            DeviceCodeResult codeResult = ctx.AcquireDeviceCodeAsync("https://management.core.windows.net/", _azureDevOpsClientId, queryParameters).GetAwaiter().GetResult();
+            var authResult = AcquireATokenFromCacheOrDeviceCodeFlowAsync(context, _app, new string[] { _userImpersonationScope }).GetAwaiter().GetResult();
 
-            var term = context.GetService<ITerminal>();
-            term.WriteLine($"Please finish AAD device code flow in browser ({codeResult.VerificationUrl}), user code: {codeResult.UserCode}");
-            if (string.Equals(CredentialData.Data[Constants.Agent.CommandLine.Flags.LaunchBrowser], bool.TrueString, StringComparison.OrdinalIgnoreCase))
-            {
-                try
-                {
-                    if (PlatformUtil.RunningOnWindows)
-                    {
-                        Process.Start(new ProcessStartInfo() { FileName = codeResult.VerificationUrl, UseShellExecute = true });
-                    }
-                    else if (PlatformUtil.RunningOnLinux)
-                    {
-                        Process.Start(new ProcessStartInfo() { FileName = "xdg-open", Arguments = codeResult.VerificationUrl });
-                    }
-                    else
-                    {
-                        throw new NotImplementedException("Unexpected platform");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // not able to open browser, ex: xdg-open/open is not installed.
-                    trace.Error(ex);
-                    term.WriteLine($"Fail to open browser. {codeResult.Message}");
-                }
-            }
-
-            AuthenticationResult authResult = ctx.AcquireTokenByDeviceCodeAsync(codeResult).GetAwaiter().GetResult();
-            ArgUtil.NotNull(authResult, nameof(authResult));
-            trace.Info($"receive AAD auth result with {authResult.AccessTokenType} token");
-
-            var aadCred = new VssAadCredential(new VssAadToken(authResult.AccessTokenType, authResult.AccessToken));
+            var aadCred = new VssAadCredential(new VssAadToken(authResult.TokenType, authResult.AccessToken));
             VssCredentials creds = new VssCredentials(null, aadCred, CredentialPromptType.DoNotPrompt);
             trace.Info("cred created");
-
             return creds;
         }
-
         public override void EnsureCredential(IHostContext context, CommandSettings command, string serverUrl)
         {
             ArgUtil.NotNull(context, nameof(context));
@@ -140,7 +87,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             trace.Info(nameof(EnsureCredential));
             ArgUtil.NotNull(command, nameof(command));
             CredentialData.Data[Constants.Agent.CommandLine.Args.Url] = serverUrl;
-            CredentialData.Data[Constants.Agent.CommandLine.Flags.LaunchBrowser] = command.GetAutoLaunchBrowser().ToString();
+        }
+
+        private async Task<AuthenticationResult> AcquireATokenFromCacheOrDeviceCodeFlowAsync(IHostContext context, IPublicClientApplication app, IEnumerable<String> scopes)
+        {
+            AuthenticationResult result = null;
+            var accounts = await app.GetAccountsAsync().ConfigureAwait(false);
+
+            if (accounts.Any())
+            {
+
+                // Attempt to get a token from the cache (or refresh it silently if needed)
+                result = await app.AcquireTokenSilent(scopes, accounts.FirstOrDefault())
+                    .ExecuteAsync().ConfigureAwait(false);
+
+            }
+
+            // Cache empty or no token for account in the cache, attempt by device code flow
+            if (result == null)
+            {
+                result = await GetTokenUsingDeviceCodeFlowAsync(context, app, scopes).ConfigureAwait(false);
+            }
+
+            return result;
         }
 
         private Uri GetTenantAuthorityUrl(IHostContext context, string serverUrl)
@@ -183,8 +152,50 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 }
             }
         }
-    }
 
+        /// <summary>
+        /// Gets an access token so that the application accesses the web api in the name of the user
+        /// who signs-in on a separate device
+        /// </summary>
+        /// <returns>An authentication result, or null if the user canceled sign-in, or did not sign-in on a separate device
+        /// after a timeout (15 mins)</returns>
+        private async Task<AuthenticationResult> GetTokenUsingDeviceCodeFlowAsync(IHostContext context, IPublicClientApplication app, IEnumerable<string> scopes)
+        {
+            Tracing trace = context.GetTrace(nameof(AadDeviceCodeAccessToken));
+            AuthenticationResult result;
+            try
+            {
+                result = await app.AcquireTokenWithDeviceCode(scopes,
+                    deviceCodeCallback =>
+                    {
+                        // This will print the message on the console which tells the user where to go sign-in using 
+                        // a separate browser and the code to enter once they sign in.
+                        var term = context.GetService<ITerminal>();
+                        term.WriteLine($"Please finish AAD device code flow in browser ({deviceCodeCallback.VerificationUrl}), user code: {deviceCodeCallback.UserCode}"); return Task.FromResult(0);
+                    }).ExecuteAsync().ConfigureAwait(false);
+            }
+            catch (MsalServiceException ex)
+            {
+                // AADSTS50059: No tenant-identifying information found in either the request or implied by any provided credentials.
+                // AADSTS90133: Device Code flow is not supported under /common or /consumers endpoint.
+                // AADSTS90002: Tenant <tenantId or domain you used in the authority> not found. This may happen if there are 
+                // no active subscriptions for the tenant. Check with your subscription administrator.
+                throw;
+            }
+            catch (OperationCanceledException ex)
+            {
+                trace.Warning(ex.Message);
+                result = null;
+            }
+            catch (MsalClientException ex)
+            {
+                trace.Warning(ex.Message);
+                result = null;
+            }
+            return result;
+        }
+
+    }
     public sealed class PersonalAccessToken : CredentialProvider
     {
         public PersonalAccessToken() : base(Constants.Configuration.PAT) { }
