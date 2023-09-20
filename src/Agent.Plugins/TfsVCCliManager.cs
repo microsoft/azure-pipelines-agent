@@ -33,7 +33,7 @@ namespace Agent.Plugins.Repository
         public abstract Task<bool> TryWorkspaceDeleteAsync(ITfsVCWorkspace workspace);
         public abstract Task WorkspacesRemoveAsync(ITfsVCWorkspace workspace);
 
-        protected virtual Encoding OutputEncoding => null;
+        protected virtual Encoding OutputEncoding => Encoding.UTF8;
 
         protected string SourceVersion
         {
