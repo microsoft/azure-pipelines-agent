@@ -18,7 +18,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
     [ServiceLocator(Default = typeof(NodeHandler))]
     public interface INodeHandler : IHandler
     {
-        // Data can be of these three types: NodeHandlerData, Node10HandlerData and Node16HandlerData
+        // Data can be of these four types: NodeHandlerData, Node10HandlerData, Node16HandlerData and Node20HandlerData
         BaseNodeHandlerData Data { get; set; }
     }
 
@@ -56,10 +56,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         private const string nodeFolder = "node";
         private const string node10Folder = "node10";
         private const string node16Folder = "node16";
+        private const string node20Folder = "node20";
         private const string nodeLTS = node16Folder;
         private const string useNodeKnobLtsKey = "LTS";
         private const string useNodeKnobUpgradeKey = "UPGRADE";
-        private string[] possibleNodeFolders = { nodeFolder, node10Folder, node16Folder };
+        private string[] possibleNodeFolders = { nodeFolder, node10Folder, node16Folder, node20Folder };
         private static Regex _vstsTaskLibVersionNeedsFix = new Regex("^[0-2]\\.[0-9]+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static string[] _extensionsNode6 ={
             "if (process.versions.node && process.versions.node.match(/^5\\./)) {",
@@ -101,7 +102,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             ArgUtil.NotNull(Inputs, nameof(Inputs));
             ArgUtil.Directory(TaskDirectory, nameof(TaskDirectory));
 
-            if (!PlatformUtil.RunningOnWindows)
+            if (!PlatformUtil.RunningOnWindows && !AgentKnobs.IgnoreVSTSTaskLib.GetValue(ExecutionContext).AsBoolean())
             {
                 // Ensure compat vso-task-lib exist at the root of _work folder
                 // This will make vsts-agent work against 2015 RTM/QU1 TFS, since tasks in those version doesn't package with task lib
@@ -147,8 +148,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             // as long as vsts-task-lib be loaded into memory, it will overwrite the implementation node 6.x has,
             // so any script that use the second parameter (length) will encounter unexpected result.
             // to avoid customer hit this error, we will modify the file (extensions.js) under vsts-task-lib module folder when customer choose to use Node 6.x
-            Trace.Info("Inspect node_modules folder, make sure vsts-task-lib doesn't overwrite String.startsWith/endsWith.");
-            FixVstsTaskLibModule();
+            if (!AgentKnobs.IgnoreVSTSTaskLib.GetValue(ExecutionContext).AsBoolean())
+            {
+                Trace.Info("Inspect node_modules folder, make sure vsts-task-lib doesn't overwrite String.startsWith/endsWith.");
+                FixVstsTaskLibModule();
+            } else
+            {
+                Trace.Info("AZP_AGENT_IGNORE_VSTSTASKLIB enabled, ignoring fix");
+            }
+            
 
             StepHost.OutputDataReceived += OnDataReceived;
             StepHost.ErrorDataReceived += OnDataReceived;
@@ -215,17 +223,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         public string GetNodeLocation()
         {
-            bool useNode16 = AgentKnobs.UseNode16.GetValue(ExecutionContext).AsBoolean();
             bool useNode10 = AgentKnobs.UseNode10.GetValue(ExecutionContext).AsBoolean();
+            bool useNode16 = AgentKnobs.UseNode16.GetValue(ExecutionContext).AsBoolean();
+            bool useNode20 = AgentKnobs.UseNode20.GetValue(ExecutionContext).AsBoolean();
             bool taskHasNode10Data = Data is Node10HandlerData;
             bool taskHasNode16Data = Data is Node16HandlerData;
+            bool taskHasNode20Data = Data is Node20HandlerData;
             string useNodeKnob = AgentKnobs.UseNode.GetValue(ExecutionContext).AsString();
 
             string nodeFolder = NodeHandler.nodeFolder;
-            if (PlatformUtil.RunningOnRHEL6 && taskHasNode16Data)
+
+            if (taskHasNode20Data)
             {
-                Trace.Info($"Detected RedHat 6, using node 10 as execution handler, instead node16");
-                nodeFolder = NodeHandler.node10Folder;
+                Trace.Info($"Task.json has node20 handler data: {taskHasNode20Data}");
+                nodeFolder = NodeHandler.node20Folder;
             }
             else if (taskHasNode16Data)
             {
@@ -236,6 +247,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             {
                 Trace.Info($"Task.json has node10 handler data: {taskHasNode10Data}");
                 nodeFolder = NodeHandler.node10Folder;
+            }
+            else if (PlatformUtil.RunningOnAlpine)
+            {
+                Trace.Info($"Detected Alpine, using node10 instead of node (6)");
+                nodeFolder = NodeHandler.node10Folder;
+            }
+
+            if (useNode20)
+            {
+                Trace.Info($"Found UseNode20 knob, using node20 for node tasks {useNode20}");
+                nodeFolder = NodeHandler.node20Folder;
             }
 
             if (useNode16)

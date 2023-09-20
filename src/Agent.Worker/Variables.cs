@@ -134,6 +134,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public string Agent_ProxyUrl => Get(Constants.Variables.Agent.ProxyUrl);
 
+        public bool? Agent_SslSkipCertValidation => GetBoolean(Constants.Variables.Agent.SslSkipCertValidation);
+
         public string Agent_ProxyUsername => Get(Constants.Variables.Agent.ProxyUsername);
 
         public string Agent_ProxyPassword => Get(Constants.Variables.Agent.ProxyPassword);

@@ -11,10 +11,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
     public sealed class SslUtil
     {
         private ITraceWriter _trace { get; set; }
+        private bool _IgnoreCertificateErrors { get; set; }
 
-        public SslUtil(ITraceWriter trace)
+        public SslUtil(ITraceWriter trace, bool IgnoreCertificateErrors = false)
         {
             this._trace = trace;
+            this._IgnoreCertificateErrors = IgnoreCertificateErrors;
         }
 
         /// <summary>Implementation of custom callback function that logs SSL-related data from the web request to the agent's logs.</summary>
@@ -22,13 +24,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         public bool RequestStatusCustomValidation(HttpRequestMessage requestMessage, X509Certificate2 certificate, X509Chain chain, SslPolicyErrors sslErrors)
         {
             bool isRequestSuccessful = (sslErrors == SslPolicyErrors.None);
-
+            
             if (!isRequestSuccessful)
             {
                 LoggingRequestDiagnosticData(requestMessage, certificate, chain, sslErrors);
             }
 
-            return isRequestSuccessful;
+            if (this._IgnoreCertificateErrors) {
+                 this._trace?.Info("Ignoring certificate errors.");
+            }
+
+            return this._IgnoreCertificateErrors || isRequestSuccessful;
         }
 
         /// <summary>Logs SSL related data to agent's logs</summary>
@@ -41,6 +47,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 diagInfo += SslDiagnosticDataProvider.ResolveSslPolicyErrorsMessage(sslErrors);
                 diagInfo += SslDiagnosticDataProvider.GetRequestMessageData(requestMessage);
                 diagInfo += SslDiagnosticDataProvider.GetCertificateData(certificate);
+                diagInfo += SslDiagnosticDataProvider.GetChainData(chain);
 
                 this._trace?.Info(diagInfo);
             }
@@ -140,6 +147,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             diagInfo.Add(new KeyValuePair<string, string>("Expiration date", certificate?.GetExpirationDateString()));
             diagInfo.Add(new KeyValuePair<string, string>("Issuer", certificate?.Issuer));
             diagInfo.Add(new KeyValuePair<string, string>("Subject", certificate?.Subject));
+
+            return GetFormattedData(diagInfoHeader, diagInfo);
+        }
+
+        /// <summary>
+        /// Get diagnostic data about the chain.
+        /// This method extracts common information about the chain.
+        /// </summary>
+        /// <returns>Diagnostic data as a formatted string</returns>
+        public static string GetChainData(X509Chain chain) 
+        {
+            string diagInfoHeader = "ChainStatus";
+            var diagInfo = new List<KeyValuePair<string, string>>();
+
+            if (chain is null)
+            {
+                return $"{diagInfoHeader} data is empty";
+            }
+
+            foreach (var status in chain.ChainStatus)
+            {
+                diagInfo.Add(new KeyValuePair<string, string>("Status", status.Status.ToString()));
+                diagInfo.Add(new KeyValuePair<string, string>("Status Information", status.StatusInformation));
+            }
 
             return GetFormattedData(diagInfoHeader, diagInfo);
         }

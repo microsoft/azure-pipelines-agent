@@ -29,7 +29,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider
             Uri uri,
             string accessToken,
             DelegatingHandler retryOnTimeoutMessageHandler = null,
-            ITraceWriter trace = null)
+            ITraceWriter trace = null,
+            bool skipServerCertificateValidation = false)
         {
             VssConnection connection;
             if (!_vssConnections.TryGetValue(uri, out connection))
@@ -41,7 +42,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider
                     retryOnTimeoutMessageHandler
                 };
 
-                connection = VssUtil.CreateConnection(uri, cred, trace, handlers);
+                connection = VssUtil.CreateConnection(uri, cred, trace, skipServerCertificateValidation, handlers);
                 connection.Settings.SendTimeout = TimeSpan.FromSeconds(Math.Max(_minTimeout.TotalSeconds, connection.Settings.SendTimeout.TotalSeconds));
                 await connection.ConnectAsync().ConfigureAwait(false);
 

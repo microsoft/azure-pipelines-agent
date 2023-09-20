@@ -72,15 +72,15 @@
         "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/pipelines-agent-linux-arm64-<AGENT_VERSION>.tar.gz"
     },
     {
-        "name": "vsts-agent-rhel.6-x64-<AGENT_VERSION>.tar.gz",
-        "platform": "rhel.6-x64",
+        "name": "vsts-agent-linux-musl-x64-<AGENT_VERSION>.tar.gz",
+        "platform": "linux-musl-x64",
         "version": "<AGENT_VERSION>",
-        "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-rhel.6-x64-<AGENT_VERSION>.tar.gz"
+        "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-linux-musl-x64-<AGENT_VERSION>.tar.gz"
     },
     {
-        "name": "pipelines-agent-rhel.6-x64-<AGENT_VERSION>.tar.gz",
-        "platform": "rhel.6-x64",
+        "name": "pipelines-agent-linux-musl-x64-<AGENT_VERSION>.tar.gz",
+        "platform": "linux-musl-x64",
         "version": "<AGENT_VERSION>",
-        "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/pipelines-agent-rhel.6-x64-<AGENT_VERSION>.tar.gz"
+        "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/pipelines-agent-linux-musl-x64-<AGENT_VERSION>.tar.gz"
     }
 ]
