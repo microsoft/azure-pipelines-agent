@@ -1,8 +1,4 @@
 {
-  "name": "agent-release",
-  "description": "Flow for releasing agent",
-  "author": "Microsoft Corporation",
-  "license": "MIT",
   "private": true,
   "devDependencies": {
     "@octokit/rest": "^16.43.2",
