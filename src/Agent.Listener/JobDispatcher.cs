@@ -3,6 +3,7 @@
 
 using Agent.Sdk.Knob;
 using Agent.Sdk.Util;
+using Agent.Listener.Configuration;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -604,7 +605,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                 var messageType = MessageType.CancelRequest;
                                 if (HostContext.AgentShutdownToken.IsCancellationRequested)
                                 {
-                                    if (AgentKnobs.FailJobWhenAgentDies.GetValue(HostContext).AsBoolean())
+                                    var service = HostContext.GetService<IFeatureFlagProvider>();
+                                    var ffState = await service.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.FailJobWhenAgentDies", Trace);
+                                    if (ffState.EffectiveState == "On")
                                     {
                                         resultOnAbandonOrCancel = TaskResult.Failed;
                                     }
