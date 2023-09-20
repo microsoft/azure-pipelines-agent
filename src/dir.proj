@@ -79,8 +79,8 @@
 
   <Target Name="TestL0" DependsOnTargets="GenerateConstant">
     <Exec Command="dotnet build Test/Test.csproj -c $(BUILDCONFIG) /p:PackageRuntime=$(PackageRuntime) /p:SelfContained=false /p:TargetFramework=$(TargetFramework) /p:RuntimeFrameworkVersion=$(RuntimeFrameworkVersion)" ConsoleToMSBuild="true" />
-    <Exec Command="dotnet build Test/Test.csproj /t:CopyFilesL0 /p:TargetFramework=$(TargetFramework) /p:RuntimeFrameworkVersion=$(RuntimeFrameworkVersion)" Condition="'$(PackageRuntime)' == 'win-x86'"/>
-    <Exec Command="dotnet test Test/Test.csproj --settings $(MSBuildProjectDirectory)/Test/CodeCoverage.runsettings --no-build --logger:trx --collect:&quot;Code Coverage&quot; --filter &quot;$(TestFilters)&quot; /p:PackageRuntime=$(PackageRuntime) /p:TargetFramework=$(TargetFramework)" ConsoleToMSBuild="true" />
+    <Exec Command="dotnet build Test/Test.csproj -c $(BUILDCONFIG) /t:CopyFilesL0 /p:TargetFramework=$(TargetFramework) /p:RuntimeFrameworkVersion=$(RuntimeFrameworkVersion)" Condition="'$(PackageRuntime)' == 'win-x86'"/>
+    <Exec Command="dotnet test Test/Test.csproj -c $(BUILDCONFIG) --settings $(MSBuildProjectDirectory)/Test/CodeCoverage.runsettings --no-build --logger:trx --collect:&quot;Code Coverage&quot; --filter &quot;$(TestFilters)&quot; /p:PackageRuntime=$(PackageRuntime) /p:TargetFramework=$(TargetFramework)" ConsoleToMSBuild="true" />
   </Target>
 
   <Target Name="TestL1" DependsOnTargets="GenerateConstant">
@@ -101,8 +101,8 @@
              Properties="Configuration=$(BUILDCONFIG);PackageRuntime=$(PackageRuntime);Version=1.0.0.0;RuntimeIdentifier=$(PackageRuntime);PublishDir=$(L1Root)/bin" />
 
     <Exec Command="dotnet build Test/Test.csproj -c $(BUILDCONFIG) /p:PackageRuntime=$(PackageRuntime) /p:SelfContained=false /p:TargetFramework=$(TargetFramework) /p:RuntimeFrameworkVersion=$(RuntimeFrameworkVersion) -o $(L1Root)/bin" ConsoleToMSBuild="true" />
-    <Exec Command="dotnet build Test/Test.csproj /t:CopyFilesL1 /p:TargetFramework=$(TargetFramework) /p:RuntimeFrameworkVersion=$(RuntimeFrameworkVersion)" Condition="'$(PackageRuntime)' == 'win-x86'"/>
-    <Exec Command="dotnet test Test/Test.csproj /p:TargetFramework=$(TargetFramework) /p:RuntimeFrameworkVersion=$(RuntimeFrameworkVersion) -o $(L1Root)/bin --no-build --logger:trx --verbosity=detailed --filter &quot;$(TestFilters)&quot;" ConsoleToMSBuild="true" />
+    <Exec Command="dotnet build Test/Test.csproj -c $(BUILDCONFIG) /t:CopyFilesL1 /p:TargetFramework=$(TargetFramework) /p:RuntimeFrameworkVersion=$(RuntimeFrameworkVersion)" Condition="'$(PackageRuntime)' == 'win-x86'"/>
+    <Exec Command="dotnet test Test/Test.csproj -c $(BUILDCONFIG) /p:TargetFramework=$(TargetFramework) /p:RuntimeFrameworkVersion=$(RuntimeFrameworkVersion) -o $(L1Root)/bin --no-build --logger:trx --verbosity=detailed --filter &quot;$(TestFilters)&quot;" ConsoleToMSBuild="true" />
   </Target>
 
   <Target Name="Layout" DependsOnTargets="Clean;Build">

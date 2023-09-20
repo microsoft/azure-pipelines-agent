@@ -35,6 +35,14 @@
     ]
   },
   {
+    "id": "freebsd",
+    "versions": [
+      {
+        "name": "14+"
+      }
+    ]
+  },
+  {
     "id": "macOS",
     "versions": [
       {

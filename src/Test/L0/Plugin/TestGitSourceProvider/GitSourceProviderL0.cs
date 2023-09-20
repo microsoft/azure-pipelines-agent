@@ -31,6 +31,7 @@ public sealed class TestPluginGitSourceProviderL0
     [Trait("Category", "Plugin")]
     [Trait("SkipOn", "darwin")]
     [Trait("SkipOn", "linux")]
+    [Trait("SkipOn", "freebsd")]
     [MemberData(nameof(FeatureFlagsStatusData))]
     public void TestSetGitConfiguration(bool featureFlagsStatus)
     {

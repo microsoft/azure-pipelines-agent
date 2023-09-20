@@ -16,6 +16,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L0.Util
         [Trait("Category", "Common")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "freebsd")]
         public void Test_GetProcessList()
         {
             using TestHostContext hc = new TestHostContext(this);

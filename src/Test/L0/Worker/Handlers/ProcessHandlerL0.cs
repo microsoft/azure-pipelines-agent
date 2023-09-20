@@ -23,6 +23,7 @@ public class ProcessHandlerL0
     [Trait("Level", "L0")]
     [Trait("Category", "Worker.Handlers")]
     [Trait("SkipOn", "linux")]
+    [Trait("SkipOn", "freebsd")]
     [Trait("SkipOn", "darwin")]
     public async void ProcessHandlerV2_BasicExecution()
     {
@@ -69,6 +70,7 @@ echo hello");
     [Trait("Level", "L0")]
     [Trait("Category", "Worker.Handlers")]
     [Trait("SkipOn", "linux")]
+    [Trait("SkipOn", "freebsd")]
     [Trait("SkipOn", "darwin")]
     public async void ProcessHandlerV2_FileExecution()
     {
@@ -125,6 +127,7 @@ echo hello");
     [Trait("Level", "L0")]
     [Trait("Category", "Worker.Handlers")]
     [Trait("SkipOn", "linux")]
+    [Trait("SkipOn", "freebsd")]
     [Trait("SkipOn", "darwin")]
     public async void ProcessHandlerV2_Validation_passes()
     {
@@ -175,6 +178,7 @@ echo hello");
     [Trait("Level", "L0")]
     [Trait("Category", "Worker.Handlers")]
     [Trait("SkipOn", "linux")]
+    [Trait("SkipOn", "freebsd")]
     [Trait("SkipOn", "darwin")]
     public async void ProcessHandlerV2_Validation_fails()
     {
