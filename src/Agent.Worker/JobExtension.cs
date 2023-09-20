@@ -483,10 +483,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                     else
                     {
-                    Trace.Error($"Caught cancellation exception from JobExtension Initialization: {ex}");
-                    context.Error(ex);
-                    context.Result = TaskResult.Canceled;
-                    throw;
+                        Trace.Error($"Caught cancellation exception from JobExtension Initialization: {ex}");
+                        context.Error(ex);
+                        context.Result = TaskResult.Canceled;
+                        throw;
                     }
                 }
                 catch (Exception ex)
