@@ -164,7 +164,7 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
     acquireExternalTool "$CONTAINER_URL/git-lfs/${LFS_VERSION}/x${BIT}/git-lfs.exe" "git/mingw${BIT}/bin"
     acquireExternalTool "$CONTAINER_URL/pdbstr/1/pdbstr.zip" pdbstr
     acquireExternalTool "$CONTAINER_URL/symstore/1/symstore.zip" symstore
-    acquireExternalTool "$CONTAINER_URL/vstsom/m153_d91bed0b/vstsom.zip" tf
+    acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d/vstsom.zip" tf
     acquireExternalTool "$CONTAINER_URL/vswhere/2_8_4/vswhere.zip" vswhere
 
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v3.4.4/nuget.exe" nuget
