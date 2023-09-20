@@ -8,8 +8,8 @@ if [ $user_id -eq 0 -a -z "$AGENT_ALLOW_RUNASROOT" ]; then
     exit 1
 fi
 
-# Check dotnet core 6.0 dependencies for Linux
-if [[ "$(uname)" == "Linux" ]]; then
+# Check dotnet core 6.0 dependencies for Linux and FreeBSD
+if [[ ($(uname) == "Linux") || ($(uname) == "FreeBSD") ]]; then
     if [ -e /etc/redhat-release ]; then
         redhatRelease=$(grep -oE "[0-9]+" /etc/redhat-release | awk "NR==1")
         if [[ "${redhatRelease}" -lt 7 ]]; then

@@ -173,6 +173,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
         [Trait("Category", "Worker")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "freebsd")]
         [MemberData(nameof(FeatureFlagsStatusData))]
         public async Task TestSetGitConfiguration(bool featureFlagsStatus)
         {

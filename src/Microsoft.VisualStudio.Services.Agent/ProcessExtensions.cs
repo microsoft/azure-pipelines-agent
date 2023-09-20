@@ -24,6 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 case PlatformUtil.OS.Linux:
                     return GetEnvironmentVariableLinux(process, hostContext, variable);
                 case PlatformUtil.OS.OSX:
+                case PlatformUtil.OS.FreeBSD:
                     return GetEnvironmentVariableUsingPs(process, hostContext, variable);
                 case PlatformUtil.OS.Windows:
                     return WindowsEnvVarHelper.GetEnvironmentVariable(process, hostContext, variable);
@@ -73,7 +74,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         private static string GetEnvironmentVariableUsingPs(Process process, IHostContext hostContext, string variable)
         {
-            // On OSX, there is no /proc folder for us to read environment for given process,
+            // On OSX and FreeBSD, there is no /proc folder for us to read environment for given process,
             // So we have call `ps e -p <pid> -o command` to print out env to STDOUT,
             // However, the output env are not format in a parseable way, it's just a string that concatenate all envs with space,
             // It doesn't escape '=' or ' ', so we can't parse the output into a dictionary of all envs.

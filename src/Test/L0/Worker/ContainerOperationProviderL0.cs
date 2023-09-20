@@ -57,6 +57,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         [Trait("SkipOn", "windows")]
         [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "freebsd")]
         public async Task StartContainer_WithoutDockerLabel_OnMacOS_UsesDefaultNode()
         {
             // Only run on macOS
@@ -100,6 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "freebsd")]
         public async Task StartContainer_WithoutDockerLabel_OnWindowsWithLinuxContainer_UsesDefaultNode()
         {
             // Only run on Windows

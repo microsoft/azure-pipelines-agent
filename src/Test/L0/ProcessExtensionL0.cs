@@ -15,6 +15,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
         [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "freebsd")]
         public async Task SuccessReadProcessEnv()
         {
             // With the latest update coming with macOS 10.5.7+ there are no more any ways to retrieve

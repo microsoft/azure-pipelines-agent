@@ -137,6 +137,7 @@ namespace Test.L0.Worker.Handlers
         [Trait("Category", "Worker")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "freebsd")]
         public void WindowsCaseInsensetiveTest()
         {
             string argsLine = "%var1% 2";

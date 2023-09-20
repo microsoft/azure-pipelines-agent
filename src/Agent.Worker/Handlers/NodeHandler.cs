@@ -232,7 +232,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             bool node20ResultsInGlibCErrorHost = false;
             bool node24ResultsInGlibCErrorHost = false;
 
-            if (PlatformUtil.HostOS == PlatformUtil.OS.Linux)
+            if (PlatformUtil.RunningOnLinux || PlatformUtil.RunningOnFreeBSD)
             {
                 if (!useNode20InUnsupportedSystem)
                 {

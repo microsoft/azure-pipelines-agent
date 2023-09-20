@@ -169,6 +169,7 @@ public class ProcessHandlerL0
     [Trait("Level", "L0")]
     [Trait("Category", "Worker.Handlers")]
     [Trait("SkipOn", "linux")]
+    [Trait("SkipOn", "freebsd")]
     [Trait("SkipOn", "darwin")]
     public async Task ModifyEnvironment_DoesNotPersistProxyVariables(bool useV2)
     {
@@ -257,6 +258,7 @@ set {unrelatedVariable}=persisted");
     [Trait("Level", "L0")]
     [Trait("Category", "Worker.Handlers")]
     [Trait("SkipOn", "linux")]
+    [Trait("SkipOn", "freebsd")]
     [Trait("SkipOn", "darwin")]
     public async Task ProcessHandlerV2_BasicExecution()
     {
@@ -303,6 +305,7 @@ echo hello");
     [Trait("Level", "L0")]
     [Trait("Category", "Worker.Handlers")]
     [Trait("SkipOn", "linux")]
+    [Trait("SkipOn", "freebsd")]
     [Trait("SkipOn", "darwin")]
     public async Task ProcessHandlerV2_FileExecution()
     {
@@ -359,6 +362,7 @@ echo hello");
     [Trait("Level", "L0")]
     [Trait("Category", "Worker.Handlers")]
     [Trait("SkipOn", "linux")]
+    [Trait("SkipOn", "freebsd")]
     [Trait("SkipOn", "darwin")]
     public async Task ProcessHandlerV2_Validation_passes()
     {
@@ -409,6 +413,7 @@ echo hello");
     [Trait("Level", "L0")]
     [Trait("Category", "Worker.Handlers")]
     [Trait("SkipOn", "linux")]
+    [Trait("SkipOn", "freebsd")]
     [Trait("SkipOn", "darwin")]
     public async Task ProcessHandlerV2_Validation_fails()
     {
