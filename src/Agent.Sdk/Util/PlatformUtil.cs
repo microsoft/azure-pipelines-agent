@@ -28,7 +28,7 @@ namespace Agent.Sdk
         private static OperatingSystem[] net6SupportedSystems;
         private static HttpClient httpClient = new HttpClient();
 
-        private static readonly string[] linuxReleaseFilePaths = new string[2] { "/etc/os-release", "/usr/lib/os-release" };
+        private static readonly string[] unixReleaseFilePaths = new string[2] { "/etc/os-release", "/usr/lib/os-release" };
 
         // System.Runtime.InteropServices.OSPlatform is a struct, so it is
         // not suitable for switch statements.
@@ -37,8 +37,9 @@ namespace Agent.Sdk
         public enum OS
         {
             Linux,
+            FreeBSD,
             OSX,
-            Windows,
+            Windows
         }
 
         public static OS HostOS
@@ -49,6 +50,10 @@ namespace Agent.Sdk
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
                 {
                     return OS.Linux;
+                }
+                else if (RuntimeInformation.IsOSPlatform(OSPlatform.FreeBSD))
+                {
+                    return OS.FreeBSD;
                 }
                 else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                 {
@@ -79,6 +84,12 @@ namespace Agent.Sdk
         public static bool RunningOnLinux
         {
             get => PlatformUtil.HostOS == PlatformUtil.OS.Linux;
+        }
+
+        [SupportedOSPlatformGuard("freebsd")]
+        public static bool RunningOnFreeBSD
+        {
+            get => PlatformUtil.HostOS == PlatformUtil.OS.FreeBSD;
         }
 
         public static bool RunningOnAlpine
@@ -151,7 +162,7 @@ namespace Agent.Sdk
             #pragma warning disable CA1416 // SupportedOSPlatformGuard not honored on enum members
             return PlatformUtil.HostOS switch
             {
-                PlatformUtil.OS.Linux => GetLinuxId(),
+                PlatformUtil.OS.Linux or PlatformUtil.OS.FreeBSD => GetUnixId(),
                 PlatformUtil.OS.OSX => "MacOS",
                 PlatformUtil.OS.Windows => GetWindowsId(),
                 _ => null
@@ -164,7 +175,7 @@ namespace Agent.Sdk
             #pragma warning disable CA1416 // SupportedOSPlatformGuard not honored on enum members
             return PlatformUtil.HostOS switch
             {
-                PlatformUtil.OS.Linux => new SystemVersion(GetLinuxName(), null),
+                PlatformUtil.OS.Linux or PlatformUtil.OS.FreeBSD => new SystemVersion(GetUnixName(), null),
                 PlatformUtil.OS.OSX => new SystemVersion(GetOSxName(), null),
                 PlatformUtil.OS.Windows => new SystemVersion(GetWindowsName(), GetWindowsVersion()),
                 _ => null
@@ -200,36 +211,36 @@ namespace Agent.Sdk
             }
         }
 
-        private static string GetLinuxReleaseFilePath()
+        private static string GetUnixReleaseFilePath()
         {
-            if (RunningOnLinux)
+            if (RunningOnLinux || RunningOnFreeBSD)
             {
-                string releaseFilePath = linuxReleaseFilePaths.FirstOrDefault(x => File.Exists(x), null);
+                string releaseFilePath = unixReleaseFilePaths.FirstOrDefault(x => File.Exists(x), null);
                 return releaseFilePath;
             }
 
             return null;
         }
 
-        private static string GetLinuxId()
+        private static string GetUnixId()
         {
 
-            string filePath = GetLinuxReleaseFilePath();
+            string filePath = GetUnixReleaseFilePath();
 
-            if (RunningOnLinux && filePath != null)
+            if (filePath != null)
             {
-                Regex linuxIdRegex = new Regex("^ID\\s*=\\s*\"?(?<id>[0-9a-z._-]+)\"?");
+                Regex unixIdRegex = new Regex("^ID\\s*=\\s*\"?(?<id>[0-9a-z._-]+)\"?");
 
                 using (StreamReader reader = new StreamReader(filePath))
                 {
                     while (!reader.EndOfStream)
                     {
                         string line = reader.ReadLine();
-                        var linuxIdRegexMatch = linuxIdRegex.Match(line);
+                        var unixIdRegexMatch = unixIdRegex.Match(line);
 
-                        if (linuxIdRegexMatch.Success)
+                        if (unixIdRegexMatch.Success)
                         {
-                            return linuxIdRegexMatch.Groups["id"].Value;
+                            return unixIdRegexMatch.Groups["id"].Value;
                         }
                     }
                 }
@@ -238,25 +249,25 @@ namespace Agent.Sdk
             return null;
         }
 
-        private static string GetLinuxName()
+        private static string GetUnixName()
         {
 
-            string filePath = GetLinuxReleaseFilePath();
+            string filePath = GetUnixReleaseFilePath();
 
-            if (RunningOnLinux && filePath != null)
+            if (filePath != null)
             {
-                Regex linuxVersionIdRegex = new Regex("^VERSION_ID\\s*=\\s*\"?(?<id>[0-9a-z._-]+)\"?");
+                Regex unixVersionIdRegex = new Regex("^VERSION_ID\\s*=\\s*\"?(?<id>[0-9a-z._-]+)\"?");
 
                 using (StreamReader reader = new StreamReader(filePath))
                 {
                     while (!reader.EndOfStream)
                     {
                         string line = reader.ReadLine();
-                        var linuxVersionIdRegexMatch = linuxVersionIdRegex.Match(line);
+                        var unixVersionIdRegexMatch = unixVersionIdRegex.Match(line);
 
-                        if (linuxVersionIdRegexMatch.Success)
+                        if (unixVersionIdRegexMatch.Success)
                         {
-                            return linuxVersionIdRegexMatch.Groups["id"].Value;
+                            return unixVersionIdRegexMatch.Groups["id"].Value;
                         }
                     }
                 }
