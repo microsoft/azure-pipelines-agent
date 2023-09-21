@@ -217,9 +217,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             if (enableValidation || enableAudit || enableTelemetry)
             {
-                ExecutionContext.Debug("Starting args sanitization");
+                ExecutionContext.Debug("Starting args env expansion");
                 var (expandedArgs, envExpandTelemetry) = ProcessHandlerHelper.ExpandCmdEnv(inputArgs);
+                ExecutionContext.Debug($"Expanded args={expandedArgs}");
 
+                ExecutionContext.Debug("Starting args sanitization");
                 var (sanitizedArgs, sanitizeTelemetry) = CmdArgsSanitizer.SanitizeArguments(expandedArgs);
 
                 if (sanitizedArgs != inputArgs)
