@@ -26,14 +26,14 @@ namespace Agent.Listener.Configuration
         /// <returns>The status of the feature flag.</returns>
         /// <exception cref="VssUnauthorizedException">Thrown if token is not suitable for retriving feature flag status</exception>
         /// <exception cref="InvalidOperationException">Thrown if agent is not configured</exception>
-        public Task<bool> GetFeatureFlagAsync(IHostContext context, string featureFlagName, ITraceWriter traceWriter);
+        public Task<FeatureFlag> GetFeatureFlagAsync(IHostContext context, string featureFlagName, ITraceWriter traceWriter);
 
     }
 
     public class FeatureFlagProvider : AgentService, IFeatureFlagProvider
     {
 
-        public async Task<bool> GetFeatureFlagAsync(IHostContext context, string featureFlagName, ITraceWriter traceWriter)
+        public async Task<FeatureFlag> GetFeatureFlagAsync(IHostContext context, string featureFlagName, ITraceWriter traceWriter)
         {
             traceWriter.Verbose(nameof(GetFeatureFlagAsync));
             ArgUtil.NotNull(featureFlagName, nameof(featureFlagName));
@@ -49,12 +49,11 @@ namespace Agent.Listener.Configuration
             var client = vssConnection.GetClient<FeatureAvailabilityHttpClient>();
             try
             {
-                var FeatureFlagStatus = await client.GetFeatureFlagByNameAsync(featureFlagName);
-                return true;
+                return await client.GetFeatureFlagByNameAsync(featureFlagName);
             } catch(VssServiceException e)
             {
                 Trace.Warning("Unable to retrive feature flag status: " + e.ToString());
-                return false;
+                return new FeatureFlag(featureFlagName, "", "", "Off", "Off");
             }
         }
     }
