@@ -236,13 +236,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
                         PublishTelemetry(telemetry, "ProcessHandler");
                     }
-                    if (enableAudit && !enableValidation)
+                    if (sanitizedArgs != expandedArgs)
                     {
-                        ExecutionContext.Warning(StringUtil.Loc("ProcessHandlerScriptArgsSanitized"));
-                    }
-                    if (enableValidation)
-                    {
-                        throw new ArgsSanitizedException(StringUtil.Loc("ProcessHandlerScriptArgsSanitized"));
+                        if (enableAudit && !enableValidation)
+                        {
+                            ExecutionContext.Warning(StringUtil.Loc("ProcessHandlerScriptArgsSanitized"));
+                        }
+                        if (enableValidation)
+                        {
+                            throw new ArgsSanitizedException(StringUtil.Loc("ProcessHandlerScriptArgsSanitized"));
+                        }
                     }
                 }
             }
