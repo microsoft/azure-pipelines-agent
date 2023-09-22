@@ -10,6 +10,8 @@ namespace Test.L0.Worker.Handlers
     public class CmdArgsSanitizerL0
     {
         [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
         public void EmptyLineTest()
         {
             string argsLine = "";
@@ -25,6 +27,8 @@ namespace Test.L0.Worker.Handlers
         [InlineData("1 ^^; 2", "1 ^^_#removed#_ 2")]
         [InlineData("1 ; 2 && 3", "1 _#removed#_ 2 _#removed#__#removed#_ 3")]
         [InlineData("; & > < |", "_#removed#_ _#removed#_ _#removed#_ _#removed#_ _#removed#_")]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
         public void SanitizeTest(string inputArgs, string expectedArgs)
         {
             var (actualArgs, _) = CmdArgsSanitizer.SanitizeArguments(inputArgs);
@@ -37,6 +41,8 @@ namespace Test.L0.Worker.Handlers
         [InlineData("1 ^; 2")]
         [InlineData("1 ^; 2 ^&^& 3 ^< ^> ^| ^^")]
         [InlineData(", / \\ aA zZ 09 ' \" - = : . * + ? ^")]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
         public void SanitizeSkipTest(string inputArgs)
         {
             var (actualArgs, _) = CmdArgsSanitizer.SanitizeArguments(inputArgs);
@@ -46,6 +52,8 @@ namespace Test.L0.Worker.Handlers
 
         [Theory]
         [ClassData(typeof(SanitizerTelemetryTestsData))]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
         public void Telemetry_BasicTest(string inputArgs, int expectedRemovedSymbolsCount, Dictionary<string, int> expectedRemovedSymbols)
         {
             var (_, resultTelemetry) = CmdArgsSanitizer.SanitizeArguments(inputArgs);
@@ -69,6 +77,8 @@ namespace Test.L0.Worker.Handlers
         [InlineData("")]
         [InlineData("123")]
         [InlineData("1 ^; ^&")]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
         public void Telemetry_ReturnsNull(string inputArgs)
         {
             var (_, resultTelemetry) = CmdArgsSanitizer.SanitizeArguments(inputArgs);

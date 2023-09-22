@@ -10,6 +10,8 @@ namespace Test.L0.Worker.Handlers
     public sealed class ProcessHandlerHelperL0
     {
         [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
         public void EmptyLineTest()
         {
             string argsLine = "";
@@ -21,6 +23,8 @@ namespace Test.L0.Worker.Handlers
         }
 
         [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
         public void BasicTest()
         {
             string argsLine = "%VAR1% 2";
@@ -35,6 +39,8 @@ namespace Test.L0.Worker.Handlers
         }
 
         [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
         public void TestWithMultipleVars()
         {
             string argsLine = "1 %VAR1% %VAR2%";
@@ -54,6 +60,8 @@ namespace Test.L0.Worker.Handlers
         [InlineData("%VAR1% %VAR2%%VAR3%", "1 23")]
         [InlineData("%VAR1% %VAR2%_%VAR3%", "1 2_3")]
         [InlineData("%VAR1%%VAR2%%VAR3%", "123")]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
         public void TestWithCloseVars(string inputArgs, string expectedArgs)
         {
             var testEnv = new Dictionary<string, string>()
@@ -69,6 +77,8 @@ namespace Test.L0.Worker.Handlers
         }
 
         [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
         public void NestedVariablesNotExpands()
         {
             string argsLine = "%VAR1% %VAR2%";
@@ -86,6 +96,8 @@ namespace Test.L0.Worker.Handlers
         }
 
         [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
         public void SkipsInvalidEnv()
         {
             string argsLine = "%VAR1% 2";
@@ -103,6 +115,7 @@ namespace Test.L0.Worker.Handlers
 
         [Fact]
         [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
         [Trait("Category", "Worker")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]

@@ -9,6 +9,8 @@ namespace Test.L0.Worker.Handlers
     public sealed class ProcessHandlerHelperTelemetryL0
     {
         [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
         public void FoundPrefixesTest()
         {
             string argsLine = "% % %";
@@ -18,6 +20,8 @@ namespace Test.L0.Worker.Handlers
         }
 
         [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
         public void NotClosedEnv()
         {
             string argsLine = "%1";
@@ -28,6 +32,8 @@ namespace Test.L0.Worker.Handlers
         }
 
         [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
         public void NotClosedEnv2()
         {
             string argsLine = "\"%\" %";
@@ -38,6 +44,8 @@ namespace Test.L0.Worker.Handlers
         }
 
         [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
         public void NotClosedQuotes()
         {
             string argsLine = "\" %var%";
@@ -48,6 +56,8 @@ namespace Test.L0.Worker.Handlers
         }
 
         [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
         public void NotClosedQuotes_Ignore_if_no_envVar()
         {
             string argsLine = "\" 1";
@@ -58,6 +68,8 @@ namespace Test.L0.Worker.Handlers
         }
 
         [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
         public void QuotedBlocksCount()
         {
             // We're ignoring quote blocks where no any env variables
@@ -69,6 +81,8 @@ namespace Test.L0.Worker.Handlers
         }
 
         [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
         public void CountsVariablesStartFromEscSymbol()
         {
             string argsLine = "%^VAR1% \"%^VAR2%\" %^VAR3%";
