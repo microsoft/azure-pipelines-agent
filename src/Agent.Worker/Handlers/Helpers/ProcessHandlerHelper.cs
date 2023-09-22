@@ -76,8 +76,6 @@ namespace Agent.Worker.Handlers.Helpers
 
                 string envName = result[envStartIndex..envEndIndex];
 
-                telemetry.BracedVariables++;
-
                 if (envName.StartsWith(escapingSymbol))
                 {
                     var sanitizedEnvName = envPrefix + envName[1..] + envPostfix;
@@ -146,7 +144,6 @@ namespace Agent.Worker.Handlers.Helpers
         public int EscapedEscapingSymbols { get; set; } = 0;
         public int VariablesStartsFromES { get; set; } = 0;
         public int BraceSyntaxEntries { get; set; } = 0;
-        public int BracedVariables { get; set; } = 0;
         public int VariablesWithESInside { get; set; } = 0;
         public int QuotesNotEnclosed { get; set; } = 0;
         public int NotClosedEnvSyntaxPosition { get; set; } = 0;
@@ -163,7 +160,6 @@ namespace Agent.Worker.Handlers.Helpers
                 ["escapedEscapingSymbols"] = EscapedEscapingSymbols,
                 ["variablesStartsFromES"] = VariablesStartsFromES,
                 ["braceSyntaxEntries"] = BraceSyntaxEntries,
-                ["bracedVariables"] = BracedVariables,
                 ["bariablesWithESInside"] = VariablesWithESInside,
                 ["quotesNotEnclosed"] = QuotesNotEnclosed,
                 ["notClosedBraceSyntaxPosition"] = NotClosedEnvSyntaxPosition,
