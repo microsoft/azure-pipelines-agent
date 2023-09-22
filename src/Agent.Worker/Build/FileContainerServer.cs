@@ -232,8 +232,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 token.ThrowIfCancellationRequested();
                 try
                 {
-                    string fileName = fileToUpload.Replace(_sourceParentDirectory, string.Empty).Replace("\\", string.Empty).Replace("/", string.Empty);
-                    string itemPath = (_containerPath.TrimEnd('/') + "/" + fileName).Replace("\\", "/");
+                    string itemPath = null;
+                    if (AgentKnobs.EnableFCSItemPathFix.GetValue(context).AsBoolean())
+                    {
+                        string fileName = fileToUpload.Replace(_sourceParentDirectory, string.Empty).Replace("\\", string.Empty).Replace("/", string.Empty);
+                        itemPath = (_containerPath.TrimEnd('/') + "/" + fileName).Replace("\\", "/");
+                    }
+                    else
+                    {
+                        itemPath = (_containerPath.TrimEnd('/') + "/" + fileToUpload.Remove(0, _sourceParentDirectory.Length + 1)).Replace('\\', '/');
+                    }
+
                     uploadTimer.Restart();
                     bool catchExceptionDuringUpload = false;
                     HttpResponseMessage response = null;
@@ -417,8 +426,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             while (associateQueue.TryDequeue(out var file))
             {
                 uploadTimer.Restart();
-                string fileName = file.Path.Replace(_sourceParentDirectory, string.Empty).Replace("\\", string.Empty).Replace("/", string.Empty);
-                string itemPath = (_containerPath.TrimEnd('/') + "/" + fileName).Replace("\\", "/");
+                string itemPath = null;
+                if (AgentKnobs.EnableFCSItemPathFix.GetValue(context).AsBoolean())
+                {
+                    string fileName = file.Path.Replace(_sourceParentDirectory, string.Empty).Replace("\\", string.Empty).Replace("/", string.Empty);
+                    itemPath = (_containerPath.TrimEnd('/') + "/" + fileName).Replace("\\", "/");
+                }
+                else
+                {
+                    itemPath = (_containerPath.TrimEnd('/') + "/" + file.Path.Remove(0, _sourceParentDirectory.Length + 1)).Replace('\\', '/');
+                }
+
                 bool catchExceptionDuringUpload = false;
                 HttpResponseMessage response = null;
                 try
