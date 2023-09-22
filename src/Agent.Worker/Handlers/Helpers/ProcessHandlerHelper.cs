@@ -3,7 +3,10 @@
 
 using System;
 using System.Collections.Generic;
+using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Agent.Worker;
+using Microsoft.VisualStudio.Services.Common;
 
 namespace Agent.Worker.Handlers.Helpers
 {
@@ -35,20 +38,18 @@ namespace Agent.Worker.Handlers.Helpers
 
                 if (prefixIndex > 0 && result[prefixIndex - 1] == escapingSymbol)
                 {
-                    int checkInx = prefixIndex - 2;
-                    if (checkInx > 2 && (result[checkInx] == 0 || result[checkInx] != escapingSymbol))
+                    int beforeBeforePrefix = prefixIndex - 2;
+                    if (beforeBeforePrefix < 0 || result[beforeBeforePrefix] != escapingSymbol)
                     {
-                        startIndex++;
-                        result = result[..(prefixIndex - 1)] + result[prefixIndex..];
-
                         telemetry.EscapedVariables++;
-
-                        continue;
+                    }
+                    else
+                    {
+                        telemetry.EscapedEscapingSymbols++;
                     }
 
                     startIndex++;
 
-                    telemetry.EscapedEscapingSymbols++;
                     continue;
                 }
 
@@ -84,7 +85,6 @@ namespace Agent.Worker.Handlers.Helpers
                 {
                     var sanitizedEnvName = envPrefix + envName[1..] + envPostfix;
 
-                    result = result[..prefixIndex] + sanitizedEnvName + result[(envEndIndex + envPostfix.Length)..];
                     startIndex = prefixIndex + sanitizedEnvName.Length;
 
                     telemetry.VariablesStartsFromES++;
@@ -137,8 +137,63 @@ namespace Agent.Worker.Handlers.Helpers
 
             return 0;
         }
-    }
 
+        public static (bool, Dictionary<string, object>) ValidateInputArguments(
+            string inputArgs,
+            Dictionary<string, string> environment,
+            IExecutionContext context)
+        {
+            var enableValidation = AgentKnobs.ProcessHandlerSecureArguments.GetValue(context).AsBoolean();
+            context.Debug($"Enable args validation: '{enableValidation}'");
+            var enableAudit = AgentKnobs.ProcessHandlerSecureArgumentsAudit.GetValue(context).AsBoolean();
+            context.Debug($"Enable args validation audit: '{enableAudit}'");
+            var enableTelemetry = AgentKnobs.ProcessHandlerTelemetry.GetValue(context).AsBoolean();
+            context.Debug($"Enable telemetry: '{enableTelemetry}'");
+
+            if (enableValidation || enableAudit || enableTelemetry)
+            {
+                context.Debug("Starting args env expansion");
+                var (expandedArgs, envExpandTelemetry) = ExpandCmdEnv(inputArgs, environment);
+                context.Debug($"Expanded args={expandedArgs}");
+
+                context.Debug("Starting args sanitization");
+                var (sanitizedArgs, sanitizeTelemetry) = CmdArgsSanitizer.SanitizeArguments(expandedArgs);
+
+                Dictionary<string, object> telemetry = null;
+                if (sanitizedArgs != inputArgs)
+                {
+                    if (enableTelemetry)
+                    {
+                        telemetry = envExpandTelemetry.ToDictionary();
+                        if (sanitizeTelemetry != null)
+                        {
+                            telemetry.AddRange(sanitizeTelemetry.ToDictionary());
+                        }
+                    }
+                    if (sanitizedArgs != expandedArgs)
+                    {
+                        if (enableAudit && !enableValidation)
+                        {
+                            context.Warning(StringUtil.Loc("ProcessHandlerScriptArgsSanitized"));
+                        }
+                        if (enableValidation)
+                        {
+                            return (false, telemetry);
+                        }
+
+                        return (true, telemetry);
+                    }
+                }
+
+                return (true, null);
+            }
+            else
+            {
+                context.Debug("Args sanitization skipped.");
+                return (true, null);
+            }
+        }
+    }
     public class CmdTelemetry
     {
         public int FoundPrefixes { get; set; } = 0;

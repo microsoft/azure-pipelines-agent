@@ -4,6 +4,8 @@
 using Xunit;
 using Agent.Worker.Handlers.Helpers;
 using System.Collections.Generic;
+using Microsoft.VisualStudio.Services.Agent.Worker;
+using Moq;
 
 namespace Test.L0.Worker.Handlers
 {
@@ -151,6 +153,58 @@ namespace Test.L0.Worker.Handlers
 
             var (actualArgs, _) = ProcessHandlerHelper.ExpandCmdEnv(argsLine, testEnv);
             Assert.Equal(expandedArgs, actualArgs);
+        }
+
+        // TODO: Code smell. Refactor, remove specific logic from here.
+        [Theory]
+        [InlineData("%var%", "1 & echo 23")]
+        [InlineData("%var%%", "1 & echo 23")]
+        [InlineData("%%%var%", "1 & echo 23")]
+        [InlineData("1 & echo 23", "")]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
+        public void ArgsValidation_Failes(string inputArgs, string envVarValue)
+        {
+            var testEnv = new Dictionary<string, string>
+            {
+                {"var", envVarValue},
+            };
+
+            var mockContext = CreateMockExecContext();
+
+            var (isValid, _) = ProcessHandlerHelper.ValidateInputArguments(inputArgs, testEnv, mockContext.Object);
+
+            Assert.False(isValid);
+        }
+
+        // TODO: Code smell. Refactor, remove specific logic from here.
+        [Theory]
+        [InlineData("", "")]
+        [InlineData("%%var%", "1 & whoami")]
+        [InlineData("%%%%var%", "1 & whoami")]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
+        public void ArgsValidation_Passes(string inputArgs, string envVarValue)
+        {
+            var testEnv = new Dictionary<string, string>
+            {
+                {"var", envVarValue},
+            };
+
+            var mockContext = CreateMockExecContext();
+
+            var (isValid, _) = ProcessHandlerHelper.ValidateInputArguments(inputArgs, testEnv, mockContext.Object);
+
+            Assert.True(isValid);
+        }
+
+
+        private Mock<IExecutionContext> CreateMockExecContext()
+        {
+            var mockContext = new Mock<IExecutionContext>();
+            mockContext.Setup(x => x.GetVariableValueOrDefault(It.IsAny<string>())).Returns("true");
+
+            return mockContext;
         }
     }
 }

@@ -134,7 +134,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             try
             {
-                ValidateInputArguments(arguments);
+                var (isValid, telemetry) = ProcessHandlerHelper.ValidateInputArguments(arguments, Environment, ExecutionContext);
+
+                if (telemetry != null)
+                {
+                    PublishTelemetry(telemetry, "ProcessHandler");
+                }
+                if (!isValid)
+                {
+                    throw new ArgsSanitizedException(StringUtil.Loc("ProcessHandlerScriptArgsSanitized"));
+                }
             }
             catch (ArgsSanitizedException)
             {
@@ -203,55 +212,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 {
                     throw new Exception(StringUtil.Loc("ProcessCompletedWithExitCode0", exitCode));
                 }
-            }
-        }
-
-        private void ValidateInputArguments(string inputArgs)
-        {
-            var enableValidation = AgentKnobs.ProcessHandlerSecureArguments.GetValue(ExecutionContext).AsBoolean();
-            ExecutionContext.Debug($"Enable args validation: '{enableValidation}'");
-            var enableAudit = AgentKnobs.ProcessHandlerSecureArgumentsAudit.GetValue(ExecutionContext).AsBoolean();
-            ExecutionContext.Debug($"Enable args validation audit: '{enableAudit}'");
-            var enableTelemetry = AgentKnobs.ProcessHandlerTelemetry.GetValue(ExecutionContext).AsBoolean();
-            ExecutionContext.Debug($"Enable telemetry: '{enableTelemetry}'");
-
-            if (enableValidation || enableAudit || enableTelemetry)
-            {
-                ExecutionContext.Debug("Starting args env expansion");
-                var (expandedArgs, envExpandTelemetry) = ProcessHandlerHelper.ExpandCmdEnv(inputArgs, Environment);
-                ExecutionContext.Debug($"Expanded args={expandedArgs}");
-
-                ExecutionContext.Debug("Starting args sanitization");
-                var (sanitizedArgs, sanitizeTelemetry) = CmdArgsSanitizer.SanitizeArguments(expandedArgs);
-
-                if (sanitizedArgs != inputArgs)
-                {
-                    if (enableTelemetry)
-                    {
-                        var telemetry = envExpandTelemetry.ToDictionary();
-                        if (sanitizeTelemetry != null)
-                        {
-                            telemetry.AddRange(sanitizeTelemetry.ToDictionary());
-                        }
-
-                        PublishTelemetry(telemetry, "ProcessHandler");
-                    }
-                    if (sanitizedArgs != expandedArgs)
-                    {
-                        if (enableAudit && !enableValidation)
-                        {
-                            ExecutionContext.Warning(StringUtil.Loc("ProcessHandlerScriptArgsSanitized"));
-                        }
-                        if (enableValidation)
-                        {
-                            throw new ArgsSanitizedException(StringUtil.Loc("ProcessHandlerScriptArgsSanitized"));
-                        }
-                    }
-                }
-            }
-            else
-            {
-                ExecutionContext.Debug("Args sanitization skipped.");
             }
         }
 
