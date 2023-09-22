@@ -3,13 +3,17 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Agent.Worker.Handlers.Helpers
 {
     public static class ProcessHandlerHelper
     {
-        public static (string, CmdTelemetry) ExpandCmdEnv(string inputArgs)
+        public static (string, CmdTelemetry) ExpandCmdEnv(string inputArgs, Dictionary<string, string> environment)
         {
+            ArgUtil.NotNull(inputArgs, nameof(inputArgs));
+            ArgUtil.NotNull(environment, nameof(environment));
+
             const char quote = '"';
             const char escapingSymbol = '^';
             const string envPrefix = "%";
@@ -95,12 +99,14 @@ namespace Agent.Worker.Handlers.Helpers
                     telemetry.VariablesWithESInside++;
                 }
 
-                var envValue = Environment.GetEnvironmentVariable(envName);
+                // Since Windows have case-insensetive environment, and Process handler is windows-specific, we should allign this behavior.
+                var windowsEnvironment = new Dictionary<string, string>(environment, StringComparer.OrdinalIgnoreCase);
+
                 // In case we don't have such variable, we just leave it as is
-                if (string.IsNullOrEmpty(envValue))
+                if (!windowsEnvironment.TryGetValue(envName, out string envValue) || string.IsNullOrEmpty(envValue))
                 {
                     telemetry.NotExistingEnv++;
-                    startIndex = envEndIndex;
+                    startIndex = envEndIndex + 1;
                     continue;
                 }
 

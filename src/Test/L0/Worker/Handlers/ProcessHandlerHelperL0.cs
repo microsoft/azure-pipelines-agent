@@ -1,9 +1,9 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System;
 using Xunit;
 using Agent.Worker.Handlers.Helpers;
+using System.Collections.Generic;
 
 namespace Test.L0.Worker.Handlers
 {
@@ -15,7 +15,7 @@ namespace Test.L0.Worker.Handlers
             string argsLine = "";
             string expectedArgs = "";
 
-            var (actualArgs, _) = ProcessHandlerHelper.ExpandCmdEnv(argsLine);
+            var (actualArgs, _) = ProcessHandlerHelper.ExpandCmdEnv(argsLine, new());
 
             Assert.Equal(expectedArgs, actualArgs);
         }
@@ -25,9 +25,11 @@ namespace Test.L0.Worker.Handlers
         {
             string argsLine = "%VAR1% 2";
             string expectedArgs = "value1 2";
-            Environment.SetEnvironmentVariable("VAR1", "value1");
-
-            var (actualArgs, _) = ProcessHandlerHelper.ExpandCmdEnv(argsLine);
+            var testEnv = new Dictionary<string, string>()
+            {
+                ["VAR1"] = "value1"
+            };
+            var (actualArgs, _) = ProcessHandlerHelper.ExpandCmdEnv(argsLine, testEnv);
 
             Assert.Equal(expectedArgs, actualArgs);
         }
@@ -37,10 +39,13 @@ namespace Test.L0.Worker.Handlers
         {
             string argsLine = "1 %VAR1% %VAR2%";
             string expectedArgs = "1 value1 value2";
-            Environment.SetEnvironmentVariable("VAR1", "value1");
-            Environment.SetEnvironmentVariable("VAR2", "value2");
+            var testEnv = new Dictionary<string, string>()
+            {
+                ["VAR1"] = "value1",
+                ["VAR2"] = "value2"
+            };
 
-            var (actualArgs, _) = ProcessHandlerHelper.ExpandCmdEnv(argsLine);
+            var (actualArgs, _) = ProcessHandlerHelper.ExpandCmdEnv(argsLine, testEnv);
 
             Assert.Equal(expectedArgs, actualArgs);
         }
@@ -51,11 +56,14 @@ namespace Test.L0.Worker.Handlers
         [InlineData("%VAR1%%VAR2%%VAR3%", "123")]
         public void TestWithCloseVars(string inputArgs, string expectedArgs)
         {
-            Environment.SetEnvironmentVariable("VAR1", "1");
-            Environment.SetEnvironmentVariable("VAR2", "2");
-            Environment.SetEnvironmentVariable("VAR3", "3");
+            var testEnv = new Dictionary<string, string>()
+            {
+                { "VAR1", "1" },
+                { "VAR2", "2" },
+                { "VAR3", "3" }
+            };
 
-            var (actualArgs, _) = ProcessHandlerHelper.ExpandCmdEnv(inputArgs);
+            var (actualArgs, _) = ProcessHandlerHelper.ExpandCmdEnv(inputArgs, testEnv);
 
             Assert.Equal(expectedArgs, actualArgs);
         }
@@ -65,11 +73,14 @@ namespace Test.L0.Worker.Handlers
         {
             string argsLine = "%VAR1% %VAR2%";
             string expectedArgs = "%NESTED% 2";
-            Environment.SetEnvironmentVariable("VAR1", "%NESTED%");
-            Environment.SetEnvironmentVariable("VAR2", "2");
-            Environment.SetEnvironmentVariable("NESTED", "nested");
+            var testEnv = new Dictionary<string, string>()
+            {
+                { "VAR1", "%NESTED%" },
+                { "VAR2", "2"},
+                { "NESTED", "nested" }
+            };
 
-            var (actualArgs, _) = ProcessHandlerHelper.ExpandCmdEnv(argsLine);
+            var (actualArgs, _) = ProcessHandlerHelper.ExpandCmdEnv(argsLine, testEnv);
 
             Assert.Equal(expectedArgs, actualArgs);
         }
@@ -78,13 +89,35 @@ namespace Test.L0.Worker.Handlers
         public void SkipsInvalidEnv()
         {
             string argsLine = "%VAR1% 2";
-            Environment.SetEnvironmentVariable("VAR1", null);
+            var testEnv = new Dictionary<string, string>()
+            {
+                { "VAR1", null}
+            };
 
             string expectedArgs = "%VAR1% 2";
 
-            var (actualArgs, _) = ProcessHandlerHelper.ExpandCmdEnv(argsLine);
+            var (actualArgs, _) = ProcessHandlerHelper.ExpandCmdEnv(argsLine, testEnv);
 
             Assert.Equal(expectedArgs, actualArgs);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
+        public void WindowsCaseInsensetiveTest()
+        {
+            string argsLine = "%var1% 2";
+            var testEnv = new Dictionary<string, string>()
+            {
+                { "VAR1", "value1"}
+            };
+
+            string expandedArgs = "value1 2";
+
+            var (actualArgs, _) = ProcessHandlerHelper.ExpandCmdEnv(argsLine, testEnv);
+            Assert.Equal(expandedArgs, actualArgs);
         }
     }
 }
