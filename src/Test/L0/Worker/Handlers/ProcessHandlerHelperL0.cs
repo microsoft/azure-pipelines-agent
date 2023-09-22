@@ -116,9 +116,12 @@ namespace Test.L0.Worker.Handlers
         [Theory]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker.Handlers")]
-        [InlineData("^%var")]
         [InlineData("%var")]
+        [InlineData("%someothervar%")]
+        [InlineData("^%var")]
         [InlineData("^%var%")]
+        [InlineData("^^%var%")] // we'll keep this case as a pessimistic for now.
+        [InlineData("^^^%var%")]
         public void TestNoChanges(string input)
         {
             var testEnv = new Dictionary<string, string>
