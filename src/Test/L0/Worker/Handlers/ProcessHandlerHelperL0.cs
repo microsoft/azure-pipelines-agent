@@ -113,6 +113,23 @@ namespace Test.L0.Worker.Handlers
             Assert.Equal(expectedArgs, actualArgs);
         }
 
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
+        [InlineData("^%var")]
+        [InlineData("%var")]
+        [InlineData("^%var%")]
+        public void TestNoChanges(string input)
+        {
+            var testEnv = new Dictionary<string, string>
+            {
+                { "var", "value" }
+            };
+            var (output, _) = ProcessHandlerHelper.ExpandCmdEnv(input, testEnv);
+
+            Assert.Equal(input, output);
+        }
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker.Handlers")]

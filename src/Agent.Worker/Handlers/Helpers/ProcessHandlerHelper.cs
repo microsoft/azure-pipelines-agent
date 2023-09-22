@@ -35,7 +35,8 @@ namespace Agent.Worker.Handlers.Helpers
 
                 if (prefixIndex > 0 && result[prefixIndex - 1] == escapingSymbol)
                 {
-                    if (result[prefixIndex - 2] == 0 || result[prefixIndex - 2] != escapingSymbol)
+                    int checkInx = prefixIndex - 2;
+                    if (checkInx > 2 && (result[checkInx] == 0 || result[checkInx] != escapingSymbol))
                     {
                         startIndex++;
                         result = result[..(prefixIndex - 1)] + result[prefixIndex..];
@@ -45,7 +46,10 @@ namespace Agent.Worker.Handlers.Helpers
                         continue;
                     }
 
+                    startIndex++;
+
                     telemetry.EscapedEscapingSymbols++;
+                    continue;
                 }
 
                 // We possibly should simplify that part -> if just no close quote, then break
