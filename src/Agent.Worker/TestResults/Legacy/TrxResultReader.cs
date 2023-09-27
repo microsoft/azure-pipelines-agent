@@ -156,14 +156,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                     // set it as "name" from the parent (where it is always present)
                     XmlNode testResultNode = definitionNode.SelectSingleNode("./TestMethod");
                     string automatedTestName = null;
-                    if (testResultNode != null && testResultNode.Attributes["className"] != null && testResultNode.Attributes["name"] != null)
+                    if (testResultNode != null && testResultNode.Attributes["className"] != null && (definitionNode.Attributes["name"]?.Value != null || testResultNode.Attributes["name"] != null))
                     {
                         // At times the class names are coming as
                         // className="MS.TF.Test.AgileX.VSTests.WiLinking.UI.WiLinkingUIQueryTests"
                         // at other times, they are as
                         // className="UnitTestProject3.UnitTest1, UnitTestProject3, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null"
                         string className = testResultNode.Attributes["className"].Value.Split(',')[0];
-                        automatedTestName = className + "." + testResultNode.Attributes["name"].Value;
+
+                        string testCaseName;
+                        //For Datadriven tests definitionNode:name is unique whereas testResultnode:name is not
+                        //And for non DataDriven tests both definitionNode:name and testResultnode:name will be same
+                        if (definitionNode.Attributes["name"]?.Value != null)
+                        {
+                            testCaseName = definitionNode.Attributes["name"].Value;
+                        }
+                        else
+                        {
+                            testCaseName = testResultNode.Attributes["name"].Value;
+                        }
+
+
+                        automatedTestName = className + "." + testCaseName;
                     }
                     else if (definitionNode.Attributes["name"] != null)
                     {
