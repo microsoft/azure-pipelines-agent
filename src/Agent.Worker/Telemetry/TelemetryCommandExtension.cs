@@ -52,6 +52,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
                 throw new ArgumentException(StringUtil.Loc("ArgumentNeeded", "EventTrackerData"));
             }
 
+            data = context.GetHostContext().SecretMasker.MaskSecrets(data);
             CustomerIntelligenceEvent ciEvent;
             try
             {
