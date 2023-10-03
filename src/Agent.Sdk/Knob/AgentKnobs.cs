@@ -287,6 +287,7 @@ namespace Agent.Sdk.Knob
         public static readonly Knob MaskUsingCredScanRegexes = new Knob(
             nameof(MaskUsingCredScanRegexes),
             "Use the CredScan regexes for masking secrets. CredScan is an internal tool developed at Microsoft to keep passwords and authentication keys from being checked in. This defaults to disabled, as there are performance problems with some task outputs.",
+            new RuntimeKnobSource("AZP_USE_CREDSCAN_REGEXES"),
             new EnvironmentKnobSource("AZP_USE_CREDSCAN_REGEXES"),
             new BuiltInDefaultKnobSource("false"));
 
