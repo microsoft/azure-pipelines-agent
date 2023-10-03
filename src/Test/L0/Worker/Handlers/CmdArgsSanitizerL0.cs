@@ -40,7 +40,7 @@ namespace Test.L0.Worker.Handlers
         [InlineData("1 2")]
         [InlineData("1 ^; 2")]
         [InlineData("1 ^; 2 ^&^& 3 ^< ^> ^| ^^")]
-        [InlineData(", / \\ aA zZ 09 ' \" - = : . * + ? ^")]
+        [InlineData(", / \\ aA zZ 09 ' \" - = : . * + ? ^ %")]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker.Handlers")]
         public void SanitizeSkipTest(string inputArgs)
