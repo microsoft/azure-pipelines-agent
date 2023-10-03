@@ -17,7 +17,6 @@ namespace Agent.Worker.Handlers.Helpers
             ArgUtil.NotNull(inputArgs, nameof(inputArgs));
             ArgUtil.NotNull(environment, nameof(environment));
 
-            const char quote = '"';
             const char escapingSymbol = '^';
             const string envPrefix = "%";
             const string envPostfix = "%";
@@ -38,37 +37,7 @@ namespace Agent.Worker.Handlers.Helpers
 
                 if (prefixIndex > 0 && result[prefixIndex - 1] == escapingSymbol)
                 {
-                    int beforeBeforePrefix = prefixIndex - 2;
-                    if (beforeBeforePrefix < 0 || result[beforeBeforePrefix] != escapingSymbol)
-                    {
-                        telemetry.EscapedVariables++;
-                    }
-                    else
-                    {
-                        telemetry.EscapedEscapingSymbols++;
-                    }
-
-                    startIndex++;
-
-                    continue;
-                }
-
-                // We possibly should simplify that part -> if just no close quote, then break
-                int quoteIndex = result.IndexOf(quote, startIndex);
-                if (quoteIndex >= 0 && prefixIndex > quoteIndex)
-                {
-                    int nextQuoteIndex = result.IndexOf(quote, quoteIndex + 1);
-                    if (nextQuoteIndex < 0)
-                    {
-                        telemetry.QuotesNotEnclosed = 1;
-                        break;
-                    }
-
-                    startIndex = nextQuoteIndex + 1;
-
-                    telemetry.QuottedBlocks++;
-
-                    continue;
+                    telemetry.EscapingSymbolBeforeVar++;
                 }
 
                 int envStartIndex = prefixIndex + envPrefix.Length;
@@ -80,24 +49,14 @@ namespace Agent.Worker.Handlers.Helpers
                 }
 
                 string envName = result[envStartIndex..envEndIndex];
-
                 if (envName.StartsWith(escapingSymbol))
                 {
-                    var sanitizedEnvName = envPrefix + envName[1..] + envPostfix;
-
-                    startIndex = prefixIndex + sanitizedEnvName.Length;
-
                     telemetry.VariablesStartsFromES++;
-
-                    continue;
                 }
 
                 var head = result[..prefixIndex];
                 if (envName.Contains(escapingSymbol, StringComparison.Ordinal))
                 {
-                    head += envName.Split(escapingSymbol)[1];
-                    envName = envName.Split(escapingSymbol)[0];
-
                     telemetry.VariablesWithESInside++;
                 }
 
@@ -108,7 +67,7 @@ namespace Agent.Worker.Handlers.Helpers
                 if (!windowsEnvironment.TryGetValue(envName, out string envValue) || string.IsNullOrEmpty(envValue))
                 {
                     telemetry.NotExistingEnv++;
-                    startIndex = envEndIndex + 1;
+                    startIndex = prefixIndex + 1;
                     continue;
                 }
 
@@ -197,12 +156,9 @@ namespace Agent.Worker.Handlers.Helpers
     public class CmdTelemetry
     {
         public int FoundPrefixes { get; set; } = 0;
-        public int QuottedBlocks { get; set; } = 0;
         public int VariablesExpanded { get; set; } = 0;
-        public int EscapedVariables { get; set; } = 0;
-        public int EscapedEscapingSymbols { get; set; } = 0;
+        public int EscapingSymbolBeforeVar { get; set; } = 0;
         public int VariablesStartsFromES { get; set; } = 0;
-        public int BraceSyntaxEntries { get; set; } = 0;
         public int VariablesWithESInside { get; set; } = 0;
         public int QuotesNotEnclosed { get; set; } = 0;
         public int NotClosedEnvSyntaxPosition { get; set; } = 0;
@@ -213,12 +169,9 @@ namespace Agent.Worker.Handlers.Helpers
             return new Dictionary<string, object>
             {
                 ["foundPrefixes"] = FoundPrefixes,
-                ["quottedBlocks"] = QuottedBlocks,
                 ["variablesExpanded"] = VariablesExpanded,
-                ["escapedVariables"] = EscapedVariables,
-                ["escapedEscapingSymbols"] = EscapedEscapingSymbols,
+                ["escapedVariables"] = EscapingSymbolBeforeVar,
                 ["variablesStartsFromES"] = VariablesStartsFromES,
-                ["braceSyntaxEntries"] = BraceSyntaxEntries,
                 ["bariablesWithESInside"] = VariablesWithESInside,
                 ["quotesNotEnclosed"] = QuotesNotEnclosed,
                 ["notClosedBraceSyntaxPosition"] = NotClosedEnvSyntaxPosition,

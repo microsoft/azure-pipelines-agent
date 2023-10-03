@@ -3,56 +3,38 @@
 
 using Xunit;
 using Agent.Worker.Handlers.Helpers;
+using System.Collections.Generic;
 
 namespace Test.L0.Worker.Handlers
 {
     public sealed class ProcessHandlerHelperTelemetryL0
     {
-        [Fact]
+        [Theory]
+        [InlineData("% % %", 3)]
+        [InlineData("%var% %", 2)]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker.Handlers")]
-        public void FoundPrefixesTest()
+        public void FoundPrefixesTest(string inputArgs, int expectedCount)
         {
-            string argsLine = "% % %";
-            var (_, resultTelemetry) = ProcessHandlerHelper.ExpandCmdEnv(argsLine, new());
+            var env = new Dictionary<string, string>
+            {
+                { "var", "test" }
+            };
+            var (_, resultTelemetry) = ProcessHandlerHelper.ExpandCmdEnv(inputArgs, env);
 
-            Assert.Equal(2, resultTelemetry.FoundPrefixes);
+            Assert.Equal(expectedCount, resultTelemetry.FoundPrefixes);
         }
 
-        [Fact]
+        [Theory]
+        [InlineData("%1", 0)]
+        [InlineData("  %1", 2)]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker.Handlers")]
-        public void NotClosedEnv()
+        public void NotClosedEnv(string inputArgs, int expectedPosition)
         {
-            string argsLine = "%1";
+            var (_, resultTelemetry) = ProcessHandlerHelper.ExpandCmdEnv(inputArgs, new());
 
-            var (_, resultTelemetry) = ProcessHandlerHelper.ExpandCmdEnv(argsLine, new());
-
-            Assert.Equal(0, resultTelemetry.NotClosedEnvSyntaxPosition);
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Worker.Handlers")]
-        public void NotClosedEnv2()
-        {
-            string argsLine = "\"%\" %";
-
-            var (_, resultTelemetry) = ProcessHandlerHelper.ExpandCmdEnv(argsLine, new());
-
-            Assert.Equal(4, resultTelemetry.NotClosedEnvSyntaxPosition);
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Worker.Handlers")]
-        public void NotClosedQuotes()
-        {
-            string argsLine = "\" %var%";
-
-            var (_, resultTelemetry) = ProcessHandlerHelper.ExpandCmdEnv(argsLine, new());
-
-            Assert.Equal(1, resultTelemetry.QuotesNotEnclosed);
+            Assert.Equal(expectedPosition, resultTelemetry.NotClosedEnvSyntaxPosition);
         }
 
         [Fact]
@@ -70,26 +52,13 @@ namespace Test.L0.Worker.Handlers
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker.Handlers")]
-        public void QuotedBlocksCount()
-        {
-            // We're ignoring quote blocks where no any env variables
-            string argsLine = "\"%VAR1%\" \"%VAR2%\" \"3\"";
-
-            var (_, resultTelemetry) = ProcessHandlerHelper.ExpandCmdEnv(argsLine, new());
-
-            Assert.Equal(2, resultTelemetry.QuottedBlocks);
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Worker.Handlers")]
         public void CountsVariablesStartFromEscSymbol()
         {
             string argsLine = "%^VAR1% \"%^VAR2%\" %^VAR3%";
 
             var (_, resultTelemetry) = ProcessHandlerHelper.ExpandCmdEnv(argsLine, new());
 
-            Assert.Equal(2, resultTelemetry.VariablesStartsFromES);
+            Assert.Equal(3, resultTelemetry.VariablesStartsFromES);
         }
     }
 }

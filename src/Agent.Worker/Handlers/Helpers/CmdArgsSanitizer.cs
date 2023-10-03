@@ -23,7 +23,7 @@ namespace Agent.Worker.Handlers.Helpers
             var argsChunks = inputArgs.Split(argsSplitSymbols);
             var matchesChunks = new List<MatchCollection>();
 
-            var saniziteRegExp = new Regex("(?<!\\^)([^a-zA-Z0-9\\\\` _''\"\\-=\\/:\\.*,+~?^])");
+            var saniziteRegExp = new Regex("(?<!\\^)([^a-zA-Z0-9\\\\` _''\"\\-=\\/:\\.*,+~?^%])");
 
             for (int i = 0; i < argsChunks.Length; i++)
             {

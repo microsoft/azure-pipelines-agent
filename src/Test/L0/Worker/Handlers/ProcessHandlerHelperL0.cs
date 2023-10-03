@@ -120,10 +120,6 @@ namespace Test.L0.Worker.Handlers
         [Trait("Category", "Worker.Handlers")]
         [InlineData("%var")]
         [InlineData("%someothervar%")]
-        [InlineData("^%var")]
-        [InlineData("^%var%")]
-        [InlineData("^^%var%")] // we'll keep this case as a pessimistic for now.
-        [InlineData("^^^%var%")]
         public void TestNoChanges(string input)
         {
             var testEnv = new Dictionary<string, string>
@@ -159,8 +155,10 @@ namespace Test.L0.Worker.Handlers
         [Theory]
         [InlineData("%var%", "1 & echo 23")]
         [InlineData("%var%%", "1 & echo 23")]
-        [InlineData("%%%var%", "1 & echo 23")]
+        [InlineData("%%var%", "1 & echo 23")]
         [InlineData("1 & echo 23", "")]
+        [InlineData("1 ; whoami", "")]
+        [InlineData("1 | whoami", "")]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker.Handlers")]
         public void ArgsValidation_Failes(string inputArgs, string envVarValue)
@@ -177,11 +175,13 @@ namespace Test.L0.Worker.Handlers
             Assert.False(isValid);
         }
 
-        // TODO: Code smell. Refactor, remove specific logic from here.
         [Theory]
         [InlineData("", "")]
-        [InlineData("%%var%", "1 & whoami")]
-        [InlineData("%%%%var%", "1 & whoami")]
+        [InlineData("%", "")]
+        [InlineData("1 2", "")]
+        [InlineData("1 %var%", "2")]
+        [InlineData("1 \"2\"", "")]
+        [InlineData("%%var%%", "1")]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker.Handlers")]
         public void ArgsValidation_Passes(string inputArgs, string envVarValue)
