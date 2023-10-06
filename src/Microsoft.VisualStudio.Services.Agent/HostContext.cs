@@ -106,13 +106,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             this.SecretMasker.AddValueEncoder(ValueEncoders.UriDataEscape, $"HostContext_{WellKnownSecretAliases.UriDataEscape}");
             this.SecretMasker.AddValueEncoder(ValueEncoders.BackslashEscape, $"HostContext_{WellKnownSecretAliases.UriDataEscape}");
             this.SecretMasker.AddRegex(AdditionalMaskingRegexes.UrlSecretPattern, $"HostContext_{WellKnownSecretAliases.UrlSecretPattern}");
-            if (AgentKnobs.MaskUsingCredScanRegexes.GetValue(this).AsBoolean())
-            {
-                foreach (var pattern in AdditionalMaskingRegexes.CredScanPatterns)
-                {
-                    this.SecretMasker.AddRegex(pattern, $"HostContext_{WellKnownSecretAliases.CredScanPatterns}");
-                }
-            }
 
             // Create the trace manager.
             if (string.IsNullOrEmpty(logFile))

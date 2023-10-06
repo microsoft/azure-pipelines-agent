@@ -16,6 +16,7 @@ using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -510,6 +511,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             List<string> warnings;
             Variables = new Variables(HostContext, message.Variables, out warnings);
             Variables.StringTranslator = TranslatePathForStepTarget;
+
+            if (AgentKnobs.MaskUsingCredScanRegexes.GetValue(this).AsBoolean())
+            {
+                foreach (var pattern in AdditionalMaskingRegexes.CredScanPatterns)
+                {
+                    HostContext.SecretMasker.AddRegex(pattern, $"ExecutionContext_{WellKnownSecretAliases.CredScanPatterns}");
+                }
+            }
 
             if (Variables.GetBoolean("agent.useWorkspaceId") == true)
             {
