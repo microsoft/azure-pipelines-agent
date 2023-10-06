@@ -352,6 +352,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("ALLOW_TFVC_UNSHELVE_ERRORS"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob EnableFCSItemPathFix = new Knob(
+            nameof(EnableFCSItemPathFix),
+            "If true, enable the fix for the path of the item when associating or uploading to the file container server.",
+            new RuntimeKnobSource("ENABLE_FCS_ITEM_PATH_FIX"),
+            new EnvironmentKnobSource("ENABLE_FCS_ITEM_PATH_FIX"),
+            new BuiltInDefaultKnobSource("false"));
+
         // Set DISABLE_JAVA_CAPABILITY_HIGHER_THAN_9 variable with any value
         // to disable recognition of Java higher than 9
         public static readonly Knob DisableRecognitionOfJDKHigherThen9 = new Knob(
