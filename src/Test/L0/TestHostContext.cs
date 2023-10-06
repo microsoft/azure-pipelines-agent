@@ -68,6 +68,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             _secretMasker.AddValueEncoder(ValueEncoders.JsonStringEscape);
             _secretMasker.AddValueEncoder(ValueEncoders.UriDataEscape);
             _secretMasker.AddValueEncoder(ValueEncoders.BackslashEscape);
+            if (Boolean.TryParse(Environment.GetEnvironmentVariable("AZP_USE_CREDSCAN_REGEXES"), out bool credScanEnabled) && credScanEnabled)
+            {
+                foreach (var pattern in AdditionalMaskingRegexes.CredScanPatterns)
+                {
+                    _secretMasker.AddRegex(pattern, $"ExecutionContext_{WellKnownSecretAliases.CredScanPatterns}");
+                }
+            }
+
             _traceManager = new TraceManager(traceListener, _secretMasker);
             _trace = GetTrace(nameof(TestHostContext));
 

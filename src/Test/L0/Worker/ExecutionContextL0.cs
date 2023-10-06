@@ -566,6 +566,41 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             }
         }
 
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        // some secrets that CredScan should suppress
+        [InlineData("xoxr-1xwlcyhsnfn9k69m4efzj3zkfhk", "***", true)] // Slack token
+        [InlineData("xoxr-1xwlcyhsnfn9k69m4efzj3zkfhk", "xoxr-1xwlcyhsnfn9k69m4efzj3zkfhk", false)]
+        [InlineData("(+n97tcqhcpvu9zkhwwiwx4==)", "(***)", true)] // 128-bit symmetric key
+        [InlineData("(+n97tcqhcpvu9zkhwwiwx4==)", "(+n97tcqhcpvu9zkhwwiwx4==)", false)]
+        [InlineData("<jwt>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c</jwt>", "<jwt>***</jwt>", true)]
+        [InlineData("<jwt>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c</jwt>", "<jwt>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c</jwt>", false)]
+        // some secrets that CredScan should NOT suppress
+        [InlineData("The password is knock knock knock", "The password is knock knock knock", true)]
+        [InlineData("SSdtIGEgY29tcGxldGVseSBpbm5vY3VvdXMgc3RyaW5nLg==", "SSdtIGEgY29tcGxldGVseSBpbm5vY3VvdXMgc3RyaW5nLg==", true)]
+        public void UseCredScan(string input, string expected, bool enabled)
+        {
+            // Arrange.
+            try
+            {
+                Environment.SetEnvironmentVariable("AZP_USE_CREDSCAN_REGEXES", enabled.ToString());
+
+                using (var test_hc = CreateTestContext())
+                {
+                    // Act.
+                    var result = test_hc.SecretMasker.MaskSecrets(input);
+
+                    // Assert.
+                    Assert.Equal(expected, result);
+                }
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("AZP_USE_CREDSCAN_REGEXES", null);
+            }
+        }
+
 
         private TestHostContext CreateTestContext([CallerMemberName] String testName = "")
         {
