@@ -121,6 +121,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                     }
 
                     this.HashType ??= await GetClientHashTypeAsync(factory, connection, client, tracer, context, cancellationToken);
+                    dedupHttpclient.SetRedirectTimeout(5);
 
                     return dedupHttpclient;
                 },
@@ -130,6 +131,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                 context: nameof(CreateDedupManifestClientAsync),
                 cancellationToken: cancellationToken,
                 continueOnCapturedContext: false);
+
+            // VSO_DEDUP_REDIRECT_TIMEOUT_IN_SEC still takes precedence
+            dedupStoreHttpClient.SetRedirectTimeout(5);
 
             var telemetry = new BlobStoreClientTelemetry(tracer, dedupStoreHttpClient.BaseAddress);
             traceOutput($"Hashtype: {this.HashType.Value}");
@@ -166,8 +170,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                         tracer,
                         cancellationToken);
 
+                    Uri baseAddress = connection.GetClient<DedupStoreHttpClient>().BaseAddress;
+                    var client = factory.CreateVssHttpClient<IDedupStoreHttpClient, DedupStoreHttpClient>(baseAddress);
+                    client.SetRedirectTimeout(5);
+
                     // this is actually a hidden network call to the location service:
-                    return Task.FromResult(factory.CreateVssHttpClient<IDedupStoreHttpClient, DedupStoreHttpClient>(connection.GetClient<DedupStoreHttpClient>().BaseAddress));
+                    return Task.FromResult(client);
                 },
                 maxRetries: maxRetries,
                 tracer: tracer,
