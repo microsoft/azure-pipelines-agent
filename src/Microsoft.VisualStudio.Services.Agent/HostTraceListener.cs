@@ -12,6 +12,11 @@ namespace Microsoft.VisualStudio.Services.Agent
 {
     public sealed class HostTraceListener : TextWriterTraceListener
     {
+        /// <summary>
+        /// Use this sparingly if code being called logs an error that needs to be 'downgraded' to a warning        
+        /// </summary>
+        public static bool ErrorsAsWarnings { get; set; }
+
         public bool DisableConsoleReporting { get; set; }
         private const string _logFileNamingPattern = "{0}_{1:yyyyMMdd-HHmmss}-utc.log";
         private string _logFileDirectory;
@@ -64,6 +69,11 @@ namespace Microsoft.VisualStudio.Services.Agent
         // There must be some TraceFilter extension class that is missing in this source code.
         public override void TraceEvent(TraceEventCache eventCache, string source, TraceEventType eventType, int id, string message)
         {
+            if (ErrorsAsWarnings && eventType < TraceEventType.Warning)
+            {
+                eventType = TraceEventType.Warning;
+            }
+
             if (Filter != null && !Filter.ShouldTrace(eventCache, source, eventType, id, message, null, null, null))
             {
                 return;

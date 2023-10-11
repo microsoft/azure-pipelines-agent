@@ -1,0 +1,5 @@
+$ProgressPreference = 'SilentlyContinue'
+$app = Get-WmiObject -Class Win32_Product -Filter "Name = 'Microsoft Azure CLI (64-bit)'"
+$app.Uninstall()
+Invoke-WebRequest -Uri https://azcliprod.blob.core.windows.net/msi/azure-cli-2.52.0-x64.msi -OutFile .\AzureCLI.msi
+Start-Process msiexec.exe -Wait -ArgumentList '/I AzureCLI.msi /quiet' -Verb RunAs

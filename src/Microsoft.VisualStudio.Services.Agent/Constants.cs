@@ -368,6 +368,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 // Keep alphabetical. If you add or remove a variable here, do the same in ReadOnlyVariables
                 //
                 public static readonly string BuildDirectoryClean = "agent.clean.buildDirectory";
+                public static readonly string ForceAZCLIToolDowngradeTo252 = "agent.forceazclitooldowngradeto252";
                 public static readonly string GitLfsSupport = "agent.source.git.lfs";
                 public static readonly string GitShallowDepth = "agent.source.git.shallowFetchDepth";
                 public static readonly string SkipSyncSource = "agent.source.skip";
@@ -539,6 +540,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Common.TestResultsDirectory,
                 // Feature variables
                 Features.BuildDirectoryClean,
+                Features.ForceAZCLIToolDowngradeTo252,
                 Features.GitLfsSupport,
                 Features.GitShallowDepth,
                 Features.SkipSyncSource,

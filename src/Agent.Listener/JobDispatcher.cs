@@ -17,7 +17,7 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using System.Linq;
 using Microsoft.VisualStudio.Services.Common;
 using System.Diagnostics;
-
+using Agent.Listener.Configuration;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -87,6 +87,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     Trace.Verbose($"Retrieve previous WorkerDispather for job {currentDispatch.JobId}.");
                 }
             }
+
+            var service = HostContext.GetService<IFeatureFlagProvider>();
+            string ffState;
+            try
+            {
+                ffState = service.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.ForceAZCLIToolDowngradeTo252", Trace)?.Result?.EffectiveState;
+            }
+            catch (Exception)
+            {
+                ffState = "Off";
+            }
+
+            jobRequestMessage.Variables[Constants.Variables.Features.ForceAZCLIToolDowngradeTo252] = (ffState == "On").ToString();
 
             WorkerDispatcher newDispatch = new WorkerDispatcher(jobRequestMessage.JobId, jobRequestMessage.RequestId);
             if (runOnce)

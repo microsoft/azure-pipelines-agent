@@ -518,5 +518,12 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AZP_AGENT_IGNORE_VSTSTASKLIB"),
             new EnvironmentKnobSource("AZP_AGENT_IGNORE_VSTSTASKLIB"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob ForceAZCLIToolDowngradeTo252 = new Knob(
+            nameof(ForceAZCLIToolDowngradeTo252),
+            "Force downgrading AZ cli to 2.52",
+            new EnvironmentKnobSource("AZP_FORCE_AZCLI_TOOL_DOWNGRADE_TO_2_52"),
+            new RuntimeKnobSource("AZP_FORCE_AZCLI_TOOL_DOWNGRADE_TO_2_52"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }

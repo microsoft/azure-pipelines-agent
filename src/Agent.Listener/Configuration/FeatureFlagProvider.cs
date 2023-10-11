@@ -43,17 +43,31 @@ namespace Agent.Listener.Configuration
 
             VssCredentials creds = credMgr.LoadCredentials();
             ArgUtil.NotNull(creds, nameof(creds));
-            
+
             AgentSettings settings = configManager.LoadSettings();
             using var vssConnection = VssUtil.CreateConnection(new Uri(settings.ServerUrl), creds, traceWriter);
             var client = vssConnection.GetClient<FeatureAvailabilityHttpClient>();
             try
             {
+                // if feature flag doesn't exist, that is traced as an error and logged to Agent log like:
+                // [2023-10-06 22:20:15Z ERR  VisualStudioServices] GET request to https://.../_apis/FeatureFlags/FFName failed. HTTP Status: NotFound, [...]
+                // 
+                // The problem is that we surface that in the console as: 
+                // Error reported in diagnostic logs. Please examine the log for more details.
+                // - /path/to/logs/_diag/Agent_20231006-231735-utc.log
+                //
+                // Reporting an error could cause confusion. Added a flag to the listener so we can temporarily intercept the trace error and convert to warning
+                HostTraceListener.ErrorsAsWarnings = true;
                 return await client.GetFeatureFlagByNameAsync(featureFlagName);
-            } catch(VssServiceException e)
+            }
+            catch (VssServiceException e)
             {
                 Trace.Warning("Unable to retrive feature flag status: " + e.ToString());
                 return new FeatureFlag(featureFlagName, "", "", "Off", "Off");
+            }
+            finally
+            {
+                HostTraceListener.ErrorsAsWarnings = false;
             }
         }
     }
