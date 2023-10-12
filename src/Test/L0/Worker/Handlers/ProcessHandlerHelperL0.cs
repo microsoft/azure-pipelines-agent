@@ -151,7 +151,6 @@ namespace Test.L0.Worker.Handlers
             Assert.Equal(expandedArgs, actualArgs);
         }
 
-        // TODO: Code smell. Refactor, remove specific logic from here.
         [Theory]
         [InlineData("%var%", "1 & echo 23")]
         [InlineData("%var%%", "1 & echo 23")]
