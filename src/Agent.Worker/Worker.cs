@@ -68,8 +68,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 InitializeSecretMasker(jobMessage);
                 SetCulture(jobMessage);
 
-
-                System.Diagnostics.Debugger.Launch();
                 var maskUsingCredScanRegexesState = "On";
 
                 if(jobMessage.Variables.TryGetValue(Constants.Variables.Agent.EnableAdditionalMaskingRegexes, out var enableAdditionalMaskingRegexes))
