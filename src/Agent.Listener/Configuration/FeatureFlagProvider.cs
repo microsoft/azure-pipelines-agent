@@ -49,7 +49,7 @@ namespace Agent.Listener.Configuration
             var client = vssConnection.GetClient<FeatureAvailabilityHttpClient>();
             try
             {
-                return await client.GetFeatureFlagByNameAsync(featureFlagName);
+                return await client.GetFeatureFlagByNameAsync(featureFlagName, false);
             } catch(VssServiceException e)
             {
                 Trace.Warning("Unable to retrive feature flag status: " + e.ToString());

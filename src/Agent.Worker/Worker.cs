@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.WebApi;
 using Agent.Sdk.Util;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -66,6 +67,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Initialize the secret masker and set the thread culture.
                 InitializeSecretMasker(jobMessage);
                 SetCulture(jobMessage);
+
+
+                System.Diagnostics.Debugger.Launch();
+                var maskUsingCredScanRegexesState = "On";
+
+                if(jobMessage.Variables.TryGetValue(Constants.Variables.Agent.EnableAdditionalMaskingRegexes, out var enableAdditionalMaskingRegexes))
+                {
+                    maskUsingCredScanRegexesState = enableAdditionalMaskingRegexes.Value;
+                }
+
+                if(maskUsingCredScanRegexesState == "On" && AgentKnobs.MaskUsingCredScanRegexes.GetValue(HostContext).AsBoolean() == true)
+                {
+                    foreach (var pattern in AdditionalMaskingRegexes.CredScanPatterns)
+                    {
+                        HostContext.SecretMasker.AddRegex(pattern, $"HostContext_{WellKnownSecretAliases.CredScanPatterns}");
+                    }
+                }
 
                 // Start the job.
                 Trace.Info($"Job message:{Environment.NewLine} {StringUtil.ConvertToJson(WorkerUtilities.ScrubPiiData(jobMessage))}");
