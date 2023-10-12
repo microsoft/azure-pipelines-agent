@@ -50,7 +50,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 + @"[0-9A-Za-z_\-]{44}AzFu[0-9A-Za-z\-_]{5}[AQgw]==" // match
                 + @"", // post-match
 
-                  // Azure Search query and admin keys.
+                  // Azure Search keys.
                   @"\b" // pre-match
                 + @"[0-9A-Za-z]{42}AzSe[A-D][0-9A-Za-z]{5}" // match
                 + @"\b", // post-match
