@@ -513,6 +513,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Agent.Version,
                 Agent.WorkFolder,
                 Agent.WorkingDirectory,
+                Agent.EnableAdditionalMaskingRegexes,
                 // Build variables
                 Build.ArtifactStagingDirectory,
                 Build.BinariesDirectory,

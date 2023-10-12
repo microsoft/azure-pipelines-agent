@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Agent.Listener.Configuration;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Listener;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -22,6 +23,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         private Mock<IProcessInvoker> _processInvoker;
         private Mock<IAgentServer> _agentServer;
         private Mock<IConfigurationStore> _configurationStore;
+        private Mock<IFeatureFlagProvider> _featureFlagProvider;
 
         public JobDispatcherL0()
         {
@@ -29,6 +31,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             _processInvoker = new Mock<IProcessInvoker>();
             _agentServer = new Mock<IAgentServer>();
             _configurationStore = new Mock<IConfigurationStore>();
+            _featureFlagProvider = new Mock<IFeatureFlagProvider>();
         }
 
         private Pipelines.AgentJobRequestMessage CreateJobRequestMessage()
@@ -53,6 +56,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 var jobDispatcher = new JobDispatcher();
                 hc.SetSingleton<IConfigurationStore>(_configurationStore.Object);
                 hc.SetSingleton<IAgentServer>(_agentServer.Object);
+                hc.SetSingleton<IFeatureFlagProvider>(_featureFlagProvider.Object);
 
                 hc.EnqueueInstance<IProcessChannel>(_processChannel.Object);
                 hc.EnqueueInstance<IProcessInvoker>(_processInvoker.Object);

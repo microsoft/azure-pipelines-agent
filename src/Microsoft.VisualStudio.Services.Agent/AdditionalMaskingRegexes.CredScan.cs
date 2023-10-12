@@ -75,10 +75,6 @@ namespace Microsoft.VisualStudio.Services.Agent
                 + @"npm_[0-9A-Za-z]{36}" // match
                 + @"\b", // post-match
 
-                  // NPM author keys.
-                  @"\b" // pre-match
-                + @"npm_[0-9A-Za-z]{36}" // match
-                + @"\b", // post-match
             };
     }
 }
