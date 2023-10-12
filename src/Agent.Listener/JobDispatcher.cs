@@ -96,7 +96,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             }
             catch (Exception)
             {
-                ffState = "On";
+                ffState = "Off";
             }
             jobRequestMessage.Variables[Constants.Variables.Features.EnableAdditionalMaskingRegexes] = ffState;
 

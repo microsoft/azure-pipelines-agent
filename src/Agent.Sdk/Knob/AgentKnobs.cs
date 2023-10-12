@@ -284,12 +284,6 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("SYSTEM_UNSAFEALLOWMULTILINESECRET"),
             new BuiltInDefaultKnobSource("false"));
 
-        public static readonly Knob MaskUsingCredScanRegexes = new Knob(
-            nameof(MaskUsingCredScanRegexes),
-            "Use the CredScan regexes for masking secrets. CredScan is an internal tool developed at Microsoft to keep passwords and authentication keys from being checked in. This defaults to disabled, as there are performance problems with some task outputs.",
-            new EnvironmentKnobSource("AZP_USE_CREDSCAN_REGEXES"),
-            new BuiltInDefaultKnobSource("true"));
-
         public static readonly Knob MaskedSecretMinLength = new Knob(
             nameof(MaskedSecretMinLength),
             "Specify the length of the secrets, which, if shorter, will be ignored in the logs.",
