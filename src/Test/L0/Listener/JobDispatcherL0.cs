@@ -469,6 +469,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 var jobDispatcher = new JobDispatcher();
                 hc.SetSingleton<IConfigurationStore>(_configurationStore.Object);
                 hc.SetSingleton<IAgentServer>(_agentServer.Object);
+                hc.SetSingleton<IFeatureFlagProvider>(_featureFlagProvider.Object);
 
                 hc.EnqueueInstance<IProcessChannel>(_processChannel.Object);
                 hc.EnqueueInstance<IProcessInvoker>(_processInvoker.Object);

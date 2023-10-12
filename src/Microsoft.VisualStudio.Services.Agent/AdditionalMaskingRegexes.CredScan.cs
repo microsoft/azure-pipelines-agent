@@ -74,7 +74,6 @@ namespace Microsoft.VisualStudio.Services.Agent
                   @"\b" // pre-match
                 + @"npm_[0-9A-Za-z]{36}" // match
                 + @"\b", // post-match
-
             };
     }
 }
