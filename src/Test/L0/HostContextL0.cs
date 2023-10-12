@@ -89,13 +89,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Theory]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        // some secrets that CredScan should suppress
-        [InlineData("xoxr-1xwlcyhsnfn9k69m4efzj3zkfhk", "***")] // Slack token
-        [InlineData("(+n97tcqhcpvu9zkhwwiwx4==)", "(***)")] // 128-bit symmetric key
-        [InlineData("<jwt>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c</jwt>", "<jwt>***</jwt>")]
-        // some secrets that CredScan should NOT suppress
-        [InlineData("The password is knock knock knock", "The password is knock knock knock")]
+        // Some secrets that the scanner SHOULD suppress.
+        [InlineData("deaddeaddeaddeaddeaddeaddeaddeadde/dead+deaddeaddeaddeaddeaddeaddeaddeaddeadAPIMxxxxxQ==", "***")]
+        [InlineData("deaddeaddeaddeaddeaddeaddeaddeadde/dead+deaddeaddeaddeaddeaddeaddeaddeaddeadACDbxxxxxQ==", "***")]
+        [InlineData("deaddeaddeaddeaddeaddeaddeaddeadde/dead+deaddeaddeaddeaddeaddeaddeaddeaddead+ABaxxxxxQ==", "***")]
+        [InlineData("deaddeaddeaddeaddeaddeaddeaddeadde/dead+deaddeaddeaddeaddeaddeaddeaddeaddead+AMCxxxxxQ==", "***")]
+        [InlineData("deaddeaddeaddeaddeaddeaddeaddeadde/dead+deaddeaddeaddeaddeaddeaddeaddeaddead+AStxxxxxQ==", "***")]
+        [InlineData("deaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeadAzFuxdeadQ==", "***")]
+        [InlineData("deaddeaddeaddeaddeaddeaddeaddeaddeaddeadxxAzSeDeadxx", "***")]
+        [InlineData("deaddeaddeaddeaddeaddeaddeaddeaddeaddeadde+ACRDeadxx", "***")]
+        [InlineData("oy2mdeaddeaddeadeadqdeaddeadxxxezodeaddeadwxuq", "***")]
+        [InlineData("deaddeaddeaddeaddeaddeaddeaddeadxAIoTDeadxx=", "***")]
+        [InlineData("deaddeaddeaddeaddeaddeaddeaddeadx+ASbDeadxx=", "***")]
+        [InlineData("deaddeaddeaddeaddeaddeaddeaddeadx+AEhDeadxx=", "***")]
+        [InlineData("deaddeaddeaddeaddeaddeaddeaddeadx+ARmDeadxx=", "***")]
+        [InlineData("deaddeaddeaddeaddeaddeaddeaddeaddAzCaDeadxx=", "***")]
+        [InlineData("xxx8Q~dead.dead.DEAD-DEAD-dead~deadxxxxx", "***")]
+        [InlineData("npm_deaddeaddeaddeaddeaddeaddeaddeaddead", "***")]
+        [InlineData("xxx7Q~dead.dead.DEAD-DEAD-dead~deadxx", "***")]
+        // Some secrets that the scanner should NOT suppress.
         [InlineData("SSdtIGEgY29tcGxldGVseSBpbm5vY3VvdXMgc3RyaW5nLg==", "SSdtIGEgY29tcGxldGVseSBpbm5vY3VvdXMgc3RyaW5nLg==")]
+        [InlineData("The password is knock knock knock", "The password is knock knock knock")]
         public void OtherSecretsAreMasked(string input, string expected)
         {
             // Arrange.
