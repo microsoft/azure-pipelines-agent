@@ -158,9 +158,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
         public HostContext Setup([CallerMemberName] string testName = "")
         {
-            return new HostContext(
+            var hc = new HostContext(
                 hostType: HostType.Agent,
                 logFile: Path.Combine(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), $"trace_{nameof(HostContextL0)}_{testName}.log"));
+            hc.AddAdditionalMaskingRegexes();
+            return hc;
         }
     }
 }

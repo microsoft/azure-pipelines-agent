@@ -78,10 +78,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 if(maskUsingCredScanRegexesState == "On")
                 {
                     Trace.Verbose($"{Constants.Variables.Agent.EnableAdditionalMaskingRegexes} is On, adding additional masking regexes");
-                    foreach (var pattern in AdditionalMaskingRegexes.CredScanPatterns)
-                    {
-                        HostContext.SecretMasker.AddRegex(pattern, $"HostContext_{WellKnownSecretAliases.CredScanPatterns}");
-                    }
+                    HostContext.AddAdditionalMaskingRegexes();
                 }
 
                 // Start the job.

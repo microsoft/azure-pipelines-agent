@@ -736,6 +736,15 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             return clientHandler;
         }
+
+        public static void AddAdditionalMaskingRegexes(this IHostContext context)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+            foreach (var pattern in AdditionalMaskingRegexes.CredScanPatterns)
+            {
+                context.SecretMasker.AddRegex(pattern, $"HostContext_{WellKnownSecretAliases.CredScanPatterns}");
+            }
+        }
     }
 
     public enum ShutdownReason
