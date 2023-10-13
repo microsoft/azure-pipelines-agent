@@ -23,9 +23,8 @@ parameters:
   values:
   - win
   - linux
+  - linux-musl
   - osx
-  - rhel.6
-  - rhel.7.2
 
 - name: arch
   type: string
@@ -86,9 +85,7 @@ jobs:
     layoutRoot: '_layout/${{ parameters.os }}-${{ parameters.arch }}'
     DisableCFSDetector: true
     DisableDockerDetector: true
-    NugetSecurityAnalysisWarningLevel: "none"
-    ${{ if eq(parameters.os, 'rhel.6') }}:
-      AGENT_USE_NODE10: true
+    nugetMultiFeedWarnLevel: none
 
   steps:
 
@@ -141,6 +138,7 @@ jobs:
     - script: ${{ variables.devCommand }} testl0 Debug ${{ parameters.os }}-${{ parameters.arch }}
       workingDirectory: src
       displayName: Unit tests
+      timeoutInMinutes: 5
 
   # Install nuget
   - ${{ if eq(parameters.os, 'win') }}:
@@ -153,7 +151,7 @@ jobs:
       - task: UseDotNet@2
         displayName: Install .NET Core 6 SDK
         inputs:
-         version: '6.0.405'
+         version: '6.0.413'
          packageType: sdk
          performMultiLevelLookup: true
     - script: ${{ variables.devCommand }} testl1 Debug ${{ parameters.os }}-${{ parameters.arch }}

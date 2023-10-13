@@ -33,7 +33,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider
             string accessToken,
             DelegatingHandler httpRetryOnTimeoutMessageHandler,
             IExecutionContext executionContext,
-            bool includeDownloadTickets = false)
+            bool includeDownloadTickets = false,
+            bool skipServerCertificateValidation = false)
         {
             this._executionContext = executionContext;
 
@@ -45,7 +46,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider
                         tfsUrl,
                         accessToken,
                         httpRetryOnTimeoutMessageHandler,
-                        this._executionContext.GetTraceWriter())
+                        this._executionContext.GetTraceWriter(),
+                        skipServerCertificateValidation)
                         .ConfigureAwait(false);
                     return data;
                 });

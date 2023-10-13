@@ -56,8 +56,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
 
             // Get the list of available artifacts from build.
             executionContext.Output(StringUtil.Loc("RMPreparingToGetBuildArtifactList"));
+            bool skipServerCertificateValidation = executionContext.Variables.Agent_SslSkipCertValidation ?? false;
 
-            using (var vssConnection = VssUtil.CreateConnection(buildArtifactDetails.TfsUrl, buildArtifactDetails.Credentials, trace: Trace))
+            using (var vssConnection = VssUtil.CreateConnection(buildArtifactDetails.TfsUrl, buildArtifactDetails.Credentials, trace: Trace, skipServerCertificateValidation))
             {
                 var buildClient = vssConnection.GetClient<BuildHttpClient>();
                 var xamlBuildClient = vssConnection.GetClient<XamlBuildHttpClient>();
@@ -247,10 +248,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
 
                 executionContext.Output(StringUtil.Loc("RMParallelDownloadLimit", containerFetchEngineOptions.ParallelDownloadLimit));
                 executionContext.Output(StringUtil.Loc("RMDownloadBufferSize", containerFetchEngineOptions.DownloadBufferSize));
+                bool skipServerCertificateValidation = executionContext.Variables.Agent_SslSkipCertValidation ?? false;
 
                 IContainerProvider containerProvider =
                     new ContainerProviderFactory(buildArtifactDetails, rootLocation, containerId, executionContext).GetContainerProvider(
-                    ArtifactResourceTypes.Container);
+                    ArtifactResourceTypes.Container, skipServerCertificateValidation);
 
                 using (var engine = new ContainerFetchEngine.ContainerFetchEngine(containerProvider, rootLocation, rootDestinationDir))
                 {

@@ -171,8 +171,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (!conditionResult.Value && conditionEvaluateError == null)
                     {
                         // Condition == false
-                        Trace.Info("Skipping step due to condition evaluation.");
-                        step.ExecutionContext.Complete(TaskResult.Skipped, resultCode: conditionResult.Trace);
+                        string skipStepMessage = "Skipping step due to condition evaluation.";
+                        Trace.Info(skipStepMessage);
+                        step.ExecutionContext.Output($"{skipStepMessage}\n{conditionResult.Trace}");
+                        step.ExecutionContext.Complete(TaskResult.Skipped, resultCode: skipStepMessage);
                         continue;
                     }
 

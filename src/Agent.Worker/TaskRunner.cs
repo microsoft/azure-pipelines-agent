@@ -593,7 +593,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     { "RealExecutionHandler", handlerData.ToString() },
                     { "UseNode10", useNode10 },
                     { "JobId", ExecutionContext.Variables.System_JobId.ToString()},
-                    { "PlanId", ExecutionContext.Variables.Get(Constants.Variables.System.JobId)},
+                    { "PlanId", ExecutionContext.Variables.Get(Constants.Variables.System.PlanId)},
                     { "AgentName", ExecutionContext.Variables.Get(Constants.Variables.Agent.Name)},
                     { "MachineName", ExecutionContext.Variables.Get(Constants.Variables.Agent.MachineName)},
                     { "IsSelfHosted", ExecutionContext.Variables.Get(Constants.Variables.Agent.IsSelfHosted)},
