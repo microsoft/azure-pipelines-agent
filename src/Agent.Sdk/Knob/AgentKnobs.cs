@@ -478,6 +478,13 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AZP_75787_ENABLE_COLLECT"),
             new EnvironmentKnobSource("AZP_75787_ENABLE_COLLECT"),
             new BuiltInDefaultKnobSource("false"));
+        
+        public static readonly Knob ProcessHandlerEnableNewLogic = new Knob(
+            nameof(ProcessHandlerEnableNewLogic),
+            "Enables new sanitization logic for process handler",
+            new RuntimeKnobSource("AZP_75787_ENABLE_NEW_PH_LOGIC"),
+            new EnvironmentKnobSource("AZP_75787_ENABLE_NEW_PH_LOGIC"),
+            new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob DisableDrainQueuesAfterTask = new Knob(
             nameof(DisableDrainQueuesAfterTask),

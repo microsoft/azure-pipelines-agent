@@ -156,7 +156,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             {
                 Trace.Info("AZP_AGENT_IGNORE_VSTSTASKLIB enabled, ignoring fix");
             }
-            
 
             StepHost.OutputDataReceived += OnDataReceived;
             StepHost.ErrorDataReceived += OnDataReceived;
