@@ -1,0 +1,46 @@
+[
+    {
+      "id": "amzn",
+      "versions": [
+        {
+          "name": "2023"
+        }
+      ]
+    },
+    {
+      "id": "centos",
+      "versions": [
+        {
+          "name": "8+"
+        }
+      ]
+    },
+    {
+      "id": "debian",
+      "versions": [
+        {
+          "name": "10+"
+        }
+      ]
+    },
+    {
+      "id": "fedora",
+      "versions": [
+        {
+          "name": "29+"
+        }
+      ]
+    },
+    {
+      "id": "ubuntu",
+      "versions": [
+        {
+          "name": "20.04"
+        },
+        {
+          "name": "22.04+"
+        }
+      ]
+    }
+  ]
+  

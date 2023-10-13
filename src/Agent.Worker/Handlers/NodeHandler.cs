@@ -225,10 +225,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             string useNodeKnob = AgentKnobs.UseNode.GetValue(ExecutionContext).AsString();
 
             string nodeFolder = NodeHandler.nodeFolder;
-            if (PlatformUtil.RunningOnRHEL6 && taskHasNode16Data)
+            if (PlatformUtil.RunningOnRHELVersion("6") && taskHasNode16Data)
             {
                 Trace.Info($"Detected RedHat 6, using node 10 as execution handler, instead node16");
                 nodeFolder = NodeHandler.node10Folder;
+            }
+            else if (taskHasNode20Data && !isNode20SupportedSystems())
+            {
+                Trace.Warning($"The operating system the agent is running on doesn't support Node20. " +
+                             "Please upgrade the operating system of this host to ensure compatibility with Node20 tasks: " +
+                             "https://github.com/nodesource/distributions");
+                nodeFolder = NodeHandler.node16Folder;
             }
             else if (taskHasNode20Data)
             {
@@ -246,8 +253,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 nodeFolder = NodeHandler.node10Folder;
             }
 
-            if (useNode20)
-            {
+            if (useNode20 && !isNode20SupportedSystems()) {
+                Trace.Warning($"The operating system the agent is running on doesn't support Node20. " +
+                             "Please upgrade the operating system of this host to ensure compatibility with Node20 tasks: " +
+                             "https://github.com/nodesource/distributions");
+                nodeFolder = NodeHandler.node16Folder;
+            } 
+            else if (useNode20) {
                 Trace.Info($"Found UseNode20 knob, using node20 for node tasks {useNode20}");
                 nodeFolder = NodeHandler.node20Folder;
             }
@@ -323,6 +335,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             {
                 ExecutionContext.Output(e.Data);
             }
+        }
+
+        private bool isNode20SupportedSystems() {
+            var systemName = PlatformUtil.GetSystemId();
+            var systemVersion = PlatformUtil.GetSystemVersion().Name.ToString();
+            if (systemName.Equals("ubuntu") &&
+                int.TryParse(systemVersion, out int ubuntuVersion) &&
+                ubuntuVersion <= 18.04) {
+                Trace.Info($"Detected Ubuntu version <= 18.04, using node16 as execution handler, instead node20");
+                return false;
+            }
+            if (systemName.Equals("debian") &&
+                int.TryParse(systemVersion, out int debianVersion) &&
+                debianVersion <= 9) {
+                Trace.Info($"Detected Debian version <= 9, using node16 as execution handler, instead node20");
+                return false;
+            } 
+            if (PlatformUtil.RunningOnRHELVersion("6") || PlatformUtil.RunningOnRHELVersion("7")) {
+                Trace.Info($"Detected RedHat 6 or 7, using node16 as execution handler, instead node20");
+                return false;
+            }
+            return true;
         }
 
         private void FixVstsTaskLibModule()
