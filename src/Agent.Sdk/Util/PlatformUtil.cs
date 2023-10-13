@@ -87,7 +87,7 @@ namespace Agent.Sdk
             }
         }
 
-        public static bool RunningOnRHEL6Version(string version)
+        public static bool RunningOnRHELVersion(string version)
         {
             if (!(detectedRHELVersion is null))
             {
