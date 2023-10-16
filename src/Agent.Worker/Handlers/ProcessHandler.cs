@@ -6,6 +6,7 @@ using Agent.Worker.Handlers.Helpers;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -187,10 +188,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 {
                     Trace.Error($"Failed to validate process handler input arguments. Publishing telemetry. Ex: {ex}");
 
-                    var telemetry = new
+                    var telemetry = new Dictionary<string, string>
                     {
-                        UnexpectedError = ex.Message,
-                        ErrorStackTrace = ex.StackTrace
+                        ["UnexpectedError"] = ex.Message,
+                        ["ErrorStackTrace"] = ex.StackTrace
                     };
                     PublishTelemetry(telemetry, "ProcessHandler");
                 }
