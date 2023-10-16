@@ -12,9 +12,9 @@ namespace Agent.Worker.Handlers.Helpers
 {
     public static class ProcessHandlerHelper
     {
-        private const char _EscapingSymbol = '^';
-        private const string _EnvPrefix = "%";
-        private const string _EnvPostfix = "%";
+        private const char _escapingSymbol = '^';
+        private const string _envPrefix = "%";
+        private const string _envPostfix = "%";
 
         public static (string, CmdTelemetry) ExpandCmdEnv(string inputArgs, Dictionary<string, string> environment)
         {
@@ -27,7 +27,7 @@ namespace Agent.Worker.Handlers.Helpers
 
             while (true)
             {
-                int prefixIndex = result.IndexOf(_EnvPrefix, startIndex);
+                int prefixIndex = result.IndexOf(_envPrefix, startIndex);
                 if (prefixIndex < 0)
                 {
                     break;
@@ -35,12 +35,12 @@ namespace Agent.Worker.Handlers.Helpers
 
                 telemetry.FoundPrefixes++;
 
-                if (prefixIndex > 0 && result[prefixIndex - 1] == _EscapingSymbol)
+                if (prefixIndex > 0 && result[prefixIndex - 1] == _escapingSymbol)
                 {
                     telemetry.EscapingSymbolBeforeVar++;
                 }
 
-                int envStartIndex = prefixIndex + _EnvPrefix.Length;
+                int envStartIndex = prefixIndex + _envPrefix.Length;
                 int envEndIndex = FindEnclosingIndex(result, prefixIndex);
                 if (envEndIndex == 0)
                 {
@@ -49,13 +49,13 @@ namespace Agent.Worker.Handlers.Helpers
                 }
 
                 string envName = result[envStartIndex..envEndIndex];
-                if (envName.StartsWith(_EscapingSymbol))
+                if (envName.StartsWith(_escapingSymbol))
                 {
                     telemetry.VariablesStartsFromES++;
                 }
 
                 var head = result[..prefixIndex];
-                if (envName.Contains(_EscapingSymbol, StringComparison.Ordinal))
+                if (envName.Contains(_escapingSymbol, StringComparison.Ordinal))
                 {
                     telemetry.VariablesWithESInside++;
                 }
@@ -71,7 +71,7 @@ namespace Agent.Worker.Handlers.Helpers
                     continue;
                 }
 
-                var tail = result[(envEndIndex + _EnvPostfix.Length)..];
+                var tail = result[(envEndIndex + _envPostfix.Length)..];
 
                 result = head + envValue + tail;
                 startIndex = prefixIndex + envValue.Length;

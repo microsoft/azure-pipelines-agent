@@ -10,9 +10,9 @@ namespace Agent.Worker.Handlers.Helpers
 {
     public static class CmdArgsSanitizer
     {
-        private const string _RemovedSymbolSign = "_#removed#_";
-        private const string _ArgsSplitSymbols = "^^";
-        private static readonly Regex _SanitizeRegExp = new("(?<!\\^)([^a-zA-Z0-9\\\\` _''\"\\-=\\/:\\.*,+~?^%])");
+        private const string _removedSymbolSign = "_#removed#_";
+        private const string _argsSplitSymbols = "^^";
+        private static readonly Regex _sanitizeRegExp = new("(?<!\\^)([^a-zA-Z0-9\\\\` _''\"\\-=\\/:\\.*,+~?^%])");
 
         public static (string, CmdArgsSanitizingTelemetry) SanitizeArguments(string inputArgs)
         {
@@ -21,20 +21,20 @@ namespace Agent.Worker.Handlers.Helpers
                 return (null, null);
             }
 
-            var argsChunks = inputArgs.Split(_ArgsSplitSymbols);
+            var argsChunks = inputArgs.Split(_argsSplitSymbols);
             var matchesChunks = new List<MatchCollection>();
 
             for (int i = 0; i < argsChunks.Length; i++)
             {
-                var matches = _SanitizeRegExp.Matches(argsChunks[i]);
+                var matches = _sanitizeRegExp.Matches(argsChunks[i]);
                 if (matches.Count > 0)
                 {
                     matchesChunks.Add(matches);
-                    argsChunks[i] = _SanitizeRegExp.Replace(argsChunks[i], _RemovedSymbolSign);
+                    argsChunks[i] = _sanitizeRegExp.Replace(argsChunks[i], _removedSymbolSign);
                 }
             }
 
-            var resultArgs = string.Join(_ArgsSplitSymbols, argsChunks);
+            var resultArgs = string.Join(_argsSplitSymbols, argsChunks);
 
             CmdArgsSanitizingTelemetry telemetry = null;
 
