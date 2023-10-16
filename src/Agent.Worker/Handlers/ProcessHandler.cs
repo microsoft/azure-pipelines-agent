@@ -167,22 +167,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
             else if (enableNewPHLogic)
             {
+                bool shouldThrow = false;
                 try
                 {
                     var (isValid, telemetry) = ProcessHandlerHelper.ValidateInputArguments(arguments, Environment, ExecutionContext);
+
+                    // If args are not valid - we'll throw exception.
+                    shouldThrow = !isValid;
 
                     if (telemetry != null)
                     {
                         PublishTelemetry(telemetry, "ProcessHandler");
                     }
-                    if (!isValid)
-                    {
-                        throw new ArgsSanitizedException(StringUtil.Loc("ProcessHandlerScriptArgsSanitized"));
-                    }
-                }
-                catch (ArgsSanitizedException)
-                {
-                    throw;
                 }
                 catch (Exception ex)
                 {
@@ -194,8 +190,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                         ["ErrorStackTrace"] = ex.StackTrace
                     };
                     PublishTelemetry(telemetry, "ProcessHandler");
-                }
 
+                    shouldThrow = false;
+                }
+                if (shouldThrow)
+                {
+                    throw new ArgsSanitizedException(StringUtil.Loc("ProcessHandlerScriptArgsSanitized"));
+                }
             }
 
             string cmdExeArgs = PrepareCmdExeArgs(command, arguments, enableFileArgs);
