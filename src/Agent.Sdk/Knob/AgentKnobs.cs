@@ -478,7 +478,7 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AZP_75787_ENABLE_COLLECT"),
             new EnvironmentKnobSource("AZP_75787_ENABLE_COLLECT"),
             new BuiltInDefaultKnobSource("false"));
-        
+
         public static readonly Knob ProcessHandlerEnableNewLogic = new Knob(
             nameof(ProcessHandlerEnableNewLogic),
             "Enables new sanitization logic for process handler",
