@@ -17,7 +17,7 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using System.Linq;
 using Microsoft.VisualStudio.Services.Common;
 using System.Diagnostics;
-
+using Agent.Listener.Configuration;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -87,6 +87,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     Trace.Verbose($"Retrieve previous WorkerDispather for job {currentDispatch.JobId}.");
                 }
             }
+
+            var service = HostContext.GetService<IFeatureFlagProvider>();
+            string ffState;
+            try
+            {
+                ffState = service.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.EnableAdditionalMaskingRegexes", Trace)?.Result?.EffectiveState;
+            }
+            catch (Exception)
+            {
+                ffState = "Off";
+            }
+            jobRequestMessage.Variables[Constants.Variables.Features.EnableAdditionalMaskingRegexes] = ffState;
 
             WorkerDispatcher newDispatch = new WorkerDispatcher(jobRequestMessage.JobId, jobRequestMessage.RequestId);
             if (runOnce)
