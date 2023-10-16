@@ -10,7 +10,7 @@ namespace Agent.Worker.Handlers.Helpers
 {
     public static class CmdArgsSanitizer
     {
-        private const string _RemovedSymbolSign = "_#removed_d8c0672b#_";
+        private const string _RemovedSymbolSign = "_#removed#_";
         private const string _ArgsSplitSymbols = "^^";
         private static readonly Regex _SanitizeRegExp = new("(?<!\\^)([^a-zA-Z0-9\\\\` _''\"\\-=\\/:\\.*,+~?^%])");
 
