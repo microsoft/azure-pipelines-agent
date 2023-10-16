@@ -195,7 +195,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 }
                 if (shouldThrow)
                 {
-                    throw new ArgsSanitizedException(StringUtil.Loc("ProcessHandlerScriptArgsSanitized"));
+                    throw new InvalidScriptArgsException(StringUtil.Loc("ProcessHandlerInvalidScriptArgs"));
                 }
             }
 
@@ -366,9 +366,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         }
     }
 
-    public class ArgsSanitizedException : Exception
+    public class InvalidScriptArgsException : Exception
     {
-        public ArgsSanitizedException(string message) : base(message)
+        public InvalidScriptArgsException(string message) : base(message)
         {
         }
     }

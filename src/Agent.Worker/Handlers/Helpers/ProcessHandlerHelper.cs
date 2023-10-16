@@ -133,7 +133,7 @@ namespace Agent.Worker.Handlers.Helpers
                     {
                         if (enableAudit && !enableValidation)
                         {
-                            context.Warning(StringUtil.Loc("ProcessHandlerScriptArgsSanitized"));
+                            context.Warning(StringUtil.Loc("ProcessHandlerInvalidScriptArgs"));
                         }
                         if (enableValidation)
                         {
@@ -153,6 +153,7 @@ namespace Agent.Worker.Handlers.Helpers
             }
         }
     }
+
     public class CmdTelemetry
     {
         public int FoundPrefixes { get; set; } = 0;
