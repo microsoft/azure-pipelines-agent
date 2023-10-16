@@ -15,6 +15,7 @@ using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
+using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
 
 namespace Agent.Plugins
 {
@@ -37,12 +38,19 @@ namespace Agent.Plugins
             CancellationToken cancellationToken,
             AgentTaskPluginExecutionContext context)
         {
+            // if  properties doesn't have it, use the default domain for backward compatibility
+            IDomainId domainId = WellKnownDomainIds.DefaultDomainId;
+            if(buildArtifact.Resource.Properties.TryGetValue(PipelineArtifactConstants.DomainId, out string domainIdString))
+            {
+                domainId = DomainIdFactory.Create(domainIdString);
+            }
+
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClientAsync(
                 this.context.IsSystemDebugTrue(),
                 (str) => this.context.Output(str),
                 this.connection,
                 DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
-                WellKnownDomainIds.DefaultDomainId,
+                domainId,
                 Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
                 context,
                 cancellationToken);
@@ -85,49 +93,81 @@ namespace Agent.Plugins
             CancellationToken cancellationToken,
             AgentTaskPluginExecutionContext context)
         {
-            var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClientAsync(
-                this.context.IsSystemDebugTrue(),
-                (str) => this.context.Output(str),
-                this.connection,
-                DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
-                WellKnownDomainIds.DefaultDomainId,
-                Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
-                context,
-                cancellationToken);
+            // create clients and group artifacts for each domain:
+            Dictionary<IDomainId, (DedupManifestArtifactClient Client, BlobStoreClientTelemetry Telemetry, Dictionary<string, DedupIdentifier> ArtifactDictionary)> dedupManifestClients = 
+                new();
 
-            using (clientTelemetry)
-            {
-                var artifactNameAndManifestIds = buildArtifacts.ToDictionary(
-                    keySelector: (a) => a.Name, // keys should be unique, if not something is really wrong
-                    elementSelector: (a) => DedupIdentifier.Create(a.Resource.Data));
-                // 2) download to the target path
-                var options = DownloadDedupManifestArtifactOptions.CreateWithMultiManifestIds(
-                    artifactNameAndManifestIds,
-                    downloadParameters.TargetDirectory,
-                    proxyUri: null,
-                    minimatchPatterns: downloadParameters.MinimatchFilters,
-                    minimatchFilterWithArtifactName: downloadParameters.MinimatchFilterWithArtifactName);
+            foreach(var buildArtifact in buildArtifacts)
+            {                
+                // if  properties doesn't have it, use the default domain for backward compatibility
+                IDomainId domainId = WellKnownDomainIds.DefaultDomainId;
+                if(buildArtifact.Resource.Properties.TryGetValue(PipelineArtifactConstants.DomainId, out string domainIdString))
+                {
+                    domainId = DomainIdFactory.Create(domainIdString);
+                }
 
-                PipelineArtifactActionRecord downloadRecord = clientTelemetry.CreateRecord<PipelineArtifactActionRecord>((level, uri, type) =>
-                    new PipelineArtifactActionRecord(level, uri, type, nameof(DownloadMultipleArtifactsAsync), this.context));
-                await clientTelemetry.MeasureActionAsync(
-                    record: downloadRecord,
-                    actionAsync: async () =>
+                // Have we already created the clients for this domain?
+                if(dedupManifestClients.ContainsKey(domainId)) {
+                    // Clients already created for this domain, Just add the artifact to the list:
+                    dedupManifestClients[domainId].ArtifactDictionary.Add(buildArtifact.Name, DedupIdentifier.Create(buildArtifact.Resource.Data));
+                }
+                else
+                {
+                    // create the clients:
+                    var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClientAsync(
+                        this.context.IsSystemDebugTrue(),
+                        (str) => this.context.Output(str),
+                        this.connection,
+                        DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
+                        domainId,
+                        Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
+                        context,
+                        cancellationToken);
+
+                    // and create the artifact dictionary with the current artifact
+                    var artifactDictionary = new Dictionary<string, DedupIdentifier>
                     {
-                        await AsyncHttpRetryHelper.InvokeVoidAsync(
-                            async () =>
-                            {
-                                await dedupManifestClient.DownloadAsync(options, cancellationToken);
-                            },
-                            maxRetries: 3,
-                            tracer: tracer,
-                            canRetryDelegate: e => true,
-                            context: nameof(DownloadMultipleArtifactsAsync),
-                            cancellationToken: cancellationToken,
-                            continueOnCapturedContext: false);
-                    });
-                // Send results to CustomerIntelligence
-                this.context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: downloadRecord);
+                        { buildArtifact.Name, DedupIdentifier.Create(buildArtifact.Resource.Data) }
+                    };
+
+                    dedupManifestClients.Add(domainId, (dedupManifestClient, clientTelemetry, artifactDictionary));
+                }
+            }
+
+            foreach(var clientInfo in dedupManifestClients.Values)
+            {
+                using (clientInfo.Telemetry)
+                {
+                    // 2) download to the target path
+                    var options = DownloadDedupManifestArtifactOptions.CreateWithMultiManifestIds(
+                        clientInfo.ArtifactDictionary,
+                        downloadParameters.TargetDirectory,
+                        proxyUri: null,
+                        minimatchPatterns: downloadParameters.MinimatchFilters,
+                        minimatchFilterWithArtifactName: downloadParameters.MinimatchFilterWithArtifactName);
+
+                    PipelineArtifactActionRecord downloadRecord = clientInfo.Telemetry.CreateRecord<PipelineArtifactActionRecord>((level, uri, type) =>
+                        new PipelineArtifactActionRecord(level, uri, type, nameof(DownloadMultipleArtifactsAsync), this.context));
+
+                    await clientInfo.Telemetry.MeasureActionAsync(
+                        record: downloadRecord,
+                        actionAsync: async () =>
+                        {
+                            await AsyncHttpRetryHelper.InvokeVoidAsync(
+                                async () =>
+                                {
+                                    await clientInfo.Client.DownloadAsync(options, cancellationToken);
+                                },
+                                maxRetries: 3,
+                                tracer: tracer,
+                                canRetryDelegate: e => true,
+                                context: nameof(DownloadMultipleArtifactsAsync),
+                                cancellationToken: cancellationToken,
+                                continueOnCapturedContext: false);
+                        });
+                    // Send results to CustomerIntelligence
+                    this.context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: downloadRecord);
+                }
             }
         }
     }

@@ -7,6 +7,7 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -73,7 +74,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     Trace.Info("Skip download checkout task.");
                     continue;
                 }
+
                 await DownloadAsync(executionContext, task);
+
+                if (AgentKnobs.CheckForTaskDeprecation.GetValue(UtilKnobValueContext.Instance()).AsBoolean())
+                {
+                    CheckForTaskDeprecation(executionContext, task);
+                }
             }
         }
 
@@ -305,6 +312,45 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     Trace.Warning("Failed to delete temp folder '{0}'. Exception: {1}", tempDirectory, ex);
                     executionContext.Warning(StringUtil.Loc("FailedDeletingTempDirectory0Message1", tempDirectory, ex.Message));
                 }
+            }
+        }
+
+        private void CheckForTaskDeprecation(IExecutionContext executionContext, Pipelines.TaskStepDefinitionReference task)
+        {
+            string taskJsonPath = Path.Combine(GetDirectory(task), "task.json");
+            string taskJsonText = File.ReadAllText(taskJsonPath);
+            JObject taskJson = JObject.Parse(taskJsonText);
+            var deprecated = taskJson["deprecated"];
+
+            if (deprecated != null && deprecated.Value<bool>())
+            {
+                string friendlyName = taskJson["friendlyName"].Value<string>();
+                int majorVersion = new Version(task.Version).Major;
+                string deprecationMessage = StringUtil.Loc("DeprecationMessage", friendlyName, majorVersion, task.Name);
+                var removalDate = taskJson["removalDate"];
+
+                if (removalDate != null)
+                {
+                    string whitespace = " ";
+                    string removalDateString = removalDate.Value<DateTime>().ToString("MMMM d, yyyy");
+                    deprecationMessage += whitespace + StringUtil.Loc("DeprecationMessageRemovalDate", removalDateString);
+                    var helpUrl = taskJson["helpUrl"];
+
+                    if (helpUrl != null)
+                    {
+                        string helpUrlString = helpUrl.Value<string>();
+                        string category = taskJson["category"].Value<string>().ToLower();
+                        string urlPrefix = $"https://docs.microsoft.com/azure/devops/pipelines/tasks/{category}/";
+
+                        if (helpUrlString.StartsWith(urlPrefix))
+                        {
+                            string versionHelpUrl = $"{helpUrlString}-v{majorVersion}".Replace(urlPrefix, $"https://learn.microsoft.com/azure/devops/pipelines/tasks/reference/");
+                            deprecationMessage += whitespace + StringUtil.Loc("DeprecationMessageHelpUrl", versionHelpUrl);
+                        }
+                    }
+                }
+
+                executionContext.Warning(deprecationMessage);
             }
         }
 

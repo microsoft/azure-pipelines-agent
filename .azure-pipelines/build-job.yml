@@ -138,6 +138,7 @@ jobs:
     - script: ${{ variables.devCommand }} testl0 Debug ${{ parameters.os }}-${{ parameters.arch }}
       workingDirectory: src
       displayName: Unit tests
+      timeoutInMinutes: 5
 
   # Install nuget
   - ${{ if eq(parameters.os, 'win') }}:
