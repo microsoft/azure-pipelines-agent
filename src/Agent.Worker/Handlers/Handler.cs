@@ -308,8 +308,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
         }
 
+        // This overload is to handle specific types some other way.
         protected void PublishTelemetry<T>(
             Dictionary<string, T> telemetryData,
+            string feature = "TaskHandler"
+        )
+        {
+            // JsonConvert.SerializeObject always converts to base object.
+            PublishTelemetry((object)telemetryData, feature);
+        }
+
+        private void PublishTelemetry(
+            object telemetryData,
             string feature = "TaskHandler"
         )
         {

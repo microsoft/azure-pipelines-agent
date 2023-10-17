@@ -1,90 +1,64 @@
-﻿using Agent.Worker.Handlers.Helpers;
-using System;
-using System.Collections.Generic;
-using System.Text;
+﻿// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Xunit;
+using Agent.Worker.Handlers.Helpers;
+using System.Collections.Generic;
 
 namespace Test.L0.Worker.Handlers
 {
     public sealed class ProcessHandlerHelperTelemetryL0
     {
-        [Fact]
-        public void FoundPrefixesTest()
+        [Theory]
+        [InlineData("% % %", 3)]
+        [InlineData("%var% %", 2)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
+        public void FoundPrefixesTest(string inputArgs, int expectedCount)
         {
-            string argsLine = "% % %";
-            // we're thinking that whitespaces are also may be env variables, so here the '% %' and '%' env enterances.
-            var expectedTelemetry = new { foundPrefixes = 2 };
+            var env = new Dictionary<string, string>
+            {
+                { "var", "test" }
+            };
+            var (_, resultTelemetry) = ProcessHandlerHelper.ExpandCmdEnv(inputArgs, env);
 
-            var (_, resultTelemetry) = ProcessHandlerHelper.ProcessInputArguments(argsLine);
+            Assert.Equal(expectedCount, resultTelemetry.FoundPrefixes);
+        }
 
-            Assert.Equal(expectedTelemetry.foundPrefixes, resultTelemetry.FoundPrefixes);
+        [Theory]
+        [InlineData("%1", 0)]
+        [InlineData("  %1", 2)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
+        public void NotClosedEnv(string inputArgs, int expectedPosition)
+        {
+            var (_, resultTelemetry) = ProcessHandlerHelper.ExpandCmdEnv(inputArgs, new());
+
+            Assert.Equal(expectedPosition, resultTelemetry.NotClosedEnvSyntaxPosition);
         }
 
         [Fact]
-        public void NotClosedEnv()
-        {
-            string argsLine = "%1";
-            var expectedTelemetry = new { NotClosedEnvSyntaxPosition = 0 };
-
-            var (_, resultTelemetry) = ProcessHandlerHelper.ProcessInputArguments(argsLine);
-
-            Assert.Equal(expectedTelemetry.NotClosedEnvSyntaxPosition, resultTelemetry.NotClosedEnvSyntaxPosition);
-        }
-
-        [Fact]
-        public void NotClosedEnv2()
-        {
-            string argsLine = "\"%\" %";
-            var expectedTelemetry = new { NotClosedEnvSyntaxPosition = 4 };
-
-            var (_, resultTelemetry) = ProcessHandlerHelper.ProcessInputArguments(argsLine);
-
-            Assert.Equal(expectedTelemetry.NotClosedEnvSyntaxPosition, resultTelemetry.NotClosedEnvSyntaxPosition);
-        }
-
-        [Fact]
-        public void NotClosedQuotes()
-        {
-            string argsLine = "\" %var%";
-            var expectedTelemetry = new { quotesNotEnclosed = 1 };
-
-            var (_, resultTelemetry) = ProcessHandlerHelper.ProcessInputArguments(argsLine);
-
-            Assert.Equal(expectedTelemetry.quotesNotEnclosed, resultTelemetry.QuotesNotEnclosed);
-        }
-
-        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
         public void NotClosedQuotes_Ignore_if_no_envVar()
         {
             string argsLine = "\" 1";
-            var expectedTelemetry = new { quotesNotEnclosed = 0 };
 
-            var (_, resultTelemetry) = ProcessHandlerHelper.ProcessInputArguments(argsLine);
+            var (_, resultTelemetry) = ProcessHandlerHelper.ExpandCmdEnv(argsLine, new());
 
-            Assert.Equal(expectedTelemetry.quotesNotEnclosed, resultTelemetry.QuotesNotEnclosed);
+            Assert.Equal(0, resultTelemetry.QuotesNotEnclosed);
         }
 
         [Fact]
-        public void QuotedBlocksCount()
-        {
-            // We're ignoring quote blocks where no any env variables
-            string argsLine = "\"%VAR1%\" \"%VAR2%\" \"3\"";
-            var expectedTelemetry = new { quottedBlocks = 2 };
-
-            var (_, resultTelemetry) = ProcessHandlerHelper.ProcessInputArguments(argsLine);
-
-            Assert.Equal(expectedTelemetry.quottedBlocks, resultTelemetry.QuottedBlocks);
-        }
-
-        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker.Handlers")]
         public void CountsVariablesStartFromEscSymbol()
         {
             string argsLine = "%^VAR1% \"%^VAR2%\" %^VAR3%";
-            var expectedTelemetry = new { variablesStartsFromES = 2 };
 
-            var (_, resultTelemetry) = ProcessHandlerHelper.ProcessInputArguments(argsLine);
+            var (_, resultTelemetry) = ProcessHandlerHelper.ExpandCmdEnv(argsLine, new());
 
-            Assert.Equal(expectedTelemetry.variablesStartsFromES, resultTelemetry.VariablesStartsFromES);
+            Assert.Equal(3, resultTelemetry.VariablesStartsFromES);
         }
     }
 }
