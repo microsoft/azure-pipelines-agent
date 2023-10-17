@@ -11,7 +11,6 @@ using System;
 using Newtonsoft.Json.Linq;
 using System.Text.RegularExpressions;
 using System.Linq;
-using System.Threading;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
@@ -233,11 +232,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             string nodeFolder = NodeHandler.nodeFolder;
 
-            if (taskHasNode20Data && !isNode20SupportedSystems())
+            if (taskHasNode20Data && !IsNode20SupportedSystems())
             {
-                Trace.Warning($"The operating system the agent is running on doesn't support Node20. " +
+                ExecutionContext.Warning($"The operating system the agent is running on doesn't support Node20. " +
                              "Please upgrade the operating system of this host to ensure compatibility with Node20 tasks: " +
                              "https://github.com/nodesource/distributions");
+                Trace.Info($"Task.json has node20 handler data: {taskHasNode20Data}, but it's running in a unsupported system version. Using node16 for node tasks.");
                 nodeFolder = NodeHandler.node16Folder;
             }
             else if (taskHasNode20Data)
@@ -260,11 +260,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 Trace.Info($"Detected Alpine, using node10 instead of node (6)");
                 nodeFolder = NodeHandler.node10Folder;
             }
-            
-            if (useNode20 && !isNode20SupportedSystems()) {
-                Trace.Warning($"The operating system the agent is running on doesn't support Node20. " +
+
+            if (useNode20 && !IsNode20SupportedSystems()) {
+                ExecutionContext.Warning($"The operating system the agent is running on doesn't support Node20. " +
                              "Please upgrade the operating system of this host to ensure compatibility with Node20 tasks: " +
                              "https://github.com/nodesource/distributions");
+                Trace.Info($"Found UseNode20 knob, but it's running in a unsupported system version. Using node16 for node tasks.");
                 nodeFolder = NodeHandler.node16Folder;
             } 
             else if (useNode20) {
@@ -345,23 +346,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
         }
 
-        private bool isNode20SupportedSystems() {
-            var systemName = PlatformUtil.GetSystemId();
-            var systemVersion = PlatformUtil.GetSystemVersion().Name.ToString();
+        private bool IsNode20SupportedSystems() {
+            var systemName = PlatformUtil.GetSystemId() ?? "";
+            var systemVersion = PlatformUtil.GetSystemVersion()?.Name?.ToString() ?? "";
             if (systemName.Equals("ubuntu") &&
                 int.TryParse(systemVersion, out int ubuntuVersion) &&
                 ubuntuVersion <= 18.04) {
-                Trace.Info($"Detected Ubuntu version <= 18.04, using node16 as execution handler, instead node20");
+                Trace.Info($"Detected Ubuntu version <= 18.04");
                 return false;
             }
             if (systemName.Equals("debian") &&
                 int.TryParse(systemVersion, out int debianVersion) &&
                 debianVersion <= 9) {
-                Trace.Info($"Detected Debian version <= 9, using node16 as execution handler, instead node20");
+                Trace.Info($"Detected Debian version <= 9");
                 return false;
             } 
-            if (PlatformUtil.RunningOnRHELVersion("6") || PlatformUtil.RunningOnRHELVersion("7")) {
-                Trace.Info($"Detected RedHat 6 or 7, using node16 as execution handler, instead node20");
+            if (PlatformUtil.RunningOnRHEL6) {
+                Trace.Info($"Detected RedHat 6");
+                return false;
+            }
+            if (PlatformUtil.RunningOnRHEL7) {
+                Trace.Info($"Detected RedHat 7");
                 return false;
             }
             return true;

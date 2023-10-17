@@ -62,7 +62,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Check whether we are inside a container.
             // Our container feature requires to map working directory from host to the container.
             // If we are already inside a container, we will not able to find out the real working direcotry path on the host.
-            if (PlatformUtil.RunningOnRHELVersion("6"))
+            if (PlatformUtil.RunningOnRHEL6)
             {
                 // Red Hat and CentOS 6 do not support the container feature
                 throw new NotSupportedException(StringUtil.Loc("AgentDoesNotSupportContainerFeatureRhel6"));

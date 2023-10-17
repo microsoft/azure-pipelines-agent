@@ -183,7 +183,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             bool dumpPackagesVerificationResult = AgentKnobs.DumpPackagesVerificationResult.GetValue(executionContext).AsBoolean();
-            if (dumpPackagesVerificationResult && PlatformUtil.RunningOnLinux && !PlatformUtil.RunningOnRHELVersion("6"))
+            if (dumpPackagesVerificationResult && PlatformUtil.RunningOnLinux && !PlatformUtil.RunningOnRHEL6)
             {
                 executionContext.Debug("Dumping info about invalid MD5 sums of installed packages.");
 

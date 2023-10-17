@@ -87,16 +87,34 @@ namespace Agent.Sdk
             }
         }
 
-        public static bool RunningOnRHELVersion(string version)
+        public static bool RunningOnRHEL6
         {
-            if (!(detectedRHELVersion is null))
+            get
             {
-                return (bool)detectedRHELVersion;
+                if (!(detectedRHEL6 is null))
+                {
+                    return (bool)detectedRHEL6;
+                }
+
+                DetectRHEL6();
+
+                return (bool)detectedRHEL6;
             }
+        }
 
-            DetectRHELVersion(version);
+        public static bool RunningOnRHEL7
+        {
+            get
+            {
+                if (!(detectedRHEL7 is null))
+                {
+                    return (bool)detectedRHEL7;
+                }
 
-            return (bool)detectedRHELVersion;
+                DetectRHEL7();
+
+                return (bool)detectedRHEL7;
+            }
         }
 
         public static string GetSystemId()
@@ -121,29 +139,57 @@ namespace Agent.Sdk
             };
         }
 
-        private static void DetectRHELVersion(string version)
+        private static void DetectRHEL6()
         {
-            lock (detectedRHELVersionlock)
+            lock (detectedRHEL6lock)
             {
                 if (!RunningOnLinux || !File.Exists("/etc/redhat-release"))
                 {
-                    detectedRHELVersion = false;
+                    detectedRHEL6 = false;
                 }
                 else
                 {
-                    detectedRHELVersion = false;
+                    detectedRHEL6 = false;
                     try
                     {
                         string redhatVersion = File.ReadAllText("/etc/redhat-release");
-                        if (redhatVersion.StartsWith("CentOS release " + version)
-                            || redhatVersion.StartsWith("Red Hat Enterprise Linux Server release " + version))
+                        if (redhatVersion.StartsWith("CentOS release 6.")
+                            || redhatVersion.StartsWith("Red Hat Enterprise Linux Server release 6."))
                         {
-                            detectedRHELVersion = true;
+                            detectedRHEL6 = true;
                         }
                     }
                     catch (IOException)
                     {
-                        // IOException indicates we couldn't read that file; probably not RHEL version.
+                        // IOException indicates we couldn't read that file; probably not RHEL6
+                    }
+                }
+            }
+        }
+
+        private static void DetectRHEL7()
+        {
+            lock (detectedRHEL7lock)
+            {
+                if (!RunningOnLinux || !File.Exists("/etc/redhat-release"))
+                {
+                    detectedRHEL7 = false;
+                }
+                else
+                {
+                    detectedRHEL7 = false;
+                    try
+                    {
+                        string redhatVersion = File.ReadAllText("/etc/redhat-release");
+                        if (redhatVersion.StartsWith("CentOS release 7.")
+                            || redhatVersion.StartsWith("Red Hat Enterprise Linux Server release 7."))
+                        {
+                            detectedRHEL7 = true;
+                        }
+                    }
+                    catch (IOException)
+                    {
+                        // IOException indicates we couldn't read that file; probably not RHEL7
                     }
                 }
             }
@@ -266,8 +312,10 @@ namespace Agent.Sdk
             return null;
         }
 
-        private static bool? detectedRHELVersion = null;
-        private static object detectedRHELVersionlock = new object();
+        private static bool? detectedRHEL6 = null;
+        private static object detectedRHEL6lock = new object();
+        private static bool? detectedRHEL7 = null;
+        private static object detectedRHEL7lock = new object();
 
         public static Architecture HostArchitecture
         {
