@@ -527,6 +527,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_AGENT_IGNORE_VSTSTASKLIB"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob AllowWorkDirectoryRepositories = new Knob(
+            nameof(AllowWorkDirectoryRepositories),
+            "Allows repositories to be checked out below work directory level on self hosted agents.",
+            new RuntimeKnobSource("AZP_AGENT_ALLOW_WORK_DIRECTORY_REPOSITORIES"),
+            new EnvironmentKnobSource("AZP_AGENT_ALLOW_WORK_DIRECTORY_REPOSITORIES"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob CheckForTaskDeprecation = new Knob(
             nameof(CheckForTaskDeprecation),
             "If true, the agent will check in the 'Initialize job' step each task used in the job for task deprecation.",
