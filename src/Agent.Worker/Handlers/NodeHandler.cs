@@ -233,7 +233,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             if (taskHasNode20Data && !IsNode20SupportedSystems())
             {
-                ExecutionContext.Warning($"The operating system the agent is running on doesn't support Node20. " +
+                ExecutionContext.Warning($"The operating system the agent is running on doesn't support Node20. Using node16 runner instead. " +
                              "Please upgrade the operating system of this host to ensure compatibility with Node20 tasks: " +
                              "https://github.com/nodesource/distributions");
                 Trace.Info($"Task.json has node20 handler data: {taskHasNode20Data}, but it's running in a unsupported system version. Using node16 for node tasks.");
@@ -261,7 +261,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
 
             if (useNode20 && !IsNode20SupportedSystems()) {
-                ExecutionContext.Warning($"The operating system the agent is running on doesn't support Node20. " +
+                ExecutionContext.Warning($"The operating system the agent is running on doesn't support Node20. Using node16 runner instead. " +
                              "Please upgrade the operating system of this host to ensure compatibility with Node20 tasks: " +
                              "https://github.com/nodesource/distributions");
                 Trace.Info($"Found UseNode20 knob, but it's running in a unsupported system version. Using node16 for node tasks.");
@@ -351,13 +351,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             if (systemName.Equals("ubuntu") &&
                 int.TryParse(systemVersion, out int ubuntuVersion) &&
                 ubuntuVersion <= 18.04) {
-                Trace.Info($"Detected Ubuntu version <= 18.04");
+                Trace.Info($"Detected Ubuntu version: " + ubuntuVersion);
                 return false;
             }
             if (systemName.Equals("debian") &&
                 int.TryParse(systemVersion, out int debianVersion) &&
                 debianVersion <= 9) {
-                Trace.Info($"Detected Debian version <= 9");
+                Trace.Info($"Detected Debian version: " + debianVersion);
                 return false;
             } 
             if (PlatformUtil.RunningOnRHEL6) {
