@@ -90,7 +90,7 @@ namespace Agent.Plugins.Repository
 
                 if (AgentKnobs.FixPossibleGitOutOfMemoryProblem.GetValue(context).AsBoolean())
                 {
-                    gitPath = Path.Combine(agentHomeDir, "externals", "git_ff", "cmd", $"git.exe");
+                    gitPath = Path.Combine(agentHomeDir, "externals", "ff_git", "cmd", $"git.exe");
                 }
                 else
                 {
