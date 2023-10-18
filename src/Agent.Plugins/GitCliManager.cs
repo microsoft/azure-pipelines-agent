@@ -87,7 +87,16 @@ namespace Agent.Plugins.Repository
             {
                 string agentHomeDir = context.Variables.GetValueOrDefault("agent.homedirectory")?.Value;
                 ArgUtil.NotNullOrEmpty(agentHomeDir, nameof(agentHomeDir));
-                gitPath = Path.Combine(agentHomeDir, "externals", "git", "cmd", $"git.exe");
+
+                if (AgentKnobs.FixPossibleGitOutOfMemoryProblem.GetValue(context).AsBoolean())
+                {
+                    gitPath = Path.Combine(agentHomeDir, "externals", "git_ff", "cmd", $"git.exe");
+                }
+                else
+                {
+                    gitPath = Path.Combine(agentHomeDir, "externals", "git", "cmd", $"git.exe");
+                }
+
                 gitLfsPath = Path.Combine(agentHomeDir, "externals", "git", PlatformUtil.BuiltOnX86 ? "mingw32" : "mingw64", "bin", "git-lfs.exe");
 
                 // Prepend the PATH.
