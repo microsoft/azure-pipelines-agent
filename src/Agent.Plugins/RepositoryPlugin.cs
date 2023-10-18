@@ -140,10 +140,12 @@ namespace Agent.Plugins.Repository
             MergeCheckoutOptions(executionContext, repo);
 
             var currentRepoPath = repo.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
+            var workDirectory = executionContext.Variables.GetValueOrDefault("agent.workfolder")?.Value;
             var buildDirectory = executionContext.Variables.GetValueOrDefault("agent.builddirectory")?.Value;
             var tempDirectory = executionContext.Variables.GetValueOrDefault("agent.tempdirectory")?.Value;
 
             ArgUtil.NotNullOrEmpty(currentRepoPath, nameof(currentRepoPath));
+            ArgUtil.NotNullOrEmpty(workDirectory, nameof(workDirectory));
             ArgUtil.NotNullOrEmpty(buildDirectory, nameof(buildDirectory));
             ArgUtil.NotNullOrEmpty(tempDirectory, nameof(tempDirectory));
 
@@ -151,13 +153,21 @@ namespace Agent.Plugins.Repository
             const string sourcesDirectory = "s"; //Constants.Build.Path.SourcesDirectory
             string expectRepoPath;
             var path = executionContext.GetInput("path");
+            var maxRootDirectory = buildDirectory;
+
             if (!string.IsNullOrEmpty(path))
             {
                 // When the checkout task provides a path, always use that one
                 expectRepoPath = IOUtil.ResolvePath(buildDirectory, path);
-                if (!expectRepoPath.StartsWith(buildDirectory.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar))
+
+                if (AgentKnobs.AllowWorkDirectoryRepositories.GetValue(executionContext).AsBoolean())
                 {
-                    throw new ArgumentException($"Input path '{path}' should resolve to a directory under '{buildDirectory}', current resolved path '{expectRepoPath}'.");
+                    maxRootDirectory = workDirectory;
+                }
+
+                if (!expectRepoPath.StartsWith(maxRootDirectory.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar))
+                {
+                    throw new ArgumentException($"Input path '{path}' should resolve to a directory under '{maxRootDirectory}', current resolved path '{expectRepoPath}'.");
                 }
             }
             else if (HasMultipleCheckouts(executionContext))

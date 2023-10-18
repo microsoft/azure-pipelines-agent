@@ -1,6 +1,6 @@
 #!/bin/bash
 
-user_id=`id -u`
+user_id="$(id -u)"
 
 # we want to snapshot the environment of the config user
 if [ $user_id -eq 0 -a -z "$AGENT_ALLOW_RUNASROOT" ]; then
@@ -8,67 +8,67 @@ if [ $user_id -eq 0 -a -z "$AGENT_ALLOW_RUNASROOT" ]; then
     exit 1
 fi
 
-function detect_rhel6()
-{
-    if [ -e /etc/redhat-release ]
-    then
-        redhatRelease=$(</etc/redhat-release)
-        if [[ $redhatRelease == "CentOS release 6."* || $redhatRelease == "Red Hat Enterprise Linux Server release 6."* ]]
-        then
-            echo "NOT SUPPORTED BY .NET 6. The current OS is Red Hat Enterprise Linux 6 or Centos 6"
+# Check dotnet core 6.0 dependencies for Linux
+if [[ "$(uname)" == "Linux" ]]; then
+    if [ -e /etc/redhat-release ]; then
+        redhatRelease=$(grep -oE "[0-9]+" /etc/redhat-release | awk "NR==1")
+        if [[ "${redhatRelease}" -lt 7 ]]; then
+            echo "RHEL supported for version 7 and higher."
             exit 1
         fi
     fi
-}
 
-# Check dotnet core 6.0 dependencies for Linux
-if [[ (`uname` == "Linux") ]]
-then
-    detect_rhel6
     command -v ldd > /dev/null
-    if [ $? -ne 0 ]
-    then
+    if [ $? -ne 0 ]; then
         echo "Can not find 'ldd'. Please install 'ldd' and try again."
         exit 1
     fi
 
-    ldd ./bin/libcoreclr.so | grep -E 'not found|No such'
+    ldd ./bin/libcoreclr.so | grep -E "not found|No such"
     if [ $? -eq 0 ]; then
         echo "Dependencies is missing for .NET Core 6.0"
         echo "Execute ./bin/installdependencies.sh to install any missing dependencies."
         exit 1
     fi
 
-    ldd ./bin/libSystem.Security.Cryptography.Native.OpenSsl.so | grep -E 'not found|No such'
+    ldd ./bin/libSystem.Security.Cryptography.Native.OpenSsl.so | grep -E "not found|No such"
     if [ $? -eq 0 ]; then
         echo "Dependencies missing for .NET 6.0"
         echo "Execute ./bin/installdependencies.sh to install any missing dependencies."
         exit 1
     fi
 
-    ldd ./bin/libSystem.IO.Compression.Native.so | grep -E 'not found|No such'
+    ldd ./bin/libSystem.IO.Compression.Native.so | grep -E "not found|No such"
     if [ $? -eq 0 ]; then
         echo "Dependencies missing for .NET 6.0"
         echo "Execute ./bin/installdependencies.sh to install any missing dependencies."
         exit 1
     fi
 
-    if ! [ -x "$(command -v ldconfig)" ]; then
-        LDCONFIG_COMMAND="/sbin/ldconfig"
-        if ! [ -x "$LDCONFIG_COMMAND" ]; then
-            echo "Can not find 'ldconfig' in PATH and '/sbin/ldconfig' doesn't exists either. Please install 'ldconfig' and try again."
+    if [ -e /etc/alpine-release ]; then
+        if [ -z "$(apk info 2>&1 | grep icu-libs)" ]; then
+            echo "icu-libs are missing"
+            echo "Execute ./bin/installdependencies.sh to install any missing dependencies."
             exit 1
         fi
     else
-        LDCONFIG_COMMAND="ldconfig"
-    fi
+        LDCONFIG="ldconfig"
+        if ! [ -x "$(command -v $LDCONFIG)" ]; then
+            LDCONFIG="/sbin/ldconfig"
 
-    libpath=${LD_LIBRARY_PATH:-}
-    $LDCONFIG_COMMAND -NXv ${libpath//:/} 2>&1 | grep libicu >/dev/null 2>&1
-    if [ $? -ne 0 ]; then
-        echo "libicu's dependencies missing for .NET 6"
-        echo "Execute ./bin/installdependencies.sh to install any missing dependencies."
-        exit 1
+            if ! [ -x "$LDCONFIG" ]; then
+                echo "Can not find 'ldconfig' in PATH and '/sbin/ldconfig' doesn't exists either. Please install 'ldconfig' and try again."
+                exit 1
+            fi
+        fi
+
+        libpath="${LD_LIBRARY_PATH:-}"
+        $LDCONFIG -NXv "${libpath//:/}" 2>&1 | grep libicu >/dev/null 2>&1
+        if [ $? -ne 0 ]; then
+            echo "libicu's dependencies missing for .NET 6"
+            echo "Execute ./bin/installdependencies.sh to install any missing dependencies."
+            exit 1
+        fi
     fi
 fi
 

@@ -17,7 +17,7 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using System.Linq;
 using Microsoft.VisualStudio.Services.Common;
 using System.Diagnostics;
-
+using Agent.Listener.Configuration;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -87,6 +87,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     Trace.Verbose($"Retrieve previous WorkerDispather for job {currentDispatch.JobId}.");
                 }
             }
+
+            var service = HostContext.GetService<IFeatureFlagProvider>();
+            string ffState;
+            try
+            {
+                ffState = service.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.EnableAdditionalMaskingRegexes", Trace)?.Result?.EffectiveState;
+            }
+            catch (Exception)
+            {
+                ffState = "Off";
+            }
+            jobRequestMessage.Variables[Constants.Variables.Features.EnableAdditionalMaskingRegexes] = ffState;
 
             WorkerDispatcher newDispatch = new WorkerDispatcher(jobRequestMessage.JobId, jobRequestMessage.RequestId);
             if (runOnce)
@@ -343,6 +355,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             // first job request renew succeed.
             TaskCompletionSource<int> firstJobRequestRenewed = new TaskCompletionSource<int>();
             var notification = HostContext.GetService<IJobNotification>();
+            var agentCertManager = HostContext.GetService<IAgentCertificateManager>();
 
             // lock renew cancellation token.
             using (var lockRenewalTokenSource = new CancellationTokenSource())
@@ -539,7 +552,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                 {
                                     detailInfo = string.Join(Environment.NewLine, workerOutput);
                                     Trace.Info($"Return code {returnCode} indicate worker encounter an unhandled exception or app crash, attach worker stdout/stderr to JobRequest result.");
-                                    await LogWorkerProcessUnhandledException(message, detailInfo);
+                                    await LogWorkerProcessUnhandledException(message, detailInfo, agentCertManager.SkipServerCertificateValidation);
                                 }
 
                                 TaskResult result = TaskResultUtil.TranslateFromReturnCode(returnCode);
@@ -847,7 +860,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         // log an error issue to job level timeline record
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "jobServer")]
-        private async Task LogWorkerProcessUnhandledException(Pipelines.AgentJobRequestMessage message, string errorMessage)
+        private async Task LogWorkerProcessUnhandledException(Pipelines.AgentJobRequestMessage message, string errorMessage, bool skipServerCertificateValidation = false)
         {
             try
             {
@@ -885,7 +898,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     }
                 }
 
-                var jobConnection = VssUtil.CreateConnection(jobServerUrl, jobServerCredential, trace: Trace);
+                var jobConnection = VssUtil.CreateConnection(jobServerUrl, jobServerCredential, trace: Trace, skipServerCertificateValidation);
                 await jobServer.ConnectAsync(jobConnection);
                 var timeline = await jobServer.GetTimelineAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, CancellationToken.None);
                 ArgUtil.NotNull(timeline, nameof(timeline));

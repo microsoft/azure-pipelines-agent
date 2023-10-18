@@ -25,7 +25,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         void GetCollectionName(AgentSettings agentSettings, CommandSettings command, bool isHosted);
 
-        Task TestConnectionAsync(AgentSettings agentSettings, VssCredentials creds, bool isHosted);
+        Task TestConnectionAsync(AgentSettings agentSettings, VssCredentials creds, bool isHosted, bool skipServerCertificateValidation = false);
 
         Task GetPoolIdAndName(AgentSettings agentSettings, CommandSettings command);
 
@@ -119,7 +119,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             return _agentServer.DeleteAgentAsync(agentSettings.PoolId, agentSettings.AgentId);
         }
 
-        public async Task TestConnectionAsync(AgentSettings agentSettings, VssCredentials creds, bool isHosted)
+        public async Task TestConnectionAsync(AgentSettings agentSettings, VssCredentials creds, bool isHosted, bool skipServerCertificateValidation = false)
         {
             ArgUtil.NotNull(agentSettings, nameof(agentSettings));
             _term.WriteLine(StringUtil.Loc("ConnectingToServer"));
@@ -249,7 +249,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "CreateConnection")]
-        public virtual async Task TestConnectionAsync(AgentSettings agentSettings, VssCredentials creds, bool isHosted)
+        public virtual async Task TestConnectionAsync(AgentSettings agentSettings, VssCredentials creds, bool isHosted, bool skipServerCertificateValidation = false)
         {
             ArgUtil.NotNull(agentSettings, nameof(agentSettings));
             var url = agentSettings.ServerUrl;  // Ensure not to update back the url with agentSettings !!!
@@ -264,7 +264,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 Trace.Info("Tfs Collection level url to connect - {0}", uriBuilder.Uri.AbsoluteUri);
                 url = uriBuilder.Uri.AbsoluteUri;
             }
-            VssConnection deploymentGroupconnection = VssUtil.CreateConnection(new Uri(url), creds, trace: Trace);
+            VssConnection deploymentGroupconnection = VssUtil.CreateConnection(new Uri(url), creds, trace: Trace, skipServerCertificateValidation);
 
             await _deploymentGroupServer.ConnectAsync(deploymentGroupconnection);
             Trace.Info("Connect complete for deployment group");
@@ -424,7 +424,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "environmentConnection")]
-        public override async Task TestConnectionAsync(AgentSettings agentSettings, VssCredentials creds, bool isHosted)
+        public override async Task TestConnectionAsync(AgentSettings agentSettings, VssCredentials creds, bool isHosted, bool skipServerCertificateValidation = false)
         {
             ArgUtil.NotNull(agentSettings, nameof(agentSettings));
             var url = agentSettings.ServerUrl;  // Ensure not to update back the url with agentSettings !!!
@@ -439,7 +439,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 Trace.Info("Tfs Collection level url to connect - {0}", uriBuilder.Uri.AbsoluteUri);
                 url = uriBuilder.Uri.AbsoluteUri;
             }
-            VssConnection environmentConnection = VssUtil.CreateConnection(new Uri(url), creds, trace: Trace);
+            VssConnection environmentConnection = VssUtil.CreateConnection(new Uri(url), creds, trace: Trace, skipServerCertificateValidation);
 
             await _environmentsServer.ConnectAsync(environmentConnection);
             Trace.Info("Connection complete for environment");

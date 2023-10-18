@@ -21,6 +21,7 @@ using Microsoft.TeamFoundation.DistributedTask.Logging;
 using System.Net.Http.Headers;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Agent.Sdk.Util;
+using BuildXL.Cache.ContentStore.Interfaces.Tracing;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -88,6 +89,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         public ShutdownReason AgentShutdownReason { get; private set; }
         public ILoggedSecretMasker SecretMasker => _secretMasker;
         public ProductInfoHeaderValue UserAgent => _userAgent;
+
         public HostContext(HostType hostType, string logFile = null)
         {
             _secretMasker = new LoggedSecretMasker(_basicSecretMasker);
@@ -106,13 +108,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             this.SecretMasker.AddValueEncoder(ValueEncoders.UriDataEscape, $"HostContext_{WellKnownSecretAliases.UriDataEscape}");
             this.SecretMasker.AddValueEncoder(ValueEncoders.BackslashEscape, $"HostContext_{WellKnownSecretAliases.UriDataEscape}");
             this.SecretMasker.AddRegex(AdditionalMaskingRegexes.UrlSecretPattern, $"HostContext_{WellKnownSecretAliases.UrlSecretPattern}");
-            if (AgentKnobs.MaskUsingCredScanRegexes.GetValue(this).AsBoolean())
-            {
-                foreach (var pattern in AdditionalMaskingRegexes.CredScanPatterns)
-                {
-                    this.SecretMasker.AddRegex(pattern, $"HostContext_{WellKnownSecretAliases.CredScanPatterns}");
-                }
-            }
 
             // Create the trace manager.
             if (string.IsNullOrEmpty(logFile))
@@ -740,6 +735,15 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
 
             return clientHandler;
+        }
+
+        public static void AddAdditionalMaskingRegexes(this IHostContext context)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+            foreach (var pattern in AdditionalMaskingRegexes.CredScanPatterns)
+            {
+                context.SecretMasker.AddRegex(pattern, $"HostContext_{WellKnownSecretAliases.CredScanPatterns}");
+            }
         }
     }
 

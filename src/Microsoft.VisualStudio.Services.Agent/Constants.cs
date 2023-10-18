@@ -105,6 +105,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public const string UserName = "username";
                     public const string WindowsLogonAccount = "windowslogonaccount";
                     public const string Work = "work";
+                    public const string ClientId = "clientid";
+                    public const string TenantId = "tenantid";
 
                     // Secret args. Must be added to the "Secrets" getter as well.
                     public const string Password = "password";
@@ -112,6 +114,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public const string SslClientCertPassword = "sslclientcertpassword";
                     public const string Token = "token";
                     public const string WindowsLogonPassword = "windowslogonpassword";
+                    public const string ClientSecret = "clientsecret";
+
                     public static string[] Secrets => new[]
                     {
                         Password,
@@ -119,6 +123,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                         SslClientCertPassword,
                         Token,
                         WindowsLogonPassword,
+                        ClientSecret,
                     };
                 }
 
@@ -209,6 +214,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static readonly string Integrated = "Integrated";
             public static readonly string OAuth = "OAuth";
             public static readonly string ServiceIdentity = "ServiceIdentity";
+            public static readonly string ServicePrincipal = "SP";
         }
 
         public static class EndpointData
@@ -316,6 +322,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string Version = "agent.version";
                 public static readonly string WorkFolder = "agent.workfolder";
                 public static readonly string WorkingDirectory = "agent.WorkingDirectory";
+                public static readonly string EnableAdditionalMaskingRegexes = "agent.enableadditionalmaskingregexes";
             }
 
             public static class Build
@@ -365,6 +372,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string GitLfsSupport = "agent.source.git.lfs";
                 public static readonly string GitShallowDepth = "agent.source.git.shallowFetchDepth";
                 public static readonly string SkipSyncSource = "agent.source.skip";
+                public static readonly string EnableAdditionalMaskingRegexes = "agent.enableadditionalmaskingregexes";
             }
 
             public static class Maintenance
@@ -505,6 +513,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Agent.Version,
                 Agent.WorkFolder,
                 Agent.WorkingDirectory,
+                Agent.EnableAdditionalMaskingRegexes,
                 // Build variables
                 Build.ArtifactStagingDirectory,
                 Build.BinariesDirectory,
@@ -570,7 +579,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 System.EnableAccessToken,
                 System.HostType,
                 System.IsAzureVM,
-                System.IsDockerContainer,                
+                System.IsDockerContainer,
                 System.JobAttempt,
                 System.JobDisplayName,
                 System.JobId,
