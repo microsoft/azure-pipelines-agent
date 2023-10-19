@@ -159,6 +159,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_USE_NODE20"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob UseNode20InUnsupportedSystem = new Knob(
+            nameof(UseNode20InUnsupportedSystem),
+            "Forces the agent to use Node 20 handler for all Node-based tasks, even if it's in an unsupported system",
+            new RuntimeKnobSource("AGENT_USE_NODE20_IN_UNSUPPORTED_SYSTEM"),
+            new EnvironmentKnobSource("AGENT_USE_NODE20_IN_UNSUPPORTED_SYSTEM"),
+            new BuiltInDefaultKnobSource("false"));
+
         // Agent logging
         public static readonly Knob AgentPerflog = new Knob(
             nameof(AgentPerflog),

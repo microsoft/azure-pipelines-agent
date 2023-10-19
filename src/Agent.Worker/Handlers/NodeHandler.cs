@@ -224,6 +224,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             bool useNode10 = AgentKnobs.UseNode10.GetValue(ExecutionContext).AsBoolean();
             bool useNode16 = AgentKnobs.UseNode16.GetValue(ExecutionContext).AsBoolean();
             bool useNode20 = AgentKnobs.UseNode20.GetValue(ExecutionContext).AsBoolean();
+            bool UseNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
             bool taskHasNode10Data = Data is Node10HandlerData;
             bool taskHasNode16Data = Data is Node16HandlerData;
             bool taskHasNode20Data = Data is Node20HandlerData;
@@ -231,7 +232,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             string nodeFolder = NodeHandler.nodeFolder;
 
-            if (taskHasNode20Data && !IsNode20SupportedSystems())
+            if (taskHasNode20Data && !IsNode20SupportedSystems() && !UseNode20InUnsupportedSystem)
             {
                 ExecutionContext.Warning($"The operating system the agent is running on doesn't support Node20. Using node16 runner instead. " +
                              "Please upgrade the operating system of this host to ensure compatibility with Node20 tasks: " +
@@ -260,7 +261,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 nodeFolder = NodeHandler.node10Folder;
             }
 
-            if (useNode20 && !IsNode20SupportedSystems()) {
+            if (useNode20 && !IsNode20SupportedSystems() && !UseNode20InUnsupportedSystem) {
                 ExecutionContext.Warning($"The operating system the agent is running on doesn't support Node20. Using node16 runner instead. " +
                              "Please upgrade the operating system of this host to ensure compatibility with Node20 tasks: " +
                              "https://github.com/nodesource/distributions");
