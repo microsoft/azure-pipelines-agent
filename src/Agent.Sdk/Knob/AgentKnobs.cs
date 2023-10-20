@@ -121,6 +121,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_GIT_USE_SECURE_PARAMETER_PASSING"),
             new BuiltInDefaultKnobSource("true"));
 
+        public static readonly Knob FixPossibleGitOutOfMemoryProblem = new Knob(
+            nameof(FixPossibleGitOutOfMemoryProblem),
+            "When true, set config git properties to fix possible out of memory problem",
+            new RuntimeKnobSource("FIX_POSSIBLE_GIT_OUT_OF_MEMORY_PROBLEM"),
+            new EnvironmentKnobSource("FIX_POSSIBLE_GIT_OUT_OF_MEMORY_PROBLEM"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob TfVCUseSecureParameterPassing = new Knob(
             nameof(TfVCUseSecureParameterPassing),
             "If true, don't pass auth token in TFVC parameters",
