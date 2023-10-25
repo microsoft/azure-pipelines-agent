@@ -1,4 +1,5 @@
-using Microsoft.TeamFoundation.DistributedTask.Logging;
+﻿using Microsoft.TeamFoundation.DistributedTask.Logging;
+
 using System;
 
 namespace Agent.Sdk.Util
@@ -6,8 +7,9 @@ namespace Agent.Sdk.Util
     /// <summary>
     /// Extended secret masker service, that allows to log origins of secrets
     /// </summary>
-    public class LoggedSecretMasker : SecretMasker, ILoggedSecretMasker
+    public class LegacyLoggedSecretMasker : ILoggedSecretMasker
     {
+        private ISecretMasker _secretMasker;
         private ITraceWriter _trace;
 
         private void Trace(string msg)
@@ -15,13 +17,19 @@ namespace Agent.Sdk.Util
             this._trace?.Info(msg);
         }
 
-        public LoggedSecretMasker()
+        public LegacyLoggedSecretMasker(ISecretMasker secretMasker)
         {
+            this._secretMasker = secretMasker;
         }
 
         public void SetTrace(ITraceWriter trace)
         {
             this._trace = trace;
+        }
+
+        public void AddValue(string pattern)
+        {
+            this._secretMasker.AddValue(pattern);
         }
 
         /// <summary>
@@ -39,6 +47,11 @@ namespace Agent.Sdk.Util
             }
 
             AddValue(value);
+        }
+
+        public void AddRegex(string pattern)
+        {
+            this._secretMasker.AddRegex(pattern);
         }
 
         /// <summary>
@@ -62,22 +75,21 @@ namespace Agent.Sdk.Util
         // Note: the secret that will be ignored is of length n-1.
         public static int MinSecretLengthLimit => 6;
 
-        int _minSecretLength;
-        public override int MinSecretLength
+        public int MinSecretLength
         {
             get
             {
-                return _minSecretLength;
+                return _secretMasker.MinSecretLength;
             }
             set
             {
                 if (value > MinSecretLengthLimit)
                 {
-                    _minSecretLength = MinSecretLengthLimit;
+                    _secretMasker.MinSecretLength = MinSecretLengthLimit;
                 }
                 else
                 {
-                    _minSecretLength = value;
+                    _secretMasker.MinSecretLength = value;
                 }
             }
         }
@@ -85,7 +97,12 @@ namespace Agent.Sdk.Util
         public void RemoveShortSecretsFromDictionary()
         {
             this._trace?.Info("Removing short secrets from masking dictionary");
-            base.RemoveShortSecretsFromDictionary();
+            _secretMasker.RemoveShortSecretsFromDictionary();
+        }
+
+        public void AddValueEncoder(ValueEncoder encoder)
+        {
+            this._secretMasker.AddValueEncoder(encoder);
         }
 
         /// <summary>
@@ -104,6 +121,16 @@ namespace Agent.Sdk.Util
             }
 
             AddValueEncoder(encoder);
+        }
+
+        public ISecretMasker Clone()
+        {
+            return new LegacyLoggedSecretMasker(this._secretMasker.Clone());
+        }
+
+        public string MaskSecrets(string input)
+        {
+            return this._secretMasker.MaskSecrets(input);
         }
     }
 }

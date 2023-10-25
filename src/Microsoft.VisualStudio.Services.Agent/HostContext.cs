@@ -21,7 +21,8 @@ using Microsoft.TeamFoundation.DistributedTask.Logging;
 using System.Net.Http.Headers;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Agent.Sdk.Util;
-using BuildXL.Cache.ContentStore.Interfaces.Tracing;
+using LegacySecretMasker = Microsoft.TeamFoundation.DistributedTask.Logging.SecretMasker;
+using SecretMasker = Agent.Sdk.SecretMasker;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -69,8 +70,8 @@ namespace Microsoft.VisualStudio.Services.Agent
         private static int[] _vssHttpCredentialEventIds = new int[] { 11, 13, 14, 15, 16, 17, 18, 20, 21, 22, 27, 29 };
         private readonly ConcurrentDictionary<Type, object> _serviceInstances = new ConcurrentDictionary<Type, object>();
         protected readonly ConcurrentDictionary<Type, Type> ServiceTypes = new ConcurrentDictionary<Type, Type>();
-        SecretMasker _basicSecretMasker = new SecretMasker();
-        private readonly ILoggedSecretMasker _secretMasker;
+        private LegacySecretMasker _legacySecretMasker = new LegacySecretMasker();
+        private ILoggedSecretMasker _secretMasker;
         private readonly ProductInfoHeaderValue _userAgent = new ProductInfoHeaderValue($"VstsAgentCore-{BuildConstants.AgentPackage.PackageName}", BuildConstants.AgentPackage.Version);
         private CancellationTokenSource _agentShutdownTokenSource = new CancellationTokenSource();
         private object _perfLock = new object();
@@ -92,7 +93,9 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public HostContext(HostType hostType, string logFile = null)
         {
-            _secretMasker = new LoggedSecretMasker(_basicSecretMasker);
+            _secretMasker = AgentKnobs.MaskRefactoring.GetValue(this).AsBoolean()          
+                ? new LoggedSecretMasker()
+                : new LegacyLoggedSecretMasker(_legacySecretMasker);
 
             // Validate args.
             if (hostType == HostType.Undefined)
@@ -590,8 +593,11 @@ namespace Microsoft.VisualStudio.Services.Agent
                 _trace = null;
                 _httpTrace?.Dispose();
                 _httpTrace = null;
-                _basicSecretMasker?.Dispose();
-                _basicSecretMasker = null;
+
+                _legacySecretMasker?.Dispose();
+                _legacySecretMasker = null;
+                (_secretMasker as SecretMasker)?.Dispose();
+                _secretMasker = null;
 
                 _agentShutdownTokenSource?.Dispose();
                 _agentShutdownTokenSource = null;

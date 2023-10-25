@@ -1,21 +1,32 @@
 ﻿using Agent.Sdk.Util;
+
+using Microsoft.TeamFoundation.DistributedTask.Logging;
+
 using System;
+
 using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
-    public class LoggedSecretMaskerL0
+    public class LegacyLoggedSecretMaskerL0 : IDisposable
     {
+        SecretMasker _secretMasker;
+        private bool disposedValue;
+
+        public LegacyLoggedSecretMaskerL0()
+        {
+            _secretMasker = new SecretMasker();
+        }
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_MaskingSecrets()
         {
-            using var lsm = new LoggedSecretMasker()
+            var lsm = new LegacyLoggedSecretMasker(_secretMasker)
             {
                 MinSecretLength = 0
             };
-
             var inputMessage = "123";
 
             lsm.AddValue("1");
@@ -29,7 +40,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_ShortSecret_Removes_From_Dictionary()
         {
-            using var lsm = new LoggedSecretMasker()
+            var lsm = new LegacyLoggedSecretMasker(_secretMasker)
             {
                 MinSecretLength = 0
             };
@@ -48,7 +59,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_ShortSecret_Removes_From_Dictionary_BoundaryValue()
         {
-            using var lsm = new LoggedSecretMasker()
+            var lsm = new LegacyLoggedSecretMasker(_secretMasker)
             {
                 MinSecretLength = LoggedSecretMasker.MinSecretLengthLimit
             };
@@ -65,7 +76,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_ShortSecret_Removes_From_Dictionary_BoundaryValue2()
         {
-            using var lsm = new LoggedSecretMasker()
+            var lsm = new LegacyLoggedSecretMasker(_secretMasker)
             {
                 MinSecretLength = LoggedSecretMasker.MinSecretLengthLimit
             };
@@ -82,7 +93,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_Skipping_ShortSecrets()
         {
-            using var lsm = new LoggedSecretMasker()
+            var lsm = new LegacyLoggedSecretMasker(_secretMasker)
             {
                 MinSecretLength = 3
             };
@@ -98,7 +109,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_Sets_MinSecretLength_To_MaxValue()
         {
-            using var lsm = new LoggedSecretMasker();
+            var lsm = new LegacyLoggedSecretMasker(_secretMasker);
             var expectedMinSecretsLengthValue = LoggedSecretMasker.MinSecretLengthLimit;
 
             lsm.MinSecretLength = LoggedSecretMasker.MinSecretLengthLimit + 1;
@@ -111,7 +122,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_NegativeValue_Passed()
         {
-            using var lsm = new LoggedSecretMasker()
+            var lsm = new LegacyLoggedSecretMasker(_secretMasker)
             {
                 MinSecretLength = -2
             };
@@ -121,6 +132,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             var resultMessage = lsm.MaskSecrets(inputMessage);
 
             Assert.Equal("***2345", resultMessage);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposedValue)
+            {
+                if (disposing)
+                {
+                }
+
+                _secretMasker.Dispose();
+                _secretMasker = null;
+
+                disposedValue = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
         }
     }
 }

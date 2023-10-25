@@ -4,11 +4,9 @@
 using Microsoft.TeamFoundation.DistributedTask.Logging;
 using Xunit;
 
-using SecretMasker = Agent.Sdk.SecretMasker;
-
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
-    public sealed class SecretMaskerL0
+    public sealed class LegacySecretMaskerL0
     {
         private ISecretMasker initSecretMasker()
         {

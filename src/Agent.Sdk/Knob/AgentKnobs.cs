@@ -553,5 +553,11 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AZP_AGENT_MOUNT_WORKSPACE"),
             new EnvironmentKnobSource("AZP_AGENT_MOUNT_WORKSPACE"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob MaskRefactoring = new Knob(
+            nameof(MaskRefactoring),
+            "If true, the agent uses refactored masking.",
+            new EnvironmentKnobSource("AZP_AGENT_MASK_REFACTOR"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }
