@@ -27,7 +27,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
         /// <param name="verbose">If true emit verbose telemetry.</param>
         /// <param name="traceOutput">Action used for logging.</param>
         /// <param name="connection">VssConnection</param>
-        /// <param name="maxParallelism">Maximum number of parallel threads that should be used for download. If 0 then 
+        /// <param name="maxParallelism">Maximum number of parallel threads that should be used for download. If 0 then
         /// use the system default. </param>
         /// <param name="cancellationToken">Cancellation token used for both creating clients and verifying client conneciton.</param>
         /// <returns>Tuple of the client and the telemtery client</returns>
@@ -40,7 +40,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             ClientSettingsInfo clientSettings,
             AgentTaskPluginExecutionContext context,
             CancellationToken cancellationToken);
-        
+
         /// <summary>
         /// Creates a DedupManifestArtifactClient client and retrieves any client settings from the server
         /// </summary>
@@ -60,7 +60,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
         /// <param name="verbose">If true emit verbose telemetry.</param>
         /// <param name="traceOutput">Action used for logging.</param>
         /// <param name="connection">VssConnection</param>
-        /// <param name="maxParallelism">Maximum number of parallel threads that should be used for download. If 0 then 
+        /// <param name="maxParallelism">Maximum number of parallel threads that should be used for download. If 0 then
         /// use the system default. </param>
         /// <param name="cancellationToken">Cancellation token used for both creating clients and verifying client conneciton.</param>
         /// <returns>Tuple of the client and the telemtery client</returns>
@@ -84,7 +84,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
         // NOTE: this should be set to ClientSettingsConstants.DefaultDomainId when the latest update from Azure Devops is added.
         private static string DefaultDomainIdKey = "DefaultDomainId";
 
-        // Old default for hosted agents was 16*2 cores = 32. 
+        // Old default for hosted agents was 16*2 cores = 32.
         // In my tests of a node_modules folder, this 32x parallelism was consistently around 47 seconds.
         // At 192x it was around 16 seconds and 256x was no faster.
         private const int DefaultDedupStoreClientMaxParallelism = 192;
@@ -115,7 +115,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                 client,
                 CreateArtifactsTracer(verbose, traceOutput),
                 cancellationToken);
-            
+
             return CreateDedupManifestClient(
                     context.IsSystemDebugTrue(),
                     (str) => context.Output(str),
@@ -124,7 +124,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                     domainId,
                     clientSettings,
                     context,
-                    cancellationToken);            
+                    cancellationToken);
         }
 
         public (DedupManifestArtifactClient client, BlobStoreClientTelemetry telemetry) CreateDedupManifestClient(
@@ -159,7 +159,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                 () =>
                 {
                     // since our call below is hidden, check if we are cancelled and throw if we are...
-                    cancellationToken.ThrowIfCancellationRequested();                    
+                    cancellationToken.ThrowIfCancellationRequested();
 
                     IDedupStoreHttpClient dedupHttpclient;
                     // this is actually a hidden network call to the location service:
@@ -185,7 +185,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             }
             traceOutput($"Hashtype: {this.HashType.Value}");
 
-            var dedupClient = new DedupStoreClientWithDataport(dedupStoreHttpClient, new DedupStoreClientContext(maxParallelism), this.HashType.Value); 
+            dedupStoreHttpClient.SetRedirectTimeout(GetRedirectTimeoutFromClientSettings(clientSettings));
+
+            var dedupClient = new DedupStoreClientWithDataport(dedupStoreHttpClient, new DedupStoreClientContext(maxParallelism), this.HashType.Value);
             return (new DedupManifestArtifactClient(telemetry, dedupClient, tracer), telemetry);
         }
 
@@ -305,7 +307,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
 
                 var blobUri = connection.GetClient<ClientSettingsHttpClient>().BaseAddress;
                 var clientSettingsHttpClient = factory.CreateVssHttpClient<IClientSettingsHttpClient, ClientSettingsHttpClient>(blobUri);
-                return await clientSettingsHttpClient.GetSettingsAsync(client, userState: null, cancellationToken);                
+                return await clientSettingsHttpClient.GetSettingsAsync(client, userState: null, cancellationToken);
             }
             catch (Exception exception)
             {
@@ -329,7 +331,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                     tracer.Info($"Error converting the domain id '{clientSettings.Properties[DefaultDomainIdKey]}': {exception.Message}.  Falling back to default.");
                 }
             }
- 
+
             return domainId;
         }
 
@@ -355,5 +357,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
 
             return ChunkerHelper.IsHashTypeChunk(hashType) ? hashType : ChunkerHelper.DefaultChunkHashType;
         }
-   }
+
+        private int? GetRedirectTimeoutFromClientSettings(ClientSettingsInfo clientSettings)
+        {
+            if (int.TryParse(settingsInfo?.Properties.GetValueOrDefault(ClientSettingsConstants.RedirectTimeout), out int redirectTimeoutSeconds))
+            {
+                return redirectTimeoutSeconds;
+            }
+            else
+            {
+                return null;
+            }
+        }
+    }
 }
