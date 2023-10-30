@@ -15,6 +15,7 @@ using Microsoft.VisualStudio.Services.BlobStore.Common;
 using BuildXL.Cache.ContentStore.Hashing;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts;
 using Agent.Sdk.Knob;
+using System.Collections.Generic;
 
 namespace Microsoft.VisualStudio.Services.Agent.Blob
 {
@@ -62,6 +63,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
         /// <param name="connection">VssConnection</param>
         /// <param name="maxParallelism">Maximum number of parallel threads that should be used for download. If 0 then
         /// use the system default. </param>
+        /// <param name="clientType">The client type for client settings</param>
         /// <param name="cancellationToken">Cancellation token used for both creating clients and verifying client conneciton.</param>
         /// <returns>Tuple of the client and the telemtery client</returns>
         Task<(DedupStoreClient client, BlobStoreClientTelemetryTfs telemetry)> CreateDedupClientAsync(
@@ -69,6 +71,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             Action<string> traceOutput,
             VssConnection connection,
             int maxParallelism,
+            BlobStore.WebApi.Contracts.Client? clientType,
             CancellationToken cancellationToken);
 
         /// <summary>
@@ -196,6 +199,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             Action<string> traceOutput,
             VssConnection connection,
             int maxParallelism,
+            BlobStore.WebApi.Contracts.Client? clientType,
             CancellationToken cancellationToken)
         {
             const int maxRetries = 5;
@@ -205,6 +209,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                 maxParallelism = DefaultDedupStoreClientMaxParallelism;
             }
             traceOutput($"Max dedup parallelism: {maxParallelism}");
+
+            ClientSettingsInfo clientSettings = clientType is null
+                ? null
+                : await GetClientSettingsAsync(
+                    connection,
+                    clientType.Value,
+                    tracer,
+                    cancellationToken);
+
             var dedupStoreHttpClient = await AsyncHttpRetryHelper.InvokeAsync(
                 () =>
                 {
@@ -223,6 +236,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                 context: nameof(CreateDedupManifestClientAsync),
                 cancellationToken: cancellationToken,
                 continueOnCapturedContext: false);
+
+            dedupStoreHttpClient.SetRedirectTimeout(GetRedirectTimeoutFromClientSettings(clientSettings));
 
             var telemetry = new BlobStoreClientTelemetryTfs(tracer, dedupStoreHttpClient.BaseAddress, connection);
             var client = new DedupStoreClient(dedupStoreHttpClient, maxParallelism);
@@ -360,7 +375,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
 
         private int? GetRedirectTimeoutFromClientSettings(ClientSettingsInfo clientSettings)
         {
-            if (int.TryParse(settingsInfo?.Properties.GetValueOrDefault(ClientSettingsConstants.RedirectTimeout), out int redirectTimeoutSeconds))
+            if (int.TryParse(clientSettings?.Properties.GetValueOrDefault(ClientSettingsConstants.RedirectTimeout), out int redirectTimeoutSeconds))
             {
                 return redirectTimeoutSeconds;
             }

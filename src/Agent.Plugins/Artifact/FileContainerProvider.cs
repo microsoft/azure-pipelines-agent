@@ -156,7 +156,12 @@ namespace Agent.Plugins
                 try
                 {
                     (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupClientAsync(
-                        false, (str) => this.tracer.Info(str), this.connection, DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context), cancellationToken);
+                        false,
+                        (str) => this.tracer.Info(str),
+                        this.connection,
+                        DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
+                        Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.BuildArtifact,
+                        cancellationToken);
                 }
                 catch (SocketException e)
                 {

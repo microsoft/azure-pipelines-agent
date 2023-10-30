@@ -49,7 +49,7 @@ namespace Agent.Plugins
                 Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
                 tracer,
                 cancellationToken);
-            
+
             // Get the default domain to use:
             IDomainId domainId = DedupManifestArtifactClientFactory.GetDefaultDomainId(clientSettings, tracer);
 
