@@ -461,7 +461,7 @@
   "ProcessCompletedWithCode0Errors1": "Le processus s’est terminé avec le code de sortie {0} et présentait {1} erreurs écrites dans le flux d’erreurs.",
   "ProcessCompletedWithExitCode0": "Tâche effectuée avec le code de sortie {0}.",
   "ProcessExitCode": "Code de sortie {0} retourné par le processus : nom de fichier « {1} », arguments « {2} ».",
-  "ProcessHandlerInvalidScriptArgs": "Detected characters in arguments that may not be executed correctly by the shell. More information is available here: https://aka.ms/ado/75787",
+  "ProcessHandlerInvalidScriptArgs": "Caractères détectés dans les arguments qui peuvent ne pas être exécutés correctement par le shell. Plus d'informations sont disponibles ici : https://aka.ms/ado/75787",
   "ProfileLoadFailure": "Impossible de charger le profil utilisateur pour l’utilisateur {0}\\{1} La configuration AutoLogon n’est pas possible.",
   "ProjectName": "Nom du projet",
   "Prompt0": "Entrez {0}",

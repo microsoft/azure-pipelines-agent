@@ -461,7 +461,7 @@
   "ProcessCompletedWithCode0Errors1": "プロセスは終了コード {0} で完了し、エラー ストリームに {1} 個のエラーが書き込まれました。",
   "ProcessCompletedWithExitCode0": "終了コード {0} でプロセスが完了しました。",
   "ProcessExitCode": "プロセスから終了コード {0} が返されました: ファイル名 '{1}'、引数 '{2}'。",
-  "ProcessHandlerInvalidScriptArgs": "Detected characters in arguments that may not be executed correctly by the shell. More information is available here: https://aka.ms/ado/75787",
+  "ProcessHandlerInvalidScriptArgs": "シェルによって正しく実行されない可能性のある引数の文字が検出されました。詳細についてはこちら: https://aka.ms/ado/75787",
   "ProfileLoadFailure": "ユーザー {0}\\{1} AutoLogon 構成のユーザー プロファイルを読み込めません。",
   "ProjectName": "プロジェクト名",
   "Prompt0": "{0} の入力",

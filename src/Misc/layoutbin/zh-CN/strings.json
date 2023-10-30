@@ -461,7 +461,7 @@
   "ProcessCompletedWithCode0Errors1": "进程已完成，退出代码为 {0}，{1} 个错误写入了错误流。",
   "ProcessCompletedWithExitCode0": "进程已完成，退出代码为 {0}。",
   "ProcessExitCode": "从进程返回的退出代码 {0}: 文件名 \"{1}\"，参数 \"{2}\"。",
-  "ProcessHandlerInvalidScriptArgs": "Detected characters in arguments that may not be executed correctly by the shell. More information is available here: https://aka.ms/ado/75787",
+  "ProcessHandlerInvalidScriptArgs": "在参数中检测到可能无法由 shell 正确执行的字符。有关详细信息，请访问此处: https://aka.ms/ado/75787",
   "ProfileLoadFailure": "无法加载用户 {0}\\{1} 的用户配置文件，AutoLogon 配置不可用。",
   "ProjectName": "项目名称",
   "Prompt0": "输入 {0}",

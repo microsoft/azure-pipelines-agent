@@ -461,7 +461,7 @@
   "ProcessCompletedWithCode0Errors1": "Процесс завершен с кодом выхода {0} и {1} ошибки записаны в поток ошибок.",
   "ProcessCompletedWithExitCode0": "Процесс завершен с кодом выхода {0}.",
   "ProcessExitCode": "Код завершения {0} из процесса: имя файла '{1}', аргументы '{2}'.",
-  "ProcessHandlerInvalidScriptArgs": "Detected characters in arguments that may not be executed correctly by the shell. More information is available here: https://aka.ms/ado/75787",
+  "ProcessHandlerInvalidScriptArgs": "В аргументах обнаружены символы, которые могут быть неправильно интерпретированы оболочкой. Дополнительные сведения см. по адресу: https://aka.ms/ado/75787",
   "ProfileLoadFailure": "Не удалось загрузить профиль пользователя {0}\\{1} Настройка автоматического входа в систему невозможна.",
   "ProjectName": "Имя проекта",
   "Prompt0": "Введите \"{0}\"",
