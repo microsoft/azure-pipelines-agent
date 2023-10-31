@@ -178,7 +178,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                         (str) => Trace.Info(str),
                         this._connection,
                         maxParallelism,
-                        null,
+                        clientType: null,
                         cancellationToken);
 
             var results = await BlobStoreUtils.UploadToBlobStore(verbose, itemPath, (level, uri, type) =>
