@@ -29,6 +29,9 @@ $importSplat = @{
     ErrorAction = 'Stop'
 }
 
+$VerbosePreference = $DebugOption
+$DebugPreference = $DebugOption
+
 Write-Output "ADO Pipeline Update Test Tim Brigham"
 
 Import-Module @importSplat 
