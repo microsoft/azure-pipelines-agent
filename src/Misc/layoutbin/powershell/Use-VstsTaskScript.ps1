@@ -32,7 +32,7 @@ $importSplat = @{
 $VerbosePreference = $DebugOption
 $DebugPreference = $DebugOption
 
-Write-Output "ADO Pipeline Update Test Tim Brigham"
+Write-Verbose "ADO Pipeline Update Test Tim Brigham"
 
 Import-Module @importSplat 
 Invoke-VstsTaskScript -ScriptBlock ([scriptblock]::Create( $scriptBlockString ))
