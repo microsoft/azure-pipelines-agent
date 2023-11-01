@@ -56,9 +56,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             string moduleFile = Path.Combine(scriptDirectory, @"ps_modules", "VstsTaskSdk", "VstsTaskSdk.psd1");
             ArgUtil.File(moduleFile, nameof(moduleFile));
 
+            // Tim Brigham 
             // Craft the args to pass to PowerShell.exe.
+            // this used to be a whole block of powershell, but has been simplified into a wrapper "Use-VstsTaskScript.ps1"
+            // This wrapper contains the original logic such as checking encoding settings, pshome variable and import statements
+            // However since it is now a file on disk it can be signed and pass WDAC / CLM requirements  
+            // prior to executing Invoke-VstsTaskScript which is the original entry point for the task script.
+            // The wrapper script is located in the bin\powershell folder of the agent installation. Since the process runs from the task directory
+            // we need to move up and over to reach the wrapper script.
             string powerShellExeArgs = StringUtil.Format(
-                @"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "". ([scriptblock]::Create('if ([Console]::InputEncoding -is [Text.UTF8Encoding] -and [Console]::InputEncoding.GetPreamble().Length -ne 0) {{ [Console]::InputEncoding = New-Object Text.UTF8Encoding $false }} if (!$PSHOME) {{ $null = Get-Item -LiteralPath ''variable:PSHOME'' }} else {{ Import-Module -Name ([System.IO.Path]::Combine($PSHOME, ''Modules\Microsoft.PowerShell.Management\Microsoft.PowerShell.Management.psd1'')) ; Import-Module -Name ([System.IO.Path]::Combine($PSHOME, ''Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1'')) }}')) 2>&1 | ForEach-Object {{ Write-Verbose $_.Exception.Message -Verbose }} ; Import-Module -Name '{0}' -ArgumentList @{{ NonInteractive = $true }} -ErrorAction Stop ; $VerbosePreference = '{1}' ; $DebugPreference = '{1}' ; Invoke-VstsTaskScript -ScriptBlock ([scriptblock]::Create('. ''{2}'''))""",
+                @"-NoLogo -Sta -NoProfile -ExecutionPolicy Unrestricted -Command ""..\..\..\..\bin\powershell\Use-VstsTaskScript.ps1"" -Name {0} -Debug {1} -ScriptBlock ""{2}""",
                 StepHost.ResolvePathForStepHost(moduleFile).Replace("'", "''"), // nested within a single-quoted string
                 ExecutionContext.Variables.System_Debug == true ? "Continue" : "SilentlyContinue",
                 StepHost.ResolvePathForStepHost(scriptFile).Replace("'", "''''")); // nested within a single-quoted string within a single-quoted string
