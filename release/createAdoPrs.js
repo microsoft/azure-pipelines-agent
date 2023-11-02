@@ -8,7 +8,7 @@ const got = require('got');
 const INTEGRATION_DIR = path.join(__dirname, '..', '_layout', 'integrations');
 const GIT = 'git';
 
-var opt = require('node-getopt').create([
+const opt = require('node-getopt').create([
     ['',  'dryrun',               'Dry run only, do not actually commit new release'],
     ['h', 'help',                 'Display this help'],
   ])
@@ -20,37 +20,39 @@ var opt = require('node-getopt').create([
   .bindHelp()     // bind option 'help' to default action
   .parseSystem(); // parse command line
 
+const orgUrl = 'dev.azure.com/mseng';
+const httpsOrgUrl = `https://${orgUrl}`;
 const authHandler = azdev.getPersonalAccessTokenHandler(process.env.PAT);
-const connection = new azdev.WebApi('https://dev.azure.com/mseng', authHandler);
+const connection = new azdev.WebApi(httpsOrgUrl, authHandler);
 
 /**
  * Fills InstallAgentPackage.xml and Publish.ps1 templates.
  * Replaces <AGENT_VERSION> and <HASH_VALUE> with the right values in these files.
- * @param {string} newRelease Agent version, e.g. 2.193.0
+ * @param {string} agentVersion Agent version, e.g. 2.193.0
  */
-function createIntegrationFiles(newRelease)
-{
-    const xmlFilePath = path.join(INTEGRATION_DIR, 'InstallAgentPackage.xml')
+function createIntegrationFiles(agentVersion) {
     fs.mkdirSync(INTEGRATION_DIR, { recursive: true });
+
+    const xmlFilePath = path.join(INTEGRATION_DIR, 'InstallAgentPackage.xml');
     util.fillAgentParameters(
         path.join(__dirname, '..', 'src', 'Misc', 'InstallAgentPackage.template.xml'),
         xmlFilePath,
-        newRelease
+        agentVersion
     );
     clearEmptyHashValueLine(xmlFilePath);
     clearEmptyXmlNodes(xmlFilePath);
 
-    const publishScriptFilePath = path.join(INTEGRATION_DIR, 'Publish.ps1')
+    const publishScriptFilePath = path.join(INTEGRATION_DIR, 'Publish.ps1');
     util.fillAgentParameters(
         path.join(__dirname, '..', 'src', 'Misc', 'Publish.template.ps1'),
         publishScriptFilePath,
-        newRelease
+        agentVersion
     );
     clearEmptyHashValueLine(publishScriptFilePath);
 }
 
 function clearEmptyXmlNodes(filePath) {
-    var xmlFile = fs.readFileSync(filePath, 'utf-8');
+    let xmlFile = fs.readFileSync(filePath, 'utf-8');
     while (xmlFile.length != (xmlFile = xmlFile.replace(/\s*<[\w\s="]+>\n*\s*<\/[\w\s="]+>/g, "")).length) {
     }
     fs.writeFileSync(filePath, xmlFile);
@@ -63,107 +65,75 @@ function clearEmptyHashValueLine(filePath) {
     fs.writeFileSync(filePath, modifiedLines.join('\n').replace(/\n\r(\n\r)+/g, '\n\r'));
 }
 
-function commitAndPush(directory, release, branch)
-{
-    util.execInForeground(`${GIT} checkout -b ${branch}`, directory);
-    util.execInForeground(`${GIT} commit -m "Agent Release ${release}" `, directory);
-    util.execInForeground(`${GIT} push --set-upstream origin ${branch}`, directory);
-}
+/**
+ * Create AzureDevOps pull request using files from `INTEGRATION_DIR`
+ * @param {string} repo AzureDevOps repo name
+ * @param {string} project AzureDevOps project name
+ * @param {string} sourceBranch pull request source branch
+ * @param {string} targetBranch pull request target branch
+ * @param {string} commitMessage commit message
+ * @param {string} title pull request title
+ * @param {string} description pull reqest description
+ * @param {string} targetsToCommit files to add in pull request
+ */
+async function openPR(repo, project, sourceBranch, targetBranch, commitMessage, title, description, targetsToCommit) {
+    console.log(`Creating PR from "${sourceBranch}" into "${targetBranch}" in the "${project}/${repo}" repo`);
 
-function sparseClone(directory, url)
-{
-    if (fs.existsSync(directory))
-    {
-        console.log(`Removing previous clone of ${directory}`);
-        if (!opt.options.dryrun)
-        {
-            fs.rmdirSync(directory, { recursive: true });
-        }
-    }
-
-    util.execInForeground(`${GIT} clone --no-checkout --depth 1 ${url} ${directory}`, null, opt.dryrun);
-    util.execInForeground(`${GIT} sparse-checkout init --cone`, directory, opt.dryrun);
-}
-
-async function createAdoPR(directory, release)
-{
-    var gitUrl = `https://${process.env.PAT}@dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps`;
-
-    var file = path.join(INTEGRATION_DIR, 'InstallAgentPackage.xml');
-    var targetDirectory = path.join('DistributedTask', 'Service', 'Servicing', 'Host', 'Deployment', 'Groups');
-    var target = path.join(directory, targetDirectory, 'InstallAgentPackage.xml');
-
-    if (!fs.existsSync(directory))
-    {
-        // sparseClone(directory, gitUrl);
-        // util.execInForeground(`${GIT} sparse-checkout set ${targetDirectory}`, directory, opt.dryrun);
-        util.execInForeground(`${GIT} clone --depth 1 ${gitUrl} ${directory}`, null, opt.dryrun);
-    }
-
-    if (opt.options.dryrun)
-    {
-        console.log(`Copy file from ${file} to ${target}`);
-    }
-    else
-    {
-        fs.copyFileSync(file, target);
-    }
-    var newBranch = `users/${process.env.USERNAME}/agent-${release}`;
-    util.execInForeground(`${GIT} add ${targetDirectory}`, directory, opt.dryrun);
-    commitAndPush(directory, release, newBranch);
-
-    console.log(`Creating pr from ${newBranch} into master in the AzureDevOps repo`);
-
-    const gitApi = await connection.getGitApi();
-    await gitApi.createPullRequest({
-        sourceRefName: `refs/heads/${newBranch}`,
-        targetRefName: 'refs/heads/master',
-        title: 'Update agent',
-        description: `Update agent to version ${release}`
-    }, 'AzureDevOps', 'AzureDevOps');
-}
-
-async function createConfigChangePR(repoPath, agentVersion) {
-    const gitUrl = `https://${process.env.PAT}@dev.azure.com/mseng/AzureDevOps/_git/AzureDevOps.ConfigChange`;
-
-    if (!agentVersion.match(/^\d\.\d\d\d.\d+$/)) {
-        throw new Error(`Agent version should fit the pattern: x.xxx.xxx; received: ${agentVersion}`);
-    }
+    const repoPath = path.join(INTEGRATION_DIR, repo);
 
     if (!fs.existsSync(repoPath)) {
+        const gitUrl = `https://${process.env.PAT}@${orgUrl}/${project}/_git/${repo}`;
         util.execInForeground(`${GIT} clone --depth 1 ${gitUrl} ${repoPath}`, null, opt.dryrun);
     }
 
-    const sprint = await getCurrentSprint();
-    const publishScriptPathInRepo = path.join('tfs', `m${sprint}`, 'PipelinesAgentRelease', agentVersion, 'Publish.ps1');
-    const publishScriptPathInSystem = path.join(repoPath, publishScriptPathInRepo);
-    fs.mkdirSync(path.dirname(publishScriptPathInSystem), { recursive: true });
+    for (const targetToCommit of targetsToCommit) {
+        const relativePath = path.dirname(targetToCommit);
+        const fullPath = path.join(repoPath, relativePath);
+        const fileName = path.basename(targetToCommit);
+        const sourceFile = path.join(INTEGRATION_DIR, fileName);
+        const targetFile = path.join(fullPath, fileName);
 
-    const file = path.join(INTEGRATION_DIR, 'Publish.ps1');
-
-    if (opt.options.dryrun) {
-        console.log(`Fake copy file from ${file} to ${publishScriptPathInSystem}`);
-    } else {
-        console.log(`Copy file from ${file} to ${publishScriptPathInSystem}`);
-        fs.copyFileSync(file, publishScriptPathInSystem);
+        if (opt.options.dryrun) {
+            console.log(`Fake copy file from ${sourceFile} to ${targetFile}`);
+        } else {
+            console.log(`Copy file from ${sourceFile} to ${targetFile}`);
+            fs.mkdirSync(fullPath, { recursive: true });
+            fs.copyFileSync(sourceFile, targetFile);
+        }
     }
 
-    const newBranch = `users/${process.env.USERNAME}/agent-${agentVersion}`;
-    util.execInForeground(`${GIT} add ${publishScriptPathInRepo}`, repoPath, opt.dryrun);
-    commitAndPush(repoPath, agentVersion, newBranch);
+    for (const targetToCommit of targetsToCommit) {
+        util.execInForeground(`${GIT} add ${targetToCommit}`, repoPath, opt.dryrun);
+    }
 
-    console.log(`Creating pr from ${newBranch} into master in the AzureDevOps.ConfigChange repo`);
+    util.execInForeground(`${GIT} checkout -b ${sourceBranch}`, repoPath);
+    util.execInForeground(`${GIT} commit -m "${commitMessage}"`, repoPath);
+    util.execInForeground(`${GIT} push --force origin ${sourceBranch}`, repoPath);
 
-    const gitApi = await connection.getGitApi();
-    const pullRequest = {
-        sourceRefName: `refs/heads/${newBranch}`,
-        targetRefName: 'refs/heads/master',
-        title: 'Update agent',
-        description: `Update agent publish script to version ${agentVersion}`
+    const prefix = 'refs/heads/';
+
+    const refs = {
+        sourceRefName: `${prefix}${sourceBranch}`,
+        targetRefName: `${prefix}${targetBranch}`
     };
-    const repo = 'AzureDevOps.ConfigChange';
-    const project = 'AzureDevOps';
-    await gitApi.createPullRequest(pullRequest, repo, project);
+
+    const pullRequest = { ...refs, title, description };
+
+    console.log('Getting Git API');
+    const gitApi = await connection.getGitApi();
+
+    console.log('Checking if an active pull request for the source and target branch already exists');
+    let PR = (await gitApi.getPullRequests(repo, refs, project))[0];
+
+    if (PR) {
+        console.log('PR already exists');
+    } else {
+        console.log('PR does not exist; creating PR');
+        PR = await gitApi.createPullRequest(pullRequest, repo, project);
+    }
+
+    const prLink = `${httpsOrgUrl}/${project}/_git/${repo}/pullrequest/${PR.pullRequestId}`;
+    console.log(`Link to the PR: ${prLink}`);
 }
 
 /**
@@ -181,30 +151,53 @@ async function getCurrentSprint() {
     return sprint;
 }
 
-async function main()
-{
+async function main() {
     try {
-        var newRelease = opt.argv[0];
-        if (newRelease === undefined)
-        {
+        const agentVersion = opt.argv[0];
+        if (agentVersion === undefined) {
             console.log('Error: You must supply a version');
             process.exit(-1);
+        } else if (!agentVersion.match(/^\d\.\d\d\d.\d+$/)) {
+            throw new Error(`Agent version should fit the pattern: "x.xxx.xxx"; received: "${agentVersion}"`);
         }
         util.verifyMinimumNodeVersion();
         util.verifyMinimumGitVersion();
-        createIntegrationFiles(newRelease);
+        createIntegrationFiles(agentVersion);
         util.execInForeground(`${GIT} config --global user.email "${process.env.USEREMAIL}"`, null, opt.dryrun);
         util.execInForeground(`${GIT} config --global user.name "${process.env.USERNAME}"`, null, opt.dryrun);
 
-        var pathToAdo = path.join(INTEGRATION_DIR, 'AzureDevOps');
-        await createAdoPR(pathToAdo, newRelease);
+        const sprint = await getCurrentSprint();
 
-        const pathToAdoConfigChange = path.join(INTEGRATION_DIR, 'AzureDevOps.ConfigChange');
-        await createConfigChangePR(pathToAdoConfigChange, newRelease);
+        const project = 'AzureDevOps';
+        const sourceBranch = `users/${process.env.USERNAME}/agent-${agentVersion}`;
+        const targetBranch = 'master';
+        const commitMessage = `Agent Release ${agentVersion}`;
+        const title = 'Update Agent';
 
-        console.log('done.');
-    }
-    catch (err) {
+        await openPR(
+            'AzureDevOps',
+            project, sourceBranch, targetBranch, commitMessage, title,
+            `Update agent to version ${agentVersion}`,
+            [
+                path.join(
+                    'DistributedTask', 'Service', 'Servicing', 'Host', 'Deployment', 'Groups', 'InstallAgentPackage.xml'
+                )
+            ]
+        );
+
+        await openPR(
+            'AzureDevOps.ConfigChange',
+            project, sourceBranch, targetBranch, commitMessage, title,
+            `Update agent publish script to version ${agentVersion}`,
+            [
+                path.join(
+                    'tfs', `m${sprint}`, 'PipelinesAgentRelease', agentVersion, 'Publish.ps1'
+                )
+            ]
+        );
+
+        console.log('Done.');
+    } catch (err) {
         tl.setResult(tl.TaskResult.Failed, err.message || 'run() failed', true);
         throw err;
     }

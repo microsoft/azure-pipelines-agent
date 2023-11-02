@@ -27,7 +27,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             VssCredentials credentials = VssUtil.GetVssCredential(systemConnection);
             ArgUtil.NotNull(credentials, nameof(credentials));
             ITraceWriter trace = context.GetTraceWriter();
-            VssConnection connection = VssUtil.CreateConnection(systemConnection.Url, credentials, trace);
+            bool skipServerCertificateValidation = context.Variables.Agent_SslSkipCertValidation ?? false;
+
+            VssConnection connection = VssUtil.CreateConnection(systemConnection.Url, credentials, trace, skipServerCertificateValidation);
             return connection;
         }
 

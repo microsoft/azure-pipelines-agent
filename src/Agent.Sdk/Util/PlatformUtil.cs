@@ -74,6 +74,19 @@ namespace Agent.Sdk
             get => PlatformUtil.HostOS == PlatformUtil.OS.Linux;
         }
 
+        public static bool RunningOnAlpine
+        {
+            get
+            {
+                if (File.Exists("/etc/alpine-release"))
+                {
+                    return true;
+                }
+
+                return false;
+            }
+        }
+
         public static bool RunningOnRHEL6
         {
             get
@@ -86,6 +99,21 @@ namespace Agent.Sdk
                 DetectRHEL6();
 
                 return (bool)detectedRHEL6;
+            }
+        }
+
+        public static bool RunningOnRHEL7
+        {
+            get
+            {
+                if (!(detectedRHEL7 is null))
+                {
+                    return (bool)detectedRHEL7;
+                }
+
+                DetectRHEL7();
+
+                return (bool)detectedRHEL7;
             }
         }
 
@@ -134,6 +162,34 @@ namespace Agent.Sdk
                     catch (IOException)
                     {
                         // IOException indicates we couldn't read that file; probably not RHEL6
+                    }
+                }
+            }
+        }
+
+        private static void DetectRHEL7()
+        {
+            lock (detectedRHEL7lock)
+            {
+                if (!RunningOnLinux || !File.Exists("/etc/redhat-release"))
+                {
+                    detectedRHEL7 = false;
+                }
+                else
+                {
+                    detectedRHEL7 = false;
+                    try
+                    {
+                        string redhatVersion = File.ReadAllText("/etc/redhat-release");
+                        if (redhatVersion.StartsWith("CentOS release 7.")
+                            || redhatVersion.StartsWith("Red Hat Enterprise Linux Server release 7."))
+                        {
+                            detectedRHEL7 = true;
+                        }
+                    }
+                    catch (IOException)
+                    {
+                        // IOException indicates we couldn't read that file; probably not RHEL7
                     }
                 }
             }
@@ -258,6 +314,8 @@ namespace Agent.Sdk
 
         private static bool? detectedRHEL6 = null;
         private static object detectedRHEL6lock = new object();
+        private static bool? detectedRHEL7 = null;
+        private static object detectedRHEL7lock = new object();
 
         public static Architecture HostArchitecture
         {

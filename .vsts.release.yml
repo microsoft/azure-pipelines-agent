@@ -16,22 +16,22 @@ parameters:
   type: boolean
   default: false
   displayName: Build Stage Only
-- name: skipRhelRelease
-  type: boolean
-  default: true
-  displayName: Skip RHEL Release
-- name: releaseRhelOnly
-  type: boolean
-  default: false
-  displayName: Release RHEL Only
 
 - name: onlyGitHubRelease
   type: boolean
   default: false
   displayName: Release only for GitHub
 
+- name: testProxyAgent
+  type: boolean
+  default: true
+  displayName: Test Proxy Agent
+
 variables:
-  releaseBranch: releases/${{ parameters.version }}
+  ${{ if parameters.buildStageOnly }}:
+    releaseBranch: ''
+  ${{ else }}:
+    releaseBranch: releases/${{ parameters.version }}
 
 extends:
   template: .azure-pipelines/pipeline.yml
@@ -41,8 +41,7 @@ extends:
     test: ${{ not(parameters.skipTests) }}
     sign: true
     publishArtifacts: true
-    skipRhelRelease: ${{ parameters.skipRhelRelease }}
-    releaseRhelOnly: ${{ parameters.releaseRhelOnly }}
+    testProxyAgent: ${{ parameters.testProxyAgent }}
 
     preBuildStages:
     - ${{ if and(not(parameters.buildStageOnly), eq(variables['Build.SourceBranch'], 'refs/heads/master')) }}:
@@ -54,7 +53,7 @@ extends:
         ################################################################################
           displayName: Create Release Branch
           pool:
-            vmImage: ubuntu-20.04
+            vmImage: ubuntu-latest
 
           steps:
           - checkout: self
@@ -187,7 +186,7 @@ extends:
           ################################################################################
             displayName: Create PRs in AzureDevOps and ConfigChange
             pool:
-              vmImage: ubuntu-20.04
+              vmImage: ubuntu-latest
 
             steps:
             - checkout: self

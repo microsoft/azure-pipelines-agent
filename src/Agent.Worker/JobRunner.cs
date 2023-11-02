@@ -54,6 +54,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             DateTime jobStartTimeUtc = DateTime.UtcNow;
 
             ServiceEndpoint systemConnection = message.Resources.Endpoints.Single(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
+            bool skipServerCertificateValidation = HostContext.GetService<IAgentCertificateManager>().SkipServerCertificateValidation;
 
             // System.AccessToken
             if (message.Variables.ContainsKey(Constants.Variables.System.EnableAccessToken) &&
@@ -85,6 +86,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 jobServerUrl,
                 jobServerCredential,
                 Trace,
+                skipServerCertificateValidation,
                 new DelegatingHandler[] { new ThrottlingReportHandler(_jobServerQueue) }
             );
             await jobServer.ConnectAsync(jobConnection);
@@ -96,7 +98,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             CancellationTokenRegistration? agentShutdownRegistration = null;
             VssConnection taskConnection = null;
             VssConnection legacyTaskConnection = null;
-
+            IResourceMetricsManager resourceDiagnosticManager = null;
             try
             {
                 // Create the job execution context.
@@ -106,6 +108,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Trace.Info("Starting the job execution context.");
                 jobContext.Start();
                 jobContext.Section(StringUtil.Loc("StepStarting", message.JobDisplayName));
+
+
+                //Start Resource Diagnostics if enabled in the job message 
+                jobContext.Variables.TryGetValue("system.debug", out var systemDebug);
+                resourceDiagnosticManager = HostContext.GetService<IResourceMetricsManager>();
+
+                if (string.Equals(systemDebug, "true", StringComparison.OrdinalIgnoreCase))
+                {
+                    resourceDiagnosticManager.Setup(jobContext);
+                    _ = resourceDiagnosticManager.Run();
+                }
 
                 agentShutdownRegistration = HostContext.AgentShutdownToken.Register(() =>
                 {
@@ -165,12 +178,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 jobContext.SetVariable(Constants.Variables.System.WorkFolder, HostContext.GetDirectory(WellKnownDirectory.Work), isFilePath: true);
 
                 var azureVmCheckCommand = jobContext.GetHostContext().GetService<IAsyncCommandContext>();
-                azureVmCheckCommand.InitializeCommandContext(jobContext,"GetAzureVMMetada");
+                azureVmCheckCommand.InitializeCommandContext(jobContext, "GetAzureVMMetada");
                 azureVmCheckCommand.Task = Task.Run(() => jobContext.SetVariable(Constants.Variables.System.IsAzureVM, PlatformUtil.DetectAzureVM() ? "1" : "0"));
                 jobContext.AsyncCommands.Add(azureVmCheckCommand);
 
                 var dockerDetectCommand = jobContext.GetHostContext().GetService<IAsyncCommandContext>();
-                dockerDetectCommand.InitializeCommandContext(jobContext,"DetectDockerContainer");
+                dockerDetectCommand.InitializeCommandContext(jobContext, "DetectDockerContainer");
                 dockerDetectCommand.Task = Task.Run(() => jobContext.SetVariable(Constants.Variables.System.IsDockerContainer, PlatformUtil.DetectDockerContainer() ? "1" : "0"));
                 jobContext.AsyncCommands.Add(dockerDetectCommand);
 
@@ -205,7 +218,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     Trace.Info($"Creating task server with {taskServerUri}");
 
-                    taskConnection = VssUtil.CreateConnection(taskServerUri, taskServerCredential, Trace);
+                    taskConnection = VssUtil.CreateConnection(taskServerUri, taskServerCredential, Trace, skipServerCertificateValidation);
                     await taskServer.ConnectAsync(taskConnection);
                 }
 
@@ -219,7 +232,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         taskServerUri = new Uri(configStore.GetSettings().ServerUrl);
 
                         Trace.Info($"Recreate task server with configuration server url: {taskServerUri}");
-                        legacyTaskConnection = VssUtil.CreateConnection(taskServerUri, taskServerCredential, trace: Trace);
+                        legacyTaskConnection = VssUtil.CreateConnection(taskServerUri, taskServerCredential, trace: Trace, skipServerCertificateValidation);
                         await taskServer.ConnectAsync(legacyTaskConnection);
                     }
                 }
@@ -366,6 +379,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 legacyTaskConnection?.Dispose();
                 taskConnection?.Dispose();
                 jobConnection?.Dispose();
+                resourceDiagnosticManager?.Dispose();
 
                 await ShutdownQueue(throwOnFailure: false);
             }

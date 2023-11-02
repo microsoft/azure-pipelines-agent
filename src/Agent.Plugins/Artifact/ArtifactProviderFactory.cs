@@ -7,6 +7,7 @@ using Agent.Plugins.PipelineArtifact;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
+using Microsoft.VisualStudio.Services.Agent.Blob;
 
 namespace Agent.Plugins
 {
@@ -32,15 +33,15 @@ namespace Agent.Plugins
             string artifactType = buildArtifact.Resource.Type;
             if (PipelineArtifactConstants.PipelineArtifact.Equals(artifactType, StringComparison.CurrentCultureIgnoreCase))
             {
-                return pipelineArtifactProvider ?? (pipelineArtifactProvider = new PipelineArtifactProvider(this._context, this._connection, this._tracer));
+                return pipelineArtifactProvider ??= new PipelineArtifactProvider(this._context, this._connection, this._tracer);
             }
             else if (PipelineArtifactConstants.Container.Equals(artifactType, StringComparison.CurrentCultureIgnoreCase))
             {
-                return fileContainerProvider ?? (fileContainerProvider = new FileContainerProvider(this._connection, this._tracer));
+                return fileContainerProvider ??= new FileContainerProvider(this._connection, this._tracer);
             }
             else if (PipelineArtifactConstants.FileShareArtifact.Equals(artifactType, StringComparison.CurrentCultureIgnoreCase))
             {
-                return fileShareProvider ?? (fileShareProvider = new FileShareProvider(this._context, this._connection, this._tracer));
+                return fileShareProvider ??= new FileShareProvider(this._context, this._connection, this._tracer, DedupManifestArtifactClientFactory.Instance);
             }
             else
             {

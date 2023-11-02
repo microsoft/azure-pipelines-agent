@@ -19,8 +19,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 source "$SCRIPT_DIR/.helpers.sh"
 
-DOTNETSDK_ROOT="$SCRIPT_DIR/../_dotnetsdk"
-DOTNETSDK_VERSION="6.0.405"
+REPO_ROOT="${SCRIPT_DIR}/.."
+DOTNETSDK_ROOT="${REPO_ROOT}/_dotnetsdk"
+DOTNETSDK_VERSION="6.0.416"
 DOTNETSDK_INSTALLDIR="$DOTNETSDK_ROOT/$DOTNETSDK_VERSION"
 AGENT_VERSION=$(cat "$SCRIPT_DIR/agentversion" | head -n 1 | tr -d "\n\r")
 
@@ -64,15 +65,16 @@ function detect_platform_and_runtime_id ()
         fi
 
         if [ -e /etc/redhat-release ]; then
-            local redhatRelease=$(</etc/redhat-release)
-            if [[ $redhatRelease == "CentOS release 6."* || $redhatRelease == "Red Hat Enterprise Linux Server release 6."* ]]; then
-                DETECTED_RUNTIME_ID='rhel.6-x64'
-            fi
-            if [[ $redhatRelease == "CentOS release 7."* || $redhatRelease == "Red Hat Enterprise Linux Server release 7."* ]]; then
-                DETECTED_RUNTIME_ID='rhel.7.2-x64'
+            redhatRelease=$(grep -oE "[0-9]+" /etc/redhat-release | awk "NR==1")
+            if [[ "${redhatRelease}" -lt 7 ]]; then
+                echo "RHEL supported for version 7 and higher."
+                exit 1
             fi
         fi
 
+        if [ -e /etc/alpine-release ]; then
+            DETECTED_RUNTIME_ID='linux-musl-x64'
+        fi
     elif [[ "$CURRENT_PLATFORM" == 'darwin' ]]; then
         DETECTED_RUNTIME_ID='osx-x64'
          if command -v uname > /dev/null; then
@@ -101,7 +103,8 @@ function make_build (){
     fi
 
     mkdir -p "${LAYOUT_DIR}/bin/en-US"
-    grep --invert-match '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > "${LAYOUT_DIR}/bin/en-US/strings.json"
+
+    grep -v '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > "${LAYOUT_DIR}/bin/en-US/strings.json"
 }
 
 function cmd_build ()
@@ -294,18 +297,17 @@ else
     RUNTIME_ID=$DETECTED_RUNTIME_ID
 fi
 
-_VALID_RIDS='linux-x64:linux-arm:linux-arm64:rhel.6-x64:rhel.7.2-x64:osx-x64:win-x64:win-x86:osx-arm64'
+_VALID_RIDS='linux-x64:linux-arm:linux-arm64:linux-musl-x64:osx-x64:osx-arm64:win-x64:win-x86'
 if [[ ":$_VALID_RIDS:" != *:$RUNTIME_ID:* ]]; then
     failed "must specify a valid target runtime ID (one of: $_VALID_RIDS)"
 fi
 
 echo "Building for runtime ID: $RUNTIME_ID"
 
-
-LAYOUT_DIR="$SCRIPT_DIR/../_layout/$RUNTIME_ID"
-DOWNLOAD_DIR="$SCRIPT_DIR/../_downloads/$RUNTIME_ID/netcore2x"
-PACKAGE_DIR="$SCRIPT_DIR/../_package/$RUNTIME_ID"
-REPORT_DIR="$SCRIPT_DIR/../_reports/$RUNTIME_ID"
+LAYOUT_DIR="${REPO_ROOT}/_layout/${RUNTIME_ID}"
+DOWNLOAD_DIR="${REPO_ROOT}/_downloads/${RUNTIME_ID}/netcore2x"
+PACKAGE_DIR="${REPO_ROOT}/_package/${RUNTIME_ID}"
+REPORT_DIR="${REPO_ROOT}/_reports/${RUNTIME_ID}"
 
 if [[ (! -d "${DOTNETSDK_INSTALLDIR}") || (! -e "${DOTNETSDK_INSTALLDIR}/.${DOTNETSDK_VERSION}") || (! -e "${DOTNETSDK_INSTALLDIR}/dotnet") ]]; then
 
@@ -320,19 +322,31 @@ if [[ (! -d "${DOTNETSDK_INSTALLDIR}") || (! -e "${DOTNETSDK_INSTALLDIR}/.${DOTN
     rm -Rf "${DOTNETSDK_DIR}"
 
     # run dotnet-install.ps1 on windows, dotnet-install.sh on linux
-    if [[ ("$CURRENT_PLATFORM" == "windows") ]]; then
+    if [[ "${CURRENT_PLATFORM}" == "windows" ]]; then
+        ext="ps1"
+    else
+        ext="sh"
+    fi
+
+    DOTNET_INSTALL_SCRIPT_NAME="dotnet-install.${ext}"
+    DOTNET_INSTALL_SCRIPT_PATH="./Misc/${DOTNET_INSTALL_SCRIPT_NAME}"
+
+    if [[ ! -e "${DOTNET_INSTALL_SCRIPT_PATH}" ]]; then
+        curl -sSL "https://dot.net/v1/${DOTNET_INSTALL_SCRIPT_NAME}" -o "${DOTNET_INSTALL_SCRIPT_PATH}"
+    fi
+
+    if [[ "${CURRENT_PLATFORM}" == "windows" ]]; then
         echo "Convert ${DOTNETSDK_INSTALLDIR} to Windows style path"
         sdkinstallwindow_path=${DOTNETSDK_INSTALLDIR:1}
         sdkinstallwindow_path=${sdkinstallwindow_path:0:1}:${sdkinstallwindow_path:1}
         architecture=$( echo $RUNTIME_ID | cut -d "-" -f2)
-        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"./Misc/dotnet-install.ps1\" -Version ${DOTNETSDK_VERSION} -InstallDir \"${sdkinstallwindow_path}\" -Architecture ${architecture}  -NoPath; exit \$LastExitCode;" || checkRC dotnet-install.ps1
+        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"${DOTNET_INSTALL_SCRIPT_PATH}\" -Version ${DOTNETSDK_VERSION} -InstallDir \"${sdkinstallwindow_path}\" -Architecture ${architecture}  -NoPath; exit \$LastExitCode;" || checkRC "${DOTNET_INSTALL_SCRIPT_NAME}"
     else
-        bash ./Misc/dotnet-install.sh --version ${DOTNETSDK_VERSION} --install-dir "${DOTNETSDK_INSTALLDIR}" --no-path || checkRC dotnet-install.sh
+        bash "${DOTNET_INSTALL_SCRIPT_PATH}" --version ${DOTNETSDK_VERSION} --install-dir "${DOTNETSDK_INSTALLDIR}" --no-path || checkRC "${DOTNET_INSTALL_SCRIPT_NAME}"
     fi
 
     echo "${DOTNETSDK_VERSION}" > "${DOTNETSDK_INSTALLDIR}/.${DOTNETSDK_VERSION}"
 fi
-
 
 heading ".NET SDK to path"
 

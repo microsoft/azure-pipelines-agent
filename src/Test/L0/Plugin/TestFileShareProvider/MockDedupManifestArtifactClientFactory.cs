@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Blob;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
+using Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
@@ -25,6 +26,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             VssConnection connection,
             int maxParallelism,
             IDomainId domainId,
+            BlobStore.WebApi.Contracts.Client client,
+            AgentTaskPluginExecutionContext context,
             CancellationToken cancellationToken)
         {
             telemetrySender = new TestTelemetrySender();
@@ -33,6 +36,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 baseAddress,
                 telemetrySender)));
 
+        }
+        public (DedupManifestArtifactClient client, BlobStoreClientTelemetry telemetry) CreateDedupManifestClient(
+            bool verbose,
+            Action<string> traceOutput,
+            VssConnection connection,
+            int maxParallelism,
+            IDomainId domainId,
+            ClientSettingsInfo clientSettings,
+            AgentTaskPluginExecutionContext context,
+            CancellationToken cancellationToken)
+        {
+            telemetrySender = new TestTelemetrySender();
+            return (client: (DedupManifestArtifactClient)null, telemetry: new BlobStoreClientTelemetry(
+                NoopAppTraceSource.Instance,
+                baseAddress,
+                telemetrySender));
         }
 
         public Task<(DedupStoreClient client, BlobStoreClientTelemetryTfs telemetry)> CreateDedupClientAsync(bool verbose, Action<string> traceOutput, VssConnection connection, int maxParallelism, CancellationToken cancellationToken)

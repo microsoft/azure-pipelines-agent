@@ -300,15 +300,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         protected void RemovePSModulePathFromEnvironment()
         {
-            if (PlatformUtil.RunningOnWindows && WindowsProcessUtil.AgentIsRunningInPowerShell())
+            if (AgentKnobs.CleanupPSModules.GetValue(ExecutionContext).AsBoolean() &&
+                PlatformUtil.RunningOnWindows && WindowsProcessUtil.AgentIsRunningInPowerShell())
             {
                 AddEnvironmentVariable("PSModulePath", "");
                 Trace.Info("PSModulePath removed from environment since agent is running on Windows and in PowerShell.");
             }
         }
 
+        // This overload is to handle specific types some other way.
         protected void PublishTelemetry<T>(
             Dictionary<string, T> telemetryData,
+            string feature = "TaskHandler"
+        )
+        {
+            // JsonConvert.SerializeObject always converts to base object.
+            PublishTelemetry((object)telemetryData, feature);
+        }
+
+        private void PublishTelemetry(
+            object telemetryData,
             string feature = "TaskHandler"
         )
         {

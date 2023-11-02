@@ -43,9 +43,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 nodeHandler.ExecutionContext = CreateTestExecutionContext(thc);
                 nodeHandler.Data = new NodeHandlerData();
 
+                string nodeVersion = "node"; // version 6
+                if (PlatformUtil.RunningOnAlpine)
+                {
+                    nodeVersion = "node10"; // version 6 does not exist on Alpine
+                }
+
                 string actualLocation = nodeHandler.GetNodeLocation();
                 string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
-                    "node",
+                    nodeVersion,
                     "bin",
                     $"node{IOUtil.ExeExtension}");
                 Assert.Equal(expectedLocation, actualLocation);
@@ -56,6 +62,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Theory]
         [InlineData("node10")]
         [InlineData("node16")]
+        [InlineData("node20")]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
         public void UseNewNodeForNewNodeHandler(string nodeVersion)
@@ -69,14 +76,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 nodeHandler.Initialize(thc);
                 nodeHandler.ExecutionContext = CreateTestExecutionContext(thc);
-                nodeHandler.Data = nodeVersion == "node16" ? (BaseNodeHandlerData)new Node16HandlerData() : (BaseNodeHandlerData)new Node10HandlerData();
+                nodeHandler.Data = nodeVersion switch
+                {
+                    "node10" => new Node10HandlerData(),
+                    "node16" => new Node16HandlerData(),
+                    "node20" => new Node20HandlerData(),
+                    _ => throw new Exception("Invalid node version"),
+                };
 
                 string actualLocation = nodeHandler.GetNodeLocation();
-                // We should fall back to node10 for node16 tasks, since RHEL 6 is not capable with Node16.
-                if (PlatformUtil.RunningOnRHEL6 && nodeVersion == "node16")
-                {
-                    nodeVersion = "node10";
-                }
                 string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
                     nodeVersion,
                     "bin",

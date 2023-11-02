@@ -23,10 +23,7 @@ parameters:
 - name: branch
   type: string
   default: ''
-- name: skipRhelRelease
-  type: boolean
-  default: true
-- name: releaseRhelOnly
+- name: testProxyAgent
   type: boolean
   default: false
 
@@ -46,7 +43,7 @@ parameters:
 - name: linux_arm64
   type: boolean
   default: true
-- name: rhel7_x64
+- name: alpine_x64
   type: boolean
   default: true
 - name: macOS_x64
@@ -58,12 +55,8 @@ parameters:
 
 resources:
   containers:
-  - container: dotnetcore_arm
-    image: azpagentinfra/arm:latest
-  - container: dotnetcore_centos6
-    image: azpagentinfra/centos6:latest
-  - container: dotnetcore_centos7
-    image: azpagentinfra/centos7:latest
+  - container: alpine
+    image: azpagentinfra/alpine:latest
 
 stages:
 
@@ -72,15 +65,41 @@ stages:
 - stage: build
   displayName: Build
   jobs:
+  # Test Proxy Agent
+  - ${{ if parameters.testProxyAgent }}:
+    - job: test_proxy_agent
+      displayName: Test Proxy Agent
+      pool:
+        vmImage: ubuntu-latest
+      variables:
+        DisableDockerDetector: true
+        nugetMultiFeedWarnLevel: none
+      timeoutInMinutes: 300
+      steps:
+      - bash: |
+          cd ./.azure-pipelines/scripts/
+          npm install axios minimist
+
+          releaseBranch="${{ parameters.branch }}"
+          sourceBranch="$(Build.SourceBranch)"
+          branch="${releaseBranch:-"${sourceBranch}"}"
+          echo "Canary \"branch\" parameter: \"${branch}\""
+
+          node ./run-and-verify.js \
+              --projectUrl "$(CANARY_PROJECT_URL)" \
+              --pipelineId "$(CANARY_PIPELINE_ID)" \
+              --token "$(CANARY_PAT)" \
+              --templateParameters "{ \"branch\": \"${branch}\", \"template_timeout\": 3 }"
+        displayName: Test Proxy Agent
 
   # Windows (x64)
-  - ${{ if and(parameters.win_x64, not(parameters.releaseRhelOnly)) }}:
+  - ${{ if parameters.win_x64 }}:
     - template: build-jobs.yml
       parameters:
         jobName: build_windows_x64
         displayName: Windows (x64)
         pool:
-          vmImage: windows-2019
+          vmImage: windows-2022
         os: win
         arch: x64
         branch: ${{ parameters.branch }}
@@ -94,13 +113,13 @@ stages:
         buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
 
   # Windows (x86)
-  - ${{ if and(parameters.win_x86, not(parameters.releaseRhelOnly)) }}:
+  - ${{ if parameters.win_x86 }}:
     - template: build-jobs.yml
       parameters:
         jobName: build_windows_x86
         displayName: Windows (x86)
         pool:
-          vmImage: windows-2019
+          vmImage: windows-2022
         os: win
         arch: x86
         branch: ${{ parameters.branch }}
@@ -112,7 +131,7 @@ stages:
         buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
 
   # Linux (x64)
-  - ${{ if and(parameters.linux_x64, not(parameters.releaseRhelOnly)) }}:
+  - ${{ if parameters.linux_x64 }}:
     - template: build-jobs.yml
       parameters:
         jobName: build_linux_x64
@@ -130,13 +149,13 @@ stages:
         buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
 
   # Linux (ARM)
-  - ${{ if and(parameters.linux_arm, not(parameters.releaseRhelOnly)) }}:
+  - ${{ if parameters.linux_arm }}:
     - template: build-jobs.yml
       parameters:
         jobName: build_linux_arm
         displayName: Linux (ARM)
         pool:
-          vmImage: "ubuntu-20.04"
+          vmImage: ubuntu-20.04
         timeoutInMinutes: 75
         os: linux
         arch: arm
@@ -149,7 +168,7 @@ stages:
         buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
 
   # Linux (ARM64)
-  - ${{ if and(parameters.linux_arm64, not(parameters.releaseRhelOnly)) }}:
+  - ${{ if parameters.linux_arm64 }}:
     - template: build-jobs.yml
       parameters:
         jobName: build_linux_arm64
@@ -168,16 +187,16 @@ stages:
         publishArtifacts: ${{ parameters.publishArtifacts }}
         buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
 
-  # RHEL7 (x64)
-  - ${{ if parameters.rhel7_x64 }}:
+  # Alpine (x64)
+  - ${{ if parameters.alpine_x64 }}:
     - template: build-jobs.yml
       parameters:
-        jobName: build_rhel7_x64
-        displayName: RHEL7 (x64)
+        jobName: build_alpine_x64
+        displayName: Alpine (x64)
         pool:
-          vmImage: ubuntu-20.04
-        container: dotnetcore_centos7
-        os: linux
+          vmImage: ubuntu-latest
+        container: alpine
+        os: linux-musl
         arch: x64
         branch: ${{ parameters.branch }}
         componentDetection: false
@@ -185,10 +204,10 @@ stages:
         functionalTests: ${{ parameters.test }}
         sign: false
         publishArtifacts: ${{ parameters.publishArtifacts }}
-        buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
+        buildAlternatePackage: false
 
-  # macOS x64
-  - ${{ if and(parameters.macOS_x64, not(parameters.releaseRhelOnly)) }}:
+  # macOS (x64)
+  - ${{ if parameters.macOS_x64 }}:
     - template: build-jobs.yml
       parameters:
         jobName: build_osx
@@ -205,12 +224,12 @@ stages:
         publishArtifacts: ${{ parameters.publishArtifacts }}
         buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
 
-  # macOS arm64
+  # macOS (ARM64)
   - ${{ if parameters.macOS_arm64 }}:
     - template: build-jobs.yml
       parameters:
         jobName: build_osx_arm64
-        displayName: macOS (arm64)
+        displayName: macOS (ARM64)
         pool:
           vmImage: macOS-12
         os: osx

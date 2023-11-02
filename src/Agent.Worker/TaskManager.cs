@@ -7,6 +7,7 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -73,7 +74,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     Trace.Info("Skip download checkout task.");
                     continue;
                 }
+
                 await DownloadAsync(executionContext, task);
+
+                if (AgentKnobs.CheckForTaskDeprecation.GetValue(UtilKnobValueContext.Instance()).AsBoolean())
+                {
+                    CheckForTaskDeprecation(executionContext, task);
+                }
             }
         }
 
@@ -308,6 +315,45 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
+        private void CheckForTaskDeprecation(IExecutionContext executionContext, Pipelines.TaskStepDefinitionReference task)
+        {
+            string taskJsonPath = Path.Combine(GetDirectory(task), "task.json");
+            string taskJsonText = File.ReadAllText(taskJsonPath);
+            JObject taskJson = JObject.Parse(taskJsonText);
+            var deprecated = taskJson["deprecated"];
+
+            if (deprecated != null && deprecated.Value<bool>())
+            {
+                string friendlyName = taskJson["friendlyName"].Value<string>();
+                int majorVersion = new Version(task.Version).Major;
+                string deprecationMessage = StringUtil.Loc("DeprecationMessage", friendlyName, majorVersion, task.Name);
+                var removalDate = taskJson["removalDate"];
+
+                if (removalDate != null)
+                {
+                    string whitespace = " ";
+                    string removalDateString = removalDate.Value<DateTime>().ToString("MMMM d, yyyy");
+                    deprecationMessage += whitespace + StringUtil.Loc("DeprecationMessageRemovalDate", removalDateString);
+                    var helpUrl = taskJson["helpUrl"];
+
+                    if (helpUrl != null)
+                    {
+                        string helpUrlString = helpUrl.Value<string>();
+                        string category = taskJson["category"].Value<string>().ToLower();
+                        string urlPrefix = $"https://docs.microsoft.com/azure/devops/pipelines/tasks/{category}/";
+
+                        if (helpUrlString.StartsWith(urlPrefix))
+                        {
+                            string versionHelpUrl = $"{helpUrlString}-v{majorVersion}".Replace(urlPrefix, $"https://learn.microsoft.com/azure/devops/pipelines/tasks/reference/");
+                            deprecationMessage += whitespace + StringUtil.Loc("DeprecationMessageHelpUrl", versionHelpUrl);
+                        }
+                    }
+                }
+
+                executionContext.Warning(deprecationMessage);
+            }
+        }
+
         private void ExtractZip(String zipFile, String destinationDirectory)
         {
             ZipFile.ExtractToDirectory(zipFile, destinationDirectory);
@@ -381,6 +427,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private NodeHandlerData _node;
         private Node10HandlerData _node10;
         private Node16HandlerData _node16;
+        private Node20HandlerData _node20;
         private PowerShellHandlerData _powerShell;
         private PowerShell3HandlerData _powerShell3;
         private PowerShellExeHandlerData _powerShellExe;
@@ -446,6 +493,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             set
             {
                 _node16 = value;
+                Add(value);
+            }
+        }
+
+        public Node20HandlerData Node20
+        {
+            get
+            {
+                return _node20;
+            }
+
+            set
+            {
+                _node20 = value;
                 Add(value);
             }
         }
@@ -624,21 +685,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
     public sealed class NodeHandlerData : BaseNodeHandlerData
     {
-        public override int Priority => 3;
+        public override int Priority => 4;
     }
 
     public sealed class Node10HandlerData : BaseNodeHandlerData
     {
-        public override int Priority => 2;
+        public override int Priority => 3;
     }
     public sealed class Node16HandlerData : BaseNodeHandlerData
+    {
+        public override int Priority => 2;
+    }
+    public sealed class Node20HandlerData : BaseNodeHandlerData
     {
         public override int Priority => 1;
     }
 
     public sealed class PowerShell3HandlerData : HandlerData
     {
-        public override int Priority => 4;
+        public override int Priority => 5;
     }
 
     public sealed class PowerShellHandlerData : HandlerData
@@ -656,7 +721,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 5;
+        public override int Priority => 6;
 
         public string WorkingDirectory
         {
@@ -687,7 +752,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 6;
+        public override int Priority => 7;
 
         public string WorkingDirectory
         {
@@ -744,7 +809,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 6;
+        public override int Priority => 7;
 
         public string ScriptType
         {
@@ -801,7 +866,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 7;
+        public override int Priority => 8;
 
         public string WorkingDirectory
         {
@@ -813,6 +878,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             set
             {
                 SetInput(nameof(WorkingDirectory), value);
+            }
+        }
+
+        public string DisableInlineExecution
+        {
+            get
+            {
+                return GetInput(nameof(DisableInlineExecution));
+            }
+            set
+            {
+                SetInput(nameof(DisableInlineExecution), value);
             }
         }
     }

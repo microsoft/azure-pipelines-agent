@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.WebApi;
 using Agent.Sdk.Util;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -32,7 +33,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNullOrEmpty(pipeOut, nameof(pipeOut));
             var agentWebProxy = HostContext.GetService<IVstsAgentWebProxy>();
             var agentCertManager = HostContext.GetService<IAgentCertificateManager>();
-            VssUtil.InitializeVssClientSettings(HostContext.UserAgent, agentWebProxy.WebProxy, agentCertManager.VssClientCertificateManager);
+            VssUtil.InitializeVssClientSettings(HostContext.UserAgent, agentWebProxy.WebProxy, agentCertManager.VssClientCertificateManager, agentCertManager.SkipServerCertificateValidation);
 
             var jobRunner = HostContext.CreateService<IJobRunner>();
 
@@ -66,6 +67,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Initialize the secret masker and set the thread culture.
                 InitializeSecretMasker(jobMessage);
                 SetCulture(jobMessage);
+
+                var maskUsingCredScanRegexesState = "Off";
+
+                if(jobMessage.Variables.TryGetValue(Constants.Variables.Agent.EnableAdditionalMaskingRegexes, out var enableAdditionalMaskingRegexes))
+                {
+                    maskUsingCredScanRegexesState = enableAdditionalMaskingRegexes.Value;
+                }
+
+                if(maskUsingCredScanRegexesState == "On")
+                {
+                    Trace.Verbose($"{Constants.Variables.Agent.EnableAdditionalMaskingRegexes} is On, adding additional masking regexes");
+                    HostContext.AddAdditionalMaskingRegexes();
+                }
 
                 // Start the job.
                 Trace.Info($"Job message:{Environment.NewLine} {StringUtil.ConvertToJson(WorkerUtilities.ScrubPiiData(jobMessage))}");
