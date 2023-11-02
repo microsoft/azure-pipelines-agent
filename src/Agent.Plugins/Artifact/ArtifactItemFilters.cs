@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Agent.Sdk;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
+using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.FileContainer;
 using Microsoft.VisualStudio.Services.WebApi;
