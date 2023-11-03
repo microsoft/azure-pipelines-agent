@@ -26,6 +26,12 @@ parameters:
 - name: testProxyAgent
   type: boolean
   default: false
+- name: stageDependencies
+  type: object
+  default: []
+- name: stageCondition
+  type: string
+  default: ''
 
 # Targets
 - name: win_x64
@@ -64,6 +70,10 @@ stages:
 
 - stage: build
   displayName: Build
+  ${{ if ne(length(parameters.stageDependencies), 0)}}:
+    dependsOn: ${{ parameters.stageDependencies }}
+  ${{ if ne(parameters.stageCondition, '') }}:
+    condition: ${{ parameters.stageCondition }}
   jobs:
   # Test Proxy Agent
   - ${{ if parameters.testProxyAgent }}:
