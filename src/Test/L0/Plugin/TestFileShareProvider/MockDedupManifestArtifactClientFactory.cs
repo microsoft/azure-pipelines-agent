@@ -54,7 +54,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 telemetrySender));
         }
 
-        public Task<(DedupStoreClient client, BlobStoreClientTelemetryTfs telemetry)> CreateDedupClientAsync(bool verbose, Action<string> traceOutput, VssConnection connection, int maxParallelism, CancellationToken cancellationToken)
+        public Task<(DedupStoreClient client, BlobStoreClientTelemetryTfs telemetry)> CreateDedupClientAsync(
+            bool verbose,
+            Action<string> traceOutput,
+            VssConnection connection,
+            int maxParallelism,
+            BlobStore.WebApi.Contracts.Client? clientType,
+            CancellationToken cancellationToken)
         {
             telemetrySender = new TestTelemetrySender();
             return Task.FromResult((client: (DedupStoreClient)null, telemetry: new BlobStoreClientTelemetryTfs(
