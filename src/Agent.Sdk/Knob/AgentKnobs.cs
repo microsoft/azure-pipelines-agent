@@ -121,6 +121,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_GIT_USE_SECURE_PARAMETER_PASSING"),
             new BuiltInDefaultKnobSource("true"));
 
+        public static readonly Knob FixPossibleGitOutOfMemoryProblem = new Knob(
+            nameof(FixPossibleGitOutOfMemoryProblem),
+            "When true, set config git properties to fix possible out of memory problem",
+            new RuntimeKnobSource("FIX_POSSIBLE_GIT_OUT_OF_MEMORY_PROBLEM"),
+            new EnvironmentKnobSource("FIX_POSSIBLE_GIT_OUT_OF_MEMORY_PROBLEM"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob TfVCUseSecureParameterPassing = new Knob(
             nameof(TfVCUseSecureParameterPassing),
             "If true, don't pass auth token in TFVC parameters",
@@ -157,6 +164,13 @@ namespace Agent.Sdk.Knob
             "Forces the agent to use Node 20 handler for all Node-based tasks",
             new RuntimeKnobSource("AGENT_USE_NODE20"),
             new EnvironmentKnobSource("AGENT_USE_NODE20"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseNode20InUnsupportedSystem = new Knob(
+            nameof(UseNode20InUnsupportedSystem),
+            "Forces the agent to use Node 20 handler for all Node-based tasks, even if it's in an unsupported system",
+            new RuntimeKnobSource("AGENT_USE_NODE20_IN_UNSUPPORTED_SYSTEM"),
+            new EnvironmentKnobSource("AGENT_USE_NODE20_IN_UNSUPPORTED_SYSTEM"),
             new BuiltInDefaultKnobSource("false"));
 
         // Agent logging
@@ -282,12 +296,6 @@ namespace Agent.Sdk.Knob
             "WARNING: enabling this may allow secrets to leak. Allows multi-line secrets to be set. Unsafe because it is possible for log lines to get dropped in agent failure cases, causing the secret to not get correctly masked. We recommend leaving this option off.",
             new RuntimeKnobSource("SYSTEM_UNSAFEALLOWMULTILINESECRET"),
             new EnvironmentKnobSource("SYSTEM_UNSAFEALLOWMULTILINESECRET"),
-            new BuiltInDefaultKnobSource("false"));
-
-        public static readonly Knob MaskUsingCredScanRegexes = new Knob(
-            nameof(MaskUsingCredScanRegexes),
-            "Use the CredScan regexes for masking secrets. CredScan is an internal tool developed at Microsoft to keep passwords and authentication keys from being checked in. This defaults to disabled, as there are performance problems with some task outputs.",
-            new EnvironmentKnobSource("AZP_USE_CREDSCAN_REGEXES"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob MaskedSecretMinLength = new Knob(
@@ -479,6 +487,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_75787_ENABLE_COLLECT"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob ProcessHandlerEnableNewLogic = new Knob(
+            nameof(ProcessHandlerEnableNewLogic),
+            "Enables new sanitization logic for process handler",
+            new RuntimeKnobSource("AZP_75787_ENABLE_NEW_PH_LOGIC"),
+            new EnvironmentKnobSource("AZP_75787_ENABLE_NEW_PH_LOGIC"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob DisableDrainQueuesAfterTask = new Knob(
             nameof(DisableDrainQueuesAfterTask),
             "Forces the agent to disable draining queues after each task",
@@ -512,11 +527,38 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_DISABLE_CLEAN_REPO_DEFAULT_VALUE"),
             new BuiltInDefaultKnobSource("false"));
 
-          public static readonly Knob IgnoreVSTSTaskLib = new Knob(
+        public static readonly Knob IgnoreVSTSTaskLib = new Knob(
             nameof(IgnoreVSTSTaskLib),
             "Ignores the VSTSTaskLib folder when copying tasks.",
             new RuntimeKnobSource("AZP_AGENT_IGNORE_VSTSTASKLIB"),
             new EnvironmentKnobSource("AZP_AGENT_IGNORE_VSTSTASKLIB"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob AllowWorkDirectoryRepositories = new Knob(
+            nameof(AllowWorkDirectoryRepositories),
+            "Allows repositories to be checked out below work directory level on self hosted agents.",
+            new RuntimeKnobSource("AZP_AGENT_ALLOW_WORK_DIRECTORY_REPOSITORIES"),
+            new EnvironmentKnobSource("AZP_AGENT_ALLOW_WORK_DIRECTORY_REPOSITORIES"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob CheckForTaskDeprecation = new Knob(
+            nameof(CheckForTaskDeprecation),
+            "If true, the agent will check in the 'Initialize job' step each task used in the job for task deprecation.",
+            new EnvironmentKnobSource("AZP_AGENT_CHECK_FOR_TASK_DEPRECATION"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob MountWorkspace = new Knob(
+            nameof(MountWorkspace),
+            "If true, the agent will mount the Pipeline.Workspace directory instead of the Working directory for steps which target a Docker container.",
+            new RuntimeKnobSource("AZP_AGENT_MOUNT_WORKSPACE"),
+            new EnvironmentKnobSource("AZP_AGENT_MOUNT_WORKSPACE"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob AddDockerInitOption = new Knob(
+            nameof(AddDockerInitOption),
+            "If true, the agent will create docker container with the --init option.",
+            new RuntimeKnobSource("AZP_AGENT_DOCKER_INIT_OPTION"),
+            new EnvironmentKnobSource("AZP_AGENT_DOCKER_INIT_OPTION"),
             new BuiltInDefaultKnobSource("false"));
     }
 }
