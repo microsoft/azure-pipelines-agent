@@ -345,7 +345,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 var verbose = String.Equals(context.GetVariableValueOrDefault("system.debug"), "true", StringComparison.InvariantCultureIgnoreCase);
                 int maxParallelism = context.GetHostContext().GetService<IConfigurationStore>().GetSettings().MaxDedupParallelism;
                 (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                    .CreateDedupClientAsync(verbose, (str) => context.Output(str), this._connection, maxParallelism, token);
+                    .CreateDedupClientAsync(
+                        verbose,
+                        (str) => context.Output(str),
+                        this._connection,
+                        maxParallelism,
+                        BlobStore.WebApi.Contracts.Client.BuildArtifact,
+                        token);
 
                 // Upload to blobstore
                 var results = await BlobStoreUtils.UploadBatchToBlobstore(verbose, files, (level, uri, type) =>
