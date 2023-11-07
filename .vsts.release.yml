@@ -55,7 +55,7 @@ extends:
 
     preBuildStages:
     - stage: Verify_release
-      displayName: Make sure it's actually the release run
+      displayName: Verify it's a release run
       pool:
         vmImage: ubuntu-latest
       jobs:
