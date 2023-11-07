@@ -553,5 +553,12 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AZP_AGENT_MOUNT_WORKSPACE"),
             new EnvironmentKnobSource("AZP_AGENT_MOUNT_WORKSPACE"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob AddDockerInitOption = new Knob(
+            nameof(AddDockerInitOption),
+            "If true, the agent will create docker container with the --init option.",
+            new RuntimeKnobSource("AZP_AGENT_DOCKER_INIT_OPTION"),
+            new EnvironmentKnobSource("AZP_AGENT_DOCKER_INIT_OPTION"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }
