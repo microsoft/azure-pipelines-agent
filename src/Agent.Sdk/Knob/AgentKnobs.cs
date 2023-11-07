@@ -539,6 +539,7 @@ namespace Agent.Sdk.Knob
             "Mark the Job as Failed instead of Canceled when the Agent dies due to User Cancellation or Shutdown",
             new RuntimeKnobSource("FAIL_JOB_WHEN_AGENT_DIES"),
             new EnvironmentKnobSource("FAIL_JOB_WHEN_AGENT_DIES"),
+            new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob AllowWorkDirectoryRepositories = new Knob(
             nameof(AllowWorkDirectoryRepositories),
