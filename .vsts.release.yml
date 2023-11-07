@@ -9,7 +9,7 @@ parameters:
 - name: version
   type: string
   displayName: Version
-  default: '3.999.999'
+  default: 'NotSet'
 - name: derivedFrom
   type: string
   displayName: Derived From Version
@@ -83,6 +83,9 @@ extends:
                 $agentVersion = "3.$($currentSprint.sprint).0"
               } else {
                 $agentVersion = "${{ parameters.version }}"
+                if ($agentVersion -eq 'NotSet') {
+                  Write-Error "Version parameter is required for manual release." -ErrorAction Stop
+                }
               }
               Write-Host "agentVersion = $agentVersion"
               Write-Host "##vso[task.setVariable variable=agentVersion;isOutput=true]$agentVersion"
