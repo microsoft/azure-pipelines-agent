@@ -350,13 +350,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             var systemName = PlatformUtil.GetSystemId() ?? "";
             var systemVersion = PlatformUtil.GetSystemVersion()?.Name?.ToString() ?? "";
             if (systemName.Equals("ubuntu") &&
-                int.TryParse(systemVersion, out int ubuntuVersion) &&
+                double.TryParse(systemVersion, out double ubuntuVersion) &&
                 ubuntuVersion <= 18.04) {
                 Trace.Info($"Detected Ubuntu version: " + ubuntuVersion);
                 return false;
             }
             if (systemName.Equals("debian") &&
-                int.TryParse(systemVersion, out int debianVersion) &&
+                double.TryParse(systemVersion, out double debianVersion) &&
                 debianVersion <= 9) {
                 Trace.Info($"Detected Debian version: " + debianVersion);
                 return false;
