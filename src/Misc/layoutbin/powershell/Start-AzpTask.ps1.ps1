@@ -16,6 +16,7 @@ if ([Console]::InputEncoding -is [Text.UTF8Encoding] -and [Console]::InputEncodi
     [Console]::InputEncoding = New-Object Text.UTF8Encoding $false 
 } 
 
+# TODO - unsure why this is needed; can pshome be left unset?
 if (!$PSHOME) { 
     $null = Get-Item -LiteralPath 'variable:PSHOME' 
 }
