@@ -36,7 +36,7 @@ $DebugPreference = $DebugOption
 
 Write-Verbose "Pro Tip for CLM issues: xxx\_work\_tasks\xxx\xxx\powershell.ps1' is not recognized as the name of a cmdlet, function, script file, or operable program"
 Write-Verbose "This is a known issue with CLM files being loaded from a full language mode script. Be sure the listed file is whitelisted."
-Write-Verbose "ADO Pipeline Update Test Tim Brigham"
+#Write-Verbose "ADO Pipeline Update Test Tim Brigham"
 
 Import-Module @importSplat 
 Invoke-VstsTaskScript -ScriptBlock ([scriptblock]::Create( $scriptBlockString ))

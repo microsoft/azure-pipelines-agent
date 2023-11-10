@@ -54,6 +54,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             // Resolve the VSTS Task SDK module definition.
             string scriptDirectory = Path.GetDirectoryName(scriptFile);
             string moduleFile = Path.Combine(scriptDirectory, @"ps_modules", "VstsTaskSdk", "VstsTaskSdk.psd1");
+
             ArgUtil.File(moduleFile, nameof(moduleFile));
 
             // Craft the args to pass to PowerShell.exe.
@@ -67,10 +68,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             we need to move up and over to reach the wrapper script.
             */
             string powerShellExeArgs = StringUtil.Format(
-                @"-NoLogo -Sta -NoProfile -ExecutionPolicy Unrestricted -Command ""..\..\..\..\bin\powershell\Start-AzpTask.ps1"" -Name {0} -DebugOption {1} -ScriptBlockString ""{2}""",
-                StepHost.ResolvePathForStepHost(moduleFile).Replace("'", "''"), // nested within a single-quoted string
-                ExecutionContext.Variables.System_Debug == true ? "Continue" : "SilentlyContinue",
-                StepHost.ResolvePathForStepHost(scriptFile).Replace("'", "''''")); // nested within a single-quoted string within a single-quoted string
+                @"-NoLogo -Sta -NoProfile -ExecutionPolicy Unrestricted -Command ""{3}"" -Name {0} -DebugOption {1} -ScriptBlockString ""{2}""",
+                StepHost.ResolvePathForStepHost(moduleFile).Replace("'", "''"), // nested within a single-quoted string module file name arg #0 
+                ExecutionContext.Variables.System_Debug == true ? "Continue" : "SilentlyContinue", // system debug status variable arg #1 
+                StepHost.ResolvePathForStepHost(scriptFile).Replace("'", "''''"), // nested within a single-quoted string within a single-quoted string arg #2 
+                Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), "powershell", "Start-AzpTask.ps1") // path to wrapper script arg #3
+                ); // nested within a single-quoted string within a single-quoted string
 
             // Resolve powershell.exe.
             string powerShellExe = "powershell.exe";
