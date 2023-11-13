@@ -319,7 +319,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     else
                     {
                         // log and save the OperationCanceledException, set step result to canceled if the current result is not failed.
-                        PublishTelemetry (step.ExecutionContext, TaskResult.Canceled.ToString(), "123");
                         Trace.Error($"Caught cancellation exception from async command {command.Name}: {ex}");
                         step.ExecutionContext.Error(ex);
 
