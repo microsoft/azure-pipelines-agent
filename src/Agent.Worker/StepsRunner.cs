@@ -15,6 +15,9 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
+using Newtonsoft.Json;
+using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
+
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
     public interface IStep
@@ -111,7 +114,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 if (AgentKnobs.FailJobWhenAgentDies.GetValue(jobContext).AsBoolean())
                                 {
                                     jobContext.Result = TaskResult.Failed;
+                                    jobContext.Variables.Agent_JobStatus = jobContext.Result;
                                 }
+                                PublishTelemetry (jobContext, jobContext.Result.ToString(), "120");
                                 step.ExecutionContext.Debug($"Skip Re-evaluate condition on agent shutdown.");
                                 conditionReTestResult = false;
                             }
@@ -157,7 +162,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         if (AgentKnobs.FailJobWhenAgentDies.GetValue(jobContext).AsBoolean())
                         {
                             jobContext.Result = TaskResult.Failed;
+                            jobContext.Variables.Agent_JobStatus = jobContext.Result;
                         }
+                        PublishTelemetry (jobContext, jobContext.Result.ToString(), "121");
                         step.ExecutionContext.Debug($"Skip evaluate condition on agent shutdown.");
                         conditionResult = false;
                     }
@@ -258,6 +265,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 else if (AgentKnobs.FailJobWhenAgentDies.GetValue(step.ExecutionContext).AsBoolean() &&
                         HostContext.AgentShutdownToken.IsCancellationRequested)
                 {
+                    PublishTelemetry (step.ExecutionContext, TaskResult.Failed.ToString(), "122");
                     Trace.Error($"Caught Agent Shutdown exception from step: {ex.Message}");
                     step.ExecutionContext.Error(ex);
                     step.ExecutionContext.Result = TaskResult.Failed;
@@ -301,6 +309,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     else if (AgentKnobs.FailJobWhenAgentDies.GetValue(step.ExecutionContext).AsBoolean() &&
                             HostContext.AgentShutdownToken.IsCancellationRequested)
                     {
+                        PublishTelemetry (step.ExecutionContext, TaskResult.Failed.ToString(), "123");
                         Trace.Error($"Caught Agent shutdown exception from async command {command.Name}: {ex}");
                         step.ExecutionContext.Error(ex);
 
@@ -310,6 +319,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     else
                     {
                         // log and save the OperationCanceledException, set step result to canceled if the current result is not failed.
+                        PublishTelemetry (step.ExecutionContext, TaskResult.Canceled.ToString(), "123");
                         Trace.Error($"Caught cancellation exception from async command {command.Name}: {ex}");
                         step.ExecutionContext.Error(ex);
 
@@ -389,6 +399,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             catch (Exception ex)
             {
                 Trace.Warning($"'chcp 65001' failed with exception {ex.Message}");
+            }
+        }
+
+        private void PublishTelemetry(IExecutionContext context, string Task_Result, string TracePoint)
+        {
+            try
+            {
+                var telemetryData = new Dictionary<string, string>
+                {
+                    { "JobId", context.Variables.System_JobId.ToString()},
+                    { "JobResult", Task_Result },
+                    { "TracePoint", TracePoint},
+                };
+                var cmd = new Command("telemetry", "publish");
+                cmd.Data = JsonConvert.SerializeObject(telemetryData, Formatting.None);
+                cmd.Properties.Add("area", "PipelinesTasks");
+                cmd.Properties.Add("feature", "AgentShutdown");
+
+                var publishTelemetryCmd = new TelemetryCommandExtension();
+                publishTelemetryCmd.Initialize(HostContext);
+                publishTelemetryCmd.ProcessCommand(context, cmd);
+            }
+            catch (Exception ex)
+            {
+                Trace.Warning($"Unable to publish agent shutdown telemetry data. Exception: {ex}");
             }
         }
     }

@@ -20,7 +20,6 @@ using Microsoft.VisualStudio.Services.Common;
 using System.Diagnostics;
 using Newtonsoft.Json;
 using Microsoft.VisualStudio.Services.Agent.Listener.Telemetry;
-using Agent.Listener.Configuration;
 
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
@@ -630,6 +629,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                         {
                                             { "JobId", message.JobId.ToString()},
                                             { "JobResult", resultOnAbandonOrCancel.ToString() },
+                                            { "TracePoint", "100"},
                                         };
                                         var cmd = new Command("telemetry", "publish")
                                         {
