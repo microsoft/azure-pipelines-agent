@@ -143,6 +143,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             }
                         });
                     }
+                    else if (AgentKnobs.FailJobWhenAgentDies.GetValue(jobContext).AsBoolean() &&
+                            HostContext.AgentShutdownToken.IsCancellationRequested)
+                    {
+                        if (jobContext.Result != TaskResult.Failed)
+                        {
+                            // mark job as failed
+                            PublishTelemetry (jobContext, jobContext.Result.ToString(), "121");
+                            jobContext.Result = TaskResult.Failed;
+                            jobContext.Variables.Agent_JobStatus = jobContext.Result;
+                        }
+                    }
                     else
                     {
                         if (jobContext.Result != TaskResult.Canceled)
@@ -159,12 +170,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     ConditionResult conditionResult;
                     if (HostContext.AgentShutdownToken.IsCancellationRequested)
                     {
-                        if (AgentKnobs.FailJobWhenAgentDies.GetValue(jobContext).AsBoolean())
-                        {
-                            jobContext.Result = TaskResult.Failed;
-                            jobContext.Variables.Agent_JobStatus = jobContext.Result;
-                        }
-                        PublishTelemetry (jobContext, jobContext.Result.ToString(), "121");
                         step.ExecutionContext.Debug($"Skip evaluate condition on agent shutdown.");
                         conditionResult = false;
                     }
