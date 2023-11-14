@@ -18,6 +18,7 @@ using Azure.Identity;
 using Microsoft.TeamFoundation.Work.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
+using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.Win32;
 using Newtonsoft.Json;
@@ -766,9 +767,48 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
 
+                    bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(executionContext).AsBoolean();
+
+                    if(!useNode20InUnsupportedSystem)
+                    {
+                        var node20 = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node20_1Folder, "bin", $"node{IOUtil.ExeExtension}"));
+
+                        string node20TestCmd = $"bash -c \"{node20} -v\"";
+                        List<string> nodeInfo = await DockerExec(executionContext, container.ContainerId, node20TestCmd, noExceptionOnError: true);
+                        if (nodeInfo.Count > 0)
+                        {
+                            foreach(var nodeInfoLine in nodeInfo)
+                            {
+                                // detect example error from node 20 attempting to run on Ubuntu18:
+                                // /__a/externals/node20/bin/node: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.27' not found (required by /__a/externals/node20/bin/node)
+                                // /__a/externals/node20/bin/node: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.28' not found (required by /__a/externals/node20/bin/node)
+                                // /__a/externals/node20/bin/node: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.25' not found (required by /__a/externals/node20/bin/node)
+                                if(nodeInfoLine.Contains("version `GLIBC_2.28' not found")
+                                    || nodeInfoLine.Contains("version `GLIBC_2.25' not found")
+                                    || nodeInfoLine.Contains("version `GLIBC_2.27' not found"))
+                                {
+                                    executionContext.Debug($"GLIBC error found executing node -v; setting NeedsNode16Redirect: {nodeInfoLine}");
+                                    executionContext.Warning($"The container operating system doesn't support Node20. Using Node16 instead. " +
+                                                "Please upgrade the operating system of the container to ensure compatibility with Node20 tasks: " +
+                                                "https://github.com/nodesource/distributions");
+                                                        
+                                    container.NeedsNode16Redirect = true;
+                                }
+                            }
+                        }
+                    }
+
                     if (!string.IsNullOrEmpty(containerUserName))
                     {
                         container.CurrentUserName = containerUserName;
+                    }
+
+                    if(!useNode20InUnsupportedSystem)
+                    {
+                        if(container.NeedsNode16Redirect)
+                        {
+                            container.CustomNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node16Folder, "bin", $"node{IOUtil.ExeExtension}"));
+                        }
                     }
                 }
             }
@@ -909,7 +949,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        private async Task<List<string>> DockerExec(IExecutionContext context, string containerId, string command)
+        private async Task<List<string>> DockerExec(IExecutionContext context, string containerId, string command, bool noExceptionOnError=false)
         {
             Trace.Info($"Docker-exec is going to execute: `{command}`; container id: `{containerId}`");
             List<string> output = new List<string>();
@@ -927,7 +967,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             if (exitCode != 0)
             {
                 Trace.Error(message);
-                throw new InvalidOperationException(message);
+                if(!noExceptionOnError)
+                {
+                    throw new InvalidOperationException(message);
+                }
             }
             Trace.Info(message);
             return output;
