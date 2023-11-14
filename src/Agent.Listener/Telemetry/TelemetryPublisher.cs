@@ -28,6 +28,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Telemetry
         public List<string> Aliases => null;
 
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "jobServer")]
         public async Task PublishEvent(IHostContext context, Command command)
         {
             try

@@ -85,6 +85,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 // Variable expansion.
                 step.ExecutionContext.SetStepTarget(step.Target);
+                
+                // Change the current job context to the step context.
+                var resourceDiagnosticManager = HostContext.GetService<IResourceMetricsManager>();
+                resourceDiagnosticManager.SetContext(step.ExecutionContext);
+
                 List<string> expansionWarnings;
                 step.ExecutionContext.Variables.RecalculateExpanded(out expansionWarnings);
                 expansionWarnings?.ForEach(x => step.ExecutionContext.Warning(x));

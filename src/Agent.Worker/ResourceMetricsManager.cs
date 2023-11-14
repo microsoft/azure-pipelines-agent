@@ -4,6 +4,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 
 using Agent.Sdk;
@@ -17,6 +18,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         Task Run();
         void Setup(IExecutionContext context);
+        void SetContext(IExecutionContext context);
     }
 
     public sealed class ResourceMetricsManager : AgentService, IResourceMetricsManager
@@ -27,6 +29,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void Setup(IExecutionContext context)
         {
+            //initializa context
             ArgUtil.NotNull(context, nameof(context));
             _context = context;
 
@@ -39,6 +42,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 _context.Warning($"Unable to get current process, ex:{ex.Message}");
             }
         }
+
+        public void SetContext(IExecutionContext context)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+            _context = context;
+        }
+
         public async Task Run()
         {
             while (!_context.CancellationToken.IsCancellationRequested)
@@ -68,7 +78,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        private const int c_mb = 1024*1024;
+        private const int c_mb = 1024 * 1024;
 
         private Process _currentProcess;
 
@@ -80,7 +90,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 TimeSpan totalCpuTime = _currentProcess.TotalProcessorTime;
                 TimeSpan elapsedTime = DateTime.Now - _currentProcess.StartTime;
-                double cpuUsage = (totalCpuTime.TotalMilliseconds / elapsedTime.TotalMilliseconds) * 100.0;
+                double cpuUsage = totalCpuTime.TotalMilliseconds / elapsedTime.TotalMilliseconds * 100.0;
 
                 return $"CPU: usage {cpuUsage:0.00}";
             }
@@ -94,11 +104,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             try
             {
-                var gcMemoryInfo = GC.GetGCMemoryInfo();
-                var installedMemory = (int)(gcMemoryInfo.TotalAvailableMemoryBytes / 1048576.0);
-                var usedMemory = (int)(gcMemoryInfo.HeapSizeBytes / 1048576.0);
+                var processes = Process.GetProcesses();
 
-                return $"Memory: used {usedMemory}MB out of {installedMemory}MB";
+
+                var gcMemoryInfo = GC.GetGCMemoryInfo();
+                var installedMemory = (int)(gcMemoryInfo.TotalAvailableMemoryBytes / c_mb);
+
+                // Since Agent contains multiple processes, we need to sum up all the memory usage
+                ulong totalUsedMemory = 0;
+                
+                var siblingProcesses = WindowsProcessUtil.GetProcessList(_currentProcess);
+                foreach (Process proc in siblingProcesses)
+                {
+                    totalUsedMemory += (ulong)(proc.WorkingSet64 / c_mb);
+                }
+
+                return $"Memory: used {totalUsedMemory}MB out of {installedMemory}MB";
             }
             catch (Exception ex)
             {
