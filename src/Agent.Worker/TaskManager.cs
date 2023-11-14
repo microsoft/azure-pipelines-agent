@@ -77,7 +77,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 await DownloadAsync(executionContext, task);
 
-                if (AgentKnobs.CheckForTaskDeprecation.GetValue(UtilKnobValueContext.Instance()).AsBoolean())
+                if (AgentKnobs.CheckForTaskDeprecation.GetValue(executionContext).AsBoolean())
                 {
                     CheckForTaskDeprecation(executionContext, task);
                 }
@@ -427,7 +427,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private NodeHandlerData _node;
         private Node10HandlerData _node10;
         private Node16HandlerData _node16;
-        private Node20HandlerData _node20;
+        private Node20_1HandlerData _node20_1;
         private PowerShellHandlerData _powerShell;
         private PowerShell3HandlerData _powerShell3;
         private PowerShellExeHandlerData _powerShellExe;
@@ -497,16 +497,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public Node20HandlerData Node20
+        public Node20_1HandlerData Node20_1
         {
             get
             {
-                return _node20;
+                return _node20_1;
             }
 
             set
             {
-                _node20 = value;
+                _node20_1 = value;
                 Add(value);
             }
         }
@@ -696,7 +696,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         public override int Priority => 2;
     }
-    public sealed class Node20HandlerData : BaseNodeHandlerData
+    public sealed class Node20_1HandlerData : BaseNodeHandlerData
     {
         public override int Priority => 1;
     }

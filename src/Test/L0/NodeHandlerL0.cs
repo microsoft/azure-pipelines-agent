@@ -62,7 +62,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Theory]
         [InlineData("node10")]
         [InlineData("node16")]
-        [InlineData("node20")]
+        [InlineData("node20_1")]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
         public void UseNewNodeForNewNodeHandler(string nodeVersion)
@@ -80,7 +80,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 {
                     "node10" => new Node10HandlerData(),
                     "node16" => new Node16HandlerData(),
-                    "node20" => new Node20HandlerData(),
+                    "node20_1" => new Node20_1HandlerData(),
                     _ => throw new Exception("Invalid node version"),
                 };
 
