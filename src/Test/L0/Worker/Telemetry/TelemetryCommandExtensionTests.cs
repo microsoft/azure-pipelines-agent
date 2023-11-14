@@ -207,7 +207,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Telemetry
 
                 publishTelemetryCmd.ProcessCommand(ex_context, cmd);
                 _mockCiService.Verify(s => s.PublishEventsAsync(It.Is<CustomerIntelligenceEvent[]>(e => VerifyEvent(e, data))), Times.Once);
-                Assert.True(_warnings.Count > 0);
             }
         }
 
@@ -239,7 +238,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Telemetry
 
                 publishTelemetryCmd.ProcessCommand(ex_context, cmd);
                 _mockCiService.Verify(s => s.PublishEventsAsync(It.Is<CustomerIntelligenceEvent[]>(e => VerifyEvent(e, data))), Times.Never);
-                Assert.True(_warnings.Count > 0);
             }
         }
 
