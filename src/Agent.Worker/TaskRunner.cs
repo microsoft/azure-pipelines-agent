@@ -19,6 +19,7 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Newtonsoft.Json;
+using Microsoft.TeamFoundation.DistributedTask.Orchestration.Server;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -76,6 +77,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             using (var scope = ExecutionContext.Variables.CreateScope())
             {
                 scope.Set(Constants.Variables.Task.DisplayName, DisplayName);
+                scope.Set(Constants.Variables.Task.PublishTelemetry, (!IsCustomerTask()).ToString());
                 scope.Set(WellKnownDistributedTaskVariables.TaskInstanceId, Task.Id.ToString("D"));
                 scope.Set(WellKnownDistributedTaskVariables.TaskDisplayName, DisplayName);
                 scope.Set(WellKnownDistributedTaskVariables.TaskInstanceName, Task.Name);
@@ -553,6 +555,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Trace.Info("Cannot root path even by using JobExtension, return original input.");
             return inputValue;
         }
+        
+        private bool IsCustomerTask()
+        {
+            return Task.InstallType == TaskDefinitionInstallType.UploadTaskDefinitionHttpApi;
+        }
 
         private void PrintTaskMetaData(Definition taskDefinition)
         {
@@ -571,6 +578,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private void PublishTelemetry(Definition taskDefinition, HandlerData handlerData)
         {
+            if (IsCustomerTask()) return;
+
             ArgUtil.NotNull(Task, nameof(Task));
             ArgUtil.NotNull(Task.Reference, nameof(Task.Reference));
             ArgUtil.NotNull(taskDefinition.Data, nameof(taskDefinition.Data));

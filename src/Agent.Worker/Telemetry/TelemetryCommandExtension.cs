@@ -33,6 +33,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(command, nameof(command));
+
+            context.Variables.TryGetValue(Constants.Variables.Task.PublishTelemetry, out string publishTelemetryVar);
+            if (bool.TryParse(publishTelemetryVar, out bool publishTelemetry) && !publishTelemetry) return;
+
             Dictionary<string, string> eventProperties = command.Properties;
             string data = command.Data;
             string area;

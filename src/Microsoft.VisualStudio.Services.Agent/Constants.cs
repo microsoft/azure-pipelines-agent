@@ -470,6 +470,13 @@ namespace Microsoft.VisualStudio.Services.Agent
                 /// cross-service communication/obtained by users.
                 /// </summary>
                 public static readonly string SkipTranslatorForCheckout = "task.skipTranslatorForCheckout";
+
+                /// <summary>
+                /// Declares requirement to publish telemetry for task or not. This is based on the InstallType field in the TaskStep info
+                /// which the agent obtains from the execution plan (AgentJobRequestMessage). The main idea is to avoid publishing telemetry
+                /// from the customer's tasks that is installed using TFS-CLI tool.
+                /// </summary>
+                public static readonly string PublishTelemetry = "task.publishTelemetry";
             }
 
             public static List<string> ReadOnlyVariables = new List<string>(){
@@ -602,7 +609,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                 System.WorkFolder,
                 // Task variables
                 Task.DisplayName,
-                Task.SkipTranslatorForCheckout
+                Task.SkipTranslatorForCheckout,
+                Task.PublishTelemetry
             };
         }
     }

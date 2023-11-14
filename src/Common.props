@@ -10,7 +10,7 @@
     <OSPlatform>OS_UNKNOWN</OSPlatform>
     <OSArchitecture>ARCH_UNKNOWN</OSArchitecture>
     <DebugConstant></DebugConstant>
-    <VssApiVersion>0.5.230-test1-v-denikulin</VssApiVersion>
+    <VssApiVersion>0.5.230-private</VssApiVersion>
     <CodeAnalysis>$(CodeAnalysis)</CodeAnalysis>
     <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
