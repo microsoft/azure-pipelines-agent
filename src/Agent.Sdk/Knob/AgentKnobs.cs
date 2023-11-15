@@ -159,11 +159,11 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_USE_NODE16"),
             new BuiltInDefaultKnobSource("false"));
 
-        public static readonly Knob UseNode20 = new Knob(
-            nameof(UseNode20),
+        public static readonly Knob UseNode20_1 = new Knob(
+            nameof(UseNode20_1),
             "Forces the agent to use Node 20 handler for all Node-based tasks",
-            new RuntimeKnobSource("AGENT_USE_NODE20"),
-            new EnvironmentKnobSource("AGENT_USE_NODE20"),
+            new RuntimeKnobSource("AGENT_USE_NODE20_1"),
+            new EnvironmentKnobSource("AGENT_USE_NODE20_1"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob UseNode20InUnsupportedSystem = new Knob(
@@ -544,7 +544,7 @@ namespace Agent.Sdk.Knob
         public static readonly Knob CheckForTaskDeprecation = new Knob(
             nameof(CheckForTaskDeprecation),
             "If true, the agent will check in the 'Initialize job' step each task used in the job for task deprecation.",
-            new EnvironmentKnobSource("AZP_AGENT_CHECK_FOR_TASK_DEPRECATION"),
+            new RuntimeKnobSource("AZP_AGENT_CHECK_FOR_TASK_DEPRECATION"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob MountWorkspace = new Knob(
