@@ -437,7 +437,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         }
 
 
-        private async Task<List<string>> ExecuteCommandAsync(IExecutionContext context, string command, string arg)
+        private async Task<List<string>> ExecuteCommandAsync(IExecutionContext context, string command, string arg, bool requireZeroExitCode = true)
         {
             context.Command($"{command} {arg}");
 
@@ -471,7 +471,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                             fileName: command,
                             arguments: arg,
                             environment: null,
-                            requireExitCodeZero: true,
+                            requireExitCodeZero: requireZeroExitCode,
                             outputEncoding: null,
                             cancellationToken: CancellationToken.None);
 
