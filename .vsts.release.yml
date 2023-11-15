@@ -284,8 +284,39 @@ extends:
               npm install
               ls
               node createAdoPrs.js $(AgentVersion)
+            name: s_CreateAdoPrs
             displayName: Create PRs in AzureDevOps and ConfigChange
             env:
               USERNAME: $(User)
               PAT: $(AdoPAT)
               USEREMAIL: $(Email)
+
+      - stage: S_SendNotifications
+        dependsOn:
+        - Release
+        - Verify_release
+        condition:
+          and(
+            succeeded('Verify_release'),
+            not(${{ parameters.onlyGitHubRelease }})),
+            not(canceled('Release'))
+          )
+        pool:
+          vmImage: ubuntu-latest
+        jobs:
+        - job: j_SendPrNotifications
+          displayName: Send Notifications about PRs
+          variables:
+            IsRelease: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isRelease'] ]
+            ADO_PR_ID: $[ stageDependencies.CreatePRs.create_ado_prs.outputs['s_CreateAdoPrs.ADO_PR_ID'] ]
+            ADO_PR_LINK: $[ stageDependencies.CreatePRs.create_ado_prs.outputs['s_CreateAdoPrs.ADO_PR_LINK'] ]
+            CC_PR_ID: $[ stageDependencies.CreatePRs.create_ado_prs.outputs['s_CreateAdoPrs.CC_PR_ID'] ]
+            CC_PR_LINK: $[ stageDependencies.CreatePRs.create_ado_prs.outputs['s_CreateAdoPrs.CC_PR_LINK'] ]
+          condition: eq(variables.IsRelease, 'True')
+          steps:
+          - pwsh: release\Send-Notification.ps1
+            displayName: Send MS Teams notification
+            # We only want to send a notification if this is a scheduled release
+            condition: eq(variables['build.reason'], 'Schedule')
+            env:
+              TEAMS_WEBHOOK: $(MSTeamsUri)
