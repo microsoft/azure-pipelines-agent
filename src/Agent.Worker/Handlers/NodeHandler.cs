@@ -238,7 +238,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         private async Task<bool> CheckIfNode20ResultsInGlibCError()
         {
             var node20 = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node20_1Folder, "bin", $"node{IOUtil.ExeExtension}");
-            List<string> nodeVersionOutput = await ExecuteCommandAsync(ExecutionContext, node20, "-v");
+            List<string> nodeVersionOutput = await ExecuteCommandAsync(ExecutionContext, node20, "-v", requireZeroExitCode: false);
             var node20ResultsInGlibCError = WorkerUtilities.IsCommandResultGlibcError(ExecutionContext, nodeVersionOutput, out string nodeInfoLine);
 
             return node20ResultsInGlibCError;
