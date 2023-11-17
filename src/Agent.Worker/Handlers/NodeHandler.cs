@@ -183,10 +183,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     {
                         node20ResultsInGlibCErrorHost = await CheckIfNode20ResultsInGlibCError();
 
-                        PublishTelemetry(new Dictionary<string, string>
-                        {
-                            {  "HostNode20to16Fallback", node20ResultsInGlibCErrorHost.ToString() }
-                        });
+                        ExecutionContext.EmitHostNode20FallbackTelemetry(node20ResultsInGlibCErrorHost);
 
                         supportsNode20 = node20ResultsInGlibCErrorHost;
                     }
@@ -458,7 +455,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 }
             }
         }
-
 
         private async Task<List<string>> ExecuteCommandAsync(IExecutionContext context, string command, string arg, bool requireZeroExitCode, bool showOutputOnFailureOnly)
         {
