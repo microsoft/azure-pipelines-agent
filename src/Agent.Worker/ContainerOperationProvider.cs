@@ -797,6 +797,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 );
                             }
                         }
+
+                        if (container.NeedsNode16Redirect)
+                        {
+                            container.CustomNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node16Folder, "bin", $"node{IOUtil.ExeExtension}"));
+                        }
                     }
 
                     if (!string.IsNullOrEmpty(containerUserName))
@@ -804,13 +809,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         container.CurrentUserName = containerUserName;
                     }
 
-                    if(!useNode20InUnsupportedSystem)
-                    {
-                        if(container.NeedsNode16Redirect)
-                        {
-                            container.CustomNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node16Folder, "bin", $"node{IOUtil.ExeExtension}"));
-                        }
-                    }
                 }
             }
         }
