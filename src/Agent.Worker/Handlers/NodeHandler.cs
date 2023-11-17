@@ -382,13 +382,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             if (inContainer)
             {
                 ExecutionContext.Warning($"The container operating system doesn't support Node20. Using Node16 instead. " +
-                                "Please upgrade the operating system of the container to ensure compatibility with Node20 tasks: " +
+                                "Please upgrade the operating system of the container to remain compatible with future updates of tasks: " +
                                 "https://github.com/nodesource/distributions");
             }
             else
             {
                 ExecutionContext.Warning($"The agent operating system doesn't support Node20. Using Node16 instead. " +
-                            "Please upgrade the operating system of the agent to ensure compatibility with Node20 tasks: " +
+                            "Please upgrade the operating system of the agent to remain compatible with future updates of tasks: " +
                             "https://github.com/nodesource/distributions");
             }
         }
