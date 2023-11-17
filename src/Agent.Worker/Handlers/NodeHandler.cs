@@ -170,10 +170,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
             else
             {
-                bool UseNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
+                bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
                 bool node20ResultsInGlibCErrorHost = false;
 
-                if (PlatformUtil.HostOS == PlatformUtil.OS.Linux && !UseNode20InUnsupportedSystem)
+                if (PlatformUtil.HostOS == PlatformUtil.OS.Linux && !useNode20InUnsupportedSystem)
                 {
                     if (supportsNode20.HasValue)
                     {
