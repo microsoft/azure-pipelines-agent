@@ -195,11 +195,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 ContainerInfo container = (ExecutionContext.StepTarget() as ContainerInfo);
                 if (container == null)
                 {
-                    file = GetNodeLocation(node20ResultsInGlibCErrorHost);
+                    file = GetNodeLocation(node20ResultsInGlibCErrorHost, inContainer: false);
                 }
                 else
                 {
-                    file = GetNodeLocation(container.NeedsNode16Redirect);
+                    file = GetNodeLocation(container.NeedsNode16Redirect, inContainer: true);
                 }
 
                 ExecutionContext.Debug("Using node path: " + file);
@@ -262,7 +262,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             return node20ResultsInGlibCError;
         }
 
-        public string GetNodeLocation(bool node20ResultsInGlibCError)
+        public string GetNodeLocation(bool node20ResultsInGlibCError, bool inContainer)
         {
             bool useNode10 = AgentKnobs.UseNode10.GetValue(ExecutionContext).AsBoolean();
             bool useNode16 = AgentKnobs.UseNode16.GetValue(ExecutionContext).AsBoolean();
@@ -282,7 +282,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 if (node20ResultsInGlibCError)
                 {
                     nodeFolder = NodeHandler.Node16Folder;
-                    Node16FallbackWarning();
+                    Node16FallbackWarning(inContainer);
                 }
                 else
                 {
@@ -312,11 +312,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 if(node20ResultsInGlibCError)
                 {
                     nodeFolder = NodeHandler.Node16Folder;
-
-                    ExecutionContext.Warning($"The agent operating system doesn't support Node20. Using Node16 instead. " +
-                                "Please upgrade the operating system of the agent to ensure compatibility with Node20 tasks: " +
-                                "https://github.com/nodesource/distributions");
-                } 
+                    Node16FallbackWarning(inContainer);
+                }
                 else
                 {
                     nodeFolder = NodeHandler.Node20_1Folder;
@@ -380,12 +377,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             return nodeHandlerHelper.GetNodeFolderPath(nodeFolder, HostContext);
         }
 
-        private void Node16FallbackWarning()
+        private void Node16FallbackWarning(bool inContainer)
         {
-            //ExecutionContext.Debug($"GLIBC error found executing node -v; needs Node16 redirect: {nodeInfoLine}");
-            ExecutionContext.Warning($"The agent operating system doesn't support Node20. Using Node16 instead. " +
-                        "Please upgrade the operating system of the agent to ensure compatibility with Node20 tasks: " +
-                        "https://github.com/nodesource/distributions");
+            if (inContainer)
+            {
+                ExecutionContext.Warning($"The container operating system doesn't support Node20. Using Node16 instead. " +
+                                "Please upgrade the operating system of the container to ensure compatibility with Node20 tasks: " +
+                                "https://github.com/nodesource/distributions");
+            }
+            else
+            {
+                ExecutionContext.Warning($"The agent operating system doesn't support Node20. Using Node16 instead. " +
+                            "Please upgrade the operating system of the agent to ensure compatibility with Node20 tasks: " +
+                            "https://github.com/nodesource/distributions");
+            }
         }
 
         private void OnDataReceived(object sender, ProcessDataReceivedEventArgs e)
