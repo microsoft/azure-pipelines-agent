@@ -238,7 +238,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         private async Task<bool> CheckIfNode20ResultsInGlibCError()
         {
             var node20 = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node20_1Folder, "bin", $"node{IOUtil.ExeExtension}");
-            List<string> nodeVersionOutput = await ExecuteCommandAsync(ExecutionContext, node20, "-v", requireZeroExitCode: false);
+            List<string> nodeVersionOutput = await ExecuteCommandAsync(ExecutionContext, node20, "-v", requireZeroExitCode: false, showOutputOnFailureOnly: true);
             var node20ResultsInGlibCError = WorkerUtilities.IsCommandResultGlibcError(ExecutionContext, nodeVersionOutput, out string nodeInfoLine);
 
             return node20ResultsInGlibCError;
@@ -437,7 +437,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         }
 
 
-        private async Task<List<string>> ExecuteCommandAsync(IExecutionContext context, string command, string arg, bool requireZeroExitCode = true)
+        private async Task<List<string>> ExecuteCommandAsync(IExecutionContext context, string command, string arg, bool requireZeroExitCode, bool showOutputOnFailureOnly)
         {
             context.Command($"{command} {arg}");
 
@@ -466,7 +466,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 }
             };
 
-            await processInvoker.ExecuteAsync(
+            var exitCode = await processInvoker.ExecuteAsync(
                             workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
                             fileName: command,
                             arguments: arg,
@@ -475,9 +475,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                             outputEncoding: null,
                             cancellationToken: CancellationToken.None);
 
-            foreach (var outputLine in outputs)
+            if ((showOutputOnFailureOnly && exitCode != 0) || !showOutputOnFailureOnly)
             {
-                context.Output(outputLine);
+                foreach (var outputLine in outputs)
+                {
+                    context.Output(outputLine);
+                }
             }
 
             return outputs;
