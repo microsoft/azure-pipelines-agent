@@ -778,10 +778,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                         container.NeedsNode16Redirect = WorkerUtilities.IsCommandResultGlibcError(executionContext, nodeVersionOutput, out string nodeInfoLine);
 
-                        executionContext.Debug($"GLIBC error found executing node -v; setting NeedsNode16Redirect: {nodeInfoLine}");
-                        executionContext.Warning($"The container operating system doesn't support Node20. Using Node16 instead. " +
-                                    "Please upgrade the operating system of the container to ensure compatibility with Node20 tasks: " +
-                                    "https://github.com/nodesource/distributions");
+                        if (container.NeedsNode16Redirect)
+                        {
+                            executionContext.Debug($"GLIBC error found executing node -v; setting NeedsNode16Redirect: {nodeInfoLine}");
+                            executionContext.Warning($"The container operating system doesn't support Node20. Using Node16 instead. " +
+                                        "Please upgrade the operating system of the container to ensure compatibility with Node20 tasks: " +
+                                        "https://github.com/nodesource/distributions");
+                        }
                     }
 
                     if (!string.IsNullOrEmpty(containerUserName))
