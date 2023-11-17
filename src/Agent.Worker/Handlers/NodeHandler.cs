@@ -81,6 +81,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             "   return str1 === str;",
             "};"
         };
+        private bool? supportsNode20;
 
         public NodeHandler()
         {
@@ -174,12 +175,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
                 if (PlatformUtil.HostOS == PlatformUtil.OS.Linux && !UseNode20InUnsupportedSystem)
                 {
-                    node20ResultsInGlibCError = await CheckIfNode20ResultsInGlibCError();
-
-                    PublishTelemetry(new Dictionary<string, string>
+                    if (supportsNode20.HasValue)
                     {
-                        {  "Host: node20ResultsInGlibCError", node20ResultsInGlibCError.ToString() }
-                    });
+                        node20ResultsInGlibCError = supportsNode20.Value;
+                    }
+                    else
+                    {
+                        node20ResultsInGlibCError = await CheckIfNode20ResultsInGlibCError();
+
+                        PublishTelemetry(new Dictionary<string, string>
+                        {
+                            {  "Host: node20ResultsInGlibCError", node20ResultsInGlibCError.ToString() }
+                        });
+
+                        supportsNode20 = node20ResultsInGlibCError;
+                    }
                 }
 
                 file = GetNodeLocation(node20ResultsInGlibCError);
