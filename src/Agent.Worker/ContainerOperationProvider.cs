@@ -783,12 +783,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                             if (container.NeedsNode16Redirect)
                             {
-
                                 PublishTelemetry(
                                     executionContext,
                                     new Dictionary<string, string>
                                     {
-                                        {  "Container: NeedsNode16Redirect", container.NeedsNode16Redirect.ToString() }
+                                        {  "ContainerNode20to16Fallback", container.NeedsNode16Redirect.ToString() }
                                     }
                                 );
                             }

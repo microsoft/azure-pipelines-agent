@@ -185,7 +185,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
                         PublishTelemetry(new Dictionary<string, string>
                         {
-                            {  "Host: node20ResultsInGlibCError", node20ResultsInGlibCErrorHost.ToString() }
+                            {  "HostNode20to16Fallback", node20ResultsInGlibCErrorHost.ToString() }
                         });
 
                         supportsNode20 = node20ResultsInGlibCErrorHost;
