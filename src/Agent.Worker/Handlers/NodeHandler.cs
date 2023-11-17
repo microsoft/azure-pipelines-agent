@@ -439,7 +439,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         private async Task<List<string>> ExecuteCommandAsync(IExecutionContext context, string command, string arg, bool requireZeroExitCode, bool showOutputOnFailureOnly)
         {
-            context.Command($"{command} {arg}");
+            string commandLog = $"{command} {arg}";
+            if (!showOutputOnFailureOnly)
+            {
+                context.Command(commandLog);
+            }
 
             List<string> outputs = new List<string>();
             object outputLock = new object();
@@ -477,6 +481,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             if ((showOutputOnFailureOnly && exitCode != 0) || !showOutputOnFailureOnly)
             {
+                if (showOutputOnFailureOnly)
+                {
+                    context.Command(commandLog);
+                }
+
                 foreach (var outputLine in outputs)
                 {
                     context.Output(outputLine);
