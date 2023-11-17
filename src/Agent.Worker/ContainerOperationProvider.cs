@@ -783,10 +783,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                             if (container.NeedsNode16Redirect)
                             {
-                                executionContext.Debug($"GLIBC error found executing node -v; setting NeedsNode16Redirect: {nodeInfoLine}");
-                                executionContext.Warning($"The container operating system doesn't support Node20. Using Node16 instead. " +
-                                            "Please upgrade the operating system of the container to ensure compatibility with Node20 tasks: " +
-                                            "https://github.com/nodesource/distributions");
 
                                 PublishTelemetry(
                                     executionContext,
@@ -798,17 +794,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             }
                         }
 
-                        if (container.NeedsNode16Redirect)
-                        {
-                            container.CustomNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node16Folder, "bin", $"node{IOUtil.ExeExtension}"));
-                        }
                     }
 
                     if (!string.IsNullOrEmpty(containerUserName))
                     {
                         container.CurrentUserName = containerUserName;
                     }
-
                 }
             }
         }

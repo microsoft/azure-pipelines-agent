@@ -171,28 +171,36 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             else
             {
                 bool UseNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
-                bool node20ResultsInGlibCError = false;
+                bool node20ResultsInGlibCErrorHost = false;
 
                 if (PlatformUtil.HostOS == PlatformUtil.OS.Linux && !UseNode20InUnsupportedSystem)
                 {
                     if (supportsNode20.HasValue)
                     {
-                        node20ResultsInGlibCError = supportsNode20.Value;
+                        node20ResultsInGlibCErrorHost = supportsNode20.Value;
                     }
                     else
                     {
-                        node20ResultsInGlibCError = await CheckIfNode20ResultsInGlibCError();
+                        node20ResultsInGlibCErrorHost = await CheckIfNode20ResultsInGlibCError();
 
                         PublishTelemetry(new Dictionary<string, string>
                         {
-                            {  "Host: node20ResultsInGlibCError", node20ResultsInGlibCError.ToString() }
+                            {  "Host: node20ResultsInGlibCError", node20ResultsInGlibCErrorHost.ToString() }
                         });
 
-                        supportsNode20 = node20ResultsInGlibCError;
+                        supportsNode20 = node20ResultsInGlibCErrorHost;
                     }
                 }
 
-                file = GetNodeLocation(node20ResultsInGlibCError);
+                ContainerInfo container = (ExecutionContext.StepTarget() as ContainerInfo);
+                if (container == null)
+                {
+                    file = GetNodeLocation(node20ResultsInGlibCErrorHost);
+                }
+                else
+                {
+                    file = GetNodeLocation(container.NeedsNode16Redirect);
+                }
 
                 ExecutionContext.Debug("Using node path: " + file);
             }
