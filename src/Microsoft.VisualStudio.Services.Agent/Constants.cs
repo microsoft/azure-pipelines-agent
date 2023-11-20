@@ -322,6 +322,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string Version = "agent.version";
                 public static readonly string WorkFolder = "agent.workfolder";
                 public static readonly string WorkingDirectory = "agent.WorkingDirectory";
+                public static readonly string EnableAdditionalMaskingRegexes = "agent.enableadditionalmaskingregexes";
             }
 
             public static class Build
@@ -371,6 +372,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string GitLfsSupport = "agent.source.git.lfs";
                 public static readonly string GitShallowDepth = "agent.source.git.shallowFetchDepth";
                 public static readonly string SkipSyncSource = "agent.source.skip";
+                public static readonly string EnableAdditionalMaskingRegexes = "agent.enableadditionalmaskingregexes";
+                public static readonly string UseMaskingPerformanceEnhancements = "agent.agentUseMaskingPerformanceEnhancements";
             }
 
             public static class Maintenance
@@ -511,6 +514,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Agent.Version,
                 Agent.WorkFolder,
                 Agent.WorkingDirectory,
+                Agent.EnableAdditionalMaskingRegexes,
                 // Build variables
                 Build.ArtifactStagingDirectory,
                 Build.BinariesDirectory,
@@ -542,6 +546,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Features.GitLfsSupport,
                 Features.GitShallowDepth,
                 Features.SkipSyncSource,
+                Features.UseMaskingPerformanceEnhancements,
                 // Pipeline variables
                 Pipeline.Workspace,
                 // Release variables

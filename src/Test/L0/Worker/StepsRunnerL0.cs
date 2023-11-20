@@ -39,6 +39,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             _ec = new Mock<IExecutionContext>();
             _ec.SetupAllProperties();
             _ec.Setup(x => x.Variables).Returns(_variables);
+            var rm = new Mock<IResourceMetricsManager>();
+            hc.SetSingleton<IResourceMetricsManager>(rm.Object);
             _stepsRunner = new StepsRunner();
             _stepsRunner.Initialize(hc);
             return hc;

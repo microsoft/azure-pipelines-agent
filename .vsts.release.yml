@@ -1,7 +1,15 @@
+schedules:
+- cron: '0 6 * * 2'
+  displayName: Scheduled weekly run
+  branches:
+    include:
+    - master
+
 parameters:
 - name: version
   type: string
   displayName: Version
+  default: 'NotSet'
 - name: derivedFrom
   type: string
   displayName: Derived From Version
@@ -27,54 +35,109 @@ parameters:
   default: true
   displayName: Test Proxy Agent
 
-variables:
-  ${{ if parameters.buildStageOnly }}:
-    releaseBranch: ''
-  ${{ else }}:
-    releaseBranch: releases/${{ parameters.version }}
-
 extends:
   template: .azure-pipelines/pipeline.yml
   parameters:
-    branch:  ${{ variables.releaseBranch }}
+    branch:  $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.releaseBranch'] ]
     componentDetection: false
     test: ${{ not(parameters.skipTests) }}
     sign: true
     publishArtifacts: true
     testProxyAgent: ${{ parameters.testProxyAgent }}
+    stageDependencies:
+      - Verify_release
+      - Create_Release_Branch
+    stageCondition: |
+      and(
+        succeeded('Verify_release'),
+        in(dependencies.Create_Release_Branch.result, 'Succeeded', 'Skipped')
+      )
 
     preBuildStages:
-    - ${{ if and(not(parameters.buildStageOnly), eq(variables['Build.SourceBranch'], 'refs/heads/master')) }}:
-      - stage: Create_Release_Branch
+    - stage: Verify_release
+      displayName: Verify it's a release run
+      pool:
+        vmImage: ubuntu-latest
+      jobs:
+      - job: Set_variables
+        displayName: Set release-specific variables
+        steps:
+        - pwsh: |
+            $isBuildStageOnly = [System.Convert]::ToBoolean('${{ parameters.buildStageOnly }}')
+            $buildReason = '$(Build.Reason)'
+
+            $currentSprint = (Invoke-WebRequest https://whatsprintis.it -Headers @{"Accept" = "application/json" } | ConvertFrom-Json)
+
+            $isReleaseWeek = $currentSprint.week -eq 3
+            Write-Host "isReleaseWeek = $isReleaseWeek"
+
+            $isRelease = ($buildReason -eq 'Manual' -and !$isBuildStageOnly) -or ($buildReason -eq 'Schedule' -and $isReleaseWeek)
+            Write-Host "isRelease = $isRelease"
+            Write-Host "##vso[task.setVariable variable=isRelease;isOutput=true]$isRelease"
+
+            $isScheduledRelease = $isRelease -and $buildReason -eq 'Schedule'
+            Write-Host "isScheduledRelease = $isScheduledRelease"
+
+            if ($isRelease) {
+              if ($isScheduledRelease) {
+                $agentVersion = "3.$($currentSprint.sprint).0"
+              } else {
+                $agentVersion = "${{ parameters.version }}"
+                if ($agentVersion -eq 'NotSet') {
+                  Write-Error "Version parameter is required for manual release." -ErrorAction Stop
+                }
+              }
+              Write-Host "agentVersion = $agentVersion"
+              Write-Host "##vso[task.setVariable variable=agentVersion;isOutput=true]$agentVersion"
+
+              $releaseBranch = "releases/$agentVersion"
+              Write-Host "releaseBranch = $releaseBranch"
+              Write-Host "##vso[task.setVariable variable=releaseBranch;isOutput=true]$releaseBranch"
+            }
+
+          name: SetReleaseVariables
+          displayName: Set release-specific variables
+
+    - stage: Create_Release_Branch
+      displayName: Create Release Branch
+      dependsOn:
+      - Verify_release
+      jobs:
+      ################################################################################
+      - job: Create_Release_Branch
+      ################################################################################
         displayName: Create Release Branch
-        jobs:
-        ################################################################################
-        - job: Create_Release_Branch
-        ################################################################################
-          displayName: Create Release Branch
-          pool:
-            vmImage: ubuntu-latest
+        variables:
+          IsRelease: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isRelease'] ]
+          ReleaseBranch: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.releaseBranch'] ]
+          AgentVersion: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.agentVersion'] ]
+        condition: and(succeeded(), eq(variables.IsRelease, 'True'))
+        pool:
+          vmImage: ubuntu-latest
+        steps:
 
-          steps:
-          - checkout: self
+        - checkout: self
 
-          - task: NodeTool@0
-            displayName: Use node 14.15.1
-            inputs:
-              versionSpec: "14.15.1"
+        - task: NodeTool@0
+          displayName: Use node 14.15.1
+          inputs:
+            versionSpec: "14.15.1"
 
-          - script: |
-              cd release
-              npm install
-              node createReleaseBranch.js ${{ parameters.version }} --derivedFrom=${{ parameters.derivedFrom }}
-            env:
-              EDITOR: cat
-              PAT: $(GithubToken)
-            displayName: Push release branch to GitHub
+        - script: |
+            cd release
+            npm install
+
+            node createReleaseBranch.js $(AgentVersion) --derivedFrom=${{ parameters.derivedFrom }}
+          env:
+            EDITOR: cat
+            PAT: $(GithubToken)
+          displayName: Push release branch to GitHub
 
     postBuildStages:
-    - ${{ if not(parameters.buildStageOnly) }}:
       - stage: Release
+        dependsOn:
+          - build
+          - Verify_release
         jobs:
         ################################################################################
         - job: publish_agent_packages
@@ -82,6 +145,11 @@ extends:
           displayName: Publish Agents (Windows/Linux/OSX)
           pool:
             name: RMAgentsProdAME
+          variables:
+            IsRelease: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isRelease'] ]
+            ReleaseBranch: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.releaseBranch'] ]
+            AgentVersion: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.agentVersion'] ]
+          condition: and(succeeded(), eq(variables.IsRelease, 'True'))
           steps:
 
           # Clean
@@ -91,7 +159,7 @@ extends:
           # Switch to release branch
           - template: switch-branch.yml
             parameters:
-              branch: ${{ variables.releaseBranch }}
+              branch: $(ReleaseBranch)
 
           # Download all agent packages from all previous phases
           - task: DownloadBuildArtifacts@0
@@ -111,7 +179,7 @@ extends:
               Login-AzAccount -ServicePrincipal -CertificateThumbprint $certificateThumbprint -ApplicationId $clientId -TenantId $(TenantId)
               Select-AzSubscription -SubscriptionId $(SubscriptionId)
               $storage = Get-AzStorageAccount -ResourceGroupName vstsagentpackage -AccountName vstsagentpackage
-              $versionDir = "${{ parameters.version }}"
+              $versionDir = "$(AgentVersion)"
               Get-ChildItem -LiteralPath "$(System.ArtifactsDirectory)/agent" | ForEach-Object {
                 $target=$_
                 Get-ChildItem -LiteralPath "$(System.ArtifactsDirectory)/agent/$target" -Include "*.zip","*.tar.gz" | ForEach-Object {
@@ -137,7 +205,7 @@ extends:
           # Fill release notes with agent version and package hashes
           - script: |
               cd release
-              node fillReleaseNotesTemplate.js ${{ parameters.version }}
+              node fillReleaseNotesTemplate.js $(AgentVersion)
             displayName: Fill release notes
 
           # Create agent release on Github
@@ -145,9 +213,9 @@ extends:
               Write-Host "Creating github release."
               $releaseNotes = [System.IO.File]::ReadAllText("$(Build.SourcesDirectory)\releaseNote.md")
               $releaseData = @{
-                tag_name = "v${{ parameters.version }}";
+                tag_name = "v$(AgentVersion)";
                 target_commitish = "$(Build.SourceVersion)";
-                name = "v${{ parameters.version }}";
+                name = "v$(AgentVersion)";
                 body = $releaseNotes;
                 draft = $false;
                 prerelease = $true;
@@ -165,7 +233,7 @@ extends:
               $releaseCreated = Invoke-RestMethod @releaseParams
               Write-Host $releaseCreated
               $releaseId = $releaseCreated.id
-              $assets = [System.IO.File]::ReadAllText("$(Build.SourcesDirectory)\assets.json").Replace("<AGENT_VERSION>","${{ parameters.version }}")
+              $assets = [System.IO.File]::ReadAllText("$(Build.SourcesDirectory)\assets.json").Replace("<AGENT_VERSION>","$(AgentVersion)")
               $assetsParams = @{
                 Uri = "https://uploads.github.com/repos/Microsoft/azure-pipelines-agent/releases/$releaseId/assets?name=assets.json"
                 Method = 'POST';
@@ -178,38 +246,46 @@ extends:
               Invoke-RestMethod @assetsParams
             displayName: Create agent release on Github
 
-      - ${{ if not(parameters.onlyGitHubRelease) }}:
-        - stage: CreatePRs
-          jobs:
-          ################################################################################
-          - job: create_ado_prs
-          ################################################################################
+      - stage: CreatePRs
+        dependsOn:
+        - Release
+        - Verify_release
+        condition: and(succeeded(), not(${{ parameters.onlyGitHubRelease }}))
+        jobs:
+        ################################################################################
+        - job: create_ado_prs
+        ################################################################################
+          displayName: Create PRs in AzureDevOps and ConfigChange
+          pool:
+            vmImage: ubuntu-latest
+          variables:
+            IsRelease: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isRelease'] ]
+            ReleaseBranch: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.releaseBranch'] ]
+            AgentVersion: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.agentVersion'] ]
+          condition: and(succeeded(), eq(variables.IsRelease, 'True'))
+
+          steps:
+          - checkout: self
+
+          - ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/master') }}:
+            - script: git checkout $(ReleaseBranch)
+              displayName: Checkout release branch
+
+          # Download all agent hashes created in previous phases
+          - task: DownloadBuildArtifacts@0
+            displayName: Download Agent Hashes
+            inputs:
+              artifactName: hash
+              downloadPath: $(Build.SourcesDirectory)/_hashes
+
+          - bash: |
+              set -x
+              cd release
+              npm install
+              ls
+              node createAdoPrs.js $(AgentVersion)
             displayName: Create PRs in AzureDevOps and ConfigChange
-            pool:
-              vmImage: ubuntu-latest
-
-            steps:
-            - checkout: self
-
-            - ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/master') }}:
-              - script: git checkout ${{ variables.releaseBranch }}
-                displayName: Checkout release branch
-
-            # Download all agent hashes created in previous phases
-            - task: DownloadBuildArtifacts@0
-              displayName: Download Agent Hashes
-              inputs:
-                artifactName: hash
-                downloadPath: $(Build.SourcesDirectory)/_hashes
-
-            - bash: |
-                set -x
-                cd release
-                npm install
-                ls
-                node createAdoPrs.js ${{ parameters.version }}
-              displayName: Create PRs in AzureDevOps and ConfigChange
-              env:
-                USERNAME: $(User)
-                PAT: $(AdoPAT)
-                USEREMAIL: $(Email)
+            env:
+              USERNAME: $(User)
+              PAT: $(AdoPAT)
+              USEREMAIL: $(Email)

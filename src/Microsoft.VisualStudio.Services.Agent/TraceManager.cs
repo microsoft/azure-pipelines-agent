@@ -5,7 +5,7 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using Microsoft.TeamFoundation.DistributedTask.Logging;
+using Agent.Sdk.SecretMasking;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {

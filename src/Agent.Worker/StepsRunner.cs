@@ -83,6 +83,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     HostContext.WritePerfCounter($"TaskStart_{taskStep.Task.Reference.Name}_{stepIndex}");
                 }
 
+                // Change the current job context to the step context.
+                var resourceDiagnosticManager = HostContext.GetService<IResourceMetricsManager>();
+                resourceDiagnosticManager.SetContext(step.ExecutionContext);
+                
                 // Variable expansion.
                 step.ExecutionContext.SetStepTarget(step.Target);
                 List<string> expansionWarnings;
