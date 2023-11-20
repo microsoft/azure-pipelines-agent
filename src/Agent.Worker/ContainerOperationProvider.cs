@@ -19,6 +19,7 @@ using Microsoft.TeamFoundation.Work.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
+using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.Win32;
 using Newtonsoft.Json;
@@ -767,48 +768,36 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
 
-                    bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(executionContext).AsBoolean();
-
-                    if(!useNode20InUnsupportedSystem)
+                    if (PlatformUtil.RunningOnLinux)
                     {
-                        var node20 = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node20_1Folder, "bin", $"node{IOUtil.ExeExtension}"));
+                        bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(executionContext).AsBoolean();
 
-                        string node20TestCmd = $"bash -c \"{node20} -v\"";
-                        List<string> nodeInfo = await DockerExec(executionContext, container.ContainerId, node20TestCmd, noExceptionOnError: true);
-                        if (nodeInfo.Count > 0)
+                        if (!useNode20InUnsupportedSystem)
                         {
-                            foreach(var nodeInfoLine in nodeInfo)
+                            var node20 = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node20_1Folder, "bin", $"node{IOUtil.ExeExtension}"));
+
+                            string node20TestCmd = $"bash -c \"{node20} -v\"";
+                            List<string> nodeVersionOutput = await DockerExec(executionContext, container.ContainerId, node20TestCmd, noExceptionOnError: true);
+
+                            container.NeedsNode16Redirect = WorkerUtilities.IsCommandResultGlibcError(executionContext, nodeVersionOutput, out string nodeInfoLine);
+
+                            if (container.NeedsNode16Redirect)
                             {
-                                // detect example error from node 20 attempting to run on Ubuntu18:
-                                // /__a/externals/node20/bin/node: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.27' not found (required by /__a/externals/node20/bin/node)
-                                // /__a/externals/node20/bin/node: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.28' not found (required by /__a/externals/node20/bin/node)
-                                // /__a/externals/node20/bin/node: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.25' not found (required by /__a/externals/node20/bin/node)
-                                if(nodeInfoLine.Contains("version `GLIBC_2.28' not found")
-                                    || nodeInfoLine.Contains("version `GLIBC_2.25' not found")
-                                    || nodeInfoLine.Contains("version `GLIBC_2.27' not found"))
-                                {
-                                    executionContext.Debug($"GLIBC error found executing node -v; setting NeedsNode16Redirect: {nodeInfoLine}");
-                                    executionContext.Warning($"The container operating system doesn't support Node20. Using Node16 instead. " +
-                                                "Please upgrade the operating system of the container to ensure compatibility with Node20 tasks: " +
-                                                "https://github.com/nodesource/distributions");
-                                                        
-                                    container.NeedsNode16Redirect = true;
-                                }
+                                PublishTelemetry(
+                                    executionContext,
+                                    new Dictionary<string, string>
+                                    {
+                                        {  "ContainerNode20to16Fallback", container.NeedsNode16Redirect.ToString() }
+                                    }
+                                );
                             }
                         }
+
                     }
 
                     if (!string.IsNullOrEmpty(containerUserName))
                     {
                         container.CurrentUserName = containerUserName;
-                    }
-
-                    if(!useNode20InUnsupportedSystem)
-                    {
-                        if(container.NeedsNode16Redirect)
-                        {
-                            container.CustomNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node16Folder, "bin", $"node{IOUtil.ExeExtension}"));
-                        }
                     }
                 }
             }
@@ -1038,6 +1027,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 throw new ArgumentOutOfRangeException(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ReleaseId");
             }
+        }
+
+        private void PublishTelemetry(
+            IExecutionContext executionContext,
+            object telemetryData,
+            string feature = nameof(ContainerOperationProvider)
+)
+        {
+            var cmd = new Command("telemetry", "publish")
+            {
+                Data = JsonConvert.SerializeObject(telemetryData, Formatting.None)
+            };
+            cmd.Properties.Add("area", "PipelinesTasks");
+            cmd.Properties.Add("feature", feature);
+
+            var publishTelemetryCmd = new TelemetryCommandExtension();
+            publishTelemetryCmd.Initialize(HostContext);
+            publishTelemetryCmd.ProcessCommand(executionContext, cmd);
         }
     }
 }

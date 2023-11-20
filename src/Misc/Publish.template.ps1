@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 
-if ($pwd -notlike '*tfsgheus20' ) {
+if ($pwd -notlike '*tfsgheus20') {
 
     # primary packages
 

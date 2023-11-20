@@ -17,6 +17,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         Task Run();
         void Setup(IExecutionContext context);
+        void SetContext(IExecutionContext context);
     }
 
     public sealed class ResourceMetricsManager : AgentService, IResourceMetricsManager
@@ -27,6 +28,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void Setup(IExecutionContext context)
         {
+            //initial context
             ArgUtil.NotNull(context, nameof(context));
             _context = context;
 
@@ -38,6 +40,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 _context.Warning($"Unable to get current process, ex:{ex.Message}");
             }
+        }
+        public void SetContext(IExecutionContext context)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+            _context = context;
         }
         public async Task Run()
         {
@@ -68,7 +75,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        private const int c_mb = 1024*1024;
+        private const int c_mb = 1024 * 1024;
 
         private Process _currentProcess;
 

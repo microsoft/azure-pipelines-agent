@@ -37,8 +37,11 @@
     <OSArchitecture>X86</OSArchitecture>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(OSPlatform)' == 'OS_OSX'">
+  <PropertyGroup Condition="'$(OSPlatform)' == 'OS_OSX' AND '$(PackageRuntime)' == 'osx-x64'">
     <OSArchitecture>X64</OSArchitecture>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(OSPlatform)' == 'OS_OSX' AND '$(PackageRuntime)' == 'osx-arm64'">
+    <OSArchitecture>ARM64</OSArchitecture>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(OSPlatform)' == 'OS_LINUX' AND '$(PackageRuntime)' == 'linux-x64'">
