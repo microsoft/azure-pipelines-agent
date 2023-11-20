@@ -198,11 +198,11 @@ async function main() {
             ]
         );
 
-        console.log(`##vso[task.setvariable variable=ADO_PR_ID]${adoPrId}`);
-        console.log(`##vso[task.setvariable variable=ADO_PR_LINK]${adoPrLink}`);
+        console.log(`##vso[task.setvariable variable=AdoPrId;isOutput=true]${adoPrId}`);
+        console.log(`##vso[task.setvariable variable=AdoPrLink;isOutput=true]${adoPrLink}`);
 
-        console.log(`##vso[task.setvariable variable=CC_PR_ID]${ccPrId}`);
-        console.log(`##vso[task.setvariable variable=CC_PR_LINK]${ccPrLink}`);
+        console.log(`##vso[task.setvariable variable=CcPrId;isOutput=true]${ccPrId}`);
+        console.log(`##vso[task.setvariable variable=CcPrLink;isOutput=true]${ccPrLink}`);
 
         console.log('Done.');
     } catch (err) {
