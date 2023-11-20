@@ -251,19 +251,18 @@ extends:
         - Release
         - Verify_release
         condition: and(succeeded(), not(${{ parameters.onlyGitHubRelease }}))
+        pool:
+          vmImage: ubuntu-latest
         jobs:
         ################################################################################
         - job: create_ado_prs
         ################################################################################
           displayName: Create PRs in AzureDevOps and ConfigChange
-          pool:
-            vmImage: ubuntu-latest
           variables:
             IsRelease: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isRelease'] ]
             ReleaseBranch: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.releaseBranch'] ]
             AgentVersion: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.agentVersion'] ]
           condition: and(succeeded(), eq(variables.IsRelease, 'True'))
-
           steps:
           - checkout: self
 
