@@ -15,8 +15,9 @@ using Microsoft.TeamFoundation.DistributedTask.Logging;
 using System.Net.Http.Headers;
 using Agent.Sdk;
 using Agent.Sdk.Knob;
+using Agent.Sdk.SecretMasking;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
-using Agent.Sdk.Util;
+using SecretMasker = Agent.Sdk.SecretMasking.SecretMasker;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {

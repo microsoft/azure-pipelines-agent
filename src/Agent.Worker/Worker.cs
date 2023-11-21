@@ -68,14 +68,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 InitializeSecretMasker(jobMessage);
                 SetCulture(jobMessage);
 
-                var maskUsingCredScanRegexesState = "Off";
-
-                if(jobMessage.Variables.TryGetValue(Constants.Variables.Agent.EnableAdditionalMaskingRegexes, out var enableAdditionalMaskingRegexes))
-                {
-                    maskUsingCredScanRegexesState = enableAdditionalMaskingRegexes.Value;
-                }
-
-                if(maskUsingCredScanRegexesState == "On")
+                if(AgentKnobs.EnableNewSecretMasker.GetValue(HostContext).AsBoolean())
                 {
                     Trace.Verbose($"{Constants.Variables.Agent.EnableAdditionalMaskingRegexes} is On, adding additional masking regexes");
                     HostContext.AddAdditionalMaskingRegexes();

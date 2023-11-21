@@ -90,9 +90,9 @@ namespace Agent.Sdk
         public string CurrentUserId { get; set; }
         public string CurrentGroupName { get; set; }
         public string CurrentGroupId { get; set; }
-
         public bool IsJobContainer { get; set; }
         public bool MapDockerSocket { get; set; }
+        public bool NeedsNode16Redirect { get; set; }
         public PlatformUtil.OS ImageOS
         {
             get
