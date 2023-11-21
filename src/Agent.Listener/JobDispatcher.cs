@@ -621,30 +621,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                     var ffState = await service.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.FailJobWhenAgentDies", Trace);
                                     if (ffState.EffectiveState == "On")
                                     {
+                                        await PublishTelemetry(message, TaskResult.Failed.ToString(), "100");
                                         resultOnAbandonOrCancel = TaskResult.Failed;
-                                    }
-                                    try
-                                    {
-                                        var telemetryData = new Dictionary<string, string>
-                                        {
-                                            { "JobId", message.JobId.ToString()},
-                                            { "JobResult", resultOnAbandonOrCancel.ToString() },
-                                            { "TracePoint", "100"},
-                                        };
-                                        var cmd = new Command("telemetry", "publish")
-                                        {
-                                            Data = JsonConvert.SerializeObject(telemetryData)
-                                        };
-                                        cmd.Properties.Add("area", "PipelinesTasks");
-                                        cmd.Properties.Add("feature", "AgentShutdown");
-
-                                        var telemetryPublisher = HostContext.GetService<IAgenetListenerTelemetryPublisher>();
-
-                                        await telemetryPublisher.PublishEvent(HostContext, cmd);
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        Trace.Warning($"Unable to publish agent shutdown telemetry data. Exception: {ex}");
                                     }
                                     switch (HostContext.AgentShutdownReason)
                                     {
@@ -948,6 +926,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             {
                 Trace.Error("Fail to report unhandled exception from Agent.Worker process");
                 Trace.Error(ex);
+            }
+        }
+
+        private async Task PublishTelemetry(Pipelines.AgentJobRequestMessage message, string Task_Result, string TracePoint)
+        {
+            try
+            {
+                var telemetryData = new Dictionary<string, string>
+                {
+                    { "JobId", message.JobId.ToString()},
+                    { "JobResult", Task_Result },
+                    { "TracePoint", TracePoint},
+                };
+                var cmd = new Command("telemetry", "publish")
+                {
+                    Data = JsonConvert.SerializeObject(telemetryData)
+                };
+                cmd.Properties.Add("area", "PipelinesTasks");
+                cmd.Properties.Add("feature", "AgentShutdown");
+
+                var telemetryPublisher = HostContext.GetService<IAgenetListenerTelemetryPublisher>();
+
+                await telemetryPublisher.PublishEvent(HostContext, cmd);
+            }
+            catch (Exception ex)
+            {
+                Trace.Warning($"Unable to publish agent shutdown telemetry data. Exception: {ex}");
             }
         }
 

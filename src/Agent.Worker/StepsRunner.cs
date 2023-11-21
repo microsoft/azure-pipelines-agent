@@ -113,10 +113,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             {
                                 if (AgentKnobs.FailJobWhenAgentDies.GetValue(jobContext).AsBoolean())
                                 {
+                                    PublishTelemetry (jobContext, TaskResult.Failed.ToString(), "120");
                                     jobContext.Result = TaskResult.Failed;
                                     jobContext.Variables.Agent_JobStatus = jobContext.Result;
                                 }
-                                PublishTelemetry (jobContext, jobContext.Result.ToString(), "120");
                                 step.ExecutionContext.Debug($"Skip Re-evaluate condition on agent shutdown.");
                                 conditionReTestResult = false;
                             }
