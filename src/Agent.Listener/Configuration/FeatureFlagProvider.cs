@@ -42,12 +42,13 @@ namespace Agent.Listener.Configuration
 
             var credMgr = context.GetService<ICredentialManager>();
             var configManager = context.GetService<IConfigurationManager>();
+            var agentCertManager = context.GetService<IAgentCertificateManager>();
 
             VssCredentials creds = credMgr.LoadCredentials();
             ArgUtil.NotNull(creds, nameof(creds));
 
             AgentSettings settings = configManager.LoadSettings();
-            using var vssConnection = VssUtil.CreateConnection(new Uri(settings.ServerUrl), creds, traceWriter);
+            using var vssConnection = VssUtil.CreateConnection(new Uri(settings.ServerUrl), creds, traceWriter, agentCertManager.SkipServerCertificateValidation);
             var client = vssConnection.GetClient<FeatureAvailabilityHttpClient>();
             try
             {

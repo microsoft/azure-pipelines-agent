@@ -18,6 +18,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Net.Http;
 using Newtonsoft.Json.Linq;
+using Newtonsoft.Json;
+using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -297,9 +299,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     // set the job to canceled
                     // don't log error issue to job ExecutionContext, since server owns the job level issue
-                    Trace.Error($"Job is canceled during initialize.");
-                    Trace.Error($"Caught exception: {ex}");
-                    return await CompleteJobAsync(jobServer, jobContext, message, TaskResult.Canceled);
+                    if (AgentKnobs.FailJobWhenAgentDies.GetValue(jobContext).AsBoolean() &&
+                        HostContext.AgentShutdownToken.IsCancellationRequested)
+                    {
+                        PublishTelemetry(jobContext, TaskResult.Failed.ToString(), "111");
+                        Trace.Error($"Job is canceled during initialize.");
+                        Trace.Error($"Caught exception: {ex}");
+                        return await CompleteJobAsync(jobServer, jobContext, message, TaskResult.Failed);
+                    }
+                    else
+                    {
+                        Trace.Error($"Job is canceled during initialize.");
+                        Trace.Error($"Caught exception: {ex}");
+                        return await CompleteJobAsync(jobServer, jobContext, message, TaskResult.Canceled);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -595,6 +608,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 string tfsServerUrl = message.Variables[Constants.Variables.System.TFServerUrl].Value;
                 message.Variables[Constants.Variables.System.TFServerUrl] = ReplaceWithConfigUriBase(new Uri(tfsServerUrl)).AbsoluteUri;
                 Trace.Info($"Ensure System.TFServerUrl match config url base. {message.Variables[Constants.Variables.System.TFServerUrl].Value}");
+            }
+        }
+
+        private void PublishTelemetry(IExecutionContext context, string Task_Result, string TracePoint)
+        {
+            try
+            {
+                var telemetryData = new Dictionary<string, string>
+                {
+                    { "JobId", context.Variables.System_JobId.ToString()},
+                    { "JobResult", Task_Result },
+                    { "TracePoint", TracePoint},
+                };
+                var cmd = new Command("telemetry", "publish");
+                cmd.Data = JsonConvert.SerializeObject(telemetryData, Formatting.None);
+                cmd.Properties.Add("area", "PipelinesTasks");
+                cmd.Properties.Add("feature", "AgentShutdown");
+
+                var publishTelemetryCmd = new TelemetryCommandExtension();
+                publishTelemetryCmd.Initialize(HostContext);
+                publishTelemetryCmd.ProcessCommand(context, cmd);
+            }
+            catch (Exception ex)
+            {
+                Trace.Warning($"Unable to publish agent shutdown telemetry data. Exception: {ex}");
             }
         }
     }
