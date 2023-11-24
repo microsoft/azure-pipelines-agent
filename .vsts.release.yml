@@ -251,19 +251,18 @@ extends:
         - Release
         - Verify_release
         condition: and(succeeded(), not(${{ parameters.onlyGitHubRelease }}))
+        pool:
+          vmImage: ubuntu-latest
         jobs:
         ################################################################################
         - job: create_ado_prs
         ################################################################################
           displayName: Create PRs in AzureDevOps and ConfigChange
-          pool:
-            vmImage: ubuntu-latest
           variables:
             IsRelease: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isRelease'] ]
             ReleaseBranch: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.releaseBranch'] ]
             AgentVersion: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.agentVersion'] ]
           condition: and(succeeded(), eq(variables.IsRelease, 'True'))
-
           steps:
           - checkout: self
 
@@ -284,8 +283,25 @@ extends:
               npm install
               ls
               node createAdoPrs.js $(AgentVersion)
+            name: s_CreateAdoPrs
             displayName: Create PRs in AzureDevOps and ConfigChange
             env:
               USERNAME: $(User)
               PAT: $(AdoPAT)
               USEREMAIL: $(Email)
+
+        - job: SendNotifications
+          displayName: Send notifications
+          dependsOn: create_ado_prs
+          condition: and(succeeded(), eq(variables.IsRelease, 'True'))
+          steps:
+          - pwsh: release\Send-PRsNotification.ps1
+            displayName: Send MS Teams notification
+            # We only want to send a notification if this is a scheduled release
+            condition: eq(variables['build.reason'], 'Schedule')
+            env:
+              ADO_PR_ID: $[ dependencies.create_ado_prs.outputs['s_CreateAdoPrs.AdoPrId'] ]
+              ADO_PR_LINK: $[ dependencies.create_ado_prs.outputs['s_CreateAdoPrs.AdoPrLink'] ]
+              CC_PR_ID: $[ dependencies.create_ado_prs.outputs['s_CreateAdoPrs.CcPrId'] ]
+              CC_PR_LINK: $[ dependencies.create_ado_prs.outputs['s_CreateAdoPrs.CcPrLink'] ]
+              MS_TEAMS_WEBHOOK: $(MsTeamsWebhook)
