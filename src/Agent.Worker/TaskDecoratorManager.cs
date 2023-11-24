@@ -98,5 +98,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         public static readonly String PostTargetTask = "__system_posttargettask_";
         public static readonly String PreTargetTask = "__system_pretargettask_";
+        public static readonly String InjectedTaskCommon = "__system_";
     }
 }

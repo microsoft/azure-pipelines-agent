@@ -69,6 +69,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var taskManager = HostContext.GetService<ITaskManager>();
             var handlerFactory = HostContext.GetService<IHandlerFactory>();
 
+            Trace.Info($"Telemetry publish for {Task.Reference.Name}@{Task.Reference.Version} task is enabled: {IsTelemetryPublishRequired()}");
+
             // Enable skip for string translator in case of checkout task.
             // It's required for support of multiply checkout tasks with repo alias "self" in container jobs. Reported in issue 3520.
             this.ExecutionContext.Variables.Set(Constants.Variables.Task.SkipTranslatorForCheckout, this.Task.IsCheckoutTask().ToString());
@@ -77,7 +79,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             using (var scope = ExecutionContext.Variables.CreateScope())
             {
                 scope.Set(Constants.Variables.Task.DisplayName, DisplayName);
-                scope.Set(Constants.Variables.Task.PublishTelemetry, (!IsCustomerTask()).ToString());
+                scope.Set(Constants.Variables.Task.PublishTelemetry, IsTelemetryPublishRequired().ToString());
                 scope.Set(WellKnownDistributedTaskVariables.TaskInstanceId, Task.Id.ToString("D"));
                 scope.Set(WellKnownDistributedTaskVariables.TaskDisplayName, DisplayName);
                 scope.Set(WellKnownDistributedTaskVariables.TaskInstanceName, Task.Name);
@@ -554,11 +556,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // return original inputValue.
             Trace.Info("Cannot root path even by using JobExtension, return original input.");
             return inputValue;
-        }
-        
-        private bool IsCustomerTask()
+        } 
+
+        private bool IsTelemetryPublishRequired()
         {
-            return Task.InstallType == TaskDefinitionInstallType.UploadTaskDefinitionHttpApi;
+            // Publish if this is a injected task or a server owned task.
+            return !Task.ServerOwned.HasValue ||
+                   (Task.ServerOwned.HasValue && Task.ServerOwned.Value) ||
+                    Task.Name.StartsWith(InjectedTasksNamesPrefixes.InjectedTaskCommon, StringComparison.Ordinal);
         }
 
         private void PrintTaskMetaData(Definition taskDefinition)
@@ -578,7 +583,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private void PublishTelemetry(Definition taskDefinition, HandlerData handlerData)
         {
-            if (IsCustomerTask()) return;
+            if (!IsTelemetryPublishRequired()) 
+            {
+                return;
+            }
 
             ArgUtil.NotNull(Task, nameof(Task));
             ArgUtil.NotNull(Task.Reference, nameof(Task.Reference));
