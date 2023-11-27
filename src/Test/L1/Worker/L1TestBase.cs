@@ -264,6 +264,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             _mockedServices.Add(context.SetupService<IAgentPluginManager>(typeof(FakeAgentPluginManager)));
             _mockedServices.Add(context.SetupService<ITaskManager>(typeof(FakeTaskManager)));
             _mockedServices.Add(context.SetupService<ICustomerIntelligenceServer>(typeof(FakeCustomerIntelligenceServer)));
+            _mockedServices.Add(context.SetupService<IResourceMetricsManager>(typeof(FakeResourceMetricsManager)));
         }
 
         private string GetLogFile(object testClass, string testMethod)

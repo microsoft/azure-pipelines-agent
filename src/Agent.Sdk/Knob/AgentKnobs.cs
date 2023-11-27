@@ -159,11 +159,11 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_USE_NODE16"),
             new BuiltInDefaultKnobSource("false"));
 
-        public static readonly Knob UseNode20 = new Knob(
-            nameof(UseNode20),
+        public static readonly Knob UseNode20_1 = new Knob(
+            nameof(UseNode20_1),
             "Forces the agent to use Node 20 handler for all Node-based tasks",
-            new RuntimeKnobSource("AGENT_USE_NODE20"),
-            new EnvironmentKnobSource("AGENT_USE_NODE20"),
+            new RuntimeKnobSource("AGENT_USE_NODE20_1"),
+            new EnvironmentKnobSource("AGENT_USE_NODE20_1"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob UseNode20InUnsupportedSystem = new Knob(
@@ -534,6 +534,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_AGENT_IGNORE_VSTSTASKLIB"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob FailJobWhenAgentDies = new Knob(
+            nameof(FailJobWhenAgentDies),
+            "Mark the Job as Failed instead of Canceled when the Agent dies due to User Cancellation or Shutdown",
+            new RuntimeKnobSource("FAIL_JOB_WHEN_AGENT_DIES"),
+            new EnvironmentKnobSource("FAIL_JOB_WHEN_AGENT_DIES"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob AllowWorkDirectoryRepositories = new Knob(
             nameof(AllowWorkDirectoryRepositories),
             "Allows repositories to be checked out below work directory level on self hosted agents.",
@@ -544,7 +551,7 @@ namespace Agent.Sdk.Knob
         public static readonly Knob CheckForTaskDeprecation = new Knob(
             nameof(CheckForTaskDeprecation),
             "If true, the agent will check in the 'Initialize job' step each task used in the job for task deprecation.",
-            new EnvironmentKnobSource("AZP_AGENT_CHECK_FOR_TASK_DEPRECATION"),
+            new RuntimeKnobSource("AZP_AGENT_CHECK_FOR_TASK_DEPRECATION"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob MountWorkspace = new Knob(
@@ -552,6 +559,12 @@ namespace Agent.Sdk.Knob
             "If true, the agent will mount the Pipeline.Workspace directory instead of the Working directory for steps which target a Docker container.",
             new RuntimeKnobSource("AZP_AGENT_MOUNT_WORKSPACE"),
             new EnvironmentKnobSource("AZP_AGENT_MOUNT_WORKSPACE"),
+            new BuiltInDefaultKnobSource("false"));
+      
+        public static readonly Knob EnableNewSecretMasker = new Knob(
+            nameof(EnableNewSecretMasker),
+            "If true, the agent will use new SecretMasker with additional filters & performance enhancements",
+            new EnvironmentKnobSource("AZP_ENABLE_NEW_SECRET_MASKER"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob AddDockerInitOption = new Knob(

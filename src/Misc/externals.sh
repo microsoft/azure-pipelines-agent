@@ -17,7 +17,7 @@ fi
 NODE_VERSION="6.17.1"
 NODE10_VERSION="10.24.1"
 NODE16_VERSION="16.20.2"
-NODE20_VERSION="20.3.1"
+NODE20_VERSION="20.9.0"
 MINGIT_VERSION="2.39.1"
 FF_MINGIT_VERSION="2.42.0.2"
 LFS_VERSION="3.3.0"
@@ -178,8 +178,8 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
     acquireExternalTool "${NODE_URL}/v${NODE10_VERSION}/${PACKAGERUNTIME}/node.lib" node10/bin
     acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/${PACKAGERUNTIME}/node.exe" node16/bin
     acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/${PACKAGERUNTIME}/node.lib" node16/bin
-    acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.exe" node20/bin
-    acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.lib" node20/bin
+    acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.exe" node20_1/bin
+    acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.lib" node20_1/bin
 else
     # Download external tools for Linux and OSX.
 
@@ -194,7 +194,7 @@ else
 
         ARCH="darwin-arm64"
         acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/node-v${NODE16_VERSION}-${ARCH}.tar.gz" node16 fix_nested_dir
-        acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20 fix_nested_dir
+        acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20_1 fix_nested_dir
     else
         case $PACKAGERUNTIME in
             "linux-musl-x64") ARCH="linux-x64-musl";;
@@ -210,7 +210,7 @@ else
         fi
         acquireExternalTool "${NODE_URL}/v${NODE10_VERSION}/node-v${NODE10_VERSION}-${ARCH}.tar.gz" node10 fix_nested_dir
         acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/node-v${NODE16_VERSION}-${ARCH}.tar.gz" node16 fix_nested_dir
-        acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20 fix_nested_dir
+        acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20_1 fix_nested_dir
     fi
     # remove `npm`, `npx`, `corepack`, and related `node_modules` from the `externals/node*` agent directory
     # they are installed along with node, but agent does not use them
@@ -227,10 +227,10 @@ else
     rm "$LAYOUT_DIR/externals/node16/bin/npx"
     rm "$LAYOUT_DIR/externals/node16/bin/corepack"
 
-    rm -rf "$LAYOUT_DIR/externals/node20/lib"
-    rm "$LAYOUT_DIR/externals/node20/bin/npm"
-    rm "$LAYOUT_DIR/externals/node20/bin/npx"
-    rm "$LAYOUT_DIR/externals/node20/bin/corepack"
+    rm -rf "$LAYOUT_DIR/externals/node20_1/lib"
+    rm "$LAYOUT_DIR/externals/node20_1/bin/npm"
+    rm "$LAYOUT_DIR/externals/node20_1/bin/npx"
+    rm "$LAYOUT_DIR/externals/node20_1/bin/corepack"
 fi
 
 if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then

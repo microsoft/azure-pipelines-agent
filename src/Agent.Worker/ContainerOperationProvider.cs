@@ -18,6 +18,8 @@ using Azure.Identity;
 using Microsoft.TeamFoundation.Work.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
+using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
+using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.Win32;
 using Newtonsoft.Json;
@@ -766,6 +768,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
 
+                    if (PlatformUtil.RunningOnLinux)
+                    {
+                        bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(executionContext).AsBoolean();
+
+                        if (!useNode20InUnsupportedSystem)
+                        {
+                            var node20 = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node20_1Folder, "bin", $"node{IOUtil.ExeExtension}"));
+
+                            string node20TestCmd = $"bash -c \"{node20} -v\"";
+                            List<string> nodeVersionOutput = await DockerExec(executionContext, container.ContainerId, node20TestCmd, noExceptionOnError: true);
+
+                            container.NeedsNode16Redirect = WorkerUtilities.IsCommandResultGlibcError(executionContext, nodeVersionOutput, out string nodeInfoLine);
+
+                            if (container.NeedsNode16Redirect)
+                            {
+                                PublishTelemetry(
+                                    executionContext,
+                                    new Dictionary<string, string>
+                                    {
+                                        {  "ContainerNode20to16Fallback", container.NeedsNode16Redirect.ToString() }
+                                    }
+                                );
+                            }
+                        }
+
+                    }
+
                     if (!string.IsNullOrEmpty(containerUserName))
                     {
                         container.CurrentUserName = containerUserName;
@@ -909,7 +938,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        private async Task<List<string>> DockerExec(IExecutionContext context, string containerId, string command)
+        private async Task<List<string>> DockerExec(IExecutionContext context, string containerId, string command, bool noExceptionOnError=false)
         {
             Trace.Info($"Docker-exec is going to execute: `{command}`; container id: `{containerId}`");
             List<string> output = new List<string>();
@@ -927,7 +956,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             if (exitCode != 0)
             {
                 Trace.Error(message);
-                throw new InvalidOperationException(message);
+                if(!noExceptionOnError)
+                {
+                    throw new InvalidOperationException(message);
+                }
             }
             Trace.Info(message);
             return output;
@@ -995,6 +1027,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 throw new ArgumentOutOfRangeException(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ReleaseId");
             }
+        }
+
+        private void PublishTelemetry(
+            IExecutionContext executionContext,
+            object telemetryData,
+            string feature = nameof(ContainerOperationProvider)
+)
+        {
+            var cmd = new Command("telemetry", "publish")
+            {
+                Data = JsonConvert.SerializeObject(telemetryData, Formatting.None)
+            };
+            cmd.Properties.Add("area", "PipelinesTasks");
+            cmd.Properties.Add("feature", feature);
+
+            var publishTelemetryCmd = new TelemetryCommandExtension();
+            publishTelemetryCmd.Initialize(HostContext);
+            publishTelemetryCmd.ProcessCommand(executionContext, cmd);
         }
     }
 }

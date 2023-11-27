@@ -373,6 +373,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string GitShallowDepth = "agent.source.git.shallowFetchDepth";
                 public static readonly string SkipSyncSource = "agent.source.skip";
                 public static readonly string EnableAdditionalMaskingRegexes = "agent.enableadditionalmaskingregexes";
+                public static readonly string UseMaskingPerformanceEnhancements = "agent.agentUseMaskingPerformanceEnhancements";
             }
 
             public static class Maintenance
@@ -545,6 +546,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Features.GitLfsSupport,
                 Features.GitShallowDepth,
                 Features.SkipSyncSource,
+                Features.UseMaskingPerformanceEnhancements,
                 // Pipeline variables
                 Pipeline.Workspace,
                 // Release variables
