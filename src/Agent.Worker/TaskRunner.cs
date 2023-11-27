@@ -561,8 +561,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private bool IsTelemetryPublishRequired()
         {
             // Publish if this is a injected task or a server owned task.
-            return !Task.ServerOwned.HasValue ||
-                   (Task.ServerOwned.HasValue && Task.ServerOwned.Value) ||
+            return !Task.IsServerOwned.HasValue ||
+                   (Task.IsServerOwned.HasValue && Task.IsServerOwned.Value) ||
                     Task.Name.StartsWith(InjectedTasksNamesPrefixes.InjectedTaskCommon, StringComparison.Ordinal);
         }
 
