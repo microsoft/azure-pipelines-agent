@@ -13,6 +13,8 @@ using System.Linq;
 using System.Diagnostics;
 using Agent.Sdk;
 using Agent.Sdk.Knob;
+using Newtonsoft.Json;
+using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -473,10 +475,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 catch (OperationCanceledException ex) when (jobContext.CancellationToken.IsCancellationRequested)
                 {
                     // Log the exception and cancel the JobExtension Initialization.
-                    Trace.Error($"Caught cancellation exception from JobExtension Initialization: {ex}");
-                    context.Error(ex);
-                    context.Result = TaskResult.Canceled;
-                    throw;
+                    if (AgentKnobs.FailJobWhenAgentDies.GetValue(jobContext).AsBoolean() &&
+                        HostContext.AgentShutdownToken.IsCancellationRequested)
+                    {
+                        PublishTelemetry(jobContext, TaskResult.Failed.ToString(), "110");
+                        Trace.Error($"Caught Agent Shutdown exception from JobExtension Initialization: {ex.Message}");
+                        context.Error(ex);
+                        context.Result = TaskResult.Failed;
+                        throw;
+                    }
+                    else
+                    {
+                        Trace.Error($"Caught cancellation exception from JobExtension Initialization: {ex}");
+                        context.Error(ex);
+                        context.Result = TaskResult.Canceled;
+                        throw;
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -651,6 +665,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 context.Output($"Fail to load and print machine setup info: {ex.Message}");
                 Trace.Error(ex);
+            }
+        }
+
+        private void PublishTelemetry(IExecutionContext context, string Task_Result, string TracePoint)
+        {
+            try
+            {
+                var telemetryData = new Dictionary<string, string>
+                {
+                    { "JobId", context.Variables.System_JobId.ToString()},
+                    { "JobResult", Task_Result },
+                    { "TracePoint", TracePoint},
+                };
+                var cmd = new Command("telemetry", "publish");
+                cmd.Data = JsonConvert.SerializeObject(telemetryData, Formatting.None);
+                cmd.Properties.Add("area", "PipelinesTasks");
+                cmd.Properties.Add("feature", "AgentShutdown");
+
+                var publishTelemetryCmd = new TelemetryCommandExtension();
+                publishTelemetryCmd.Initialize(HostContext);
+                publishTelemetryCmd.ProcessCommand(context, cmd);
+            }
+            catch (Exception ex)
+            {
+                Trace.Warning($"Unable to publish agent shutdown telemetry data. Exception: {ex}");
             }
         }
     }

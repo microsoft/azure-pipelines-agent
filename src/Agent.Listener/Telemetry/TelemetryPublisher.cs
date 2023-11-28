@@ -77,8 +77,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Telemetry
 
                 var configManager = context.GetService<IConfigurationManager>();
                 AgentSettings settings = configManager.LoadSettings();
+                var agentCertManager = context.GetService<IAgentCertificateManager>();
 
-                using var vsConnection = VssUtil.CreateConnection(new Uri(settings.ServerUrl), creds, Trace);
+                using var vsConnection = VssUtil.CreateConnection(new Uri(settings.ServerUrl), creds, Trace, agentCertManager.SkipServerCertificateValidation);
                 _ciService.Initialize(vsConnection);
                 await PublishEventsAsync(context, ciEvent);
 

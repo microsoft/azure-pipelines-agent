@@ -160,7 +160,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             BlobIdentifier blobId = VsoHash.CalculateBlobIdentifierWithBlocks(blob).BlobId;
 
-            // Since we read this while calculating the hash, the position needs to be reset before we send this 
+            // Since we read this while calculating the hash, the position needs to be reset before we send this
             blob.Position = 0;
 
             using (var blobClient = CreateArtifactsClient(_connection, default(CancellationToken)))
@@ -173,7 +173,13 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             int maxParallelism = HostContext.GetService<IConfigurationStore>().GetSettings().MaxDedupParallelism;
             var (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                    .CreateDedupClientAsync(verbose, (str) => Trace.Info(str), this._connection, maxParallelism, cancellationToken);
+                .CreateDedupClientAsync(
+                    verbose,
+                    (str) => Trace.Info(str),
+                    this._connection,
+                    maxParallelism,
+                    clientType: null,
+                    cancellationToken);
 
             var results = await BlobStoreUtils.UploadToBlobStore(verbose, itemPath, (level, uri, type) =>
                 new TimelineRecordAttachmentTelemetryRecord(level, uri, type, nameof(UploadAttachmentToBlobStore), planId, jobId, Guid.Empty), (str) => Trace.Info(str), dedupClient, clientTelemetry, cancellationToken);

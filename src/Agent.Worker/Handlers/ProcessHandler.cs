@@ -6,6 +6,7 @@ using Agent.Worker.Handlers.Helpers;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -63,12 +64,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             Trace.Info($"Command is rooted: {isCommandRooted}");
 
-            var disableInlineExecution = StringUtil.ConvertToBoolean(Data.DisableInlineExecution);
+            bool disableInlineExecution = StringUtil.ConvertToBoolean(Data.DisableInlineExecution);
             ExecutionContext.Debug($"Disable inline execution: '{disableInlineExecution}'");
 
             if (disableInlineExecution && !File.Exists(command))
             {
-                throw new Exception(StringUtil.Loc("FileNotFound", command));
+                throw new FileNotFoundException(StringUtil.Loc("FileNotFound", command));
             }
 
             // Determine the working directory.
@@ -132,31 +133,69 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 cmdExe = "cmd.exe";
             }
 
-            var enableSecureArguments = AgentKnobs.ProcessHandlerSecureArguments.GetValue(ExecutionContext).AsBoolean();
+            bool enableSecureArguments = AgentKnobs.ProcessHandlerSecureArguments.GetValue(ExecutionContext).AsBoolean();
             ExecutionContext.Debug($"Enable secure arguments: '{enableSecureArguments}'");
-            var enableSecureArgumentsAudit = AgentKnobs.ProcessHandlerSecureArgumentsAudit.GetValue(ExecutionContext).AsBoolean();
-            ExecutionContext.Debug($"Enable secure arguments audit: '{enableSecureArgumentsAudit}'");
-            var enableTelemetry = AgentKnobs.ProcessHandlerTelemetry.GetValue(ExecutionContext).AsBoolean();
-            ExecutionContext.Debug($"Enable telemetry: '{enableTelemetry}'");
+            bool enableNewPHLogic = AgentKnobs.ProcessHandlerEnableNewLogic.GetValue(ExecutionContext).AsBoolean();
+            ExecutionContext.Debug($"Enable new PH sanitizing logic: '{enableNewPHLogic}'");
 
-            var enableFileArgs = disableInlineExecution && enableSecureArguments;
-
-            if ((disableInlineExecution && (enableSecureArgumentsAudit || enableSecureArguments)) || enableTelemetry)
+            bool enableFileArgs = disableInlineExecution && enableSecureArguments && !enableNewPHLogic;
+            if (enableFileArgs)
             {
-                var (processedArgs, telemetry) = ProcessHandlerHelper.ProcessInputArguments(arguments);
+                bool enableSecureArgumentsAudit = AgentKnobs.ProcessHandlerSecureArgumentsAudit.GetValue(ExecutionContext).AsBoolean();
+                ExecutionContext.Debug($"Enable secure arguments audit: '{enableSecureArgumentsAudit}'");
+                bool enableTelemetry = AgentKnobs.ProcessHandlerTelemetry.GetValue(ExecutionContext).AsBoolean();
+                ExecutionContext.Debug($"Enable telemetry: '{enableTelemetry}'");
 
-                if (disableInlineExecution && enableSecureArgumentsAudit)
+                if ((disableInlineExecution && (enableSecureArgumentsAudit || enableSecureArguments)) || enableTelemetry)
                 {
-                    ExecutionContext.Warning($"The following arguments will be executed: '{processedArgs}'");
+                    var (processedArgs, telemetry) = ProcessHandlerHelper.ExpandCmdEnv(arguments, Environment);
+
+                    if (disableInlineExecution && enableSecureArgumentsAudit)
+                    {
+                        ExecutionContext.Warning($"The following arguments will be executed: '{processedArgs}'");
+                    }
+                    if (enableFileArgs)
+                    {
+                        GenerateScriptFile(cmdExe, command, processedArgs);
+                    }
+                    if (enableTelemetry)
+                    {
+                        ExecutionContext.Debug($"Agent PH telemetry: {JsonConvert.SerializeObject(telemetry.ToDictionary(), Formatting.None)}");
+                        PublishTelemetry(telemetry.ToDictionary(), "ProcessHandler");
+                    }
                 }
-                if (enableFileArgs)
+            }
+            else if (enableNewPHLogic)
+            {
+                bool shouldThrow = false;
+                try
                 {
-                    GenerateScriptFile(cmdExe, command, processedArgs);
+                    var (isValid, telemetry) = ProcessHandlerHelper.ValidateInputArguments(arguments, Environment, ExecutionContext);
+
+                    // If args are not valid - we'll throw exception.
+                    shouldThrow = !isValid;
+
+                    if (telemetry != null)
+                    {
+                        PublishTelemetry(telemetry, "ProcessHandler");
+                    }
                 }
-                if (enableTelemetry)
+                catch (Exception ex)
                 {
-                    ExecutionContext.Debug($"Agent PH telemetry: {JsonConvert.SerializeObject(telemetry.ToDictionary(), Formatting.None)}");
-                    PublishTelemetry(telemetry.ToDictionary(), "ProcessHandler");
+                    Trace.Error($"Failed to validate process handler input arguments. Publishing telemetry. Ex: {ex}");
+
+                    var telemetry = new Dictionary<string, string>
+                    {
+                        ["UnexpectedError"] = ex.Message,
+                        ["ErrorStackTrace"] = ex.StackTrace
+                    };
+                    PublishTelemetry(telemetry, "ProcessHandler");
+
+                    shouldThrow = false;
+                }
+                if (shouldThrow)
+                {
+                    throw new InvalidScriptArgsException(StringUtil.Loc("ProcessHandlerInvalidScriptArgs"));
                 }
             }
 
@@ -324,6 +363,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     ExecutionContext.Output(line);
                 }
             }
+        }
+    }
+
+    public class InvalidScriptArgsException : Exception
+    {
+        public InvalidScriptArgsException(string message) : base(message)
+        {
         }
     }
 }

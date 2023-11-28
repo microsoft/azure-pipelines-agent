@@ -233,6 +233,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 try
                 {
                     string itemPath = (_containerPath.TrimEnd('/') + "/" + fileToUpload.Remove(0, _sourceParentDirectory.Length + 1)).Replace('\\', '/');
+                    if (AgentKnobs.EnableFCSItemPathFix.GetValue(context).AsBoolean())
+                    {
+                        string fileName = fileToUpload.Replace(_sourceParentDirectory, string.Empty).Replace("\\", string.Empty).Replace("/", string.Empty);
+                        itemPath = (_containerPath.TrimEnd('/') + "/" + fileName).Replace("\\", "/");
+                    }
+
                     uploadTimer.Restart();
                     bool catchExceptionDuringUpload = false;
                     HttpResponseMessage response = null;
@@ -339,7 +345,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 var verbose = String.Equals(context.GetVariableValueOrDefault("system.debug"), "true", StringComparison.InvariantCultureIgnoreCase);
                 int maxParallelism = context.GetHostContext().GetService<IConfigurationStore>().GetSettings().MaxDedupParallelism;
                 (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                    .CreateDedupClientAsync(verbose, (str) => context.Output(str), this._connection, maxParallelism, token);
+                    .CreateDedupClientAsync(
+                        verbose,
+                        (str) => context.Output(str),
+                        this._connection,
+                        maxParallelism,
+                        BlobStore.WebApi.Contracts.Client.BuildArtifact,
+                        token);
 
                 // Upload to blobstore
                 var results = await BlobStoreUtils.UploadBatchToBlobstore(verbose, files, (level, uri, type) =>
@@ -417,6 +429,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             {
                 uploadTimer.Restart();
                 string itemPath = (_containerPath.TrimEnd('/') + "/" + file.Path.Remove(0, _sourceParentDirectory.Length + 1)).Replace('\\', '/');
+                if (AgentKnobs.EnableFCSItemPathFix.GetValue(context).AsBoolean())
+                {
+                    string fileName = file.Path.Replace(_sourceParentDirectory, string.Empty).Replace("\\", string.Empty).Replace("/", string.Empty);
+                    itemPath = (_containerPath.TrimEnd('/') + "/" + fileName).Replace("\\", "/");
+                }
+
                 bool catchExceptionDuringUpload = false;
                 HttpResponseMessage response = null;
                 try

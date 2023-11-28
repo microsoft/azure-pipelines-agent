@@ -3,6 +3,7 @@
 
 using Agent.Sdk.Knob;
 using Agent.Sdk.Util;
+using Agent.Listener.Configuration;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -17,6 +18,8 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using System.Linq;
 using Microsoft.VisualStudio.Services.Common;
 using System.Diagnostics;
+using Newtonsoft.Json;
+using Microsoft.VisualStudio.Services.Agent.Listener.Telemetry;
 
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
@@ -324,6 +327,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         private async Task RunAsync(Pipelines.AgentJobRequestMessage message, WorkerDispatcher previousJobDispatch, WorkerDispatcher newJobDispatch)
         {
+            
             if (previousJobDispatch != null)
             {
                 Trace.Verbose($"Make sure the previous job request {previousJobDispatch.JobId} has successfully finished on worker.");
@@ -336,7 +340,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
             var jobRequestCancellationToken = newJobDispatch.WorkerCancellationTokenSource.Token;
             var workerCancelTimeoutKillToken = newJobDispatch.WorkerCancelTimeoutKillTokenSource.Token;
-
             var term = HostContext.GetService<ITerminal>();
             term.WriteLine(StringUtil.Loc("RunningJob", DateTime.UtcNow, message.JobDisplayName));
 
@@ -393,12 +396,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 using (var processChannel = HostContext.CreateService<IProcessChannel>())
                 using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
                 {
+
+                    var featureFlagProvider = HostContext.GetService<IFeatureFlagProvider>();
+                    var newSecretMaskerFeaturFlagStatus = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.UseMaskingPerformanceEnhancements", Trace);
+                    var environment = new Dictionary<string, string>();
+                    if (newSecretMaskerFeaturFlagStatus?.EffectiveState == "On")
+                    {
+                        environment.Add("AZP_ENABLE_NEW_SECRET_MASKER", "true");
+                    }
                     // Start the process channel.
                     // It's OK if StartServer bubbles an execption after the worker process has already started.
                     // The worker will shutdown after 30 seconds if it hasn't received the job message.
                     processChannel.StartServer(
                         // Delegate to start the child process.
-                        startProcess: (string pipeHandleOut, string pipeHandleIn) =>
+                        startProcess:  (string pipeHandleOut, string pipeHandleIn) =>
                         {
                             // Validate args.
                             ArgUtil.NotNullOrEmpty(pipeHandleOut, nameof(pipeHandleOut));
@@ -427,7 +438,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                     }
                                 }
                             };
-
+                            
 
                             // Start the child process.
                             HostContext.WritePerfCounter("StartingWorkerProcess");
@@ -437,7 +448,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                 workingDirectory: assemblyDirectory,
                                 fileName: workerFileName,
                                 arguments: "spawnclient " + pipeHandleOut + " " + pipeHandleIn,
-                                environment: null,
+                                environment: environment,
                                 requireExitCodeZero: false,
                                 outputEncoding: null,
                                 killProcessOnCancel: true,
@@ -602,6 +613,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                 var messageType = MessageType.CancelRequest;
                                 if (HostContext.AgentShutdownToken.IsCancellationRequested)
                                 {
+                                    var service = HostContext.GetService<IFeatureFlagProvider>();
+                                    var ffState = await service.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.FailJobWhenAgentDies", Trace);
+                                    if (ffState.EffectiveState == "On")
+                                    {
+                                        await PublishTelemetry(message, TaskResult.Failed.ToString(), "100");
+                                        resultOnAbandonOrCancel = TaskResult.Failed;
+                                    }
                                     switch (HostContext.AgentShutdownReason)
                                     {
                                         case ShutdownReason.UserCancelled:
@@ -904,6 +922,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             {
                 Trace.Error("Fail to report unhandled exception from Agent.Worker process");
                 Trace.Error(ex);
+            }
+        }
+
+        private async Task PublishTelemetry(Pipelines.AgentJobRequestMessage message, string Task_Result, string TracePoint)
+        {
+            try
+            {
+                var telemetryData = new Dictionary<string, string>
+                {
+                    { "JobId", message.JobId.ToString()},
+                    { "JobResult", Task_Result },
+                    { "TracePoint", TracePoint},
+                };
+                var cmd = new Command("telemetry", "publish")
+                {
+                    Data = JsonConvert.SerializeObject(telemetryData)
+                };
+                cmd.Properties.Add("area", "PipelinesTasks");
+                cmd.Properties.Add("feature", "AgentShutdown");
+
+                var telemetryPublisher = HostContext.GetService<IAgenetListenerTelemetryPublisher>();
+
+                await telemetryPublisher.PublishEvent(HostContext, cmd);
+            }
+            catch (Exception ex)
+            {
+                Trace.Warning($"Unable to publish agent shutdown telemetry data. Exception: {ex}");
             }
         }
 
