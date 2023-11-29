@@ -563,7 +563,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Publish if this is a injected task or a server owned task.
             return !Task.IsServerOwned.HasValue ||
                    (Task.IsServerOwned.HasValue && Task.IsServerOwned.Value) ||
-                    Task.Name.StartsWith(InjectedTasksNamesPrefixes.InjectedTaskCommon, StringComparison.Ordinal);
+                    WellKnownTasks.RequiredForTelemetry.Contains(Task.Reference.Id);
         }
 
         private void PrintTaskMetaData(Definition taskDefinition)

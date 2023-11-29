@@ -41,6 +41,24 @@ namespace Microsoft.VisualStudio.Services.Agent
         TaskExceptionList // We need to remove this config file - once Node 6 handler is dropped
     }
 
+    public static class WellKnownTasks
+    {
+        public static class SystemTaskIds
+        {
+            public static Guid CheckoutTask = new Guid("6d15af64-176c-496d-b583-fd2ae21d4df4");
+        }
+
+        public static class MicrosoftExtensionTasks
+        {
+            // list of Microsoft tasks
+        }
+
+        public static List<Guid> RequiredForTelemetry = new()
+        {
+            SystemTaskIds.CheckoutTask,
+        };
+    }
+
     public static class Constants
     {
         /// <summary>Name of environment variable holding the path.</summary>
