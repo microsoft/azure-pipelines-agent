@@ -43,13 +43,10 @@ namespace Microsoft.VisualStudio.Services.Agent
 
     public static class WellKnownTasks
     {
-        public static class SystemTaskIds
+        public static class PluginTaskIds
         {
+            // We need have the ID for the checkout task for now since it is not present in the azure-pipelines-tasks repo.
             public static readonly Guid CheckoutTask = new Guid("6d15af64-176c-496d-b583-fd2ae21d4df4");
-            public static readonly Guid DownloadBuildArtifactTask = new Guid("a433f589-fce1-4460-9ee6-44a624aeb1fb");
-            public static readonly Guid PublishPipelineArtifactTask = new Guid("ecdc45f6-832d-4ad9-b52b-ee49e94659be");
-            public static readonly Guid DownloadPipelineArtifactTask = new Guid("61f2a582-95ae-4948-b34d-a1b3c4f6a737");
-            public static readonly Guid CacheTask = new Guid("d53ccab4-555e-4494-9d06-11db043fb4a9");
         }
 
         public static class MicrosoftExtensionTaskIds
@@ -65,11 +62,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public static List<Guid> RequiredForTelemetry = new()
         {
-            SystemTaskIds.CheckoutTask,
-            SystemTaskIds.DownloadBuildArtifactTask,
-            SystemTaskIds.PublishPipelineArtifactTask,
-            SystemTaskIds.DownloadPipelineArtifactTask,
-            SystemTaskIds.CacheTask,
+            PluginTaskIds.CheckoutTask,
             MicrosoftExtensionTaskIds.GooglePlayIncreaseRolloutTask,
             MicrosoftExtensionTaskIds.GooglePlayPromoteTask,
             MicrosoftExtensionTaskIds.GooglePlayReleaseTask,
