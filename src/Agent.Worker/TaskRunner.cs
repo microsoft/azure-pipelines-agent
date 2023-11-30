@@ -560,7 +560,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private bool IsTelemetryPublishRequired()
         {
-            // Publish if this is a injected task or a server owned task.
+            // Publish if this is a server owned task or a task we want to track.
             return !Task.IsServerOwned.HasValue ||
                    (Task.IsServerOwned.HasValue && Task.IsServerOwned.Value) ||
                     WellKnownTasks.RequiredForTelemetry.Contains(Task.Reference.Id);
