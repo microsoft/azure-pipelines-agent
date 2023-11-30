@@ -45,17 +45,38 @@ namespace Microsoft.VisualStudio.Services.Agent
     {
         public static class SystemTaskIds
         {
-            public static Guid CheckoutTask = new Guid("6d15af64-176c-496d-b583-fd2ae21d4df4");
+            public static readonly Guid CheckoutTask = new Guid("6d15af64-176c-496d-b583-fd2ae21d4df4");
+            public static readonly Guid DownloadBuildArtifactTask = new Guid("a433f589-fce1-4460-9ee6-44a624aeb1fb");
+            public static readonly Guid PublishPipelineArtifactTask = new Guid("ecdc45f6-832d-4ad9-b52b-ee49e94659be");
+            public static readonly Guid DownloadPipelineArtifactTask = new Guid("61f2a582-95ae-4948-b34d-a1b3c4f6a737");
+            public static readonly Guid CacheTask = new Guid("d53ccab4-555e-4494-9d06-11db043fb4a9");
         }
 
-        public static class MicrosoftExtensionTasks
+        public static class MicrosoftExtensionTaskIds
         {
-            // list of Microsoft tasks
+            public static readonly Guid GooglePlayIncreaseRolloutTask = new Guid("f8c97cf9-4e17-4244-b0fb-f540cea78153");
+            public static readonly Guid GooglePlayPromoteTask = new Guid("4dae1f76-29d3-482f-97d5-e3189a8347c2");
+            public static readonly Guid GooglePlayReleaseTask = new Guid("8cf7cac0-620b-11e5-b4cf-8565e60f4d27");
+            public static readonly Guid GooglePlayStatusUpdateTask = new Guid("92e6c372-4193-44e5-9db7-58d7d253f4d8");
+            public static readonly Guid AppStorePromoteTask = new Guid("cbbf7f14-c386-4c1f-80a3-fe500e2bd976");
+            public static readonly Guid AppStoreReleaseTask = new Guid("2e371150-da5e-11e5-83da-0943b1acc572");
+            public static readonly Guid IpaResignTask = new Guid("cbbf7f14-c386-4c1f-80a3-fe500e2bd977");
         }
 
         public static List<Guid> RequiredForTelemetry = new()
         {
             SystemTaskIds.CheckoutTask,
+            SystemTaskIds.DownloadBuildArtifactTask,
+            SystemTaskIds.PublishPipelineArtifactTask,
+            SystemTaskIds.DownloadPipelineArtifactTask,
+            SystemTaskIds.CacheTask,
+            MicrosoftExtensionTaskIds.GooglePlayIncreaseRolloutTask,
+            MicrosoftExtensionTaskIds.GooglePlayPromoteTask,
+            MicrosoftExtensionTaskIds.GooglePlayReleaseTask,
+            MicrosoftExtensionTaskIds.GooglePlayStatusUpdateTask,
+            MicrosoftExtensionTaskIds.AppStorePromoteTask,
+            MicrosoftExtensionTaskIds.AppStoreReleaseTask,
+            MicrosoftExtensionTaskIds.IpaResignTask
         };
     }
 
