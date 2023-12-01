@@ -19,7 +19,6 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Newtonsoft.Json;
-using Microsoft.TeamFoundation.DistributedTask.Orchestration.Server;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
