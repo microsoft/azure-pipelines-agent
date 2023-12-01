@@ -69,7 +69,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var taskManager = HostContext.GetService<ITaskManager>();
             var handlerFactory = HostContext.GetService<IHandlerFactory>();
 
-            Trace.Info($"Telemetry publish for {Task.Reference.Name}@{Task.Reference.Version} task is enabled: {IsTelemetryPublishRequired()}");
+            Trace.Info($"Allow publishing telemetry for {Task.Reference.Name}@{Task.Reference.Version} task: {IsTelemetryPublishRequired()}");
 
             // Enable skip for string translator in case of checkout task.
             // It's required for support of multiply checkout tasks with repo alias "self" in container jobs. Reported in issue 3520.
