@@ -461,7 +461,7 @@
   "ProcessCompletedWithCode0Errors1": "Der Prozess wurde mit dem Exitcode {0} abgeschlossen, und {1} Fehler wurden in den Fehlerdatenstrom geschrieben.",
   "ProcessCompletedWithExitCode0": "Der Prozess wurde mit dem Exitcode {0} abgeschlossen.",
   "ProcessExitCode": "Exitcode {0} wurde vom Prozess zurückgegeben: Dateiname „{1}“, Argumente „{2}“.",
-  "ProcessHandlerInvalidScriptArgs": "Detected characters in arguments that may not be executed correctly by the shell. More information is available here: https://aka.ms/ado/75787",
+  "ProcessHandlerInvalidScriptArgs": "Erkannte Zeichen in Argumenten, die von der Shell möglicherweise nicht ordnungsgemäß ausgeführt werden. Weitere Informationen finden Sie hier: https://aka.ms/ado/75787",
   "ProfileLoadFailure": "Das Benutzerprofil für die AutoLogon-Konfiguration für den Benutzer {0}\\{1} kann nicht geladen werden.",
   "ProjectName": "Projektname",
   "Prompt0": "{0} eingeben",

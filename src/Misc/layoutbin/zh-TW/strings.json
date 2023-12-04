@@ -461,7 +461,7 @@
   "ProcessCompletedWithCode0Errors1": "已完成流程，結束代碼 {0}，寫入錯誤資料流時發生 {1} 個錯誤。",
   "ProcessCompletedWithExitCode0": "流程已完成，結束代碼為 {0}。",
   "ProcessExitCode": "從流程傳回的結束代碼 {0}: 檔案名稱 '{1}'、引數 '{2}'。",
-  "ProcessHandlerInvalidScriptArgs": "Detected characters in arguments that may not be executed correctly by the shell. More information is available here: https://aka.ms/ado/75787",
+  "ProcessHandlerInvalidScriptArgs": "偵測到引數中可能無法由殼層正確執行的字元。如需詳細資訊，請參閱: https://aka.ms/ado/75787",
   "ProfileLoadFailure": "無法載入使用者的使用者設定檔 {0}\\{1} 無法使用自動登入設定。",
   "ProjectName": "專案名稱",
   "Prompt0": "請輸入 {0}",

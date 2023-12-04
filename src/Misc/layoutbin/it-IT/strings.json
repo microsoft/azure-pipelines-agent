@@ -461,7 +461,7 @@
   "ProcessCompletedWithCode0Errors1": "Processo completato con codice di uscita {0} e {1} errori scritti nel flusso errore.",
   "ProcessCompletedWithExitCode0": "Processo completato con codice di uscita {0}.",
   "ProcessExitCode": "Codice di uscita {0} restituito dal processo: nome file '{1}', argomenti '{2}'.",
-  "ProcessHandlerInvalidScriptArgs": "Detected characters in arguments that may not be executed correctly by the shell. More information is available here: https://aka.ms/ado/75787",
+  "ProcessHandlerInvalidScriptArgs": "Sono stati rilevati caratteri negli argomenti che potrebbero non essere eseguiti correttamente dalla shell. Ulteriori informazioni sono disponibili qui: https://aka.ms/ado/75787",
   "ProfileLoadFailure": "Non è possibile caricare il profilo utente per l'utente {0}\\{1} la configurazione di accesso automatico non è consentita.",
   "ProjectName": "Nome progetto",
   "Prompt0": "Immettere {0}",
