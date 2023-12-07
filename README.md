@@ -40,7 +40,7 @@ Written for .NET Core in C#.
 ## Supported Usage
 
 This agent can be used for both Azure Pipelines and Azure DevOps Server (Team Foundation Server).
-Support is extended to all on-premise solutions [based on their lifecycle (including extended support)](https://learn.microsoft.com/en-us/lifecycle/products/).
+Support is extended to all on-premise solutions [based on their lifecycle (including extended support)](https://learn.microsoft.com/lifecycle/products/).
 
 The only exception is the Windows version of the agent for TFS 2015 since it is distributed along with a separate Node-based agent.
 
