@@ -41,6 +41,38 @@ namespace Microsoft.VisualStudio.Services.Agent
         TaskExceptionList // We need to remove this config file - once Node 6 handler is dropped
     }
 
+    public static class WellKnownTasks
+    {
+        public static class PluginTaskIds
+        {
+            // We need have the ID for the checkout task for now since it is not present in the azure-pipelines-tasks repo.
+            public static readonly Guid CheckoutTask = new Guid("6d15af64-176c-496d-b583-fd2ae21d4df4");
+        }
+
+        public static class MicrosoftExtensionTaskIds
+        {
+            public static readonly Guid GooglePlayIncreaseRolloutTask = new Guid("f8c97cf9-4e17-4244-b0fb-f540cea78153");
+            public static readonly Guid GooglePlayPromoteTask = new Guid("4dae1f76-29d3-482f-97d5-e3189a8347c2");
+            public static readonly Guid GooglePlayReleaseTask = new Guid("8cf7cac0-620b-11e5-b4cf-8565e60f4d27");
+            public static readonly Guid GooglePlayStatusUpdateTask = new Guid("92e6c372-4193-44e5-9db7-58d7d253f4d8");
+            public static readonly Guid AppStorePromoteTask = new Guid("cbbf7f14-c386-4c1f-80a3-fe500e2bd976");
+            public static readonly Guid AppStoreReleaseTask = new Guid("2e371150-da5e-11e5-83da-0943b1acc572");
+            public static readonly Guid IpaResignTask = new Guid("cbbf7f14-c386-4c1f-80a3-fe500e2bd977");
+        }
+
+        public static List<Guid> RequiredForTelemetry = new()
+        {
+            PluginTaskIds.CheckoutTask,
+            MicrosoftExtensionTaskIds.GooglePlayIncreaseRolloutTask,
+            MicrosoftExtensionTaskIds.GooglePlayPromoteTask,
+            MicrosoftExtensionTaskIds.GooglePlayReleaseTask,
+            MicrosoftExtensionTaskIds.GooglePlayStatusUpdateTask,
+            MicrosoftExtensionTaskIds.AppStorePromoteTask,
+            MicrosoftExtensionTaskIds.AppStoreReleaseTask,
+            MicrosoftExtensionTaskIds.IpaResignTask
+        };
+    }
+
     public static class Constants
     {
         /// <summary>Name of environment variable holding the path.</summary>
@@ -471,6 +503,13 @@ namespace Microsoft.VisualStudio.Services.Agent
                 /// cross-service communication/obtained by users.
                 /// </summary>
                 public static readonly string SkipTranslatorForCheckout = "task.skipTranslatorForCheckout";
+
+                /// <summary>
+                /// Declares requirement to publish telemetry for task or not. This is based on the IsServedOwned field in the TaskStep info
+                /// which the agent obtains from the execution plan (AgentJobRequestMessage) and also some certain that required for telemetry.
+                /// The main idea is to avoid publishing telemetry from the customer's tasks that is installed using TFS-CLI tool.
+                /// </summary>
+                public static readonly string PublishTelemetry = "task.publishTelemetry";
             }
 
             public static List<string> ReadOnlyVariables = new List<string>(){
@@ -604,7 +643,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                 System.WorkFolder,
                 // Task variables
                 Task.DisplayName,
-                Task.SkipTranslatorForCheckout
+                Task.SkipTranslatorForCheckout,
+                Task.PublishTelemetry
             };
         }
     }
