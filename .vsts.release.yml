@@ -293,6 +293,8 @@ extends:
         - job: SendNotifications
           displayName: Send notifications
           dependsOn: create_ado_prs
+          variables:
+            IsRelease: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isRelease'] ]
           condition: and(succeeded(), eq(variables.IsRelease, 'True'))
           steps:
           - pwsh: release\Send-PRsNotification.ps1
