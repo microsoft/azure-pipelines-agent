@@ -86,9 +86,14 @@ extends:
                 while ($true) {
                   $agentVersion = "$majorAndMinorVersion.$patchVersion"
                   git ls-remote --exit-code --heads origin refs/heads/releases/$agentVersion
-                  if ($LASTEXITCODE -eq 2) {
-                      $LASTEXITCODE = 0
-                      break
+                  if ($LASTEXITCODE -ne 0) {
+                    if ($LASTEXITCODE -eq 2) {
+                        $LASTEXITCODE = 0
+                        break
+                    }
+                    else {
+                        Write-Error "git ls-remote failed with exit code $LASTEXITCODE" -ErrorAction Stop
+                    }
                   }
                   $patchVersion++
                 }
