@@ -1,8 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Agent.Sdk;
-using Agent.Sdk.Knob;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -11,11 +9,17 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
+
+using Agent.Sdk;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Util
 {
     public static class IOUtil
     {
+        const int MAX_RETRY_DELETION = 3;
+
         private static UtilKnobValueContext _knobContext = UtilKnobValueContext.Instance();
 
         public static string ExeExtension
@@ -223,6 +227,56 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
+        public static async Task DeleteDirectoryWithRetry(string path, CancellationToken cancellationToken)
+        {
+
+            for (int i = 1; i <= MAX_RETRY_DELETION; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    DeleteDirectory(path, cancellationToken);
+                    return;
+                }
+                // There is no reason to retry on DirectoryNotFoundException, SecruityException and UnauthorizedAccessException
+                // DeleteDirectory is parallel execution so returned exception is AggregateException (with InnerExeptions) rather than IOException
+                catch (AggregateException aex) when (i < MAX_RETRY_DELETION && aex.InnerExceptions.Any(ex => ex is IOException))
+                {
+                    // Pause execution briefly to allow the file to become accessible
+                    await Task.Delay(i * 1000, cancellationToken);
+                }
+
+                //Propogate exception if it is not possible to delete directory after retrying
+                catch (Exception)
+                {
+                    throw;
+                }
+            }
+        }
+        public static async Task DeleteFileWithRetry(string path, CancellationToken cancellationToken)
+        {
+            for (int i = 1; i <= MAX_RETRY_DELETION; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    DeleteFile(path);
+                    return;
+                }
+                // There is no reason to retry on FileNotFoundException, SecruityException and UnauthorizedAccessException
+                catch (IOException) when (i < MAX_RETRY_DELETION)
+                {
+                    // Pause execution briefly to allow the file to become accessible
+                    await Task.Delay(i * 1000, cancellationToken);
+                }
+
+                //Propogate exception if it is not possible to delete file after retrying
+                catch (Exception)
+                {
+                    throw;
+                }
+            }
+        }
         public static void MoveDirectory(string sourceDir, string targetDir, string stagingDir, CancellationToken token)
         {
             ArgUtil.Directory(sourceDir, nameof(sourceDir));

@@ -168,7 +168,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     Trace.Info("Downloading task definitions.");
                     var taskManager = HostContext.GetService<ITaskManager>();
                     await taskManager.DownloadAsync(context, message.Steps);
-
+          
                     // Parse all Task conditions.
                     Trace.Info("Parsing all task's condition inputs.");
                     var expression = HostContext.GetService<IExpressionManager>();

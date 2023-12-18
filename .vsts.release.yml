@@ -80,7 +80,23 @@ extends:
 
             if ($isRelease) {
               if ($isScheduledRelease) {
-                $agentVersion = "3.$($currentSprint.sprint).0"
+                $majorAndMinorVersion = "3.$($currentSprint.sprint)"
+                $patchVersion = 0
+                ## Looking for a free patch version
+                while ($true) {
+                  $agentVersion = "$majorAndMinorVersion.$patchVersion"
+                  git ls-remote --exit-code --heads origin refs/heads/releases/$agentVersion
+                  if ($LASTEXITCODE -ne 0) {
+                    if ($LASTEXITCODE -eq 2) {
+                        $LASTEXITCODE = 0
+                        break
+                    }
+                    else {
+                        Write-Error "git ls-remote failed with exit code $LASTEXITCODE" -ErrorAction Stop
+                    }
+                  }
+                  $patchVersion++
+                }
               } else {
                 $agentVersion = "${{ parameters.version }}"
                 if ($agentVersion -eq 'NotSet') {
@@ -293,6 +309,8 @@ extends:
         - job: SendNotifications
           displayName: Send notifications
           dependsOn: create_ado_prs
+          variables:
+            IsRelease: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isRelease'] ]
           condition: and(succeeded(), eq(variables.IsRelease, 'True'))
           steps:
           - pwsh: release\Send-PRsNotification.ps1

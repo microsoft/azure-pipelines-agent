@@ -262,7 +262,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         public string GetNodeLocation(bool node20ResultsInGlibCError, bool inContainer)
         {
             bool useNode10 = AgentKnobs.UseNode10.GetValue(ExecutionContext).AsBoolean();
-            bool useNode16 = AgentKnobs.UseNode16.GetValue(ExecutionContext).AsBoolean();
             bool useNode20_1 = AgentKnobs.UseNode20_1.GetValue(ExecutionContext).AsBoolean();
             bool UseNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
             bool taskHasNode10Data = Data is Node10HandlerData;
@@ -315,12 +314,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 {
                     nodeFolder = NodeHandler.Node20_1Folder;
                 }
-            }
-
-            if (useNode16)
-            {
-                Trace.Info($"Found UseNode16 knob, using node16 for node tasks {useNode16}");
-                nodeFolder = NodeHandler.Node16Folder;
             }
 
             if (useNode10)

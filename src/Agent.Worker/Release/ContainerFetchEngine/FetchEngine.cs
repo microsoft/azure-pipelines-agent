@@ -77,7 +77,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEng
 
                     if (item.FileLength == 0)
                     {
-                        CreateEmptyFile(localPath);
+                        CreateEmptyFile(localPath, token);
                         _newEmptyFiles++;
                     }
                     else
@@ -268,7 +268,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEng
                 string tmpDownloadPath = downloadPath + ".download";
 
                 FileSystemManager.EnsureParentDirectory(tmpDownloadPath);
-                FileSystemManager.DeleteFile(downloadPath);
+                FileSystemManager.DeleteFile(downloadPath, cancellationToken);
 
                 ExecutionLogger.Output(StringUtil.Loc("RMDownloadStartDownloadOfFile", downloadPath));
 
@@ -300,7 +300,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEng
                 timeBetweenRetries += timeBetweenRetries;
 
                 // Delete the tmp file inbetween attempts
-                FileSystemManager.DeleteFile(tmpDownloadPath);
+                FileSystemManager.DeleteFile(tmpDownloadPath, cancellationToken);
 
                 try
                 {
@@ -349,10 +349,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEng
             }
         }
 
-        private void CreateEmptyFile(string downloadPath)
+        private void CreateEmptyFile(string downloadPath, CancellationToken cancellationToken)
         {
             FileSystemManager.EnsureParentDirectory(downloadPath);
-            FileSystemManager.DeleteFile(downloadPath);
+            FileSystemManager.DeleteFile(downloadPath, cancellationToken);
             FileSystemManager.CreateEmptyFile(downloadPath);
         }
 
