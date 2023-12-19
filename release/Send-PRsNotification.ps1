@@ -4,7 +4,8 @@
 
 $wikiLink = "[Wiki](https://dev.azure.com/mseng/AzureDevOps/_wiki/wikis/AzureDevOps.wiki/18816/How-to-release-the-agent)"
 
-if ($env:ADO_PR_ID -and $env:CC_PR_ID) {
+$arePRsCreated = $env:ADO_PR_ID -and $env:CC_PR_ID
+if ($arePRsCreated) {
     $adoPrLink = "[ADO PR $env:ADO_PR_ID]($env:ADO_PR_LINK)"
     $ccPrLink = "[CC PR $env:CC_PR_ID]($env:CC_PR_LINK)"
     $title = "Agent ADO release PRs created"
@@ -19,10 +20,17 @@ else {
     $themeColor = "#FF0000"
 }
 
-$body = [PSCustomObject]@{
-    title      = $title
-    text       = $text
-    themeColor = $themeColor
-} | ConvertTo-Json
+# Notifications will be sent only if PRs are created or if it's the first failed attempt.
+$shouldNotify = $arePRsCreated -or $env:SYSTEM_JOBATTEMPT -eq '1'
+if ($shouldNotify) {
+    $body = [PSCustomObject]@{
+        title      = $title
+        text       = $text
+        themeColor = $themeColor
+    } | ConvertTo-Json
 
-Invoke-RestMethod -Uri $env:TEAMS_WEBHOOK -Method Post -Body $body -ContentType "application/json"
+    Invoke-RestMethod -Uri $env:TEAMS_WEBHOOK -Method Post -Body $body -ContentType "application/json"
+}
+else {
+    Write-Host "Skipping notification."
+}
