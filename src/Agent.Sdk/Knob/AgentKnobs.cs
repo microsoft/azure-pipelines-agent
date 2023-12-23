@@ -400,6 +400,12 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("ENABLE_VS_PRERELEASE_VERSIONS"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob PreventParallelPolling = new Knob(
+            nameof(PreventParallelPolling),
+            "If true, the agent will prevent erroneous parallel polling of the agent pool message queue (currently experimental).",
+            new EnvironmentKnobSource("PREVENT_PARALLEL_POLLING"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob DisableOverrideTfvcBuildDirectory = new Knob(
             nameof(DisableOverrideTfvcBuildDirectory),
             "Disables override of Tfvc build directory name by agentId on hosted agents (one tfvc repo used).",
