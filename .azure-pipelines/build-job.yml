@@ -153,7 +153,7 @@ jobs:
       - task: UseDotNet@2
         displayName: Install .NET Core 6 SDK
         inputs:
-         version: '6.0.416'
+         version: '6.0.418'
          packageType: sdk
          performMultiLevelLookup: true
     - script: ${{ variables.devCommand }} testl1 Debug ${{ parameters.os }}-${{ parameters.arch }}
