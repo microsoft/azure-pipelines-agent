@@ -20,7 +20,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             public static Knob B = new DeprecatedKnob("B", "Deprecated Knob", new BuiltInDefaultKnobSource("true"));
             public static Knob C = new ExperimentalKnob("C", "Experimental Knob", new BuiltInDefaultKnobSource("foo"));
             public static Knob D = new ExperimentalKnob("D", "Test knob only with default", new BuiltInDefaultKnobSource("foo"));
-            public static Knob E = new("E", "Pipeline Feature Knob", new PipelineFeatureSource("TestFeature"));
         }
 
         [Fact]
@@ -193,8 +192,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             executionContext
                 .Setup(x => x.GetVariableValueOrDefault("DistributedTask.Agent.TestFeature"))
                 .Returns("true");
+            var knob = new Knob("TestKnob", "Pipeline Feature Knob", new PipelineFeatureSource("TestFeature"));
 
-            var knobValue = TestKnobs.E.GetValue(executionContext.Object);
+            var knobValue = knob.GetValue(executionContext.Object);
 
             Assert.True(knobValue.AsBoolean());
         }
