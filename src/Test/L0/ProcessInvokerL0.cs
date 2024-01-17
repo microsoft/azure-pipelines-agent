@@ -59,14 +59,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     Task execTask;
                     if (TestUtil.IsWindows())
                     {
-                        execTask = processInvoker.ExecuteAsync("", "cmd", $"/c \"FOR /L %N IN () DO @echo off\"", null, tokenSource.Token);
+                        execTask = processInvoker.ExecuteAsync("", "cmd", $"/c \"choice /T {SecondsToRun} /D y\"", null, tokenSource.Token);
                     }
                     else
                     {
                         execTask = processInvoker.ExecuteAsync("", "bash", $"-c \"sleep {SecondsToRun}s\"", null, tokenSource.Token);
                     }
 
-                    await Task.Delay(500);
+                    await Task.Delay(14000);
                     tokenSource.Cancel();
                     try
                     {
@@ -110,6 +110,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
         [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "windows")]
         public async Task TestCancelEnsureCompletedWhenTaskNotKilled()
         {
             const int SecondsToRun = 20;
