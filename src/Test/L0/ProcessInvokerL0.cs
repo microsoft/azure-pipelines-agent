@@ -59,7 +59,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     Task execTask;
                     if (TestUtil.IsWindows())
                     {
-                        execTask = processInvoker.ExecuteAsync("", "cmd", $"/c \"ping 127.0.0.1 -n {SecondsToRun} > nul\"", null, tokenSource.Token);
+                        execTask = processInvoker.ExecuteAsync("", "cmd", $"/c \"FOR /L %N IN () DO @echo off\"", null, tokenSource.Token);
                     }
                     else
                     {
