@@ -59,14 +59,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     Task execTask;
                     if (TestUtil.IsWindows())
                     {
-                        execTask = processInvoker.ExecuteAsync("", "cmd", $"/c \"ping 127.0.0.1 -n {SecondsToRun} > nul\"", null, tokenSource.Token);
+                        execTask = processInvoker.ExecuteAsync("", "cmd", $"/c waitfor /t {SecondsToRun} pause", null, tokenSource.Token);
                     }
                     else
                     {
                         execTask = processInvoker.ExecuteAsync("", "bash", $"-c \"sleep {SecondsToRun}s\"", null, tokenSource.Token);
                     }
 
-                    tokenSource.CancelAfter(14000);
+                    await Task.Delay(500);
+                    tokenSource.Cancel();
                     try
                     {
                         await execTask;
