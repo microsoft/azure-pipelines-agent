@@ -66,7 +66,7 @@ namespace Agent.Plugins
 
             if (downloadParameters.ExtractTars)
             {
-                ExtractTarsIfPresent(context, fileArtifactPaths, downloadParameters.TargetDirectory, downloadParameters.ExtractedTarsTempPath);
+                ExtractTarsIfPresent(context, fileArtifactPaths, downloadParameters.TargetDirectory, downloadParameters.ExtractedTarsTempPath, cancellationToken);
             }
         }
 
@@ -95,7 +95,7 @@ namespace Agent.Plugins
 
             if (downloadParameters.ExtractTars)
             {
-                ExtractTarsIfPresent(context, allFileArtifactPaths, downloadParameters.TargetDirectory, downloadParameters.ExtractedTarsTempPath);
+                ExtractTarsIfPresent(context, allFileArtifactPaths, downloadParameters.TargetDirectory, downloadParameters.ExtractedTarsTempPath, cancellationToken);
             }
         }
 
@@ -408,7 +408,7 @@ namespace Agent.Plugins
 
         // Checks all specified artifact paths, searches for files ending with '.tar'.
         // If any files were found, extracts them to extractedTarsTempPath and moves to rootPath/extracted_tars.
-        private void ExtractTarsIfPresent(AgentTaskPluginExecutionContext context, IEnumerable<string> fileArtifactPaths, string rootPath, string extractedTarsTempPath)
+        private void ExtractTarsIfPresent(AgentTaskPluginExecutionContext context, IEnumerable<string> fileArtifactPaths, string rootPath, string extractedTarsTempPath, CancellationToken cancellationToken)
         {
             tracer.Info(StringUtil.Loc("TarSearchStart"));
 
@@ -427,7 +427,20 @@ namespace Agent.Plugins
 
                     ExtractTar(fileArtifactPath, extractedFilesDir);
 
-                    File.Delete(fileArtifactPath);
+                    try
+                    {
+                        IOUtil.DeleteFileWithRetry(fileArtifactPath, cancellationToken).Wait();
+                    }
+                    // If file blocked by another process there are two different type exceptions.
+                    // If file in use by another process really the UnauthorizedAccessException;
+                    // If file in use by AV for scanning or monitoring the IOException appears.
+                    catch (Exception ex)
+                    {
+                        tracer.Warn($"Unable to delete artifact files at {fileArtifactPath}, exception: {ex.GetType()}");
+                        tracer.Verbose(ex.ToString());
+                        throw;
+                    }
+
                 }
             }
 

@@ -458,9 +458,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             ""target"": ""Some Node16 target"",
             ""extraNodeArg"": ""Extra node16 arg value""
         },
-        ""Node20"": {
-            ""target"": ""Some Node20 target"",
-            ""extraNodeArg"": ""Extra node20 arg value""
+        ""Node20_1"": {
+            ""target"": ""Some Node20_1 target"",
+            ""extraNodeArg"": ""Extra node20_1 arg value""
         },
         ""Process"": {
             ""target"": ""Some process target"",
@@ -536,10 +536,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     Assert.Equal(definition.Data.Execution.Node16, definition.Data.Execution.All[2]);
                     Assert.Equal("Some Node16 target", definition.Data.Execution.Node16.Target);
 
-                    // Node20 handler should always be deserialized.
-                    Assert.NotNull(definition.Data.Execution.Node20); // execution.Node20
-                    Assert.Equal(definition.Data.Execution.Node20, definition.Data.Execution.All[3]);
-                    Assert.Equal("Some Node20 target", definition.Data.Execution.Node20.Target);
+                    // Node20_1 handler should always be deserialized.
+                    Assert.NotNull(definition.Data.Execution.Node20_1); // execution.Node20_1
+                    Assert.Equal(definition.Data.Execution.Node20_1, definition.Data.Execution.All[3]);
+                    Assert.Equal("Some Node20_1 target", definition.Data.Execution.Node20_1.Target);
 
                     if (TestUtil.IsWindows())
                     {

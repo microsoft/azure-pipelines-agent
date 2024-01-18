@@ -72,7 +72,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         protected override ITestResultParser GetTestResultParser(IExecutionContext executionContext)
         {
             var traceListener = new CommandTraceListener(executionContext);
-            return new JUnitResultParser(traceListener);
+            var featureFlagService = executionContext.GetHostContext().GetService<IFeatureFlagService>();
+            var enableJunitAttachments = featureFlagService.GetFeatureFlagState(TestResultsConstants.JUnitTestCaseAttachmentsEnabled, TestResultsConstants.TCMServiceInstanceGuid);
+            return new JUnitResultParser(traceListener, false, enableJunitAttachments);
         }
     }
 

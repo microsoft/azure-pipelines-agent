@@ -80,7 +80,23 @@ extends:
 
             if ($isRelease) {
               if ($isScheduledRelease) {
-                $agentVersion = "3.$($currentSprint.sprint).0"
+                $majorAndMinorVersion = "3.$($currentSprint.sprint)"
+                $patchVersion = 0
+                ## Looking for a free patch version
+                while ($true) {
+                  $agentVersion = "$majorAndMinorVersion.$patchVersion"
+                  git ls-remote --exit-code --heads origin refs/heads/releases/$agentVersion
+                  if ($LASTEXITCODE -ne 0) {
+                    if ($LASTEXITCODE -eq 2) {
+                        $LASTEXITCODE = 0
+                        break
+                    }
+                    else {
+                        Write-Error "git ls-remote failed with exit code $LASTEXITCODE" -ErrorAction Stop
+                    }
+                  }
+                  $patchVersion++
+                }
               } else {
                 $agentVersion = "${{ parameters.version }}"
                 if ($agentVersion -eq 'NotSet') {
@@ -251,19 +267,18 @@ extends:
         - Release
         - Verify_release
         condition: and(succeeded(), not(${{ parameters.onlyGitHubRelease }}))
+        pool:
+          vmImage: ubuntu-latest
         jobs:
         ################################################################################
         - job: create_ado_prs
         ################################################################################
           displayName: Create PRs in AzureDevOps and ConfigChange
-          pool:
-            vmImage: ubuntu-latest
           variables:
             IsRelease: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isRelease'] ]
             ReleaseBranch: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.releaseBranch'] ]
             AgentVersion: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.agentVersion'] ]
           condition: and(succeeded(), eq(variables.IsRelease, 'True'))
-
           steps:
           - checkout: self
 
@@ -284,8 +299,44 @@ extends:
               npm install
               ls
               node createAdoPrs.js $(AgentVersion)
+            name: s_CreateAdoPrs
             displayName: Create PRs in AzureDevOps and ConfigChange
             env:
               USERNAME: $(User)
               PAT: $(AdoPAT)
               USEREMAIL: $(Email)
+
+      - stage: S_Notifications
+        displayName: Notifications
+        dependsOn:
+        - Verify_release
+        - CreatePRs
+        condition: always()
+        pool:
+          vmImage: ubuntu-latest
+        jobs:
+        - job: j_SendPRsNotifications
+          displayName: Send Release PRs notifications
+          variables:
+            IsRelease: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isRelease'] ]
+            AdoPrId: $[ stageDependencies.CreatePRs.create_ado_prs.outputs['s_CreateAdoPrs.AdoPrId'] ]
+            AdoPrLink: $[ stageDependencies.CreatePRs.create_ado_prs.outputs['s_CreateAdoPrs.AdoPrLink'] ]
+            CcPrId: $[ stageDependencies.CreatePRs.create_ado_prs.outputs['s_CreateAdoPrs.CcPrId'] ]
+            CcPrLink: $[ stageDependencies.CreatePRs.create_ado_prs.outputs['s_CreateAdoPrs.CcPrLink'] ]
+          condition: |
+            and(
+              eq(variables.IsRelease, 'True'),
+              not(${{ parameters.onlyGitHubRelease }})
+            )
+          steps:
+          - task: PowerShell@2
+            inputs:
+              targetType: 'filePath'
+              filePath: ./release/Send-PRsNotification.ps1
+            displayName: Send MS Teams notification
+            env:
+              TEAMS_WEBHOOK: $(MsTeamsWebhook)
+              ADO_PR_ID: $(AdoPrId)
+              ADO_PR_LINK: $(AdoPrLink)
+              CC_PR_ID: $(CcPrId)
+              CC_PR_LINK: $(CcPrLink)

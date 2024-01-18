@@ -37,7 +37,9 @@ namespace Microsoft.VisualStudio.Services.Agent
         private string _dataFileName;
         private string _pagesFolder;
         private IJobServerQueue _jobServerQueue;
-
+        private const string groupStartTag = "##[group]";
+        private const string groupEndTag = "##[endgroup]";
+        private bool _groupOpened = false;
         public long TotalLines => _totalLines;
 
         public override void Initialize(IHostContext hostContext)
@@ -70,6 +72,18 @@ namespace Microsoft.VisualStudio.Services.Agent
             {
                 Create();
             }
+
+            if (message.Contains(groupStartTag))
+            {
+                _groupOpened = true;
+            } 
+            if (_groupOpened && message.Contains(groupEndTag))
+            {
+                // Ignore group end tag only if group was opened, otherwise it is a normal message 
+                // because in web console ##[endgroup] becomes empty line without ##[group] tag
+                _groupOpened = false;
+                _totalLines--;
+            } 
 
             string line = $"{DateTime.UtcNow.ToString("O")} {message}";
             _pageWriter.WriteLine(line);

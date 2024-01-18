@@ -77,7 +77,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 await DownloadAsync(executionContext, task);
 
-                if (AgentKnobs.CheckForTaskDeprecation.GetValue(UtilKnobValueContext.Instance()).AsBoolean())
+                if (AgentKnobs.CheckForTaskDeprecation.GetValue(executionContext).AsBoolean())
                 {
                     CheckForTaskDeprecation(executionContext, task);
                 }
@@ -326,14 +326,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 string friendlyName = taskJson["friendlyName"].Value<string>();
                 int majorVersion = new Version(task.Version).Major;
-                string deprecationMessage = StringUtil.Loc("DeprecationMessage", friendlyName, majorVersion, task.Name);
+                string commonDeprecationMessage = StringUtil.Loc("DeprecationMessage", friendlyName, majorVersion, task.Name);
                 var removalDate = taskJson["removalDate"];
 
                 if (removalDate != null)
                 {
                     string whitespace = " ";
                     string removalDateString = removalDate.Value<DateTime>().ToString("MMMM d, yyyy");
-                    deprecationMessage += whitespace + StringUtil.Loc("DeprecationMessageRemovalDate", removalDateString);
+                    commonDeprecationMessage += whitespace + StringUtil.Loc("DeprecationMessageRemovalDate", removalDateString);
                     var helpUrl = taskJson["helpUrl"];
 
                     if (helpUrl != null)
@@ -345,12 +345,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         if (helpUrlString.StartsWith(urlPrefix))
                         {
                             string versionHelpUrl = $"{helpUrlString}-v{majorVersion}".Replace(urlPrefix, $"https://learn.microsoft.com/azure/devops/pipelines/tasks/reference/");
-                            deprecationMessage += whitespace + StringUtil.Loc("DeprecationMessageHelpUrl", versionHelpUrl);
+                            commonDeprecationMessage += whitespace + StringUtil.Loc("DeprecationMessageHelpUrl", versionHelpUrl);
                         }
                     }
                 }
 
-                executionContext.Warning(deprecationMessage);
+                executionContext.Warning(commonDeprecationMessage);
+
+                var tailoredDeprecationMessage = taskJson["deprecationMessage"];
+
+                if (tailoredDeprecationMessage != null)
+                {
+                    executionContext.Warning(tailoredDeprecationMessage.ToString());
+                }
             }
         }
 
@@ -427,7 +434,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private NodeHandlerData _node;
         private Node10HandlerData _node10;
         private Node16HandlerData _node16;
-        private Node20HandlerData _node20;
+        private Node20_1HandlerData _node20_1;
         private PowerShellHandlerData _powerShell;
         private PowerShell3HandlerData _powerShell3;
         private PowerShellExeHandlerData _powerShellExe;
@@ -497,16 +504,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public Node20HandlerData Node20
+        public Node20_1HandlerData Node20_1
         {
             get
             {
-                return _node20;
+                return _node20_1;
             }
 
             set
             {
-                _node20 = value;
+                _node20_1 = value;
                 Add(value);
             }
         }
@@ -696,7 +703,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         public override int Priority => 2;
     }
-    public sealed class Node20HandlerData : BaseNodeHandlerData
+    public sealed class Node20_1HandlerData : BaseNodeHandlerData
     {
         public override int Priority => 1;
     }

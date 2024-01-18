@@ -24,7 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 
         void EnsureParentDirectory(string filePath);
 
-        void DeleteFile(string filePath);
+        void DeleteFile(string filePath, CancellationToken cancellationToken);
 
         void MoveFile(string sourceFileName, string destFileName);
 
@@ -104,11 +104,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
             EnsureDirectoryExists(ensureParentDirectory.FullName);
         }
 
-        public void DeleteFile(string filePath)
+        public void DeleteFile(string filePath, CancellationToken cancellationToken)
         {
             if (File.Exists(filePath))
             {
-                File.Delete(filePath);
+                try
+                {
+                    IOUtil.DeleteFileWithRetry(filePath, cancellationToken).Wait();
+                }
+                catch (Exception ex)
+                {
+                    Trace.Warning($"Unable to delete {filePath}, ex:{ex.GetType()}");
+                    throw;
+                }
             }
         }
 

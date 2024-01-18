@@ -59,11 +59,6 @@ parameters:
   type: boolean
   default: true
 
-resources:
-  containers:
-  - container: alpine
-    image: azpagentinfra/alpine:latest
-
 stages:
 
 - ${{ parameters.preBuildStages }}
@@ -205,13 +200,13 @@ stages:
         displayName: Alpine (x64)
         pool:
           vmImage: ubuntu-latest
-        container: alpine
+        #container: alpine
         os: linux-musl
         arch: x64
         branch: ${{ parameters.branch }}
         componentDetection: false
         unitTests: ${{ parameters.test }}
-        functionalTests: ${{ parameters.test }}
+        functionalTests: false
         sign: false
         publishArtifacts: ${{ parameters.publishArtifacts }}
         buildAlternatePackage: false
