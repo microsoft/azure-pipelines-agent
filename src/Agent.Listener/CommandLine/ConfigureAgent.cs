@@ -93,6 +93,12 @@ namespace Agent.Listener.CommandLine
         [Option(Constants.Agent.CommandLine.Args.ProxyPassword)]
         public string ProxyPassword { get; set; }
 
+        [Option(Constants.Agent.CommandLine.Args.ServiceDisplayNamePattern)]
+        public string ServiceDisplayNamePattern { get; set; }
+
+        [Option(Constants.Agent.CommandLine.Args.ServiceNamePattern)]
+        public string ServiceNamePattern { get; set; }
+
         [Option(Constants.Agent.CommandLine.Args.ProxyUserName)]
         public string ProxyUserName { get; set; }
 
