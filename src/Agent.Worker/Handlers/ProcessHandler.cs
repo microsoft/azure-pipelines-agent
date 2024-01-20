@@ -320,6 +320,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             {
                 FlushErrorData();
                 string line = e.Data ?? string.Empty;
+                if (_shouldRemoveColorsFromLogs)
+                {
+                    line = OutputDataHelper.RemoveAnsiColorsFromLine(line);
+                }
                 if (_modifyEnvironment)
                 {
                     if (_foundDelimiter)

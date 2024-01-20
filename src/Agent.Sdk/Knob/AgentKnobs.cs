@@ -566,5 +566,12 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AZP_AGENT_DOCKER_INIT_OPTION"),
             new EnvironmentKnobSource("AZP_AGENT_DOCKER_INIT_OPTION"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob RemoveColorsFromOutput = new Knob(
+            nameof(RemoveColorsFromOutput),
+            "If true, agent will remove all color codes from the step output logs.",
+            new RuntimeKnobSource("AZP_AGENT_NO_COLOR_LOGS"),
+            new EnvironmentKnobSource("AZP_AGENT_NO_COLOR_LOGS"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }

@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Worker.Handlers.Helpers;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System.IO;
 using System.Threading.Tasks;
@@ -90,11 +91,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         private void OnDataReceived(object sender, ProcessDataReceivedEventArgs e)
         {
+            string line = e.Data ?? string.Empty;
+            if (_shouldRemoveColorsFromLogs)
+            {
+                line = OutputDataHelper.RemoveAnsiColorsFromLine(line);
+            }
+
             // This does not need to be inside of a critical section.
             // The logging queues and command handlers are thread-safe.
-            if (!CommandManager.TryProcessCommand(ExecutionContext, e.Data))
+            if (!CommandManager.TryProcessCommand(ExecutionContext, line))
             {
-                ExecutionContext.Output(e.Data);
+                ExecutionContext.Output(line);
             }
         }
     }

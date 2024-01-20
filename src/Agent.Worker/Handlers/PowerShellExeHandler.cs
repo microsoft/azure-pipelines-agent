@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using Agent.Worker.Handlers.Helpers;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
@@ -242,10 +243,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         {
             lock (_outputLock)
             {
-                FlushErrorData();
-                if (!CommandManager.TryProcessCommand(ExecutionContext, e.Data))
+                string line = e.Data ?? string.Empty;
+                if (_shouldRemoveColorsFromLogs)
                 {
-                    ExecutionContext.Output(e.Data);
+                    line = OutputDataHelper.RemoveAnsiColorsFromLine(line);
+                }
+
+                FlushErrorData();
+                if (!CommandManager.TryProcessCommand(ExecutionContext, line))
+                {
+                    ExecutionContext.Output(line);
                 }
             }
         }

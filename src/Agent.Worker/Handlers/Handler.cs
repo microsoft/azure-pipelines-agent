@@ -41,6 +41,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         protected bool _continueAfterCancelProcessTreeKillAttempt;
 
+        protected bool _shouldRemoveColorsFromLogs;
+
         protected IWorkerCommandManager CommandManager { get; private set; }
 
         public List<ServiceEndpoint> Endpoints { get; set; }
@@ -65,6 +67,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         {
             _continueAfterCancelProcessTreeKillAttempt = AgentKnobs.ContinueAfterCancelProcessTreeKillAttempt.GetValue(ExecutionContext).AsBoolean();
             Trace.Info($"Handler.AfterExecutionContextInitialized _continueAfterCancelProcessTreeKillAttempt = {_continueAfterCancelProcessTreeKillAttempt}");
+
+            _shouldRemoveColorsFromLogs = AgentKnobs.RemoveColorsFromOutput.GetValue(ExecutionContext).AsBoolean();
+            Trace.Info($"Handler.AfterExecutionContextInitialized _shouldRemoveAnsiCodesFromLogs = {_shouldRemoveColorsFromLogs}");
         }
 
         protected void AddEndpointsToEnvironment()

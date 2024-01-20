@@ -13,6 +13,7 @@ using System.Text.RegularExpressions;
 using System.Linq;
 using System.Collections.Generic;
 using System.Threading;
+using Agent.Worker.Handlers.Helpers;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
@@ -391,11 +392,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 return;
             }
 
+            string line = e.Data ?? string.Empty;
+            if (_shouldRemoveColorsFromLogs)
+            {
+                line = OutputDataHelper.RemoveAnsiColorsFromLine(line);
+            }
+
             // This does not need to be inside of a critical section.
             // The logging queues and command handlers are thread-safe.
-            if (!CommandManager.TryProcessCommand(ExecutionContext, e.Data))
+            if (!CommandManager.TryProcessCommand(ExecutionContext, line))
             {
-                ExecutionContext.Output(e.Data);
+                ExecutionContext.Output(line);
             }
         }
 

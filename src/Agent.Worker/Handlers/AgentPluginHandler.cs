@@ -4,6 +4,7 @@
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System.Threading.Tasks;
 using System;
+using Agent.Worker.Handlers.Helpers;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
@@ -52,11 +53,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         private void OnDataReceived(object sender, ProcessDataReceivedEventArgs e)
         {
+            string line = e.Data ?? string.Empty;
+            if (_shouldRemoveColorsFromLogs)
+            {
+                line = OutputDataHelper.RemoveAnsiColorsFromLine(line);
+            }
+
             // This does not need to be inside of a critical section.
             // The logging queues and command handlers are thread-safe.
-            if (!CommandManager.TryProcessCommand(ExecutionContext, e.Data))
+            if (!CommandManager.TryProcessCommand(ExecutionContext, line))
             {
-                ExecutionContext.Output(e.Data);
+                ExecutionContext.Output(line);
             }
         }
     }
