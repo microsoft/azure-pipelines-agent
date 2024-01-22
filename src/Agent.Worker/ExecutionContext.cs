@@ -16,6 +16,8 @@ using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
+using Newtonsoft.Json;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -86,6 +88,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         /// </summary>
         /// <returns></returns>
         void CancelForceTaskCompletion();
+        void EmitHostNode20FallbackTelemetry(bool node20ResultsInGlibCErrorHost);
     }
 
     public sealed class ExecutionContext : AgentService, IExecutionContext, IDisposable
@@ -118,6 +121,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private string _buildLogsFile;
         private FileStream _buildLogsData;
         private StreamWriter _buildLogsWriter;
+        private bool emittedHostNode20FallbackTelemetry = false;
 
         // only job level ExecutionContext will track throttling delay.
         private long _totalThrottlingDelayInMilliseconds = 0;
@@ -887,6 +891,46 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             this._forceCompleted = new TaskCompletionSource<int>();
             this._forceCompleteCancellationTokenSource = new CancellationTokenSource();
+        }
+
+        public void EmitHostNode20FallbackTelemetry(bool node20ResultsInGlibCErrorHost)
+        {
+            if (!emittedHostNode20FallbackTelemetry)
+            {
+                PublishTelemetry(new Dictionary<string, string>
+                        {
+                            {  "HostNode20to16Fallback", node20ResultsInGlibCErrorHost.ToString() }
+                        });
+
+                emittedHostNode20FallbackTelemetry = true;
+            }
+        }
+
+        // This overload is to handle specific types some other way.
+        private void PublishTelemetry<T>(
+            Dictionary<string, T> telemetryData,
+            string feature = "TaskHandler"
+        )
+        {
+            // JsonConvert.SerializeObject always converts to base object.
+            PublishTelemetry((object)telemetryData, feature);
+        }
+
+        private void PublishTelemetry(
+            object telemetryData,
+            string feature = "TaskHandler"
+        )
+        {
+            var cmd = new Command("telemetry", "publish")
+            {
+                Data = JsonConvert.SerializeObject(telemetryData, Formatting.None)
+            };
+            cmd.Properties.Add("area", "PipelinesTasks");
+            cmd.Properties.Add("feature", feature);
+
+            var publishTelemetryCmd = new TelemetryCommandExtension();
+            publishTelemetryCmd.Initialize(HostContext);
+            publishTelemetryCmd.ProcessCommand(this, cmd);
         }
 
         public void Dispose()

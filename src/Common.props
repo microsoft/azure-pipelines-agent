@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <TargetFramework>net6</TargetFramework>
-    <RuntimeFrameworkVersion>6.0.21</RuntimeFrameworkVersion>
+    <RuntimeFrameworkVersion>6.0.26</RuntimeFrameworkVersion>
     <RuntimeIdentifier>$(PackageRuntime)</RuntimeIdentifier>
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
     <AssetTargetFallback>portable-net45+win8</AssetTargetFallback>
@@ -10,7 +10,7 @@
     <OSPlatform>OS_UNKNOWN</OSPlatform>
     <OSArchitecture>ARCH_UNKNOWN</OSArchitecture>
     <DebugConstant></DebugConstant>
-    <VssApiVersion>0.5.222-private</VssApiVersion>
+    <VssApiVersion>0.5.232-private</VssApiVersion>
     <CodeAnalysis>$(CodeAnalysis)</CodeAnalysis>
     <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
@@ -37,8 +37,11 @@
     <OSArchitecture>X86</OSArchitecture>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(OSPlatform)' == 'OS_OSX'">
+  <PropertyGroup Condition="'$(OSPlatform)' == 'OS_OSX' AND '$(PackageRuntime)' == 'osx-x64'">
     <OSArchitecture>X64</OSArchitecture>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(OSPlatform)' == 'OS_OSX' AND '$(PackageRuntime)' == 'osx-arm64'">
+    <OSArchitecture>ARM64</OSArchitecture>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(OSPlatform)' == 'OS_LINUX' AND '$(PackageRuntime)' == 'linux-x64'">

@@ -1,17 +1,25 @@
-﻿using System;
+﻿// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System;
 using System.Collections.Generic;
-using System.Text;
+using Agent.Sdk.Knob;
+using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Agent.Worker;
+using Microsoft.VisualStudio.Services.Common;
 
 namespace Agent.Worker.Handlers.Helpers
 {
     public static class ProcessHandlerHelper
     {
-        public static (string, CmdTelemetry) ProcessInputArguments(string inputArgs)
+        private const char _escapingSymbol = '^';
+        private const string _envPrefix = "%";
+        private const string _envPostfix = "%";
+
+        public static (string, CmdTelemetry) ExpandCmdEnv(string inputArgs, Dictionary<string, string> environment)
         {
-            const char quote = '"';
-            const char escapingSymbol = '^';
-            const string envPrefix = "%";
-            const string envPostfix = "%";
+            ArgUtil.NotNull(inputArgs, nameof(inputArgs));
+            ArgUtil.NotNull(environment, nameof(environment));
 
             string result = inputArgs;
             int startIndex = 0;
@@ -19,7 +27,7 @@ namespace Agent.Worker.Handlers.Helpers
 
             while (true)
             {
-                int prefixIndex = result.IndexOf(envPrefix, startIndex);
+                int prefixIndex = result.IndexOf(_envPrefix, startIndex);
                 if (prefixIndex < 0)
                 {
                     break;
@@ -27,40 +35,12 @@ namespace Agent.Worker.Handlers.Helpers
 
                 telemetry.FoundPrefixes++;
 
-                if (prefixIndex > 0 && result[prefixIndex - 1] == escapingSymbol)
+                if (prefixIndex > 0 && result[prefixIndex - 1] == _escapingSymbol)
                 {
-                    if (result[prefixIndex - 2] == 0 || result[prefixIndex - 2] != escapingSymbol)
-                    {
-                        startIndex++;
-                        result = result[..(prefixIndex - 1)] + result[prefixIndex..];
-
-                        telemetry.EscapedVariables++;
-
-                        continue;
-                    }
-
-                    telemetry.EscapedEscapingSymbols++;
+                    telemetry.EscapingSymbolBeforeVar++;
                 }
 
-                // We possibly should simplify that part -> if just no close quote, then break
-                int quoteIndex = result.IndexOf(quote, startIndex);
-                if (quoteIndex >= 0 && prefixIndex > quoteIndex)
-                {
-                    int nextQuoteIndex = result.IndexOf(quote, quoteIndex + 1);
-                    if (nextQuoteIndex < 0)
-                    {
-                        telemetry.QuotesNotEnclosed = 1;
-                        break;
-                    }
-
-                    startIndex = nextQuoteIndex + 1;
-
-                    telemetry.QuottedBlocks++;
-
-                    continue;
-                }
-
-                int envStartIndex = prefixIndex + envPrefix.Length;
+                int envStartIndex = prefixIndex + _envPrefix.Length;
                 int envEndIndex = FindEnclosingIndex(result, prefixIndex);
                 if (envEndIndex == 0)
                 {
@@ -69,32 +49,29 @@ namespace Agent.Worker.Handlers.Helpers
                 }
 
                 string envName = result[envStartIndex..envEndIndex];
-
-                telemetry.BracedVariables++;
-
-                if (envName.StartsWith(escapingSymbol))
+                if (envName.StartsWith(_escapingSymbol))
                 {
-                    var sanitizedEnvName = envPrefix + envName[1..] + envPostfix;
-
-                    result = result[..prefixIndex] + sanitizedEnvName + result[(envEndIndex + envPostfix.Length)..];
-                    startIndex = prefixIndex + sanitizedEnvName.Length;
-
                     telemetry.VariablesStartsFromES++;
-
-                    continue;
                 }
 
                 var head = result[..prefixIndex];
-                if (envName.Contains(escapingSymbol))
+                if (envName.Contains(_escapingSymbol, StringComparison.Ordinal))
                 {
-                    head += envName.Split(escapingSymbol)[1];
-                    envName = envName.Split(escapingSymbol)[0];
-
                     telemetry.VariablesWithESInside++;
                 }
 
-                var envValue = System.Environment.GetEnvironmentVariable(envName) ?? "";
-                var tail = result[(envEndIndex + envPostfix.Length)..];
+                // Since Windows have case-insensetive environment, and Process handler is windows-specific, we should allign this behavior.
+                var windowsEnvironment = new Dictionary<string, string>(environment, StringComparer.OrdinalIgnoreCase);
+
+                // In case we don't have such variable, we just leave it as is
+                if (!windowsEnvironment.TryGetValue(envName, out string envValue) || string.IsNullOrEmpty(envValue))
+                {
+                    telemetry.NotExistingEnv++;
+                    startIndex = prefixIndex + 1;
+                    continue;
+                }
+
+                var tail = result[(envEndIndex + _envPostfix.Length)..];
 
                 result = head + envValue + tail;
                 startIndex = prefixIndex + envValue.Length;
@@ -119,49 +96,88 @@ namespace Agent.Worker.Handlers.Helpers
 
             return 0;
         }
+
+        public static (bool, Dictionary<string, object>) ValidateInputArguments(
+            string inputArgs,
+            Dictionary<string, string> environment,
+            IExecutionContext context)
+        {
+            var enableValidation = AgentKnobs.ProcessHandlerSecureArguments.GetValue(context).AsBoolean();
+            context.Debug($"Enable args validation: '{enableValidation}'");
+            var enableAudit = AgentKnobs.ProcessHandlerSecureArgumentsAudit.GetValue(context).AsBoolean();
+            context.Debug($"Enable args validation audit: '{enableAudit}'");
+            var enableTelemetry = AgentKnobs.ProcessHandlerTelemetry.GetValue(context).AsBoolean();
+            context.Debug($"Enable telemetry: '{enableTelemetry}'");
+
+            if (enableValidation || enableAudit || enableTelemetry)
+            {
+                context.Debug("Starting args env expansion");
+                var (expandedArgs, envExpandTelemetry) = ExpandCmdEnv(inputArgs, environment);
+                context.Debug($"Expanded args={expandedArgs}");
+
+                context.Debug("Starting args sanitization");
+                var (sanitizedArgs, sanitizeTelemetry) = CmdArgsSanitizer.SanitizeArguments(expandedArgs);
+
+                Dictionary<string, object> telemetry = null;
+                if (sanitizedArgs != inputArgs)
+                {
+                    if (enableTelemetry)
+                    {
+                        telemetry = envExpandTelemetry.ToDictionary();
+                        if (sanitizeTelemetry != null)
+                        {
+                            telemetry.AddRange(sanitizeTelemetry.ToDictionary());
+                        }
+                    }
+                    if (sanitizedArgs != expandedArgs)
+                    {
+                        if (enableAudit && !enableValidation)
+                        {
+                            context.Warning(StringUtil.Loc("ProcessHandlerInvalidScriptArgs"));
+                        }
+                        if (enableValidation)
+                        {
+                            return (false, telemetry);
+                        }
+
+                        return (true, telemetry);
+                    }
+                }
+
+                return (true, null);
+            }
+            else
+            {
+                context.Debug("Args sanitization skipped.");
+                return (true, null);
+            }
+        }
     }
 
     public class CmdTelemetry
     {
         public int FoundPrefixes { get; set; } = 0;
-        public int QuottedBlocks { get; set; } = 0;
         public int VariablesExpanded { get; set; } = 0;
-        public int EscapedVariables { get; set; } = 0;
-        public int EscapedEscapingSymbols { get; set; } = 0;
+        public int EscapingSymbolBeforeVar { get; set; } = 0;
         public int VariablesStartsFromES { get; set; } = 0;
-        public int BraceSyntaxEntries { get; set; } = 0;
-        public int BracedVariables { get; set; } = 0;
         public int VariablesWithESInside { get; set; } = 0;
         public int QuotesNotEnclosed { get; set; } = 0;
         public int NotClosedEnvSyntaxPosition { get; set; } = 0;
+        public int NotExistingEnv { get; set; } = 0;
 
-        public Dictionary<string, int> ToDictionary()
+        public Dictionary<string, object> ToDictionary()
         {
-            return new Dictionary<string, int>
+            return new Dictionary<string, object>
             {
                 ["foundPrefixes"] = FoundPrefixes,
-                ["quottedBlocks"] = QuottedBlocks,
                 ["variablesExpanded"] = VariablesExpanded,
-                ["escapedVariables"] = EscapedVariables,
-                ["escapedEscapingSymbols"] = EscapedEscapingSymbols,
+                ["escapedVariables"] = EscapingSymbolBeforeVar,
                 ["variablesStartsFromES"] = VariablesStartsFromES,
-                ["braceSyntaxEntries"] = BraceSyntaxEntries,
-                ["bracedVariables"] = BracedVariables,
                 ["bariablesWithESInside"] = VariablesWithESInside,
                 ["quotesNotEnclosed"] = QuotesNotEnclosed,
-                ["notClosedBraceSyntaxPosition"] = NotClosedEnvSyntaxPosition
+                ["notClosedBraceSyntaxPosition"] = NotClosedEnvSyntaxPosition,
+                ["notExistingEnv"] = NotExistingEnv
             };
-        }
-
-        public Dictionary<string, string> ToStringsDictionary()
-        {
-            var dict = ToDictionary();
-            var result = new Dictionary<string, string>();
-            foreach (var key in dict.Keys)
-            {
-                result.Add(key, dict[key].ToString());
-            }
-            return result;
         }
     };
 }

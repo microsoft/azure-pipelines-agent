@@ -39,15 +39,10 @@ Written for .NET Core in C#.
 
 ## Supported Usage
 
-This agent can be used for Azure Pipelines, Azure DevOps Server 2019+, and TFS 2017+.
-It also replaces the Node-based agent for TFS 2015.
+This agent can be used for both Azure Pipelines and Azure DevOps Server (Team Foundation Server).
+Support is extended to all on-premise solutions [based on their lifecycle (including extended support)](https://learn.microsoft.com/lifecycle/products/).
 
-| Scenario | Mac/Linux | Windows | Comment |
-|:-------------:|:-----:|:-----:|:-----:|
-| Azure Pipelines      |  Yes  | Yes   |
-| TFS2015 (onprem)   |  Yes  | No    | Windows use agent with 2015 |
-| TFS2017 (onprem)   |  Yes  | Yes    |  |
-| TFS2018 (onprem)   |  Yes  | Yes    |  |
+The only exception is the Windows version of the agent for TFS 2015 since it is distributed along with a separate Node-based agent.
 
 ## Latest and Pre-release labels for releases
 

@@ -5,6 +5,7 @@ using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -339,6 +340,134 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
             }
         }
 
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public async void DeleteDirectory_DeletesWithRetry_Success()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+                // Arrange
+                string tempDir = Path.Combine(hc.GetDirectory(WellKnownDirectory.Bin), Path.GetRandomFileName());
+                Directory.CreateDirectory(tempDir);
+
+                try
+                {
+                    // Act
+                    await IOUtil.DeleteDirectoryWithRetry(tempDir, CancellationToken.None);
+
+                    // Assert
+                    Assert.False(Directory.Exists(tempDir));
+                }
+                finally
+                {
+                    // Cleanup
+                    if (Directory.Exists(tempDir))
+                    {
+                        Directory.Delete(tempDir, true);
+                    }
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
+        public async void DeleteDirectory_DeletesWithRetry_CancellationRequested()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+                string tempDir = Path.Combine(hc.GetDirectory(WellKnownDirectory.Bin), Path.GetRandomFileName());
+                Directory.CreateDirectory(tempDir);
+                var tempFile = Path.Combine(tempDir, "exclusiveFile.txt");
+                //it blocks file inside using
+                using (FileStream fs = File.Open(tempFile, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    // Act
+                    using (var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(2)))
+                        await Assert.ThrowsAsync<TaskCanceledException>(async () =>
+                        {
+                            await IOUtil.DeleteDirectoryWithRetry(tempDir, cancellationTokenSource.Token);
+                        });
+                }
+
+                // Cleanup
+                if (File.Exists(tempFile))
+                    File.Delete(tempFile);
+                if (Directory.Exists(tempDir))
+                    Directory.Delete(tempDir, true);
+
+            }
+        }
+
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public async void DeleteDirectory_DeletesWithRetry_NonExistenDir()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+                // Arrange
+                string nonExistentDir = Path.Combine(hc.GetDirectory(WellKnownDirectory.Bin), Path.GetRandomFileName());
+                // Act & Assert
+                await IOUtil.DeleteDirectoryWithRetry(nonExistentDir, CancellationToken.None);
+
+                // execution should not be thrown exception 
+
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
+        public async void DeleteDirectory_DeletesWithRetry_IOException()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+                // Arrange
+                string tempDir = Path.Combine(hc.GetDirectory(WellKnownDirectory.Bin), Path.GetRandomFileName());
+                Directory.CreateDirectory(tempDir);
+                var tempFile = Path.Combine(tempDir, "exclusiveFile.txt");
+                var exceptionThrown = false;
+                //it blocks file inside using
+                using (FileStream fs = File.Open(tempFile, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    // Act & Assert
+                    try
+                    {
+                        await IOUtil.DeleteDirectoryWithRetry(tempDir, CancellationToken.None);
+                    }
+                    catch (AggregateException ae)
+                    {
+                        // Assert that at least one inner exception is an IOException
+                        Assert.NotEmpty(ae.InnerExceptions.OfType<IOException>().ToList());
+                        exceptionThrown = true;
+                    }
+
+                    finally
+                    {
+                        fs.Close();
+                    }
+                }
+                Assert.True(exceptionThrown, "Exceptione should be thrown when trying to delete blocked file");
+                if (File.Exists(tempFile))
+                    File.Delete(tempFile);
+                if (Directory.Exists(tempDir))
+                    Directory.Delete(tempDir);
+            }
+        }
+
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
@@ -667,6 +796,117 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                 }
             }
         }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public async void DeleteFile_DeletesWithRetry_Success()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+                // Arrange
+                string tempDir = Path.Combine(hc.GetDirectory(WellKnownDirectory.Bin), Path.GetRandomFileName());
+                Directory.CreateDirectory(tempDir);
+                string file = Path.Combine(tempDir, "some file");
+                File.WriteAllText(path: file, contents: "some contents");
+                try
+                {
+                    // Act
+                    await IOUtil.DeleteFileWithRetry(file, CancellationToken.None);
+
+                    // Assert
+                    Assert.False(File.Exists(file));
+                }
+                finally
+                {
+                    // Cleanup
+                    if (File.Exists(file))
+                    {
+                        File.Delete(file);
+                    }
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public async void DeleteFile_DeletesWithRetry_NonExistenFile()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+                // Arrange
+                string nonExistentFile = Path.Combine(hc.GetDirectory(WellKnownDirectory.Bin), Path.GetRandomFileName());
+                // Act & Assert
+                await IOUtil.DeleteFileWithRetry(nonExistentFile, CancellationToken.None);
+
+                // execution should not be thrown exception 
+
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
+        public async void DeleteFile_DeletesWithRetry_IOException()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+                // Arrange
+                string tempDir = Path.Combine(hc.GetDirectory(WellKnownDirectory.Bin), Path.GetRandomFileName());
+                Directory.CreateDirectory(tempDir);
+                var tempFile = Path.Combine(tempDir, "exclusiveFile.txt");
+                //it blocks file inside using
+                using (FileStream fs = File.Open(tempFile, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    await Assert.ThrowsAsync<IOException>(async () =>
+                     {
+                         await IOUtil.DeleteFileWithRetry(tempFile, CancellationToken.None);
+                     });
+                }
+                if (File.Exists(tempFile))
+                    File.Delete(tempFile);
+                if (Directory.Exists(tempDir))
+                    Directory.Delete(tempDir);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
+        public async void DeleteFile_DeletesWithRetry_CancellationRequested()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+                // Arrange
+                string tempDir = Path.Combine(hc.GetDirectory(WellKnownDirectory.Bin), Path.GetRandomFileName());
+                Directory.CreateDirectory(tempDir);
+                var tempFile = Path.Combine(tempDir, "exclusiveFile.txt");
+                //it blocks file inside using
+                using (FileStream fs = File.Open(tempFile, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    using (var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(2)))
+                        await Assert.ThrowsAsync<TaskCanceledException>(async () =>
+                        {
+                            await IOUtil.DeleteFileWithRetry(tempFile, cancellationTokenSource.Token);
+                        });
+                }
+                if (File.Exists(tempFile))
+                    File.Delete(tempFile);
+                if (Directory.Exists(tempDir))
+                    Directory.Delete(tempDir);
+            }
+        }
+
+
 
         [Fact]
         [Trait("Level", "L0")]

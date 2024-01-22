@@ -86,6 +86,7 @@ jobs:
     DisableCFSDetector: true
     DisableDockerDetector: true
     nugetMultiFeedWarnLevel: none
+    CheckoutBranch: ${{ parameters.branch }}
 
   steps:
 
@@ -102,12 +103,13 @@ jobs:
   - ${{ if ne(parameters.branch, '') }}:
     - template: switch-branch.yml
       parameters:
-        branch: ${{ parameters.branch }}
+        branch: $(CheckoutBranch)
 
   # 1ES images used on the ARM pool doesn't contain unzip tool, so we need to install it before starting the build
   - ${{ if and(eq(parameters.arch, 'arm64'), ne(parameters.os, 'osx')) }}:
     - script: sudo apt-get update && sudo apt-get -y install unzip
       displayName: Install unzip
+      retryCountOnTaskFailure: 5
 
   # Build agent layout
   - script: ${{ variables.devCommand }} layout Release ${{ parameters.os }}-${{ parameters.arch }}
@@ -119,7 +121,7 @@ jobs:
         ADO_ENABLE_LOGISSUE: true
 
   # Check if broken symlinks exist in the agent build
-  - task: Bash@3.201.1
+  - task: Bash@3
     inputs:
       filePath: src/Misc/check-symlinks.sh
     displayName: Check symlinks
@@ -138,6 +140,7 @@ jobs:
     - script: ${{ variables.devCommand }} testl0 Debug ${{ parameters.os }}-${{ parameters.arch }}
       workingDirectory: src
       displayName: Unit tests
+      timeoutInMinutes: 5
 
   # Install nuget
   - ${{ if eq(parameters.os, 'win') }}:
@@ -150,7 +153,7 @@ jobs:
       - task: UseDotNet@2
         displayName: Install .NET Core 6 SDK
         inputs:
-         version: '6.0.413'
+         version: '6.0.418'
          packageType: sdk
          performMultiLevelLookup: true
     - script: ${{ variables.devCommand }} testl1 Debug ${{ parameters.os }}-${{ parameters.arch }}

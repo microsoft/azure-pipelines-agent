@@ -103,7 +103,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     return false;
                 }
 
-                // process logging command in serialize oreder.
+                // process logging command in serialize order.
                 lock (_commandSerializeLock)
                 {
                     try
