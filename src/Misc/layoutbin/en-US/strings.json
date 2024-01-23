@@ -608,6 +608,7 @@
   "StepFinishing": "Finishing: {0}",
   "StepStarting": "Starting: {0}",
   "StepTimedOut": "The task has timed out.",
+  "StepCancelled": "The Operation will be canceled. The next steps may not contain expected logs.",
   "StopContainer": "Stop Containers",
   "Success": "Succeeded: ",
   "SupportedRepositoryEndpointNotFound": "Unable to match any source repository endpoints with any of the supported source providers.",
