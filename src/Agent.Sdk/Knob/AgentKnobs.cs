@@ -500,6 +500,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_ENABLE_FETCHING_NET6_LIST"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob EnableResourceUtilizationWarnings = new Knob(
+            nameof(EnableResourceUtilizationWarnings),
+            "If true, the agent will throw the resource utilization warnings",
+            new RuntimeKnobSource("AZP_ENABLE_RESOURCE_UTILIZATION_WARNINGS"),
+            new EnvironmentKnobSource("AZP_ENABLE_RESOURCE_UTILIZATION_WARNINGS"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob ForceCreateTasksDirectory = new Knob(
             nameof(ForceCreateTasksDirectory),
             "Forces the agent to create _tasks folder for tasks.",
