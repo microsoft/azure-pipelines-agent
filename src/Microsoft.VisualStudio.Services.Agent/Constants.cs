@@ -646,6 +646,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Task.SkipTranslatorForCheckout,
                 Task.PublishTelemetry
             };
+
+            public static string ReadOnlyEnvVariablesVar = "AZP_READONLY_ENV_VARIABLES";
         }
     }
 }

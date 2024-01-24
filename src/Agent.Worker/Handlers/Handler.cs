@@ -183,6 +183,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             ArgUtil.NotNull(Environment, nameof(Environment));
             ArgUtil.NotNull(RuntimeVariables, nameof(RuntimeVariables));
 
+            var readonlyEnvVariables = Constants.Variables.ReadOnlyVariables.ConvertAll(v => VarUtil.ConvertToEnvVariableFormat(v));
+
             // Add the public variables.
             var names = new List<string>();
             foreach (KeyValuePair<string, string> pair in RuntimeVariables.Public)
@@ -199,6 +201,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
                 // Store the name.
                 names.Add(pair.Key ?? string.Empty);
+
+                if (!excludeNames && RuntimeVariables.IsReadOnly(pair.Key))
+                {
+                    Trace.Info($"Adding {pair.Key} public var to readonly env variables list.");
+                    readonlyEnvVariables.Add(VarUtil.ConvertToEnvVariableFormat(pair.Key));
+                }
             }
 
             // Add the public variable names.
@@ -219,6 +227,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
                     // Store the name.
                     secretNames.Add(pair.Key ?? string.Empty);
+
+                    if (RuntimeVariables.IsReadOnly(pair.Key))
+                    {
+                        Trace.Info($"Adding {pair.Key} private var to readonly env variables list.");
+                        readonlyEnvVariables.Add(VarUtil.ConvertToEnvVariableFormat(pair.Key));
+                    }
                 }
 
                 // Add the secret variable names.
@@ -227,6 +241,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     AddEnvironmentVariable("VSTS_SECRET_VARIABLES", JsonUtility.ToString(secretNames));
                 }
             }
+
+            AddEnvironmentVariable(
+                key: Constants.Variables.ReadOnlyEnvVariablesVar,
+                value: JsonUtility.ToString(readonlyEnvVariables)
+            );
         }
 
         protected void AddEnvironmentVariable(string key, string value)
