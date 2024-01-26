@@ -3,8 +3,13 @@
 
 using Agent.Sdk.Knob;
 using Agent.Sdk.Util;
+using BuildXL.Cache.ContentStore.Hashing;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Blob;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.BlobStore.WebApi;
+using Microsoft.VisualStudio.Services.BlobStore.Common;
+using Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts;
 using Microsoft.VisualStudio.Services.FileContainer.Client;
 using System;
 using System.Collections.Concurrent;
@@ -18,8 +23,6 @@ using Microsoft.VisualStudio.Services.WebApi;
 using System.Net.Http;
 using System.Net;
 using System.Net.Sockets;
-using Microsoft.TeamFoundation.DistributedTask.WebApi;
-using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
@@ -326,6 +329,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             return new UploadResult(failedFiles, uploadedSize);
         }
+        public static string CreateDomainHash(IDomainId domainId, DedupIdentifier dedupId)
+        {
+            if (domainId != WellKnownDomainIds.DefaultDomainId)
+            {
+                // Only use the new format domainId,dedupId if we aren't going to the default domain as this is a breaking change:
+                return $"{domainId.Serialize()},{dedupId.ValueString}";
+            }
+            // We are still uploading to the default domain so use the don't use the new format:
+            return dedupId.ValueString;
+        }
 
         private async Task<UploadResult> BlobUploadAsync(IAsyncCommandContext context, IReadOnlyList<string> files, int concurrentUploads, CancellationToken token)
         {
@@ -342,20 +355,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             BlobStoreClientTelemetryTfs clientTelemetry = null;
             try
             {
+                bool forceDefaultDomain = AgentKnobs.DisableBuildArtifactsToBlobAlternateDomain.GetValue(context).AsBoolean();
+
                 var verbose = String.Equals(context.GetVariableValueOrDefault("system.debug"), "true", StringComparison.InvariantCultureIgnoreCase);
-                int maxParallelism = context.GetHostContext().GetService<IConfigurationStore>().GetSettings().MaxDedupParallelism;
-                (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                    .CreateDedupClientAsync(
-                        verbose,
-                        (str) => context.Output(str),
-                        this._connection,
-                        maxParallelism,
-                        BlobStore.WebApi.Contracts.Client.BuildArtifact,
+                Action<string> tracer = (str) => context.Output(str);
+
+                var clientSettings = await BlobstoreClientSettings.GetClientSettingsAsync(
+                        _connection,
+                        Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.BuildArtifact,
+                        DedupManifestArtifactClientFactory.CreateArtifactsTracer(verbose, tracer),
                         token);
 
+                IDomainId domainId = forceDefaultDomain ? WellKnownDomainIds.DefaultDomainId : clientSettings.GetDefaultDomainId();
+
+                (dedupClient, clientTelemetry) = DedupManifestArtifactClientFactory.Instance
+                    .CreateDedupClient(
+                        _connection,
+                        domainId,
+                        context.GetHostContext().GetService<IConfigurationStore>().GetSettings().MaxDedupParallelism,
+                        clientSettings.GetRedirectTimeout(),
+                        verbose,
+                        tracer,
+                        token);
                 // Upload to blobstore
                 var results = await BlobStoreUtils.UploadBatchToBlobstore(verbose, files, (level, uri, type) =>
-                    new BuildArtifactActionRecord(level, uri, type, nameof(BlobUploadAsync), context), (str) => context.Output(str), dedupClient, clientTelemetry, token, enableReporting: true);
+                    new BuildArtifactActionRecord(level, uri, type, nameof(BlobUploadAsync), context), tracer, dedupClient, clientTelemetry, token, enableReporting: true);
 
                 // Associate with TFS
                 context.Output(StringUtil.Loc("AssociateFiles"));

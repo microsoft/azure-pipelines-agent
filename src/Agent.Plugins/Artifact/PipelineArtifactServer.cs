@@ -44,14 +44,14 @@ namespace Agent.Plugins
             // Get the client settings, if any.
             var tracer = DedupManifestArtifactClientFactory.CreateArtifactsTracer(verbose: false, (str) => context.Output(str));
             VssConnection connection = context.VssConnection;
-            var clientSettings = await DedupManifestArtifactClientFactory.GetClientSettingsAsync(
+            var clientSettings = await BlobstoreClientSettings.GetClientSettingsAsync(
                 connection,
                 Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
                 tracer,
                 cancellationToken);
             
             // Get the default domain to use:
-            IDomainId domainId = DedupManifestArtifactClientFactory.GetDefaultDomainId(clientSettings, tracer);
+            IDomainId domainId = clientSettings.GetDefaultDomainId();
 
             var (dedupManifestClient, clientTelemetry) = DedupManifestArtifactClientFactory.Instance
                 .CreateDedupManifestClient(
