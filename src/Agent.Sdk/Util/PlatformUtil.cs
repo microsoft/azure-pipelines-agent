@@ -152,13 +152,33 @@ namespace Agent.Sdk
             }
         }
 
+        private static string GetLinuxReleaseFilePath()
+        {
+            if (RunningOnLinux)
+            {
+                if (File.Exists("/etc/os-release"))
+                {
+                    return "/etc/os-release";
+                }
+                else if (File.Exists("/usr/lib/os-release"))
+                {
+                    return "/usr/lib/os-release";
+                }
+            }
+
+            return null;
+        }
+
         private static string GetLinuxId()
         {
-            if (RunningOnLinux && File.Exists("/etc/os-release"))
+
+            string filePath = GetLinuxReleaseFilePath();
+
+            if (RunningOnLinux && filePath != null)
             {
                 Regex linuxIdRegex = new Regex("^ID\\s*=\\s*\"?(?<id>[0-9a-z._-]+)\"?");
 
-                using (StreamReader reader = new StreamReader("/etc/os-release"))
+                using (StreamReader reader = new StreamReader(filePath))
                 {
                     while (!reader.EndOfStream)
                     {
@@ -178,11 +198,14 @@ namespace Agent.Sdk
 
         private static string GetLinuxName()
         {
-            if (RunningOnLinux && File.Exists("/etc/os-release"))
+
+            string filePath = GetLinuxReleaseFilePath();
+
+            if (RunningOnLinux && filePath != null)
             {
                 Regex linuxVersionIdRegex = new Regex("^VERSION_ID\\s*=\\s*\"?(?<id>[0-9a-z._-]+)\"?");
 
-                using (StreamReader reader = new StreamReader("/etc/os-release"))
+                using (StreamReader reader = new StreamReader(filePath))
                 {
                     while (!reader.EndOfStream)
                     {
@@ -446,7 +469,7 @@ namespace Agent.Sdk
         {
             if (name == null && version == null)
             {
-                throw new Exception("You need to provide at least one not-nullable parameter");
+                throw new ArgumentNullException("You need to provide at least one not-nullable parameter");
             }
 
             if (name != null)
@@ -516,7 +539,7 @@ namespace Agent.Sdk
 
             if (!parsedVersionRegexMatch.Success)
             {
-                throw new Exception($"String {version} can't be parsed");
+                throw new FormatException($"String {version} can't be parsed");
             }
 
             string versionString = string.Format(
