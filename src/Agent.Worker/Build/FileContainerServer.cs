@@ -355,7 +355,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             BlobStoreClientTelemetryTfs clientTelemetry = null;
             try
             {
-                bool forceDefaultDomain = AgentKnobs.DisableBuildArtifactsToBlobAlternateDomain.GetValue(context).AsBoolean();
 
                 var verbose = String.Equals(context.GetVariableValueOrDefault("system.debug"), "true", StringComparison.InvariantCultureIgnoreCase);
                 Action<string> tracer = (str) => context.Output(str);
@@ -366,7 +365,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         DedupManifestArtifactClientFactory.CreateArtifactsTracer(verbose, tracer),
                         token);
 
-                IDomainId domainId = forceDefaultDomain ? WellKnownDomainIds.DefaultDomainId : clientSettings.GetDefaultDomainId();
+                // Check if the pipeline has an override domain set, if not, use the default domain from the client settings.
+                string overrideDomain = AgentKnobs.SendArtifactsToBlobstoreDomain.GetValue(context).AsString();
+                IDomainId domainId = String.IsNullOrWhiteSpace(overrideDomain) ? clientSettings.GetDefaultDomainId() : DomainIdFactory.Create(overrideDomain);
 
                 (dedupClient, clientTelemetry) = DedupManifestArtifactClientFactory.Instance
                     .CreateDedupClient(
@@ -377,6 +378,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         verbose,
                         tracer,
                         token);
+
                 // Upload to blobstore
                 var results = await BlobStoreUtils.UploadBatchToBlobstore(verbose, files, (level, uri, type) =>
                     new BuildArtifactActionRecord(level, uri, type, nameof(BlobUploadAsync), context), tracer, dedupClient, clientTelemetry, token, enableReporting: true);
@@ -397,7 +399,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 var parallelAssociateTasks = new List<Task<UploadResult>>();
                 for (int uploader = 0; uploader < concurrentUploads; uploader++)
                 {
-                    parallelAssociateTasks.Add(AssociateAsync(context, queue, token));
+                    parallelAssociateTasks.Add(AssociateAsync(context, domainId, queue, token));
                 }
 
                 // Wait for parallel associate tasks to finish.
@@ -443,7 +445,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return uploadResult;
         }
 
-        private async Task<UploadResult> AssociateAsync(IAsyncCommandContext context, ConcurrentQueue<BlobFileInfo> associateQueue, CancellationToken token)
+        private async Task<UploadResult> AssociateAsync(IAsyncCommandContext context, IDomainId domainId, ConcurrentQueue<BlobFileInfo> associateQueue, CancellationToken token)
         {
             var uploadResult = new UploadResult();
 
@@ -467,7 +469,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     {
                         var length = (long)file.Node.TransitiveContentBytes;
                         response = await retryHelper.Retry(async () => await _fileContainerHttpClient.CreateItemForArtifactUpload(_containerId, itemPath, _projectId,
-                            file.DedupId.ValueString, length, token),
+                            CreateDomainHash(domainId, file.DedupId), length, token),
                                                     (retryCounter) => (int)Math.Pow(retryCounter, 2) * 5,
                                                     (exception) => true);
                         uploadResult.TotalFileSizeUploaded += length;

@@ -374,12 +374,12 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("DISABLE_BUILD_ARTIFACTS_TO_BLOB"),
             new EnvironmentKnobSource("DISABLE_BUILD_ARTIFACTS_TO_BLOB"),
             new BuiltInDefaultKnobSource("false"));
-        public static readonly Knob DisableBuildArtifactsToBlobAlternateDomain = new Knob(
-            nameof(DisableBuildArtifactsToBlobAlternateDomain),
-            "The agent may upload build artifacts to alternate domains in Blobstore. If enabled, all artifacts will go to the legacy domain.",
-            new RuntimeKnobSource("DISABLE_BUILD_ARTIFACTS_TO_BLOB_ALTERNATE_DOMAIN"),
-            new EnvironmentKnobSource("DISABLE_BUILD_ARTIFACTS_TO_BLOB_ALTERNATE_DOMAIN"),
-            new BuiltInDefaultKnobSource("false"));
+        public static readonly Knob SendArtifactsToBlobstoreDomain = new Knob(
+            nameof(SendArtifactsToBlobstoreDomain),
+            "When set, defines the domain to use to send (Build|Pipeline) artifacts to.",
+            new RuntimeKnobSource("SEND_ARTIFACTS_TO_BLOBSTORE_DOMAIN"),
+            new EnvironmentKnobSource("SEND_ARTIFACTS_TO_BLOBSTORE_DOMAIN"),
+            new BuiltInDefaultKnobSource(string.Empty));
 
         public static readonly Knob EnableIncompatibleBuildArtifactsPathResolution = new Knob(
             nameof(EnableIncompatibleBuildArtifactsPathResolution),
