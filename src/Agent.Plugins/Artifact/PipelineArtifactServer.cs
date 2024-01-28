@@ -52,7 +52,7 @@ namespace Agent.Plugins
                 cancellationToken);
             
             // Check if the pipeline has an override domain set, if not, use the default domain from the client settings.
-            string overrideDomain = AgentKnobs.SendArtifactsToBlobstoreDomain.GetValue(context).AsString();
+            string overrideDomain = AgentKnobs.SendPipelineArtifactsToBlobstoreDomain.GetValue(context).AsString();
             IDomainId domainId = String.IsNullOrWhiteSpace(overrideDomain) ? clientSettings.GetDefaultDomainId() : DomainIdFactory.Create(overrideDomain);
 
             var (dedupManifestClient, clientTelemetry) = DedupManifestArtifactClientFactory.Instance

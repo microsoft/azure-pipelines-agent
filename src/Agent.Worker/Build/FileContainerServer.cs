@@ -366,7 +366,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         token);
 
                 // Check if the pipeline has an override domain set, if not, use the default domain from the client settings.
-                string overrideDomain = AgentKnobs.SendArtifactsToBlobstoreDomain.GetValue(context).AsString();
+                string overrideDomain = AgentKnobs.SendBuildArtifactsToBlobstoreDomain.GetValue(context).AsString();
                 IDomainId domainId = String.IsNullOrWhiteSpace(overrideDomain) ? clientSettings.GetDefaultDomainId() : DomainIdFactory.Create(overrideDomain);
 
                 (dedupClient, clientTelemetry) = DedupManifestArtifactClientFactory.Instance
