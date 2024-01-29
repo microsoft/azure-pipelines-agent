@@ -645,10 +645,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 publishTelemetryCmd.Initialize(HostContext);
                 publishTelemetryCmd.ProcessCommand(ExecutionContext, cmd);
             }
-            catch (NullReferenceException ex)
-            {
-                ExecutionContext.Debug($"ExecutionHandler telemetry wasn't published, because one of the variables is null");
-                ExecutionContext.Debug(ex.ToString());
+            catch (Exception ex)            
+            {                    
+                if (ex is FormatException || ex is ArgumentNullException || ex is NullReferenceException)
+                {
+                    ExecutionContext.Debug($"ExecutionHandler telemetry wasn't published, because one of the variables has unexpected value.");
+                    ExecutionContext.Debug(ex.ToString());
+                }
+                else
+                {
+                    throw;
+                }
             }
         }
     }
