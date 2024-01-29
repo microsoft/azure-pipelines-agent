@@ -8,7 +8,8 @@ jobs:
   stale:
 
     runs-on: ubuntu-latest
-
+    permissions:
+      issues: write
     steps:
     - uses: actions/stale@v3
       with:

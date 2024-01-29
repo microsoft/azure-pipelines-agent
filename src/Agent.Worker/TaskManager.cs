@@ -1,21 +1,30 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Agent.Sdk;
-using Agent.Sdk.Knob;
-using Microsoft.TeamFoundation.DistributedTask.WebApi;
-using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
-using Microsoft.VisualStudio.Services.Agent.Util;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+
+using Agent.Sdk;
+using Agent.Sdk.Knob;
+using Agent.Sdk.Util;
+
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
+using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.VisualStudio.Services.Common;
+
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+
+using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -23,7 +32,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     public interface ITaskManager : IAgentService
     {
         Task DownloadAsync(IExecutionContext executionContext, IEnumerable<Pipelines.JobStep> steps);
-
         Definition Load(Pipelines.TaskStep task);
 
         /// <summary>
@@ -110,14 +118,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 return checkoutTask;
             }
 
-            // Initialize the definition wrapper object.
-            var definition = new Definition() { Directory = GetDirectory(task.Reference), ZipPath = GetTaskZipPath(task.Reference) };
-
-            // Deserialize the JSON.
-            string file = Path.Combine(definition.Directory, Constants.Path.TaskJsonFile);
-            Trace.Info($"Loading task definition '{file}'.");
-            string json = File.ReadAllText(file);
-            definition.Data = JsonConvert.DeserializeObject<DefinitionData>(json);
+            var definition = GetTaskDefiniton(task);
 
             // Replace the macros within the handler data sections.
             foreach (HandlerData handlerData in (definition.Data?.Execution?.All as IEnumerable<HandlerData> ?? new HandlerData[0]))
@@ -387,6 +388,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return Path.Combine(
                 HostContext.GetDirectory(WellKnownDirectory.TaskZips),
                 $"{task.Name}_{task.Id}_{task.Version}.zip"); // TODO: Move to shared string.
+        }
+
+        private Definition GetTaskDefiniton(Pipelines.TaskStep task)
+        {
+            // Initialize the definition wrapper object.
+            var definition = new Definition() { Directory = GetDirectory(task.Reference), ZipPath = GetTaskZipPath(task.Reference) };
+
+            // Deserialize the JSON.
+            string file = Path.Combine(definition.Directory, Constants.Path.TaskJsonFile);
+            Trace.Info($"Loading task definition '{file}'.");
+            string json = File.ReadAllText(file);
+            definition.Data = JsonConvert.DeserializeObject<DefinitionData>(json);
+
+            return definition;
         }
     }
 

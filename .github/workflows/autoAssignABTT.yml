@@ -8,6 +8,8 @@ on:
 jobs:
   assign_one_project:
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
     name: Assign to ABTT Project
     steps:
     - name: "Add triage and area labels"
