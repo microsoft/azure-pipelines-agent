@@ -182,6 +182,8 @@ namespace Agent.Plugins
                 catch (SocketException e)
                 {
                     ExceptionsUtil.HandleSocketException(e, connection.Uri.ToString(), context.Warning);
+                    // Fall back to streaming through TFS if we cannot reach blobstore for any reason
+                    downloadFromBlob = false;
                 }
                 catch
                 {
