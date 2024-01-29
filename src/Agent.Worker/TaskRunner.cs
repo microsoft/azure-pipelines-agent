@@ -391,6 +391,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     runtimeVariables,
                     taskDirectory: definition.Directory);
 
+                var enableResourceUtilizationWarnings = AgentKnobs.EnableResourceUtilizationWarnings.GetValue(ExecutionContext).AsBoolean();
+
+                //Start Resource utility monitors
+                IResourceMetricsManager resourceDiagnosticManager = null;
+
+                resourceDiagnosticManager = HostContext.GetService<IResourceMetricsManager>();
+                resourceDiagnosticManager.Setup(ExecutionContext);
+
+                if (enableResourceUtilizationWarnings) {
+                    _ = resourceDiagnosticManager.RunMemoryUtilizationMonitor();
+                    _ = resourceDiagnosticManager.RunDiskSpaceUtilizationMonitor();
+                    _ = resourceDiagnosticManager.RunCpuUtilizationMonitor(Task.Reference.Id.ToString());
+                }
+
                 // Run the task.
                 int retryCount = this.Task.RetryCountOnTaskFailure;
 
@@ -408,6 +422,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 else
                 {
                     await handler.RunAsync();
+                }
+
+                if (enableResourceUtilizationWarnings)
+                {
+                    resourceDiagnosticManager?.Dispose();
                 }
             }
         }

@@ -20,6 +20,7 @@ namespace Test.L0.Plugin.TestGitCliManager
             Mock<ArgUtilInstanced> argUtilInstanced = new Mock<ArgUtilInstanced>();
             argUtilInstanced.CallBase = true;
             argUtilInstanced.Setup(x => x.File(Path.Combine("agenthomedirectory", "externals", "git", "cmd", $"git.exe"), "gitPath")).Callback(() => { });
+            argUtilInstanced.Setup(x => x.File(Path.Combine("agenthomedirectory", "externals", "ff_git", "cmd", $"git.exe"), "gitPath")).Callback(() => { });
             argUtilInstanced.Setup(x => x.Directory("agentworkfolder", "agent.workfolder")).Callback(() => { });
             var context = new MockAgentTaskPluginExecutionContext(hostContext.GetTrace());
             context.Variables.Add("agent.homedirectory", "agenthomedirectory");

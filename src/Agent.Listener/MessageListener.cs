@@ -38,6 +38,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         private IAgentServer _agentServer;
         private TaskAgentSession _session;
         private TimeSpan _getNextMessageRetryInterval;
+        private bool _storeAgentKeyInCSPContainer;
         private readonly TimeSpan _sessionCreationRetryInterval = TimeSpan.FromSeconds(30);
         private readonly TimeSpan _sessionConflictRetryLimit = TimeSpan.FromMinutes(4);
         private readonly TimeSpan _clockSkewRetryLimit = TimeSpan.FromMinutes(30);
@@ -98,6 +99,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                                         _settings.PoolId,
                                                         taskAgentSession,
                                                         token);
+
+                    var keyManager = HostContext.GetService<IRSAKeyManager>();
+                    _storeAgentKeyInCSPContainer = await keyManager.GetStoreAgentTokenInNamedContainerFF(HostContext, Trace, _settings, creds);
 
                     Trace.Info($"Session created.");
                     if (encounteringError)
@@ -317,7 +321,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             {
                 // The agent session encryption key uses the AES symmetric algorithm
                 var keyManager = HostContext.GetService<IRSAKeyManager>();
-                using (var rsa = keyManager.GetKey())
+                using (var rsa = keyManager.GetKey(_storeAgentKeyInCSPContainer))
                 {
                     return aes.CreateDecryptor(rsa.Decrypt(_session.EncryptionKey.Value, RSAEncryptionPadding.OaepSHA1), message.IV);
                 }
