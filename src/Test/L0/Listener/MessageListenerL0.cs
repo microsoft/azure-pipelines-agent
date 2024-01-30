@@ -1,13 +1,17 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Listener.Configuration;
+using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Listener;
 using Microsoft.VisualStudio.Services.Agent.Capabilities;
 using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
+using Microsoft.VisualStudio.Services.Common;
 using Moq;
 using System;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Xunit;
 using System.Threading;
@@ -16,13 +20,16 @@ using System.Collections.Generic;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
 {
-    public sealed class MessageListenerL0
+    public sealed class MessageListenerL0 : IDisposable
     {
         private AgentSettings _settings;
         private Mock<IConfigurationManager> _config;
         private Mock<IAgentServer> _agentServer;
         private Mock<ICredentialManager> _credMgr;
         private Mock<ICapabilitiesManager> _capabilitiesManager;
+        private Mock<IFeatureFlagProvider> _featureFlagProvider;
+        private Mock<IRSAKeyManager> _rsaKeyManager;
+        private readonly RSACryptoServiceProvider rsa;
 
         public MessageListenerL0()
         {
@@ -32,6 +39,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             _agentServer = new Mock<IAgentServer>();
             _credMgr = new Mock<ICredentialManager>();
             _capabilitiesManager = new Mock<ICapabilitiesManager>();
+            _featureFlagProvider = new Mock<IFeatureFlagProvider>();
+            _rsaKeyManager = new Mock<IRSAKeyManager>();
+
+            _featureFlagProvider.Setup(x => x.GetFeatureFlagAsync(It.IsAny<IHostContext>(), It.IsAny<string>(), It.IsAny<ITraceWriter>(), It.IsAny<CancellationToken>())).Returns(Task.FromResult(new FeatureAvailability.FeatureFlag("", "", "", "Off", "Off")));
+            _featureFlagProvider.Setup(x => x.GetFeatureFlagWithCred(It.IsAny<IHostContext>(), It.IsAny<string>(), It.IsAny<ITraceWriter>(), It.IsAny<AgentSettings>(), It.IsAny<VssCredentials>(), It.IsAny<CancellationToken>())).Returns(Task.FromResult(new FeatureAvailability.FeatureFlag("", "", "", "Off", "Off")));
+
+            rsa = new RSACryptoServiceProvider(2048);
+            _rsaKeyManager.Setup(x => x.CreateKey(It.IsAny<bool>())).Returns(rsa);
         }
 
         private TestHostContext CreateTestContext([CallerMemberName] String testName = "")
@@ -41,6 +56,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             tc.SetSingleton<IAgentServer>(_agentServer.Object);
             tc.SetSingleton<ICredentialManager>(_credMgr.Object);
             tc.SetSingleton<ICapabilitiesManager>(_capabilitiesManager.Object);
+            tc.SetSingleton<IFeatureFlagProvider>(_featureFlagProvider.Object);
+            tc.SetSingleton<IRSAKeyManager>(_rsaKeyManager.Object);
             return tc;
         }
 
@@ -210,6 +227,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     .Verify(x => x.GetAgentMessageAsync(
                         _settings.PoolId, expectedSession.SessionId, It.IsAny<long?>(), tokenSource.Token), Times.Exactly(arMessages.Length));
             }
+        }
+
+        public void Dispose()
+        {
+            rsa.Dispose();
         }
     }
 }

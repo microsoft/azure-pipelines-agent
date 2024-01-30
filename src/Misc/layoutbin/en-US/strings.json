@@ -614,6 +614,7 @@
   "SourceArtifactProviderNotFound": "Cannot find source provider for artifact of type {0}",
   "StartingArtifactDownload": "Starting download {0}",
   "StartMaintenance": "Start maintenance: {0}",
+  "StepCancelled": "The Operation will be canceled. The next steps may not contain expected logs.",
   "StepFinishing": "Finishing: {0}",
   "StepStarting": "Starting: {0}",
   "StepTimedOut": "The task has timed out.",
