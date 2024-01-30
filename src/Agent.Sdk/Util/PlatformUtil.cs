@@ -27,6 +27,8 @@ namespace Agent.Sdk
         private static OperatingSystem[] net6SupportedSystems;
         private static HttpClient httpClient = new HttpClient();
 
+        private static readonly string[] linuxReleaseFilePaths = new string[2] { "/etc/os-release", "/usr/lib/os-release" };
+
         // System.Runtime.InteropServices.OSPlatform is a struct, so it is
         // not suitable for switch statements.
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1717: Only FlagsAttribute enums should have plural names")]
@@ -156,14 +158,8 @@ namespace Agent.Sdk
         {
             if (RunningOnLinux)
             {
-                if (File.Exists("/etc/os-release"))
-                {
-                    return "/etc/os-release";
-                }
-                else if (File.Exists("/usr/lib/os-release"))
-                {
-                    return "/usr/lib/os-release";
-                }
+                string releaseFilePath = linuxReleaseFilePaths.FirstOrDefault(x => File.Exists(x), null);
+                return releaseFilePath;
             }
 
             return null;
