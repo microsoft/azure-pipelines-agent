@@ -11,7 +11,6 @@ using Microsoft.VisualStudio.Services.Agent.Blob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
-using Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts;
 using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.FileContainer;
@@ -150,44 +149,27 @@ namespace Agent.Plugins
             // Only initialize these clients if we know we need to download from Blobstore
             // If a client cannot connect to Blobstore, we shouldn't stop them from downloading from FCS
             var downloadFromBlob = !AgentKnobs.DisableBuildArtifactsToBlob.GetValue(context).AsBoolean();
-            Dictionary<IDomainId,DedupStoreClient> dedupClientTable = new Dictionary<IDomainId, DedupStoreClient>();
+            DedupStoreClient dedupClient = null;
             BlobStoreClientTelemetryTfs clientTelemetry = null;
             if (downloadFromBlob && fileItems.Any(x => x.BlobMetadata != null))
             {
-                // this is not the most efficient but good enough for now:
-                var domains = fileItems.Select(x => GetDomainIdAndDedupIdFromArtifactHash(x.BlobMetadata.ArtifactHash).domainId).Distinct();
-                DedupStoreClient dedupClient = null;
                 try
                 {
-                    BlobstoreClientSettings clientSettings = await BlobstoreClientSettings.GetClientSettingsAsync(
-                        connection,
+                    (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupClientAsync(
+                        false,
+                        (str) => this.tracer.Info(str),
+                        this.connection,
+                        DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
                         Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.BuildArtifact,
-                        tracer,
                         cancellationToken);
-
-                    foreach(var domainId in domains)
-                    {
-                        (dedupClient, clientTelemetry) = DedupManifestArtifactClientFactory.Instance.CreateDedupClient(
-                            this.connection,
-                            domainId,
-                            DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
-                            clientSettings.GetRedirectTimeout(),
-                            false,
-                            (str) => this.tracer.Info(str),
-                            cancellationToken);
-
-                        dedupClientTable.Add(domainId, dedupClient);
-                    }
                 }
                 catch (SocketException e)
                 {
                     ExceptionsUtil.HandleSocketException(e, connection.Uri.ToString(), context.Warning);
-                    // Fall back to streaming through TFS if we cannot reach blobstore for any reason
-                    downloadFromBlob = false;
                 }
                 catch
                 {
-                    var blobStoreHost = dedupClient?.Client.BaseAddress.Host;
+                    var blobStoreHost = dedupClient.Client.BaseAddress.Host;
                     var allowListLink = BlobStoreWarningInfoProvider.GetAllowListLinkForCurrentPlatform();
                     var warningMessage = StringUtil.Loc("BlobStoreDownloadWarning", blobStoreHost, allowListLink);
 
@@ -209,8 +191,7 @@ namespace Agent.Plugins
                             tracer.Info($"Downloading: {targetPath}");
                             if (item.BlobMetadata != null && downloadFromBlob)
                             {
-                                var client = dedupClientTable[GetDomainIdAndDedupIdFromArtifactHash(item.BlobMetadata.ArtifactHash).domainId];
-                                await this.DownloadFileFromBlobAsync(context, containerIdAndRoot, targetPath, projectId, item, client, clientTelemetry, cancellationToken);
+                                await this.DownloadFileFromBlobAsync(context, containerIdAndRoot, targetPath, projectId, item, dedupClient, clientTelemetry, cancellationToken);
                             }
                             else
                             {
@@ -355,22 +336,6 @@ namespace Agent.Plugins
             return responseStream;
         }
 
-        private static (IDomainId domainId, DedupIdentifier dedupId) GetDomainIdAndDedupIdFromArtifactHash(string artifactHash)
-        {
-            string[] parts = artifactHash.Split(',');
-            if(parts.Length == 1)
-            {
-                // legacy format is always in the default domain:
-                return (WellKnownDomainIds.DefaultDomainId, DedupIdentifier.Deserialize(parts[0]));
-            }
-            else if(parts.Length==2)
-            {
-                // Multidomain format is in the form of <domainId>,<dedupId>
-                return (DomainIdFactory.Create(parts[0]), DedupIdentifier.Deserialize(parts[1]));
-            }
-            throw new ArgumentException($"Invalid artifact hash: {artifactHash}", nameof(artifactHash));
-        }
-
         private async Task DownloadFileFromBlobAsync(
             AgentTaskPluginExecutionContext context,
             (long, string) containerIdAndRoot,
@@ -381,7 +346,7 @@ namespace Agent.Plugins
             BlobStoreClientTelemetryTfs clientTelemetry,
             CancellationToken cancellationToken)
         {
-            (var domainId, var dedupIdentifier) = GetDomainIdAndDedupIdFromArtifactHash(item.BlobMetadata.ArtifactHash);
+            var dedupIdentifier = DedupIdentifier.Deserialize(item.BlobMetadata.ArtifactHash);
 
             var downloadRecord = clientTelemetry.CreateRecord<BuildArtifactActionRecord>((level, uri, type) =>
                 new BuildArtifactActionRecord(level, uri, type, nameof(DownloadFileContainerAsync), context));

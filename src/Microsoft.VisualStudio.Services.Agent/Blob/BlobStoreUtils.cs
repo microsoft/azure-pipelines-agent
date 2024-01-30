@@ -120,7 +120,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                     var itemPath = filePaths[i];
                     try
                     {
-                        var dedupNode = await ChunkerHelper.CreateFromFileAsync(FileSystem.Instance, itemPath, false, ChunkerHelper.DefaultChunkHashType, cancellationToken);
+                        var dedupNode = await ChunkerHelper.CreateFromFileAsync(FileSystem.Instance, itemPath, cancellationToken, false);
                         nodes[i] = new BlobFileInfo
                         {
                             Path = itemPath,
