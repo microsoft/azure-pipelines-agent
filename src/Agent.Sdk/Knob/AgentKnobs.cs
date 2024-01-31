@@ -598,5 +598,11 @@ namespace Agent.Sdk.Knob
             "Store agent key in named container (Windows).",
             new EnvironmentKnobSource("STORE_AGENT_KEY_IN_CSP_CONTAINER"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob AgentKeyUseCng = new Knob(
+            nameof(AgentKeyUseCng),
+            "Use CNG API to store agent key.  Note: Uses Private User Storage",
+            new EnvironmentKnobSource("AGENT_KEY_USE_CNG"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }

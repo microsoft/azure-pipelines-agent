@@ -23,11 +23,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
     public interface IRSAKeyManager : IAgentService
     {
         /// <summary>
-        /// Creates a new <c>RSACryptoServiceProvider</c> instance for the current agent. If a key file is found then the current
+        /// Creates a new <c>RSA</c> instance for the current agent. If a key file is found then the current
         /// key is returned to the caller.
         /// </summary>
-        /// <returns>An <c>RSACryptoServiceProvider</c> instance representing the key for the agent</returns>
-        RSACryptoServiceProvider CreateKey(bool enableAgentKeyStoreInNamedContainer);
+        /// <returns>An <c>RSA</c> instance representing the key for the agent</returns>
+        RSA CreateKey(bool enableAgentKeyStoreInNamedContainer, bool useCng);
 
         /// <summary>
         /// Deletes the RSA key managed by the key manager.
@@ -39,22 +39,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         /// </summary>
         /// <returns>An <c>RSACryptoServiceProvider</c> instance representing the key for the agent</returns>
         /// <exception cref="CryptographicException">No key exists in the store</exception>
-        RSACryptoServiceProvider GetKey(bool enableAgentKeyStoreInNamedContainer);
+        RSA GetKey();
     }
 
     public static class IRSAKeyManagerExtensions
     {
-        public static async Task<bool> GetStoreAgentTokenInNamedContainerFF(this IRSAKeyManager rsaKeyManager, IHostContext hostContext, global::Agent.Sdk.ITraceWriter trace, AgentSettings agentSettings, VssCredentials creds, CancellationToken cancellationToken = default)
+        public static async Task<(bool useNamedContainer, bool useCng)> GetStoreAgentTokenInNamedContainerFF(this IRSAKeyManager rsaKeyManager, IHostContext hostContext, global::Agent.Sdk.ITraceWriter trace, AgentSettings agentSettings, VssCredentials creds, CancellationToken cancellationToken = default)
         {
-            if(AgentKnobs.StoreAgentKeyInCSPContainer.GetValue(UtilKnobValueContext.Instance()).AsBoolean())
+            var useNamedContainer = AgentKnobs.StoreAgentKeyInCSPContainer.GetValue(UtilKnobValueContext.Instance()).AsBoolean();
+            var useCng = AgentKnobs.AgentKeyUseCng.GetValue(UtilKnobValueContext.Instance()).AsBoolean();
+
+            if (useNamedContainer || useCng)
             {
-                return true;
+                return (useNamedContainer, useCng);
             }
 
             var featureFlagProvider = hostContext.GetService<IFeatureFlagProvider>();
-            var enableAgentKeyStoreInNamedContainer = (await featureFlagProvider.GetFeatureFlagWithCred(hostContext, "DistributedTask.Agent.StoreAgentTokenInNamedContainer", trace, agentSettings, creds, cancellationToken)).EffectiveState == "On";
+            var enableAgentKeyStoreInNamedContainerFF = (await featureFlagProvider.GetFeatureFlagWithCred(hostContext, "DistributedTask.Agent.StoreAgentTokenInNamedContainer", trace, agentSettings, creds, cancellationToken)).EffectiveState == "On";
+            var useCngFF = (await featureFlagProvider.GetFeatureFlagWithCred(hostContext, "DistributedTask.Agent.UseCng", trace, agentSettings, creds, cancellationToken)).EffectiveState == "On";
 
-            return enableAgentKeyStoreInNamedContainer;
+            return (enableAgentKeyStoreInNamedContainerFF, useCngFF);
         }
     }
 
@@ -66,6 +70,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
     [Serializable]
     internal class RSAParametersSerializable : ISerializable
     {
+        private bool _useCng;
         private string _containerName;
         private RSAParameters _rsaParameters;
 
@@ -77,9 +82,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
-        public RSAParametersSerializable(string containerName, RSAParameters rsaParameters)
+        public RSAParametersSerializable(string containerName, bool useCng, RSAParameters rsaParameters)
         {
             _containerName = containerName;
+            _useCng = useCng;
             _rsaParameters = rsaParameters;
         }
 
@@ -88,6 +94,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         }
 
         public string ContainerName { get { return _containerName; } set { _containerName = value; } }
+
+        public bool UseCng{ get { return _useCng; } set { _useCng = value; } }
 
         public byte[] D { get { return _rsaParameters.D; } set { _rsaParameters.D = value; } }
 
@@ -108,6 +116,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public RSAParametersSerializable(SerializationInfo information, StreamingContext context)
         {
             _containerName = (string)information.GetValue("ContainerName", typeof(string));
+            _useCng = (bool)information.GetValue("UseCng", typeof(bool));
 
             _rsaParameters = new RSAParameters()
             {
@@ -125,6 +134,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             info.AddValue("ContainerName", _containerName);
+            info.AddValue("UseCng", _useCng);
             info.AddValue("d", _rsaParameters.D);
             info.AddValue("dp", _rsaParameters.DP);
             info.AddValue("dq", _rsaParameters.DQ);

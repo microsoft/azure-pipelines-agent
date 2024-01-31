@@ -182,8 +182,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             // We want to use the native CSP of the platform for storage, so we use the RSACSP directly
             RSAParameters publicKey;
             var keyManager = HostContext.GetService<IRSAKeyManager>();
-            var enableAgentKeyStoreInNamedContainer = await keyManager.GetStoreAgentTokenInNamedContainerFF(HostContext, Trace, agentSettings, creds);
-            using (var rsa = keyManager.CreateKey(enableAgentKeyStoreInNamedContainer))
+            var ffResult = await keyManager.GetStoreAgentTokenInNamedContainerFF(HostContext, Trace, agentSettings, creds);
+            var enableAgentKeyStoreInNamedContainer = ffResult.useNamedContainer;
+            var useCng = ffResult.useCng;
+            using (var rsa = keyManager.CreateKey(enableAgentKeyStoreInNamedContainer, useCng))
             {
                 publicKey = rsa.ExportParameters(false);
             }
