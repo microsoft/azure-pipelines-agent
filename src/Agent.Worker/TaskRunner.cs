@@ -19,6 +19,7 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Newtonsoft.Json;
+using Microsoft.VisualStudio.Services.Client;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -65,6 +66,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(ExecutionContext, nameof(ExecutionContext));
             ArgUtil.NotNull(ExecutionContext.Variables, nameof(ExecutionContext.Variables));
             ArgUtil.NotNull(Task, nameof(Task));
+
+            bool logTaskNameInUserAgent = AgentKnobs.LogTaskNameInUserAgent.GetValue(ExecutionContext).AsBoolean();
+
+            if (logTaskNameInUserAgent)
+            {
+                VssUtil.PushTaskIntoAgentInfo(Task.Name);
+            }
+
+            try
+            {
+                await RunAsyncInternal();
+            }
+            finally
+            {
+                if (logTaskNameInUserAgent)
+                {
+                    VssUtil.RemoveTaskFromAgentInfo();
+                }
+            }
+        }
+
+        private async Task RunAsyncInternal()
+        {
             var taskManager = HostContext.GetService<ITaskManager>();
             var handlerFactory = HostContext.GetService<IHandlerFactory>();
 
@@ -373,7 +397,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     {
                         ExecutionContext.OutputVariables.Add(outputVar.Name);
                     }
-                }
+                }                
 
                 // translate inputs
                 inputs = inputs.ToDictionary(kvp => kvp.Key, kvp => ExecutionContext.TranslatePathForStepTarget(kvp.Value));

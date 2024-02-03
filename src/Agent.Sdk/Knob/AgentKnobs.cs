@@ -598,5 +598,12 @@ namespace Agent.Sdk.Knob
             "Store agent key in named container (Windows).",
             new EnvironmentKnobSource("STORE_AGENT_KEY_IN_CSP_CONTAINER"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob LogTaskNameInUserAgent = new Knob(
+            nameof(LogTaskNameInUserAgent),
+            "If true, agent will log the task name in user agent.",
+            new PipelineFeatureSource("LogTaskNameInUserAgent"),
+            new EnvironmentKnobSource("AZP_AGENT_LOG_TASKNAME_IN_USERAGENT"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }

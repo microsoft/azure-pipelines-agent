@@ -22,9 +22,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         private static UtilKnobValueContext _knobContext = UtilKnobValueContext.Instance();
 
         private const string _testUri = "https://microsoft.com/";
+        private const string TaskUserAgentPrefix = "(Task:";
         private static bool? _isCustomServerCertificateValidationSupported;
-
-
 
         public static void InitializeVssClientSettings(ProductInfoHeaderValue additionalUserAgent, IWebProxy proxy, IVssClientCertificateManager clientCert, bool SkipServerCertificateValidation)
         {
@@ -56,6 +55,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
+        public static void PushTaskIntoAgentInfo(string taskName)
+        {
+            var headerValues = VssClientHttpRequestSettings.Default.UserAgent;
+
+            if (headerValues  == null)
+            {
+                headerValues = new List<ProductInfoHeaderValue>();
+            }
+
+            headerValues.Add(new ProductInfoHeaderValue(string.Concat(TaskUserAgentPrefix, taskName , ")")));
+
+            VssClientHttpRequestSettings.Default.UserAgent = headerValues;
+        }
+
+        public static void RemoveTaskFromAgentInfo()
+        {
+            var headerValues = VssClientHttpRequestSettings.Default.UserAgent;
+            if (headerValues == null)
+            {
+                return;
+            }
+
+            foreach(var value in headerValues)
+            {
+                if (value.Comment.StartsWith(TaskUserAgentPrefix))
+                {
+                    headerValues.Remove(value);
+                    break;
+                }
+            }
+
+            VssClientHttpRequestSettings.Default.UserAgent = headerValues;
+        }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "connection")]
         public static VssConnection CreateConnection(
