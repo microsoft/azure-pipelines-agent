@@ -77,9 +77,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 return;
             }
 
-            foreach(var value in headerValues)
+            foreach (var value in headerValues)
             {
-                if (value.Comment.StartsWith(TaskUserAgentPrefix))
+                if (value.Comment != null && value.Comment.StartsWith(TaskUserAgentPrefix))
                 {
                     headerValues.Remove(value);
                     break;
