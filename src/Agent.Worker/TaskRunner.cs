@@ -394,7 +394,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     {
                         ExecutionContext.OutputVariables.Add(outputVar.Name);
                     }
-                }                
+                }
 
                 // translate inputs
                 inputs = inputs.ToDictionary(kvp => kvp.Key, kvp => ExecutionContext.TranslatePathForStepTarget(kvp.Value));
@@ -420,7 +420,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 resourceDiagnosticManager = HostContext.GetService<IResourceMetricsManager>();
                 resourceDiagnosticManager.Setup(ExecutionContext);
 
-                if (enableResourceUtilizationWarnings) {
+                if (enableResourceUtilizationWarnings)
+                {
                     _ = resourceDiagnosticManager.RunMemoryUtilizationMonitor();
                     _ = resourceDiagnosticManager.RunDiskSpaceUtilizationMonitor();
                     _ = resourceDiagnosticManager.RunCpuUtilizationMonitor(Task.Reference.Id.ToString());
@@ -595,7 +596,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // return original inputValue.
             Trace.Info("Cannot root path even by using JobExtension, return original input.");
             return inputValue;
-        } 
+        }
 
         private bool IsTelemetryPublishRequired()
         {
@@ -622,7 +623,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private void PublishTelemetry(Definition taskDefinition, HandlerData handlerData)
         {
-            if (!IsTelemetryPublishRequired()) 
+            if (!IsTelemetryPublishRequired())
             {
                 return;
             }
