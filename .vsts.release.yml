@@ -172,10 +172,13 @@ extends:
           - checkout: self
             clean: true
 
-          # Switch to release branch
-          - template: switch-branch.yml
-            parameters:
-              branch: $(ReleaseBranch)
+          - task: PowerShell@2
+            displayName: 'Switch to release branch'
+            inputs:
+              targetType: 'filePath'
+              filePath: .azure-pipelines/scripts/Switch-Branch.ps1
+            env:
+              TARGET_BRANCH: $(ReleaseBranch)
 
           # Download all agent packages from all previous phases
           - task: DownloadBuildArtifacts@0
