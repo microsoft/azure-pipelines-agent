@@ -59,12 +59,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         {
             var headerValues = VssClientHttpRequestSettings.Default.UserAgent;
 
-            if (headerValues  == null)
+            if (headerValues == null)
             {
                 headerValues = new List<ProductInfoHeaderValue>();
             }
 
-            headerValues.Add(new ProductInfoHeaderValue(string.Concat(TaskUserAgentPrefix, taskName , ")")));
+            headerValues.Add(new ProductInfoHeaderValue(string.Concat(TaskUserAgentPrefix, taskName, ")")));
 
             VssClientHttpRequestSettings.Default.UserAgent = headerValues;
         }
