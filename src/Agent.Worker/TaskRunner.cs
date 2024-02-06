@@ -6,10 +6,8 @@ using Agent.Sdk.Knob;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Threading;
 using Microsoft.TeamFoundation.DistributedTask.Expressions;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
@@ -181,11 +179,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         Dictionary<string, VariableValue> variableCopy = new Dictionary<string, VariableValue>(StringComparer.OrdinalIgnoreCase);
                         foreach (var publicVar in ExecutionContext.Variables.Public)
                         {
-                            variableCopy[publicVar.Key] = new VariableValue(stepTarget.TranslateToHostPath(publicVar.Value));
+                            variableCopy[publicVar.Name] = new VariableValue(stepTarget.TranslateToHostPath(publicVar.Value));
                         }
                         foreach (var secretVar in ExecutionContext.Variables.Private)
                         {
-                            variableCopy[secretVar.Key] = new VariableValue(stepTarget.TranslateToHostPath(secretVar.Value), true);
+                            variableCopy[secretVar.Name] = new VariableValue(stepTarget.TranslateToHostPath(secretVar.Value), true);
                         }
 
                         List<string> expansionWarnings;

@@ -14,7 +14,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         private string _keyFile;
         private IHostContext _context;
 
-        public RSACryptoServiceProvider CreateKey(bool enableAgentKeyStoreInNamedContainer)
+        public RSACryptoServiceProvider CreateKey()
         {
             RSACryptoServiceProvider rsa = null;
             if (!File.Exists(_keyFile))
@@ -24,7 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 rsa = new RSACryptoServiceProvider(2048);
 
                 // Now write the parameters to disk
-                IOUtil.SaveObject(new RSAParametersSerializable("", rsa.ExportParameters(true)), _keyFile);
+                IOUtil.SaveObject(new RSAParametersSerializable(rsa.ExportParameters(true)), _keyFile);
                 Trace.Info("Successfully saved RSA key parameters to file {0}", _keyFile);
 
                 // Try to lock down the credentials_key file to the owner/group
@@ -70,7 +70,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
-        public RSACryptoServiceProvider GetKey(bool enableAgentKeyStoreInNamedContainer)
+        public RSACryptoServiceProvider GetKey()
         {
             if (!File.Exists(_keyFile))
             {
