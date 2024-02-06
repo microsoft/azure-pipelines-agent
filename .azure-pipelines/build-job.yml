@@ -99,11 +99,10 @@ jobs:
   - checkout: self
     clean: true
 
-  - task: PowerShell@2
-    displayName: 'Switch to target branch'
+  - task: Bash@3
+    displayName: Switch to target branch
     inputs:
-      targetType: 'filePath'
-      filePath: .azure-pipelines/scripts/Switch-Branch.ps1
+      filePath: .azure-pipelines/scripts/switch-branch.sh
     env:
       TARGET_BRANCH: $(CheckoutBranch)
     condition: |
